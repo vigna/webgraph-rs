@@ -1,0 +1,9 @@
+[package]
+name = "webgraph-rs"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
