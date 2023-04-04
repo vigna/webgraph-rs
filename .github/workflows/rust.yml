@@ -31,9 +31,9 @@ jobs:
       run: cargo miri test --target x86_64-unknown-linux-gnu
       env:
         RUSTFLAGS: "-Zrandomize-layout"
-        MIRIFLAGS: "-Zmiri-symbolic-alignment-check -Zmiri-check-number-validity -Zmiri-tag-raw-pointers"
+        MIRIFLAGS: "-Zmiri-symbolic-alignment-check"
     - name: Test with Miri in big endian
       run: cargo miri test --target mips64-unknown-linux-gnuabi64 
       env:
         RUSTFLAGS: "-Zrandomize-layout"
-        MIRIFLAGS: "-Zmiri-symbolic-alignment-check -Zmiri-check-number-validity -Zmiri-tag-raw-pointers"
+        MIRIFLAGS: "-Zmiri-symbolic-alignment-check"
