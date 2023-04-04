@@ -1,4 +1,5 @@
 use super::WordReader;
+use crate::utils::get_lowest_bits;
 
 /// A BitStream built uppon a generic [`WordReader`] that caches the read words 
 /// in a buffer
@@ -9,13 +10,21 @@ pub struct BufferedBitStreamReader<WR: WordReader> {
     /// codes
     buffer: u128,
     /// Number of bits valid left in the buffer
-    valid_bits: u64,
+    valid_bits: u8,
 }
 
 impl<WR: WordReader> BufferedBitStreamReader<WR> {
 
     /// Create a new [`BufferedBitStreamReader`] on a generic backend
-    pub fn new(backend: WR) -> Result<Self, WR::Error> {
+    /// 
+    /// ### Example
+    /// ```
+    /// use webgraph::codes::*;
+    /// let words = [0x0043b59fccf16077];
+    /// let word_reader = MemWordReader::new(&words);
+    /// let mut bitstream = BufferedBitStreamReader::new(word_reader);
+    /// ```
+    pub fn new(backend: WR) -> Self {
 
         // TODO!: Should we do early filling? 
         // This would fail if the backend has only 64 bits which, while 
@@ -27,11 +36,11 @@ impl<WR: WordReader> BufferedBitStreamReader<WR> {
         // let buffer = (high_word << 64) | low_word;
         // ```
 
-        Ok(Self {
+        Self {
             backend,
             buffer: 0,
             valid_bits: 0,
-        })
+        }
     }
 
     /// Ensure that in the buffer there are at least 64 bits to read
@@ -51,8 +60,7 @@ impl<WR: WordReader> BufferedBitStreamReader<WR> {
     }
 
     /// Read `n_bits` from the buffer and return them in the lowest bits
-    /// 
-    pub fn read_bits(&mut self, n_bits: u64) -> Result<u64, WR::Error> {
+    pub fn read_bits(&mut self, n_bits: u8) -> Result<u64, WR::Error> {
         // TODO: should these be errors?
         debug_assert!(n_bits <= 64);
         debug_assert!(n_bits != 0);
@@ -61,12 +69,8 @@ impl<WR: WordReader> BufferedBitStreamReader<WR> {
             self.refill()?;
         }
 
-        // this is equivalent to `(1 << n_bits) - 1` but it doesn't overflow
-        // for n_bits = 64. The alternative is to use a wrapping_shl abd
-        // wrapping_sub, but I find this more readable.
-        let mask = u64::MAX >> (64 - n_bits);
         // read the `n_bits` lowest bits of the buffer
-        let result = self.buffer as u64 & mask;
+        let result = get_lowest_bits(self.buffer as u64, n_bits);
 
         // remove the read bits from the buffer
         self.valid_bits -= n_bits;
@@ -77,18 +81,18 @@ impl<WR: WordReader> BufferedBitStreamReader<WR> {
 
     /// Read an unary code
     pub fn read_unary(&mut self) -> Result<u64, WR::Error> {
-        let mut result = 0;
+        let mut result: u64 = 0;
         loop {
             // count the zeros from the left
-            let zeros = self.buffer.leading_zeros() as u64;
+            let zeros = self.buffer.leading_zeros() as u8;
 
             // if we encountered an 1 in the valid_bits we can return            
             if zeros < self.valid_bits {
-                result += zeros;
+                result += zeros as u64;
                 return Ok(result);
             }
 
-            result += self.valid_bits;
+            result += self.valid_bits as u64;
             self.valid_bits = 0;
             
             // otherwise we didn't encounter the ending 1 yet so we need to 
