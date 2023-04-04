@@ -1,4 +1,4 @@
-use std::error::Error;
+use anyhow::{Result, bail};
 
 /// A trait that allows reading [`u64`] words from a stream of bytes.
 /// This trait is used to abstract the logic and allow homogeneous use of 
@@ -15,11 +15,6 @@ use std::error::Error;
 /// > The system shall always zero-fill any partial page at the end of an object.
 /// [Source](https://manned.org/mmap.3p)
 pub trait WordReader {
-    /// Generic error type raised by the backend. This is usually 
-    /// [`std::io::Error`] but we don't enforce it and allow for custom error 
-    /// types.
-    type Error: Error;
-
     /// Return the number of [`u64`] words readable from the start of the stream.
     /// Any index in  `[0, self.len())` is valid.
     fn len(&self) -> usize;
@@ -30,10 +25,10 @@ pub trait WordReader {
     
     /// Set the position in the stream so that the `word_index`-th word will be
     /// read on the next [`Self::read_next_word`] call.
-    fn set_position(&mut self, word_index: usize) -> Result<(), Self::Error>;
+    fn set_position(&mut self, word_index: usize) -> Result<()>;
 
     /// Read a [`u64`] word from the stream and advance the position by 8 bytes.
-    fn read_next_word(&mut self) -> Result<u64, Self::Error>;
+    fn read_next_word(&mut self) -> Result<u64>;
 }
 
 /// An Implementation of [`WordReader`] for a slice of memory `&[u64]`
@@ -41,7 +36,7 @@ pub trait WordReader {
 /// # Example
 /// ```
 /// use webgraph::codes::*;
-/// // data converted to little-endian u64 words
+/// 
 /// let words: [u64; 2] = [
 ///     0x0043b59fcdf16077,
 ///     0x702863e6f9739b86,
@@ -83,40 +78,7 @@ impl<'a> MemWordReader<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-/// Enumeration of errors raisable by [`MemWordReader`]
-pub enum MemWordReaderError {
-    /// An 
-    OutOfBound{
-        /// The index that was tried to be accessed
-        index: usize,
-        /// The lenght of the memory slice
-        len: usize,
-    }
-}
-
-impl std::fmt::Display for MemWordReaderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO!: add meaningful error strings
-        // for now fallback to debug
-        match self {
-            Self::OutOfBound { index, len } => {
-                f.write_fmt(format_args!(
-                    "Index {} is out of bound on a MemWordReader of length {}",
-                    index, len
-                ))
-            }
-        }
-    }
-}
-
-// Marker trait, no need for concrete implementation
-impl std::error::Error for MemWordReaderError {}
-
-
 impl<'a> WordReader for MemWordReader<'a> {
-    type Error = MemWordReaderError;
-
     #[inline]
     fn len(&self) -> usize {
         self.data.len()
@@ -128,29 +90,28 @@ impl<'a> WordReader for MemWordReader<'a> {
     }
 
     #[inline]
-    fn set_position(&mut self, word_index: usize) -> Result<(), Self::Error> {
+    fn set_position(&mut self, word_index: usize) -> Result<()> {
         if word_index >= self.len() {
-            return Err(MemWordReaderError::OutOfBound { 
-                index: word_index, 
-                len: self.len() 
-            });
+            bail!(
+                "Index {} is out of bound on a MemWordReader of length {}",
+                word_index, self.len()
+            );
         }
         self.word_index = word_index;
         Ok(())
     }
 
     #[inline]
-    fn read_next_word(&mut self) -> Result<u64, Self::Error> {
+    fn read_next_word(&mut self) -> Result<u64> {
         match self.data.get(self.word_index) {
             Some(word) => {
                 self.word_index += 1;
                 Ok(*word)
             }
             None => {
-                Err(MemWordReaderError::OutOfBound { 
-                    index: self.word_index, 
-                    len: self.len() 
-                })
+                bail!(
+                    "Cannot read next word as the underlying memory ended",
+                );
             }
         }
     }

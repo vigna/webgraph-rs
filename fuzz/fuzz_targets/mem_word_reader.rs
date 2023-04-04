@@ -24,8 +24,8 @@ fuzz_target!(|data: FuzzCase| {
         match command {
             RandomCommand::Len => {reader.len();},
             RandomCommand::GetPosition => {reader.get_position();},
-            RandomCommand::SetPosition(word_index) => {reader.set_position(word_index);},
-            RandomCommand::ReadNextWord => {reader.read_next_word();},
+            RandomCommand::SetPosition(word_index) => {let _ = reader.set_position(word_index);},
+            RandomCommand::ReadNextWord => {let _ = reader.read_next_word();},
         };
     }
 });

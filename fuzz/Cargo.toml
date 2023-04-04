@@ -26,3 +26,9 @@ name = "mem_word_reader"
 path = "fuzz_targets/mem_word_reader.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "buffered_bit_stream_reader"
+path = "fuzz_targets/buffered_bit_stream_reader.rs"
+test = false
+doc = false
