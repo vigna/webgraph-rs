@@ -21,7 +21,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Run clippy
-      run: cargo clippy -- -Dclippy:all -Dclippy::cargo
+      run: cargo clippy -- -Dclippy::all -Dclippy::cargo
     - name: Install Miri
       run: |
         rustup toolchain install nightly --component miri
