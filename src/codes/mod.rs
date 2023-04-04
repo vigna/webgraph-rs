@@ -14,17 +14,17 @@
 //! 
 //! #### Example: 
 //! The following stream of bits, to be read from left to right, from top to bottom:
-//! ```ignore
+//! ```text
 //! 01110110 01100000 11110001 11001101 10011111 10110101 01000011 00000000 
 //! 10000110 10011011 01110011 11111001 11100110 01100011 00101000 01110000 
 //! ```
 //! is equivalent to the following stream of bytes:
-//! ```ignore
+//! ```text
 //! 76 60 f1 cd 9f b5 43 00
 //! 86 9b 73 f9 e6 63 28 70
 //! ```
 //! that is equivalent to the following stream of [`u64`] words:
-//! ```ignore
+//! ```text
 //! 0043b59fcdf16076
 //! 702863e6f9739b86
 //! ```
@@ -57,7 +57,7 @@
 //! assert_eq!(bitstream.read_bits(4).unwrap(), 0b0000);
 //! assert_eq!(bitstream.read_bits(4).unwrap(), 0b0110);
 //! assert_eq!(bitstream.read_bits(10).unwrap(),0b01_1111_0001);
-//! assert_eq!(bitstream.read_bits(8).unwrap(),0b01_1111_0001);
+//! assert_eq!(bitstream.read_bits(8).unwrap(),0b1111_0011);
 //! ```
 
 mod bit_stream;

@@ -25,18 +25,18 @@ pub trait WordReader {
     fn len(&self) -> usize;
 
     /// Return the index of the **next** word that  will be
-    /// read on the next [`read_next_word`] call.
+    /// read on the next [`Self::read_next_word`] call.
     fn get_position(&self) -> usize;
     
     /// Set the position in the stream so that the `word_index`-th word will be
-    /// read on the next [`read_next_word`] call.
+    /// read on the next [`Self::read_next_word`] call.
     fn set_position(&mut self, word_index: usize) -> Result<(), Self::Error>;
 
     /// Read a [`u64`] word from the stream and advance the position by 8 bytes.
     fn read_next_word(&mut self) -> Result<u64, Self::Error>;
 }
 
-/// An Implementation of [`WordReader`] for a slice of memory
+/// An Implementation of [`WordReader`] for a slice of memory `&[u64]`
 /// 
 /// # Example
 /// ```
