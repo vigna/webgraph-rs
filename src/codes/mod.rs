@@ -61,6 +61,11 @@
 
 mod bit_stream;
 pub use bit_stream::*;
+mod bit_stream_little_endian;
+pub use bit_stream_little_endian::*;
+mod bit_stream_big_endian;
+pub use bit_stream_big_endian::*;
+
 
 mod word_reader;
 pub use word_reader::*;
