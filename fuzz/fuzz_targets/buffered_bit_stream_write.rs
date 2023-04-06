@@ -17,6 +17,7 @@ enum RandomCommand {
 }
 
 fuzz_target!(|data: FuzzCase| {
+    //println!("{:#4?}", data);
     let mut buffer_m2l = vec![];
     //let mut buffer_l2m = vec![];
     let mut writes = vec![];
@@ -35,7 +36,6 @@ fuzz_target!(|data: FuzzCase| {
                     //assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
-                _ => {},
                 RandomCommand::WriteUnary(value) => {
                     let big_success = big.write_unary::<true>(*value as u64).is_ok();
                     //let little_success = little.write_unary::<true>(*value as u64).is_ok();
@@ -46,6 +46,7 @@ fuzz_target!(|data: FuzzCase| {
         }
     }
     // read back
+    //println!("{:?}", buffer_m2l);
     //println!("{:?}", buffer_l2m);
     {
         let mut big = BufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
@@ -67,7 +68,6 @@ fuzz_target!(|data: FuzzCase| {
                         //assert!(l.is_err());
                     }
                 },
-                _ => {},
                 RandomCommand::WriteUnary(value) => {
                     let b = big.read_unary::<true>();
                     //let l = little.read_unary::<true>();

@@ -120,15 +120,28 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
             if code_length <= space_left {
                 break;
             }
-            let high_word = (self.buffer >> 64) as u64;
-            let low_word = self.buffer as u64;
-            self.backend.write_word(low_word.to_be())?;
-            self.backend.write_word(high_word.to_be())?;
-            self.bits_in_buffer = 0;
+            if space_left == 128 {
+                self.buffer = 0;
+                self.backend.write_word(0)?;
+                self.backend.write_word(0)?;
+            } else {
+                self.buffer <<= space_left;
+                let high_word = (self.buffer >> 64) as u64;
+                let low_word = self.buffer as u64;
+                self.backend.write_word(high_word.to_be())?;
+                self.backend.write_word(low_word.to_be())?;
+                self.buffer = 0;
+            }
             code_length -= space_left;
+            self.bits_in_buffer = 0;
         }
-
         self.bits_in_buffer += code_length as u8;
+        if code_length == 128 {
+            self.buffer = 0;
+        } else {
+            self.buffer <<= code_length;
+        }
+        self.buffer |= 1_u128;
 
         Ok(())
     }
