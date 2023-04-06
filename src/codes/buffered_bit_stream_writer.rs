@@ -68,7 +68,6 @@ impl<WR: WordWrite> BBSWDrop<WR> for M2L {
     fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()> {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
-            // TODO!: should we clean the lower bits? we are leaking data
             let mut word = data.buffer as u64;
             let shamt = 64 - data.bits_in_buffer;
             word = word << shamt;
