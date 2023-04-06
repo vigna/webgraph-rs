@@ -69,8 +69,68 @@ impl<WR: WordWrite> BBSWDrop<WR> for M2L {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
             // TODO!: should we clean the lower bits? we are leaking data
-            data.backend.write_word(((data.buffer >> 64) as u64).to_be())?;
+            let mut word = data.buffer as u64;
+            let shamt = 64 - data.bits_in_buffer;
+            word = word << shamt;
+            data.backend.write_word(word.to_be())?;
         }
+        Ok(())
+    }
+}
+
+impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<M2L, WR> {
+    #[inline]
+    fn partial_flush(&mut self) -> Result<()> {
+        if self.bits_in_buffer < 64 {
+            return Ok(());
+        }
+        self.bits_in_buffer -= 64;
+        let word = (self.buffer >> self.bits_in_buffer) as u64;
+        self.backend.write_word(word.to_be())?;
+        Ok(())
+    }
+}
+
+impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
+    #[inline]
+    fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
+        if n_bits == 0 || n_bits > 64 {
+            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        }
+        #[cfg(test)]
+        if (value & (1_u64 << n_bits).wrapping_sub(1)) != value {
+            bail!("Error value {} does not fit in {} bits", value, n_bits);
+        }
+
+        if n_bits > self.space_left_in_buffer() {
+            self.partial_flush()?;
+        }
+        self.buffer <<= n_bits;
+        self.buffer |= value as u128;
+        self.bits_in_buffer += n_bits;
+        Ok(())
+    }
+
+    #[inline]
+    fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+        debug_assert_ne!(value, u64::MAX);
+        let mut code_length = value + 1;
+
+        loop {
+            let space_left = self.space_left_in_buffer() as u64;
+            if code_length <= space_left {
+                break;
+            }
+            let high_word = (self.buffer >> 64) as u64;
+            let low_word = self.buffer as u64;
+            self.backend.write_word(low_word.to_be())?;
+            self.backend.write_word(high_word.to_be())?;
+            self.bits_in_buffer = 0;
+            code_length -= space_left;
+        }
+
+        self.bits_in_buffer += code_length as u8;
+
         Ok(())
     }
 }
@@ -83,19 +143,6 @@ impl<WR: WordWrite> BBSWDrop<WR> for L2M {
             // TODO!: should we clean the lower bits? we are leaking data
             data.backend.write_word((data.buffer as u64).to_le())?;
         }
-        Ok(())
-    }
-}
-
-impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<M2L, WR> {
-    #[inline]
-    fn partial_flush(&mut self) -> Result<()> {
-        if self.bits_in_buffer < 64 {
-            return Ok(());
-        }
-        let word = (self.buffer >> (128 - self.bits_in_buffer)) as u64;
-        self.backend.write_word(word.to_be())?;
-        self.bits_in_buffer -= 64;
         Ok(())
     }
 }
@@ -113,53 +160,15 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<L2M, WR> {
     }
 }
 
-impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
-    #[inline]
-    fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
-        if n_bits == 0 || n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
-        }
-
-        if n_bits > self.space_left_in_buffer() {
-            self.partial_flush()?;
-        }
-        
-        self.buffer >>= n_bits;
-        self.buffer |= (value as u128) << (128 - n_bits);
-        self.bits_in_buffer += n_bits;
-        Ok(())
-    }
-
-    #[inline]
-    fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        debug_assert_ne!(value, u64::MAX);
-        let mut code_length = value + 1;
-
-        loop {
-            let space_left = self.space_left_in_buffer() as u64;
-            if code_length <= space_left {
-                break;
-            }
-            let high_word = (self.buffer >> 64) as u64;
-            let low_word = self.buffer as u64;
-            self.backend.write_word(high_word.to_be())?;
-            self.backend.write_word(low_word.to_be())?;
-            self.bits_in_buffer = 0;
-            code_length -= space_left;
-        }
-
-        self.bits_in_buffer += code_length as u8;
-        self.buffer |= 1_u128 << (128 - self.bits_in_buffer);
-
-        Ok(())
-    }
-}
-
 impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
         if n_bits == 0 || n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        }
+        #[cfg(test)]
+        if (value & (1_u64 << n_bits).wrapping_sub(1)) != value {
+            bail!("Error value {} does not fit in {} bits", value, n_bits);
         }
 
         if n_bits > self.space_left_in_buffer() {
@@ -184,8 +193,8 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
             }
             let high_word = (self.buffer >> 64) as u64;
             let low_word = self.buffer as u64;
-            self.backend.write_word(low_word.to_le())?;
             self.backend.write_word(high_word.to_le())?;
+            self.backend.write_word(low_word.to_le())?;
             self.bits_in_buffer = 0;
             code_length -= space_left;
         }

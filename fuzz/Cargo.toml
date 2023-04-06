@@ -46,7 +46,7 @@ test = false
 doc = false
 
 [[bin]]
-name = "buffered_bit_stream_write_vec"
-path = "fuzz_targets/buffered_bit_stream_write_vec.rs"
+name = "mem_word_write_vec"
+path = "fuzz_targets/mem_word_write_vec"
 test = false
 doc = false
