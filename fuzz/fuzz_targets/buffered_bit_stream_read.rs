@@ -18,8 +18,8 @@ enum RandomCommand {
 }
 
 fuzz_target!(|data: FuzzCase| {
-    let mut big = BufferedBitStreamReader::new(MemWordReader::new(&data.init));
-    let mut little = BufferedBitStreamReaderLittle::new(MemWordReader::new(&data.init));
+    let mut big = BufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&data.init));
+    let mut little = BufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&data.init));
     for command in data.commands {
         match command {
             RandomCommand::SeekBit(idx) => {
@@ -32,8 +32,8 @@ fuzz_target!(|data: FuzzCase| {
                 let _ = little.read_bits(n_bits);
             },
             RandomCommand::ReadUnary => {
-                let _ = big.read_unary();
-                let _ = little.read_unary();
+                let _ = big.read_unary::<true>();
+                let _ = little.read_unary::<true>();
             },
         };
     }

@@ -26,8 +26,8 @@ pub trait GammaLen {
 pub trait GammaRead: BitRead {
     ///
     #[must_use]
-    fn read_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<u64> {
-        let len = self.read_unary()?;
+    fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        let len = self.read_unary::<true>()?;
         debug_assert!(len <= u8::MAX as _);
         Ok(self.read_bits(len as u8)? + (1 << len) - 1)
     }
@@ -36,14 +36,14 @@ pub trait GammaRead: BitRead {
 ///
 pub trait GammaWrite: BitWrite {
     ///
-    fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+    fn write_gamma<const USE_TABLE: bool>(&mut self, mut value: u64) -> Result<()> {
         value += 1;
         let number_of_blocks_to_write = fast_log2_floor(value);
         debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
         // remove the most significant 1
         let short_value = value - (1 << number_of_blocks_to_write);
         // Write the code
-        self.write_unary(number_of_blocks_to_write)?;
+        self.write_unary::<true>(number_of_blocks_to_write)?;
         self.write_bits(short_value, number_of_blocks_to_write as u8)?;
         Ok(())
     }

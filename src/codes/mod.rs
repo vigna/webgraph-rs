@@ -44,10 +44,10 @@
 //!     .map(|data| u64::from_ne_bytes(data_l2m.try_into().unwrap()))
 //!     .collect::<Vec<_>>();
 //! 
-//! let mut bitstream_m2l = <BufferedBitStreamReader<M2L, _>>::new(
+//! let mut bitstream_m2l = <BufferedBitStreamRead<M2L, _>>::new(
 //!     MemWordRead::new(&words_m2l)
 //! );
-//! let mut bitstream_l2m = <BufferedBitStreamReader<L2M, _>>::new(
+//! let mut bitstream_l2m = <BufferedBitStreamRead<L2M, _>>::new(
 //!     MemWordRead::new(&words_l2m)
 //! );
 //! 
@@ -109,7 +109,7 @@ pub use bit_order::{
 
 mod bit_stream;
 pub use bit_stream::{
-    BitStream, BitRead, BitWrite,
+    BitSeek, BitRead, BitWrite, BitWriteBuffered,
 };
 
 mod word_stream;
@@ -119,12 +119,12 @@ pub use word_stream::{
 };
 
 mod buffered_bit_stream_reader;
-pub use buffered_bit_stream_reader::BufferedBitStreamReader;
+pub use buffered_bit_stream_reader::BufferedBitStreamRead;
 
 mod buffered_bit_stream_writer;
-pub use buffered_bit_stream_writer::BufferedBitStreamWriter;
+pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
 
 mod gamma;
 pub use gamma::{
-    GammaRead, GammaWrite,
+    GammaRead, GammaWrite, GammaLen,
 };

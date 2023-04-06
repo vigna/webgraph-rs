@@ -1,6 +1,6 @@
 use super::{
     WordRead, 
-    BitStream, BitRead,
+    BitSeek, BitRead,
     BitOrder, M2L, L2M,
 };
 use crate::utils::get_lowest_bits;
@@ -8,7 +8,7 @@ use anyhow::{Result, bail, Context};
 
 /// A BitStream built uppon a generic [`WordRead`] that caches the read words 
 /// in a buffer
-pub struct BufferedBitStreamReader<E: BitOrder, WR: WordRead> {
+pub struct BufferedBitStreamRead<E: BitOrder, WR: WordRead> {
     /// The backend that's used to read the words to fill the buffer
     backend: WR,
     /// The current cache of bits (at most 2 words) that's used to read the 
@@ -20,8 +20,8 @@ pub struct BufferedBitStreamReader<E: BitOrder, WR: WordRead> {
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: BitOrder, WR: WordRead> BufferedBitStreamReader<E, WR> {
-    /// Create a new [`BufferedBitStreamReader`] on a generic backend
+impl<E: BitOrder, WR: WordRead> BufferedBitStreamRead<E, WR> {
+    /// Create a new [`BufferedBitStreamRead`] on a generic backend
     /// 
     /// ### Example
     /// ```
@@ -29,7 +29,7 @@ impl<E: BitOrder, WR: WordRead> BufferedBitStreamReader<E, WR> {
     /// use webgraph::utils::*;
     /// let words = [0x0043b59fccf16077];
     /// let word_reader = MemWordRead::new(&words);
-    /// let mut bitstream = <BufferedBitStreamReader<M2L, _>>::new(word_reader);
+    /// let mut bitstream = <BufferedBitStreamRead<M2L, _>>::new(word_reader);
     /// ```
     #[must_use]
     pub fn new(backend: WR) -> Self {
@@ -53,7 +53,7 @@ impl<E: BitOrder, WR: WordRead> BufferedBitStreamReader<E, WR> {
     }
 }
 
-impl<WR: WordRead> BufferedBitStreamReader<M2L, WR> {
+impl<WR: WordRead> BufferedBitStreamRead<M2L, WR> {
     /// Ensure that in the buffer there are at least 64 bits to read
     #[inline]
     fn refill(&mut self) -> Result<()> {
@@ -65,7 +65,7 @@ impl<WR: WordRead> BufferedBitStreamReader<M2L, WR> {
 
         // Read a new 64-bit word and put it in the buffer
         let new_word = self.backend.read_next_word()
-            .with_context(|| "Error while reflling BufferedBitStreamReader")?.to_be();
+            .with_context(|| "Error while reflling BufferedBitStreamRead")?.to_be();
         self.valid_bits += 64;
         self.buffer |= (new_word as u128) << (128 - self.valid_bits);
         
@@ -73,7 +73,7 @@ impl<WR: WordRead> BufferedBitStreamReader<M2L, WR> {
     }
 }
 
-impl<WR: WordRead> BufferedBitStreamReader<L2M, WR> {
+impl<WR: WordRead> BufferedBitStreamRead<L2M, WR> {
     /// Ensure that in the buffer there are at least 64 bits to read
     #[inline]
     fn refill(&mut self) -> Result<()> {
@@ -85,7 +85,7 @@ impl<WR: WordRead> BufferedBitStreamReader<L2M, WR> {
 
         // Read a new 64-bit word and put it in the buffer
         let new_word = self.backend.read_next_word()
-            .with_context(|| "Error while reflling BufferedBitStreamReader")?.to_le();
+            .with_context(|| "Error while reflling BufferedBitStreamRead")?.to_le();
         self.buffer |= (new_word as u128) << self.valid_bits;
         self.valid_bits += 64;
         
@@ -93,10 +93,10 @@ impl<WR: WordRead> BufferedBitStreamReader<L2M, WR> {
     }
 }
 
-impl<WR: WordRead> BitStream for BufferedBitStreamReader<L2M, WR> {
+impl<WR: WordRead> BitSeek for BufferedBitStreamRead<L2M, WR> {
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
         self.backend.set_position(bit_index / 64)
-            .with_context(|| format!("BufferedBitStreamReader was seeking_bit {}", bit_index))?;
+            .with_context(|| format!("BufferedBitStreamRead was seeking_bit {}", bit_index))?;
         let bit_offset = bit_index % 64;
         self.buffer = 0;
         self.valid_bits = 0;
@@ -109,10 +109,10 @@ impl<WR: WordRead> BitStream for BufferedBitStreamReader<L2M, WR> {
     }
 }
 
-impl<WR: WordRead> BitStream for BufferedBitStreamReader<M2L, WR> {
+impl<WR: WordRead> BitSeek for BufferedBitStreamRead<M2L, WR> {
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
         self.backend.set_position(bit_index / 64)
-            .with_context(|| format!("BufferedBitStreamReader was seeking_bit {}", bit_index))?;
+            .with_context(|| format!("BufferedBitStreamRead was seeking_bit {}", bit_index))?;
         let bit_offset = bit_index % 64;
         self.buffer = 0;
         self.valid_bits = 0;
@@ -125,7 +125,7 @@ impl<WR: WordRead> BitStream for BufferedBitStreamReader<M2L, WR> {
     }
 }
 
-impl<WR: WordRead> BitRead for BufferedBitStreamReader<M2L, WR> {
+impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[must_use]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits == 0 || n_bits > 64 {
@@ -172,7 +172,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamReader<M2L, WR> {
     }
 }
 
-impl<WR: WordRead> BitRead for BufferedBitStreamReader<L2M, WR> {
+impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     #[must_use]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits == 0 || n_bits > 64 {
