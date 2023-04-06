@@ -70,7 +70,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for M2L {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
             // TODO!: should we clean the lower bits? we are leaking data
-            data.backend.write_word((data.buffer >> 64) as u64)?;
+            data.backend.write_word(((data.buffer >> 64) as u64).to_be())?;
         }
         Ok(())
     }
@@ -82,7 +82,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for L2M {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
             // TODO!: should we clean the lower bits? we are leaking data
-            data.backend.write_word(data.buffer as u64)?;
+            data.backend.write_word((data.buffer as u64).to_le())?;
         }
         Ok(())
     }
@@ -94,7 +94,8 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<M2L, WR> {
         if self.bits_in_buffer < 64 {
             return Ok(());
         }
-        self.backend.write_word((self.buffer >> (128 - self.bits_in_buffer)) as u64)?;
+        let word = (self.buffer >> (128 - self.bits_in_buffer)) as u64;
+        self.backend.write_word(word.to_be())?;
         self.bits_in_buffer -= 64;
         Ok(())
     }
@@ -107,7 +108,8 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<L2M, WR> {
             return Ok(());
         }
         self.bits_in_buffer -= 64;
-        self.backend.write_word((self.buffer >> self.bits_in_buffer) as u64)?;
+        let word = (self.buffer >> self.bits_in_buffer) as u64;
+        self.backend.write_word(word.to_le())?;
         Ok(())
     }
 }
@@ -122,11 +124,10 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
         if n_bits > self.space_left_in_buffer() {
             self.partial_flush()?;
         }
-
+        
         self.buffer >>= n_bits;
         self.buffer |= (value as u128) << (128 - n_bits);
         self.bits_in_buffer += n_bits;
-
         Ok(())
     }
 
@@ -140,9 +141,10 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
             if code_length <= space_left {
                 break;
             }
-            // TODO!: check order
-            self.backend.write_word((self.buffer >> 64) as u64)?;
-            self.backend.write_word(self.buffer as u64)?;
+            let high_word = (self.buffer >> 64) as u64;
+            let low_word = self.buffer as u64;
+            self.backend.write_word(high_word.to_be())?;
+            self.backend.write_word(low_word.to_be())?;
             self.bits_in_buffer = 0;
             code_length -= space_left;
         }
@@ -181,9 +183,10 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
             if code_length <= space_left {
                 break;
             }
-            //TODO!: CHECK ORDER
-            self.backend.write_word(self.buffer as u64)?;
-            self.backend.write_word((self.buffer >> 64) as u64)?;
+            let high_word = (self.buffer >> 64) as u64;
+            let low_word = self.buffer as u64;
+            self.backend.write_word(low_word.to_le())?;
+            self.backend.write_word(high_word.to_le())?;
             self.bits_in_buffer = 0;
             code_length -= space_left;
         }

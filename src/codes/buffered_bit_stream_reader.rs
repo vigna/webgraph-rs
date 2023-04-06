@@ -139,7 +139,6 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
         // read the `n_bits` highest bits of the buffer and shift them to
         // be the lowest
         let result = self.buffer >> (128 - n_bits);
-
         // remove the read bits from the buffer
         self.valid_bits -= n_bits;
         self.buffer <<= n_bits;
