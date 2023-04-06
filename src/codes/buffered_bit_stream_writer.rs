@@ -50,8 +50,7 @@ impl<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<E, WR> {
 impl<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitStreamWrite<E, WR> {
     fn drop(&mut self) {
         // During a drop we can't save anything if it goes bad :/
-        #[allow(clippy::unwrap_used)]
-        E::drop(self).unwrap();
+        let _ = E::drop(self);
     }
 }
 
@@ -150,7 +149,7 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
         }
 
         self.bits_in_buffer += code_length as u8;
-        self.buffer |= 1_u128 << (128 - self.bits_in_buffer + 1);
+        self.buffer |= 1_u128 << (128 - self.bits_in_buffer);
 
         Ok(())
     }

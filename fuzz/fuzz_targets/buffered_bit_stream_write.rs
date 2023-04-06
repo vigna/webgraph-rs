@@ -7,24 +7,23 @@ use webgraph::utils::get_lowest_bits;
 
 #[derive(Arbitrary, Debug)]
 struct FuzzCase {
-    buffer_len: u8,
     commands: Vec<RandomCommand>
 }
 
 #[derive(Arbitrary, Debug)]
 enum RandomCommand {
     WriteBits(u64, u8),
-    WriteUnary(u64),
+    WriteUnary(u8),
 }
 
 fuzz_target!(|data: FuzzCase| {
-    let mut buffer_m2l = vec![0; data.buffer_len as usize];
-    let mut buffer_l2m = vec![0; data.buffer_len as usize];
+    let mut buffer_m2l = vec![];
+    let mut buffer_l2m = vec![];
     let mut writes = vec![];
     // write
     {
-        let mut big = BufferedBitStreamWrite::<M2L, _>::new(MemWordWrite::new(&mut buffer_m2l));
-        let mut little = BufferedBitStreamWrite::<L2M, _>::new(MemWordWrite::new(&mut buffer_l2m));
+        let mut big = BufferedBitStreamWrite::<M2L, _>::new(MemWordWriteVec::new(&mut buffer_m2l));
+        let mut little = BufferedBitStreamWrite::<L2M, _>::new(MemWordWriteVec::new(&mut buffer_l2m));
 
         for command in data.commands.iter() {
             match command {
@@ -36,8 +35,8 @@ fuzz_target!(|data: FuzzCase| {
                     writes.push(big_success);
                 },
                 RandomCommand::WriteUnary(value) => {
-                    let big_success = big.write_unary::<true>(*value).is_ok();
-                    let little_success = little.write_unary::<true>(*value).is_ok();
+                    let big_success = big.write_unary::<true>(*value as u64).is_ok();
+                    let little_success = little.write_unary::<true>(*value as u64).is_ok();
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
@@ -67,8 +66,8 @@ fuzz_target!(|data: FuzzCase| {
                     let b = big.read_unary::<true>();
                     let l = little.read_unary::<true>();
                     if *succ {
-                        assert_eq!(b.unwrap(), *value);
-                        assert_eq!(l.unwrap(), *value);
+                        assert_eq!(b.unwrap(), *value as u64);
+                        assert_eq!(l.unwrap(), *value as u64);
                     } else {
                         assert!(b.is_err());
                         assert!(l.is_err());

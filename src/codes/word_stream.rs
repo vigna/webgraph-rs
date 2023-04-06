@@ -144,9 +144,26 @@ pub struct MemWordWrite<'a> {
 }
 
 impl<'a> MemWordWrite<'a> {
-    /// Create a new [`MemWordWrite`] from a slice of data
+    /// Create a new [`MemWordWrite`] from a slice of **ZERO INITIALIZED** data
     #[must_use]
     pub fn new(data: &'a mut [u64]) -> Self {
+        Self { 
+            data, 
+            word_index: 0 
+        }
+    }
+}
+
+/// TODO
+pub struct MemWordWriteVec<'a> {
+    data: &'a mut Vec<u64>,
+    word_index: usize,
+}
+
+impl<'a> MemWordWriteVec<'a> {
+    /// Create a new [`MemWordWrite`] from a slice of **ZERO INITIALIZED** data
+    #[must_use]
+    pub fn new(data: &'a mut Vec<u64>) -> Self {
         Self { 
             data, 
             word_index: 0 
@@ -208,6 +225,7 @@ impl<'a> WordStream for $ty<'a> {
 
 impl_memword!(MemWordRead);
 impl_memword!(MemWordWrite);
+impl_memword!(MemWordWriteVec);
 
 impl<'a> WordWrite for MemWordWrite<'a> {
     fn write_word(&mut self, word: u64) -> Result<()> {
@@ -223,5 +241,16 @@ impl<'a> WordWrite for MemWordWrite<'a> {
                 );
             }
         }
+    }
+}
+
+impl<'a> WordWrite for MemWordWriteVec<'a> {
+    fn write_word(&mut self, word: u64) -> Result<()> {
+        if self.word_index >= self.data.len() {
+            self.data.resize(self.word_index + 1, 0);
+        }
+        self.data[self.word_index] = word;
+        self.word_index += 1;
+        Ok(())
     }
 }

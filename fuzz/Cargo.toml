@@ -44,3 +44,9 @@ name = "buffered_bit_stream_write"
 path = "fuzz_targets/buffered_bit_stream_write.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "buffered_bit_stream_write_vec"
+path = "fuzz_targets/buffered_bit_stream_write_vec.rs"
+test = false
+doc = false

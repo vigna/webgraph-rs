@@ -115,7 +115,7 @@ pub use bit_stream::{
 mod word_stream;
 pub use word_stream::{
     WordStream, WordRead, WordWrite,
-    MemWordRead, MemWordWrite,
+    MemWordRead, MemWordWrite, MemWordWriteVec,
 };
 
 mod buffered_bit_stream_reader;
