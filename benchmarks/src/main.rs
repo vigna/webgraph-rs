@@ -46,6 +46,20 @@ fn calibrate_rdtsc() -> u64 {
     res as u64
 }
 
+fn pin_to_core(core_id: usize) {
+    unsafe{
+        let mut cpu_set = core::mem::MaybeUninit::zeroed().assume_init();
+        libc::CPU_ZERO(&mut cpu_set);
+        libc::CPU_SET(core_id, &mut cpu_set);
+        let res = libc::sched_setaffinity(
+            libc::getpid(), 
+            core::mem::size_of::<libc::cpu_set_t>(), 
+            &cpu_set as *const libc::cpu_set_t,
+        );
+        assert_ne!(res, -1);
+    }    
+}
+
 macro_rules! bench {
     ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident, $code:literal, $read:ident, $write:ident, $bo:ident, $table:expr) => {{
 let mut rng = Rng(SEED);
@@ -138,6 +152,10 @@ macro_rules! impl_bench {
 }
 
 pub fn main() {
+    pin_to_core(5);
+    unsafe{
+        assert_ne!(libc::nice(-20-libc::nice(0)), -1);
+    }
     let calibration = calibrate_rdtsc();
     println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_bs,write_bs");
     impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
