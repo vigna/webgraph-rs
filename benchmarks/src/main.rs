@@ -8,7 +8,11 @@ const WARMUP_ITERS: usize = 100;
 const BENCH_ITERS: usize = 10_000;
 const CALIBRATION_ITERS: usize = 1_000_000;
 const SEED: u64 = 0x8c2b_781f_2866_90fd;
-const TSC_FREQ: u64 = 4_000_000_000;  
+// find tsc freq with `dmesg | grep tsc` and convert it to hertz
+// axolotl
+// const TSC_FREQ: u64 = 4_000_000_000;  
+// blew
+const TSC_FREQ: u64 = 3_609_600_000;
 
 fn rdtsc() -> u64 {
     unsafe{
