@@ -8,14 +8,15 @@ with open("tables.csv", "w") as f:
         gen_gamma(bits, 256)
         
         stdout = subprocess.check_output(
-            "cargo bench", shell=True,
+            "cargo run --release", shell=True,
             env={
                 **os.environ,
                 "RUSTFLAGS":"-C target-cpu=native",
-            }
+            },
+            cwd="benchmarks",
         ).decode()
 
-        for pattern, tp in re.findall(r"test (\S+)\s*.+?(\d+) MB/s", stdout):
-            f.write("{},{},{}\n".format(bits, pattern, tp))
-
-        
+        for line in stdout.split("\n")[1:]:
+            f.write("{},".format(bits))
+            f.write(line)
+        f.flush()    
