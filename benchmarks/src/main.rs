@@ -153,9 +153,7 @@ macro_rules! impl_bench {
 
 pub fn main() {
     pin_to_core(5);
-    unsafe{
-        assert_ne!(libc::nice(-20-libc::nice(0)), -1);
-    }
+    //unsafe{assert_ne!(libc::nice(-20-libc::nice(0)), -1);}
     let calibration = calibrate_rdtsc();
     println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_bs,write_bs");
     impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
