@@ -37,7 +37,7 @@ for code in ["unary", "gamma"]:
         "buffered::%s::M2L::NoTable"%code,
     ]:
         plt.plot(*zip(*[
-            (x[0], x[list(df.columns).index("read_ns")] / 1e6)
+            (x[0], x[list(df.columns).index("read_ns")])
             for x in df.values
             if x[1] == pat
         ]), label=pat)
