@@ -41,36 +41,23 @@
 //!     MemWordRead::new(&words_m2l)
 //! );
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b0111_0110);
-//! 
 //! assert_eq!(bitstream_m2l.read_bits(4).unwrap(), 0b0110);
-//! 
 //! assert_eq!(bitstream_m2l.read_bits(4).unwrap(), 0b0000);
-//! 
 //! assert_eq!(bitstream_m2l.read_bits(10).unwrap(), 0b1111_0001_11);
-//! 
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b00_1101_10);
-//! 
 //! assert_eq!(bitstream_m2l.read_bits(38).unwrap(), 0b01_1111_1011_0101_0100_0011_0000_0000_1000_0110);
 //! 
 //! bitstream_m2l.seek_bit(0); // rewind the stream
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b0111_0110);
-//! 
 //! bitstream_m2l.seek_bit(0); // rewind the stream
 //! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 1);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 1);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 2);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
-//! 
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 5);
 //! ```
 
@@ -100,3 +87,5 @@ mod gamma;
 pub use gamma::{
     GammaRead, GammaWrite, len_gamma,
 };
+
+pub mod unary_tables;

@@ -12,7 +12,7 @@ struct FuzzCase {
 
 #[derive(Arbitrary, Debug)]
 enum RandomCommand {
-    Gamma(u64),
+    Gamma(u64, bool, bool),
 }
 
 fuzz_target!(|data: FuzzCase| {
@@ -27,10 +27,19 @@ fuzz_target!(|data: FuzzCase| {
 
         for command in data.commands.iter() {
             match command {
-                RandomCommand::Gamma(value) => {
+                RandomCommand::Gamma(value, _, write_tab) => {
                     let value = (*value).min(u64::MAX - 1);
-                    let big_success = big.write_gamma::<true>(value as u64).is_ok();
-                    let little_success = little.write_gamma::<true>(value as u64).is_ok();
+                    let (big_success, little_success) = if write_tab {
+                        (
+                            big.write_gamma::<true>(value as u64).is_ok(),
+                            little.write_gamma::<true>(value as u64).is_ok(),
+                        )
+                    } else {
+                        (
+                            big.write_gamma::<false>(value as u64).is_ok(),
+                            little.write_gamma::<false>(value as u64).is_ok(),
+                        )
+                    };
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
@@ -44,10 +53,19 @@ fuzz_target!(|data: FuzzCase| {
 
         for (succ, command) in writes.iter().zip(data.commands.iter()) {
             match command {
-                RandomCommand::Gamma(value) => {
+                RandomCommand::Gamma(value, read_tab, _) => {
                     let value = (*value).min(u64::MAX - 1);
-                    let b = big.read_gamma::<true>();
-                    let l = little.read_gamma::<true>();
+                    let (b, l) = if read_tab {
+                        (
+                            big.read_gamma::<true>(),
+                            little.read_gamma::<true>(),
+                        )
+                    } else {
+                        (
+                            big.read_gamma::<false>(),
+                            little.read_gamma::<false>(),
+                        )
+                    };
                     if *succ {
                         assert_eq!(b.unwrap(), value as u64);
                         assert_eq!(l.unwrap(), value as u64);

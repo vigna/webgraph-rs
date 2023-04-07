@@ -83,21 +83,21 @@ pub mod $code_name {
         pub use super::*;
         pub use webgraph::codes::M2L;
         impl_code_bitorder!($code_name, $read, $write, $reader, $writer, M2L, false);
-        //pub mod Table {
-        //    pub use super::*;
-        //    pub use webgraph::codes::M2L;
-        //    impl_code_bitorder!($code_name, $read, $write, $reader, $writer, M2L, true);
-        //}
+        pub mod Table {
+            pub use super::*;
+            pub use webgraph::codes::M2L;
+            impl_code_bitorder!($code_name, $read, $write, $reader, $writer, M2L, true);
+        }
     }
     pub mod L2M {
         pub use super::*;
         pub use webgraph::codes::L2M;
         impl_code_bitorder!($code_name, $read, $write, $reader, $writer, L2M, false);
-        //pub mod Table {
-        //    pub use super::*;
-        //    pub use webgraph::codes::M2L;
-        //    impl_code_bitorder!($code_name, $read, $write, $reader, $writer, L2M, true);
-        //}
+        pub mod Table {
+            pub use super::*;
+            pub use webgraph::codes::M2L;
+            impl_code_bitorder!($code_name, $read, $write, $reader, $writer, L2M, true);
+        }
     }
 }
     };

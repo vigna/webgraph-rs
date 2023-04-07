@@ -2,7 +2,8 @@ use super::{
     WordWrite, 
     BitWrite, BitWriteBuffered,
     BitOrder, M2L, L2M, 
-    GammaWrite,
+    unary_tables,
+    GammaWrite, 
 };
 use anyhow::{Result, bail};
 
@@ -117,6 +118,10 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         debug_assert_ne!(value, u64::MAX);
+        if let Some((bits, n_bits)) = unary_tables::WRITE_M2L.get(value as usize) {
+            return self.write_bits(*bits, *n_bits);
+        }
+
         let mut code_length = value + 1;
 
         loop {
@@ -203,6 +208,9 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         debug_assert_ne!(value, u64::MAX);
+        if let Some((bits, n_bits)) = unary_tables::WRITE_L2M.get(value as usize) {
+            return self.write_bits(*bits, *n_bits);
+        }
         let mut code_length = value + 1;
 
         loop {

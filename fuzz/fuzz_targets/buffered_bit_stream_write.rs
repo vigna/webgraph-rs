@@ -13,7 +13,7 @@ struct FuzzCase {
 #[derive(Arbitrary, Debug)]
 enum RandomCommand {
     WriteBits(u64, u8),
-    WriteUnary(u8),
+    WriteUnary(u8, bool, bool),
 }
 
 fuzz_target!(|data: FuzzCase| {
@@ -36,9 +36,18 @@ fuzz_target!(|data: FuzzCase| {
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
-                RandomCommand::WriteUnary(value) => {
-                    let big_success = big.write_unary::<true>(*value as u64).is_ok();
-                    let little_success = little.write_unary::<true>(*value as u64).is_ok();
+                RandomCommand::WriteUnary(value, _read_tab, write_tab) => {
+                    let (big_success, little_success) = if write_tab {
+                        (
+                            big.write_unary::<true>(*value as u64).is_ok(),
+                            little.write_unary::<true>(*value as u64).is_ok(),
+                        )
+                    } else {
+                        (
+                            big.write_unary::<false>(*value as u64).is_ok(),
+                            little.write_unary::<false>(*value as u64).is_ok(),
+                        )
+                    };
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
@@ -69,9 +78,18 @@ fuzz_target!(|data: FuzzCase| {
                         assert!(l.is_err());
                     }
                 },
-                RandomCommand::WriteUnary(value) => {
-                    let b = big.read_unary::<true>();
-                    let l = little.read_unary::<true>();
+                RandomCommand::WriteUnary(value, read_tab, _write_tab) => {
+                    let (b, l) = if read_tab {
+                        (
+                            big.read_unary::<true>(),
+                            little.read_unary::<true>(),
+                        )
+                    } else {
+                        (
+                            big.read_unary::<false>(),
+                            little.read_unary::<false>(),
+                        )
+                    };
                     if *succ {
                         assert_eq!(b.unwrap(), *value as u64);
                         assert_eq!(l.unwrap(), *value as u64);

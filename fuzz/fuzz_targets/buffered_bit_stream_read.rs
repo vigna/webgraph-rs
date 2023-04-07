@@ -28,8 +28,14 @@ fuzz_target!(|data: FuzzCase| {
                 assert_eq!(b.is_ok(), l.is_ok(), "{:?} {:?}", b, l);
             },
             RandomCommand::ReadBits(n_bits) => {
-                let _ = big.read_bits(n_bits);
-                let _ = little.read_bits(n_bits);
+                assert_eq!(
+                    big.peek_bits(n_bits),
+                    big.read_bits(n_bits),
+                );
+                assert_eq!(
+                    little.peek_bits(n_bits),
+                    little.read_bits(n_bits),
+                );
             },
             RandomCommand::ReadUnary => {
                 let _ = big.read_unary::<true>();

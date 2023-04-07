@@ -14,6 +14,10 @@ pub trait BitRead {
     #[must_use]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64>;
 
+    #[must_use]
+    /// Like read_bits but it doesn't seek forward 
+    fn peek_bits(&mut self, n_bits: u8) -> Result<u64>;
+
     /// Read an unary code
     #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {

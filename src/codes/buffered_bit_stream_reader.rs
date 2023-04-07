@@ -2,6 +2,7 @@ use super::{
     WordRead, 
     BitSeek, BitRead,
     BitOrder, M2L, L2M,
+    unary_tables,
     GammaRead,
 };
 use crate::utils::get_lowest_bits;
@@ -129,8 +130,11 @@ impl<WR: WordRead> BitSeek for BufferedBitStreamRead<M2L, WR> {
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[must_use]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
-        if n_bits == 0 || n_bits > 64 {
+        if n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
         }
 
         if n_bits > self.valid_bits {
@@ -148,7 +152,33 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     }
 
     #[must_use]
+    fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
+        if n_bits > 64 {
+            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
+        }
+
+        if n_bits > self.valid_bits {
+            self.refill()?;
+        }
+
+        // read the `n_bits` highest bits of the buffer and shift them to
+        // be the lowest
+        let result = self.buffer >> (128 - n_bits);
+        
+        Ok(result as u64)
+    }
+    #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        if USE_TABLE {
+            let idx = self.peek_bits(unary_tables::READ_BITS)?;
+            let (value, len) = unary_tables::READ_M2L[idx as usize];
+            if len != unary_tables::MISSING_VALUE_LEN {
+                return Ok(value as u64);
+            }
+        }
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
@@ -175,8 +205,11 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     #[must_use]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
-        if n_bits == 0 || n_bits > 64 {
+        if n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
         }
 
         if n_bits > self.valid_bits {
@@ -195,7 +228,34 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     }
 
     #[must_use]
+    fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
+        if n_bits > 64 {
+            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
+        }
+
+        if n_bits > self.valid_bits {
+            self.refill()?;
+        }
+
+        // read the `n_bits` highest bits of the buffer and shift them to
+        // be the lowest
+        let result = get_lowest_bits(self.buffer as u64, n_bits);
+        
+        Ok(result as u64)
+    }
+
+    #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        if USE_TABLE {
+            let idx = self.peek_bits(unary_tables::READ_BITS)?;
+            let (value, len) = unary_tables::READ_L2M[idx as usize];
+            if len != unary_tables::MISSING_VALUE_LEN {
+                return Ok(value as u64);
+            }
+        }
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
