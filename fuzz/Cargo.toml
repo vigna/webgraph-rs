@@ -50,3 +50,9 @@ name = "mem_word_write_vec"
 path = "fuzz_targets/mem_word_write_vec"
 test = false
 doc = false
+
+[[bin]]
+name = "codes"
+path = "fuzz_targets/codes.rs"
+test = false
+doc = false

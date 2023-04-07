@@ -126,5 +126,5 @@ pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
 
 mod gamma;
 pub use gamma::{
-    GammaRead, GammaWrite, GammaLen,
+    GammaRead, GammaWrite, len_gamma,
 };

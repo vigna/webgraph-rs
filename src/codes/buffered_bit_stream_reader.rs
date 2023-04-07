@@ -2,6 +2,7 @@ use super::{
     WordRead, 
     BitSeek, BitRead,
     BitOrder, M2L, L2M,
+    GammaRead,
 };
 use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail, Context};
@@ -217,3 +218,6 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
         }
     }
 }
+
+impl<WR: WordRead> GammaRead for BufferedBitStreamRead<M2L, WR> {}
+impl<WR: WordRead> GammaRead for BufferedBitStreamRead<L2M, WR> {}

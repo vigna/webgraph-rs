@@ -1,13 +1,14 @@
 use super::{
     WordWrite, 
     BitWrite, BitWriteBuffered,
-    BitOrder, M2L, L2M,
+    BitOrder, M2L, L2M, 
+    GammaWrite,
 };
 use anyhow::{Result, bail};
 
 /// A BitStream built uppon a generic [`WordRead`] that caches the read words 
 /// in a buffer
-pub struct BufferedBitStreamWrite<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> {
+pub struct BufferedBitStreamWrite<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> {
     ///
     backend: WR,
     ///
@@ -15,10 +16,10 @@ pub struct BufferedBitStreamWrite<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> {
     ///
     bits_in_buffer: u8,
     ///
-    _marker: core::marker::PhantomData<E>,
+    _marker: core::marker::PhantomData<BO>,
 }
 
-impl<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<E, WR> {
+impl<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> {
     ///
     pub fn new(backend: WR) -> Self {
 
@@ -47,10 +48,10 @@ impl<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<E, WR> {
     }
 }
 
-impl<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitStreamWrite<E, WR> {
+impl<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitStreamWrite<BO, WR> {
     fn drop(&mut self) {
         // During a drop we can't save anything if it goes bad :/
-        let _ = E::drop(self);
+        let _ = BO::drop(self);
     }
 }
 
@@ -235,3 +236,6 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
         Ok(())
     }
 }
+
+impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<M2L, WR> {}
+impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {}

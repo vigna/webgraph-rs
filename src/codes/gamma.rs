@@ -11,20 +11,23 @@ use anyhow::Result;
 use super::{BitRead, BitWrite};
 use crate::utils::fast_log2_floor;
 
-///
-pub trait GammaLen {
-    ///
-    #[must_use]
-    fn len_gamma<const USE_TABLE: bool>(mut value: u64) -> usize {
-        value += 1;
-        let number_of_blocks_to_write = fast_log2_floor(value);
-        2 * number_of_blocks_to_write as usize
-    }
+#[must_use]
+/// Returns how long the gamma code for `value` will be
+/// 
+/// `USE_TABLE` enables or disables the use of pre-computed tables
+/// for decoding
+pub fn len_gamma<const USE_TABLE: bool>(mut value: u64) -> usize {
+    value += 1;
+    let number_of_blocks_to_write = fast_log2_floor(value);
+    2 * number_of_blocks_to_write as usize
 }
 
-///
+/// Trait for objects that can read Gamma codes
 pub trait GammaRead: BitRead {
-    ///
+    /// Read a gamma code from the stream.
+    /// 
+    /// `USE_TABLE` enables or disables the use of pre-computed tables
+    /// for decoding
     #[must_use]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         let len = self.read_unary::<true>()?;
@@ -33,9 +36,12 @@ pub trait GammaRead: BitRead {
     }
 }
 
-///
+/// Trait for objects that can write Gamma codes
 pub trait GammaWrite: BitWrite {
-    ///
+    /// Write a value on the stream
+    /// 
+    /// `USE_TABLE` enables or disables the use of pre-computed tables
+    /// for decoding
     fn write_gamma<const USE_TABLE: bool>(&mut self, mut value: u64) -> Result<()> {
         value += 1;
         let number_of_blocks_to_write = fast_log2_floor(value);
