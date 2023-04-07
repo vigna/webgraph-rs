@@ -31,75 +31,47 @@
 //!     0x76, 0x60, 0xf1, 0xcd, 0x9f, 0xb5, 0x43, 0x00,
 //!     0x86, 0x9b, 0x73, 0xf9, 0xe6, 0x63, 0x28, 0x70,
 //! ];
-//! let data_l2m: [u8; 16] = [
-//!     0x6e, 0x06, 0x8f, 0xb3, 0xf9, 0xad, 0xc2, 0x00, 
-//!     0x61, 0xd9, 0xce, 0x9f, 0x67, 0xc6, 0x14, 0x0e,
-//! ];
 //! // Read data as native endianess [`u64`]s, we can't just do a 
 //! // transmute because we have no guarantees on the alignement of data
-//! let words_m2l = data.chunks(8)
-//!     .map(|data| u64::from_ne_bytes(data_m2l.try_into().unwrap()))
-//!     .collect::<Vec<_>>();
-//! let words_l2m = data.chunks(8)
-//!     .map(|data| u64::from_ne_bytes(data_l2m.try_into().unwrap()))
+//! let words_m2l = data_m2l.chunks(8)
+//!     .map(|data| u64::from_ne_bytes(data.try_into().unwrap()))
 //!     .collect::<Vec<_>>();
 //! 
 //! let mut bitstream_m2l = <BufferedBitStreamRead<M2L, _>>::new(
 //!     MemWordRead::new(&words_m2l)
 //! );
-//! let mut bitstream_l2m = <BufferedBitStreamRead<L2M, _>>::new(
-//!     MemWordRead::new(&words_l2m)
-//! );
-//! 
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b0111_0110);
-//! assert_eq!(bitstream_l2m.read_bits(8).unwrap(), 0b0111_0110);
 //! 
 //! assert_eq!(bitstream_m2l.read_bits(4).unwrap(), 0b0110);
-//! assert_eq!(bitstream_l2m.read_bits(4).unwrap(), 0b0110);
 //! 
 //! assert_eq!(bitstream_m2l.read_bits(4).unwrap(), 0b0000);
-//! assert_eq!(bitstream_l2m.read_bits(4).unwrap(), 0b0000);
 //! 
 //! assert_eq!(bitstream_m2l.read_bits(10).unwrap(), 0b1111_0001_11);
-//! assert_eq!(bitstream_l2m.read_bits(10).unwrap(), 0b1111_0001_11);
 //! 
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b00_1101_10);
-//! assert_eq!(bitstream_l2m.read_bits(8).unwrap(), 0b00_1101_10);
 //! 
 //! assert_eq!(bitstream_m2l.read_bits(38).unwrap(), 0b01_1111_1011_0101_0100_0011_0000_0000_1000_0110);
-//! assert_eq!(bitstream_l2m.read_bits(38).unwrap(), 0b01_1111_1011_0101_0100_0011_0000_0000_1000_0110);
 //! 
 //! bitstream_m2l.seek_bit(0); // rewind the stream
-//! bitstream_l2m.seek_bit(0); // rewind the stream
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b0111_0110);
-//! assert_eq!(bitstream_l2m.read_bits(8).unwrap(), 0b0111_0110);
 //! 
 //! bitstream_m2l.seek_bit(0); // rewind the stream
-//! bitstream_l2m.seek_bit(0); // rewind the stream
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().BigEndianunwrap(), 1);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 1);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 1);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 0);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 0);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 0);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 0);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 1);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 1);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 1);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 0);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 0);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 2);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 2);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 2);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 0);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 0);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
 //! 
-//! assert_eq!(bitstream_m2l.read_unary().unwrap(), 5);
-//! assert_eq!(bitstream_l2m.read_unary().unwrap(), 5);
+//! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 5);
 //! ```
 
 mod bit_order;
