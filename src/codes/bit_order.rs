@@ -4,6 +4,8 @@
 //! Note that we use an inner private trait `BitOrderCore` so that an user can
 //! use [`BitOrder`] for its generics, but cannot implement it, so all the 
 //! types that will ever implement [`BitOrder`] are defined in this file.
+//! 
+//! Apparently this pattern is a [SealedTrait](https://predr.ag/blog/definitive-guide-to-sealed-traits-in-rust/).
 
 /// Inner private trait used to remove the possibility that anyone could 
 /// implement [`BitOrder`] on other structs

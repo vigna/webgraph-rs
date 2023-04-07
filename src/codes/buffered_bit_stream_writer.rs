@@ -57,7 +57,10 @@ impl<E: BitOrder + BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitS
 /// Ignore. Inner trait needed for dispatching of drop logic based on endianess 
 /// of a [`BufferedBitStreamWrite`]. This is public to avoid the leak of 
 /// private traits in public defs, an user should never need to implement this.
+/// 
 /// TODO!: should we make a wrapper trait to make this trait private?
+/// 
+/// I discussed this [here](https://users.rust-lang.org/t/on-generic-associated-enum-and-type-comparisons/92072).
 pub trait BBSWDrop<WR: WordWrite>: Sized + BitOrder {
     /// handle the drop
     fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()>;
@@ -152,8 +155,10 @@ impl<WR: WordWrite> BBSWDrop<WR> for L2M {
     fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()> {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
-            // TODO!: should we clean the lower bits? we are leaking data
-            data.backend.write_word((data.buffer as u64).to_le())?;
+            let mut word = (data.buffer >> 64) as u64;
+            let shamt = 64 - data.bits_in_buffer;
+            word = word >> shamt;
+            data.backend.write_word(word.to_le())?;
         }
         Ok(())
     }
@@ -165,8 +170,8 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<L2M, WR> {
         if self.bits_in_buffer < 64 {
             return Ok(());
         }
+        let word = (self.buffer >> (128 - self.bits_in_buffer)) as u64;
         self.bits_in_buffer -= 64;
-        let word = (self.buffer >> self.bits_in_buffer) as u64;
         self.backend.write_word(word.to_le())?;
         Ok(())
     }
@@ -187,7 +192,8 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
             self.partial_flush()?;
         }
 
-        self.buffer |= (value as u128) << self.bits_in_buffer;
+        self.buffer >>= n_bits;
+        self.buffer |= (value as u128) << (128 - n_bits);
         self.bits_in_buffer += n_bits;
 
         Ok(())
@@ -203,16 +209,28 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
             if code_length <= space_left {
                 break;
             }
-            let high_word = (self.buffer >> 64) as u64;
-            let low_word = self.buffer as u64;
-            self.backend.write_word(high_word.to_le())?;
-            self.backend.write_word(low_word.to_le())?;
-            self.bits_in_buffer = 0;
+            if space_left == 128 {
+                self.buffer = 0;
+                self.backend.write_word(0)?;
+                self.backend.write_word(0)?;
+            } else {
+                self.buffer >>= space_left;
+                let high_word = (self.buffer >> 64) as u64;
+                let low_word = self.buffer as u64;
+                self.backend.write_word(low_word.to_le())?;
+                self.backend.write_word(high_word.to_le())?;
+                self.buffer = 0;
+            }
             code_length -= space_left;
+            self.bits_in_buffer = 0;
         }
-
         self.bits_in_buffer += code_length as u8;
-        self.buffer |= 1_u128 << (self.bits_in_buffer as u64 - 1);
+        if code_length == 128 {
+            self.buffer = 0;
+        } else {
+            self.buffer >>= code_length;
+        }
+        self.buffer |= 1_u128 << 127;
 
         Ok(())
     }
