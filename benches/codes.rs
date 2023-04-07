@@ -28,7 +28,7 @@ fn write(b: &mut Bencher) {
     let mut rng = Rng(SEED);
     let random_vals = (0..VALUES)
         .map(|_| {
-            rng.next() % 256
+            rng.next() % (rng.next() % 1000)
         })
         .collect::<Vec<_>>();
     let mut buffer = Vec::with_capacity(VALUES);
@@ -49,7 +49,7 @@ fn read(b: &mut Bencher) {
     let mut rng = Rng(SEED);
     let random_vals = (0..VALUES)
         .map(|_| {
-            rng.next() % 256
+            rng.next() % (rng.next() % 1000)
         })
         .collect::<Vec<_>>();
     let mut buffer = Vec::with_capacity(VALUES);
