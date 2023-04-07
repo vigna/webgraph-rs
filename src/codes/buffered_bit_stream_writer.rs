@@ -2,7 +2,7 @@ use super::{
     WordWrite, 
     BitWrite, BitWriteBuffered,
     BitOrder, M2L, L2M, 
-    unary_tables,
+    unary_tables, gamma_tables,
     GammaWrite, 
 };
 use anyhow::{Result, bail};
@@ -245,5 +245,19 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
     }
 }
 
-impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<M2L, WR> {}
-impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {}
+impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<M2L, WR> {
+    fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+        if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
+            return self.write_bits(*bits as u64, *n_bits);
+        }
+        self._default_write_gamma(value)
+    }
+}
+impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {
+    fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+        if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
+            return self.write_bits(*bits as u64, *n_bits);
+        }
+        self._default_write_gamma(value)
+    }
+}

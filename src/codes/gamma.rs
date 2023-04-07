@@ -30,7 +30,13 @@ pub trait GammaRead: BitRead {
     /// for decoding
     #[must_use]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        let len = self.read_unary::<true>()?;
+        self._default_read_gamma()
+    }
+
+    #[must_use]
+    /// Trick to be able to call the default impl by specialized impls
+    fn _default_read_gamma(&mut self) -> Result<u64> {
+        let len = self.read_unary::<false>()?;
         debug_assert!(len <= u8::MAX as _);
         Ok(self.read_bits(len as u8)? + (1 << len) - 1)
     }
@@ -42,15 +48,21 @@ pub trait GammaWrite: BitWrite {
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    fn write_gamma<const USE_TABLE: bool>(&mut self, mut value: u64) -> Result<()> {
+    fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+        self._default_write_gamma(value)
+    }
+
+    /// Trick to be able to call the default impl by specialized impls
+    fn _default_write_gamma(&mut self, mut value: u64) -> Result<()> {
         value += 1;
         let number_of_blocks_to_write = fast_log2_floor(value);
         debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
         // remove the most significant 1
         let short_value = value - (1 << number_of_blocks_to_write);
         // Write the code
-        self.write_unary::<true>(number_of_blocks_to_write)?;
+        self.write_unary::<false>(number_of_blocks_to_write)?;
         self.write_bits(short_value, number_of_blocks_to_write as u8)?;
         Ok(())
     }
+
 }

@@ -2,8 +2,8 @@ use super::{
     WordRead, 
     BitSeek, BitRead,
     BitOrder, M2L, L2M,
-    unary_tables,
-    GammaRead,
+    unary_tables, 
+    GammaRead, gamma_tables,
 };
 use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail, Context};
@@ -127,6 +127,36 @@ impl<WR: WordRead> BitSeek for BufferedBitStreamRead<M2L, WR> {
     }
 }
 
+macro_rules! impl_table_call_m2l {
+    ($self:expr, $USE_TABLE:expr, $tabs:ident) => {
+if $USE_TABLE {
+    if let Ok(idx) = $self.peek_bits($tabs::READ_BITS) {
+        let (value, len) = $tabs::READ_M2L[idx as usize];
+        if len != $tabs::MISSING_VALUE_LEN {
+            $self.buffer <<= len;
+            $self.valid_bits -= len as u8;
+            return Ok(value as u64);
+        }
+    }
+}
+    };
+}
+
+macro_rules! impl_table_call_l2m {
+    ($self:expr, $USE_TABLE:ident, $tabs:ident) => {
+if $USE_TABLE {
+    if let Ok(idx) = $self.peek_bits($tabs::READ_BITS) {
+        let (value, len) = $tabs::READ_L2M[idx as usize];
+        if len != $tabs::MISSING_VALUE_LEN {
+            $self.buffer >>= len;
+            $self.valid_bits -= len as u8;
+            return Ok(value as u64);
+        }
+    }
+}
+    };
+}
+
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[must_use]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
@@ -172,16 +202,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     }
     #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        if USE_TABLE {
-            if let Ok(idx) = self.peek_bits(unary_tables::READ_BITS) {
-                let (value, len) = unary_tables::READ_M2L[idx as usize];
-                if len != unary_tables::MISSING_VALUE_LEN {
-                    self.buffer <<= len;
-                    self.valid_bits -= len;
-                    return Ok(value as u64);
-                }
-            }
-        }
+        impl_table_call_m2l!(self, USE_TABLE, unary_tables);
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
@@ -250,18 +271,8 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
         Ok(result as u64)
     }
 
-    #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        if USE_TABLE {
-            if let Ok(idx) = self.peek_bits(unary_tables::READ_BITS) {
-                let (value, len) = unary_tables::READ_L2M[idx as usize];
-                if len != unary_tables::MISSING_VALUE_LEN {
-                    self.buffer >>= len;
-                    self.valid_bits -= len;
-                    return Ok(value as u64);
-                }
-            }
-        }
+        impl_table_call_l2m!(self, USE_TABLE, unary_tables);
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
@@ -285,5 +296,15 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     }
 }
 
-impl<WR: WordRead> GammaRead for BufferedBitStreamRead<M2L, WR> {}
-impl<WR: WordRead> GammaRead for BufferedBitStreamRead<L2M, WR> {}
+impl<WR: WordRead> GammaRead for BufferedBitStreamRead<M2L, WR> {
+    fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        impl_table_call_m2l!(self, USE_TABLE, gamma_tables);
+        self._default_read_gamma()
+    }
+}
+impl<WR: WordRead> GammaRead for BufferedBitStreamRead<L2M, WR> {
+    fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        impl_table_call_l2m!(self, USE_TABLE, gamma_tables);
+        self._default_read_gamma()
+    }
+}

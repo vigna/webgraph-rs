@@ -89,3 +89,4 @@ pub use gamma::{
 };
 
 pub mod unary_tables;
+pub mod gamma_tables;
