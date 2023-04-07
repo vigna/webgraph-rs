@@ -19,4 +19,5 @@ with open("tables.csv", "w") as f:
         for line in stdout.split("\n")[1:]:
             f.write("{},".format(bits))
             f.write(line)
+            f.write("\n")
         f.flush()    
