@@ -173,10 +173,13 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
-            let idx = self.peek_bits(unary_tables::READ_BITS)?;
-            let (value, len) = unary_tables::READ_M2L[idx as usize];
-            if len != unary_tables::MISSING_VALUE_LEN {
-                return Ok(value as u64);
+            if let Ok(idx) = self.peek_bits(unary_tables::READ_BITS) {
+                let (value, len) = unary_tables::READ_M2L[idx as usize];
+                if len != unary_tables::MISSING_VALUE_LEN {
+                    self.buffer <<= len;
+                    self.valid_bits -= len;
+                    return Ok(value as u64);
+                }
             }
         }
         let mut result: u64 = 0;
@@ -250,10 +253,13 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     #[must_use]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
-            let idx = self.peek_bits(unary_tables::READ_BITS)?;
-            let (value, len) = unary_tables::READ_L2M[idx as usize];
-            if len != unary_tables::MISSING_VALUE_LEN {
-                return Ok(value as u64);
+            if let Ok(idx) = self.peek_bits(unary_tables::READ_BITS) {
+                let (value, len) = unary_tables::READ_L2M[idx as usize];
+                if len != unary_tables::MISSING_VALUE_LEN {
+                    self.buffer >>= len;
+                    self.valid_bits -= len;
+                    return Ok(value as u64);
+                }
             }
         }
         let mut result: u64 = 0;

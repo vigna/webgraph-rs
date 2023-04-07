@@ -63,7 +63,7 @@ def gen_unary(read_bits, write_max_val):
         f.write("/// How many bits are needed to read the tables in this\n")
         f.write("pub const READ_BITS: u8 = {};\n".format(read_bits))
 
-        f.write("/// THe len we assign to a code that cannot be decoded through the table\n")
+        f.write("/// The len we assign to a code that cannot be decoded through the table\n")
         f.write("pub const MISSING_VALUE_LEN: u8 = {};\n".format(MISSING_VALUE_LEN))
         
         for bo in ["M2L", "L2M"]:
