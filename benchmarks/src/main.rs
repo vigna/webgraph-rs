@@ -94,13 +94,15 @@ let table = if $table {
 } else {
     "NoTable"
 };
-println!("{}::{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{}::{},{},{},{},{},{},{},{},{}",
     $mod_name, $code, stringify!($bo), table,
     read_time, write_time,
     read_time / TSC_FREQ as f64, 
     write_time / TSC_FREQ as f64,
+    (read_time / TSC_FREQ as f64) * 1e9, 
+    (write_time / TSC_FREQ as f64) * 1e9,
     bytes as f64 / (read_time / TSC_FREQ as f64), 
-    bytes as f64 / (write_time / TSC_FREQ as f64), 
+    bytes as f64 / (write_time / TSC_FREQ as f64),
 );
 
 
@@ -155,6 +157,6 @@ pub fn main() {
     pin_to_core(5);
     //unsafe{assert_ne!(libc::nice(-20-libc::nice(0)), -1);}
     let calibration = calibrate_rdtsc();
-    println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_bs,write_bs");
+    println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs");
     impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
 }
