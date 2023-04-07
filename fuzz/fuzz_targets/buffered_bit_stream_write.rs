@@ -37,7 +37,7 @@ fuzz_target!(|data: FuzzCase| {
                     writes.push(big_success);
                 },
                 RandomCommand::WriteUnary(value, _read_tab, write_tab) => {
-                    let (big_success, little_success) = if write_tab {
+                    let (big_success, little_success) = if *write_tab {
                         (
                             big.write_unary::<true>(*value as u64).is_ok(),
                             little.write_unary::<true>(*value as u64).is_ok(),
@@ -79,7 +79,7 @@ fuzz_target!(|data: FuzzCase| {
                     }
                 },
                 RandomCommand::WriteUnary(value, read_tab, _write_tab) => {
-                    let (b, l) = if read_tab {
+                    let (b, l) = if *read_tab {
                         (
                             big.read_unary::<true>(),
                             little.read_unary::<true>(),

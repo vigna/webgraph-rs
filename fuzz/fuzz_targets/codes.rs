@@ -29,7 +29,7 @@ fuzz_target!(|data: FuzzCase| {
             match command {
                 RandomCommand::Gamma(value, _, write_tab) => {
                     let value = (*value).min(u64::MAX - 1);
-                    let (big_success, little_success) = if write_tab {
+                    let (big_success, little_success) = if *write_tab {
                         (
                             big.write_gamma::<true>(value as u64).is_ok(),
                             little.write_gamma::<true>(value as u64).is_ok(),
@@ -55,7 +55,7 @@ fuzz_target!(|data: FuzzCase| {
             match command {
                 RandomCommand::Gamma(value, read_tab, _) => {
                     let value = (*value).min(u64::MAX - 1);
-                    let (b, l) = if read_tab {
+                    let (b, l) = if *read_tab {
                         (
                             big.read_gamma::<true>(),
                             little.read_gamma::<true>(),
