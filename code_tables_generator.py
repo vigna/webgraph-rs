@@ -29,6 +29,9 @@ def write_unary(value, bitstream, m2l):
     else:
         return "1" + "0" * value + bitstream
 
+def len_unary(value):
+    return value + 1
+
 def read_fixed(n_bits, bitstream, m2l):
     if len(bitstream) < n_bits:
         raise ValueError()
@@ -56,6 +59,23 @@ def write_gamma(value, bitstream, m2l):
     bitstream = write_fixed(s, l, bitstream, m2l)
     return bitstream
 
+def len_gamma(value):
+    l = floor(log2(value))
+    return 2*l + 1
+
+def get_best_fitting_type(n_bits):
+    if n_bits <= 8:
+        return "u8"
+    if n_bits <= 16:
+        return "u16"
+    if n_bits <= 32:
+        return "u32"
+    if n_bits <= 64:
+        return "u64"
+    if n_bits <= 128:
+        return "u128"
+    raise ValueError()
+
 def gen_unary(read_bits, write_max_val):
     with open("./src/codes/unary_tables.rs", "w") as f:
         f.write("//! Pre-computed constants used to speedup the reading and writing of unary codes\n")
@@ -68,7 +88,11 @@ def gen_unary(read_bits, write_max_val):
         
         for bo in ["M2L", "L2M"]:
             f.write("///Table used to speed up the reading of unary codes\n")
-            f.write("pub const READ_%s: &[(u8, u8)] = &["%bo)
+            f.write("pub const READ_%s: &[(%s, %s)] = &["%(
+                bo, 
+                get_best_fitting_type(read_bits),
+                get_best_fitting_type(ceil(log2(read_bits))),
+            ))
             for value in range(2**read_bits):
                 bits = ("{:0%sb}"%read_bits).format(value)
                 try:
