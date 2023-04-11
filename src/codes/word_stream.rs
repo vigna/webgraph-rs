@@ -228,6 +228,7 @@ impl_memword!(MemWordWrite);
 impl_memword!(MemWordWriteVec);
 
 impl<'a> WordWrite for MemWordWrite<'a> {
+    #[inline]
     fn write_word(&mut self, word: u64) -> Result<()> {
         match self.data.get_mut(self.word_index) {
             Some(word_ref) => {
@@ -245,6 +246,7 @@ impl<'a> WordWrite for MemWordWrite<'a> {
 }
 
 impl<'a> WordWrite for MemWordWriteVec<'a> {
+    #[inline]
     fn write_word(&mut self, word: u64) -> Result<()> {
         if self.word_index >= self.data.len() {
             self.data.resize(self.word_index + 1, 0);

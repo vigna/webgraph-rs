@@ -7,7 +7,6 @@ const VALUES: usize = 25_000;
 const WARMUP_ITERS: usize = 100;
 const BENCH_ITERS: usize = 100_000;
 const CALIBRATION_ITERS: usize = 1_000_000;
-const SEED: u64 = 0x8c2b_781f_2866_90fd;
 // find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` and convert it to hertz
 // axolotl
 // const TSC_FREQ: u64 = 4_000_000_000;  
@@ -136,28 +135,28 @@ macro_rules! impl_bench {
     ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident) => {
         let mut rng = rand::thread_rng();
         
-        let unary_data = (0..VALUES)
-            .map(|_| {
-                let v: u64 = rng.gen();
-                v.trailing_zeros() as u64
-            })
-            .collect::<Vec<_>>();
+        //let unary_data = (0..VALUES)
+        //    .map(|_| {
+        //        let v: u64 = rng.gen();
+        //        v.trailing_zeros() as u64
+        //    })
+        //    .collect::<Vec<_>>();
+//
+        //impl_code!(
+        //    $cal, $mod_name, $reader, $writer, "unary", read_unary, write_unary, unary_data
+        //);
+//
+        //let zipf = zipf::ZipfDistribution::new(1000, 2.0).unwrap();
+        //let gamma_data = (0..VALUES)
+        //    .map(|_| {
+        //        zipf.sample(&mut rng) as u64
+        //    })
+        //    .collect::<Vec<_>>();
+        //impl_code!(
+        //    $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
+        //);
 
-        impl_code!(
-            $cal, $mod_name, $reader, $writer, "unary", read_unary, write_unary, unary_data
-        );
-
-        let mut zipf = zipf::ZipfDistribution::new(1000, 2.0).unwrap();
-        let gamma_data = (0..VALUES)
-            .map(|_| {
-                zipf.sample(&mut rng) as u64
-            })
-            .collect::<Vec<_>>();
-        impl_code!(
-            $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
-        );
-
-        let mut zipf = zipf::ZipfDistribution::new(1000, 1.01).unwrap();
+        let zipf = zipf::ZipfDistribution::new(1000, 1.01).unwrap();
         let delta_data = (0..VALUES)
             .map(|_| {
                 zipf.sample(&mut rng) as u64
