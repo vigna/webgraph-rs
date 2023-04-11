@@ -99,8 +99,11 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<M2L, WR> {
 impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
-        if n_bits == 0 || n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        if n_bits > 64 {
+            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(());
         }
         #[cfg(test)]
         if (value & (1_u64 << n_bits).wrapping_sub(1)) != value {
@@ -187,8 +190,11 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<L2M, WR> {
 impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
-        if n_bits == 0 || n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+        if n_bits > 64 {
+            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(());
         }
         #[cfg(test)]
         if (value & (1_u64 << n_bits).wrapping_sub(1)) != value {

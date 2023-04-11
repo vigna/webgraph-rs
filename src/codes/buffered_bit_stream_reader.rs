@@ -175,12 +175,11 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
         if n_bits == 0 {
             return Ok(0);
         }
-
         if n_bits > self.valid_bits {
             self.refill()?;
         }
@@ -199,7 +198,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
         if n_bits == 0 {
             return Ok(0);
@@ -247,7 +246,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
         if n_bits == 0 {
             return Ok(0);
@@ -272,7 +271,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     #[inline]
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
-            bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
+            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
         if n_bits == 0 {
             return Ok(0);

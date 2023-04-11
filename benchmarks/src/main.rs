@@ -3,7 +3,7 @@ use rand::prelude::*;
 use rand::distributions::Distribution;
 use core::arch::x86_64::{_rdtsc, __rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
-const VALUES: usize = 10_000;
+const VALUES: usize = 20_000;
 const WARMUP_ITERS: usize = 100;
 const BENCH_ITERS: usize = 10_000;
 const CALIBRATION_ITERS: usize = 1_000_000;
