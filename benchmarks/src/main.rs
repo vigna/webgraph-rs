@@ -155,7 +155,7 @@ macro_rules! impl_bench {
             $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
         );
 
-        let mut zipf = zipf::ZipfDistribution::new(1000, 4.0).unwrap();
+        let mut zipf = zipf::ZipfDistribution::new(1000, 1.01).unwrap();
         let delta_data = (0..VALUES)
             .map(|_| {
                 zipf.sample(&mut rng) as u64
