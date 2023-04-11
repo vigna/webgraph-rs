@@ -97,7 +97,7 @@ let table = if $table {
 } else {
     "NoTable"
 };
-println!("{},{}::{}::{}::{},{},{},{},{},{},{},{},{},{},{}",
+println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{},{}",
     $mod_name, $code, stringify!($bo), table,
     read_time, write_time,
     read_time / TSC_FREQ as f64, 
