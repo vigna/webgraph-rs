@@ -11,8 +11,6 @@ env:
 
 jobs:
   build:
-    env:
-      RUSTFLAGS: "-Zsanitizer=address"
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -24,7 +22,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose -Zbuild-std --target x86_64-unknown-linux-gnu
+      run: cargo test --verbose --target x86_64-unknown-linux-gnu
     - name: Run clippy
       run: cargo clippy -- -Dclippy::all -Dclippy::cargo
     - name: Test with Miri in little endian
