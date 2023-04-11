@@ -5,6 +5,10 @@ edition = "2021"
 description = "A Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
 repository = "https://github.com/vigna/webgraph-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
+readme = "README.md"
+keywords = ["graph", "compression", "codes", "webgraph"]
+categories = ["compression", "data-structures"]
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
