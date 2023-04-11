@@ -1,5 +1,6 @@
 use webgraph::codes::*;
 use rand::distributions::Distribution;
+use rand::Rng;
 use core::arch::x86_64::{__rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
 const VALUES: usize = 25_000;
