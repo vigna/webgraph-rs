@@ -1,11 +1,10 @@
 use webgraph::codes::*;
-use rand::prelude::*;
 use rand::distributions::Distribution;
-use core::arch::x86_64::{_rdtsc, __rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
+use core::arch::x86_64::{__rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
 const VALUES: usize = 25_000;
 const WARMUP_ITERS: usize = 100;
-const BENCH_ITERS: usize = 100_000;
+const BENCH_ITERS: usize = 40_000;
 const CALIBRATION_ITERS: usize = 1_000_000;
 // find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` and convert it to hertz
 // axolotl
@@ -97,7 +96,7 @@ let table = if $table {
 } else {
     "NoTable"
 };
-println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{},{}",
+println!("{},{}::{}::{}::{},{},{},{},{},{},{},{},{},{},{}",
     $mod_name, $code, stringify!($bo), table,
     read_time, write_time,
     read_time / TSC_FREQ as f64, 
@@ -135,26 +134,26 @@ macro_rules! impl_bench {
     ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident) => {
         let mut rng = rand::thread_rng();
         
-        //let unary_data = (0..VALUES)
-        //    .map(|_| {
-        //        let v: u64 = rng.gen();
-        //        v.trailing_zeros() as u64
-        //    })
-        //    .collect::<Vec<_>>();
-//
-        //impl_code!(
-        //    $cal, $mod_name, $reader, $writer, "unary", read_unary, write_unary, unary_data
-        //);
-//
-        //let zipf = zipf::ZipfDistribution::new(1000, 2.0).unwrap();
-        //let gamma_data = (0..VALUES)
-        //    .map(|_| {
-        //        zipf.sample(&mut rng) as u64
-        //    })
-        //    .collect::<Vec<_>>();
-        //impl_code!(
-        //    $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
-        //);
+        let unary_data = (0..VALUES)
+            .map(|_| {
+                let v: u64 = rng.gen();
+                v.trailing_zeros() as u64
+            })
+            .collect::<Vec<_>>();
+
+        impl_code!(
+            $cal, $mod_name, $reader, $writer, "unary", read_unary, write_unary, unary_data
+        );
+
+        let zipf = zipf::ZipfDistribution::new(1000, 2.0).unwrap();
+        let gamma_data = (0..VALUES)
+            .map(|_| {
+                zipf.sample(&mut rng) as u64
+            })
+            .collect::<Vec<_>>();
+        impl_code!(
+            $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
+        );
 
         let zipf = zipf::ZipfDistribution::new(1000, 1.01).unwrap();
         let delta_data = (0..VALUES)

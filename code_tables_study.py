@@ -18,6 +18,7 @@ with open("tables.csv", "w") as f:
         ).decode()
 
         if bits == 1:
+            f.write("n_bits,")
             f.write(stdout.split('\n')[0])
             f.write("\n")
 
@@ -26,29 +27,4 @@ with open("tables.csv", "w") as f:
                 f.write("{},".format(bits))
                 f.write(line)
                 f.write("\n")
-        f.flush()    
-
-import pandas as pd
-import matplotlib.pyplot as plt
-
-df = pd.read_csv("tables.csv")
-
-for code in ["unary", "gamma", "delta"]:
-    plt.figure(figsize=(10, 8), dpi=200, facecolor="white")
-    for pat in [
-        "buffered::%s::L2M::Table"%code,
-        "buffered::%s::M2L::Table"%code,
-        "buffered::%s::L2M::NoTable"%code,
-        "buffered::%s::M2L::NoTable"%code,
-    ]:
-        plt.plot(*zip(*[
-            (x[0], x[list(df.columns).index("read_ns_pe")])
-            for x in df.values
-            if x[1] == pat
-        ]), label=pat)
-        
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.title("Performances of %s codes read and writes\nin function of the table size"%(code.capitalize()))
-    plt.xlabel("Table Bits")
-    plt.ylabel("ns")
-    plt.savefig("tables_%s.png"%code, bbox_inches='tight')
+        f.flush()
