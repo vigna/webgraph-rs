@@ -2,16 +2,21 @@ use webgraph::codes::*;
 use rand::Rng;
 use core::arch::x86_64::{__rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
+/// How many random codes we will write and read in the benchmark
 const VALUES: usize = 25_000;
+/// How many iterations to do before starting measuring, this is done to warmup
+/// the caches and the branch predictor
 const WARMUP_ITERS: usize = 100;
+/// How many iterations of measurement we will execute
 const BENCH_ITERS: usize = 40_000;
+/// For how many times we will measure the measurement overhead
 const CALIBRATION_ITERS: usize = 1_000_000;
-// find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` and convert it to hertz
-// axolotl
-// const TSC_FREQ: u64 = 4_000_000_000;  
-// blew
+/// The TimeStampCounter frequency in Hertz. 
+/// find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` 
+/// and convert it to hertz
 const TSC_FREQ: u64 = 3_609_600_000;
 
+/// This is our 
 fn rdtsc() -> u64 {
     unsafe{
         let mut aux: u32 = 0;
@@ -23,13 +28,17 @@ fn rdtsc() -> u64 {
     }
 }
 
+/// Routine for measuring the measurement overhead. This is usually around
+/// 147 cycles.
 fn calibrate_rdtsc() -> u64 {
     let mut vals = Vec::with_capacity(CALIBRATION_ITERS);
+    // For many times, measure an empty block 
     for _ in 0..CALIBRATION_ITERS {
         let start = rdtsc();
         let end = rdtsc();
         vals.push(end - start);
     }
+    // compute the mean
     let mut res = 0.0;
     for val in vals {
         res += val as f64 / CALIBRATION_ITERS as f64;
@@ -38,6 +47,8 @@ fn calibrate_rdtsc() -> u64 {
     res as u64
 }
 
+/// Pin the process to one core to avoid context switching and caches flushes
+/// which would result in noise in the measurement.
 fn pin_to_core(core_id: usize) {
     unsafe{
         let mut cpu_set = core::mem::MaybeUninit::zeroed().assume_init();
@@ -54,39 +65,51 @@ fn pin_to_core(core_id: usize) {
 
 macro_rules! bench {
     ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident, $code:literal, $read:ident, $write:ident, $data:expr, $bo:ident, $table:expr) => {{
+// the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
+// counters for the total read time and total write time
 let mut read_time: u64 = 0;
 let mut write_time: u64 = 0;
+// measure
 for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     buffer.clear();
-    {
+    // write the codes
+    {   
+        // init the writer
         let mut r = $writer::<$bo, _>::new(
             MemWordWriteVec::new(&mut buffer)
         );
+        // measure
         let w_start = rdtsc();
         for value in &$data {
             r.$write::<$table>(*value).unwrap();
         }
         let w_end = rdtsc();
+        // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             write_time += (w_end - w_start) - $cal;
         }
     }
+    // read the codes
     {
+        // init the reader
         let mut r = $reader::<$bo, _>::new(
             MemWordRead::new(&mut buffer)
         );
+        // measure
         let r_start = rdtsc();
         for _ in &$data {
             r.$read::<$table>().unwrap();
         }
         let r_end = rdtsc();
+        // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             read_time += (r_end - r_start) - $cal;
         }
     }
 }
 
+// compute the averages for a single iteration
 let read_time = read_time as f64 / BENCH_ITERS as f64;
 let write_time = write_time as f64 / BENCH_ITERS as f64;
 
@@ -96,23 +119,25 @@ let table = if $table {
 } else {
     "NoTable"
 };
+// print the results
 println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{},{}",
-    $mod_name, $code, stringify!($bo), table,
-    read_time, write_time,
-    read_time / TSC_FREQ as f64, 
-    write_time / TSC_FREQ as f64,
-    (read_time / TSC_FREQ as f64) * 1e9, 
-    (write_time / TSC_FREQ as f64) * 1e9,
-    bytes as f64 / (read_time / TSC_FREQ as f64), 
-    bytes as f64 / (write_time / TSC_FREQ as f64),
-    (read_time / TSC_FREQ as f64) * 1e9 / VALUES as f64, 
-    (write_time / TSC_FREQ as f64) * 1e9 / VALUES as f64,
+    $mod_name, $code, stringify!($bo), table, // the informations about what we are benchmarking
+    read_time, write_time, // total times
+    read_time / TSC_FREQ as f64,  // total time in seconds
+    write_time / TSC_FREQ as f64, // total time in seconds
+    (read_time / TSC_FREQ as f64) * 1e9,  // total time in nanoseconds
+    (write_time / TSC_FREQ as f64) * 1e9, // total time in nanoseconds
+    bytes as f64 / (read_time / TSC_FREQ as f64),  // throughput in bytes/second
+    bytes as f64 / (write_time / TSC_FREQ as f64), // throughput in bytes/second
+    (read_time / TSC_FREQ as f64) * 1e9 / VALUES as f64,  // average time per code read in nanoseconds
+    (write_time / TSC_FREQ as f64) * 1e9 / VALUES as f64, // average time per code write in nanoseconds
 );
 
 
 }};
 }
 
+/// macro to implement all combinations of bit order and table use
 macro_rules! impl_code {
     ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident, $code:literal, $read:ident, $write:ident, $data:expr) => {
         bench!(
@@ -130,6 +155,7 @@ macro_rules! impl_code {
     };
 }
 
+/// macro to implement the benchmarking of all the codes for the current backend
 macro_rules! impl_bench {
     ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident) => {
         let mut rng = rand::thread_rng();
@@ -166,9 +192,14 @@ macro_rules! impl_bench {
 }
 
 pub fn main() {
+    // tricks to reduce the noise
     pin_to_core(5);
     //unsafe{assert_ne!(libc::nice(-20-libc::nice(0)), -1);}
+    
+    // figure out how much overhead we add by measuring
     let calibration = calibrate_rdtsc();
+    // print the header of the csv
     println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs,read_ns_pe,write_ns_pe");
+    // benchmark the buffered impl
     impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
 }

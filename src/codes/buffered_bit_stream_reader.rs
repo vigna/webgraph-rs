@@ -171,7 +171,6 @@ if $USE_TABLE {
 }
 
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
-    #[must_use]
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
@@ -194,7 +193,6 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
         Ok(result as u64)
     }
 
-    #[must_use]
     #[inline]
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
@@ -214,7 +212,6 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
         
         Ok(result as u64)
     }
-    #[must_use]
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_m2l!(self, USE_TABLE, unary_tables);
@@ -242,7 +239,6 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
 }
 
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
-    #[must_use]
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
@@ -264,10 +260,9 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
         self.valid_bits -= n_bits;
         self.buffer >>= n_bits;
         
-        Ok(result as u64)
+        Ok(result)
     }
 
-    #[must_use]
     #[inline]
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
@@ -285,7 +280,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
         // be the lowest
         let result = get_lowest_bits(self.buffer as u64, n_bits);
         
-        Ok(result as u64)
+        Ok(result)
     }
 
     #[inline]

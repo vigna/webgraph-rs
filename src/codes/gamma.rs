@@ -34,14 +34,19 @@ pub trait GammaRead: BitRead {
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    #[must_use]
+    /// 
+    /// # Errors
+    /// This function fails only if the BitRead backend has problems reading
+    /// bits, as when the stream ended unexpectedly
     #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         self._default_read_gamma()
     }
 
     /// Trick to be able to call the default impl by specialized impls
-    #[must_use]
+    /// 
+    /// # Errors
+    /// Forward `read_unary` and `read_bits` errors.
     #[inline]
     fn _default_read_gamma(&mut self) -> Result<u64> {
         let len = self.read_unary::<false>()?;
@@ -56,12 +61,19 @@ pub trait GammaWrite: BitWrite {
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
+    /// 
+    /// # Errors
+    /// This function fails only if the BitRead backend has problems writing
+    /// bits, as when the stream ended unexpectedly
     #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         self._default_write_gamma(value)
     }
 
     /// Trick to be able to call the default impl by specialized impls
+    /// 
+    /// # Errors
+    /// Forward `read_unary` and `read_bits` errors.
     #[inline]
     fn _default_write_gamma(&mut self, mut value: u64) -> Result<()> {
         value += 1;

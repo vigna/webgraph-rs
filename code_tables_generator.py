@@ -1,17 +1,18 @@
 #!/usr/bin/python3
 """
-This file generate the `./src/codes/gamma_tables.rs` file.
+This file generate the `./src/codes/*_tables.rs` files.
 This is not a `build.rs` because it will mainly generated once and adding it to
 `build.rs` would cause a big slowdown of compilation because it would invalidate
 the cache.
 To run just execute `$ python ./gen_code_tables.py`
 """
-import os
 from math import log2, ceil, floor
 
+# Value we will use for values we cannot read using the current tables
 MISSING_VALUE_LEN = 255 # any value > 64 is fine
 
 def get_best_fitting_type(n_bits):
+    """Find the smallest rust type that can fit n_bits"""
     if n_bits <= 8:
         return "u8"
     if n_bits <= 16:
@@ -25,6 +26,8 @@ def get_best_fitting_type(n_bits):
     raise ValueError()
 
 def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_func, write_func):
+    """Main routine that generates the tables for a given code."""
+
     with open("./src/codes/{}_tables.rs".format(code_name), "w") as f:
         f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
 
@@ -75,14 +78,17 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
 ################################################################################
 
 def read_fixed(n_bits, bitstream, m2l):
+    """Read a fixed number of bits"""
     if len(bitstream) < n_bits:
         raise ValueError()
+    
     if m2l:
         return int(bitstream[:n_bits], 2), bitstream[n_bits:]
     else:
         return int(bitstream[-n_bits:], 2), bitstream[:-n_bits]
 
 def write_fixed(value, n_bits, bitstream, m2l):
+    """Write a fixed number of bits"""
     if m2l:
         return bitstream + ("{:0%sb}"%n_bits).format(value)
     else:
@@ -91,6 +97,7 @@ def write_fixed(value, n_bits, bitstream, m2l):
 ################################################################################
 
 def read_unary(bitstream, m2l):
+    """Read an unary code"""
     if m2l:
         l = len(bitstream) - len(bitstream.lstrip("0"))
         if l == len(bitstream):
@@ -103,12 +110,14 @@ def read_unary(bitstream, m2l):
         return l, bitstream[:-l - 1]
 
 def write_unary(value, bitstream, m2l):
+    """Write an unary code"""
     if m2l:
         return bitstream + "0" * value + "1"
     else:
         return "1" + "0" * value + bitstream
 
 def len_unary(value):
+    """The len of an unary code for value"""
     return value + 1
 
 # Test that the impl is reasonable
@@ -121,6 +130,7 @@ assert write_unary(2, "", False) == "100"
 assert write_unary(3, "", True)  == "0001"
 assert write_unary(3, "", False) == "1000"
 
+# Little consistency check
 for i in range(256):
     wm2l = write_unary(i, "", True)
     rm2l = read_unary(wm2l, True)[0]
@@ -133,6 +143,7 @@ for i in range(256):
     assert len(wl2m) == l
 
 def gen_unary(read_bits, write_max_val, len_max_val=None):
+    """Configuration of `gen_table` for unary"""
     len_max_val = len_max_val or write_max_val
     return gen_table(
         read_bits, write_max_val, len_max_val, 
@@ -143,6 +154,7 @@ def gen_unary(read_bits, write_max_val, len_max_val=None):
 ################################################################################
 
 def read_gamma(bitstream, m2l):
+    """Read a gamma code"""
     l, bitstream = read_unary(bitstream, m2l)
     if l == 0:
         return 0, bitstream
@@ -151,6 +163,7 @@ def read_gamma(bitstream, m2l):
     return v, bitstream
 
 def write_gamma(value, bitstream, m2l):
+    """Write a gamma code"""
     value += 1
     l = floor(log2(value))
     s = value - (1 << l)
@@ -160,6 +173,7 @@ def write_gamma(value, bitstream, m2l):
     return bitstream
 
 def len_gamma(value):
+    """Length of the gamma code of `value`"""
     value += 1
     l = floor(log2(value))
     return 2*l + 1
@@ -178,6 +192,7 @@ assert write_gamma(4, "", False) == "01100"
 assert write_gamma(5, "", True)  == "00110"
 assert write_gamma(5, "", False) == "10100"
 
+# Little consistency check
 for i in range(256):
     wm2l = write_gamma(i, "", True)
     rm2l = read_gamma(wm2l, True)[0]
@@ -190,6 +205,7 @@ for i in range(256):
     assert len(wl2m) == l
 
 def gen_gamma(read_bits, write_max_val, len_max_val=None):
+    """Configuration of `gen_table` for gamma"""
     len_max_val = len_max_val or write_max_val
     return gen_table(
         read_bits, write_max_val, len_max_val,
@@ -200,6 +216,7 @@ def gen_gamma(read_bits, write_max_val, len_max_val=None):
 ################################################################################
 
 def read_delta(bitstream, m2l):
+    """Read a delta code"""
     l, bitstream = read_gamma(bitstream, m2l)
     if l == 0:
         return 0, bitstream
@@ -208,6 +225,7 @@ def read_delta(bitstream, m2l):
     return v, bitstream
 
 def write_delta(value, bitstream, m2l):
+    """Write a delta code"""
     value += 1
     l = floor(log2(value))
     s = value - (1 << l)
@@ -217,6 +235,7 @@ def write_delta(value, bitstream, m2l):
     return bitstream
 
 def len_delta(value):
+    """Length of the delta code of `value`"""
     value += 1
     l = floor(log2(value))
     return l + len_gamma(l)
@@ -235,6 +254,7 @@ assert write_delta(4, "", False) == "01110"
 assert write_delta(5, "", True)  == "01110"
 assert write_delta(5, "", False) == "10110"
 
+# Little consistency check
 for i in range(256):
     wm2l = write_delta(i, "", True)
     rm2l = read_delta(wm2l, True)[0]
@@ -247,6 +267,7 @@ for i in range(256):
     assert len(wl2m) == l
 
 def gen_delta(read_bits, write_max_val, len_max_val=None):
+    """Configuration of `gen_table` for delta"""
     len_max_val = len_max_val or write_max_val
     return gen_table(
         read_bits, write_max_val, len_max_val,
@@ -257,6 +278,7 @@ def gen_delta(read_bits, write_max_val, len_max_val=None):
 ################################################################################
 
 if __name__ == "__main__":
+    # Generate the default tables
     gen_unary(read_bits=8, write_max_val=63)
     gen_gamma(read_bits=8, write_max_val=256)
     gen_delta(read_bits=8, write_max_val=256)

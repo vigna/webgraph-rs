@@ -25,6 +25,12 @@ pub trait WordStream {
     #[must_use]
     fn len(&self) -> usize;
 
+    #[must_use]
+    /// Return if the stream has any words or it's empty
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return the index of the **next** word that  will be
     /// read on the next [`WordRead::read_next_word`] call.
     #[must_use]
@@ -32,20 +38,30 @@ pub trait WordStream {
     
     /// Set the position in the stream so that the `word_index`-th word will be
     /// read on the next [`WordRead::read_next_word`] call.
+    /// 
+    /// # Errors
+    /// This function fails if the given `word_index` is out of bound of the 
+    /// underneath backend memory.
     fn set_position(&mut self, word_index: usize) -> Result<()>;
 }
 
 /// A [`WordStream`] that can be read from!
 pub trait WordRead: WordStream {
     /// Read a [`u64`] word from the stream and advance the position by 8 bytes.
-    #[must_use]
+    /// 
+    /// # Errors
+    /// This function fails if we cannot read the next word in the stream,
+    /// usually this happens when the stream ended.
     fn read_next_word(&mut self) -> Result<u64>;
 }
 
 /// A [`WordStream`] that can be written to!
 pub trait WordWrite: WordStream {
     /// Write a [`u64`] word from the stream and advance the position by 8 bytes.
-    #[must_use]
+    /// 
+    /// # Errors
+    /// This function fails if we cannot write a word to the stream,
+    /// usually this happens when the stream ended.
     fn write_word(&mut self, word: u64) -> Result<()>;
 }
 
@@ -179,7 +195,6 @@ macro_rules! impl_memword {
 // both
 impl<'a> WordRead for $ty<'a> {
     #[inline]
-    #[must_use]
     fn read_next_word(&mut self) -> Result<u64> {
         match self.data.get(self.word_index) {
             Some(word) => {

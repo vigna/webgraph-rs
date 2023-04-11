@@ -76,7 +76,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for M2L {
         if data.bits_in_buffer > 0 {
             let mut word = data.buffer as u64;
             let shamt = 64 - data.bits_in_buffer;
-            word = word << shamt;
+            word <<= shamt;
             data.backend.write_word(word.to_be())?;
         }
         Ok(())
@@ -167,7 +167,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for L2M {
         if data.bits_in_buffer > 0 {
             let mut word = (data.buffer >> 64) as u64;
             let shamt = 64 - data.bits_in_buffer;
-            word = word >> shamt;
+            word >>= shamt;
             data.backend.write_word(word.to_le())?;
         }
         Ok(())

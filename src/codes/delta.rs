@@ -32,15 +32,20 @@ pub trait DeltaRead: BitRead + GammaRead {
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    #[must_use]
+    /// 
+    /// # Errors
+    /// This function fails only if the BitRead backend has problems reading
+    /// bits, as when the stream ended unexpectedly
     #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         self._default_read_delta()
     }
 
-    #[must_use]
     #[inline]
     /// Trick to be able to call the default impl by specialized impls
+    /// 
+    /// # Errors
+    /// Forward `read_unary` and `read_bits` errors.
     fn _default_read_delta(&mut self) -> Result<u64> {
         let n_bits = self.read_gamma::<true>()?;
         debug_assert!(n_bits <= 0xff);
@@ -54,12 +59,19 @@ pub trait DeltaWrite: BitWrite + GammaWrite {
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
+    /// 
+    /// # Errors
+    /// This function fails only if the BitRead backend has problems writing
+    /// bits, as when the stream ended unexpectedly
     #[inline]
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         self._default_write_delta(value)
     }
 
     /// Trick to be able to call the default impl by specialized impls
+    /// 
+    /// # Errors
+    /// Forward `read_unary` and `read_bits` errors.
     #[inline]
     fn _default_write_delta(&mut self, mut value: u64) -> Result<()> {
         value += 1;

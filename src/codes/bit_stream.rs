@@ -4,6 +4,10 @@ use anyhow::Result;
 pub trait BitSeek {
     /// Move the stream cursor so that if we call `read_bits(1)` we will read 
     /// the `bit_index`-th bit in the stream
+    /// 
+    /// # Errors
+    /// This function return an error if the bit_index is not within the available
+    /// span of bits.
     fn seek_bit(&mut self, bit_index: usize) -> Result<()>;
 
     #[must_use]
@@ -15,15 +19,24 @@ pub trait BitSeek {
 /// of bits. The endianess of the returned bytes HAS TO BE THE NATIVE ONE.
 pub trait BitRead {
     /// Read `n_bits` bits from the stream and return them in the lowest bits
-    #[must_use]
+    /// 
+    /// # Errors
+    /// This function return an error if we cannot read `n_bits`, this usually
+    /// happens if we finished the stream.
     fn read_bits(&mut self, n_bits: u8) -> Result<u64>;
 
-    #[must_use]
     /// Like read_bits but it doesn't seek forward 
+    /// 
+    /// # Errors
+    /// This function return an error if we cannot read `n_bits`, this usually
+    /// happens if we finished the stream.
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64>;
 
     /// Read an unary code
-    #[must_use]
+    /// 
+    /// # Errors
+    /// This function return an error if we cannot read the unary code, this 
+    /// usually happens if we finished the stream.
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         let mut count = 0;
         loop {
@@ -45,9 +58,17 @@ pub trait BitRead {
 /// [`BitWrite`] for the same structure
 pub trait BitWrite {
     /// Write the lowest `n_bits` of value to the steam
+    /// 
+    /// # Errors
+    /// This function return an error if we cannot write `n_bits`, this usually
+    /// happens if we finished the stream.
     fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()>;
 
     /// Write `value` as an unary code to the stream
+    /// 
+    /// # Errors
+    /// This function return an error if we cannot write the unary code, this 
+    /// usually happens if we finished the stream.
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         for _ in 0..value {
             self.write_bits(0, 1)?;
@@ -63,5 +84,9 @@ pub trait BitWrite {
 pub trait BitWriteBuffered: BitWrite {
     /// Try to flush part of the buffer, this does not guarantee that **all**
     /// data will be flushed.
+    /// 
+    /// # Errors
+    /// This function might fail if we have bits in the buffer, but we finished
+    /// the writable stream. TODO!: figure out how to handle this situation.
     fn partial_flush(&mut self) -> Result<()>;
 }
