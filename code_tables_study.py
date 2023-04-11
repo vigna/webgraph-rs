@@ -6,6 +6,7 @@ with open("tables.csv", "w") as f:
     for bits in range(1, 16):
         gen_unary(bits, 63)
         gen_gamma(bits, 256)
+        gen_delta(bits, 256)
         
         stdout = subprocess.check_output(
             "cargo run --release", shell=True,
@@ -28,7 +29,7 @@ import matplotlib.pyplot as plt
 df = pd.read_csv("tables.csv", header=None)
 df.columns = "bits,pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs".split(",")
 
-for code in ["unary", "gamma"]:
+for code in ["unary", "gamma", "delta"]:
     plt.figure(figsize=(10, 8), dpi=200, facecolor="white")
     for pat in [
         "buffered::%s::L2M::Table"%code,

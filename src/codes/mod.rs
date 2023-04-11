@@ -88,5 +88,29 @@ pub use gamma::{
     GammaRead, GammaWrite, len_gamma,
 };
 
+mod delta;
+pub use delta::{
+    DeltaRead, DeltaWrite, len_delta,
+};
+
 pub mod unary_tables;
 pub mod gamma_tables;
+pub mod delta_tables;
+
+#[must_use]
+#[inline]
+/// Returns how long the unary code for `value` will be
+/// 
+/// `USE_TABLE` enables or disables the use of pre-computed tables
+/// for decoding
+pub fn len_unary<const USE_TABLE: bool>(value: u64) -> usize {
+    // we can use the table but it's not useful at all
+    // I implemented if for consistency with all the other codes
+    //
+    //if USE_TABLE {
+    //    if let Some(idx) = unary_tables::LEN.get(value as usize) {
+    //        return *idx as usize;
+    //    }
+    //}
+    (value + 1) as usize
+}

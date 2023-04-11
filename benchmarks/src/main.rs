@@ -8,7 +8,7 @@ const WARMUP_ITERS: usize = 100;
 const BENCH_ITERS: usize = 10_000;
 const CALIBRATION_ITERS: usize = 1_000_000;
 const SEED: u64 = 0x8c2b_781f_2866_90fd;
-// find tsc freq with `dmesg | grep tsc` and convert it to hertz
+// find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` and convert it to hertz
 // axolotl
 // const TSC_FREQ: u64 = 4_000_000_000;  
 // blew
@@ -153,6 +153,16 @@ macro_rules! impl_bench {
             .collect::<Vec<_>>();
         impl_code!(
             $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
+        );
+
+        let mut zipf = zipf::ZipfDistribution::new(1000, 4.0).unwrap();
+        let delta_data = (0..VALUES)
+            .map(|_| {
+                zipf.sample(&mut rng) as u64
+            })
+            .collect::<Vec<_>>();
+        impl_code!(
+            $cal, $mod_name, $reader, $writer, "delta", read_delta, write_delta, delta_data
         );
     };
 }

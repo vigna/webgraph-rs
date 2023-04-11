@@ -4,6 +4,7 @@ use super::{
     BitOrder, M2L, L2M,
     unary_tables, 
     GammaRead, gamma_tables,
+    DeltaRead, delta_tables,
 };
 use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail, Context};
@@ -96,6 +97,12 @@ impl<WR: WordRead> BufferedBitStreamRead<L2M, WR> {
 }
 
 impl<WR: WordRead> BitSeek for BufferedBitStreamRead<L2M, WR> {
+    #[inline]
+    fn get_position(&self) -> usize {
+        self.backend.get_position() * 64 - self.valid_bits as usize
+    }
+
+    #[inline]
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
         self.backend.set_position(bit_index / 64)
             .with_context(|| format!("BufferedBitStreamRead was seeking_bit {}", bit_index))?;
@@ -112,6 +119,12 @@ impl<WR: WordRead> BitSeek for BufferedBitStreamRead<L2M, WR> {
 }
 
 impl<WR: WordRead> BitSeek for BufferedBitStreamRead<M2L, WR> {
+    #[inline]
+    fn get_position(&self) -> usize {
+        self.backend.get_position() * 64 - self.valid_bits as usize
+    }
+
+    #[inline]
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
         self.backend.set_position(bit_index / 64)
             .with_context(|| format!("BufferedBitStreamRead was seeking_bit {}", bit_index))?;
@@ -159,6 +172,7 @@ if $USE_TABLE {
 
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     #[must_use]
+    #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
@@ -182,6 +196,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     }
 
     #[must_use]
+    #[inline]
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
@@ -201,6 +216,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
         Ok(result as u64)
     }
     #[must_use]
+    #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_m2l!(self, USE_TABLE, unary_tables);
         let mut result: u64 = 0;
@@ -228,6 +244,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
 
 impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     #[must_use]
+    #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
@@ -252,6 +269,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     }
 
     #[must_use]
+    #[inline]
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [1, 64] and {} is not.", n_bits);
@@ -271,6 +289,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
         Ok(result as u64)
     }
 
+    #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_l2m!(self, USE_TABLE, unary_tables);
         let mut result: u64 = 0;
@@ -297,14 +316,30 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
 }
 
 impl<WR: WordRead> GammaRead for BufferedBitStreamRead<M2L, WR> {
+    #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_m2l!(self, USE_TABLE, gamma_tables);
         self._default_read_gamma()
     }
 }
 impl<WR: WordRead> GammaRead for BufferedBitStreamRead<L2M, WR> {
+    #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_l2m!(self, USE_TABLE, gamma_tables);
         self._default_read_gamma()
+    }
+}
+impl<WR: WordRead> DeltaRead for BufferedBitStreamRead<M2L, WR> {
+    #[inline]
+    fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        impl_table_call_m2l!(self, USE_TABLE, delta_tables);
+        self._default_read_delta()
+    }
+}
+impl<WR: WordRead> DeltaRead for BufferedBitStreamRead<L2M, WR> {
+    #[inline]
+    fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        impl_table_call_l2m!(self, USE_TABLE, delta_tables);
+        self._default_read_delta()
     }
 }

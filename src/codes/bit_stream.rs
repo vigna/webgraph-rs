@@ -5,6 +5,10 @@ pub trait BitSeek {
     /// Move the stream cursor so that if we call `read_bits(1)` we will read 
     /// the `bit_index`-th bit in the stream
     fn seek_bit(&mut self, bit_index: usize) -> Result<()>;
+
+    #[must_use]
+    /// Return the current bit index
+    fn get_position(&self) -> usize;
 }
 
 /// Objects that can read a fixed number of bits and unary codes from a stream 

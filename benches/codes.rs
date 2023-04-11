@@ -172,6 +172,7 @@ macro_rules! impl_main {
 pub mod $mod_name {
     pub use super::*;
     impl_code!(gamma, read_gamma, write_gamma, $reader, $writer);
+    impl_code!(delta, read_delta, write_delta, $reader, $writer);
     impl_code!(unary, read_unary, write_unary, $reader, $writer);
 
     pub mod fixed_len {

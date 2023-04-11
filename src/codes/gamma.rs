@@ -8,18 +8,24 @@
 
 use anyhow::Result;
 
-use super::{BitRead, BitWrite};
+use super::{BitRead, BitWrite, gamma_tables};
 use crate::utils::fast_log2_floor;
 
-#[must_use]
 /// Returns how long the gamma code for `value` will be
 /// 
 /// `USE_TABLE` enables or disables the use of pre-computed tables
 /// for decoding
+#[must_use]
+#[inline]
 pub fn len_gamma<const USE_TABLE: bool>(mut value: u64) -> usize {
+    if USE_TABLE {
+        if let Some(idx) = gamma_tables::LEN.get(value as usize) {
+            return *idx as usize;
+        }
+    }
     value += 1;
     let number_of_blocks_to_write = fast_log2_floor(value);
-    2 * number_of_blocks_to_write as usize
+    2 * number_of_blocks_to_write as usize + 1
 }
 
 /// Trait for objects that can read Gamma codes
@@ -29,12 +35,14 @@ pub trait GammaRead: BitRead {
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
     #[must_use]
+    #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         self._default_read_gamma()
     }
 
-    #[must_use]
     /// Trick to be able to call the default impl by specialized impls
+    #[must_use]
+    #[inline]
     fn _default_read_gamma(&mut self) -> Result<u64> {
         let len = self.read_unary::<false>()?;
         debug_assert!(len <= u8::MAX as _);
@@ -48,11 +56,13 @@ pub trait GammaWrite: BitWrite {
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
+    #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         self._default_write_gamma(value)
     }
 
     /// Trick to be able to call the default impl by specialized impls
+    #[inline]
     fn _default_write_gamma(&mut self, mut value: u64) -> Result<()> {
         value += 1;
         let number_of_blocks_to_write = fast_log2_floor(value);
