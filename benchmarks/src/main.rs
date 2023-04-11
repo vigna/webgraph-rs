@@ -1,5 +1,4 @@
 use webgraph::codes::*;
-use rand::distributions::Distribution;
 use rand::Rng;
 use core::arch::x86_64::{__rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
@@ -146,20 +145,18 @@ macro_rules! impl_bench {
             $cal, $mod_name, $reader, $writer, "unary", read_unary, write_unary, unary_data
         );
 
-        let zipf = zipf::ZipfDistribution::new(1000, 2.0).unwrap();
         let gamma_data = (0..VALUES)
             .map(|_| {
-                zipf.sample(&mut rng) as u64
+                rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64
             })
             .collect::<Vec<_>>();
         impl_code!(
             $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
         );
 
-        let zipf = zipf::ZipfDistribution::new(1000, 1.01).unwrap();
         let delta_data = (0..VALUES)
             .map(|_| {
-                zipf.sample(&mut rng) as u64
+                rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64
             })
             .collect::<Vec<_>>();
         impl_code!(
