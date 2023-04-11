@@ -27,7 +27,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 df = pd.read_csv("tables.csv", header=None)
-df.columns = "bits,pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs".split(",")
+df.columns = "bits,pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs,read_ns_pe,write_ns_pe".split(",")
 
 for code in ["unary", "gamma", "delta"]:
     plt.figure(figsize=(10, 8), dpi=200, facecolor="white")
@@ -38,7 +38,7 @@ for code in ["unary", "gamma", "delta"]:
         "buffered::%s::M2L::NoTable"%code,
     ]:
         plt.plot(*zip(*[
-            (x[0], x[list(df.columns).index("read_ns")])
+            (x[0], x[list(df.columns).index("read_ns_pe")])
             for x in df.values
             if x[1] == pat
         ]), label=pat)
@@ -47,4 +47,4 @@ for code in ["unary", "gamma", "delta"]:
     plt.title("Performances of %s codes read and writes\nin function of the table size"%(code.capitalize()))
     plt.xlabel("Table Bits")
     plt.ylabel("ns")
-    plt.savefig("tables_%s.png"%code)
+    plt.savefig("tables_%s.png"%code, bbox_inches='tight')

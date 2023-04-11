@@ -3,9 +3,9 @@ use rand::prelude::*;
 use rand::distributions::Distribution;
 use core::arch::x86_64::{_rdtsc, __rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
-const VALUES: usize = 20_000;
+const VALUES: usize = 25_000;
 const WARMUP_ITERS: usize = 100;
-const BENCH_ITERS: usize = 10_000;
+const BENCH_ITERS: usize = 100_000;
 const CALIBRATION_ITERS: usize = 1_000_000;
 const SEED: u64 = 0x8c2b_781f_2866_90fd;
 // find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` and convert it to hertz
@@ -98,7 +98,7 @@ let table = if $table {
 } else {
     "NoTable"
 };
-println!("{}::{}::{}::{},{},{},{},{},{},{},{},{}",
+println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{},{}",
     $mod_name, $code, stringify!($bo), table,
     read_time, write_time,
     read_time / TSC_FREQ as f64, 
@@ -107,6 +107,8 @@ println!("{}::{}::{}::{},{},{},{},{},{},{},{},{}",
     (write_time / TSC_FREQ as f64) * 1e9,
     bytes as f64 / (read_time / TSC_FREQ as f64), 
     bytes as f64 / (write_time / TSC_FREQ as f64),
+    (read_time / TSC_FREQ as f64) * 1e9 / VALUES as f64, 
+    (write_time / TSC_FREQ as f64) * 1e9 / VALUES as f64,
 );
 
 
@@ -171,6 +173,6 @@ pub fn main() {
     pin_to_core(5);
     //unsafe{assert_ne!(libc::nice(-20-libc::nice(0)), -1);}
     let calibration = calibrate_rdtsc();
-    println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs");
+    println!("pat,read_cycles,write_cycles,read_seconds,write_seconds,read_ns,write_ns,read_bs,write_bs,read_ns_pe,write_ns_pe");
     impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
 }
