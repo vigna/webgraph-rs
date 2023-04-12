@@ -2,7 +2,7 @@ use super::{
     WordRead, 
     BitSeek, BitRead,
     BitOrder, M2L, L2M,
-    unary_tables, macros::impl_table_call,
+    unary_tables, macros::impl_table_call, WordStream,
 };
 use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail, Context};
@@ -94,7 +94,7 @@ impl<WR: WordRead> BufferedBitStreamRead<L2M, WR> {
     }
 }
 
-impl<WR: WordRead> BitSeek for BufferedBitStreamRead<L2M, WR> {
+impl<WR: WordRead + WordStream> BitSeek for BufferedBitStreamRead<L2M, WR> {
     #[inline]
     fn get_position(&self) -> usize {
         self.backend.get_position() * 64 - self.valid_bits as usize
@@ -116,7 +116,7 @@ impl<WR: WordRead> BitSeek for BufferedBitStreamRead<L2M, WR> {
     }
 }
 
-impl<WR: WordRead> BitSeek for BufferedBitStreamRead<M2L, WR> {
+impl<WR: WordRead + WordStream> BitSeek for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn get_position(&self) -> usize {
         self.backend.get_position() * 64 - self.valid_bits as usize

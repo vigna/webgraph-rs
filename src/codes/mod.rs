@@ -82,6 +82,9 @@ pub use buffered_bit_stream_reader::BufferedBitStreamRead;
 mod buffered_bit_stream_writer;
 pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
 
+//mod unbuffered_bit_stream_reader;
+//pub use unbuffered_bit_stream_reader::BitStreamRead;
+
 mod gamma;
 pub use gamma::{
     GammaRead, GammaWrite, len_gamma,

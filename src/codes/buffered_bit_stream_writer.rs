@@ -7,18 +7,19 @@ use super::{
 use anyhow::{Result, bail};
 
 /// An implementation of [`BitWrite`] on a generic [`WordWrite`]
-pub struct BufferedBitStreamWrite<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> {
-    ///
+pub struct BufferedBitStreamWrite<BO: BBSWDrop<WR>, WR: WordWrite> {
+    /// The backend used to write words to
     backend: WR,
-    ///
+    /// The buffer where we store code writes until we have a word worth of bits
     buffer: u128,
-    ///
+    /// Counter of how many bits in buffer are to consider valid and should be
+    /// written to be backend
     bits_in_buffer: u8,
-    ///
+    /// make the compiler happy :)
     _marker: core::marker::PhantomData<BO>,
 }
 
-impl<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> {
+impl<BO: BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> {
     ///
     pub fn new(backend: WR) -> Self {
 
@@ -47,7 +48,7 @@ impl<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> 
     }
 }
 
-impl<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitStreamWrite<BO, WR> {
+impl<BO: BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitStreamWrite<BO, WR> {
     fn drop(&mut self) {
         // During a drop we can't save anything if it goes bad :/
         let _ = BO::drop(self);
@@ -57,8 +58,6 @@ impl<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBit
 /// Ignore. Inner trait needed for dispatching of drop logic based on endianess 
 /// of a [`BufferedBitStreamWrite`]. This is public to avoid the leak of 
 /// private traits in public defs, an user should never need to implement this.
-/// 
-/// TODO!: should we make a wrapper trait to make this trait private?
 /// 
 /// I discussed this [here](https://users.rust-lang.org/t/on-generic-associated-enum-and-type-comparisons/92072).
 pub trait BBSWDrop<WR: WordWrite>: Sized + BitOrder {

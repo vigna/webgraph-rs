@@ -1,24 +1,6 @@
 use anyhow::{Result, bail};
 
-/// Trait of the common aspects of [`WordRead`] and [`WordWrite`].
-/// 
-/// While usually a Writer implies the possibility to read, this is not always
-/// true, so we treat them as invariant traits.
-/// 
-/// A trait that allows reading [`u64`] words from a stream of bytes.
-/// This trait is used to abstract the logic and allow homogeneous use of 
-/// files, memory-mapped files, memory, sockets, and other sources.
-/// 
-/// ### Word size
-/// While it shares many similarities with [`std::io::Read`], this works on 
-/// [`u64`] instead of [`u8`]. 
-/// 
-/// The stream has to be a multiple of 8.
-///
-/// If needed, the last word has to be 0-padded, as it is the default `mmap` 
-/// behaviour on `linux`:
-/// > The system shall always zero-fill any partial page at the end of an object.
-/// [Source](https://manned.org/mmap.3p)
+/// A Seekable word stream
 pub trait WordStream {
     /// Return the number of [`u64`] words readable from the start of the stream.
     /// Any index in  `[0, self.len())` is valid.
@@ -45,8 +27,8 @@ pub trait WordStream {
     fn set_position(&mut self, word_index: usize) -> Result<()>;
 }
 
-/// A [`WordStream`] that can be read from!
-pub trait WordRead: WordStream {
+/// An object we can read words from sequentially
+pub trait WordRead {
     /// Read a [`u64`] word from the stream and advance the position by 8 bytes.
     /// 
     /// # Errors
@@ -55,8 +37,8 @@ pub trait WordRead: WordStream {
     fn read_next_word(&mut self) -> Result<u64>;
 }
 
-/// A [`WordStream`] that can be written to!
-pub trait WordWrite: WordStream {
+/// An object that we can write words to sequentially
+pub trait WordWrite {
     /// Write a [`u64`] word from the stream and advance the position by 8 bytes.
     /// 
     /// # Errors
