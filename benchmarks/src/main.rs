@@ -28,6 +28,66 @@ fn rdtsc() -> u64 {
     }
 }
 
+struct MetricsStream {
+    min: f64,
+    max: f64,
+    avg: f64,
+    m2: f64,
+    count: usize,
+}
+
+struct Metrics {
+    min: f64,
+    max: f64,
+    avg: f64,
+    var: f64,
+    std: f64,
+    count: usize,
+}
+
+impl Default for MetricsStream {
+    fn default() -> Self {
+        MetricsStream {
+            max: f64::NEG_INFINITY,
+            min: f64::INFINITY,
+            avg: 0.0,
+            m2: 0.0,
+            count: 0,
+        }
+    }
+}
+
+impl MetricsStream {
+    fn update(&mut self, value: f64) {
+        self.min = self.min.min(value);
+        self.max = self.max.max(value);
+
+        // Welford algorithm 
+        // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        self.count += 1;
+        let delta = value - self.avg;
+        self.avg += delta / self.count as f64;
+        let delta2 = value - self.avg;
+        self.m2 += delta * delta2;
+    }
+
+    fn finalize(self) -> Metrics {
+        if self.count < 2 {
+            panic!();
+        }
+        let to_ns = 1e9 / TSC_FREQ as f64;
+        let var = self.m2 / (self.count - 1) as f64;
+        Metrics {
+            min: to_ns * self.min ,
+            max: to_ns * self.max,
+            count: self.count,
+            avg: to_ns * self.avg,
+            var: to_ns * var,
+            std: to_ns * var.sqrt(),
+        }
+    }
+}
+
 /// Routine for measuring the measurement overhead. This is usually around
 /// 147 cycles.
 fn calibrate_rdtsc() -> u64 {
@@ -68,15 +128,9 @@ macro_rules! bench {
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
-let mut read_cycles_max: f64 = 0.0;
-let mut read_cycles_avg: f64 = 0.0;
-let mut read_cycles_min: f64 = f64::INFINITY;
-let mut read_cycles_squares: f64 = 0.0;
+let mut read = MetricsStream::default();
+let mut write = MetricsStream::default();
 
-let mut write_cycles_max: f64 = 0.0;
-let mut write_cycles_avg: f64 = 0.0;
-let mut write_cycles_min: f64 = f64::INFINITY;
-let mut write_cycles_squares: f64 = 0.0;
 // measure
 for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     buffer.clear();
@@ -95,11 +149,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             let cycles = ((w_end - w_start) - $cal) as f64;
-            let avg_cycles = cycles /  BENCH_ITERS as f64;
-            write_cycles_avg += avg_cycles;
-            write_cycles_squares += avg_cycles*avg_cycles;
-            write_cycles_max = write_cycles_max.max(cycles);
-            write_cycles_min = write_cycles_min.min(cycles);
+            write.update(cycles);
         }
     }
     // read the codes
@@ -117,29 +167,14 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             let cycles = ((r_end - r_start) - $cal) as f64;
-            let avg_cycles = cycles /  BENCH_ITERS as f64;
-            read_cycles_avg += avg_cycles;
-            read_cycles_squares += avg_cycles*avg_cycles;
-            read_cycles_max = read_cycles_max.max(cycles);
-            read_cycles_min = read_cycles_min.min(cycles);
+            let avg_cycles = cycles / BENCH_ITERS as f64;
+            read.update(cycles);
         }
     }
 }
 // convert from cycles to nano seconds
-let read_time_min  = read_cycles_min * 1e9 / TSC_FREQ as f64;
-let write_time_min = write_cycles_min * 1e9 / TSC_FREQ as f64;
-let read_time_max  = read_cycles_max * 1e9 / TSC_FREQ as f64;
-let write_time_max = write_cycles_max * 1e9 / TSC_FREQ as f64;
-
-let read_time_avg  = read_cycles_avg * 1e9 / TSC_FREQ as f64;
-let write_time_avg = write_cycles_avg * 1e9 / TSC_FREQ as f64;
-
-let read_time_squares  = read_cycles_squares  * 1e9 / TSC_FREQ as f64;
-let write_time_squares = write_cycles_squares * 1e9 / TSC_FREQ as f64;
-
-// compute the stds
-let read_time_std = (read_time_squares - read_time_avg*read_time_avg).sqrt();
-let write_time_std = (write_time_squares - write_time_avg*write_time_avg).sqrt();
+let read = read.finalize();
+let write = write.finalize();
 
 let bytes = buffer.len() * 8;
 let table = if $table {
@@ -151,14 +186,14 @@ let table = if $table {
 println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{}",
     $mod_name, $code, stringify!($bo), table, // the informations about what we are benchmarking
     bytes,
-    read_time_avg / VALUES as f64, 
-    read_time_std / VALUES as f64, 
-    read_time_max / VALUES as f64, 
-    read_time_min / VALUES as f64,
-    write_time_avg / VALUES as f64, 
-    write_time_std / VALUES as f64,
-    write_time_max / VALUES as f64, 
-    write_time_min / VALUES as f64,
+    read.avg / VALUES as f64, 
+    read.std / VALUES as f64, 
+    read.max / VALUES as f64, 
+    read.min / VALUES as f64,
+    write.avg / VALUES as f64, 
+    write.std / VALUES as f64,
+    write.max / VALUES as f64, 
+    write.min / VALUES as f64,
 );
 
 
