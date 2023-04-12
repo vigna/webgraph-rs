@@ -94,10 +94,10 @@ mod delta;
 pub use delta::{
     DeltaRead, DeltaWrite, len_delta,
 };
-mod minimal_binary;
-pub use minimal_binary::{
-    MinimalBinaryRead, MinimalBinaryWrite, len_minimal_binary,
-};
+//mod minimal_binary;
+//pub use minimal_binary::{
+//    MinimalBinaryRead, MinimalBinaryWrite, len_minimal_binary,
+//};
 
 #[macro_use]
 pub(crate) mod macros;

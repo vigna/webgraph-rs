@@ -34,6 +34,9 @@ pub trait BitRead<BO: BitOrder> {
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64>;
 
     /// Skip n_bits from the stream
+    /// 
+    /// # Errors
+    /// Thi function errors if skipping n_bits the underlying streams ends.
     fn skip_bits(&mut self, n_bits: u8) -> Result<()>;
 
     /// Read an unary code

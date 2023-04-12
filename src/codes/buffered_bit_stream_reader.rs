@@ -154,6 +154,7 @@ impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
         // skip words as needed
         while n_bits > 64 {
             let _ = self.backend.read_next_word()?;
+            n_bits -= 64;
         }
         // read the new word and clear the final bits
         self.refill()?;
@@ -245,6 +246,7 @@ impl<WR: WordRead> BitRead<L2M> for BufferedBitStreamRead<L2M, WR> {
         // skip words as needed
         while n_bits > 64 {
             let _ = self.backend.read_next_word()?;
+            n_bits -= 64;
         }
         // read the new word and clear the final bits
         self.refill()?;
