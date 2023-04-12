@@ -68,9 +68,14 @@ macro_rules! bench {
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
-let mut read_cycles: f64 = 0.0;
+let mut read_cycles_max: f64 = 0.0;
+let mut read_cycles_avg: f64 = 0.0;
+let mut read_cycles_min: f64 = f64::INFINITY;
 let mut read_cycles_squares: f64 = 0.0;
-let mut write_cycles: f64 = 0.0;
+
+let mut write_cycles_max: f64 = 0.0;
+let mut write_cycles_avg: f64 = 0.0;
+let mut write_cycles_min: f64 = f64::INFINITY;
 let mut write_cycles_squares: f64 = 0.0;
 // measure
 for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
@@ -90,8 +95,10 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             let cycles = ((w_end - w_start) - $cal) as f64;
-            write_cycles += cycles /  BENCH_ITERS as f64;
+            write_cycles_avg += cycles /  BENCH_ITERS as f64;
             write_cycles_squares += cycles*cycles / BENCH_ITERS as f64;
+            write_cycles_max = write_cycles_max.max(cycles);
+            write_cycles_min = write_cycles_min.min(cycles);
         }
     }
     // read the codes
@@ -109,20 +116,26 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             let cycles = ((r_end - r_start) - $cal) as f64;
-            read_cycles += cycles /  BENCH_ITERS as f64;
+            read_cycles_avg += cycles /  BENCH_ITERS as f64;
             read_cycles_squares += cycles*cycles / BENCH_ITERS as f64;
+            read_cycles_max = read_cycles_max.max(cycles);
+            read_cycles_min = read_cycles_min.min(cycles);
         }
     }
 }
 // convert from cycles to nano seconds
-let read_time  = read_cycles * 1e9 / TSC_FREQ as f64;
-let write_time = write_cycles * 1e9 / TSC_FREQ as f64;
+let read_time_avg  = read_cycles_avg * 1e9 / TSC_FREQ as f64;
+let write_time_avg = write_cycles_avg * 1e9 / TSC_FREQ as f64;
+let read_time_min  = read_cycles_min * 1e9 / TSC_FREQ as f64;
+let write_time_min = write_cycles_min * 1e9 / TSC_FREQ as f64;
+let read_time_max  = read_cycles_max * 1e9 / TSC_FREQ as f64;
+let write_time_max = write_cycles_max * 1e9 / TSC_FREQ as f64;
 let read_time_squares  = read_cycles_squares  * 1e9 / TSC_FREQ as f64;
 let write_time_squares = write_cycles_squares * 1e9 / TSC_FREQ as f64;
 
 // compute the stds
-let read_std = (read_time_squares - read_time*read_time).sqrt();
-let write_std = (write_time_squares - write_time*write_time).sqrt();
+let read_time_std = (read_time_squares - read_time_avg*read_time_avg).sqrt();
+let write_time_std = (write_time_squares - write_time_avg*write_time_avg).sqrt();
 
 let bytes = buffer.len() * 8;
 let table = if $table {
@@ -131,16 +144,17 @@ let table = if $table {
     "NoTable"
 };
 // print the results
-println!("{}::{}::{}::{},{},{},{},{},{},{},{},{}",
+println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{}",
     $mod_name, $code, stringify!($bo), table, // the informations about what we are benchmarking
-    read_time, 
-    read_std, 
-    write_time, 
-    write_std,
-    read_time / VALUES as f64,
-    read_std / VALUES as f64,
-    write_time / VALUES as f64,
-    write_std / VALUES as f64,
+    bytes,
+    read_time_avg / VALUES as f64, 
+    read_time_std / VALUES as f64, 
+    read_time_max / VALUES as f64, 
+    read_time_min / VALUES as f64,
+    write_time_avg / VALUES as f64, 
+    write_time_std / VALUES as f64,
+    write_time_max / VALUES as f64, 
+    write_time_min / VALUES as f64,
 );
 
 
@@ -209,7 +223,11 @@ pub fn main() {
     // figure out how much overhead we add by measuring
     let calibration = calibrate_rdtsc();
     // print the header of the csv
-    println!("pat,read_ns,read_ns_std,write_ns,write_ns_std,read_ns_pe,read_ns_pe_std,write_ns_pe,write_ns_pe_std");
+    print!("pat,bytes,");
+    print!("read_ns_avg,read_ns_std,read_ns_max,read_ns_min,");
+    print!("write_ns_avg,write_ns_std,write_ns_max,write_ns_min");
+    print!("\n");
+
     // benchmark the buffered impl
     impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
 }
