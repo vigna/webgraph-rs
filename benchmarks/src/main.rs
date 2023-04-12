@@ -121,7 +121,7 @@ let read_time_squares  = read_cycles_squares  * 1e9 / TSC_FREQ as f64;
 let write_time_squares = write_cycles_squares * 1e9 / TSC_FREQ as f64;
 
 // compute the stds
-let read_std = (read_time*read_time - read_time_squares).sqrt();
+let read_std = (read_time_squares - read_time*read_time).sqrt();
 let write_std = (write_time*write_time - write_time_squares).sqrt();
 
 let bytes = buffer.len() * 8;

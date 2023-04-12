@@ -7,7 +7,7 @@ import subprocess
 from code_tables_generator import *
 
 with open("tables.csv", "w") as f:
-    for bits in range(1, 20):
+    for bits in range(1, 18):
         print(bits)
         # Create the tables
         gen_unary(bits, 63)
