@@ -109,12 +109,12 @@ fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>>(
     backend: &mut B, mut value: u64,
 ) -> Result<()> {
     value += 1;
-    let number_of_blocks_to_write = fast_log2_floor(value);
-    debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
+    let number_of_bits_to_write = fast_log2_floor(value);
+    debug_assert!(number_of_bits_to_write <= u8::MAX as _);
     // remove the most significant 1
-    let short_value = value - (1 << number_of_blocks_to_write);
+    let short_value = value - (1 << number_of_bits_to_write);
     // Write the code
-    backend.write_gamma::<true>(number_of_blocks_to_write)?;
-    backend.write_bits(short_value, number_of_blocks_to_write as u8)?;
+    backend.write_gamma::<true>(number_of_bits_to_write)?;
+    backend.write_bits(short_value, number_of_bits_to_write as u8)?;
     Ok(())
 }

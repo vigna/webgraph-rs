@@ -1,5 +1,5 @@
 /// The logic of the read tables lookup are always the same so this is just a 
-/// way to centralize the code. (L2M implementation)
+/// way to centralize the code.
 macro_rules! impl_table_call {
     ($self:expr, $USE_TABLE:expr, $tabs:ident, M2L) => {
         if $USE_TABLE {

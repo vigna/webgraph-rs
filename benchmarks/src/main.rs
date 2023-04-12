@@ -63,6 +63,7 @@ use x86_64::*;
 #[cfg(not(target_cpu="x86_64"))]
 use std::time::Instant;
 
+/// Structure to compute statistics from a stream
 struct MetricsStream {
     min: f64,
     max: f64,
@@ -72,6 +73,7 @@ struct MetricsStream {
 }
 
 #[derive(Debug)]
+/// The result of [`MetricStream`]
 struct Metrics {
     min: f64,
     max: f64,
@@ -94,6 +96,7 @@ impl Default for MetricsStream {
 }
 
 impl MetricsStream {
+    /// Ingest a value from the stream
     fn update(&mut self, value: f64) {
         self.min = self.min.min(value);
         self.max = self.max.max(value);
@@ -107,6 +110,7 @@ impl MetricsStream {
         self.m2 += delta * delta2;
     }
 
+    /// Consume this builder to get the statistics
     fn finalize(self) -> Metrics {
         if self.count < 2 {
             panic!();
@@ -123,9 +127,8 @@ impl MetricsStream {
     }
 }
 
-/// Routine for measuring the measurement overhead. This is usually around
-/// 147 cycles.
-fn calibrate_rdtsc() -> u128 {
+/// Routine for measuring the measurement overhead.
+fn calibrate_overhead() -> u128 {
     let mut nanos = MetricsStream::default();
     // For many times, measure an empty block 
     for _ in 0..CALIBRATION_ITERS {
@@ -288,7 +291,7 @@ pub fn main() {
     //unsafe{assert_ne!(libc::nice(-20-libc::nice(0)), -1);}
     
     // figure out how much overhead we add by measuring
-    let calibration = calibrate_rdtsc();
+    let calibration = calibrate_overhead();
     // print the header of the csv
     print!("pat,bytes,");
     print!("read_ns_avg,read_ns_std,read_ns_max,read_ns_min,");

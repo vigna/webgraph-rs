@@ -166,19 +166,8 @@ impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
 
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
-        if n_bits > 64 {
-            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
-        }
-        if n_bits == 0 {
-            return Ok(0);
-        }
-        if n_bits > self.valid_bits {
-            self.refill()?;
-        }
-
-        // read the `n_bits` highest bits of the buffer and shift them to
-        // be the lowest
-        let result = self.buffer >> (128 - n_bits);
+        let result = self.peek_bits(n_bits)?;
+        
         // remove the read bits from the buffer
         self.valid_bits -= n_bits;
         self.buffer <<= n_bits;
@@ -258,20 +247,7 @@ impl<WR: WordRead> BitRead<L2M> for BufferedBitStreamRead<L2M, WR> {
 
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
-        if n_bits > 64 {
-            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
-        }
-        if n_bits == 0 {
-            return Ok(0);
-        }
-
-        if n_bits > self.valid_bits {
-            self.refill()?;
-        }
-
-        // read the `n_bits` highest bits of the buffer and shift them to
-        // be the lowest
-        let result = get_lowest_bits(self.buffer as u64, n_bits);
+        let result = self.peek_bits(n_bits)?;
 
         // remove the read bits from the buffer
         self.valid_bits -= n_bits;

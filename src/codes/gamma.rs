@@ -56,7 +56,6 @@ fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u
     Ok(backend.read_bits(len as u8)? + (1 << len) - 1)
 }
 
-
 impl<B: BitRead<M2L>> GammaRead<M2L> for B {
     #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
@@ -113,12 +112,12 @@ fn default_write_gamma<BO: BitOrder, B: BitWrite<BO>>(
     backend: &mut B, mut value: u64,
 ) -> Result<()> {
     value += 1;
-    let number_of_blocks_to_write = fast_log2_floor(value);
-    debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
+    let number_of_bits_to_write = fast_log2_floor(value);
+    debug_assert!(number_of_bits_to_write <= u8::MAX as _);
     // remove the most significant 1
-    let short_value = value - (1 << number_of_blocks_to_write);
+    let short_value = value - (1 << number_of_bits_to_write);
     // Write the code
-    backend.write_unary::<false>(number_of_blocks_to_write)?;
-    backend.write_bits(short_value, number_of_blocks_to_write as u8)?;
+    backend.write_unary::<false>(number_of_bits_to_write)?;
+    backend.write_bits(short_value, number_of_bits_to_write as u8)?;
     Ok(())
 }

@@ -43,5 +43,6 @@ pub fn get_lowest_bits(value: u64, n_bits: u8) -> u64 {
 #[inline(always)]
 #[must_use]
 pub const fn fast_log2_floor(value: u64) -> u64 {
+    debug_assert!(value > 0);
     63 - (value | 1).leading_zeros() as u64
 }

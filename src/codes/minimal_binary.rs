@@ -19,28 +19,40 @@ pub fn len_minimal_binary<const USE_TABLE: bool>(_value: u64, _max: u64) -> usiz
     todo!();
 }
 
-/// Trait for objects that can read Minimal Binary codes
+/// 
 pub trait MinimalBinaryRead<BO: BitOrder>: BitRead<BO> {
-    /// Read a Minimal Binary code from the stream.
     /// 
-    /// `USE_TABLE` enables or disables the use of pre-computed tables
-    /// for decoding
-    /// 
-    /// # Errors
-    /// This function fails only if the BitRead backend has problems reading
-    /// bits, as when the stream ended unexpectedly
-    fn read_minimal_binary<const USE_TABLE: bool>(&mut self, max: u64) -> Result<u64>;
+    #[inline]
+    fn read_minimal_binary<const USE_TABLE: bool>(&mut self, max: u64) -> Result<u64> {
+        let l = fast_log2_floor(max);
+        let mut value = self.read_bits(l)?;
+        let limit = (1 << l + 1) - max;
+
+        Ok(if value < limit {
+            value
+        } else {
+            value <<= 1;
+            value |= self.read_bits(1)?;
+            value - limit
+        })
+    }
 }
 
-/// Trait for objects that can write Gamma codes
+/// 
 pub trait MinimalBinaryWrite<BO: BitOrder>: BitWrite<BO> {
-    /// Write a value on the stream
     /// 
-    /// `USE_TABLE` enables or disables the use of pre-computed tables
-    /// for decoding
-    /// 
-    /// # Errors
-    /// This function fails only if the BitRead backend has problems writing
-    /// bits, as when the stream ended unexpectedly
-    fn write_minimal_binary<const USE_TABLE: bool>(&mut self, value: u64, max: u64) -> Result<()>;
+    #[inline]
+    fn write_minimal_binary<const USE_TABLE: bool>(
+        &mut self, value: u64, max: u64) -> Result<()> {
+        let l = fast_log2_floor(max);
+        let limit = (1 << l + 1) - max;
+
+        if value < limit {
+            self.write_bits(value, l)
+        } else {
+            let to_write = value + limit;
+            self.write_bits(to_write >> 1, l)?;
+            self.write_bits(to_write & 1, 1);
+        }
+    }
 }
