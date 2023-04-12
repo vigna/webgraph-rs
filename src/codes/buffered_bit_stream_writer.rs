@@ -83,7 +83,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for M2L {
     }
 }
 
-impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn partial_flush(&mut self) -> Result<()> {
         if self.bits_in_buffer < 64 {
@@ -96,7 +96,7 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<M2L, WR> {
     }
 }
 
-impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
         if n_bits > 64 {
@@ -174,7 +174,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for L2M {
     }
 }
 
-impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn partial_flush(&mut self) -> Result<()> {
         if self.bits_in_buffer < 64 {
@@ -187,7 +187,7 @@ impl<WR: WordWrite> BitWriteBuffered for BufferedBitStreamWrite<L2M, WR> {
     }
 }
 
-impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
         if n_bits > 64 {
@@ -252,7 +252,7 @@ impl<WR: WordWrite> BitWrite for BufferedBitStreamWrite<L2M, WR> {
     }
 }
 
-impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite> GammaWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
@@ -261,7 +261,7 @@ impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<M2L, WR> {
         default_write_gamma(self, value)
     }
 }
-impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite> GammaWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
@@ -270,7 +270,7 @@ impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {
         default_write_gamma(self, value)
     }
 }
-impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite> DeltaWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
@@ -279,7 +279,7 @@ impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<M2L, WR> {
         default_write_delta(self, value)
     }
 }
-impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite> DeltaWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {

@@ -170,7 +170,7 @@ if $USE_TABLE {
     };
 }
 
-impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
+impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
@@ -238,7 +238,7 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<M2L, WR> {
     }
 }
 
-impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
+impl<WR: WordRead> BitRead<L2M> for BufferedBitStreamRead<L2M, WR> {
     #[inline]
     fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
         if n_bits > 64 {
@@ -309,28 +309,28 @@ impl<WR: WordRead> BitRead for BufferedBitStreamRead<L2M, WR> {
     }
 }
 
-impl<WR: WordRead> GammaRead for BufferedBitStreamRead<M2L, WR> {
+impl<WR: WordRead> GammaRead<M2L> for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_m2l!(self, USE_TABLE, gamma_tables);
         default_read_gamma(self)
     }
 }
-impl<WR: WordRead> GammaRead for BufferedBitStreamRead<L2M, WR> {
+impl<WR: WordRead> GammaRead<L2M> for BufferedBitStreamRead<L2M, WR> {
     #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_l2m!(self, USE_TABLE, gamma_tables);
         default_read_gamma(self)
     }
 }
-impl<WR: WordRead> DeltaRead for BufferedBitStreamRead<M2L, WR> {
+impl<WR: WordRead> DeltaRead<M2L> for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_m2l!(self, USE_TABLE, delta_tables);
         default_read_delta(self)
     }
 }
-impl<WR: WordRead> DeltaRead for BufferedBitStreamRead<L2M, WR> {
+impl<WR: WordRead> DeltaRead<L2M> for BufferedBitStreamRead<L2M, WR> {
     #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call_l2m!(self, USE_TABLE, delta_tables);

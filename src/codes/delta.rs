@@ -5,8 +5,7 @@
 use anyhow::Result;
 
 use super::{
-    BitRead, BitWrite, 
-    GammaRead, GammaWrite, len_gamma, delta_tables,
+    GammaRead, GammaWrite, len_gamma, delta_tables, BitOrder,
 };
 use crate::utils::fast_log2_floor;
 
@@ -31,14 +30,16 @@ pub fn len_delta<const USE_TABLE: bool>(value: u64) -> usize {
 /// 
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
-pub fn default_read_delta<B: BitRead + GammaRead>(backend: &mut B) -> Result<u64> {
+pub fn default_read_delta<BO: BitOrder, B: GammaRead<BO>>(
+    backend: &mut B
+) -> Result<u64> {
     let n_bits = backend.read_gamma::<true>()?;
     debug_assert!(n_bits <= 0xff);
     Ok(backend.read_bits(n_bits as u8)? + (1 << n_bits) - 1)
 }
 
 /// Trait for objects that can read Delta codes
-pub trait DeltaRead: BitRead + GammaRead{
+pub trait DeltaRead<BO: BitOrder>: GammaRead<BO> {
     /// Read a delta code from the stream.
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
@@ -58,7 +59,9 @@ pub trait DeltaRead: BitRead + GammaRead{
 /// # Errors
 /// Forward `write_unary` and `write_bits` errors.
 #[inline(always)]
-pub fn default_write_delta<B: BitWrite + GammaWrite>(backend: &mut B, mut value: u64) -> Result<()> {
+pub fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>>(
+    backend: &mut B, mut value: u64,
+) -> Result<()> {
     value += 1;
     let number_of_blocks_to_write = fast_log2_floor(value);
     debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
@@ -71,7 +74,7 @@ pub fn default_write_delta<B: BitWrite + GammaWrite>(backend: &mut B, mut value:
 }
 
 /// Trait for objects that can write Delta codes
-pub trait DeltaWrite: BitWrite + GammaWrite {
+pub trait DeltaWrite<BO: BitOrder>: GammaWrite<BO> {
     /// Write a value on the stream
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables

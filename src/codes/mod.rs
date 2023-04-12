@@ -70,7 +70,6 @@ mod bit_stream;
 pub use bit_stream::{
     BitSeek, BitRead, BitWrite, BitWriteBuffered,
 };
-
 mod word_stream;
 pub use word_stream::{
     WordStream, WordRead, WordWrite,

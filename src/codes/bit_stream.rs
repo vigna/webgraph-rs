@@ -1,4 +1,5 @@
 use anyhow::Result;
+use super::BitOrder;
 
 /// Trait to convert a Stream to a Seekable Stream
 pub trait BitSeek {
@@ -17,7 +18,7 @@ pub trait BitSeek {
 
 /// Objects that can read a fixed number of bits and unary codes from a stream 
 /// of bits. The endianess of the returned bytes HAS TO BE THE NATIVE ONE.
-pub trait BitRead: Sized {
+pub trait BitRead<BO: BitOrder>: Sized {
     /// Read `n_bits` bits from the stream and return them in the lowest bits
     /// 
     /// # Errors
@@ -56,7 +57,7 @@ pub trait BitRead: Sized {
 /// we would have to be able to read them back, thus impling implementing
 /// [`BitRead`]. Nothing stops someone to implement both [`BitStream`] and
 /// [`BitWrite`] for the same structure
-pub trait BitWrite: Sized {
+pub trait BitWrite<BO: BitOrder>: Sized {
     /// Write the lowest `n_bits` of value to the steam
     /// 
     /// # Errors
@@ -81,7 +82,7 @@ pub trait BitWrite: Sized {
 /// [`BitWrite`] objects that use buffering also need to control the flushing
 /// of said buffer. Since this is a subtrait of [`BitWrite`], objects 
 /// implementing this trait **HAVE TO** call flush on drop.
-pub trait BitWriteBuffered: BitWrite {
+pub trait BitWriteBuffered<BO: BitOrder>: BitWrite<BO> {
     /// Try to flush part of the buffer, this does not guarantee that **all**
     /// data will be flushed.
     /// 
