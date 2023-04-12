@@ -28,6 +28,17 @@ pub fn len_gamma<const USE_TABLE: bool>(mut value: u64) -> usize {
     2 * number_of_blocks_to_write as usize + 1
 }
 
+/// Default impl, so specialized impls can call it
+/// 
+/// # Errors
+/// Forward `read_unary` and `read_bits` errors.
+#[inline(always)]
+pub fn default_read_gamma<B: BitRead>(backend: &mut B) -> Result<u64> {
+    let len = backend.read_unary::<false>()?;
+    debug_assert!(len <= u8::MAX as _);
+    Ok(backend.read_bits(len as u8)? + (1 << len) - 1)
+}
+
 /// Trait for objects that can read Gamma codes
 pub trait GammaRead: BitRead {
     /// Read a gamma code from the stream.
@@ -40,19 +51,25 @@ pub trait GammaRead: BitRead {
     /// bits, as when the stream ended unexpectedly
     #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        self._default_read_gamma()
+        default_read_gamma(self)
     }
+}
 
-    /// Trick to be able to call the default impl by specialized impls
-    /// 
-    /// # Errors
-    /// Forward `read_unary` and `read_bits` errors.
-    #[inline]
-    fn _default_read_gamma(&mut self) -> Result<u64> {
-        let len = self.read_unary::<false>()?;
-        debug_assert!(len <= u8::MAX as _);
-        Ok(self.read_bits(len as u8)? + (1 << len) - 1)
-    }
+/// Default impl, so specialized impls can call it
+/// 
+/// # Errors
+/// Forward `read_unary` and `read_bits` errors.
+#[inline(always)]
+pub fn default_write_gamma<B: BitWrite>(backend: &mut B, mut value: u64) -> Result<()> {
+    value += 1;
+    let number_of_blocks_to_write = fast_log2_floor(value);
+    debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
+    // remove the most significant 1
+    let short_value = value - (1 << number_of_blocks_to_write);
+    // Write the code
+    backend.write_unary::<false>(number_of_blocks_to_write)?;
+    backend.write_bits(short_value, number_of_blocks_to_write as u8)?;
+    Ok(())
 }
 
 /// Trait for objects that can write Gamma codes
@@ -67,24 +84,6 @@ pub trait GammaWrite: BitWrite {
     /// bits, as when the stream ended unexpectedly
     #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        self._default_write_gamma(value)
+        default_write_gamma(self, value)
     }
-
-    /// Trick to be able to call the default impl by specialized impls
-    /// 
-    /// # Errors
-    /// Forward `read_unary` and `read_bits` errors.
-    #[inline]
-    fn _default_write_gamma(&mut self, mut value: u64) -> Result<()> {
-        value += 1;
-        let number_of_blocks_to_write = fast_log2_floor(value);
-        debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
-        // remove the most significant 1
-        let short_value = value - (1 << number_of_blocks_to_write);
-        // Write the code
-        self.write_unary::<false>(number_of_blocks_to_write)?;
-        self.write_bits(short_value, number_of_blocks_to_write as u8)?;
-        Ok(())
-    }
-
 }

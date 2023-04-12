@@ -3,8 +3,8 @@ use super::{
     BitWrite, BitWriteBuffered,
     BitOrder, M2L, L2M, 
     unary_tables, 
-    gamma_tables, GammaWrite,
-    delta_tables, DeltaWrite, 
+    gamma_tables, GammaWrite, default_write_gamma,
+    delta_tables, DeltaWrite, default_write_delta,
 };
 use anyhow::{Result, bail};
 
@@ -258,7 +258,7 @@ impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<M2L, WR> {
         if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
             return self.write_bits(*bits as u64, *n_bits);
         }
-        self._default_write_gamma(value)
+        default_write_gamma(self, value)
     }
 }
 impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {
@@ -267,7 +267,7 @@ impl<WR: WordWrite> GammaWrite for BufferedBitStreamWrite<L2M, WR> {
         if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
             return self.write_bits(*bits as u64, *n_bits);
         }
-        self._default_write_gamma(value)
+        default_write_gamma(self, value)
     }
 }
 impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<M2L, WR> {
@@ -276,7 +276,7 @@ impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<M2L, WR> {
         if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
             return self.write_bits(*bits as u64, *n_bits);
         }
-        self._default_write_delta(value)
+        default_write_delta(self, value)
     }
 }
 impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<L2M, WR> {
@@ -285,6 +285,6 @@ impl<WR: WordWrite> DeltaWrite for BufferedBitStreamWrite<L2M, WR> {
         if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
             return self.write_bits(*bits as u64, *n_bits);
         }
-        self._default_write_delta(value)
+        default_write_delta(self, value)
     }
 }

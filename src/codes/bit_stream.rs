@@ -17,7 +17,7 @@ pub trait BitSeek {
 
 /// Objects that can read a fixed number of bits and unary codes from a stream 
 /// of bits. The endianess of the returned bytes HAS TO BE THE NATIVE ONE.
-pub trait BitRead {
+pub trait BitRead: Sized {
     /// Read `n_bits` bits from the stream and return them in the lowest bits
     /// 
     /// # Errors
@@ -56,7 +56,7 @@ pub trait BitRead {
 /// we would have to be able to read them back, thus impling implementing
 /// [`BitRead`]. Nothing stops someone to implement both [`BitStream`] and
 /// [`BitWrite`] for the same structure
-pub trait BitWrite {
+pub trait BitWrite: Sized {
     /// Write the lowest `n_bits` of value to the steam
     /// 
     /// # Errors

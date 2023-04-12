@@ -26,8 +26,19 @@ pub fn len_delta<const USE_TABLE: bool>(value: u64) -> usize {
     l as usize + len_gamma::<USE_TABLE>(l)
 }
 
+#[inline(always)]
+/// Default impl, so specialized impls can call it
+/// 
+/// # Errors
+/// Forward `read_unary` and `read_bits` errors.
+pub fn default_read_delta<B: BitRead + GammaRead>(backend: &mut B) -> Result<u64> {
+    let n_bits = backend.read_gamma::<true>()?;
+    debug_assert!(n_bits <= 0xff);
+    Ok(backend.read_bits(n_bits as u8)? + (1 << n_bits) - 1)
+}
+
 /// Trait for objects that can read Delta codes
-pub trait DeltaRead: BitRead + GammaRead {
+pub trait DeltaRead: BitRead + GammaRead{
     /// Read a delta code from the stream.
     /// 
     /// `USE_TABLE` enables or disables the use of pre-computed tables
@@ -38,19 +49,25 @@ pub trait DeltaRead: BitRead + GammaRead {
     /// bits, as when the stream ended unexpectedly
     #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        self._default_read_delta()
+        default_read_delta(self)
     }
+}
 
-    #[inline]
-    /// Trick to be able to call the default impl by specialized impls
-    /// 
-    /// # Errors
-    /// Forward `read_unary` and `read_bits` errors.
-    fn _default_read_delta(&mut self) -> Result<u64> {
-        let n_bits = self.read_gamma::<true>()?;
-        debug_assert!(n_bits <= 0xff);
-        Ok(self.read_bits(n_bits as u8)? + (1 << n_bits) - 1)
-    }
+/// Default impl, so specialized impls can call it
+/// 
+/// # Errors
+/// Forward `write_unary` and `write_bits` errors.
+#[inline(always)]
+pub fn default_write_delta<B: BitWrite + GammaWrite>(backend: &mut B, mut value: u64) -> Result<()> {
+    value += 1;
+    let number_of_blocks_to_write = fast_log2_floor(value);
+    debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
+    // remove the most significant 1
+    let short_value = value - (1 << number_of_blocks_to_write);
+    // Write the code
+    backend.write_gamma::<true>(number_of_blocks_to_write)?;
+    backend.write_bits(short_value, number_of_blocks_to_write as u8)?;
+    Ok(())
 }
 
 /// Trait for objects that can write Delta codes
@@ -65,24 +82,6 @@ pub trait DeltaWrite: BitWrite + GammaWrite {
     /// bits, as when the stream ended unexpectedly
     #[inline]
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        self._default_write_delta(value)
+        default_write_delta(self, value)
     }
-
-    /// Trick to be able to call the default impl by specialized impls
-    /// 
-    /// # Errors
-    /// Forward `read_unary` and `read_bits` errors.
-    #[inline]
-    fn _default_write_delta(&mut self, mut value: u64) -> Result<()> {
-        value += 1;
-        let number_of_blocks_to_write = fast_log2_floor(value);
-        debug_assert!(number_of_blocks_to_write <= u8::MAX as _);
-        // remove the most significant 1
-        let short_value = value - (1 << number_of_blocks_to_write);
-        // Write the code
-        self.write_gamma::<true>(number_of_blocks_to_write)?;
-        self.write_bits(short_value, number_of_blocks_to_write as u8)?;
-        Ok(())
-    }
-
 }

@@ -86,11 +86,13 @@ pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
 mod gamma;
 pub use gamma::{
     GammaRead, GammaWrite, len_gamma,
+    default_read_gamma, default_write_gamma,
 };
 
 mod delta;
 pub use delta::{
     DeltaRead, DeltaWrite, len_delta,
+    default_read_delta, default_write_delta,
 };
 
 pub mod unary_tables;
