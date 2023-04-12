@@ -1,4 +1,3 @@
-#[macro_export]
 /// The logic of the read tables lookup are always the same so this is just a 
 /// way to centralize the code. (L2M implementation)
 macro_rules! impl_table_call {
@@ -25,3 +24,5 @@ macro_rules! impl_table_call {
         }
     };
 }
+
+pub(crate) use impl_table_call;    

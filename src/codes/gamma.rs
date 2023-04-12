@@ -11,6 +11,7 @@ use anyhow::Result;
 use super::{
     BitOrder, M2L, L2M, 
     BitRead, BitWrite, gamma_tables,
+    macros::impl_table_call,
 };
 use crate::utils::fast_log2_floor;
 
@@ -58,13 +59,13 @@ fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u
 
 impl<B: BitRead<M2L>> GammaRead<M2L> for B {
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        crate::impl_table_call!(self, USE_TABLE, gamma_tables, M2L);
+        impl_table_call!(self, USE_TABLE, gamma_tables, M2L);
         default_read_gamma(self)
     }
 }
 impl<B: BitRead<L2M>> GammaRead<L2M> for B {
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        crate::impl_table_call!(self, USE_TABLE, gamma_tables, L2M);
+        impl_table_call!(self, USE_TABLE, gamma_tables, L2M);
         default_read_gamma(self)
     }
 }
