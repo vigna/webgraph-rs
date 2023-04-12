@@ -1,6 +1,5 @@
 use webgraph::codes::*;
 use rand::Rng;
-use core::arch::x86_64::{__rdtscp, __cpuid, _mm_lfence, _mm_mfence, _mm_sfence};
 
 /// How many random codes we will write and read in the benchmark
 const VALUES: usize = 10_000;
@@ -11,22 +10,58 @@ const WARMUP_ITERS: usize = 100;
 const BENCH_ITERS: usize = 1_000;
 /// For how many times we will measure the measurement overhead
 const CALIBRATION_ITERS: usize = 1_000_000;
-/// The TimeStampCounter frequency in Hertz. 
-/// find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` 
-/// and convert it to hertz
-const TSC_FREQ: u64 = 3_609_600_000;
 
-/// This is our 
-fn rdtsc() -> u64 {
-    unsafe{
-        let mut aux: u32 = 0;
-        let _ = __cpuid(0);
-        let _ = _mm_lfence();
-        let _ = _mm_mfence();
-        let _ = _mm_sfence();
-        __rdtscp(&mut aux as *mut u32)
+#[cfg(target_cpu="x86_64")]
+mod x86_64 {
+    pub struct Instant(u64);
+    
+    impl Instant {
+        #[inline(always)]
+        fn now() -> Self {
+            Self(rdtsc())
+        }
+    
+        fn elapsed(&self) -> Duration {
+            Duration(rdtsc() - self.0)
+        }
+    }
+    
+    pub struct Duration(u64);
+
+    impl Duration {
+        fn as_nanos(&self) -> u128 {
+            /// The TimeStampCounter frequency in Hertz. 
+            /// find tsc freq with `dmesg | grep tsc` or `journalctl | grep tsc` 
+            /// and convert it to hertz
+            const TSC_FREQ: u128 = 3_609_600_000;
+            const TO_NS: u128 = 1_000_000_000;
+            self.0 as u128 * TO_NS / TSC_FREQ
+        }
+    }
+    
+    #[inline(always)]
+    fn rdtsc() -> u64 {
+        
+        use core::arch::x86_64::{
+            __rdtscp, __cpuid, 
+            _mm_lfence, _mm_mfence, _mm_sfence
+        };
+        
+        unsafe{
+            let mut aux: u32 = 0;
+            let _ = __cpuid(0);
+            let _ = _mm_lfence();
+            let _ = _mm_mfence();
+            let _ = _mm_sfence();
+            __rdtscp(&mut aux as *mut u32)
+        }
     }
 }
+#[cfg(target_cpu="x86_64")]
+use x86_64::*;
+
+#[cfg(not(target_cpu="x86_64"))]
+use std::time::Instant;
 
 struct MetricsStream {
     min: f64,
@@ -36,6 +71,7 @@ struct MetricsStream {
     count: usize,
 }
 
+#[derive(Debug)]
 struct Metrics {
     min: f64,
     max: f64,
@@ -75,36 +111,31 @@ impl MetricsStream {
         if self.count < 2 {
             panic!();
         }
-        let to_ns = 1e9 / TSC_FREQ as f64;
         let var = self.m2 / (self.count - 1) as f64;
         Metrics {
-            min: to_ns * self.min ,
-            max: to_ns * self.max,
+            min: self.min ,
+            max: self.max,
             count: self.count,
-            avg: to_ns * self.avg,
-            var: to_ns * var,
-            std: to_ns * var.sqrt(),
+            avg: self.avg,
+            var: var,
+            std: var.sqrt(),
         }
     }
 }
 
 /// Routine for measuring the measurement overhead. This is usually around
 /// 147 cycles.
-fn calibrate_rdtsc() -> u64 {
-    let mut vals = Vec::with_capacity(CALIBRATION_ITERS);
+fn calibrate_rdtsc() -> u128 {
+    let mut nanos = MetricsStream::default();
     // For many times, measure an empty block 
     for _ in 0..CALIBRATION_ITERS {
-        let start = rdtsc();
-        let end = rdtsc();
-        vals.push(end - start);
+        let start = Instant::now();
+        let delta = start.elapsed().as_nanos();
+        nanos.update(delta as f64);
     }
-    // compute the mean
-    let mut res = 0.0;
-    for val in vals {
-        res += val as f64 / CALIBRATION_ITERS as f64;
-    }
-    eprintln!("RDTSC calibration is: {}", res);
-    res as u64
+    let measures = nanos.finalize();
+    eprintln!("Timesource calibration is: {:#4?}", measures);
+    measures.avg as u128
 }
 
 /// Pin the process to one core to avoid context switching and caches flushes
@@ -141,15 +172,14 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
             MemWordWriteVec::new(&mut buffer)
         );
         // measure
-        let w_start = rdtsc();
+        let w_start = Instant::now();
         for value in &$data {
             r.$write::<$table>(*value).unwrap();
         }
-        let w_end = rdtsc();
+        let nanos = w_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
-            let cycles = ((w_end - w_start) - $cal) as f64;
-            write.update(cycles);
+            write.update((nanos - $cal) as f64);
         }
     }
     // read the codes
@@ -159,16 +189,14 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
             MemWordRead::new(&mut buffer)
         );
         // measure
-        let r_start = rdtsc();
+        let r_start = Instant::now();
         for _ in &$data {
             r.$read::<$table>().unwrap();
         }
-        let r_end = rdtsc();
+        let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
-            let cycles = ((r_end - r_start) - $cal) as f64;
-            let avg_cycles = cycles / BENCH_ITERS as f64;
-            read.update(cycles);
+            read.update((nanos - $cal) as f64);
         }
     }
 }
