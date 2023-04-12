@@ -28,20 +28,14 @@ test = false
 doc = false
 
 [[bin]]
-name = "buffered_bit_stream_read"
-path = "fuzz_targets/buffered_bit_stream_read.rs"
-test = false
-doc = false
-
-[[bin]]
 name = "mem_word_write"
 path = "fuzz_targets/mem_word_write.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "buffered_bit_stream_write"
-path = "fuzz_targets/buffered_bit_stream_write.rs"
+name = "codes"
+path = "fuzz_targets/codes.rs"
 test = false
 doc = false
 
