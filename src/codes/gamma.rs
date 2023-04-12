@@ -58,12 +58,14 @@ fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u
 
 
 impl<B: BitRead<M2L>> GammaRead<M2L> for B {
+    #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call!(self, USE_TABLE, gamma_tables, M2L);
         default_read_gamma(self)
     }
 }
 impl<B: BitRead<L2M>> GammaRead<L2M> for B {
+    #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call!(self, USE_TABLE, gamma_tables, L2M);
         default_read_gamma(self)

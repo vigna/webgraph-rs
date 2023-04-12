@@ -41,12 +41,14 @@ pub trait DeltaRead<BO: BitOrder>: GammaRead<BO> {
 }
 
 impl<B: GammaRead<M2L>> DeltaRead<M2L> for B {
+    #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call!(self, USE_TABLE, delta_tables, M2L);
         default_read_delta(self)
     }
 }
 impl<B: GammaRead<L2M>> DeltaRead<L2M> for B {
+    #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         impl_table_call!(self, USE_TABLE, delta_tables, L2M);
         default_read_delta(self)
