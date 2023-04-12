@@ -92,8 +92,10 @@ fuzz_target!(|data: FuzzCase| {
     //println!("{:?}", buffer_m2l);
     //println!("{:?}", buffer_l2m);
     {
-        let mut big = BufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
-        let mut little = BufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
+        let mut big = UnbufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
+        let mut big_buff = BufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
+        let mut little = UnbufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
+        let mut little_buff = BufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
 
         for (succ, command) in writes.iter().zip(data.commands.iter()) {
             let pos = big.get_position();
@@ -104,99 +106,153 @@ fuzz_target!(|data: FuzzCase| {
                     let n_bits = (*n_bits).min(64).max(1);
                     let b = big.read_bits(n_bits);
                     let l = little.read_bits(n_bits);
+                    let bb = big_buff.read_bits(n_bits);
+                    let lb = little_buff.read_bits(n_bits);
                     if *succ {
                         let value = get_lowest_bits(*value, n_bits);
                         let b = b.unwrap();
                         let l = l.unwrap();
+                        let bb = bb.unwrap();
+                        let lb = lb.unwrap();
                         assert_eq!(b, value, "\nread : {:0n$b}\ntruth: {:0n$b}", b, value, n=n_bits as _);
                         assert_eq!(l, value, "\nread : {:0n$b}\ntruth: {:0n$b}", l, value, n=n_bits as _);
+                        assert_eq!(bb, value, "\nread : {:0n$b}\ntruth: {:0n$b}", bb, value, n=n_bits as _);
+                        assert_eq!(lb, value, "\nread : {:0n$b}\ntruth: {:0n$b}", lb, value, n=n_bits as _);
                         assert_eq!(pos + n_bits as usize, big.get_position());
                         assert_eq!(pos + n_bits as usize, little.get_position());
+                        assert_eq!(pos + n_bits as usize, big_buff.get_position());
+                        assert_eq!(pos + n_bits as usize, little_buff.get_position());
                     } else {
                         assert!(b.is_err());
                         assert!(l.is_err());
+                        assert!(bb.is_err());
+                        assert!(lb.is_err());
                         assert_eq!(pos, big.get_position());
                         assert_eq!(pos, little.get_position());
+                        assert_eq!(pos, big_buff.get_position());
+                        assert_eq!(pos, little_buff.get_position());
                     }
                 },
                 RandomCommand::WriteUnary(value, read_tab, _write_tab) => {
-                    let (b, l) = if *read_tab {
+                    let (b, l, bb, lb) = if *read_tab {
                         (
                             big.read_unary::<true>(),
                             little.read_unary::<true>(),
+                            big_buff.read_unary::<true>(),
+                            little_buff.read_unary::<true>(),
                         )
                     } else {
                         (
                             big.read_unary::<false>(),
                             little.read_unary::<false>(),
+                            big_buff.read_unary::<false>(),
+                            little_buff.read_unary::<false>(),
                         )
                     };
                     if *succ {
                         assert_eq!(b.unwrap(), *value as u64);
                         assert_eq!(l.unwrap(), *value as u64);
+                        assert_eq!(bb.unwrap(), *value as u64);
+                        assert_eq!(lb.unwrap(), *value as u64);
                         assert_eq!(pos + len_unary::<true>(*value as u64), big.get_position());
                         assert_eq!(pos + len_unary::<true>(*value as u64), little.get_position());
+                        assert_eq!(pos + len_unary::<true>(*value as u64), big_buff.get_position());
+                        assert_eq!(pos + len_unary::<true>(*value as u64), little_buff.get_position());
                         assert_eq!(pos + len_unary::<false>(*value as u64), big.get_position());
                         assert_eq!(pos + len_unary::<false>(*value as u64), little.get_position());
+                        assert_eq!(pos + len_unary::<false>(*value as u64), big_buff.get_position());
+                        assert_eq!(pos + len_unary::<false>(*value as u64), little_buff.get_position());
                     } else {
                         assert!(b.is_err());
                         assert!(l.is_err());
+                        assert!(bb.is_err());
+                        assert!(lb.is_err());
                         assert_eq!(pos, big.get_position());
                         assert_eq!(pos, little.get_position());
+                        assert_eq!(pos, big_buff.get_position());
+                        assert_eq!(pos, little_buff.get_position());
                     }
                 },
                 RandomCommand::Gamma(value, read_tab, _) => {
                     let value = (*value).min(u64::MAX - 1);
-                    let (b, l) = if *read_tab {
+                    let (b, l, bb, lb) = if *read_tab {
                         (
                             big.read_gamma::<true>(),
                             little.read_gamma::<true>(),
+                            big_buff.read_gamma::<true>(),
+                            little_buff.read_gamma::<true>(),
                         )
                     } else {
                         (
                             big.read_gamma::<false>(),
                             little.read_gamma::<false>(),
+                            big_buff.read_gamma::<false>(),
+                            little_buff.read_gamma::<false>(),
                         )
                     };
                     if *succ {
                         assert_eq!(b.unwrap(), value);
                         assert_eq!(l.unwrap(), value);
+                        assert_eq!(bb.unwrap(), value);
+                        assert_eq!(lb.unwrap(), value);
                         assert_eq!(pos + len_gamma::<false>(value), big.get_position());
                         assert_eq!(pos + len_gamma::<false>(value), little.get_position());
+                        assert_eq!(pos + len_gamma::<false>(value), big_buff.get_position());
+                        assert_eq!(pos + len_gamma::<false>(value), little_buff.get_position());
                         assert_eq!(pos + len_gamma::<true>(value), big.get_position());
                         assert_eq!(pos + len_gamma::<true>(value), little.get_position());
+                        assert_eq!(pos + len_gamma::<true>(value), big_buff.get_position());
+                        assert_eq!(pos + len_gamma::<true>(value), little_buff.get_position());
                     } else {
                         assert!(b.is_err());
                         assert!(l.is_err());
+                        assert!(bb.is_err());
+                        assert!(lb.is_err());
                         assert_eq!(pos, big.get_position());
                         assert_eq!(pos, little.get_position());
+                        assert_eq!(pos, big_buff.get_position());
+                        assert_eq!(pos, little_buff.get_position());
                     }
                 },
                 RandomCommand::Delta(value, read_tab, _) => {
                     let value = (*value).min(u64::MAX - 1);
-                    let (b, l) = if *read_tab {
+                    let (b, l, bb, lb) = if *read_tab {
                         (
                             big.read_delta::<true>(),
                             little.read_delta::<true>(),
+                            big_buff.read_delta::<true>(),
+                            little_buff.read_delta::<true>(),
                         )
                     } else {
                         (
                             big.read_delta::<false>(),
                             little.read_delta::<false>(),
+                            big_buff.read_delta::<false>(),
+                            little_buff.read_delta::<false>(),
                         )
                     };
                     if *succ {
                         assert_eq!(b.unwrap(), value);
                         assert_eq!(l.unwrap(), value);
+                        assert_eq!(bb.unwrap(), value);
+                        assert_eq!(lb.unwrap(), value);
                         assert_eq!(pos + len_delta::<true>(value), big.get_position());
                         assert_eq!(pos + len_delta::<true>(value), little.get_position());
+                        assert_eq!(pos + len_delta::<true>(value), big_buff.get_position());
+                        assert_eq!(pos + len_delta::<true>(value), little_buff.get_position());
                         assert_eq!(pos + len_delta::<false>(value), big.get_position());
                         assert_eq!(pos + len_delta::<false>(value), little.get_position());
+                        assert_eq!(pos + len_delta::<false>(value), big_buff.get_position());
+                        assert_eq!(pos + len_delta::<false>(value), little_buff.get_position());
                     } else {
                         assert!(b.is_err());
                         assert!(l.is_err());
+                        assert!(bb.is_err());
+                        assert!(lb.is_err());
                         assert_eq!(pos, big.get_position());
                         assert_eq!(pos, little.get_position());
+                        assert_eq!(pos, big_buff.get_position());
+                        assert_eq!(pos, little_buff.get_position());
                     }
                 },
             };
