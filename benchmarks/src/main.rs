@@ -122,7 +122,7 @@ let write_time_squares = write_cycles_squares * 1e9 / TSC_FREQ as f64;
 
 // compute the stds
 let read_std = (read_time_squares - read_time*read_time).sqrt();
-let write_std = (write_time*write_time - write_time_squares).sqrt();
+let write_std = (write_time_squares - write_time*write_time).sqrt();
 
 let bytes = buffer.len() * 8;
 let table = if $table {
