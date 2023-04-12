@@ -140,10 +140,27 @@ impl<WR: WordRead> BitSeek for BufferedBitStreamRead<M2L, WR> {
 
 impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
     #[inline]
-    fn skip_bits(&mut self, n_bits: u8) {
-        // TODO!: check for bits available
+    fn skip_bits(&mut self, mut n_bits: u8) -> Result<()> {
+        // happy case, just shift the buffer
+        if n_bits <= self.valid_bits {
+            self.valid_bits -= n_bits;
+            self.buffer <<= n_bits;
+            return Ok(());
+        }
+
+        // clean the buffer data
+        n_bits -= self.valid_bits;
+        self.valid_bits = 0;
+        // skip words as needed
+        while n_bits > 64 {
+            let _ = self.backend.read_next_word()?;
+        }
+        // read the new word and clear the final bits
+        self.refill()?;
         self.valid_bits -= n_bits;
         self.buffer <<= n_bits;
+
+        Ok(())
     }
 
     #[inline]
@@ -215,10 +232,26 @@ impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
 
 impl<WR: WordRead> BitRead<L2M> for BufferedBitStreamRead<L2M, WR> {
     #[inline]
-    fn skip_bits(&mut self, n_bits: u8) {
-        // TODO!: check for bits available
+    fn skip_bits(&mut self, mut n_bits: u8) -> Result<()> {
+        // happy case, just shift the buffer
+        if n_bits <= self.valid_bits {
+            self.valid_bits -= n_bits;
+            self.buffer >>= n_bits;
+            return Ok(());
+        }
+        // clean the buffer data
+        n_bits -= self.valid_bits;
+        self.valid_bits = 0;
+        // skip words as needed
+        while n_bits > 64 {
+            let _ = self.backend.read_next_word()?;
+        }
+        // read the new word and clear the final bits
+        self.refill()?;
         self.valid_bits -= n_bits;
         self.buffer >>= n_bits;
+
+        Ok(())
     }
 
     #[inline]

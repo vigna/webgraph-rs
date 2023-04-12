@@ -6,7 +6,7 @@ macro_rules! impl_table_call {
             if let Ok(idx) = $self.peek_bits($tabs::READ_BITS) {
                 let (value, len) = $tabs::READ_M2L[idx as usize];
                 if len != $tabs::MISSING_VALUE_LEN {
-                    $self.skip_bits(len as u8);
+                    $self.skip_bits(len as u8)?;
                     return Ok(value as u64);
                 }
             }
@@ -17,7 +17,7 @@ macro_rules! impl_table_call {
             if let Ok(idx) = $self.peek_bits($tabs::READ_BITS) {
                 let (value, len) = $tabs::READ_L2M[idx as usize];
                 if len != $tabs::MISSING_VALUE_LEN {
-                    $self.skip_bits(len as u8);
+                    $self.skip_bits(len as u8)?;
                     return Ok(value as u64);
                 }
             }

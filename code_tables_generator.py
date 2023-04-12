@@ -279,6 +279,6 @@ def gen_delta(read_bits, write_max_val, len_max_val=None):
 
 if __name__ == "__main__":
     # Generate the default tables
-    gen_unary(read_bits=8, write_max_val=63)
+    gen_unary(read_bits=0, write_max_val=63)
     gen_gamma(read_bits=8, write_max_val=256)
     gen_delta(read_bits=8, write_max_val=256)
