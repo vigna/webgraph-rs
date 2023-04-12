@@ -85,18 +85,19 @@ pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
 mod gamma;
 pub use gamma::{
     GammaRead, GammaWrite, len_gamma,
-    default_read_gamma, default_write_gamma,
 };
 
 mod delta;
 pub use delta::{
     DeltaRead, DeltaWrite, len_delta,
-    default_read_delta, default_write_delta,
 };
 
-pub mod unary_tables;
-pub mod gamma_tables;
-pub mod delta_tables;
+#[macro_use]
+pub(crate) mod macros;
+
+pub(crate) mod unary_tables;
+pub(crate) mod gamma_tables;
+pub(crate) mod delta_tables;
 
 #[must_use]
 #[inline]
@@ -107,11 +108,10 @@ pub mod delta_tables;
 pub fn len_unary<const USE_TABLE: bool>(value: u64) -> usize {
     // we can use the table but it's not useful at all
     // I implemented if for consistency with all the other codes
-    //
-    //if USE_TABLE {
-    //    if let Some(idx) = unary_tables::LEN.get(value as usize) {
-    //        return *idx as usize;
-    //    }
-    //}
+    if USE_TABLE {
+        if let Some(idx) = unary_tables::LEN.get(value as usize) {
+            return *idx as usize;
+        }
+    }
     (value + 1) as usize
 }

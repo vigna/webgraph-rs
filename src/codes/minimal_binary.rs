@@ -8,10 +8,7 @@
 
 use anyhow::Result;
 
-use super::{
-    BitOrder, M2L, L2M, 
-    BitRead, BitWrite, gamma_tables,
-};
+use super::{BitOrder, BitRead, BitWrite, gamma_tables};
 use crate::utils::fast_log2_floor;
 
 /// Returns how long the gamma code for `value` will be
@@ -41,33 +38,22 @@ pub trait GammaRead<BO: BitOrder>: BitRead<BO> {
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
+    #[inline]
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64>;
 }
 
-/// Common part of the M2L and L2M impl
+/// Default impl, so specialized impls can call it
 /// 
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
 #[inline(always)]
-fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u64> {
+pub fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u64> {
     let len = backend.read_unary::<false>()?;
     debug_assert!(len <= u8::MAX as _);
     Ok(backend.read_bits(len as u8)? + (1 << len) - 1)
 }
 
 
-impl<B: BitRead<M2L>> GammaRead<M2L> for B {
-    fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        crate::impl_table_call!(self, USE_TABLE, gamma_tables, M2L);
-        default_read_gamma(self)
-    }
-}
-impl<B: BitRead<L2M>> GammaRead<L2M> for B {
-    fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        crate::impl_table_call!(self, USE_TABLE, gamma_tables, L2M);
-        default_read_gamma(self)
-    }
-}
 
 /// Trait for objects that can write Gamma codes
 pub trait GammaWrite<BO: BitOrder>: BitWrite<BO> {
@@ -79,28 +65,26 @@ pub trait GammaWrite<BO: BitOrder>: BitWrite<BO> {
     /// # Errors
     /// This function fails only if the BitRead backend has problems writing
     /// bits, as when the stream ended unexpectedly
+    #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()>;
 }
 
-impl<B: BitWrite<M2L>> GammaWrite<M2L> for B {
-    #[inline]
+impl<B: BitWrite<M2L>> GammaWrite<M2L> {
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
+        if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
             return self.write_bits(*bits as u64, *n_bits);
         }
         default_write_gamma(self, value)
     }
 }
-impl<B: BitWrite<L2M>> GammaWrite<L2M> for B {
-    #[inline]
+impl<B: BitWrite<L2M>> GammaWrite<M2L> {
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
+        if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
             return self.write_bits(*bits as u64, *n_bits);
         }
         default_write_gamma(self, value)
     }
 }
-
 /// Common part of the M2L and L2M impl
 /// 
 /// # Errors

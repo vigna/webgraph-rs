@@ -9,18 +9,19 @@
 
 /// Inner private trait used to remove the possibility that anyone could 
 /// implement [`BitOrder`] on other structs
-#[allow(private_in_public)]
-trait BitOrderCore {}
-impl<T: BitOrderCore> BitOrder for T {}
+mod private {
+    pub trait BitOrderCore {}
+}
+impl<T: private::BitOrderCore> BitOrder for T {}
 
 /// Marker trait to require that something is either [`L2M`] or 
 /// [`M2L`]
-pub trait BitOrder: BitOrderCore {}
+pub trait BitOrder: private::BitOrderCore {}
 
 /// Marker type that represents LSB to MSB bit order
 pub struct L2M;
 /// Marker type that represents MSB to LSB bit order
 pub struct M2L;
 
-impl BitOrderCore for L2M {}
-impl BitOrderCore for M2L {}
+impl private::BitOrderCore for L2M {}
+impl private::BitOrderCore for M2L {}

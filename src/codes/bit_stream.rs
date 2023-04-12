@@ -18,7 +18,7 @@ pub trait BitSeek {
 
 /// Objects that can read a fixed number of bits and unary codes from a stream 
 /// of bits. The endianess of the returned bytes HAS TO BE THE NATIVE ONE.
-pub trait BitRead<BO: BitOrder>: Sized {
+pub trait BitRead<BO: BitOrder> {
     /// Read `n_bits` bits from the stream and return them in the lowest bits
     /// 
     /// # Errors
@@ -32,6 +32,9 @@ pub trait BitRead<BO: BitOrder>: Sized {
     /// This function return an error if we cannot read `n_bits`, this usually
     /// happens if we finished the stream.
     fn peek_bits(&mut self, n_bits: u8) -> Result<u64>;
+
+    /// Skip n_bits from the stream
+    fn skip_bits(&mut self, n_bits: u8);
 
     /// Read an unary code
     /// 
@@ -52,12 +55,12 @@ pub trait BitRead<BO: BitOrder>: Sized {
 
 /// Objects that can read a fixed number of bits and unary codes from a stream 
 /// of bits. The endianess of the returned bytes HAS TO BE THE NATIVE ONE.
-/// [`BitWrite`] does not depends on [`BitStream`] because on most implementation
+/// [`BitWrite`] does not depends on [`BitRead`] because on most implementation
 /// we will have to write on bytes or words. Thus to be able to write the bits 
 /// we would have to be able to read them back, thus impling implementing
-/// [`BitRead`]. Nothing stops someone to implement both [`BitStream`] and
+/// [`BitRead`]. Nothing stops someone to implement both [`BitRead`] and
 /// [`BitWrite`] for the same structure
-pub trait BitWrite<BO: BitOrder>: Sized {
+pub trait BitWrite<BO: BitOrder> {
     /// Write the lowest `n_bits` of value to the steam
     /// 
     /// # Errors

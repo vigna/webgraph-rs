@@ -3,13 +3,10 @@ use super::{
     BitWrite, BitWriteBuffered,
     BitOrder, M2L, L2M, 
     unary_tables, 
-    gamma_tables, GammaWrite, default_write_gamma,
-    delta_tables, DeltaWrite, default_write_delta,
 };
 use anyhow::{Result, bail};
 
-/// A BitStream built uppon a generic [`WordRead`] that caches the read words 
-/// in a buffer
+/// An implementation of [`BitWrite`] on a generic [`WordWrite`]
 pub struct BufferedBitStreamWrite<BO: BitOrder + BBSWDrop<WR>, WR: WordWrite> {
     ///
     backend: WR,
@@ -249,42 +246,5 @@ impl<WR: WordWrite> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
         self.buffer |= 1_u128 << 127;
 
         Ok(())
-    }
-}
-
-impl<WR: WordWrite> GammaWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
-    #[inline]
-    fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
-            return self.write_bits(*bits as u64, *n_bits);
-        }
-        default_write_gamma(self, value)
-    }
-}
-impl<WR: WordWrite> GammaWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
-    #[inline]
-    fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
-            return self.write_bits(*bits as u64, *n_bits);
-        }
-        default_write_gamma(self, value)
-    }
-}
-impl<WR: WordWrite> DeltaWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
-    #[inline]
-    fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
-            return self.write_bits(*bits as u64, *n_bits);
-        }
-        default_write_delta(self, value)
-    }
-}
-impl<WR: WordWrite> DeltaWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
-    #[inline]
-    fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
-            return self.write_bits(*bits as u64, *n_bits);
-        }
-        default_write_delta(self, value)
     }
 }
