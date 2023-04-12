@@ -95,8 +95,9 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             let cycles = ((w_end - w_start) - $cal) as f64;
-            write_cycles_avg += cycles /  BENCH_ITERS as f64;
-            write_cycles_squares += cycles*cycles / BENCH_ITERS as f64;
+            let avg_cycles = cycles /  BENCH_ITERS as f64;
+            write_cycles_avg += avg_cycles;
+            write_cycles_squares += avg_cycles*avg_cycles;
             write_cycles_max = write_cycles_max.max(cycles);
             write_cycles_min = write_cycles_min.min(cycles);
         }
@@ -116,20 +117,23 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
             let cycles = ((r_end - r_start) - $cal) as f64;
-            read_cycles_avg += cycles /  BENCH_ITERS as f64;
-            read_cycles_squares += cycles*cycles / BENCH_ITERS as f64;
+            let avg_cycles = cycles /  BENCH_ITERS as f64;
+            read_cycles_avg += avg_cycles;
+            read_cycles_squares += avg_cycles*avg_cycles;
             read_cycles_max = read_cycles_max.max(cycles);
             read_cycles_min = read_cycles_min.min(cycles);
         }
     }
 }
 // convert from cycles to nano seconds
-let read_time_avg  = read_cycles_avg * 1e9 / TSC_FREQ as f64;
-let write_time_avg = write_cycles_avg * 1e9 / TSC_FREQ as f64;
 let read_time_min  = read_cycles_min * 1e9 / TSC_FREQ as f64;
 let write_time_min = write_cycles_min * 1e9 / TSC_FREQ as f64;
 let read_time_max  = read_cycles_max * 1e9 / TSC_FREQ as f64;
 let write_time_max = write_cycles_max * 1e9 / TSC_FREQ as f64;
+
+let read_time_avg  = read_cycles_avg * 1e9 / TSC_FREQ as f64;
+let write_time_avg = write_cycles_avg * 1e9 / TSC_FREQ as f64;
+
 let read_time_squares  = read_cycles_squares  * 1e9 / TSC_FREQ as f64;
 let write_time_squares = write_cycles_squares * 1e9 / TSC_FREQ as f64;
 
