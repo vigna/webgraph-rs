@@ -11,7 +11,7 @@ random = "0.13.2"
 webgraph = {path="../"}
 rand_distr = "0.4.3"
 
-[target.'cfg(linux)'.dependencies]
+[target.'cfg(unix)'.dependencies]
 libc = "0.2.141"
 
 [profile.release]
