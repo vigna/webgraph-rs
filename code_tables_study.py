@@ -11,7 +11,8 @@ for bits in range(1, 18):
     gen_unary(bits, 63)
     gen_gamma(bits, 256)
     gen_delta(bits, 256)
-    
+    gen_zeta(bits, 256)
+
     # Run the benchmark with native cpu optimizations
     stdout = subprocess.check_output(
         "cargo run --release", shell=True,
