@@ -41,6 +41,6 @@ doc = false
 
 [[bin]]
 name = "mem_word_write_vec"
-path = "fuzz_targets/mem_word_write_vec"
+path = "fuzz_targets/mem_word_write_vec.rs"
 test = false
 doc = false
