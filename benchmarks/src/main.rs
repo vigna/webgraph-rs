@@ -283,6 +283,7 @@ macro_rules! impl_code {
 
 pub fn main() {
     // tricks to reduce the noise
+    #[cfg(target_os="linux")]
     pin_to_core(5);
     //unsafe{assert_ne!(libc::nice(-20-libc::nice(0)), -1);}
     
