@@ -55,6 +55,7 @@ for code in ["unary", "gamma", "delta"]:
         
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.ylim(bottom=0) #ymin is your value
+    plt.xticks(ratios.n_bits)
     plt.title("Performances of %s codes read and writes\nin function of the table size"%(code.capitalize()))
     plt.xlabel("Table Bits")
     plt.ylabel("ns")
