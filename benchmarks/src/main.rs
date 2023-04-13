@@ -11,7 +11,7 @@ const BENCH_ITERS: usize = 1_000;
 /// For how many times we will measure the measurement overhead
 const CALIBRATION_ITERS: usize = 1_000_000;
 
-#[cfg(target_cpu="x86_64")]
+#[cfg(feature = "rtdsc")]
 mod x86_64 {
     pub struct Instant(u64);
     
@@ -57,10 +57,11 @@ mod x86_64 {
         }
     }
 }
-#[cfg(target_cpu="x86_64")]
+
+#[cfg(feature = "rtdsc")]
 use x86_64::*;
 
-#[cfg(not(target_cpu="x86_64"))]
+#[cfg(not(feature = "rtdsc"))]
 use std::time::Instant;
 
 /// Structure to compute statistics from a stream
