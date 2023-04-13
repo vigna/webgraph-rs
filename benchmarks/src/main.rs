@@ -158,11 +158,12 @@ fn pin_to_core(core_id: usize) {
 }
 
 macro_rules! bench {
-    ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident, $code:literal, $read:ident, $write:ident, $data:expr, $bo:ident, $table:expr) => {{
+    ($cal:expr, $code:literal, $read:ident, $write:ident, $data:expr, $bo:ident, $table:expr) => {{
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
-let mut read = MetricsStream::default();
+let mut read_buff = MetricsStream::default();
+let mut read_unbuff = MetricsStream::default();
 let mut write = MetricsStream::default();
 
 // measure
@@ -171,7 +172,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     // write the codes
     {   
         // init the writer
-        let mut r = $writer::<$bo, _>::new(
+        let mut r = BufferedBitStreamWrite::<$bo, _>::new(
             MemWordWriteVec::new(&mut buffer)
         );
         // measure
@@ -188,7 +189,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     // read the codes
     {
         // init the reader
-        let mut r = $reader::<$bo, _>::new(
+        let mut r = BufferedBitStreamRead::<$bo, _>::new(
             MemWordRead::new(&mut buffer)
         );
         // measure
@@ -199,12 +200,29 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
         if iter >= WARMUP_ITERS {
-            read.update((nanos - $cal) as f64);
+            read_buff.update((nanos - $cal) as f64);
+        }
+    }
+    {
+        // init the reader
+        let mut r = UnbufferedBitStreamRead::<$bo, _>::new(
+            MemWordRead::new(&mut buffer)
+        );
+        // measure
+        let r_start = Instant::now();
+        for _ in &$data {
+            r.$read::<$table>().unwrap();
+        }
+        let nanos =  r_start.elapsed().as_nanos();
+        // add the measurement if we are not in the warmup
+        if iter >= WARMUP_ITERS {
+            read_unbuff.update((nanos - $cal) as f64);
         }
     }
 }
 // convert from cycles to nano seconds
-let read = read.finalize();
+let read_buff = read_buff.finalize();
+let read_unbuff = read_unbuff.finalize();
 let write = write.finalize();
 
 let bytes = buffer.len() * 8;
@@ -214,73 +232,51 @@ let table = if $table {
     "NoTable"
 };
 // print the results
-println!("{}::{}::{}::{},{},{},{},{},{},{},{},{},{}",
-    $mod_name, $code, stringify!($bo), table, // the informations about what we are benchmarking
+println!("{}::{}::{},{},{},{},{},{},{}",
+    $code, stringify!($bo), table, // the informations about what we are benchmarking
+    "write",
     bytes,
-    read.avg / VALUES as f64, 
-    read.std / VALUES as f64, 
-    read.max / VALUES as f64, 
-    read.min / VALUES as f64,
     write.avg / VALUES as f64, 
     write.std / VALUES as f64,
     write.max / VALUES as f64, 
     write.min / VALUES as f64,
 );
-
+println!("{}::{}::{},{},{},{},{},{},{}",
+    $code, stringify!($bo), table, // the informations about what we are benchmarking
+    "read_buff",
+    bytes,
+    read_buff.avg / VALUES as f64, 
+    read_buff.std / VALUES as f64,
+    read_buff.max / VALUES as f64, 
+    read_buff.min / VALUES as f64,
+);
+println!("{}::{}::{},{},{},{},{},{},{}",
+    $code, stringify!($bo), table, // the informations about what we are benchmarking
+    "read_unbuff",
+    bytes,
+    read_unbuff.avg / VALUES as f64, 
+    read_unbuff.std / VALUES as f64,
+    read_unbuff.max / VALUES as f64, 
+    read_unbuff.min / VALUES as f64,
+);
 
 }};
 }
 
 /// macro to implement all combinations of bit order and table use
 macro_rules! impl_code {
-    ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident, $code:literal, $read:ident, $write:ident, $data:expr) => {
+    ($cal:expr, $code:literal, $read:ident, $write:ident, $data:expr) => {
         bench!(
-            $cal, $mod_name, $reader, $writer, $code, $read, $write, $data, M2L, false
-        );
-        bench!(
-            $cal, $mod_name, $reader, $writer, $code, $read, $write, $data, M2L, true
+            $cal, $code, $read, $write, $data, M2L, false
         );
         bench!(
-            $cal, $mod_name, $reader, $writer, $code, $read, $write, $data, L2M, false
+            $cal, $code, $read, $write, $data, M2L, true
         );
         bench!(
-            $cal, $mod_name, $reader, $writer, $code, $read, $write, $data, L2M, true
+            $cal, $code, $read, $write, $data, L2M, false
         );
-    };
-}
-
-/// macro to implement the benchmarking of all the codes for the current backend
-macro_rules! impl_bench {
-    ($cal:expr, $mod_name:literal, $reader:ident, $writer:ident) => {
-        let mut rng = rand::thread_rng();
-        
-        let unary_data = (0..VALUES)
-            .map(|_| {
-                let v: u64 = rng.gen();
-                v.trailing_zeros() as u64
-            })
-            .collect::<Vec<_>>();
-
-        impl_code!(
-            $cal, $mod_name, $reader, $writer, "unary", read_unary, write_unary, unary_data
-        );
-
-        let gamma_data = (0..VALUES)
-            .map(|_| {
-                rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64
-            })
-            .collect::<Vec<_>>();
-        impl_code!(
-            $cal, $mod_name, $reader, $writer, "gamma", read_gamma, write_gamma, gamma_data
-        );
-
-        let delta_data = (0..VALUES)
-            .map(|_| {
-                rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64
-            })
-            .collect::<Vec<_>>();
-        impl_code!(
-            $cal, $mod_name, $reader, $writer, "delta", read_delta, write_delta, delta_data
+        bench!(
+            $cal, $code, $read, $write, $data, L2M, true
         );
     };
 }
@@ -293,11 +289,37 @@ pub fn main() {
     // figure out how much overhead we add by measuring
     let calibration = calibrate_overhead();
     // print the header of the csv
-    print!("pat,bytes,");
-    print!("read_ns_avg,read_ns_std,read_ns_max,read_ns_min,");
-    print!("write_ns_avg,write_ns_std,write_ns_max,write_ns_min");
-    print!("\n");
+    println!("pat,type,bytes,ns_avg,ns_std,ns_max,ns_min");
 
     // benchmark the buffered impl
-    impl_bench!(calibration, "buffered", BufferedBitStreamRead, BufferedBitStreamWrite);
+    let mut rng = rand::thread_rng();
+    
+    let unary_data = (0..VALUES)
+        .map(|_| {
+            let v: u64 = rng.gen();
+            v.trailing_zeros() as u64
+        })
+        .collect::<Vec<_>>();
+
+    impl_code!(
+        calibration, "unary", read_unary, write_unary, unary_data
+    );
+
+    let gamma_data = (0..VALUES)
+        .map(|_| {
+            rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64
+        })
+        .collect::<Vec<_>>();
+    impl_code!(
+        calibration, "gamma", read_gamma, write_gamma, gamma_data
+    );
+
+    let delta_data = (0..VALUES)
+        .map(|_| {
+            rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64
+        })
+        .collect::<Vec<_>>();
+    impl_code!(
+        calibration, "delta", read_delta, write_delta, delta_data
+    );
 }
