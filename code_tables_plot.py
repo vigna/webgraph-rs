@@ -23,6 +23,23 @@ for code in ["unary", "gamma", "delta"]:
                 values.n_bits, values.ns_min, values.ns_max, 
                 label=pat+"::"+ty+"_min_max", alpha=0.1,
             )
+
+    ratios = df[df.pat == "%s::L2M::Table"%code]
+    plt.bar(
+        ratios.n_bits,
+        ratios.ratio,
+        label="table hit ratio",
+        color="blue",
+        alpha=0.7,
+    )
+    plt.plot(
+        ratios.n_bits,
+        [1 for _ in ratios.n_bits],
+        "--",
+        alpha=0.3,
+        color="gray",
+        label="table hit ratio 100%% line"
+    )
         
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.ylim(bottom=0) #ymin is your value

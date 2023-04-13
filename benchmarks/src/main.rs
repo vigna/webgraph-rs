@@ -139,6 +139,7 @@ fn calibrate_overhead() -> u128 {
 
 /// Pin the process to one core to avoid context switching and caches flushes
 /// which would result in noise in the measurement.
+#[cfg(target_os="linux")]
 fn pin_to_core(core_id: usize) {
     unsafe{
         let mut cpu_set = core::mem::MaybeUninit::zeroed().assume_init();

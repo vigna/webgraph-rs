@@ -6,11 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libc = "0.2.141"
 rand = "0.8.5"
 random = "0.13.2"
 webgraph = {path="../"}
 rand_distr = "0.4.3"
+
+[target.'cfg(linux)'.dependencies]
+libc = "0.2.141"
 
 [profile.release]
 opt-level = 3             # like --release
