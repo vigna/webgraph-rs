@@ -4,7 +4,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df = pd.read_csv("~/Github/webgraph-rs/tables.csv", index_col=None, header=0)
+df = pd.read_csv("./tables.csv", index_col=None, header=0)
 for code in ["unary", "gamma", "delta"]:
     plt.figure(figsize=(10, 8), dpi=200, facecolor="white")
     for ty in ["read_buff", "read_unbuff"]:
@@ -25,13 +25,23 @@ for code in ["unary", "gamma", "delta"]:
             )
 
     ratios = df[df.pat == "%s::L2M::Table"%code]
-    plt.bar(
+    bars = plt.bar(
         ratios.n_bits,
         ratios.ratio,
         label="table hit ratio",
         color="blue",
-        alpha=0.7,
+        alpha=0.1,
     )
+    for ratio,rect in zip(ratios.ratio, bars):
+        height = rect.get_height()
+        plt.text(
+            rect.get_x() + rect.get_width() / 2.0, height + 0.05, 
+            "{:.2f}%".format(ratio * 100), 
+            ha='center', 
+            va='bottom',
+            rotation=90,
+        )
+
     plt.plot(
         ratios.n_bits,
         [1 for _ in ratios.n_bits],
