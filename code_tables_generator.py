@@ -9,8 +9,6 @@ To run just execute `$ python ./gen_code_tables.py`
 from math import log2, ceil, floor
 
 # Value we will use for values we cannot read using the current tables
-MISSING_VALUE_LEN = 255 # any value > 64 is fine
-
 def get_best_fitting_type(n_bits):
     """Find the smallest rust type that can fit n_bits"""
     if n_bits <= 8:
@@ -33,7 +31,9 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
 
         f.write("/// How many bits are needed to read the tables in this\n")
         f.write("pub const READ_BITS: u8 = {};\n".format(read_bits))
-        len_ty = get_best_fitting_type(ceil(log2(len_func(2**read_bits - 1))))
+        MISSING_VALUE_LEN = len_func(2**read_bits - 1) + 1
+        len_bits = ceil(log2(MISSING_VALUE_LEN))
+        len_ty = get_best_fitting_type(len_bits)
         f.write("/// The len we assign to a code that cannot be decoded through the table\n")
         f.write("pub const MISSING_VALUE_LEN: {} = {};\n".format(len_ty, MISSING_VALUE_LEN))
         
