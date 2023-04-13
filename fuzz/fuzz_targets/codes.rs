@@ -13,6 +13,7 @@ struct FuzzCase {
 #[derive(Arbitrary, Debug)]
 enum RandomCommand {
     WriteBits(u64, u8),
+    WriteMinimalBinary(u32, u32),
     WriteUnary(u8, bool, bool),
     Gamma(u64, bool, bool),
     Delta(u64, bool, bool),
@@ -31,7 +32,7 @@ fuzz_target!(|data: FuzzCase| {
         for command in data.commands.iter() {
             match command {
                 RandomCommand::WriteBits(value, n_bits) => {
-                    let n_bits = (*n_bits).min(64).max(1);
+                    let n_bits = 1 + (*n_bits % 63);
                     let value = get_lowest_bits(*value, n_bits);
                     let big_success = big.write_bits(value, n_bits).is_ok();
                     let little_success = little.write_bits(value, n_bits).is_ok();
@@ -85,6 +86,15 @@ fuzz_target!(|data: FuzzCase| {
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
+                RandomCommand::WriteMinimalBinary(value, max) => {
+                    let value = value % (*max).max(1);
+                    let value = value as u64;
+                    let max = *max as u64;
+                    let big_success = big.write_minimal_binary(value, max).is_ok();
+                    let little_success = little.write_minimal_binary(value, max).is_ok();
+                    assert_eq!(big_success, little_success);
+                    writes.push(big_success);
+                }
             };
         }
     }
@@ -100,10 +110,12 @@ fuzz_target!(|data: FuzzCase| {
         for (succ, command) in writes.iter().zip(data.commands.iter()) {
             let pos = big.get_position();
             assert_eq!(pos, little.get_position());
+            assert_eq!(pos, big_buff.get_position());
+            assert_eq!(pos, little_buff.get_position());
 
             match command {
                 RandomCommand::WriteBits(value, n_bits) => {
-                    let n_bits = (*n_bits).min(64).max(1);
+                    let n_bits = 1 + (*n_bits % 63);
                     let b = big.read_bits(n_bits);
                     let l = little.read_bits(n_bits);
                     let bb = big_buff.read_bits(n_bits);
@@ -255,6 +267,40 @@ fuzz_target!(|data: FuzzCase| {
                         assert_eq!(pos, little_buff.get_position());
                     }
                 },
+                RandomCommand::WriteMinimalBinary(value, max) => {
+                    let value = value % (*max).max(1);
+                    let value = value as u64;
+                    let max = *max as u64;
+                    let n_bits = len_minimal_binary(value, max) as u8;
+                    let b = big.read_minimal_binary(max);
+                    let l = little.read_minimal_binary(max);
+                    let bb = big_buff.read_minimal_binary(max);
+                    let lb = little_buff.read_minimal_binary(max);
+                    if *succ {
+                        let value = get_lowest_bits(value, n_bits);
+                        let b = b.unwrap();
+                        let l = l.unwrap();
+                        let bb = bb.unwrap();
+                        let lb = lb.unwrap();
+                        assert_eq!(b, value, "\nread : {:0n$b}\ntruth: {:0n$b}", b, value, n=n_bits as _);
+                        assert_eq!(l, value, "\nread : {:0n$b}\ntruth: {:0n$b}", l, value, n=n_bits as _);
+                        assert_eq!(bb, value, "\nread : {:0n$b}\ntruth: {:0n$b}", bb, value, n=n_bits as _);
+                        assert_eq!(lb, value, "\nread : {:0n$b}\ntruth: {:0n$b}", lb, value, n=n_bits as _);
+                        assert_eq!(pos + n_bits as usize, big.get_position());
+                        assert_eq!(pos + n_bits as usize, little.get_position());
+                        assert_eq!(pos + n_bits as usize, big_buff.get_position());
+                        assert_eq!(pos + n_bits as usize, little_buff.get_position());
+                    } else {
+                        assert!(b.is_err());
+                        assert!(l.is_err());
+                        assert!(bb.is_err());
+                        assert!(lb.is_err());
+                        assert_eq!(pos, big.get_position());
+                        assert_eq!(pos, little.get_position());
+                        assert_eq!(pos, big_buff.get_position());
+                        assert_eq!(pos, little_buff.get_position());
+                    }
+                }
             };
         }
     }

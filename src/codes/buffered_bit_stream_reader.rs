@@ -172,7 +172,7 @@ impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
         self.valid_bits -= n_bits;
         self.buffer <<= n_bits;
         
-        Ok(result as u64)
+        Ok(result)
     }
 
     #[inline]

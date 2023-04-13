@@ -57,18 +57,17 @@ impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        let res = if (in_word_offset + n_bits as usize) < 64 {
+        let res = if (in_word_offset + n_bits as usize) <= 64 {
             // single word access
-            let word = self.data.read_next_word()?;
+            let word = self.data.read_next_word()?.to_be();
             (word << in_word_offset) >> (64 - n_bits)
         } else {
             // double word access
-            let high_word = self.data.read_next_word()? as u128;
-            let low_word  = self.data.read_next_word()? as u128;
+            let high_word = self.data.read_next_word()?.to_be() as u128;
+            let low_word  = self.data.read_next_word()?.to_be() as u128;
             let composed = (high_word << 64) | low_word;
             ((composed << in_word_offset) >> (128 - n_bits)) as u64
         };
-        self.bit_idx += n_bits as usize;
         Ok(res)
     }
 
@@ -79,7 +78,7 @@ impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR
         let mut bits_in_word = 64 - in_word_offset;
         let mut total = 0;
 
-        let mut word = self.data.read_next_word()?;
+        let mut word = self.data.read_next_word()?.to_be();
         word <<= in_word_offset;
         loop {
             let zeros = word.leading_zeros() as usize;
@@ -90,7 +89,7 @@ impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR
             }
             total += bits_in_word;
             bits_in_word = 64;
-            word = self.data.read_next_word()?;
+            word = self.data.read_next_word()?.to_be();
         }
     }
 }
@@ -142,24 +141,23 @@ impl<WR: WordRead + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        let res = if (in_word_offset + n_bits as usize) < 64 {
+        let res = if (in_word_offset + n_bits as usize) <= 64 {
             // single word access
-            let word = self.data.read_next_word()?;
+            let word = self.data.read_next_word()?.to_le();
             get_lowest_bits(
                 word >> in_word_offset,
                 n_bits,
             )
         } else {
             // double word access
-            let high_word = self.data.read_next_word()? as u128;
-            let low_word  = self.data.read_next_word()? as u128;
+            let low_word = self.data.read_next_word()?.to_le() as u128;
+            let high_word  = self.data.read_next_word()?.to_le() as u128;
             let composed = (high_word << 64) | low_word;
             get_lowest_bits(
                 (composed >> in_word_offset) as u64,
                 n_bits,
             )
         };
-        self.bit_idx += n_bits as usize;
         Ok(res)
     }
 
@@ -170,7 +168,7 @@ impl<WR: WordRead + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR
         let mut bits_in_word = 64 - in_word_offset;
         let mut total = 0;
 
-        let mut word = self.data.read_next_word()?;
+        let mut word = self.data.read_next_word()?.to_le();
         word >>= in_word_offset;
         loop {
             let zeros = word.trailing_zeros() as usize;
@@ -181,7 +179,7 @@ impl<WR: WordRead + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR
             }
             total += bits_in_word;
             bits_in_word = 64;
-            word = self.data.read_next_word()?;
+            word = self.data.read_next_word()?.to_le();
         }
     }
 }
