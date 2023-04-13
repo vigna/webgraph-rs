@@ -103,9 +103,9 @@ pub use minimal_binary::{
 #[macro_use]
 pub(crate) mod macros;
 
-pub(crate) mod unary_tables;
-pub(crate) mod gamma_tables;
-pub(crate) mod delta_tables;
+pub mod unary_tables;
+pub mod gamma_tables;
+pub mod delta_tables;
 
 #[must_use]
 #[inline]

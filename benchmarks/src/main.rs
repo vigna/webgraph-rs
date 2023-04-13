@@ -78,9 +78,7 @@ struct Metrics {
     min: f64,
     max: f64,
     avg: f64,
-    var: f64,
     std: f64,
-    count: usize,
 }
 
 impl Default for MetricsStream {
@@ -119,9 +117,7 @@ impl MetricsStream {
         Metrics {
             min: self.min ,
             max: self.max,
-            count: self.count,
             avg: self.avg,
-            var: var,
             std: var.sqrt(),
         }
     }
@@ -158,7 +154,7 @@ fn pin_to_core(core_id: usize) {
 }
 
 macro_rules! bench {
-    ($cal:expr, $code:literal, $read:ident, $write:ident, $data:expr, $bo:ident, $table:expr) => {{
+    ($cal:expr, $ratio:expr, $code:literal, $read:ident, $write:ident, $data:expr, $bo:ident, $table:expr) => {{
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
@@ -232,27 +228,30 @@ let table = if $table {
     "NoTable"
 };
 // print the results
-println!("{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "write",
+    $ratio,
     bytes,
     write.avg / VALUES as f64, 
     write.std / VALUES as f64,
     write.max / VALUES as f64, 
     write.min / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_buff",
+    $ratio,
     bytes,
     read_buff.avg / VALUES as f64, 
     read_buff.std / VALUES as f64,
     read_buff.max / VALUES as f64, 
     read_buff.min / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_unbuff",
+    $ratio,
     bytes,
     read_unbuff.avg / VALUES as f64, 
     read_unbuff.std / VALUES as f64,
@@ -265,18 +264,18 @@ println!("{}::{}::{},{},{},{},{},{},{}",
 
 /// macro to implement all combinations of bit order and table use
 macro_rules! impl_code {
-    ($cal:expr, $code:literal, $read:ident, $write:ident, $data:expr) => {
+    ($cal:expr, $ratio:expr, $code:literal, $read:ident, $write:ident, $data:expr) => {
         bench!(
-            $cal, $code, $read, $write, $data, M2L, false
+            $cal, $ratio, $code, $read, $write, $data, M2L, false
         );
         bench!(
-            $cal, $code, $read, $write, $data, M2L, true
+            $cal, $ratio, $code, $read, $write, $data, M2L, true
         );
         bench!(
-            $cal, $code, $read, $write, $data, L2M, false
+            $cal, $ratio, $code, $read, $write, $data, L2M, false
         );
         bench!(
-            $cal, $code, $read, $write, $data, L2M, true
+            $cal, $ratio, $code, $read, $write, $data, L2M, true
         );
     };
 }
@@ -290,7 +289,7 @@ pub fn main() {
     // figure out how much overhead we add by measuring
     let calibration = calibrate_overhead();
     // print the header of the csv
-    println!("pat,type,bytes,ns_avg,ns_std,ns_max,ns_min");
+    println!("pat,type,ratio,bytes,ns_avg,ns_std,ns_max,ns_min");
 
     // benchmark the buffered impl
     let mut rng = rand::thread_rng();
@@ -302,8 +301,16 @@ pub fn main() {
         })
         .collect::<Vec<_>>();
 
+    let ratio = unary_data.iter().map(|value| {
+        if len_unary::<false>(*value) <= unary_tables::READ_BITS as usize {
+            1
+        } else {
+            0
+        }
+    }).sum::<usize>() as f64 / VALUES as f64;
+
     impl_code!(
-        calibration, "unary", read_unary, write_unary, unary_data
+        calibration, ratio, "unary", read_unary, write_unary, unary_data
     );
 
     let gamma_data = (0..VALUES)
@@ -311,8 +318,17 @@ pub fn main() {
             rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64
         })
         .collect::<Vec<_>>();
+
+    let ratio = gamma_data.iter().map(|value| {
+        if len_gamma::<false>(*value) <= gamma_tables::READ_BITS as usize {
+            1
+        } else {
+            0
+        }
+    }).sum::<usize>() as f64 / VALUES as f64;
+
     impl_code!(
-        calibration, "gamma", read_gamma, write_gamma, gamma_data
+        calibration, ratio, "gamma", read_gamma, write_gamma, gamma_data
     );
 
     let delta_data = (0..VALUES)
@@ -320,7 +336,16 @@ pub fn main() {
             rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64
         })
         .collect::<Vec<_>>();
+
+    let ratio = delta_data.iter().map(|value| {
+        if len_delta::<false>(*value) <= delta_tables::READ_BITS as usize {
+            1
+        } else {
+            0
+        }
+    }).sum::<usize>() as f64 / VALUES as f64;
+
     impl_code!(
-        calibration, "delta", read_delta, write_delta, delta_data
+        calibration, ratio, "delta", read_delta, write_delta, delta_data
     );
 }

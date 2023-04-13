@@ -32,15 +32,15 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
         f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
 
         f.write("/// How many bits are needed to read the tables in this\n")
-        f.write("pub(crate) const READ_BITS: u8 = {};\n".format(read_bits))
+        f.write("pub const READ_BITS: u8 = {};\n".format(read_bits))
         len_ty = get_best_fitting_type(ceil(log2(len_func(2**read_bits - 1))))
         f.write("/// The len we assign to a code that cannot be decoded through the table\n")
-        f.write("pub(crate) const MISSING_VALUE_LEN: {} = {};\n".format(len_ty, MISSING_VALUE_LEN))
+        f.write("pub const MISSING_VALUE_LEN: {} = {};\n".format(len_ty, MISSING_VALUE_LEN))
         
         # Write the read tables
         for bo in ["M2L", "L2M"]:
             f.write("///Table used to speed up the reading of {} codes\n".format(code_name))
-            f.write("pub(crate) const READ_%s: &[(%s, %s)] = &["%(
+            f.write("pub const READ_%s: &[(%s, %s)] = &["%(
                 bo, 
                 get_best_fitting_type(read_bits),
                 len_ty,
@@ -57,7 +57,7 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
         # Write the write tables
         for bo in ["M2L", "L2M"]:
             f.write("///Table used to speed up the writing of {} codes\n".format(code_name))
-            f.write("pub(crate) const WRITE_%s: &[(%s, u8)] = &["%(
+            f.write("pub const WRITE_%s: &[(%s, u8)] = &["%(
                 bo,
                 get_best_fitting_type(len_func(write_max_val))
             ))
@@ -68,7 +68,7 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
 
         # Write the len table
         f.write("///Table used to speed up the skipping of {} codes\n".format(code_name))
-        f.write("pub(crate) const LEN: &[%s] = &["%(
+        f.write("pub const LEN: &[%s] = &["%(
             get_best_fitting_type(ceil(log2(len_func(len_max_val))))
         ))
         for value in range(write_max_val + 1):
