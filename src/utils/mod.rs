@@ -46,3 +46,10 @@ pub const fn fast_log2_floor(value: u64) -> u64 {
     debug_assert!(value > 0);
     63 - (value | 1).leading_zeros() as u64
 }
+
+/// power of two
+#[inline(always)]
+#[must_use]
+pub const fn fast_pow_2(value: u64) -> u64 {
+    1 << value
+}

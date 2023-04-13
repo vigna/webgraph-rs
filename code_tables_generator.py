@@ -277,8 +277,161 @@ def gen_delta(read_bits, write_max_val, len_max_val=None):
 
 ################################################################################
 
+def read_minimal_binary(max, bitstream, m2l):
+    """Read a minimal binary code code with max `max`"""
+    l = int(floor(log2(max)))
+    v, bitstream = read_fixed(l, bitstream, m2l)
+    limit = (1 << (l + 1)) - max
+
+    if v < limit:
+        return v, bitstream
+    else:
+        b, bitstream = read_fixed(1, bitstream, m2l)
+        v = (v << 1) | b
+        return v - limit, bitstream
+
+def write_minimal_binary(value, max, bitstream, m2l):
+    """Write a minimal binary code with max `max`"""
+    l = int(floor(log2(max))) 
+    limit = (1 << (l + 1)) - max
+
+    if value < limit:
+        return write_fixed(value, l, bitstream, m2l)
+    else:
+        to_write = value + limit
+        bitstream = write_fixed(to_write >> 1, l, bitstream, m2l)
+        return write_fixed(to_write & 1, 1, bitstream, m2l)
+
+def len_minimal_binary(value, max):
+    """Length of the minimal binary code of `value` with max `max`"""
+    l = int(floor(log2(max)))
+    limit = (1 << (l + 1)) - max
+    if value >= limit:
+        return l + 1
+    else:
+        return l
+
+# Test that the impl is reasonable
+assert write_minimal_binary(0, 10, "", True)   == "000"
+assert write_minimal_binary(0, 10, "", False)  == "000"
+assert write_minimal_binary(1, 10, "", True)   == "001"
+assert write_minimal_binary(1, 10, "", False)  == "001"
+assert write_minimal_binary(2, 10, "", True)   == "010"
+assert write_minimal_binary(2, 10, "", False)  == "010"
+assert write_minimal_binary(3, 10, "", True)   == "011"
+assert write_minimal_binary(3, 10, "", False)  == "011"
+assert write_minimal_binary(4, 10, "", True)   == "100"
+assert write_minimal_binary(4, 10, "", False)  == "100"
+assert write_minimal_binary(5, 10, "", True)   == "101"
+assert write_minimal_binary(5, 10, "", False)  == "101"
+
+assert write_minimal_binary(6, 10, "", True)   == "1100"
+assert write_minimal_binary(6, 10, "", False)  == "0110"
+assert write_minimal_binary(7, 10, "", True)   == "1101"
+assert write_minimal_binary(7, 10, "", False)  == "1110"
+assert write_minimal_binary(8, 10, "", True)   == "1110"
+assert write_minimal_binary(8, 10, "", False)  == "0111"
+assert write_minimal_binary(9, 10, "", True)   == "1111"
+assert write_minimal_binary(9, 10, "", False)  == "1111"
+
+# Little consistency check
+_max = 200
+for i in range(_max):
+    wm2l = write_minimal_binary(i, _max, "", True)
+    rm2l = read_minimal_binary(_max, wm2l, True)[0]
+    wl2m = write_minimal_binary(i, _max, "", False)
+    rl2m = read_minimal_binary(_max, wl2m, False)[0]
+    l = len_minimal_binary(i, _max)
+    assert i == rm2l
+    assert i == rl2m
+    assert len(wm2l) == l
+    assert len(wl2m) == l
+
+################################################################################
+
+def read_zeta(bitstream, k, m2l):
+    """Read a zeta code"""
+    h, bitstream = read_unary(bitstream, m2l)
+    u = 2**((h + 1) * k)
+    l = 2**(h * k)
+    r, bitstream = read_minimal_binary(u - l, bitstream, m2l)
+    return l + r - 1, bitstream
+
+def write_zeta(value, k, bitstream, m2l):
+    """Write a zeta code"""
+    value += 1
+    h = int(floor(log2(value)) / k)
+    u = 2**((h + 1) * k)
+    l = 2**(h * k)
+
+    bitstream = write_unary(h, bitstream, m2l)
+    bitstream = write_minimal_binary(value - l, u - l, bitstream, m2l)
+    return bitstream
+
+def len_zeta(value, k):
+    """Length of the zeta code of `value`"""
+    value += 1
+    h = int(floor(log2(value)) / k)
+    u = 2**((h + 1) * k)
+    l = 2**(h * k)
+    return len_unary(h) + len_minimal_binary(value - l, u - l)
+
+# Test that the impl is reasonable
+assert write_zeta(0, 3, "", True)  == "100"
+assert write_zeta(1, 3, "", True)  == "1010"
+assert write_zeta(2, 3, "", True)  == "1011"
+assert write_zeta(3, 3, "", True)  == "1100"
+assert write_zeta(4, 3, "", True)  == "1101"
+assert write_zeta(5, 3, "", True)  == "1110"
+assert write_zeta(6, 3, "", True)  == "1111"
+assert write_zeta(7, 3, "", True)  == "0100000"
+assert write_zeta(8, 3, "", True)  == "0100001"
+
+assert write_zeta(0, 3, "", False) == "001"
+assert write_zeta(1, 3, "", False) == "0011"
+assert write_zeta(2, 3, "", False) == "1011"
+assert write_zeta(3, 3, "", False) == "0101"
+assert write_zeta(4, 3, "", False) == "1101"
+assert write_zeta(5, 3, "", False) == "0111"
+assert write_zeta(6, 3, "", False) == "1111"
+assert write_zeta(7, 3, "", False) == "0000010"
+assert write_zeta(8, 3, "", False) == "0000110"
+
+# Little consistency check
+for i in range(256):
+    l = len_zeta(i, 3)
+    
+    wm2l = write_zeta(i, 3, "", True)
+    rm2l = read_zeta(wm2l, 3, True)[0]
+
+    assert i == rm2l, "%s %s %s"%(i, rm2l, wm2l)
+    assert len(wm2l) == l
+
+    wl2m = write_zeta(i, 3, "", False)
+    rl2m = read_zeta(wl2m, 3, False)[0]
+    
+    assert i == rl2m, "%s %s %s"%(i, rl2m, wl2m)
+    assert len(wl2m) == l
+
+def gen_zeta(read_bits, write_max_val, len_max_val=None, k=3):
+    """Configuration of `gen_table` for delta"""
+    len_max_val = len_max_val or write_max_val
+    gen_table(
+        read_bits, write_max_val, len_max_val,
+        "zeta",
+        lambda value: len_zeta(value, k), 
+        lambda bitstream, m2l: read_zeta(bitstream, k, m2l), 
+        lambda value, bitstream, m2l: write_zeta(value, k, bitstream, m2l),
+    )
+    with open("./src/codes/zeta_tables.rs", "a") as f:
+        f.write("/// The K of the zeta codes for these tables\n")
+        f.write("pub const K: u64 = {};".format(k))
+
+################################################################################
+
 if __name__ == "__main__":
     # Generate the default tables
     gen_unary(read_bits=0, write_max_val=63)
     gen_gamma(read_bits=8, write_max_val=256)
     gen_delta(read_bits=8, write_max_val=256)
+    gen_zeta(read_bits=8, write_max_val=256, k=3)

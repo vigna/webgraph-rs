@@ -17,6 +17,7 @@ enum RandomCommand {
     WriteUnary(u8, bool, bool),
     Gamma(u64, bool, bool),
     Delta(u64, bool, bool),
+    Zeta(u32, u8, bool, bool),
 }
 
 fuzz_target!(|data: FuzzCase| {
@@ -95,6 +96,24 @@ fuzz_target!(|data: FuzzCase| {
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 }
+                RandomCommand::Zeta(value, k, _, write_tab) => {
+                    let value = *value as u64;
+                    let k = (*k).max(1).min(7) as u64;
+
+                    let (big_success, little_success) = if *write_tab {
+                        (
+                            big.write_zeta::<true>(value, k).is_ok(),
+                            little.write_zeta::<true>(value, k).is_ok(),
+                        )
+                    } else {
+                        (
+                            big.write_zeta::<false>(value, k).is_ok(),
+                            little.write_zeta::<false>(value, k).is_ok(),
+                        )
+                    };
+                    assert_eq!(big_success, little_success);
+                    writes.push(big_success);
+                },
             };
         }
     }
@@ -290,6 +309,48 @@ fuzz_target!(|data: FuzzCase| {
                         assert_eq!(pos + n_bits as usize, little.get_position());
                         assert_eq!(pos + n_bits as usize, big_buff.get_position());
                         assert_eq!(pos + n_bits as usize, little_buff.get_position());
+                    } else {
+                        assert!(b.is_err());
+                        assert!(l.is_err());
+                        assert!(bb.is_err());
+                        assert!(lb.is_err());
+                        assert_eq!(pos, big.get_position());
+                        assert_eq!(pos, little.get_position());
+                        assert_eq!(pos, big_buff.get_position());
+                        assert_eq!(pos, little_buff.get_position());
+                    }
+                }
+                RandomCommand::Zeta(value, k, read_tab, _) => {
+                    let value = *value as u64;
+                    let k = (*k).max(1).min(7) as u64;
+                    let (b, l, bb, lb) = if *read_tab {
+                        (
+                            big.read_zeta::<true>(k),
+                            little.read_zeta::<true>(k),
+                            big_buff.read_zeta::<true>(k),
+                            little_buff.read_zeta::<true>(k),
+                        )
+                    } else {
+                        (
+                            big.read_zeta::<false>(k),
+                            little.read_zeta::<false>(k),
+                            big_buff.read_zeta::<false>(k),
+                            little_buff.read_zeta::<false>(k),
+                        )
+                    };
+                    if *succ {
+                        assert_eq!(bb.unwrap(), value);
+                        assert_eq!(lb.unwrap(), value);
+                        assert_eq!(b.unwrap(), value);
+                        assert_eq!(l.unwrap(), value);
+                        assert_eq!(pos + len_zeta::<false>(value, k), big.get_position());
+                        assert_eq!(pos + len_zeta::<false>(value, k), little.get_position());
+                        assert_eq!(pos + len_zeta::<false>(value, k), big_buff.get_position());
+                        assert_eq!(pos + len_zeta::<false>(value, k), little_buff.get_position());
+                        assert_eq!(pos + len_zeta::<true>(value, k), big.get_position());
+                        assert_eq!(pos + len_zeta::<true>(value, k), little.get_position());
+                        assert_eq!(pos + len_zeta::<true>(value, k), big_buff.get_position());
+                        assert_eq!(pos + len_zeta::<true>(value, k), little_buff.get_position());
                     } else {
                         assert!(b.is_err());
                         assert!(l.is_err());

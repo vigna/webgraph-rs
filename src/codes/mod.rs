@@ -100,12 +100,18 @@ pub use minimal_binary::{
     MinimalBinaryRead, MinimalBinaryWrite, len_minimal_binary,
 };
 
+mod zeta;
+pub use zeta::{
+    ZetaRead, ZetaWrite, len_zeta,
+};
+
 #[macro_use]
 pub(crate) mod macros;
 
 pub mod unary_tables;
 pub mod gamma_tables;
 pub mod delta_tables;
+pub mod zeta_tables;
 
 #[must_use]
 #[inline]
