@@ -317,7 +317,7 @@ pub fn main() {
 
     let gamma_data = (0..VALUES)
         .map(|_| {
-            rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64
+            rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64 - 1
         })
         .collect::<Vec<_>>();
 
@@ -335,7 +335,7 @@ pub fn main() {
 
     let delta_data = (0..VALUES)
         .map(|_| {
-            rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64
+            rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64 - 1
         })
         .collect::<Vec<_>>();
 
@@ -349,5 +349,23 @@ pub fn main() {
 
     impl_code!(
         calibration, ratio, "delta", read_delta, write_delta, delta_data
+    );
+
+    let zeta3_data = (0..VALUES)
+        .map(|_| {
+            rng.sample(rand_distr::Zeta::new(1.2).unwrap()) as u64 - 1
+        })
+        .collect::<Vec<_>>();
+
+    let ratio = zeta3_data.iter().map(|value| {
+        if len_zeta::<false>(*value, 3) <= zeta_tables::READ_BITS as usize {
+            1
+        } else {
+            0
+        }
+    }).sum::<usize>() as f64 / VALUES as f64;
+
+    impl_code!(
+        calibration, ratio, "zeta", read_zeta3, write_zeta3, zeta3_data
     );
 }

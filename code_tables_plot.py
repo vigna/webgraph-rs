@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 df = pd.read_csv(sys.stdin, index_col=None, header=0)
 
-for code in ["unary", "gamma", "delta"]:
+for code in ["unary", "gamma", "delta", "zeta"]:
     plt.figure(figsize=(10, 8), dpi=200, facecolor="white")
     for ty in ["read_buff", "read_unbuff"]:
         for pat in [

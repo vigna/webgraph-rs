@@ -32,14 +32,21 @@ pub fn len_zeta<const USE_TABLE: bool>(mut value: u64, k: u64) -> usize {
 
 /// 
 pub trait ZetaRead<BO: BitOrder>: MinimalBinaryRead<BO> {
-    /// 
+    /// Generic ζ code reader
     fn read_zeta<const USE_TABLE: bool>(&mut self, k: u64) -> Result<u64>;
+    /// Specialized ζ code reader for k = 3
+    fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64>;
 }
 
 impl<B: BitRead<M2L>> ZetaRead<M2L> for B {
     #[inline]
     fn read_zeta<const USE_TABLE: bool>(&mut self, k: u64) -> Result<u64> {
-        if USE_TABLE && k == zeta_tables::K {
+        default_read_zeta(self, k)
+    }
+
+    #[inline]
+    fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        if USE_TABLE {
             if let Ok(idx) = self.peek_bits(zeta_tables::READ_BITS) {
                 let (value, len) = zeta_tables::READ_M2L[idx as usize];
                 if len != zeta_tables::MISSING_VALUE_LEN {
@@ -48,13 +55,18 @@ impl<B: BitRead<M2L>> ZetaRead<M2L> for B {
                 }
             }
         }
-        default_read_zeta(self, k)
+        default_read_zeta(self, 3)
     }
 }
 impl<B: BitRead<L2M>> ZetaRead<L2M> for B {
     #[inline]
     fn read_zeta<const USE_TABLE: bool>(&mut self, k: u64) -> Result<u64> {
-        if USE_TABLE && k == zeta_tables::K {
+        default_read_zeta(self, k)
+    }
+
+    #[inline]
+    fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        if USE_TABLE {
             if let Ok(idx) = self.peek_bits(zeta_tables::READ_BITS) {
                 let (value, len) = zeta_tables::READ_L2M[idx as usize];
                 if len != zeta_tables::MISSING_VALUE_LEN {
@@ -63,7 +75,7 @@ impl<B: BitRead<L2M>> ZetaRead<L2M> for B {
                 }
             }
         }
-        default_read_zeta(self, k)
+        default_read_zeta(self, 3)
     }
 }
 
@@ -79,30 +91,42 @@ fn default_read_zeta<BO: BitOrder, B: BitRead<BO>>(backend: &mut B, k: u64) -> R
 
 /// 
 pub trait ZetaWrite<BO: BitOrder>: MinimalBinaryWrite<BO> {
-    /// 
+    /// Generic ζ code writer
     fn write_zeta<const USE_TABLE: bool>(&mut self, value: u64, k: u64) -> Result<()>;
+    /// Specialized ζ code writer for k = 3
+    fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()>;
 }
 
 impl<B: BitWrite<M2L>> ZetaWrite<M2L> for B {
     #[inline]
     fn write_zeta<const USE_TABLE: bool>(&mut self, value: u64, k: u64) -> Result<()> {
-        if USE_TABLE && k == zeta_tables::K {
+        default_write_zeta(self, value, k)
+    }
+
+    #[inline]
+    fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+        if USE_TABLE {
             if let Some((bits, n_bits)) = zeta_tables::WRITE_M2L.get(value as usize) {
                 return self.write_bits(*bits as u64, *n_bits);
             }
         }
-        default_write_zeta(self, value, k)
+        default_write_zeta(self, value, 3)
     }
 }
 impl<B: BitWrite<L2M>> ZetaWrite<L2M> for B {
     #[inline]
     fn write_zeta<const USE_TABLE: bool>(&mut self, value: u64, k: u64) -> Result<()> {
-        if USE_TABLE && k == zeta_tables::K {
+         default_write_zeta(self, value, k)
+    }
+
+    #[inline]
+    fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+        if USE_TABLE {
             if let Some((bits, n_bits)) = zeta_tables::WRITE_L2M.get(value as usize) {
                 return self.write_bits(*bits as u64, *n_bits);
             }
         }
-        default_write_zeta(self, value, k)
+        default_write_zeta(self, value, 3)
     }
 }
 
