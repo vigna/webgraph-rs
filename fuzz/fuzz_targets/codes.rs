@@ -88,9 +88,8 @@ fuzz_target!(|data: FuzzCase| {
                     writes.push(big_success);
                 },
                 RandomCommand::WriteMinimalBinary(value, max) => {
-                    let value = value % (*max).max(1);
-                    let value = value as u64;
-                    let max = *max as u64;
+                    let max = (*max).max(1) as u64;
+                    let value = (*value as u64) % max;
                     let big_success = big.write_minimal_binary(value, max).is_ok();
                     let little_success = little.write_minimal_binary(value, max).is_ok();
                     assert_eq!(big_success, little_success);
@@ -287,16 +286,14 @@ fuzz_target!(|data: FuzzCase| {
                     }
                 },
                 RandomCommand::WriteMinimalBinary(value, max) => {
-                    let value = value % (*max).max(1);
-                    let value = value as u64;
-                    let max = *max as u64;
+                    let max = (*max).max(1) as u64;
+                    let value = (*value as u64) % max;
                     let n_bits = len_minimal_binary(value, max) as u8;
                     let b = big.read_minimal_binary(max);
                     let l = little.read_minimal_binary(max);
                     let bb = big_buff.read_minimal_binary(max);
                     let lb = little_buff.read_minimal_binary(max);
                     if *succ {
-                        let value = get_lowest_bits(value, n_bits);
                         let b = b.unwrap();
                         let l = l.unwrap();
                         let bb = bb.unwrap();

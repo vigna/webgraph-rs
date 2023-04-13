@@ -5,7 +5,7 @@
 //! When the size of the alphabet is a power of two, this is equivalent to
 //! the classical binary encoding.
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 
 use super::{BitOrder, BitRead, BitWrite};
 use crate::utils::fast_log2_floor;
@@ -15,6 +15,9 @@ use crate::utils::fast_log2_floor;
 #[must_use]
 #[inline]
 pub fn len_minimal_binary(value: u64, max: u64) -> usize {
+    if max == 0 {
+        return 0;
+    }
     let l = fast_log2_floor(max);
     let limit = (1 << (l + 1)) - max;
     let mut result = l as usize;
@@ -33,6 +36,9 @@ pub trait MinimalBinaryRead<BO: BitOrder>: BitRead<BO> {
     /// bits, as when the stream ended unexpectedly
     #[inline]
     fn read_minimal_binary(&mut self, max: u64) -> Result<u64> {
+        if max == 0 {
+            bail!("The max of a minimal binary value can't be zero.");
+        }
         let l = fast_log2_floor(max);
         let mut value = self.read_bits(l as _)?;
         let limit = (1 << (l + 1)) - max;
@@ -57,6 +63,9 @@ pub trait MinimalBinaryWrite<BO: BitOrder>: BitWrite<BO> {
     #[inline]
     fn write_minimal_binary(
         &mut self, value: u64, max: u64) -> Result<()> {
+        if max == 0 {
+            bail!("The max of a minimal binary value can't be zero.");
+        }
         let l = fast_log2_floor(max);
         let limit = (1 << (l + 1)) - max;
 
