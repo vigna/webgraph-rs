@@ -26,11 +26,11 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
                 label=pat+"::"+ty+"_25%_75%", alpha=0.3,
             )
 
-    ratios = df[df.type == "ratios"].groupby("n_bits").mean()
+    ratios = df[(df.type == "ratios") & (df.pat.str.contains(code))].groupby("n_bits").mean()
     bars = plt.bar(
         ratios.index,
         ratios.ns_median,
-        yerr=[ratios.ns_perc25, ratios.ns_perc75],
+        yerr=[ratios.ns_median - ratios.ns_perc25, ratios.ns_perc75 - ratios.ns_median],
         label="table hit ratio",
         color="blue",
         alpha=0.1,
