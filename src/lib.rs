@@ -1,6 +1,4 @@
-//! # `webgraph-rs`
-//! A pure Rust implementation of the [WebGraph framework](https://webgraph.di.unimi.it/)
-//! for graph compression.
+#![doc = include_str!("../README.md")]
 
 // No warnings
 #![deny(warnings)]
@@ -37,3 +35,11 @@
 //#![deny(clippy::missing_crate_level_docs)]
 //#![deny(clippy::missing_docs_in_private_items)]
 //#![deny(missing_debug_implementations)]
+
+#![cfg_attr(not(feature="std"), no_std)]
+
+#[cfg(feature="alloc")]
+extern crate alloc;
+
+pub mod codes;
+pub mod utils;
