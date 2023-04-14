@@ -26,7 +26,7 @@ for bits in range(1, 18):
         ).decode()
 
         # Dump the header only the first time
-        if bits == 1:
+        if bits == 1 and tables_num == 1:
             print("n_bits,tables_num," + stdout.split('\n')[0])
         # Dump all lines and add the `n_bits` column
         for line in stdout.split("\n")[1:]:
