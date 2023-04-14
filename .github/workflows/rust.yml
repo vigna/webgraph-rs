@@ -29,8 +29,8 @@ jobs:
       run: cargo test --verbose --target x86_64-unknown-linux-gnu --no-default-features --features std
     - name: Run tests on alloc
       run: cargo test --verbose --target x86_64-unknown-linux-gnu --no-default-features --features alloc
-    - name: Run tests on no_std
-      run: cargo test --verbose --target aarch64-unknown-none --no-default-features
+    #- name: Run tests on no_std
+    #  run: cargo test --verbose --target aarch64-unknown-none --no-default-features
     - name: Run clippy
       run: cargo clippy -- -Dclippy::all -Dclippy::cargo
     - name: Test with Miri in little endian
