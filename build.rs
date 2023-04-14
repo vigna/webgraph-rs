@@ -9,7 +9,7 @@ fn main() {
     ];
     // generate the tables if needed
     if paths.iter().any(|path| !path.exists()) {
-        std::process::Command::new("python")
+        std::process::Command::new("python3")
             .arg("./code_tables_generator.py")
             .spawn()
             .unwrap();
