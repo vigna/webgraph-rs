@@ -83,7 +83,7 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
     plt.ylim(bottom=0) #ymin is your value
     plt.xlim([left, right]) #ymin is your value
     plt.xticks(ratios.index)
-    plt.title("Performances of %s codes read and writes\nin function of the table size\nShaded areas are the 25%% and 75%% percentiles and the plots are medians with stds."%(code.capitalize()))
+    plt.title("Performances of %s codes read and writes in function of the table size\nShaded areas are the 25%% and 75%% percentiles and the plots are medians with stds."%(code.capitalize()))
     plt.xlabel("Table Bits")
     plt.ylabel("ns")
     plt.savefig("%s_tables.png"%code, bbox_inches="tight")
