@@ -2,16 +2,16 @@ use webgraph::codes::*;
 use rand::Rng;
 
 /// To compute quickly the median we need values to be 2*k + 1, this is k.
-const VALUES_SIDE: usize = 10_000;
+const VALUES_SIDE: usize = 1_000;
 /// How many random codes we will write and read in the benchmark
 const VALUES: usize = 2*VALUES_SIDE + 1;
 /// How many iterations to do before starting measuring, this is done to warmup
 /// the caches and the branch predictor
 const WARMUP_ITERS: usize = 100;
 /// How many iterations of measurement we will execute
-const BENCH_ITERS: usize = 1_000;
+const BENCH_ITERS: usize = 10_000;
 /// For how many times we will measure the measurement overhead
-const CALIBRATION_ITERS: usize = 1_000_000;
+const CALIBRATION_ITERS: usize = 100_000;
 /// To proprly test delta we compute a discrete version of the indended 
 /// distribution. The original distribution is infinite but we need to cut it
 /// down to a finite set. This value represent the maximum value we are going to
@@ -36,7 +36,7 @@ mod data;
 use data::*;
 
 macro_rules! bench {
-    ($cal:expr, $ratio:expr, $code:literal, $read:ident, $write:ident, $gen_data:ident, $bo:ident, $table:expr) => {{
+    ($cal:expr, $code:literal, $read:ident, $write:ident, $gen_data:ident, $bo:ident, $table:expr) => {{
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
@@ -107,47 +107,42 @@ let read_buff = read_buff.finalize();
 let read_unbuff = read_unbuff.finalize();
 let write = write.finalize();
 
-let bytes = buffer.len() * 8;
 let table = if $table {
     "Table"
 } else {
     "NoTable"
 };
 // print the results
-println!("{}::{}::{},{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "write",
-    bytes,
     write.avg / VALUES as f64, 
     write.std / VALUES as f64,
     write.percentile_25 / VALUES as f64, 
     write.median / VALUES as f64,
     write.percentile_75 / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_buff",
-    bytes,
     read_buff.avg / VALUES as f64, 
     read_buff.std / VALUES as f64,
     read_buff.percentile_25 / VALUES as f64, 
     read_buff.median / VALUES as f64,
     read_buff.percentile_75 / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_unbuff",
-    bytes,
     read_unbuff.avg / VALUES as f64, 
     read_unbuff.std / VALUES as f64,
     read_unbuff.percentile_25 / VALUES as f64, 
     read_unbuff.median / VALUES as f64,
     read_unbuff.percentile_75 / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "ratios",
-    bytes,
     ratios.avg / VALUES as f64, 
     ratios.std / VALUES as f64,
     ratios.percentile_25 / VALUES as f64, 
@@ -160,18 +155,18 @@ println!("{}::{}::{},{},{},{},{},{},{},{}",
 
 /// macro to implement all combinations of bit order and table use
 macro_rules! impl_code {
-    ($cal:expr, $ratio:expr, $code:literal, $read:ident, $write:ident, $gen_data:ident) => {
+    ($cal:expr, $code:literal, $read:ident, $write:ident, $gen_data:ident) => {
         bench!(
-            $cal, $ratio, $code, $read, $write, $gen_data, M2L, false
+            $cal, $code, $read, $write, $gen_data, M2L, false
         );
         bench!(
-            $cal, $ratio, $code, $read, $write, $gen_data, M2L, true
+            $cal, $code, $read, $write, $gen_data, M2L, true
         );
         bench!(
-            $cal, $ratio, $code, $read, $write, $gen_data, L2M, false
+            $cal, $code, $read, $write, $gen_data, L2M, false
         );
         bench!(
-            $cal, $ratio, $code, $read, $write, $gen_data, L2M, true
+            $cal, $code, $read, $write, $gen_data, L2M, true
         );
     };
 }
@@ -185,20 +180,20 @@ pub fn main() {
     // figure out how much overhead we add by measuring
     let calibration = calibrate_overhead();
     // print the header of the csv
-    println!("pat,type,bytes,ns_avg,ns_std,ns_perc25,ns_median,ns_perc75");
+    println!("pat,type,ns_avg,ns_std,ns_perc25,ns_median,ns_perc75");
 
     // benchmark the buffered impl
 
     impl_code!(
-        calibration, ratio, "unary", read_unary, write_unary, gen_unary_data
+        calibration, "unary", read_unary, write_unary, gen_unary_data
     );
     impl_code!(
-        calibration, ratio, "gamma", read_gamma, write_gamma, gen_gamma_data
+        calibration, "gamma", read_gamma, write_gamma, gen_gamma_data
     );
     impl_code!(
-        calibration, ratio, "delta", read_delta, write_delta, gen_delta_data
+        calibration, "delta", read_delta, write_delta, gen_delta_data
     );
     impl_code!(
-        calibration, ratio, "zeta3", read_zeta3, write_zeta3, gen_zeta3_data
+        calibration, "zeta3", read_zeta3, write_zeta3, gen_zeta3_data
     );
 }
