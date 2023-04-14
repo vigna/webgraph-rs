@@ -3,9 +3,7 @@ use super::{
     BitRead,
     WordRead, WordStream, BitSeek,
     unary_tables,
-    macros::impl_table_call,
 };
-use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail};
 
 // I'm not really happy about implementing it over a seekable stream instead of 
@@ -65,17 +63,22 @@ impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR
             (word << in_word_offset) >> (64 - n_bits)
         } else {
             // double word access
-            let high_word = self.data.read_next_word()?.to_be() as u128;
-            let low_word  = self.data.read_next_word()?.to_be() as u128;
-            let composed = (high_word << 64) | low_word;
-            ((composed << in_word_offset) >> (128 - n_bits)) as u64
+            let high_word = self.data.read_next_word()?.to_be();
+            let low_word  = self.data.read_next_word()?.to_be();
+            let shamt1 = 64 - n_bits;
+            let shamt2 = 128 - in_word_offset - n_bits as usize;
+            ((high_word << in_word_offset) >> shamt1) | (low_word >> shamt2)
         };
         Ok(res)
     }
 
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        impl_table_call!(self, USE_TABLE, unary_tables, M2L);
+        if USE_TABLE {
+            if let Some(res) = unary_tables::read_table_m2l(self)? {
+                return Ok(res)
+            }
+        }
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
         let mut bits_in_word = 64 - in_word_offset;
@@ -147,26 +150,26 @@ impl<WR: WordRead + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR
         let res = if (in_word_offset + n_bits as usize) <= 64 {
             // single word access
             let word = self.data.read_next_word()?.to_le();
-            get_lowest_bits(
-                word >> in_word_offset,
-                n_bits,
-            )
+            let shamt = 64 - n_bits as usize;
+            (word << (shamt - in_word_offset)) >> shamt
         } else {
             // double word access
-            let low_word = self.data.read_next_word()?.to_le() as u128;
-            let high_word  = self.data.read_next_word()?.to_le() as u128;
-            let composed = (high_word << 64) | low_word;
-            get_lowest_bits(
-                (composed >> in_word_offset) as u64,
-                n_bits,
-            )
+            let low_word  = self.data.read_next_word()?.to_le();
+            let high_word = self.data.read_next_word()?.to_le();
+            let shamt1 = 128 - in_word_offset - n_bits as usize;
+            let shamt2 = 64 - n_bits as usize;
+            ((high_word << shamt1) >> shamt2) | (low_word >> in_word_offset)
         };
         Ok(res)
     }
 
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        impl_table_call!(self, USE_TABLE, unary_tables, L2M);
+        if USE_TABLE {
+            if let Some(res) = unary_tables::read_table_l2m(self)? {
+                return Ok(res)
+            }
+        }
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
         let mut bits_in_word = 64 - in_word_offset;

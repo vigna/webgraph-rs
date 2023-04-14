@@ -7,7 +7,7 @@ use anyhow::Result;
 use super::{
     BitOrder, M2L, L2M,
     GammaRead, GammaWrite, len_gamma, 
-    delta_tables, macros::impl_table_call,
+    delta_tables,
 };
 use crate::utils::fast_log2_floor;
 
@@ -43,14 +43,22 @@ pub trait DeltaRead<BO: BitOrder>: GammaRead<BO> {
 impl<B: GammaRead<M2L>> DeltaRead<M2L> for B {
     #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        impl_table_call!(self, USE_TABLE, delta_tables, M2L);
+        if USE_TABLE {
+            if let Some(res) = delta_tables::read_table_m2l(self)? {
+                return Ok(res)
+            }
+        }
         default_read_delta(self)
     }
 }
 impl<B: GammaRead<L2M>> DeltaRead<L2M> for B {
     #[inline]
     fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        impl_table_call!(self, USE_TABLE, delta_tables, L2M);
+        if USE_TABLE {
+            if let Some(res) = delta_tables::read_table_l2m(self)? {
+                return Ok(res)
+            }
+        }
         default_read_delta(self)
     }
 }

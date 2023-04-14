@@ -55,12 +55,8 @@ impl<B: BitRead<M2L>> ZetaRead<M2L> for B {
     #[inline]
     fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
-            if let Ok(idx) = self.peek_bits(zeta_tables::READ_BITS) {
-                let (value, len) = zeta_tables::READ_M2L[idx as usize];
-                if len != zeta_tables::MISSING_VALUE_LEN {
-                    self.skip_bits(len)?;
-                    return Ok(value as u64);
-                }
+            if let Some(res) = zeta_tables::read_table_m2l(self)? {
+                return Ok(res)
             }
         }
         default_read_zeta(self, 3)
@@ -75,12 +71,8 @@ impl<B: BitRead<L2M>> ZetaRead<L2M> for B {
     #[inline]
     fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
-            if let Ok(idx) = self.peek_bits(zeta_tables::READ_BITS) {
-                let (value, len) = zeta_tables::READ_L2M[idx as usize];
-                if len != zeta_tables::MISSING_VALUE_LEN {
-                    self.skip_bits(len)?;
-                    return Ok(value as u64);
-                }
+            if let Some(res) = zeta_tables::read_table_l2m(self)? {
+                return Ok(res)
             }
         }
         default_read_zeta(self, 3)

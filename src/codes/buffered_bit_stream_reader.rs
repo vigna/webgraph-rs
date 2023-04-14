@@ -2,7 +2,7 @@ use super::{
     WordRead, 
     BitSeek, BitRead,
     BitOrder, M2L, L2M,
-    unary_tables, macros::impl_table_call, WordStream,
+    unary_tables, WordStream,
 };
 use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail, Context};
@@ -195,7 +195,11 @@ impl<WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, WR> {
     }
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        impl_table_call!(self, USE_TABLE, unary_tables, M2L);
+        if USE_TABLE {
+            if let Some(res) = unary_tables::read_table_m2l(self)? {
+                return Ok(res)
+            }
+        }
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
@@ -277,7 +281,11 @@ impl<WR: WordRead> BitRead<L2M> for BufferedBitStreamRead<L2M, WR> {
 
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
-        impl_table_call!(self, USE_TABLE, unary_tables, L2M);
+        if USE_TABLE {
+            if let Some(res) = unary_tables::read_table_l2m(self)? {
+                return Ok(res)
+            }
+        }
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left

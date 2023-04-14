@@ -107,9 +107,6 @@ pub use zeta::{
     ZetaRead, ZetaWrite, len_zeta,
 };
 
-#[macro_use]
-pub(crate) mod macros;
-
 pub mod unary_tables;
 pub mod gamma_tables;
 pub mod delta_tables;

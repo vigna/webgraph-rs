@@ -1,15 +1,13 @@
 use webgraph::codes::*;
 use rand::Rng;
 
-/// To compute quickly the median we need values to be 2*k + 1, this is k.
-const VALUES_SIDE: usize = 1_000;
 /// How many random codes we will write and read in the benchmark
-const VALUES: usize = 2*VALUES_SIDE + 1;
+const VALUES: usize = 1_000_000;
 /// How many iterations to do before starting measuring, this is done to warmup
 /// the caches and the branch predictor
 const WARMUP_ITERS: usize = 100;
 /// How many iterations of measurement we will execute
-const BENCH_ITERS: usize = 10_000;
+const BENCH_ITERS: usize = 11;
 /// For how many times we will measure the measurement overhead
 const CALIBRATION_ITERS: usize = 100_000;
 /// To proprly test delta we compute a discrete version of the indended 
@@ -40,16 +38,14 @@ macro_rules! bench {
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
-let mut ratios = MetricsStream::with_capacity(VALUES);
 let mut read_buff = MetricsStream::with_capacity(VALUES);
 let mut read_unbuff = MetricsStream::with_capacity(VALUES);
 let mut write = MetricsStream::with_capacity(VALUES);
 
 // measure
+let (ratio, data) = $gen_data();
 for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     buffer.clear();
-    let (ratio, data) = $gen_data();
-    ratios.update(ratio);
     // write the codes
     {   
         // init the writer
@@ -102,7 +98,6 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     }
 }
 // convert from cycles to nano seconds
-let ratios = ratios.finalize();
 let read_buff = read_buff.finalize();
 let read_unbuff = read_unbuff.finalize();
 let write = write.finalize();
@@ -113,41 +108,35 @@ let table = if $table {
     "NoTable"
 };
 // print the results
-println!("{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "write",
+    ratio,
     write.avg / VALUES as f64, 
     write.std / VALUES as f64,
     write.percentile_25 / VALUES as f64, 
     write.median / VALUES as f64,
     write.percentile_75 / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_buff",
+    ratio,
     read_buff.avg / VALUES as f64, 
     read_buff.std / VALUES as f64,
     read_buff.percentile_25 / VALUES as f64, 
     read_buff.median / VALUES as f64,
     read_buff.percentile_75 / VALUES as f64,
 );
-println!("{}::{}::{},{},{},{},{},{},{}",
+println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_unbuff",
+    ratio,
     read_unbuff.avg / VALUES as f64, 
     read_unbuff.std / VALUES as f64,
     read_unbuff.percentile_25 / VALUES as f64, 
     read_unbuff.median / VALUES as f64,
     read_unbuff.percentile_75 / VALUES as f64,
-);
-println!("{}::{}::{},{},{},{},{},{},{}",
-    $code, stringify!($bo), table, // the informations about what we are benchmarking
-    "ratios",
-    ratios.avg, 
-    ratios.std,
-    ratios.percentile_25, 
-    ratios.median,
-    ratios.percentile_75,
 );
 
 }};
@@ -180,7 +169,7 @@ pub fn main() {
     // figure out how much overhead we add by measuring
     let calibration = calibrate_overhead();
     // print the header of the csv
-    println!("pat,type,ns_avg,ns_std,ns_perc25,ns_median,ns_perc75");
+    println!("pat,type,ratio,ns_avg,ns_std,ns_perc25,ns_median,ns_perc75");
 
     // benchmark the buffered impl
 
