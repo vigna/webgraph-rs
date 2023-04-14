@@ -76,7 +76,7 @@ pub trait DeltaWrite<BO: BitOrder>: GammaWrite<BO> {
     /// for decoding
     /// 
     /// # Errors
-    /// This function fails only if the BitRead backend has problems writing
+    /// This function fails only if the BitWrite backend has problems writing
     /// bits, as when the stream ended unexpectedly
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()>;
 }

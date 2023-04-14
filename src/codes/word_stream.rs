@@ -96,7 +96,8 @@ impl<'a> MemWordRead<'a> {
 }
 
 
-/// An Implementation of [`WordStream`], [`WordRead`], [`WordWrite`] for a mutable slice of memory `&mut [u64]`
+/// An Implementation of [`WordStream`], [`WordRead`], [`WordWrite`] for a 
+/// mutable slice of memory `&mut [u64]`
 /// 
 /// # Example
 /// ```
@@ -152,7 +153,32 @@ impl<'a> MemWordWrite<'a> {
     }
 }
 
-/// TODO
+/// An Implementation of [`WordStream`], [`WordRead`], [`WordWrite`] 
+/// for a mutable [`Vec<u64>`]. The core difference between [`MemWordWrite`]
+/// and [`MemWordWriteVec`] is that the former allocates new memory
+/// if the stream writes out of bound by 1.
+/// 
+/// # Example
+/// ```
+/// 
+/// use webgraph::codes::*;
+/// 
+/// let mut words: [u64; 2] = [
+///     0x0043b59fcdf16077,
+/// ];
+/// 
+/// let mut word_writer = MemWordWriteVec::new(&mut words);
+/// 
+/// // the stream is read sequentially
+/// assert_eq!(word_writer.len(), 1);
+/// assert_eq!(word_writer.get_position(), 0);
+/// assert!(word_writer.write_word(0).is_err());
+/// assert_eq!(word_writer.len(), 1);
+/// assert_eq!(word_writer.get_position(), 1);
+/// assert!(word_writer.write_word(1).is_err());
+/// assert_eq!(word_writer.len(), 2);
+/// assert_eq!(word_writer.get_position(), 2);
+/// ```
 #[cfg(feature="alloc")]
 pub struct MemWordWriteVec<'a> {
     data: &'a mut alloc::vec::Vec<u64>,
