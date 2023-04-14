@@ -73,8 +73,10 @@ pub use bit_stream::{
 mod word_stream;
 pub use word_stream::{
     WordStream, WordRead, WordWrite,
-    MemWordRead, MemWordWrite, MemWordWriteVec,
+    MemWordRead, MemWordWrite,
 };
+#[cfg(feature="alloc")]
+pub use word_stream::MemWordWriteVec;
 
 mod buffered_bit_stream_reader;
 pub use buffered_bit_stream_reader::BufferedBitStreamRead;

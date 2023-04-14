@@ -439,9 +439,9 @@ def gen_zeta(read_bits, write_max_val, len_max_val=None, k=3):
 
 def generate_default_tables():
     gen_unary(read_bits=0, write_max_val=63)
-    gen_gamma(read_bits=8, write_max_val=256)
-    gen_delta(read_bits=8, write_max_val=256)
-    gen_zeta(read_bits=8, write_max_val=256, k=3)
+    gen_gamma(read_bits=11, write_max_val=256)
+    gen_delta(read_bits=11, write_max_val=256)
+    gen_zeta( read_bits=12, write_max_val=256, k=3)
 
 if __name__ == "__main__":
     # Generate the default tables

@@ -102,8 +102,7 @@ impl<WR: WordRead + WordStream> BitSeek for BufferedBitStreamRead<L2M, WR> {
 
     #[inline]
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
-        self.backend.set_position(bit_index / 64)
-            .with_context(|| format!("BufferedBitStreamRead was seeking_bit {}", bit_index))?;
+        self.backend.set_position(bit_index / 64).with_context(|| "BufferedBitStreamRead was seeking_bit")?;
         let bit_offset = bit_index % 64;
         self.buffer = 0;
         self.valid_bits = 0;
@@ -125,7 +124,7 @@ impl<WR: WordRead + WordStream> BitSeek for BufferedBitStreamRead<M2L, WR> {
     #[inline]
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
         self.backend.set_position(bit_index / 64)
-            .with_context(|| format!("BufferedBitStreamRead was seeking_bit {}", bit_index))?;
+            .with_context(|| "BufferedBitStreamRead was seeking_bit")?;
         let bit_offset = bit_index % 64;
         self.buffer = 0;
         self.valid_bits = 0;

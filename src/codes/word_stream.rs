@@ -153,15 +153,17 @@ impl<'a> MemWordWrite<'a> {
 }
 
 /// TODO
+#[cfg(feature="alloc")]
 pub struct MemWordWriteVec<'a> {
-    data: &'a mut Vec<u64>,
+    data: &'a mut alloc::vec::Vec<u64>,
     word_index: usize,
 }
 
+#[cfg(feature="alloc")]
 impl<'a> MemWordWriteVec<'a> {
     /// Create a new [`MemWordWrite`] from a slice of **ZERO INITIALIZED** data
     #[must_use]
-    pub fn new(data: &'a mut Vec<u64>) -> Self {
+    pub fn new(data: &'a mut alloc::vec::Vec<u64>) -> Self {
         Self { 
             data, 
             word_index: 0 
@@ -222,6 +224,7 @@ impl<'a> WordStream for $ty<'a> {
 
 impl_memword!(MemWordRead);
 impl_memword!(MemWordWrite);
+#[cfg(feature="alloc")]
 impl_memword!(MemWordWriteVec);
 
 impl<'a> WordWrite for MemWordWrite<'a> {
@@ -242,6 +245,7 @@ impl<'a> WordWrite for MemWordWrite<'a> {
     }
 }
 
+#[cfg(feature="alloc")]
 impl<'a> WordWrite for MemWordWriteVec<'a> {
     #[inline]
     fn write_word(&mut self, word: u64) -> Result<()> {
