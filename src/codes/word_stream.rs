@@ -172,10 +172,10 @@ impl<'a> MemWordWrite<'a> {
 /// // the stream is read sequentially
 /// assert_eq!(word_writer.len(), 1);
 /// assert_eq!(word_writer.get_position(), 0);
-/// assert!(word_writer.write_word(0).is_err());
+/// assert!(word_writer.write_word(0).is_ok());
 /// assert_eq!(word_writer.len(), 1);
 /// assert_eq!(word_writer.get_position(), 1);
-/// assert!(word_writer.write_word(1).is_err());
+/// assert!(word_writer.write_word(1).is_ok());
 /// assert_eq!(word_writer.len(), 2);
 /// assert_eq!(word_writer.get_position(), 2);
 /// ```
