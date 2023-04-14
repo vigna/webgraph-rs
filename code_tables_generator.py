@@ -30,6 +30,8 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
     """Main routine that generates the tables for a given code."""
 
     with open(os.path.join(ROOT, "src", "codes", "{}_tables.rs".format(code_name)), "w") as f:
+        f.write("//! THIS FILE HAS BEEN GENERATED WITH THE SCRIPT {}\n".format(os.path.basename(__file__)))
+        f.write("//! ~~~~~~~~~~~~~~~~~~~ DO NOT MODIFY ~~~~~~~~~~~~~~~~~~~~~~\n")
         f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
 
         f.write("/// How many bits are needed to read the tables in this\n")

@@ -84,8 +84,10 @@ pub trait DeltaWrite<BO: BitOrder>: GammaWrite<BO> {
 impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
     #[inline]
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
-            return self.write_bits(*bits as u64, *n_bits);
+        if USE_TABLE {
+            if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
+                return self.write_bits(*bits as u64, *n_bits);
+            }
         }
         default_write_delta(self, value)
     }
@@ -93,8 +95,10 @@ impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
 impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
     #[inline]
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
-            return self.write_bits(*bits as u64, *n_bits);
+        if USE_TABLE {
+            if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
+                return self.write_bits(*bits as u64, *n_bits);
+            }
         }
         default_write_delta(self, value)
     }
