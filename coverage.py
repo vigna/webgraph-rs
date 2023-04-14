@@ -1,12 +1,13 @@
 #!/usr/bin/python3
 import os
+import re
 import subprocess
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 target_folder = os.path.join(ROOT, "target")
 test_cov_path = os.path.join(target_folder, "test_cov.profraw")
-arch = "x86_64-unknown-linux-gnu"
-
+rustup_info =  subprocess.check_output("rustup show", shell=True).decode()
+arch = re.findall(r"Default host: (.+)", rustup_info)[0]
 # To run it needs the following:
 # cargo install rustfilt
 # rustup component add --toolchain nightly llvm-tools-preview
@@ -22,14 +23,14 @@ fuzz_targets = subprocess.check_output(
     "cargo fuzz list", 
     shell=True, cwd=ROOT,
 ).decode().split("\n")[:-1]
-
-# Generate coverage from the test
+# Clean up the targets folder 
 subprocess.check_call(
     "cargo clean", 
     shell=True, cwd=ROOT,
 )
 # Create a folder for the test coverage
 os.makedirs(target_folder, exist_ok=True)
+# Generate coverage from the test
 subprocess.check_call(
     "cargo test",
     shell=True, cwd=ROOT,

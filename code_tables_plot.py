@@ -18,12 +18,12 @@ for code in ["unary", "gamma", "delta", "zeta"]:
         ]:
             values = df[(df.pat == pat) & (df.type == ty)]
             plt.errorbar(
-                values.n_bits, values.ns_avg, values.ns_std,
-                label=pat+"::"+ty+"_avg_std", fmt="-o",
+                values.n_bits, values.ns_median, values.ns_std,
+                label=pat+"::"+ty+"_median_std", fmt="-o",
             )
             plt.fill_between(
-                values.n_bits, values.ns_min, values.ns_max, 
-                label=pat+"::"+ty+"_min_max", alpha=0.1,
+                values.n_bits, values.ns_perc25, values.ns_perc75, 
+                label=pat+"::"+ty+"_25%_75%", alpha=0.1,
             )
 
     ratios = df[df.pat == "%s::L2M::Table"%code]

@@ -30,3 +30,6 @@ for bits in range(1, 18):
     for line in stdout.split("\n")[1:]:
         if len(line.strip()) != 0:
             print("{},{}".format(bits, line))
+
+# Reset the tables to the original state
+generate_default_tables()

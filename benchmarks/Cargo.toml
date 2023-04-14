@@ -10,6 +10,7 @@ rand = "0.8.5"
 random = "0.13.2"
 webgraph = {path="../"}
 rand_distr = "0.4.3"
+lazy_static = "1.4.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.141"
