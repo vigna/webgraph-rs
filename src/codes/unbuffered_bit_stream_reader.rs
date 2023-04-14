@@ -2,6 +2,8 @@ use super::{
     BitOrder, M2L, L2M,
     BitRead,
     WordRead, WordStream, BitSeek,
+    unary_tables,
+    macros::impl_table_call,
 };
 use crate::utils::get_lowest_bits;
 use anyhow::{Result, bail};
@@ -73,6 +75,7 @@ impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR
 
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        impl_table_call!(self, USE_TABLE, unary_tables, M2L);
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
         let mut bits_in_word = 64 - in_word_offset;
@@ -163,6 +166,7 @@ impl<WR: WordRead + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR
 
     #[inline]
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+        impl_table_call!(self, USE_TABLE, unary_tables, L2M);
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
         let mut bits_in_word = 64 - in_word_offset;
