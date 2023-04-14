@@ -143,11 +143,11 @@ println!("{}::{}::{},{},{},{},{},{},{}",
 println!("{}::{}::{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "ratios",
-    ratios.avg / VALUES as f64, 
-    ratios.std / VALUES as f64,
-    ratios.percentile_25 / VALUES as f64, 
-    ratios.median / VALUES as f64,
-    ratios.percentile_75 / VALUES as f64,
+    ratios.avg, 
+    ratios.std,
+    ratios.percentile_25, 
+    ratios.median,
+    ratios.percentile_75,
 );
 
 }};

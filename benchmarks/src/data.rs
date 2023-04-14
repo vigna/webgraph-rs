@@ -14,15 +14,15 @@ lazy_static::lazy_static!{
 }
 
 macro_rules! compute_ratio {
-    ($data:expr, $table:ident, $len_func:ident) => {
-        $data.iter().map(|value| {
-        if $len_func::<false>(*value) <= $table::READ_BITS as usize {
-            1
-        } else {
-            0
+    ($data:expr, $table:ident, $len_func:ident) => {{
+        let mut total = 0.0;
+        for value in &$data {
+            if $len_func::<false>(*value) <= $table::READ_BITS as usize {
+                total += 1.0;
+            }
         }
-    }).sum::<usize>() as f64 / VALUES as f64
-    };
+        total / $data.len() as f64
+    }};
 }
 
 /// Generate the data needed to benchmark the unary code and return them and the
