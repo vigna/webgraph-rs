@@ -315,9 +315,10 @@ pub fn main() {
         calibration, ratio, "unary", read_unary, write_unary, unary_data
     );
 
+    let distr = rand_distr::Zeta::new(2.0).unwrap();
     let gamma_data = (0..VALUES)
         .map(|_| {
-            rng.sample(rand_distr::Zeta::new(2.0).unwrap()) as u64 - 1
+            rng.sample(distr) as u64 - 1
         })
         .collect::<Vec<_>>();
 
@@ -333,9 +334,22 @@ pub fn main() {
         calibration, ratio, "gamma", read_gamma, write_gamma, gamma_data
     );
 
+    let mut delta_distr = vec![0.];
+    let mut s = 0.;
+    for n in 1..1000000 {
+        let x = n as f64;
+        s += 1. / (2. * (x + 3.) * (x.log2() + 2.)*(x.log2() + 2.));
+        delta_distr.push(s)
+    }
+
+    let distr = rand_distr::Uniform::new(0., s);
     let delta_data = (0..VALUES)
         .map(|_| {
-            rng.sample(rand_distr::Zeta::new(1.01).unwrap()) as u64 - 1
+            let  p = rng.sample(distr);
+            let s = delta_distr.binary_search_by(|v| {
+                v.partial_cmp(&p).unwrap()
+            });
+            match s { Ok(x) => x as u64, Err(x) => x as u64 - 1} 
         })
         .collect::<Vec<_>>();
 
@@ -351,9 +365,10 @@ pub fn main() {
         calibration, ratio, "delta", read_delta, write_delta, delta_data
     );
 
+    let distr = rand_distr::Zeta::new(1.2).unwrap();
     let zeta3_data = (0..VALUES)
         .map(|_| {
-            rng.sample(rand_distr::Zeta::new(1.2).unwrap()) as u64 - 1
+            rng.sample(distr) as u64 - 1
         })
         .collect::<Vec<_>>();
 
