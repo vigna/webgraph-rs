@@ -64,7 +64,6 @@ pub fn gen_gamma_data() -> (f64, Vec<u64>) {
 pub fn gen_delta_data() -> (f64, Vec<u64>) {
     let mut rng = rand::thread_rng();
 
-
     let distr = rand_distr::Uniform::new(0., DELTA_DISTR[DELTA_DISTR.len() - 1]);
     let delta_data = (0..VALUES)
         .map(|_| {
