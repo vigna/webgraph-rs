@@ -163,7 +163,7 @@ impl<'a> MemWordWrite<'a> {
 /// 
 /// use webgraph::codes::*;
 /// 
-/// let mut words: [u64; 2] = [
+/// let mut words = vec![
 ///     0x0043b59fcdf16077,
 /// ];
 /// 
