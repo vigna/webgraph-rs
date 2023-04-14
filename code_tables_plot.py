@@ -32,8 +32,9 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
         ratios.ns_median,
         yerr=[ratios.ns_median - ratios.ns_perc25, ratios.ns_perc75 - ratios.ns_median],
         label="table hit ratio",
-        color="blue",
-        alpha=0.1,
+        fc=(0, 0, 1, 0.3),
+        linewidth=1,
+        edgecolor="black",
     )
     for ratio,rect in zip(ratios.ns_median, bars):
         height = rect.get_height()
