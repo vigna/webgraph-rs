@@ -78,12 +78,9 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
 
         f.write("/// How many bits are needed to read the tables in this\n")
         f.write("pub const READ_BITS: u8 = {};\n".format(read_bits))
-        MISSING_VALUE_LEN = len_func(2**read_bits - 1) + 1
-        len_bits = ceil(log2(MISSING_VALUE_LEN))
-        len_ty = get_best_fitting_type(len_bits)
-        # Replace missing value with the biggest value the type can fit
-        # so it's easier to read the tables
-        MISSING_VALUE_LEN = 2**int(len_ty[1:]) - 1
+        # This value and type work across all codes and table sizes
+        MISSING_VALUE_LEN = 255
+        len_ty = "u8"
         f.write("/// The len we assign to a code that cannot be decoded through the table\n")
         f.write("pub const MISSING_VALUE_LEN: {} = {};\n".format(len_ty, MISSING_VALUE_LEN))
 
