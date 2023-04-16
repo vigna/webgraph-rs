@@ -8,6 +8,7 @@ import subprocess
 from code_tables_generator import *
 
 for bits in range(1, 18):
+    print("Table bits:", bits, file=sys.stderr)
     for tables_num in [1, 2]:
         # Create the tables
         gen_unary(bits, 63, merged_table=tables_num == 1)
