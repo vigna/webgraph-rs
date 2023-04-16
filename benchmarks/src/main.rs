@@ -1,4 +1,5 @@
 use webgraph::codes::*;
+use std::hint::black_box;
 use rand::Rng;
 
 /// How many random codes we will write and read in the benchmark
@@ -44,6 +45,7 @@ let mut write = MetricsStream::with_capacity(VALUES);
 
 // measure
 let (ratio, data) = $gen_data();
+
 for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     buffer.clear();
     // write the codes
@@ -55,7 +57,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let w_start = Instant::now();
         for value in &data {
-            r.$write::<$table>(*value).unwrap();
+            black_box(r.$write::<$table>(*value));
         }
         let nanos = w_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -72,7 +74,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let r_start = Instant::now();
         for _ in &data {
-            r.$read::<$table>().unwrap();
+            black_box(r.$read::<$table>());
         }
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -88,7 +90,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let r_start = Instant::now();
         for _ in &data {
-            r.$read::<$table>().unwrap();
+            black_box(r.$read::<$table>());
         }
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -97,6 +99,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         }
     }
 }
+
 // convert from cycles to nano seconds
 let read_buff = read_buff.finalize();
 let read_unbuff = read_unbuff.finalize();
