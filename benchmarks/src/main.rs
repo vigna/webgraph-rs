@@ -57,7 +57,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let w_start = Instant::now();
         for value in &data {
-            black_box(r.$write::<$table>(*value));
+            black_box(r.$write::<$table>(*value).unwrap());
         }
         let nanos = w_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -74,7 +74,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let r_start = Instant::now();
         for _ in &data {
-            black_box(r.$read::<$table>());
+            black_box(r.$read::<$table>().unwrap());
         }
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -90,7 +90,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let r_start = Instant::now();
         for _ in &data {
-            black_box(r.$read::<$table>());
+            black_box(r.$read::<$table>().unwrap());
         }
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
