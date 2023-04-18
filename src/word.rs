@@ -233,3 +233,41 @@ impl DowncastableFrom<u128> for usize {
         value as usize
     }
 }
+
+///
+pub trait CastableInto<W>: Sized {
+    ///
+    fn cast(self) -> W;
+}
+
+///
+pub trait CastableFrom<W>: Sized {
+    ///
+    fn cast_from(value: W) -> Self;
+}
+
+/// UpcastableFrom implies UpcastableInto
+impl<T, U> CastableInto<U> for T 
+where 
+    U: CastableFrom<T>
+{
+    #[inline(always)]
+    fn cast(self) -> U {
+        U::cast_from(self)
+    }
+}
+
+macro_rules! impl_casts {
+    ($base_type:ty, $($ty:ty,)*) => {$(
+impl CastableFrom<$base_type> for $ty {
+    fn cast_from(value: $base_type) -> Self {
+        value as $ty
+    }
+}
+    )*
+    impl_casts!($($ty,)*);
+};
+    () => {};
+}
+
+impl_casts!(u8, u16, u32, u64, u128, usize,);

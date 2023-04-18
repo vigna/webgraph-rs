@@ -96,7 +96,7 @@ where
 impl<BW: Word, WR: WordRead> BitRead<M2L> 
     for BufferedBitStreamRead<M2L, BW, WR> 
 where
-    BW: DowncastableInto<WR::Word> + DowncastableInto<u64>,
+    BW: DowncastableInto<WR::Word> + CastableInto<u64>,
     WR::Word: UpcastableInto<BW> + UpcastableInto<u64>,
 {
     type PeekType = WR::Word;
@@ -154,7 +154,7 @@ where
         }
         // most common path, we just read the buffer        
         if n_bits <= self.valid_bits {
-            let result: u64 = (self.buffer >> (BW::BITS - n_bits)).downcast();
+            let result: u64 = (self.buffer >> (BW::BITS - n_bits)).cast();
             self.valid_bits -= n_bits;
             self.buffer <<= n_bits;
             return Ok(result);
@@ -164,7 +164,7 @@ where
             self.buffer >> (BW::BITS - self.valid_bits)
         } else {
             BW::ZERO
-        }.downcast();
+        }.cast();
         n_bits -= self.valid_bits;
 
         // Directly read to the result without updating the buffer
@@ -274,7 +274,7 @@ where
 impl<BW: Word, WR: WordRead> BitRead<L2M> 
     for BufferedBitStreamRead<L2M, BW, WR> 
 where
-    BW: DowncastableInto<WR::Word> + DowncastableInto<u64>,
+    BW: DowncastableInto<WR::Word> + CastableInto<u64>,
     WR::Word: UpcastableInto<BW> + UpcastableInto<u64>,
 {
     type PeekType = WR::Word;
@@ -316,13 +316,13 @@ where
         // most common path, we just read the buffer        
         if n_bits <= self.valid_bits {
             let shamt = BW::BITS - n_bits;
-            let result: u64 = ((self.buffer << shamt) >> shamt).downcast(); 
+            let result: u64 = ((self.buffer << shamt) >> shamt).cast(); 
             self.valid_bits -= n_bits;
             self.buffer >>= n_bits;
             return Ok(result);
         }
 
-        let mut result: u64 = self.buffer.downcast();
+        let mut result: u64 = self.buffer.cast();
         n_bits -= self.valid_bits;
         let mut bits_in_res = self.valid_bits;
 
