@@ -33,7 +33,7 @@ impl<BO: BitOrder, WR> UnbufferedBitStreamRead<BO, WR> {
 }
 
 impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR> {
-    type PeekType = u64;
+    type PeekType = u32;
     
     #[inline]
     fn skip_bits(&mut self, n_bits: usize) -> Result<()> {
@@ -43,13 +43,6 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
 
     #[inline]
     fn read_bits(&mut self, n_bits: usize) -> Result<u64> {
-        let res = self.peek_bits(n_bits)?;
-        self.skip_bits(n_bits)?;
-        Ok(res)
-    }
-
-    #[inline]
-    fn peek_bits(&mut self, n_bits: usize) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
@@ -71,7 +64,24 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
             let shamt2 = 128 - in_word_offset - n_bits as usize;
             ((high_word << in_word_offset) >> shamt1) | (low_word >> shamt2)
         };
+        self.bit_idx += n_bits;
         Ok(res)
+    }
+
+    #[inline]
+    fn peek_bits(&mut self, n_bits: usize) -> Result<u32> {
+        if n_bits > 32 {
+            bail!("The n of bits to peek has to be in [0, 32] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
+        }
+        self.data.set_position(self.bit_idx / 64)?;
+        let in_word_offset = self.bit_idx % 64;
+
+        // single word access
+        let word = self.data.read_next_word()?.to_be();
+        Ok(((word << in_word_offset) >> (64 - n_bits)) as u32)
     }
 
     #[inline]
@@ -125,7 +135,7 @@ impl<WR: WordStream> BitSeek for UnbufferedBitStreamRead<M2L, WR> {
 }
 
 impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR> {
-    type PeekType = u64;
+    type PeekType = u32;
     #[inline]
     fn skip_bits(&mut self, n_bits: usize) -> Result<()> {
         self.bit_idx += n_bits;
@@ -134,13 +144,6 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRe
 
     #[inline]
     fn read_bits(&mut self, n_bits: usize) -> Result<u64> {
-        let res = self.peek_bits(n_bits)?;
-        self.skip_bits(n_bits)?;
-        Ok(res)
-    }
-
-    #[inline]
-    fn peek_bits(&mut self, n_bits: usize) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
@@ -163,7 +166,25 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRe
             let shamt2 = 64 - n_bits as usize;
             ((high_word << shamt1) >> shamt2) | (low_word >> in_word_offset)
         };
+        self.bit_idx += n_bits;
         Ok(res)
+    }
+
+    #[inline]
+    fn peek_bits(&mut self, n_bits: usize) -> Result<u32> {
+        if n_bits > 32 {
+            bail!("The n of bits to peek has to be in [0, 32] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
+        }
+        self.data.set_position(self.bit_idx / 64)?;
+        let in_word_offset = self.bit_idx % 64;
+
+        // single word access
+        let word = self.data.read_next_word()?.to_le();
+        let shamt = 64 - n_bits as usize;
+        Ok(((word << (shamt - in_word_offset)) >> shamt) as u32)
     }
 
     #[inline]

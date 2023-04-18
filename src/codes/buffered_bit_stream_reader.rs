@@ -5,7 +5,7 @@ use super::{
     unary_tables,
 };
 //use crate::utils::get_lowest_bits;
-use crate::{Word, CastableInto};
+use crate::*;
 use anyhow::{Result, bail, Context};
 
 /// A BitStream built uppon a generic [`WordRead`] that caches the read words 
@@ -46,8 +46,7 @@ impl<E: BitOrder, BW: Word, WR: WordRead> BufferedBitStreamRead<E, BW, WR> {
 
 impl<BW: Word, WR: WordRead> BufferedBitStreamRead<M2L, BW, WR>
 where
-    BW: CastableInto<WR::Word>,
-    WR::Word: CastableInto<BW>,
+    WR::Word: UpcastableInto<BW>,
 {
     /// Ensure that in the buffer there are at least 64 bits to read
     #[inline(always)]
@@ -59,10 +58,11 @@ where
         }
         // TODO!:
         // Read a new 64-bit word and put it in the buffer
-        let new_word = self.backend.read_next_word()
-            .with_context(|| "Error while reflling BufferedBitStreamRead")?.to_be();
+        let new_word: BW = self.backend.read_next_word()
+            .with_context(|| "Error while reflling BufferedBitStreamRead")?
+            .to_be().upcast();
         self.valid_bits += WR::Word::BITS;
-        self.buffer |= new_word.cast() << (BW::BITS - self.valid_bits).cast();
+        self.buffer |= new_word << (BW::BITS - self.valid_bits);
         Ok(())
     }
 }
@@ -70,8 +70,7 @@ where
 impl<BW: Word, WR: WordRead + WordStream> BitSeek 
     for BufferedBitStreamRead<M2L, BW, WR> 
 where
-    BW: CastableInto<WR::Word>,
-    WR::Word: CastableInto<BW>,
+    WR::Word: UpcastableInto<BW>,
 {
     #[inline]
     fn get_position(&self) -> usize {
@@ -86,9 +85,9 @@ where
         self.buffer = BW::ZERO;
         self.valid_bits = 0;
         if bit_offset != 0 {
-            let new_word: BW = self.backend.read_next_word()?.to_be().cast();
+            let new_word: BW = self.backend.read_next_word()?.to_be().upcast();
             self.valid_bits = WR::Word::BITS - bit_offset;
-            self.buffer = new_word << (BW::BITS - self.valid_bits).cast();
+            self.buffer = new_word << (BW::BITS - self.valid_bits);
         }
         Ok(())
     }
@@ -97,78 +96,10 @@ where
 impl<BW: Word, WR: WordRead> BitRead<M2L> 
     for BufferedBitStreamRead<M2L, BW, WR> 
 where
-    BW: CastableInto<WR::Word>,
-    WR::Word: CastableInto<BW> + CastableInto<u64>,
-    u64: CastableInto<BW> + CastableInto<WR::Word>,
+    BW: DowncastableInto<WR::Word> + DowncastableInto<u64>,
+    WR::Word: UpcastableInto<BW> + UpcastableInto<u64>,
 {
     type PeekType = WR::Word;
-
-    #[inline]
-    fn skip_bits(&mut self, mut n_bits: usize) -> Result<()> {
-        // happy case, just shift the buffer
-        if n_bits as usize <= self.valid_bits {
-            self.valid_bits -= n_bits as usize;
-            self.buffer <<= n_bits.cast();
-            return Ok(());
-        }
-
-        // clean the buffer data
-        n_bits -= self.valid_bits;
-        self.valid_bits = 0;
-        // skip words as needed
-        while n_bits > WR::Word::BITS {
-            let _ = self.backend.read_next_word()?;
-            n_bits -= WR::Word::BITS;
-        }
-        // read the new word and clear the final bits
-        self.refill()?;
-        self.valid_bits -= n_bits;
-        self.buffer <<= n_bits.cast();
-
-        Ok(())
-    }
-
-    #[inline]
-    fn read_bits(&mut self, mut n_bits: usize) -> Result<u64> {
-        if n_bits > 64 {
-            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
-        }
-        if n_bits == 0 {
-            return Ok(0);
-        }
-
-        // most common path, we just read the buffer        
-        if n_bits < self.valid_bits {
-            let result: u64 = (
-                self.buffer >> (BW::BITS - n_bits).cast()
-            ).cast();
-            self.valid_bits -= n_bits as usize;
-            self.buffer <<= n_bits.cast();
-            return Ok(result);
-        }
-
-        let mut result: u64 = (
-            self.buffer >> (BW::BITS - self.valid_bits).cast()
-        ).cast();
-
-        // Directly read to the result without updating the buffer
-        while n_bits as usize > WR::Word::BITS {
-            let new_word: u64 = self.backend.read_next_word()?.to_be().cast();
-            result = (result << WR::Word::BITS) | new_word;
-            n_bits -= WR::Word::BITS;
-        }
-
-        // get the final word
-        let new_word: BW = self.backend.read_next_word()?.to_be().cast();
-        self.valid_bits = WR::Word::BITS - n_bits;
-        // compose the remaining bits
-        let final_bits: u64 = (new_word >> (BW::BITS - n_bits).cast()).cast();
-        result = (result << n_bits) | final_bits;
-        // and put the rest in the buffer
-        self.buffer = new_word << (BW::BITS - self.valid_bits).cast();
-
-        Ok(result)
-    }
 
     #[inline]
     fn peek_bits(&mut self, n_bits: usize) -> Result<Self::PeekType> {
@@ -185,9 +116,72 @@ where
 
         // read the `n_bits` highest bits of the buffer and shift them to
         // be the lowest
-        Ok((
-            self.buffer >> (BW::BITS - n_bits).cast()
-        ).cast())
+        Ok((self.buffer >> (BW::BITS - n_bits)).downcast())
+    }
+
+    #[inline]
+    fn skip_bits(&mut self, mut n_bits: usize) -> Result<()> {
+        // happy case, just shift the buffer
+        if n_bits as usize <= self.valid_bits {
+            self.valid_bits -= n_bits as usize;
+            self.buffer <<= n_bits;
+            return Ok(());
+        }
+
+        // clean the buffer data
+        n_bits -= self.valid_bits;
+        self.valid_bits = 0;
+        // skip words as needed
+        while n_bits > WR::Word::BITS {
+            let _ = self.backend.read_next_word()?;
+            n_bits -= WR::Word::BITS;
+        }
+        // read the new word and clear the final bits
+        self.refill()?;
+        self.valid_bits -= n_bits;
+        self.buffer <<= n_bits;
+
+        Ok(())
+    }
+
+    #[inline]
+    fn read_bits(&mut self, mut n_bits: usize) -> Result<u64> {
+        if n_bits > 64 {
+            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
+        }
+        if n_bits == 0 {
+            return Ok(0);
+        }
+
+        // most common path, we just read the buffer        
+        if n_bits < self.valid_bits {
+            let result: u64 = (self.buffer >> (BW::BITS - n_bits)).downcast();
+            self.valid_bits -= n_bits as usize;
+            self.buffer <<= n_bits;
+            return Ok(result);
+        }
+
+        let mut result: u64 = (
+            self.buffer >> (BW::BITS - self.valid_bits)
+        ).downcast();
+
+        // Directly read to the result without updating the buffer
+        while n_bits as usize > WR::Word::BITS {
+            let new_word: u64 = self.backend.read_next_word()?.to_be().upcast();
+            result = (result << WR::Word::BITS) | new_word;
+            n_bits -= WR::Word::BITS;
+        }
+
+        // get the final word
+        let new_word: BW = self.backend.read_next_word()?.to_be().upcast();
+        self.valid_bits = WR::Word::BITS - n_bits;
+        // compose the remaining bits
+        let final_bits: u64 = (new_word >> (BW::BITS - n_bits)).downcast();
+        result = (result << n_bits) | final_bits;
+        // and put the rest in the buffer
+        self.buffer = new_word << (BW::BITS - self.valid_bits);
+
+        Ok(result)
     }
 
     #[inline]
@@ -200,12 +194,12 @@ where
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
-            let zeros: usize = self.buffer.leading_zeros().cast();
+            let zeros: usize = self.buffer.leading_zeros();
 
             // if we encountered an 1 in the valid_bits we can return            
             if zeros < self.valid_bits {
                 result += zeros as u64;
-                self.buffer <<= (zeros + 1).cast();
+                self.buffer <<= zeros + 1;
                 self.valid_bits -= zeros + 1;
                 return Ok(result);
             }
@@ -214,18 +208,16 @@ where
             
             // otherwise we didn't encounter the ending 1 yet so we need to 
             // refill and iter again
-            let new_word: BW = self.backend.read_next_word()?.to_be().cast();
+            let new_word: BW = self.backend.read_next_word()?.to_be().upcast();
             self.valid_bits = WR::Word::BITS;
-            self.buffer = new_word << (BW::BITS - WR::Word::BITS).cast();
+            self.buffer = new_word << (BW::BITS - WR::Word::BITS);
         }
     }
 }
 
-
 impl<BW: Word, WR: WordRead> BufferedBitStreamRead<L2M, BW, WR>
 where
-    BW: CastableInto<WR::Word>,
-    WR::Word: CastableInto<BW>,
+    WR::Word: UpcastableInto<BW>,
 {
     /// Ensure that in the buffer there are at least 64 bits to read
     #[inline(always)]
@@ -237,9 +229,10 @@ where
         }
         // TODO!:
         // Read a new 64-bit word and put it in the buffer
-        let new_word = self.backend.read_next_word()
-            .with_context(|| "Error while reflling BufferedBitStreamRead")?.to_le();
-        self.buffer |= new_word.cast() << self.valid_bits.cast();
+        let new_word: BW = self.backend.read_next_word()
+            .with_context(|| "Error while reflling BufferedBitStreamRead")?
+            .to_le().upcast();
+        self.buffer |= new_word << self.valid_bits;
         self.valid_bits += WR::Word::BITS;
         Ok(())
     }
@@ -248,8 +241,7 @@ where
 impl<BW: Word, WR: WordRead + WordStream> BitSeek 
     for BufferedBitStreamRead<L2M, BW, WR> 
 where
-    BW: CastableInto<WR::Word>,
-    WR::Word: CastableInto<BW>,
+    WR::Word: UpcastableInto<BW>,
 {
     #[inline]
     fn get_position(&self) -> usize {
@@ -264,9 +256,9 @@ where
         self.buffer = BW::ZERO;
         self.valid_bits = 0;
         if bit_offset != 0 {
-            let new_word: BW = self.backend.read_next_word()?.to_le().cast();
+            let new_word: BW = self.backend.read_next_word()?.to_le().upcast();
             self.valid_bits = WR::Word::BITS - bit_offset;
-            self.buffer = new_word >> self.valid_bits.cast();
+            self.buffer = new_word >> self.valid_bits;
         }
         Ok(())
     }
@@ -275,9 +267,8 @@ where
 impl<BW: Word, WR: WordRead> BitRead<L2M> 
     for BufferedBitStreamRead<L2M, BW, WR> 
 where
-    BW: CastableInto<WR::Word>,
-    WR::Word: CastableInto<BW> + CastableInto<u64>,
-    u64: CastableInto<BW> + CastableInto<WR::Word>,
+    BW: DowncastableInto<WR::Word> + DowncastableInto<u64>,
+    WR::Word: UpcastableInto<BW> + UpcastableInto<u64>,
 {
     type PeekType = WR::Word;
 
@@ -286,7 +277,7 @@ where
         // happy case, just shift the buffer
         if n_bits as usize <= self.valid_bits {
             self.valid_bits -= n_bits as usize;
-            self.buffer >>= n_bits.cast();
+            self.buffer >>= n_bits;
             return Ok(());
         }
 
@@ -301,7 +292,7 @@ where
         // read the new word and clear the final bits
         self.refill()?;
         self.valid_bits -= n_bits;
-        self.buffer >>= n_bits.cast();
+        self.buffer >>= n_bits;
 
         Ok(())
     }
@@ -317,31 +308,31 @@ where
 
         // most common path, we just read the buffer        
         if n_bits < self.valid_bits {
-            let shamt = (BW::BITS - n_bits).cast();
-            let result: u64 = ((self.buffer << shamt) >> shamt).cast(); 
+            let shamt = BW::BITS - n_bits;
+            let result: u64 = ((self.buffer << shamt) >> shamt).downcast(); 
             self.valid_bits -= n_bits as usize;
-            self.buffer >>= n_bits.cast();
+            self.buffer >>= n_bits;
             return Ok(result);
         }
 
-        let mut result: u64 = self.buffer.cast();
+        let mut result: u64 = self.buffer.downcast();
 
         // Directly read to the result without updating the buffer
         while n_bits as usize > WR::Word::BITS {
-            let new_word: u64 = self.backend.read_next_word()?.to_le().cast();
+            let new_word: u64 = self.backend.read_next_word()?.to_le().upcast();
             result = (result << WR::Word::BITS) | new_word;
             n_bits -= WR::Word::BITS;
         }
 
         // get the final word
-        let new_word: BW = self.backend.read_next_word()?.to_le().cast();
+        let new_word: BW = self.backend.read_next_word()?.to_le().upcast();
         self.valid_bits = WR::Word::BITS - n_bits;
         // compose the remaining bits
-        let shamt = (BW::BITS - n_bits).cast();
-        let final_bits: u64 = ((new_word << shamt) >> shamt).cast();
+        let shamt = BW::BITS - n_bits;
+        let final_bits: u64 = ((new_word << shamt) >> shamt).downcast();
         result = (result << n_bits) | final_bits;
         // and put the rest in the buffer
-        self.buffer = new_word >> n_bits.cast();
+        self.buffer = new_word >> n_bits;
 
         Ok(result)
     }
@@ -361,8 +352,8 @@ where
 
         // read the `n_bits` highest bits of the buffer and shift them to
         // be the lowest
-        let shamt =  (BW::BITS - n_bits).cast();
-        Ok(((self.buffer << shamt) >> shamt).cast())
+        let shamt = BW::BITS - n_bits;
+        Ok(((self.buffer << shamt) >> shamt).downcast())
     }
 
     #[inline]
@@ -375,12 +366,12 @@ where
         let mut result: u64 = 0;
         loop {
             // count the zeros from the left
-            let zeros: usize = self.buffer.trailing_zeros().cast();
+            let zeros: usize = self.buffer.trailing_zeros();
 
             // if we encountered an 1 in the valid_bits we can return            
             if zeros < self.valid_bits {
                 result += zeros as u64;
-                self.buffer >>= (zeros + 1).cast();
+                self.buffer >>= zeros + 1;
                 self.valid_bits -= zeros + 1;
                 return Ok(result);
             }
@@ -389,7 +380,7 @@ where
             
             // otherwise we didn't encounter the ending 1 yet so we need to 
             // refill and iter again
-            let new_word: BW = self.backend.read_next_word()?.to_le().cast();
+            let new_word: BW = self.backend.read_next_word()?.to_le().upcast();
             self.valid_bits = WR::Word::BITS;
             self.buffer = new_word;
         }

@@ -18,12 +18,10 @@ pub trait Word : Sized + Send + Sync +
     Not<Output=Self> + 
     Rem<Output=Self> + RemAssign<Self> +
     Shl<Output=Self> + ShlAssign<Self> +
+    Shl<usize, Output=Self> + ShlAssign<usize> +
     Shr<Output=Self> + ShrAssign<Self> +
+    Shr<usize, Output=Self> + ShrAssign<usize> +
     Sub<Output=Self> + SubAssign<Self> + 
-    CastableInto<usize> + CastableInto<u8> + CastableInto<u16> + CastableInto<u32> + 
-    CastableInto<u64> + CastableInto<u128> + 
-    CastableFrom<usize> + CastableFrom<u8> + CastableFrom<u16> + CastableFrom<u32> + 
-    CastableFrom<u64> + CastableFrom<u128> + 
 {
     /// Number of bits in the word
     const BITS: usize;
@@ -92,42 +90,146 @@ impl Word for $ty {
 
 impl_word!(u8, u16, u32, u64, u128, usize);
 
-/// Cast between primitive types for Words of memory
-pub trait CastableInto<W>: Sized {
-    /// Cast between types, the inteded behaviour when downcasting is truncating
-    /// and when upcasting is zero extending for unsigned types and sign 
-    /// extending for signed types.
-    fn cast(self) -> W;
+///
+pub trait DowncastableInto<W>: Sized {
+    ///
+    fn downcast(self) -> W;
 }
 
 ///
-pub trait CastableFrom<W>: Sized {
+pub trait UpcastableInto<W>: Sized {
     ///
-    fn cast_from(value: W) -> Self;
+    fn upcast(self) -> W;
 }
 
-impl<T, U> CastableInto<U> for T 
+///
+pub trait DowncastableFrom<W>: Sized {
+    ///
+    fn downcast_from(value: W) -> Self;
+}
+
+///
+pub trait UpcastableFrom<W>: Sized {
+    ///
+    fn upcast_from(value: W) -> Self;
+}
+
+/// UpcastableFrom implies UpcastableInto
+impl<T, U> UpcastableInto<U> for T 
 where 
-    U: CastableFrom<T>
+    U: UpcastableFrom<T>
 {
-    fn cast(self) -> U {
-        U::cast_from(self)
+    #[inline(always)]
+    fn upcast(self) -> U {
+        U::upcast_from(self)
     }
 }
 
-macro_rules! impl_cast {
-    ($($ty:ty),*) => {$(
-        impl_cast_inner!($ty => u8, u16, u32, u64, u128, usize);
-    )*};
-}
-macro_rules! impl_cast_inner {
-    ($base:ty => $($ty:ty),*) => {$(
-impl CastableFrom<$ty> for $base {
-    fn cast_from(value: $ty) -> Self {
-        value as $base
+/// DowncastableFrom implies DowncastableInto
+impl<T, U> DowncastableInto<U> for T 
+where 
+    U: DowncastableFrom<T>
+{
+    #[inline(always)]
+    fn downcast(self) -> U {
+        U::downcast_from(self)
     }
 }
-    )*};
+
+/// Riflexivity
+impl<T> DowncastableFrom<T> for T {
+    #[inline(always)]
+    fn downcast_from(value: T) -> Self {
+        value
+    }
 }
 
-impl_cast!(u8, u16, u32, u64, u128, usize);
+/// Riflexivity
+impl<T> UpcastableFrom<T> for T {
+    #[inline(always)]
+    fn upcast_from(value: T) -> Self {
+        value
+    }
+}
+
+macro_rules! impl_upcasts {
+    ($base_type:ty, $($ty:ty,)*) => {$(
+impl UpcastableFrom<$base_type> for $ty {
+    fn upcast_from(value: $base_type) -> Self {
+        value as $ty
+    }
+}
+    )*
+    impl_upcasts!($($ty,)*);
+};
+    () => {};
+}
+
+impl_upcasts!(u8, u16, u32, u64, u128,);
+
+impl UpcastableFrom<u8> for usize {
+    fn upcast_from(value: u8) -> Self {
+        value as usize
+    }
+}
+impl UpcastableFrom<u16> for usize {
+    fn upcast_from(value: u16) -> Self {
+        value as usize
+    }
+}
+impl UpcastableFrom<u32> for usize {
+    fn upcast_from(value: u32) -> Self {
+        value as usize
+    }
+}
+impl UpcastableFrom<usize> for u64 {
+    fn upcast_from(value: usize) -> Self {
+        value as u64
+    }
+}
+impl UpcastableFrom<usize> for u128 {
+    fn upcast_from(value: usize) -> Self {
+        value as u128
+    }
+}
+
+macro_rules! impl_downcasts {
+    ($base_type:ty, $($ty:ty,)*) => {$(
+impl DowncastableFrom<$base_type> for $ty {
+    fn downcast_from(value: $base_type) -> Self {
+        value as $ty
+    }
+}
+    )*
+    impl_downcasts!($($ty,)*);
+};
+    () => {};
+}
+
+impl_downcasts!(u128, u64, u32, u16, u8,);
+
+impl DowncastableFrom<usize> for u8 {
+    fn downcast_from(value: usize) -> Self {
+        value as u8
+    }
+}
+impl DowncastableFrom<usize> for u16 {
+    fn downcast_from(value: usize) -> Self {
+        value as u16
+    }
+}
+impl DowncastableFrom<usize> for u32 {
+    fn downcast_from(value: usize) -> Self {
+        value as u32
+    }
+}
+impl DowncastableFrom<u64> for usize {
+    fn downcast_from(value: u64) -> Self {
+        value as usize
+    }
+}
+impl DowncastableFrom<u128> for usize {
+    fn downcast_from(value: u128) -> Self {
+        value as usize
+    }
+}

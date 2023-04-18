@@ -22,18 +22,18 @@ enum RandomCommand {
 
 fuzz_target!(|data: FuzzCase| {
     //println!("{:#4?}", data);
-    let mut buffer_m2l: Vec<u32> = vec![];
-    let mut buffer_l2m: Vec<u32> = vec![];
+    let mut buffer_m2l: Vec<u64> = vec![];
+    let mut buffer_l2m: Vec<u64> = vec![];
     let mut writes = vec![];
     // write
     {
-        let mut big = BufferedBitStreamWrite::<M2L, u64, _>::new(MemWordWriteVec::new(&mut buffer_m2l));
-        let mut little = BufferedBitStreamWrite::<L2M, u64, _>::new(MemWordWriteVec::new(&mut buffer_l2m));
+        let mut big = BufferedBitStreamWrite::<M2L, _>::new(MemWordWriteVec::new(&mut buffer_m2l));
+        let mut little = BufferedBitStreamWrite::<L2M, _>::new(MemWordWriteVec::new(&mut buffer_l2m));
 
         for command in data.commands.iter() {
             match command {
                 RandomCommand::WriteBits(value, n_bits) => {
-                    let n_bits = 1 + (*n_bits % 63);
+                    let n_bits = (1 + (*n_bits % 63)) as usize;
                     let value = get_lowest_bits(*value, n_bits);
                     let big_success = big.write_bits(value, n_bits).is_ok();
                     let little_success = little.write_bits(value, n_bits).is_ok();
@@ -55,6 +55,7 @@ fuzz_target!(|data: FuzzCase| {
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
+                _ => {},
                 RandomCommand::Gamma(value, _, write_tab) => {
                     let value = (*value).min(u64::MAX - 1);
                     let (big_success, little_success) = if *write_tab {
@@ -121,9 +122,9 @@ fuzz_target!(|data: FuzzCase| {
     //println!("{:?}", buffer_l2m);
     {
         let mut big = UnbufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
-        let mut big_buff = BufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
+        let mut big_buff = BufferedBitStreamRead::<M2L, u128, _>::new(MemWordRead::new(&buffer_m2l));
         let mut little = UnbufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
-        let mut little_buff = BufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
+        let mut little_buff = BufferedBitStreamRead::<L2M, u128, _>::new(MemWordRead::new(&buffer_l2m));
 
         for (succ, command) in writes.iter().zip(data.commands.iter()) {
             let pos = big.get_position();
@@ -133,7 +134,7 @@ fuzz_target!(|data: FuzzCase| {
 
             match command {
                 RandomCommand::WriteBits(value, n_bits) => {
-                    let n_bits = 1 + (*n_bits % 63);
+                    let n_bits = (1 + (*n_bits % 63)) as usize;
                     let b = big.read_bits(n_bits);
                     let l = little.read_bits(n_bits);
                     let bb = big_buff.read_bits(n_bits);
@@ -203,6 +204,7 @@ fuzz_target!(|data: FuzzCase| {
                         assert_eq!(pos, little_buff.get_position());
                     }
                 },
+                _ => {},
                 RandomCommand::Gamma(value, read_tab, _) => {
                     let value = (*value).min(u64::MAX - 1);
                     let (b, l, bb, lb) = if *read_tab {

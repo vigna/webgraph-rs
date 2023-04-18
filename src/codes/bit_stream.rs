@@ -22,7 +22,7 @@ pub trait BitSeek {
 pub trait BitRead<BO: BitOrder> {
     /// The type we can read form the stream without advancing.
     /// On buffered readers this is usually half the buffer size. 
-    type PeekType: CastableInto<usize> + CastableFrom<usize>;
+    type PeekType: UpcastableInto<u64>;
     /// Read `n_bits` bits from the stream and return them in the lowest bits
     /// 
     /// # Errors

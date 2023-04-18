@@ -1,5 +1,5 @@
 //! Collection of common functions we use throughout the codebase
-use crate::{Word, CastableInto, CastableFrom};
+use crate::*;
 
 /// Return the lowest `n_bits` of `value`.
 /// Calling with `n_bits == 0` or `n_bits > 64` will result in undefined 
@@ -20,9 +20,9 @@ use crate::{Word, CastableInto, CastableFrom};
 /// ```
 #[inline(always)] 
 #[must_use]
-pub fn get_lowest_bits<W: Word>(value: W, n_bits: u8) -> W {
-    debug_assert!(n_bits as usize <= W::BITS);
-    value & (W::MAX >> (W::BITS - n_bits as usize).cast())
+pub fn get_lowest_bits<W: Word>(value: W, n_bits: usize) -> W {
+    debug_assert!(n_bits <= W::BITS);
+    value & (W::MAX >> (W::BITS - n_bits))
 }
 
 /// Compute the `floor(log2(value))` exploiting BMI instructions 
@@ -41,10 +41,10 @@ pub fn get_lowest_bits<W: Word>(value: W, n_bits: u8) -> W {
 /// ```
 #[inline(always)]
 #[must_use]
-pub fn fast_log2_floor<W: Word + CastableFrom<usize>>(value: W) -> W {
+pub fn fast_log2_floor<W: Word + UpcastableFrom<u8>>(value: W) -> W {
     debug_assert!(value > W::ZERO);
-    let a: W = (W::BITS - 1).cast();
-    let b: W = (value | W::ONE).leading_zeros().cast();
+    let a: W = ((W::BITS - 1) as u8).upcast();
+    let b: W = ((value | W::ONE).leading_zeros() as u8).upcast();
     a - b
 }
 
