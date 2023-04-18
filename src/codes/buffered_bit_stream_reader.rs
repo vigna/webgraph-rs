@@ -152,34 +152,38 @@ where
         if n_bits == 0 {
             return Ok(0);
         }
-
         // most common path, we just read the buffer        
-        if n_bits < self.valid_bits {
+        if n_bits <= self.valid_bits {
             let result: u64 = (self.buffer >> (BW::BITS - n_bits)).downcast();
-            self.valid_bits -= n_bits as usize;
+            self.valid_bits -= n_bits;
             self.buffer <<= n_bits;
             return Ok(result);
         }
-
-        let mut result: u64 = (
+        
+        let mut result: u64 = if self.valid_bits != 0 {
             self.buffer >> (BW::BITS - self.valid_bits)
-        ).downcast();
+        } else {
+            BW::ZERO
+        }.downcast();
+        n_bits -= self.valid_bits;
 
         // Directly read to the result without updating the buffer
-        while n_bits as usize > WR::Word::BITS {
+        while n_bits > WR::Word::BITS {
             let new_word: u64 = self.backend.read_next_word()?.to_be().upcast();
             result = (result << WR::Word::BITS) | new_word;
             n_bits -= WR::Word::BITS;
         }
 
         // get the final word
-        let new_word: BW = self.backend.read_next_word()?.to_be().upcast();
+        let new_word = self.backend.read_next_word()?.to_be();
         self.valid_bits = WR::Word::BITS - n_bits;
         // compose the remaining bits
-        let final_bits: u64 = (new_word >> (BW::BITS - n_bits)).downcast();
+        let upcasted: u64 = new_word.upcast();
+        let final_bits: u64 = (upcasted >> (64 - n_bits)).downcast();
         result = (result << n_bits) | final_bits;
         // and put the rest in the buffer
-        self.buffer = new_word << (BW::BITS - self.valid_bits);
+        self.buffer = new_word.upcast();
+        self.buffer <<= BW::BITS - self.valid_bits;
 
         Ok(result)
     }
@@ -307,32 +311,37 @@ where
         }
 
         // most common path, we just read the buffer        
-        if n_bits < self.valid_bits {
+        if n_bits <= self.valid_bits {
             let shamt = BW::BITS - n_bits;
             let result: u64 = ((self.buffer << shamt) >> shamt).downcast(); 
-            self.valid_bits -= n_bits as usize;
+            self.valid_bits -= n_bits;
             self.buffer >>= n_bits;
             return Ok(result);
         }
 
         let mut result: u64 = self.buffer.downcast();
+        n_bits -= self.valid_bits;
+        let mut bits_in_res = self.valid_bits;
 
         // Directly read to the result without updating the buffer
-        while n_bits as usize > WR::Word::BITS {
+        while n_bits > WR::Word::BITS {
             let new_word: u64 = self.backend.read_next_word()?.to_le().upcast();
-            result = (result << WR::Word::BITS) | new_word;
+            result |= new_word << bits_in_res;
             n_bits -= WR::Word::BITS;
+            bits_in_res += WR::Word::BITS;
         }
 
         // get the final word
-        let new_word: BW = self.backend.read_next_word()?.to_le().upcast();
+        let new_word = self.backend.read_next_word()?.to_le();
         self.valid_bits = WR::Word::BITS - n_bits;
         // compose the remaining bits
-        let shamt = BW::BITS - n_bits;
-        let final_bits: u64 = ((new_word << shamt) >> shamt).downcast();
-        result = (result << n_bits) | final_bits;
+        let shamt = 64 - n_bits;
+        let upcasted: u64 = new_word.upcast();
+        let final_bits: u64 = ((upcasted << shamt) >> shamt).downcast();
+        result |= final_bits << bits_in_res;
         // and put the rest in the buffer
-        self.buffer = new_word >> n_bits;
+        self.buffer = new_word.upcast();
+        self.buffer >>= n_bits;
 
         Ok(result)
     }

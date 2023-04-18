@@ -55,7 +55,6 @@ fuzz_target!(|data: FuzzCase| {
                     assert_eq!(big_success, little_success);
                     writes.push(big_success);
                 },
-                _ => {},
                 RandomCommand::Gamma(value, _, write_tab) => {
                     let value = (*value).min(u64::MAX - 1);
                     let (big_success, little_success) = if *write_tab {
@@ -204,7 +203,6 @@ fuzz_target!(|data: FuzzCase| {
                         assert_eq!(pos, little_buff.get_position());
                     }
                 },
-                _ => {},
                 RandomCommand::Gamma(value, read_tab, _) => {
                     let value = (*value).min(u64::MAX - 1);
                     let (b, l, bb, lb) = if *read_tab {

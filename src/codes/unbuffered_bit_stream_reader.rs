@@ -79,9 +79,19 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        // single word access
-        let word = self.data.read_next_word()?.to_be();
-        Ok(((word << in_word_offset) >> (64 - n_bits)) as u32)
+        let res = if (in_word_offset + n_bits as usize) <= 64 {
+            // single word access
+            let word = self.data.read_next_word()?.to_be();
+            (word << in_word_offset) >> (64 - n_bits)
+        } else {
+            // double word access
+            let high_word = self.data.read_next_word()?.to_be();
+            let low_word  = self.data.read_next_word()?.to_be();
+            let shamt1 = 64 - n_bits;
+            let shamt2 = 128 - in_word_offset - n_bits as usize;
+            ((high_word << in_word_offset) >> shamt1) | (low_word >> shamt2)
+        };
+        Ok(res as u32)
     }
 
     #[inline]
@@ -181,10 +191,20 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRe
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        // single word access
-        let word = self.data.read_next_word()?.to_le();
-        let shamt = 64 - n_bits as usize;
-        Ok(((word << (shamt - in_word_offset)) >> shamt) as u32)
+        let res = if (in_word_offset + n_bits as usize) <= 64 {
+            // single word access
+            let word = self.data.read_next_word()?.to_le();
+            let shamt = 64 - n_bits as usize;
+            (word << (shamt - in_word_offset)) >> shamt
+        } else {
+            // double word access
+            let low_word  = self.data.read_next_word()?.to_le();
+            let high_word = self.data.read_next_word()?.to_le();
+            let shamt1 = 128 - in_word_offset - n_bits as usize;
+            let shamt2 = 64 - n_bits as usize;
+            ((high_word << shamt1) >> shamt2) | (low_word >> in_word_offset)
+        };
+        Ok(res as u32)
     }
 
     #[inline]
