@@ -11,7 +11,10 @@ Cargo.lock
 .vscode
 .log
 
-*table*
+*tables.rs
+*tables.csv
+*tables.png
+*tables.jpg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

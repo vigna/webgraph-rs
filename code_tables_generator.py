@@ -36,9 +36,10 @@ read_func_merged_table = """
 /// This function errors if it wasn't able to skip_bits
 pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u64>> {
     if let Ok(idx) = backend.peek_bits(READ_BITS) {
+        let idx: u64 = idx.upcast();
         let (value, len) = READ_%(BO)s[idx as usize];
         if len != MISSING_VALUE_LEN {
-            backend.skip_bits(len)?;
+            backend.skip_bits(len as usize)?;
             return Ok(Some(value as u64));
         }
     }
