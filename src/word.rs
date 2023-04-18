@@ -272,6 +272,11 @@ impl CastableFrom<$base_type> for $ty {
         value as $ty
     }
 }
+impl CastableFrom<$ty> for $base_type {
+    fn cast_from(value: $ty) -> $base_type {
+        value as $base_type
+    }
+}
     )*
     impl_casts!($($ty,)*);
 };
