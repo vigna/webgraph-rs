@@ -43,3 +43,6 @@ extern crate alloc;
 
 pub mod codes;
 pub mod utils;
+
+mod word;
+pub use word::*;

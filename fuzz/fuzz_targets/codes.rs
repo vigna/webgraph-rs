@@ -22,13 +22,13 @@ enum RandomCommand {
 
 fuzz_target!(|data: FuzzCase| {
     //println!("{:#4?}", data);
-    let mut buffer_m2l = vec![];
-    let mut buffer_l2m = vec![];
+    let mut buffer_m2l: Vec<u32> = vec![];
+    let mut buffer_l2m: Vec<u32> = vec![];
     let mut writes = vec![];
     // write
     {
-        let mut big = BufferedBitStreamWrite::<M2L, _>::new(MemWordWriteVec::new(&mut buffer_m2l));
-        let mut little = BufferedBitStreamWrite::<L2M, _>::new(MemWordWriteVec::new(&mut buffer_l2m));
+        let mut big = BufferedBitStreamWrite::<M2L, u64, _>::new(MemWordWriteVec::new(&mut buffer_m2l));
+        let mut little = BufferedBitStreamWrite::<L2M, u64, _>::new(MemWordWriteVec::new(&mut buffer_l2m));
 
         for command in data.commands.iter() {
             match command {

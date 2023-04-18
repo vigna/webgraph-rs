@@ -24,7 +24,7 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
             ]:
                 values = df[(df.pat == pat) & (df.type == ty) & (df.tables_num == tables_n)]
                 plt.errorbar(
-                    values.n_bits, values.ns_median, values.ns_std,
+                    values.n_bits, values.ns_median, #values.ns_std,
                     label="{}::{}::{}".format("::".join(pat.split("::")[1:]), table_txt, ty), 
                     marker=marker,
                 )
@@ -39,7 +39,7 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
         ]:  
             values = df[(df.pat == pat) & (df.type == ty)].groupby("n_bits").mean()
             plt.errorbar(
-                values.index, values.ns_median, values.ns_std,
+                values.index, values.ns_median, #values.ns_std,
                 label="{}::{}".format("::".join(pat.split("::")[1:]), ty), 
                 marker="^",
             )

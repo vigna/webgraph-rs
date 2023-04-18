@@ -78,14 +78,14 @@ pub use word_stream::{
 #[cfg(feature="alloc")]
 pub use word_stream::MemWordWriteVec;
 
+mod unbuffered_bit_stream_reader;
+pub use unbuffered_bit_stream_reader::UnbufferedBitStreamRead;
+
 mod buffered_bit_stream_reader;
 pub use buffered_bit_stream_reader::BufferedBitStreamRead;
 
 mod buffered_bit_stream_writer;
 pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
-
-mod unbuffered_bit_stream_reader;
-pub use unbuffered_bit_stream_reader::UnbufferedBitStreamRead;
 
 mod gamma;
 pub use gamma::{

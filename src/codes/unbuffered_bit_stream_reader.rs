@@ -12,7 +12,7 @@ use anyhow::{Result, bail};
 
 /// An impementation of [`BitRead`] on a Seekable word stream [`WordRead`] 
 /// + [`WordStream`]
-pub struct UnbufferedBitStreamRead<BO: BitOrder, WR: WordRead + WordStream> {
+pub struct UnbufferedBitStreamRead<BO: BitOrder, WR> {
     /// The stream which we will read words from
     data: WR,
     /// The index of the current bit we are ate
@@ -21,7 +21,7 @@ pub struct UnbufferedBitStreamRead<BO: BitOrder, WR: WordRead + WordStream> {
     _marker: core::marker::PhantomData<BO>,
 }
 
-impl<BO: BitOrder, WR: WordRead + WordStream> UnbufferedBitStreamRead<BO, WR> {
+impl<BO: BitOrder, WR> UnbufferedBitStreamRead<BO, WR> {
     /// Create a new BitStreamRead on a generig WordRead
     pub fn new(data: WR) -> Self {
         Self{
@@ -32,22 +32,24 @@ impl<BO: BitOrder, WR: WordRead + WordStream> UnbufferedBitStreamRead<BO, WR> {
     }
 }
 
-impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR> {
+impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR> {
+    type PeekType = u64;
+    
     #[inline]
-    fn skip_bits(&mut self, n_bits: u8) -> Result<()> {
-        self.bit_idx += n_bits as usize;
+    fn skip_bits(&mut self, n_bits: usize) -> Result<()> {
+        self.bit_idx += n_bits;
         Ok(())
     }
 
     #[inline]
-    fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
+    fn read_bits(&mut self, n_bits: usize) -> Result<u64> {
         let res = self.peek_bits(n_bits)?;
         self.skip_bits(n_bits)?;
         Ok(res)
     }
 
     #[inline]
-    fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
+    fn peek_bits(&mut self, n_bits: usize) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
@@ -100,7 +102,7 @@ impl<WR: WordRead + WordStream> BitRead<M2L> for UnbufferedBitStreamRead<M2L, WR
     }
 }
 
-impl<WR: WordRead + WordStream> BitSeek for UnbufferedBitStreamRead<L2M, WR> {
+impl<WR: WordStream> BitSeek for UnbufferedBitStreamRead<L2M, WR> {
     fn get_position(&self) -> usize {
         self.bit_idx
     }
@@ -111,7 +113,7 @@ impl<WR: WordRead + WordStream> BitSeek for UnbufferedBitStreamRead<L2M, WR> {
     }
 }
 
-impl<WR: WordRead + WordStream> BitSeek for UnbufferedBitStreamRead<M2L, WR> {
+impl<WR: WordStream> BitSeek for UnbufferedBitStreamRead<M2L, WR> {
     fn get_position(&self) -> usize {
         self.bit_idx
     }
@@ -122,22 +124,23 @@ impl<WR: WordRead + WordStream> BitSeek for UnbufferedBitStreamRead<M2L, WR> {
     }
 }
 
-impl<WR: WordRead + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR> {
+impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRead<L2M, WR> {
+    type PeekType = u64;
     #[inline]
-    fn skip_bits(&mut self, n_bits: u8) -> Result<()> {
-        self.bit_idx += n_bits as usize;
+    fn skip_bits(&mut self, n_bits: usize) -> Result<()> {
+        self.bit_idx += n_bits;
         Ok(())
     }
 
     #[inline]
-    fn read_bits(&mut self, n_bits: u8) -> Result<u64> {
+    fn read_bits(&mut self, n_bits: usize) -> Result<u64> {
         let res = self.peek_bits(n_bits)?;
         self.skip_bits(n_bits)?;
         Ok(res)
     }
 
     #[inline]
-    fn peek_bits(&mut self, n_bits: u8) -> Result<u64> {
+    fn peek_bits(&mut self, n_bits: usize) -> Result<u64> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }

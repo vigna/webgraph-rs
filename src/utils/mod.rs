@@ -1,4 +1,5 @@
 //! Collection of common functions we use throughout the codebase
+use crate::{Word, CastableInto, CastableFrom};
 
 /// Return the lowest `n_bits` of `value`.
 /// Calling with `n_bits == 0` or `n_bits > 64` will result in undefined 
@@ -19,9 +20,9 @@
 /// ```
 #[inline(always)] 
 #[must_use]
-pub fn get_lowest_bits(value: u64, n_bits: u8) -> u64 {
-    debug_assert!(n_bits <= 64);
-    value & (u64::MAX >> (64 - n_bits))
+pub fn get_lowest_bits<W: Word>(value: W, n_bits: u8) -> W {
+    debug_assert!(n_bits as usize <= W::BITS);
+    value & (W::MAX >> (W::BITS - n_bits as usize).cast())
 }
 
 /// Compute the `floor(log2(value))` exploiting BMI instructions 
@@ -40,14 +41,16 @@ pub fn get_lowest_bits(value: u64, n_bits: u8) -> u64 {
 /// ```
 #[inline(always)]
 #[must_use]
-pub const fn fast_log2_floor(value: u64) -> u64 {
-    debug_assert!(value > 0);
-    63 - (value | 1).leading_zeros() as u64
+pub fn fast_log2_floor<W: Word + CastableFrom<usize>>(value: W) -> W {
+    debug_assert!(value > W::ZERO);
+    let a: W = (W::BITS - 1).cast();
+    let b: W = (value | W::ONE).leading_zeros().cast();
+    a - b
 }
 
 /// power of two
 #[inline(always)]
 #[must_use]
-pub const fn fast_pow_2(value: u64) -> u64 {
-    1 << value
+pub fn fast_pow_2<W: Word>(value: W) -> W {
+    W::ONE << value
 }

@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use crate::Word;
 
 /// A Seekable word stream
 pub trait WordStream {
@@ -29,22 +30,26 @@ pub trait WordStream {
 
 /// An object we can read words from sequentially
 pub trait WordRead {
+    /// The type that can be read
+    type Word: Word;
     /// Read a [`u64`] word from the stream and advance the position by 8 bytes.
     /// 
     /// # Errors
     /// This function fails if we cannot read the next word in the stream,
     /// usually this happens when the stream ended.
-    fn read_next_word(&mut self) -> Result<u64>;
+    fn read_next_word(&mut self) -> Result<Self::Word>;
 }
 
 /// An object that we can write words to sequentially
 pub trait WordWrite {
+    /// The type that can be wrote
+    type Word: Word;
     /// Write a [`u64`] word from the stream and advance the position by 8 bytes.
     /// 
     /// # Errors
     /// This function fails if we cannot write a word to the stream,
     /// usually this happens when the stream ended.
-    fn write_word(&mut self, word: u64) -> Result<()>;
+    fn write_word(&mut self, word: Self::Word) -> Result<()>;
 }
 
 /// An Implementation of [`WordRead`] for a slice of memory `&[u64]`
@@ -79,15 +84,15 @@ pub trait WordWrite {
 /// assert!(word_reader.set_position(100).is_err());
 /// assert_eq!(word_reader.get_position(), 2);
 /// ```
-pub struct MemWordRead<'a> {
-    data: &'a [u64],
+pub struct MemWordRead<'a, W: Word> {
+    data: &'a [W],
     word_index: usize,
 }
 
-impl<'a> MemWordRead<'a> {
+impl<'a, W: Word> MemWordRead<'a, W> {
     /// Create a new [`MemWordRead`] from a slice of data
     #[must_use]
-    pub fn new(data: &'a [u64]) -> Self {
+    pub fn new(data: &'a [W]) -> Self {
         Self { 
             data, 
             word_index: 0 
@@ -137,15 +142,15 @@ impl<'a> MemWordRead<'a> {
 /// assert_eq!(word_writer.read_next_word().unwrap(), 0x0b801b2bf696e8d2);
 /// assert_eq!(word_writer.get_position(), 1);
 /// ```
-pub struct MemWordWrite<'a> {
-    data: &'a mut [u64],
+pub struct MemWordWrite<'a, W: Word> {
+    data: &'a mut [W],
     word_index: usize,
 }
 
-impl<'a> MemWordWrite<'a> {
+impl<'a, W: Word> MemWordWrite<'a, W> {
     /// Create a new [`MemWordWrite`] from a slice of **ZERO INITIALIZED** data
     #[must_use]
-    pub fn new(data: &'a mut [u64]) -> Self {
+    pub fn new(data: &'a mut [W]) -> Self {
         Self { 
             data, 
             word_index: 0 
@@ -180,16 +185,16 @@ impl<'a> MemWordWrite<'a> {
 /// assert_eq!(word_writer.get_position(), 2);
 /// ```
 #[cfg(feature="alloc")]
-pub struct MemWordWriteVec<'a> {
-    data: &'a mut alloc::vec::Vec<u64>,
+pub struct MemWordWriteVec<'a, W: Word> {
+    data: &'a mut alloc::vec::Vec<W>,
     word_index: usize,
 }
 
 #[cfg(feature="alloc")]
-impl<'a> MemWordWriteVec<'a> {
+impl<'a, W: Word> MemWordWriteVec<'a, W> {
     /// Create a new [`MemWordWrite`] from a slice of **ZERO INITIALIZED** data
     #[must_use]
-    pub fn new(data: &'a mut alloc::vec::Vec<u64>) -> Self {
+    pub fn new(data: &'a mut alloc::vec::Vec<W>) -> Self {
         Self { 
             data, 
             word_index: 0 
@@ -203,9 +208,11 @@ macro_rules! impl_memword {
 
 // A WordWrite can easily also read words, so we can implement this trait for 
 // both
-impl<'a> WordRead for $ty<'a> {
+impl<'a, W: Word> WordRead for $ty<'a, W> {
+    type Word = W;
+
     #[inline]
-    fn read_next_word(&mut self) -> Result<u64> {
+    fn read_next_word(&mut self) -> Result<W> {
         match self.data.get(self.word_index) {
             Some(word) => {
                 self.word_index += 1;
@@ -220,7 +227,7 @@ impl<'a> WordRead for $ty<'a> {
     }
 }
 
-impl<'a> WordStream for $ty<'a> {
+impl<'a, W: Word> WordStream for $ty<'a, W> {
     #[inline]
     #[must_use]
     fn len(&self) -> usize {
@@ -253,9 +260,11 @@ impl_memword!(MemWordWrite);
 #[cfg(feature="alloc")]
 impl_memword!(MemWordWriteVec);
 
-impl<'a> WordWrite for MemWordWrite<'a> {
+impl<'a, W: Word> WordWrite for MemWordWrite<'a, W> {
+    type Word = W;
+
     #[inline]
-    fn write_word(&mut self, word: u64) -> Result<()> {
+    fn write_word(&mut self, word: W) -> Result<()> {
         match self.data.get_mut(self.word_index) {
             Some(word_ref) => {
                 self.word_index += 1;
@@ -272,11 +281,13 @@ impl<'a> WordWrite for MemWordWrite<'a> {
 }
 
 #[cfg(feature="alloc")]
-impl<'a> WordWrite for MemWordWriteVec<'a> {
+impl<'a, W: Word> WordWrite for MemWordWriteVec<'a, W> {
+    type Word = W;
+
     #[inline]
-    fn write_word(&mut self, word: u64) -> Result<()> {
+    fn write_word(&mut self, word: W) -> Result<()> {
         if self.word_index >= self.data.len() {
-            self.data.resize(self.word_index + 1, 0);
+            self.data.resize(self.word_index + 1, W::ZERO);
         }
         self.data[self.word_index] = word;
         self.word_index += 1;

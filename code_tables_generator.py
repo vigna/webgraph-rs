@@ -56,10 +56,11 @@ read_func_two_table = """
 /// This function errors if it wasn't able to skip_bits
 pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u64>> {
     if let Ok(idx) = backend.peek_bits(READ_BITS) {
-        let len = READ_LEN_%(BO)s[idx as usize];
+        let idx: usize = idx.cast();
+        let len = READ_LEN_%(BO)s[idx];
         if len != MISSING_VALUE_LEN {
-            backend.skip_bits(len)?;
-            return Ok(Some(READ_%(BO)s[idx as usize] as u64));
+            backend.skip_bits(len as usize)?;
+            return Ok(Some(READ_%(BO)s[idx] as u64));
         }
     }
     Ok(None)
@@ -75,9 +76,10 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
         f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
         f.write("use super::{BitRead, M2L, L2M};\n")
         f.write("use anyhow::Result;\n")
+        f.write("use crate::CastableInto;\n")
 
         f.write("/// How many bits are needed to read the tables in this\n")
-        f.write("pub const READ_BITS: u8 = {};\n".format(read_bits))
+        f.write("pub const READ_BITS: usize = {};\n".format(read_bits))
         # This value and type work across all codes and table sizes
         MISSING_VALUE_LEN = 255
         len_ty = "u8"
