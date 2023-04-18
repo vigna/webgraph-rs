@@ -173,17 +173,20 @@ where
             result = (result << WR::Word::BITS) | new_word;
             n_bits -= WR::Word::BITS;
         }
-
         // get the final word
         let new_word = self.backend.read_next_word()?.to_be();
         self.valid_bits = WR::Word::BITS - n_bits;
         // compose the remaining bits
         let upcasted: u64 = new_word.upcast();
-        let final_bits: u64 = (upcasted >> (64 - n_bits)).downcast();
+        let final_bits: u64 = (upcasted >> self.valid_bits).downcast();
         result = (result << n_bits) | final_bits;
         // and put the rest in the buffer
-        self.buffer = new_word.upcast();
-        self.buffer <<= BW::BITS - self.valid_bits;
+        if self.valid_bits != 0 {
+            self.buffer = new_word.upcast();
+            self.buffer <<= BW::BITS - self.valid_bits;
+        } else {
+            self.buffer = BW::ZERO;
+        }
 
         Ok(result)
     }

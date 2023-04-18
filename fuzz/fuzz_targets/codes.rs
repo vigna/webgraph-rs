@@ -5,6 +5,9 @@ use libfuzzer_sys::fuzz_target;
 use webgraph::codes::*;
 use webgraph::utils::get_lowest_bits;
 
+type ReadWord = u32;
+type ReadBuffer = u64;
+
 #[derive(Arbitrary, Debug)]
 struct FuzzCase {
     commands: Vec<RandomCommand>
@@ -119,11 +122,19 @@ fuzz_target!(|data: FuzzCase| {
     // read back
     //println!("{:?}", buffer_m2l);
     //println!("{:?}", buffer_l2m);
+    let m2l_trans: &[ReadWord] = unsafe{core::slice::from_raw_parts(
+        buffer_m2l.as_ptr() as *const ReadWord,
+        buffer_m2l.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<ReadWord>()),
+    )};
+    let l2m_trans: &[ReadWord] = unsafe{core::slice::from_raw_parts(
+        buffer_l2m.as_ptr() as *const ReadWord,
+        buffer_l2m.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<ReadWord>()),
+    )};
     {
         let mut big = UnbufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
-        let mut big_buff = BufferedBitStreamRead::<M2L, u128, _>::new(MemWordRead::new(&buffer_m2l));
+        let mut big_buff = BufferedBitStreamRead::<M2L, ReadBuffer, _>::new(MemWordRead::new(m2l_trans));
         let mut little = UnbufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
-        let mut little_buff = BufferedBitStreamRead::<L2M, u128, _>::new(MemWordRead::new(&buffer_l2m));
+        let mut little_buff = BufferedBitStreamRead::<L2M, ReadBuffer, _>::new(MemWordRead::new(l2m_trans));
 
         for (succ, command) in writes.iter().zip(data.commands.iter()) {
             let pos = big.get_position();
