@@ -78,7 +78,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     {
         // init the reader
         let mut r = BufferedBitStreamRead::<$bo, BufferWord, _>::new(
-            MemWordRead::new(&transmuted_buff)
+            MemWordReadInfinite::new(&transmuted_buff)
         );
         // measure
         let r_start = Instant::now();
@@ -94,7 +94,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     {
         // init the reader
         let mut r = UnbufferedBitStreamRead::<$bo, _>::new(
-            MemWordRead::new(&buffer)
+            MemWordReadInfinite::new(&buffer)
         );
         // measure
         let r_start = Instant::now();

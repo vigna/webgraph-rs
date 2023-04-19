@@ -39,7 +39,7 @@ pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u
         let idx: u64 = idx.upcast();
         let (value, len) = READ_%(BO)s[idx as usize];
         if len != MISSING_VALUE_LEN {
-            backend.skip_bits(len as usize)?;
+            backend.skip_bits_after_table_lookup(len as usize)?;
             return Ok(Some(value as u64));
         }
     }
@@ -60,7 +60,7 @@ pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u
         let idx: u64 = idx.upcast();
         let len = READ_LEN_%(BO)s[idx as usize];
         if len != MISSING_VALUE_LEN {
-            backend.skip_bits(len as usize)?;
+            backend.skip_bits_after_table_lookup(len as usize)?;
             return Ok(Some(READ_%(BO)s[idx as usize] as u64));
         }
     }

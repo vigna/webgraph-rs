@@ -42,6 +42,18 @@ pub trait BitRead<BO: BitOrder> {
     /// Thi function errors if skipping n_bits the underlying streams ends.
     fn skip_bits(&mut self, n_bits: usize) -> Result<()>;
 
+    /// Skip n_bits from the stream after reading from a table.
+    /// For unbuffered reads this is just `skip_bits` while
+    /// for buffereds reads we know that the bits are already in the
+    /// buffer.
+    /// 
+    /// # Errors
+    /// This is never supposed to happen.
+    #[inline(always)]
+    fn skip_bits_after_table_lookup(&mut self, n_bits: usize) -> Result<()> {
+        self.skip_bits(n_bits)
+    }
+
     /// Read an unary code
     /// 
     /// # Errors

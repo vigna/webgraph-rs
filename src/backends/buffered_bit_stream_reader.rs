@@ -41,14 +41,16 @@ impl<BW: Word, WR: WordRead> BufferedBitStreamRead<M2L, BW, WR>
 where
     WR::Word: UpcastableInto<BW>,
 {
-    /// Ensure that in the buffer there are at least 64 bits to read
+    /// Ensure that in the buffer there are at least `WR::Word::BITS` bits to read
+    /// The user has the responsability of guaranteeing that there are at least
+    /// `WR::Word::BITS` free bits in the buffer.
     #[inline(always)]
     fn refill(&mut self) -> Result<()> {
         // if we have 64 valid bits, we don't have space for a new word
         // and by definition we can only read
-        if self.valid_bits > WR::Word::BITS {
-            return Ok(());
-        }
+        let free_bits = BW::BITS - self.valid_bits;
+        debug_assert!(free_bits >= WR::Word::BITS);
+
         let new_word: BW = self.backend.read_next_word()
             .with_context(|| "Error while reflling BufferedBitStreamRead")?
             .to_be().upcast();
@@ -102,7 +104,7 @@ where
         }
         // a peek can do at most one refill, otherwise we might loose data
         if n_bits > self.valid_bits {
-            self.refill()?;  
+            self.refill()?;
         }
 
         // read the `n_bits` highest bits of the buffer and shift them to
@@ -132,6 +134,13 @@ where
         self.valid_bits -= n_bits;
         self.buffer <<= n_bits;
 
+        Ok(())
+    }
+    
+    #[inline(always)]
+    fn skip_bits_after_table_lookup(&mut self, n_bits: usize) -> Result<()> {
+        self.valid_bits -= n_bits;
+        self.buffer <<= n_bits;
         Ok(())
     }
 
@@ -217,14 +226,16 @@ impl<BW: Word, WR: WordRead> BufferedBitStreamRead<L2M, BW, WR>
 where
     WR::Word: UpcastableInto<BW>,
 {
-    /// Ensure that in the buffer there are at least 64 bits to read
+    /// Ensure that in the buffer there are at least `WR::Word::BITS` bits to read
+    /// The user has the responsability of guaranteeing that there are at least
+    /// `WR::Word::BITS` free bits in the buffer.
     #[inline(always)]
     fn refill(&mut self) -> Result<()> {
         // if we have 64 valid bits, we don't have space for a new word
         // and by definition we can only read
-        if self.valid_bits > WR::Word::BITS {
-            return Ok(());
-        }
+        let free_bits = BW::BITS - self.valid_bits;
+        debug_assert!(free_bits >= WR::Word::BITS);
+
         let new_word: BW = self.backend.read_next_word()
             .with_context(|| "Error while reflling BufferedBitStreamRead")?
             .to_le().upcast();
@@ -290,6 +301,13 @@ where
         self.valid_bits -= n_bits;
         self.buffer >>= n_bits;
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn skip_bits_after_table_lookup(&mut self, n_bits: usize) -> Result<()> {
+        self.valid_bits -= n_bits;
+        self.buffer >>= n_bits;
         Ok(())
     }
 

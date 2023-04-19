@@ -5,7 +5,6 @@
 
 // the code must be safe and shouldn't ever panic to be relayable
 #![deny(clippy::todo)]
-#![deny(unsafe_code)]
 #![deny(clippy::panic)]
 #![deny(clippy::panicking_unwrap)]
 #![deny(clippy::unwrap_used)]

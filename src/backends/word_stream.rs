@@ -49,6 +49,52 @@ impl<'a, W: Word> MemWordRead<'a, W> {
     }
 }
 
+///
+pub struct MemWordReadInfinite<'a, W: Word> {
+    data: &'a [W],
+    word_index: usize,
+}
+
+impl<'a, W: Word> MemWordReadInfinite<'a, W> {
+    /// Create a new [`MemWordReadInfinite`] from a slice of data
+    #[must_use]
+    pub fn new(data: &'a [W]) -> Self {
+        Self { 
+            data, 
+            word_index: 0 
+        }
+    }
+}
+impl<'a, W: Word> WordRead for MemWordReadInfinite<'a, W> {
+    type Word = W;
+
+    #[inline(always)]
+    fn read_next_word(&mut self) -> Result<W> {
+        let res = self.data.get(self.word_index).copied().unwrap_or(W::ZERO);
+        self.word_index += 1;
+        Ok(res)
+    }
+}
+
+impl<'a, W: Word> WordStream for MemWordReadInfinite<'a, W> {
+    #[inline(always)]
+    #[must_use]
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    #[inline(always)]
+    #[must_use]
+    fn get_position(&self) -> usize {
+        self.word_index
+    }
+
+    #[inline(always)]
+    fn set_position(&mut self, word_index: usize) -> Result<()> {
+        self.word_index = word_index;
+        Ok(())
+    }
+}   
 
 /// An Implementation of [`WordStream`], [`WordRead`], [`WordWrite`] for a 
 /// mutable slice of memory `&mut [u64]`
