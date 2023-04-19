@@ -1,4 +1,4 @@
-use webgraph::codes::*;
+use webgraph::prelude::*;
 use std::hint::black_box;
 use rand::Rng;
 

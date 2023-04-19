@@ -2,8 +2,7 @@
 
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
-use webgraph::codes::*;
-use webgraph::utils::get_lowest_bits;
+use webgraph::prelude::*;
 
 type ReadWord = u32;
 type ReadBuffer = u64;
