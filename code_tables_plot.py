@@ -2,6 +2,7 @@
 """This script takes the data generated from `code_tables_study.py` and plots them"""
 
 import sys
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -23,9 +24,11 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
                 "%s::M2L::Table"%code,
             ]:
                 values = df[(df.pat == pat) & (df.type == ty) & (df.tables_num == tables_n)]
+                m = min(values.ns_median)
+                i = np.argmin(values.ns_median)
                 plt.errorbar(
                     values.n_bits, values.ns_median, #values.ns_std,
-                    label="{}::{}::{}".format("::".join(pat.split("::")[1:]), table_txt, ty), 
+                    label="{}::{}::{} (min: {:.3f}ns {} bits)".format("::".join(pat.split("::")[1:]), table_txt, ty, m, i), 
                     marker=marker,
                 )
                 plt.fill_between(
@@ -38,9 +41,10 @@ for code in ["unary", "gamma", "delta", "zeta3"]:
             "%s::M2L::NoTable"%code,
         ]:  
             values = df[(df.pat == pat) & (df.type == ty)].groupby("n_bits").mean()
+            m = min(values.ns_median)
             plt.errorbar(
                 values.index, values.ns_median, #values.ns_std,
-                label="{}::{}".format("::".join(pat.split("::")[1:]), ty), 
+                label="{}::{} (min: {:.3f}ns)".format("::".join(pat.split("::")[1:]), ty, m, i), 
                 marker="^",
             )
             plt.fill_between(
