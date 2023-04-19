@@ -1,6 +1,5 @@
 use anyhow::Result;
-use super::BitOrder;
-use crate::*;
+use crate::traits::*;
 
 /// Trait to convert a Stream to a Seekable Stream
 pub trait BitSeek {
@@ -99,6 +98,8 @@ pub trait BitWriteBuffered<BO: BitOrder>: BitWrite<BO> {
     /// 
     /// # Errors
     /// This function might fail if we have bits in the buffer, but we finished
-    /// the writable stream. TODO!: figure out how to handle this situation.
+    /// the writable stream. 
+    /// 
+    /// TODO!: figure out how to handle this situation.
     fn partial_flush(&mut self) -> Result<()>;
 }

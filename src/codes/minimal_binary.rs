@@ -6,8 +6,7 @@
 //! the classical binary encoding.
 
 use anyhow::{Result, bail};
-
-use super::{BitOrder, BitRead, BitWrite};
+use crate::traits::*;
 use crate::utils::fast_log2_floor;
 
 /// Returns how long the minimal binary code for `value` will be for a given 

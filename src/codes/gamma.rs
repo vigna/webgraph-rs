@@ -7,11 +7,8 @@
 //! 
 
 use anyhow::Result;
-
-use super::{
-    BitOrder, M2L, L2M, 
-    BitRead, BitWrite, gamma_tables,
-};
+use crate::traits::*;
+use super::gamma_tables;
 use crate::utils::fast_log2_floor;
 
 /// Returns how long the gamma code for `value` will be

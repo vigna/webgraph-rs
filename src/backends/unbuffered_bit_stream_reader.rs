@@ -1,9 +1,6 @@
-use super::{
-    BitOrder, M2L, L2M,
-    BitRead,
-    WordRead, WordStream, BitSeek,
-    unary_tables,
-};
+
+use crate::traits::*;
+use crate::codes::unary_tables;
 use anyhow::{Result, bail};
 
 // I'm not really happy about implementing it over a seekable stream instead of 
@@ -52,7 +49,7 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        let res = if (in_word_offset + n_bits as usize) <= 64 {
+        let res = if (in_word_offset + n_bits) <= 64 {
             // single word access
             let word = self.data.read_next_word()?.to_be();
             (word << in_word_offset) >> (64 - n_bits)
@@ -61,7 +58,7 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
             let high_word = self.data.read_next_word()?.to_be();
             let low_word  = self.data.read_next_word()?.to_be();
             let shamt1 = 64 - n_bits;
-            let shamt2 = 128 - in_word_offset - n_bits as usize;
+            let shamt2 = 128 - in_word_offset - n_bits;
             ((high_word << in_word_offset) >> shamt1) | (low_word >> shamt2)
         };
         self.bit_idx += n_bits;
@@ -79,7 +76,7 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        let res = if (in_word_offset + n_bits as usize) <= 64 {
+        let res = if (in_word_offset + n_bits) <= 64 {
             // single word access
             let word = self.data.read_next_word()?.to_be();
             (word << in_word_offset) >> (64 - n_bits)
@@ -88,7 +85,7 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<M2L> for UnbufferedBitStreamRe
             let high_word = self.data.read_next_word()?.to_be();
             let low_word  = self.data.read_next_word()?.to_be();
             let shamt1 = 64 - n_bits;
-            let shamt2 = 128 - in_word_offset - n_bits as usize;
+            let shamt2 = 128 - in_word_offset - n_bits;
             ((high_word << in_word_offset) >> shamt1) | (low_word >> shamt2)
         };
         Ok(res as u32)
@@ -163,17 +160,17 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRe
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        let res = if (in_word_offset + n_bits as usize) <= 64 {
+        let res = if (in_word_offset + n_bits) <= 64 {
             // single word access
             let word = self.data.read_next_word()?.to_le();
-            let shamt = 64 - n_bits as usize;
+            let shamt = 64 - n_bits;
             (word << (shamt - in_word_offset)) >> shamt
         } else {
             // double word access
             let low_word  = self.data.read_next_word()?.to_le();
             let high_word = self.data.read_next_word()?.to_le();
-            let shamt1 = 128 - in_word_offset - n_bits as usize;
-            let shamt2 = 64 - n_bits as usize;
+            let shamt1 = 128 - in_word_offset - n_bits;
+            let shamt2 = 64 - n_bits;
             ((high_word << shamt1) >> shamt2) | (low_word >> in_word_offset)
         };
         self.bit_idx += n_bits;
@@ -191,17 +188,17 @@ impl<WR: WordRead<Word=u64> + WordStream> BitRead<L2M> for UnbufferedBitStreamRe
         self.data.set_position(self.bit_idx / 64)?;
         let in_word_offset = self.bit_idx % 64;
 
-        let res = if (in_word_offset + n_bits as usize) <= 64 {
+        let res = if (in_word_offset + n_bits) <= 64 {
             // single word access
             let word = self.data.read_next_word()?.to_le();
-            let shamt = 64 - n_bits as usize;
+            let shamt = 64 - n_bits;
             (word << (shamt - in_word_offset)) >> shamt
         } else {
             // double word access
             let low_word  = self.data.read_next_word()?.to_le();
             let high_word = self.data.read_next_word()?.to_le();
-            let shamt1 = 128 - in_word_offset - n_bits as usize;
-            let shamt2 = 64 - n_bits as usize;
+            let shamt1 = 128 - in_word_offset - n_bits;
+            let shamt2 = 64 - n_bits;
             ((high_word << shamt1) >> shamt2) | (low_word >> in_word_offset)
         };
         Ok(res as u32)

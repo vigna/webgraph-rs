@@ -3,9 +3,9 @@
 
 use anyhow::Result;
 
+use crate::traits::*;
 use super::{
-    BitOrder, M2L, L2M, 
-    BitRead, BitWrite, zeta_tables,
+    zeta_tables,
     MinimalBinaryRead, MinimalBinaryWrite,
     len_unary, len_minimal_binary,
 };

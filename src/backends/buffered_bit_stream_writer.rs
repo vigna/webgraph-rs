@@ -1,9 +1,5 @@
-use super::{
-    WordWrite, 
-    BitWrite, BitWriteBuffered,
-    BitOrder, M2L, L2M, 
-    unary_tables, 
-};
+use crate::codes::unary_tables;
+use crate::traits::*;
 use anyhow::{Result, bail};
 
 /// An implementation of [`BitWrite`] on a generic [`WordWrite`]
@@ -20,19 +16,8 @@ pub struct BufferedBitStreamWrite<BO: BBSWDrop<WR>, WR: WordWrite> {
 }
 
 impl<BO: BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> {
-    ///
+    /// Create a new [`BufferedBitStreamWrite`] from a backend word writer
     pub fn new(backend: WR) -> Self {
-
-        // TODO!: Should we do early filling? 
-        // This would fail if the backend has only 64 bits which, while 
-        // unlikely, it should be possible.
-        // 
-        // ```
-        // let low_word = backend.read_next_word()? as u128;
-        // let high_word = backend.read_next_word()? as u128;
-        // let buffer = (high_word << 64) | low_word;
-        // ```
-
         Self {
             backend,
             buffer: 0,

@@ -41,8 +41,15 @@
 #[cfg(feature="alloc")]
 extern crate alloc;
 
+pub mod backends;
 pub mod codes;
 pub mod utils;
+pub mod traits;
 
-mod word;
-pub use word::*;
+/// Prelude module to import everything from this crate
+pub mod prelude {
+    pub use super::backends::*;
+    pub use super::codes::*;
+    pub use super::utils::*;
+    pub use super::traits::*;
+}

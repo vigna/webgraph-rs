@@ -75,9 +75,8 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
         f.write("//! THIS FILE HAS BEEN GENERATED WITH THE SCRIPT {}\n".format(os.path.basename(__file__)))
         f.write("//! ~~~~~~~~~~~~~~~~~~~ DO NOT MODIFY ~~~~~~~~~~~~~~~~~~~~~~\n")
         f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
-        f.write("use super::{BitRead, M2L, L2M};\n")
         f.write("use anyhow::Result;\n")
-        f.write("use crate::UpcastableInto;\n")
+        f.write("use crate::traits::{BitRead, M2L, L2M, UpcastableInto};\n")
 
         f.write("/// How many bits are needed to read the tables in this\n")
         f.write("pub const READ_BITS: usize = {};\n".format(read_bits))

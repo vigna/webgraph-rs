@@ -3,9 +3,8 @@
 //! preceded by a representation of its length in γ.
 
 use anyhow::Result;
-
+use crate::traits::*;
 use super::{
-    BitOrder, M2L, L2M,
     GammaRead, GammaWrite, len_gamma, 
     delta_tables,
 };

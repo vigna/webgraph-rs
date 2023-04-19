@@ -1,11 +1,5 @@
-use super::{
-    WordRead, WordStream,
-    BitSeek, BitRead,
-    BitOrder, M2L, L2M,
-    unary_tables,
-};
-//use crate::utils::get_lowest_bits;
-use crate::*;
+use crate::codes::unary_tables;
+use crate::traits::*;
 use anyhow::{Result, bail, Context};
 
 /// A BitStream built uppon a generic [`WordRead`] that caches the read words 
@@ -27,11 +21,10 @@ impl<E: BitOrder, BW: Word, WR: WordRead> BufferedBitStreamRead<E, BW, WR> {
     /// 
     /// ### Example
     /// ```
-    /// use webgraph::codes::*;
-    /// use webgraph::utils::*;
-    /// let words = [0x0043b59fccf16077];
+    /// use webgraph::prelude::*;
+    /// let words: [u64; 1] = [0x0043b59fccf16077];
     /// let word_reader = MemWordRead::new(&words);
-    /// let mut bitstream = <BufferedBitStreamRead<M2L, _>>::new(word_reader);
+    /// let mut bitstream = <BufferedBitStreamRead<M2L, u128, _>>::new(word_reader);
     /// ```
     #[must_use]
     pub fn new(backend: WR) -> Self {
@@ -56,8 +49,6 @@ where
         if self.valid_bits > WR::Word::BITS {
             return Ok(());
         }
-        // TODO!:
-        // Read a new 64-bit word and put it in the buffer
         let new_word: BW = self.backend.read_next_word()
             .with_context(|| "Error while reflling BufferedBitStreamRead")?
             .to_be().upcast();
@@ -74,7 +65,7 @@ where
 {
     #[inline]
     fn get_position(&self) -> usize {
-        self.backend.get_position() * WR::Word::BITS - self.valid_bits as usize
+        self.backend.get_position() * WR::Word::BITS - self.valid_bits
     }
 
     #[inline]
@@ -110,7 +101,7 @@ where
             return Ok(WR::Word::ZERO);
         }
         // a peek can do at most one refill, otherwise we might loose data
-        if n_bits as usize > self.valid_bits {
+        if n_bits > self.valid_bits {
             self.refill()?;  
         }
 
@@ -122,8 +113,8 @@ where
     #[inline]
     fn skip_bits(&mut self, mut n_bits: usize) -> Result<()> {
         // happy case, just shift the buffer
-        if n_bits as usize <= self.valid_bits {
-            self.valid_bits -= n_bits as usize;
+        if n_bits <= self.valid_bits {
+            self.valid_bits -= n_bits;
             self.buffer <<= n_bits;
             return Ok(());
         }
@@ -234,8 +225,6 @@ where
         if self.valid_bits > WR::Word::BITS {
             return Ok(());
         }
-        // TODO!:
-        // Read a new 64-bit word and put it in the buffer
         let new_word: BW = self.backend.read_next_word()
             .with_context(|| "Error while reflling BufferedBitStreamRead")?
             .to_le().upcast();
@@ -252,7 +241,7 @@ where
 {
     #[inline]
     fn get_position(&self) -> usize {
-        self.backend.get_position() * WR::Word::BITS - self.valid_bits as usize
+        self.backend.get_position() * WR::Word::BITS - self.valid_bits
     }
 
     #[inline]
@@ -282,8 +271,8 @@ where
     #[inline]
     fn skip_bits(&mut self, mut n_bits: usize) -> Result<()> {
         // happy case, just shift the buffer
-        if n_bits as usize <= self.valid_bits {
-            self.valid_bits -= n_bits as usize;
+        if n_bits <= self.valid_bits {
+            self.valid_bits -= n_bits;
             self.buffer >>= n_bits;
             return Ok(());
         }
@@ -358,7 +347,7 @@ where
             return Ok(WR::Word::ZERO);
         }
         // a peek can do at most one refill, otherwise we might loose data
-        if n_bits as usize > self.valid_bits {
+        if n_bits > self.valid_bits {
             self.refill()?;  
         }
 

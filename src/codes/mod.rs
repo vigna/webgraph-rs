@@ -24,8 +24,7 @@
 //! ```
 //! In code:
 //! ```
-//! use webgraph::codes::*;
-//! use webgraph::utils::*;
+//! use webgraph::prelude::*;
 //! // file data
 //! let data_m2l: [u8; 16] = [
 //!     0x76, 0x60, 0xf1, 0xcd, 0x9f, 0xb5, 0x43, 0x00,
@@ -37,7 +36,7 @@
 //!     .map(|data| u64::from_ne_bytes(data.try_into().unwrap()))
 //!     .collect::<Vec<_>>();
 //! 
-//! let mut bitstream_m2l = <BufferedBitStreamRead<M2L, _>>::new(
+//! let mut bitstream_m2l = <UnbufferedBitStreamRead<M2L, _>>::new(
 //!     MemWordRead::new(&words_m2l)
 //! );
 //! assert_eq!(bitstream_m2l.read_bits(8).unwrap(), 0b0111_0110);
@@ -60,32 +59,6 @@
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 0);
 //! assert_eq!(bitstream_m2l.read_unary::<true>().unwrap(), 5);
 //! ```
-
-mod bit_order;
-pub use bit_order::{
-    BitOrder, M2L, L2M,
-};
-
-mod bit_stream;
-pub use bit_stream::{
-    BitSeek, BitRead, BitWrite, BitWriteBuffered,
-};
-mod word_stream;
-pub use word_stream::{
-    WordStream, WordRead, WordWrite,
-    MemWordRead, MemWordWrite,
-};
-#[cfg(feature="alloc")]
-pub use word_stream::MemWordWriteVec;
-
-mod unbuffered_bit_stream_reader;
-pub use unbuffered_bit_stream_reader::UnbufferedBitStreamRead;
-
-mod buffered_bit_stream_reader;
-pub use buffered_bit_stream_reader::BufferedBitStreamRead;
-
-mod buffered_bit_stream_writer;
-pub use buffered_bit_stream_writer::BufferedBitStreamWrite;
 
 mod gamma;
 pub use gamma::{
