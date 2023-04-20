@@ -5,7 +5,6 @@
 
 // the code must be safe and shouldn't ever panic to be relayable
 #![deny(clippy::todo)]
-#![deny(unsafe_code)]
 #![deny(clippy::panic)]
 #![deny(clippy::panicking_unwrap)]
 #![deny(clippy::unwrap_used)]
@@ -41,5 +40,15 @@
 #[cfg(feature="alloc")]
 extern crate alloc;
 
+pub mod backends;
 pub mod codes;
 pub mod utils;
+pub mod traits;
+
+/// Prelude module to import everything from this crate
+pub mod prelude {
+    pub use super::backends::*;
+    pub use super::codes::*;
+    pub use super::utils::*;
+    pub use super::traits::*;
+}

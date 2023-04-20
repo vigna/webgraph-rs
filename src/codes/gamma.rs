@@ -7,11 +7,8 @@
 //! 
 
 use anyhow::Result;
-
-use super::{
-    BitOrder, M2L, L2M, 
-    BitRead, BitWrite, gamma_tables,
-};
+use crate::traits::*;
+use super::gamma_tables;
 use crate::utils::fast_log2_floor;
 
 /// Returns how long the gamma code for `value` will be
@@ -52,7 +49,7 @@ pub trait GammaRead<BO: BitOrder>: BitRead<BO> {
 fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u64> {
     let len = backend.read_unary::<false>()?;
     debug_assert!(len <= u8::MAX as _);
-    Ok(backend.read_bits(len as u8)? + (1 << len) - 1)
+    Ok(backend.read_bits(len as usize)? + (1 << len) - 1)
 }
 
 impl<B: BitRead<M2L>> GammaRead<M2L> for B {
@@ -96,7 +93,7 @@ impl<B: BitWrite<M2L>> GammaWrite<M2L> for B {
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits);
+                return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
         default_write_gamma(self, value)
@@ -107,7 +104,7 @@ impl<B: BitWrite<L2M>> GammaWrite<L2M> for B {
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits);
+                return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
         default_write_gamma(self, value)
@@ -129,6 +126,6 @@ fn default_write_gamma<BO: BitOrder, B: BitWrite<BO>>(
     let short_value = value - (1 << number_of_bits_to_write);
     // Write the code
     backend.write_unary::<false>(number_of_bits_to_write)?;
-    backend.write_bits(short_value, number_of_bits_to_write as u8)?;
+    backend.write_bits(short_value, number_of_bits_to_write as usize)?;
     Ok(())
 }

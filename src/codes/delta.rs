@@ -3,9 +3,8 @@
 //! preceded by a representation of its length in γ.
 
 use anyhow::Result;
-
+use crate::traits::*;
 use super::{
-    BitOrder, M2L, L2M,
     GammaRead, GammaWrite, len_gamma, 
     delta_tables,
 };
@@ -73,7 +72,7 @@ fn default_read_delta<BO: BitOrder, B: GammaRead<BO>>(
 ) -> Result<u64> {
     let n_bits = backend.read_gamma::<true>()?;
     debug_assert!(n_bits <= 0xff);
-    Ok(backend.read_bits(n_bits as u8)? + (1 << n_bits) - 1)
+    Ok(backend.read_bits(n_bits as usize)? + (1 << n_bits) - 1)
 }
 
 /// Trait for objects that can write Delta codes
@@ -94,7 +93,7 @@ impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits);
+                return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
         default_write_delta(self, value)
@@ -105,7 +104,7 @@ impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
     fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits);
+                return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
         default_write_delta(self, value)
@@ -127,6 +126,6 @@ fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>>(
     let short_value = value - (1 << number_of_bits_to_write);
     // Write the code
     backend.write_gamma::<true>(number_of_bits_to_write)?;
-    backend.write_bits(short_value, number_of_bits_to_write as u8)?;
+    backend.write_bits(short_value, number_of_bits_to_write as usize)?;
     Ok(())
 }

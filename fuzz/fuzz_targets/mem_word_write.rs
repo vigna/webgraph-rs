@@ -2,7 +2,7 @@
 
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
-use webgraph::codes::*;
+use webgraph::prelude::*;
 
 #[derive(Arbitrary, Debug)]
 struct FuzzCase {

@@ -2,8 +2,10 @@
 
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
-use webgraph::codes::*;
-use webgraph::utils::get_lowest_bits;
+use webgraph::prelude::*;
+
+type ReadWord = u32;
+type ReadBuffer = u64;
 
 #[derive(Arbitrary, Debug)]
 struct FuzzCase {
@@ -22,8 +24,8 @@ enum RandomCommand {
 
 fuzz_target!(|data: FuzzCase| {
     //println!("{:#4?}", data);
-    let mut buffer_m2l = vec![];
-    let mut buffer_l2m = vec![];
+    let mut buffer_m2l: Vec<u64> = vec![];
+    let mut buffer_l2m: Vec<u64> = vec![];
     let mut writes = vec![];
     // write
     {
@@ -33,7 +35,7 @@ fuzz_target!(|data: FuzzCase| {
         for command in data.commands.iter() {
             match command {
                 RandomCommand::WriteBits(value, n_bits) => {
-                    let n_bits = 1 + (*n_bits % 63);
+                    let n_bits = (1 + (*n_bits % 63)) as usize;
                     let value = get_lowest_bits(*value, n_bits);
                     let big_success = big.write_bits(value, n_bits).is_ok();
                     let little_success = little.write_bits(value, n_bits).is_ok();
@@ -119,11 +121,19 @@ fuzz_target!(|data: FuzzCase| {
     // read back
     //println!("{:?}", buffer_m2l);
     //println!("{:?}", buffer_l2m);
+    let m2l_trans: &[ReadWord] = unsafe{core::slice::from_raw_parts(
+        buffer_m2l.as_ptr() as *const ReadWord,
+        buffer_m2l.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<ReadWord>()),
+    )};
+    let l2m_trans: &[ReadWord] = unsafe{core::slice::from_raw_parts(
+        buffer_l2m.as_ptr() as *const ReadWord,
+        buffer_l2m.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<ReadWord>()),
+    )};
     {
         let mut big = UnbufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
-        let mut big_buff = BufferedBitStreamRead::<M2L, _>::new(MemWordRead::new(&buffer_m2l));
+        let mut big_buff = BufferedBitStreamRead::<M2L, ReadBuffer, _>::new(MemWordRead::new(m2l_trans));
         let mut little = UnbufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
-        let mut little_buff = BufferedBitStreamRead::<L2M, _>::new(MemWordRead::new(&buffer_l2m));
+        let mut little_buff = BufferedBitStreamRead::<L2M, ReadBuffer, _>::new(MemWordRead::new(l2m_trans));
 
         for (succ, command) in writes.iter().zip(data.commands.iter()) {
             let pos = big.get_position();
@@ -133,7 +143,7 @@ fuzz_target!(|data: FuzzCase| {
 
             match command {
                 RandomCommand::WriteBits(value, n_bits) => {
-                    let n_bits = 1 + (*n_bits % 63);
+                    let n_bits = (1 + (*n_bits % 63)) as usize;
                     let b = big.read_bits(n_bits);
                     let l = little.read_bits(n_bits);
                     let bb = big_buff.read_bits(n_bits);

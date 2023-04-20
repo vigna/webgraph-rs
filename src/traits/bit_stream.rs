@@ -1,5 +1,5 @@
 use anyhow::Result;
-use super::BitOrder;
+use crate::traits::*;
 
 /// Trait to convert a Stream to a Seekable Stream
 pub trait BitSeek {
@@ -19,25 +19,40 @@ pub trait BitSeek {
 /// Objects that can read a fixed number of bits and unary codes from a stream 
 /// of bits. The endianess of the returned bytes HAS TO BE THE NATIVE ONE.
 pub trait BitRead<BO: BitOrder> {
+    /// The type we can read form the stream without advancing.
+    /// On buffered readers this is usually half the buffer size. 
+    type PeekType: UpcastableInto<u64>;
     /// Read `n_bits` bits from the stream and return them in the lowest bits
     /// 
     /// # Errors
     /// This function return an error if we cannot read `n_bits`, this usually
     /// happens if we finished the stream.
-    fn read_bits(&mut self, n_bits: u8) -> Result<u64>;
+    fn read_bits(&mut self, n_bits: usize) -> Result<u64>;
 
     /// Like read_bits but it doesn't seek forward 
     /// 
     /// # Errors
     /// This function return an error if we cannot read `n_bits`, this usually
     /// happens if we finished the stream.
-    fn peek_bits(&mut self, n_bits: u8) -> Result<u64>;
+    fn peek_bits(&mut self, n_bits: usize) -> Result<Self::PeekType>;
 
     /// Skip n_bits from the stream
     /// 
     /// # Errors
     /// Thi function errors if skipping n_bits the underlying streams ends.
-    fn skip_bits(&mut self, n_bits: u8) -> Result<()>;
+    fn skip_bits(&mut self, n_bits: usize) -> Result<()>;
+
+    /// Skip n_bits from the stream after reading from a table.
+    /// For unbuffered reads this is just `skip_bits` while
+    /// for buffereds reads we know that the bits are already in the
+    /// buffer.
+    /// 
+    /// # Errors
+    /// This is never supposed to happen.
+    #[inline(always)]
+    fn skip_bits_after_table_lookup(&mut self, n_bits: usize) -> Result<()> {
+        self.skip_bits(n_bits)
+    }
 
     /// Read an unary code
     /// 
@@ -69,16 +84,17 @@ pub trait BitWrite<BO: BitOrder> {
     /// # Errors
     /// This function return an error if we cannot write `n_bits`, this usually
     /// happens if we finished the stream.
-    fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()>;
+    fn write_bits(&mut self, value: u64, n_bits: usize) -> Result<()>;
 
     /// Write `value` as an unary code to the stream
     /// 
     /// # Errors
     /// This function return an error if we cannot write the unary code, this 
     /// usually happens if we finished the stream.
-    fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
-        for _ in 0..value {
+    fn write_unary<const USE_TABLE: bool>(&mut self, mut value: u64) -> Result<()> {
+        while value > 0 {
             self.write_bits(0, 1)?;
+            value -= 1;
         }
         self.write_bits(1, 1)?;
         Ok(())
@@ -94,6 +110,8 @@ pub trait BitWriteBuffered<BO: BitOrder>: BitWrite<BO> {
     /// 
     /// # Errors
     /// This function might fail if we have bits in the buffer, but we finished
-    /// the writable stream. TODO!: figure out how to handle this situation.
+    /// the writable stream. 
+    /// 
+    /// TODO!: figure out how to handle this situation.
     fn partial_flush(&mut self) -> Result<()>;
 }

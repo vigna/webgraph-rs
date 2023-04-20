@@ -1,9 +1,5 @@
-use super::{
-    WordWrite, 
-    BitWrite, BitWriteBuffered,
-    BitOrder, M2L, L2M, 
-    unary_tables, 
-};
+use crate::codes::unary_tables;
+use crate::traits::*;
 use anyhow::{Result, bail};
 
 /// An implementation of [`BitWrite`] on a generic [`WordWrite`]
@@ -14,25 +10,14 @@ pub struct BufferedBitStreamWrite<BO: BBSWDrop<WR>, WR: WordWrite> {
     buffer: u128,
     /// Counter of how many bits in buffer are to consider valid and should be
     /// written to be backend
-    bits_in_buffer: u8,
+    bits_in_buffer: usize,
     /// make the compiler happy :)
     _marker: core::marker::PhantomData<BO>,
 }
 
 impl<BO: BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> {
-    ///
+    /// Create a new [`BufferedBitStreamWrite`] from a backend word writer
     pub fn new(backend: WR) -> Self {
-
-        // TODO!: Should we do early filling? 
-        // This would fail if the backend has only 64 bits which, while 
-        // unlikely, it should be possible.
-        // 
-        // ```
-        // let low_word = backend.read_next_word()? as u128;
-        // let high_word = backend.read_next_word()? as u128;
-        // let buffer = (high_word << 64) | low_word;
-        // ```
-
         Self {
             backend,
             buffer: 0,
@@ -43,7 +28,7 @@ impl<BO: BBSWDrop<WR>, WR: WordWrite> BufferedBitStreamWrite<BO, WR> {
 
     #[inline(always)]
     #[must_use]
-    fn space_left_in_buffer(&self) -> u8 {
+    fn space_left_in_buffer(&self) -> usize {
         128 - self.bits_in_buffer
     }
 }
@@ -65,7 +50,7 @@ pub trait BBSWDrop<WR: WordWrite>: Sized + BitOrder {
     fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()>;
 }
 
-impl<WR: WordWrite> BBSWDrop<WR> for M2L {
+impl<WR: WordWrite<Word=u64>> BBSWDrop<WR> for M2L {
     #[inline]
     fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()> {
         data.partial_flush()?;
@@ -79,7 +64,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for M2L {
     }
 }
 
-impl<WR: WordWrite> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite<Word=u64>> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn partial_flush(&mut self) -> Result<()> {
         if self.bits_in_buffer < 64 {
@@ -92,9 +77,9 @@ impl<WR: WordWrite> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M2L, WR> {
     }
 }
 
-impl<WR: WordWrite> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite<Word=u64>> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
-    fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
+    fn write_bits(&mut self, value: u64, n_bits: usize) -> Result<()> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
@@ -119,7 +104,7 @@ impl<WR: WordWrite> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         debug_assert_ne!(value, u64::MAX);
         if let Some((bits, n_bits)) = unary_tables::WRITE_M2L.get(value as usize) {
-            return self.write_bits(*bits as _, *n_bits);
+            return self.write_bits(*bits as _, *n_bits as usize);
         }
 
         let mut code_length = value + 1;
@@ -144,7 +129,7 @@ impl<WR: WordWrite> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
             code_length -= space_left;
             self.bits_in_buffer = 0;
         }
-        self.bits_in_buffer += code_length as u8;
+        self.bits_in_buffer += code_length as usize;
         if code_length == 128 {
             self.buffer = 0;
         } else {
@@ -156,7 +141,7 @@ impl<WR: WordWrite> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     }
 }
 
-impl<WR: WordWrite> BBSWDrop<WR> for L2M {
+impl<WR: WordWrite<Word=u64>> BBSWDrop<WR> for L2M {
     #[inline]
     fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()> {
         data.partial_flush()?;
@@ -170,7 +155,7 @@ impl<WR: WordWrite> BBSWDrop<WR> for L2M {
     }
 }
 
-impl<WR: WordWrite> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite<Word=u64>> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn partial_flush(&mut self) -> Result<()> {
         if self.bits_in_buffer < 64 {
@@ -183,9 +168,9 @@ impl<WR: WordWrite> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L2M, WR> {
     }
 }
 
-impl<WR: WordWrite> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite<Word=u64>> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
-    fn write_bits(&mut self, value: u64, n_bits: u8) -> Result<()> {
+    fn write_bits(&mut self, value: u64, n_bits: usize) -> Result<()> {
         if n_bits > 64 {
             bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
         }
@@ -212,7 +197,7 @@ impl<WR: WordWrite> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         debug_assert_ne!(value, u64::MAX);
         if let Some((bits, n_bits)) = unary_tables::WRITE_L2M.get(value as usize) {
-            return self.write_bits(*bits as _, *n_bits);
+            return self.write_bits(*bits as _, *n_bits as usize);
         }
         let mut code_length = value + 1;
 
@@ -236,7 +221,7 @@ impl<WR: WordWrite> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
             code_length -= space_left;
             self.bits_in_buffer = 0;
         }
-        self.bits_in_buffer += code_length as u8;
+        self.bits_in_buffer += code_length as usize;
         if code_length == 128 {
             self.buffer = 0;
         } else {

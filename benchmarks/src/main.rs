@@ -1,4 +1,4 @@
-use webgraph::codes::*;
+use webgraph::prelude::*;
 use std::hint::black_box;
 use rand::Rng;
 
@@ -16,6 +16,9 @@ const CALIBRATION_ITERS: usize = 100_000;
 /// down to a finite set. This value represent the maximum value we are going to
 /// extract
 const DELTA_DISTR_SIZE: usize = 1_000_000;
+
+type ReadWord = u32;
+type BufferWord = u64;
 
 #[cfg(feature = "rtdsc")]
 mod rdtsc;
@@ -65,11 +68,17 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
             write.update((nanos - $cal) as f64);
         }
     }
+
+    let transmuted_buff: &[ReadWord] = unsafe{core::slice::from_raw_parts(
+        buffer.as_ptr() as *const ReadWord,
+        buffer.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<ReadWord>()),
+    )};
+
     // read the codes
     {
         // init the reader
-        let mut r = BufferedBitStreamRead::<$bo, _>::new(
-            MemWordRead::new(&mut buffer)
+        let mut r = BufferedBitStreamRead::<$bo, BufferWord, _>::new(
+            MemWordReadInfinite::new(&transmuted_buff)
         );
         // measure
         let r_start = Instant::now();
@@ -85,7 +94,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
     {
         // init the reader
         let mut r = UnbufferedBitStreamRead::<$bo, _>::new(
-            MemWordRead::new(&mut buffer)
+            MemWordReadInfinite::new(&buffer)
         );
         // measure
         let r_start = Instant::now();

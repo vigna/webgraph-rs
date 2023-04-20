@@ -3,9 +3,9 @@
 
 use anyhow::Result;
 
+use crate::traits::*;
 use super::{
-    BitOrder, M2L, L2M, 
-    BitRead, BitWrite, zeta_tables,
+    zeta_tables,
     MinimalBinaryRead, MinimalBinaryWrite,
     len_unary, len_minimal_binary,
 };
@@ -114,7 +114,7 @@ impl<B: BitWrite<M2L>> ZetaWrite<M2L> for B {
     fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = zeta_tables::WRITE_M2L.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits);
+                return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
         default_write_zeta(self, value, 3)
@@ -130,7 +130,7 @@ impl<B: BitWrite<L2M>> ZetaWrite<L2M> for B {
     fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = zeta_tables::WRITE_L2M.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits);
+                return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
         default_write_zeta(self, value, 3)

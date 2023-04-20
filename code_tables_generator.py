@@ -36,9 +36,10 @@ read_func_merged_table = """
 /// This function errors if it wasn't able to skip_bits
 pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u64>> {
     if let Ok(idx) = backend.peek_bits(READ_BITS) {
+        let idx: u64 = idx.upcast();
         let (value, len) = READ_%(BO)s[idx as usize];
         if len != MISSING_VALUE_LEN {
-            backend.skip_bits(len)?;
+            backend.skip_bits_after_table_lookup(len as usize)?;
             return Ok(Some(value as u64));
         }
     }
@@ -56,9 +57,10 @@ read_func_two_table = """
 /// This function errors if it wasn't able to skip_bits
 pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u64>> {
     if let Ok(idx) = backend.peek_bits(READ_BITS) {
+        let idx: u64 = idx.upcast();
         let len = READ_LEN_%(BO)s[idx as usize];
         if len != MISSING_VALUE_LEN {
-            backend.skip_bits(len)?;
+            backend.skip_bits_after_table_lookup(len as usize)?;
             return Ok(Some(READ_%(BO)s[idx as usize] as u64));
         }
     }
@@ -73,11 +75,11 @@ def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_f
         f.write("//! THIS FILE HAS BEEN GENERATED WITH THE SCRIPT {}\n".format(os.path.basename(__file__)))
         f.write("//! ~~~~~~~~~~~~~~~~~~~ DO NOT MODIFY ~~~~~~~~~~~~~~~~~~~~~~\n")
         f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
-        f.write("use super::{BitRead, M2L, L2M};\n")
         f.write("use anyhow::Result;\n")
+        f.write("use crate::traits::{BitRead, M2L, L2M, UpcastableInto};\n")
 
         f.write("/// How many bits are needed to read the tables in this\n")
-        f.write("pub const READ_BITS: u8 = {};\n".format(read_bits))
+        f.write("pub const READ_BITS: usize = {};\n".format(read_bits))
         # This value and type work across all codes and table sizes
         MISSING_VALUE_LEN = 255
         len_ty = "u8"
