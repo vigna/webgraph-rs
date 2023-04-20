@@ -54,3 +54,28 @@ pub fn fast_log2_floor<W: Word + UpcastableFrom<u8>>(value: W) -> W {
 pub fn fast_pow_2<W: Word>(value: W) -> W {
     W::ONE << value
 }
+
+/// Bijective mapping from isize to u64 as defined in [https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java]
+pub const fn int2nat(x: i64) -> u64 {
+    if x >= 0 {
+        (x as u64) << 1
+    } else {
+        ((-x as u64) << 1) - 1
+    }
+
+    // interpret the i64 bits as an u64
+    // let x = u64::from_ne_bytes(x.to_ne_bytes());
+    // x << 1 ^ (x >> WORD_SIZE_MINUS_ONE)
+}
+
+/// Bijective mapping from u64 to i64 as defined in [https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java]
+pub const fn nat2int(x: u64) -> i64 {
+    if x & 1 == 0 {
+        (x >> 1) as i64
+    } else {
+        -(((x + 1) >> 1) as i64)
+    }
+
+    //let result = (x >> 1) ^ !((x & 1) - 1);
+    //i64::from_ne_bytes(result.to_ne_bytes())
+}

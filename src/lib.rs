@@ -44,11 +44,13 @@ pub mod backends;
 pub mod codes;
 pub mod utils;
 pub mod traits;
+pub mod webgraph;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {
-    pub use super::backends::*;
-    pub use super::codes::*;
-    pub use super::utils::*;
-    pub use super::traits::*;
+    pub use crate::backends::*;
+    pub use crate::codes::*;
+    pub use crate::utils::*;
+    pub use crate::traits::*;
+    pub use crate::webgraph::*;
 }
