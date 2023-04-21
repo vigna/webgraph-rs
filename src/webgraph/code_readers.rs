@@ -10,6 +10,27 @@ pub struct DefaultCodesReader<BO: BitOrder, CR:
     _marker: core::marker::PhantomData<BO>,
 }
 
+impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO> + Clone> Clone 
+    for DefaultCodesReader<BO, CR> {
+    fn clone(&self) -> Self {
+        Self {
+            code_reader: self.code_reader.clone(),
+            _marker: self._marker.clone(),
+        }
+    }
+}
+
+impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO> + BitSeek> BitSeek 
+    for DefaultCodesReader<BO, CR> {
+        fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
+            self.code_reader.seek_bit(bit_index)
+        }
+
+        fn get_position(&self) -> usize {
+            self.code_reader.get_position()
+        }
+}
+
 impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO>> 
     DefaultCodesReader<BO, CR> {
     pub fn new(code_reader: CR) -> Self {

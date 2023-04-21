@@ -2,16 +2,16 @@ use crate::traits::*;
 use anyhow::Result;
 
 mod circular_buffer;
-pub(crate) use circular_buffer::CricularBuffer;
+pub(crate) use circular_buffer::CircularBuffer;
 
-mod readers;
-pub use readers::*;
+//mod reader_sequential;
+//pub use reader_sequential::*;
+
+mod reader_random;
+pub use reader_random::*;
 
 mod code_readers;
 pub use code_readers::*;
-
-mod iter;
-pub use iter::*;
 
 mod masked_iterator;
 pub use masked_iterator::*;

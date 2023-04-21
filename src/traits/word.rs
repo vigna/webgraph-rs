@@ -57,6 +57,16 @@ pub trait Word : Sized + Send + Sync +
 
     /// Returns the number of trailing zeros in the binary representation of self.
     fn trailing_zeros(self) -> usize;
+
+    /// Panic-free bitwise shift-left; yields self << mask(rhs), where mask 
+    /// removes any high-order bits of rhs that would cause the shift to exceed 
+    /// the bitwidth of the type.
+    /// Note that this is not the same as a rotate-left; the RHS of a wrapping 
+    /// shift-left is restricted to the range of the type, rather than the bits 
+    /// shifted out of the LHS being returned to the other end. The primitive 
+    /// integer types all implement a rotate_left function, which may be what 
+    /// you want instead.
+    fn wrapping_shl(self, rhs: usize) -> Self;
 }
 
 macro_rules! impl_word {
@@ -83,6 +93,8 @@ impl Word for $ty {
     fn trailing_ones(self) -> usize {self.trailing_ones() as usize}
     #[inline(always)]
     fn trailing_zeros(self) -> usize{self.trailing_zeros() as usize}
+    #[inline(always)]
+    fn wrapping_shl(self, exp: usize) -> Self { self.wrapping_shl(exp as _)}
 }
 
     )*};

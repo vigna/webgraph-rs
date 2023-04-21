@@ -3,12 +3,12 @@
 /// sequential reads and for compressing during writes.
 /// For efficency reasons, we re-use the allocated buffers to avoid pressure
 /// over the allocator.
-pub(crate) struct CricularBuffer {
+pub(crate) struct CircularBuffer {
     data: Vec<Vec<u64>>,
     end_node_id: u64,
 }
 
-impl CricularBuffer {
+impl CircularBuffer {
     /// Create a new circular buffer that can hold `len` values. This should be 
     /// equal to the compression windows + 1 so there is space for the new data.
     pub(crate) fn new(len: usize) -> Self {

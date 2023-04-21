@@ -9,6 +9,7 @@ use anyhow::{Result, bail};
 
 /// An impementation of [`BitRead`] on a Seekable word stream [`WordRead`] 
 /// + [`WordStream`]
+#[derive(Debug, Clone)]
 pub struct UnbufferedBitStreamRead<BO: BitOrder, WR> {
     /// The stream which we will read words from
     data: WR,

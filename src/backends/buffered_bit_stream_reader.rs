@@ -2,8 +2,9 @@ use crate::codes::unary_tables;
 use crate::traits::*;
 use anyhow::{Result, bail, Context};
 
-/// A BitStream built upon a generic [`WordRead`] that caches the underlying byte stream
-/// in a bit buffer.
+/// A BitStream built uppon a generic [`WordRead`] that caches the read words 
+/// in a buffer
+#[derive(Debug)]
 pub struct BufferedBitStreamRead<E: BitOrder, BW: Word, WR: WordRead> {
     /// The backend that is used to read the words to fill the buffer.
     backend: WR,
@@ -13,6 +14,20 @@ pub struct BufferedBitStreamRead<E: BitOrder, BW: Word, WR: WordRead> {
     valid_bits: usize,
     /// Just needed to specify the BitOrder.
     _marker: core::marker::PhantomData<E>,
+}
+
+impl<E: BitOrder, BW: Word, WR: WordRead + Clone> core::clone::Clone 
+    for BufferedBitStreamRead<E, BW, WR> {
+    // No need to copy the buffer 
+    // TODO!: think about how to make a lightweight clone
+    fn clone(&self) -> Self {
+        Self {
+            backend: self.backend.clone(),
+            buffer: BW::ZERO,
+            valid_bits: 0,
+            _marker: core::marker::PhantomData::default(),
+        }
+    }
 }
 
 impl<E: BitOrder, BW: Word, WR: WordRead> BufferedBitStreamRead<E, BW, WR> {
@@ -181,10 +196,9 @@ where
         let final_bits: u64 = (upcasted >> self.valid_bits).downcast();
         result = (result << n_bits) | final_bits;
         // and put the rest in the buffer
-        if self.valid_bits != 0 {
-            self.buffer = new_word.upcast();
-            self.buffer <<= BW::BITS - self.valid_bits;
-        } else {
+        let tmp: BW = new_word.upcast();
+        self.buffer = tmp.wrapping_shl(BW::BITS - self.valid_bits);
+        if self.valid_bits == 0 {
             self.buffer = BW::ZERO;
         }
 

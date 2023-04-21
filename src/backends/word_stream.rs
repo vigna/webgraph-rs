@@ -33,6 +33,7 @@ use anyhow::{Result, bail};
 /// assert!(word_reader.set_position(100).is_err());
 /// assert_eq!(word_reader.get_position(), 2);
 /// ```
+#[derive(Debug, Clone)]
 pub struct MemWordRead<'a, W: Word> {
     data: &'a [W],
     word_index: usize,
@@ -50,6 +51,7 @@ impl<'a, W: Word> MemWordRead<'a, W> {
 }
 
 ///
+#[derive(Debug, Clone)]
 pub struct MemWordReadInfinite<'a, W: Word> {
     data: &'a [W],
     word_index: usize,
@@ -137,6 +139,7 @@ impl<'a, W: Word> WordStream for MemWordReadInfinite<'a, W> {
 /// assert_eq!(word_writer.read_next_word().unwrap(), 0x0b801b2bf696e8d2);
 /// assert_eq!(word_writer.get_position(), 1);
 /// ```
+#[derive(Debug)]
 pub struct MemWordWrite<'a, W: Word> {
     data: &'a mut [W],
     word_index: usize,
@@ -178,6 +181,7 @@ impl<'a, W: Word> MemWordWrite<'a, W> {
 /// assert_eq!(word_writer.len(), 2);
 /// assert_eq!(word_writer.get_position(), 2);
 /// ```
+#[derive(Debug)]
 #[cfg(feature="alloc")]
 pub struct MemWordWriteVec<'a, W: Word> {
     data: &'a mut alloc::vec::Vec<W>,

@@ -3,6 +3,7 @@ use crate::traits::*;
 use anyhow::{Result, bail};
 
 /// An implementation of [`BitWrite`] on a generic [`WordWrite`]
+#[derive(Debug)]
 pub struct BufferedBitStreamWrite<BO: BBSWDrop<WR>, WR: WordWrite> {
     /// The backend used to write words to
     backend: WR,
