@@ -146,20 +146,21 @@ where
 
     #[inline]
     fn read_bits(&mut self, mut n_bits: usize) -> Result<u64> {
-        if n_bits > 64 {
-            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
-        }
-        if n_bits == 0 {
-            return Ok(0);
-        }
+        debug_assert!(self.valid_bits < BW::BITS);
+
         // most common path, we just read the buffer        
         if n_bits <= self.valid_bits {
-            let result: u64 = (self.buffer >> (BW::BITS - n_bits)).cast();
+            // Valid right shift of BW::BITS - n_bits, even when n_bits is zero
+            let result: u64 = (self.buffer >> (BW::BITS - n_bits - 1) >> 1).cast();
             self.valid_bits -= n_bits;
             self.buffer <<= n_bits;
             return Ok(result);
         }
         
+        if n_bits > 64 {
+            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
+        }
+
         let mut result: u64 = if self.valid_bits != 0 {
             self.buffer >> (BW::BITS - self.valid_bits)
         } else {
@@ -313,20 +314,18 @@ where
 
     #[inline]
     fn read_bits(&mut self, mut n_bits: usize) -> Result<u64> {
-        if n_bits > 64 {
-            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
-        }
-        if n_bits == 0 {
-            return Ok(0);
-        }
+        debug_assert!(self.valid_bits < BW::BITS);
 
         // most common path, we just read the buffer        
         if n_bits <= self.valid_bits {
-            let shamt = BW::BITS - n_bits;
-            let result: u64 = ((self.buffer << shamt) >> shamt).cast(); 
+            let result: u64 = (self.buffer & ((BW::ONE << n_bits) - BW::ONE)).cast(); 
             self.valid_bits -= n_bits;
             self.buffer >>= n_bits;
             return Ok(result);
+        }
+
+        if n_bits > 64 {
+            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
         }
 
         let mut result: u64 = self.buffer.cast();
