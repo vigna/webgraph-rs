@@ -23,3 +23,9 @@ pub use word_stream::*;
 
 mod bit_order;
 pub use bit_order::*;
+
+mod webgraph;
+pub use webgraph::*;
+
+mod graph;
+pub use graph::*;

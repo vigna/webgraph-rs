@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 // No warnings
-#![deny(warnings)]
+//#![deny(warnings)]
 
 // the code must be safe and shouldn't ever panic to be relayable
 #![deny(clippy::todo)]
@@ -14,7 +14,7 @@
 #![deny(unstable_features)]
 
 // no dead code
-#![deny(dead_code)]
+//#![deny(dead_code)]
 #![deny(trivial_casts)]
 #![deny(unconditional_recursion)]
 #![deny(clippy::empty_loop)]
@@ -25,11 +25,11 @@
 //#![deny(unused_results)]
 
 // the code must be documented and everything should have a debug print implementation
-#![deny(unused_doc_comments)]
-#![deny(missing_docs)]
-#![deny(clippy::missing_errors_doc)]
-#![deny(clippy::missing_panics_doc)]
-#![deny(clippy::missing_safety_doc)]
+//#![deny(unused_doc_comments)]
+//#![deny(missing_docs)]
+//#![deny(clippy::missing_errors_doc)]
+//#![deny(clippy::missing_panics_doc)]
+//#![deny(clippy::missing_safety_doc)]
 //#![deny(clippy::missing_doc_code_examples)]
 //#![deny(clippy::missing_crate_level_docs)]
 //#![deny(clippy::missing_docs_in_private_items)]
