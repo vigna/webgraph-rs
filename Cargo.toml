@@ -19,3 +19,11 @@ alloc = []
 
 [dependencies]
 anyhow = { version = "1.0.70", default-features = false }
+
+[profile.release] # Used for the examples
+opt-level = 3             # like --release
+lto = "fat"               # Full LTO
+overflow-checks = false   # Disable integer overflow checks.
+debug = false             # Include debug info.
+debug-assertions = false  # Enables debug assertions.
+codegen-units=1           # slower compile times, but maybe better perf
