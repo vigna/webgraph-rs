@@ -57,7 +57,7 @@ pub fn main() {
     for node_id in 0..(NODES as u64) {
         let _ = seq_reader.get_successors_iter(node_id).unwrap();
     }
-    println!("Sequential:{:>20} arcs/s", ARCS as f64 / start.elapsed().as_secs_f64());
+    println!("Sequential:{:>20} ns/arcs", (start.elapsed().as_secs_f64() / ARCS as f64) * 1e9 );
 
 
     // Check that they read the same
@@ -65,5 +65,5 @@ pub fn main() {
     for node_id in 0..(NODES as u64) {
         let _ = random_reader.get_successors_iter(node_id).unwrap().collect::<Vec<_>>();
     }
-    println!("Random:    {:>20} arcs/s", ARCS as f64 / start.elapsed().as_secs_f64());
+    println!("Random:    {:>20} ns/arcs", (start.elapsed().as_secs_f64() / ARCS as f64) * 1e9);
 }
