@@ -6,7 +6,6 @@ pub struct WebgraphReaderSequential<'a, CR: WebGraphCodesReader> {
     codes_reader: &'a mut CR,
     backrefs: CircularBuffer,
     min_interval_length: usize,
-    compression_window: usize,
 }
 
 impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
@@ -15,7 +14,6 @@ impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
             codes_reader,
             backrefs: CircularBuffer::new(compression_window + 1), 
             min_interval_length,
-            compression_window,
         }
     }
 
