@@ -4,8 +4,8 @@ use anyhow::Result;
 mod circular_buffer;
 pub(crate) use circular_buffer::CircularBuffer;
 
-//mod reader_sequential;
-//pub use reader_sequential::*;
+mod reader_sequential;
+pub use reader_sequential::*;
 
 mod reader_random;
 pub use reader_random::*;

@@ -107,16 +107,12 @@ where
                 result.extra_nodes.push(extra);
             }
         }
-    
-        debug_assert_eq!(
-            codes_reader.get_position(), 
-            self.offsets[1 + node_id as usize],
-        );
+        
         Ok(result)
     }
 }
 
-/// An iterator 
+///
 pub struct SuccessorsIterRandom {
     /// The number of values left
     size: usize,

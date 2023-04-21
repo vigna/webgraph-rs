@@ -19,6 +19,7 @@ fn test_sequential_reading() {
         .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
         .collect::<Vec<_>>();
 
+    // Read the offsets gammas
     let mut offsets = Vec::with_capacity(NODES);
     let mut reader = BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data));
     let mut offset = 0;
@@ -38,12 +39,22 @@ fn test_sequential_reading() {
         .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
         .collect::<Vec<_>>();
 
+    // create a random access reader
+    let code_reader = DefaultCodesReader::new(
+        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
+    );
+    let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
+
+    // Create a sequential reader
     let mut code_reader = DefaultCodesReader::new(
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
     );
-    let mut reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
+    let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
 
+    // Check that they read the same
     for node_id in 0..(NODES as u64) {
-        println!("{:?}", reader.get_successors_iter(node_id).unwrap().collect::<Vec<_>>());
+        let rand_nodes = random_reader.get_successors_iter(node_id).unwrap().collect::<Vec<_>>();
+        let seq_nodes = seq_reader.get_successors_iter(node_id).unwrap();
+        assert_eq!(&rand_nodes, seq_nodes);
     }
 }

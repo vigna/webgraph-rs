@@ -33,7 +33,6 @@ impl CircularBuffer {
     
     /// Take the buffer to write the neighbours of the new node
     pub(crate) fn take(&mut self) -> Vec<u64> {
-        self.end_node_id += 1;
         let idx = self.end_node_id % self.data.len() as u64;
         let mut res = core::mem::take(
             &mut self.data[idx as usize], 
@@ -45,6 +44,7 @@ impl CircularBuffer {
     /// Put it back in the buffer so it can be read
     pub(crate) fn push(&mut self, data: Vec<u64>) -> &[u64] {
         let idx = self.end_node_id % self.data.len() as u64;
+        self.end_node_id += 1;
         self.data[idx as usize] = data;
         &self.data[idx as usize]
     }
