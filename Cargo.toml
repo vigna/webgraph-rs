@@ -19,6 +19,10 @@ alloc = []
 
 [dependencies]
 anyhow = { version = "1.0.70", default-features = false }
+clap = { version = "4.1.6", features = ["derive"] }
+java-properties = "1.4.1"
+rand = { version = "0.8.5", features = ["small_rng"] }
+
 
 [profile.release] # Used for the examples
 opt-level = 3             # like --release
