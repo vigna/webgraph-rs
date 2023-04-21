@@ -2,17 +2,16 @@ use crate::codes::unary_tables;
 use crate::traits::*;
 use anyhow::{Result, bail, Context};
 
-/// A BitStream built uppon a generic [`WordRead`] that caches the read words 
-/// in a buffer
+/// A BitStream built upon a generic [`WordRead`] that caches the underlying byte stream
+/// in a bit buffer.
 pub struct BufferedBitStreamRead<E: BitOrder, BW: Word, WR: WordRead> {
-    /// The backend that's used to read the words to fill the buffer
+    /// The backend that is used to read the words to fill the buffer.
     backend: WR,
-    /// The current cache of bits (at most 2 words) that's used to read the 
-    /// codes. The bits are read FROM MSB TO LSB
-    buffer:BW,
-    /// Number of bits valid left in the buffer
+    /// The bit buffer (at most 2 words) that is used to read the codes. It is never full.
+    buffer: BW,
+    /// Number of bits valid left in the buffer. It is always smaller than `BW::BITS`.
     valid_bits: usize,
-    /// Just needed to specify the BitOrder
+    /// Just needed to specify the BitOrder.
     _marker: core::marker::PhantomData<E>,
 }
 
