@@ -196,11 +196,8 @@ where
         let final_bits: u64 = (upcasted >> self.valid_bits).downcast();
         result = (result << n_bits) | final_bits;
         // and put the rest in the buffer
-        let tmp: BW = new_word.upcast();
-        self.buffer = tmp.wrapping_shl(BW::BITS - self.valid_bits);
-        if self.valid_bits == 0 {
-            self.buffer = BW::ZERO;
-        }
+        self.buffer = new_word.upcast();
+        self.buffer = (self.buffer << (BW::BITS - self.valid_bits -1 )) << 1;
 
         Ok(result)
     }
