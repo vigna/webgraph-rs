@@ -71,7 +71,7 @@ fn default_read_delta<BO: BitOrder, B: GammaRead<BO>>(
     backend: &mut B
 ) -> Result<u64> {
     let n_bits = backend.read_gamma::<true>()?;
-    debug_assert!(n_bits <= 0xff);
+    debug_assert!(n_bits <= 64);
     Ok(backend.read_bits(n_bits as usize)? + (1 << n_bits) - 1)
 }
 

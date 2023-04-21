@@ -48,7 +48,7 @@ pub trait GammaRead<BO: BitOrder>: BitRead<BO> {
 #[inline(always)]
 fn default_read_gamma<BO: BitOrder, B: BitRead<BO>>(backend: &mut B) -> Result<u64> {
     let len = backend.read_unary::<false>()?;
-    debug_assert!(len <= u8::MAX as _);
+    debug_assert!(len <= 64);
     Ok(backend.read_bits(len as usize)? + (1 << len) - 1)
 }
 
