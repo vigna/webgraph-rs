@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::env;
 
 const GENERATOR: &str = "code_tables_generator.py";
