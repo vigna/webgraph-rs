@@ -1,15 +1,18 @@
 #!/usr/bin/python3
 """
-This file generate the `./src/codes/*_tables.rs` files.
 This is not a `build.rs` because it will mainly generated once and adding it to
 `build.rs` would cause a big slowdown of compilation because it would invalidate
 the cache.
 To run just execute `$ python ./gen_code_tables.py`
+To provide a build foler, pass it as the first positional argument.
 """
 import os
+import sys
 from math import log2, ceil, floor
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+if len(sys.argv) > 1:
+    ROOT = os.path.join(ROOT, sys.argv[1])
 
 # Value we will use for values we cannot read using the current tables
 def get_best_fitting_type(n_bits):
@@ -71,10 +74,10 @@ pub fn read_table_%(bo)s<B: BitRead<%(BO)s>>(backend: &mut B) -> Result<Option<u
 def gen_table(read_bits, write_max_val, len_max_val, code_name, len_func, read_func, write_func, merged_table):
     """Main routine that generates the tables for a given code."""
 
-    with open(os.path.join(ROOT, "src", "codes", "{}_tables.rs".format(code_name)), "w") as f:
-        f.write("//! THIS FILE HAS BEEN GENERATED WITH THE SCRIPT {}\n".format(os.path.basename(__file__)))
-        f.write("//! ~~~~~~~~~~~~~~~~~~~ DO NOT MODIFY ~~~~~~~~~~~~~~~~~~~~~~\n")
-        f.write("//! Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
+    with open(os.path.join(ROOT, "{}_tables.rs".format(code_name)), "w") as f:
+        f.write("// THIS FILE HAS BEEN GENERATED WITH THE SCRIPT {}\n".format(os.path.basename(__file__)))
+        f.write("// ~~~~~~~~~~~~~~~~~~~ DO NOT MODIFY ~~~~~~~~~~~~~~~~~~~~~~\n")
+        f.write("// Pre-computed constants used to speedup the reading and writing of {} codes\n".format(code_name))
         f.write("use anyhow::Result;\n")
         f.write("use crate::traits::{BitRead, M2L, L2M, UpcastableInto};\n")
 
@@ -507,7 +510,7 @@ def gen_zeta(read_bits, write_max_val, len_max_val=None, k=3, merged_table=False
         lambda value, bitstream, m2l: write_zeta(value, k, bitstream, m2l),
         merged_table,
     )
-    with open(os.path.join(ROOT, "src", "codes", "zeta_tables.rs"), "a") as f:
+    with open(os.path.join(ROOT, "zeta_tables.rs"), "a") as f:
         f.write("/// The K of the zeta codes for these tables\n")
         f.write("pub const K: u64 = {};".format(k))
 
