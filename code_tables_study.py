@@ -23,7 +23,7 @@ for bits in range(1, 18):
                 "UNARY_CODE_TABLE_BITS":str(bits),
                 "GAMMA_CODE_TABLE_BITS":str(bits),
                 "DELTA_CODE_TABLE_BITS":str(bits),
-                "UNARY_CODE_TABLE_BITS":str(bits),
+                "ZETA_CODE_TABLE_BITS":str(bits),
                 "MERGED_TABLES":str(2 - tables_num),
                 "RUSTFLAGS":"-C target-cpu=native",
             },
