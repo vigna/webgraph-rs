@@ -57,25 +57,22 @@ pub fn fast_pow_2<W: Word>(value: W) -> W {
 
 /// Bijective mapping from isize to u64 as defined in [https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java]
 pub const fn int2nat(x: i64) -> u64 {
-    if x >= 0 {
-        (x as u64) << 1
-    } else {
-        ((-x as u64) << 1) - 1
-    }
-
-    // interpret the i64 bits as an u64
-    // let x = u64::from_ne_bytes(x.to_ne_bytes());
-    // x << 1 ^ (x >> WORD_SIZE_MINUS_ONE)
+    (x << 1 ^ (x >> 63)) as u64
 }
 
 /// Bijective mapping from u64 to i64 as defined in [https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java]
+///
+/// ```
+/// # use webgraph::utils::*;
+/// 
+/// assert_eq!(nat2int(0), 0);
+/// assert_eq!(nat2int(1), 1);
+/// assert_eq!(nat2int(2), -1);
+/// assert_eq!(nat2int(3), 2);
+/// assert_eq!(nat2int(4), -2);
+/// ```
 pub const fn nat2int(x: u64) -> i64 {
-    if x & 1 == 0 {
-        (x >> 1) as i64
-    } else {
-        -(((x + 1) >> 1) as i64)
-    }
-
-    //let result = (x >> 1) ^ !((x & 1) - 1);
-    //i64::from_ne_bytes(result.to_ne_bytes())
+    (
+        (x >> 1) ^ !((x & 1).wrapping_sub(1))
+    ) as i64
 }

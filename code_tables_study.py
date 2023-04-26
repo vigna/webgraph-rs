@@ -10,17 +10,21 @@ from code_tables_generator import *
 for bits in range(1, 18):
     print("Table bits:", bits, file=sys.stderr)
     for tables_num in [1, 2]:
-        # Create the tables
-        gen_unary(bits, 63, merged_table=tables_num == 1)
-        gen_gamma(bits, 256, merged_table=tables_num == 1)
-        gen_delta(bits, 256, merged_table=tables_num == 1)
-        gen_zeta(bits, 256, merged_table=tables_num == 1)
-
+        # Clean the target to force the recreation of the tables
+        subprocess.check_call(
+            "cargo clean", shell=True,
+            cwd="benchmarks",
+        )
         # Run the benchmark with native cpu optimizations
         stdout = subprocess.check_output(
             "cargo run --release", shell=True,
             env={
                 **os.environ,
+                "UNARY_CODE_TABLE_BITS":str(bits),
+                "GAMMA_CODE_TABLE_BITS":str(bits),
+                "DELTA_CODE_TABLE_BITS":str(bits),
+                "UNARY_CODE_TABLE_BITS":str(bits),
+                "MERGED_TABLES":str(2 - tables_num),
                 "RUSTFLAGS":"-C target-cpu=native",
             },
             cwd="benchmarks",

@@ -6,8 +6,12 @@ fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();
     // rebuild if the generator has changed
     println!("cargo:rerun-if-changed={GENERATOR}");
-    std::process::Command::new("python3")
+    assert!(std::process::Command::new("python3")
         .args([GENERATOR, out_dir.to_str().unwrap()])
         .spawn()
-        .unwrap();
+        .unwrap()
+        .wait()
+        .unwrap()
+        .success()
+    );
 }

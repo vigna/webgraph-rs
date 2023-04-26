@@ -517,10 +517,28 @@ def gen_zeta(read_bits, write_max_val, len_max_val=None, k=3, merged_table=False
 ################################################################################
 
 def generate_default_tables():
-    gen_unary(read_bits=0, write_max_val=63)
-    gen_gamma(read_bits=11, write_max_val=256)
-    gen_delta(read_bits=11, write_max_val=256)
-    gen_zeta( read_bits=12, write_max_val=256, k=3)
+    merged_table = os.environ.get("MERGED_TABLES", 0) == "0"
+    gen_unary(
+        read_bits=int(os.environ.get("UNARY_CODE_TABLE_BITS", "0")), 
+        write_max_val=63,
+        merged_table=merged_table,
+    )
+    gen_gamma(
+        read_bits=int(os.environ.get("GAMMA_CODE_TABLE_BITS", "11")), 
+        write_max_val=256,
+        merged_table=merged_table,
+    )
+    gen_delta(
+        read_bits=int(os.environ.get("DELTA_CODE_TABLE_BITS", "11")), 
+        write_max_val=256,
+        merged_table=merged_table,
+    )
+    gen_zeta(
+        read_bits=int(os.environ.get("ZETA_CODE_TABLE_BITS", "12")), 
+        write_max_val=256, 
+        k=3,
+        merged_table=merged_table,
+    )
 
 if __name__ == "__main__":
     # Generate the default tables

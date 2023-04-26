@@ -163,17 +163,17 @@ impl Iterator for SuccessorsIterRandom {
         self.size -= 1;
 
         // Get the different nodes or usize::MAX if not present
-        let copied_value = *self.copied_nodes_iter.as_mut().map(|x| 
-            x.peek().unwrap_or(&u64::MAX)
-        ).unwrap_or(&u64::MAX);
+        let copied_value = self.copied_nodes_iter.as_mut().and_then(|x| 
+            x.peek().copied()
+        ).unwrap_or(u64::MAX);
 
-        let extra_node = *self.extra_nodes.get(self.extra_nodes_idx)
-            .unwrap_or(&u64::MAX);
+        let extra_node = self.extra_nodes.get(self.extra_nodes_idx)
+            .copied().unwrap_or(u64::MAX);
 
-        let interval_node = *{
-            let (start, len) = self.intervals.get(self.intervals_idx)
-                .unwrap_or(&(u64::MAX, usize::MAX));
-            debug_assert_ne!(*len, 0, "there should never be an interval with length zero here");
+        let interval_node = {
+            let (start, len) = self.intervals.get(self.intervals_idx).copied()
+                .unwrap_or((u64::MAX, usize::MAX));
+            debug_assert_ne!(len, 0, "there should never be an interval with length zero here");
             start
         };
 
