@@ -36,29 +36,32 @@ pub trait DeltaRead<BO: BitOrder>: GammaRead<BO> {
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
-    fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64>;
+    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self)
+        -> Result<u64>;
 }
 
 impl<B: GammaRead<M2L>> DeltaRead<M2L> for B {
     #[inline]
-    fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self) 
+        -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = delta_tables::read_table_m2l(self)? {
                 return Ok(res)
             }
         }
-        default_read_delta(self)
+        default_read_delta::<M2L, _, USE_GAMMA_TABLE>(self)
     }
 }
 impl<B: GammaRead<L2M>> DeltaRead<L2M> for B {
     #[inline]
-    fn read_delta<const USE_TABLE: bool>(&mut self) -> Result<u64> {
+    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self)
+        -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = delta_tables::read_table_l2m(self)? {
                 return Ok(res)
             }
         }
-        default_read_delta(self)
+        default_read_delta::<L2M, _, USE_GAMMA_TABLE>(self)
     }
 }
 
@@ -67,10 +70,10 @@ impl<B: GammaRead<L2M>> DeltaRead<L2M> for B {
 /// 
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
-fn default_read_delta<BO: BitOrder, B: GammaRead<BO>>(
+fn default_read_delta<BO: BitOrder, B: GammaRead<BO>, const USE_GAMMA_TABLE: bool>(
     backend: &mut B
 ) -> Result<u64> {
-    let n_bits = backend.read_gamma::<true>()?;
+    let n_bits = backend.read_gamma::<USE_GAMMA_TABLE>()?;
     debug_assert!(n_bits <= 64);
     Ok(backend.read_bits(n_bits as usize)? + (1 << n_bits) - 1)
 }
@@ -85,29 +88,31 @@ pub trait DeltaWrite<BO: BitOrder>: GammaWrite<BO> {
     /// # Errors
     /// This function fails only if the BitWrite backend has problems writing
     /// bits, as when the stream ended unexpectedly
-    fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()>;
+    fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(
+        &mut self, value: u64) -> Result<()>;
 }
 
 impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
     #[inline]
-    fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+    fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
                 return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
-        default_write_delta(self, value)
+        default_write_delta::<M2L, _, USE_GAMMA_TABLE>(self, value)
     }
 }
 impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
     #[inline]
-    fn write_delta<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+    fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(
+        &mut self, value: u64) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
                 return self.write_bits(*bits as u64, *n_bits as usize);
             }
         }
-        default_write_delta(self, value)
+        default_write_delta::<L2M, _, USE_GAMMA_TABLE>(self, value)
     }
 }
 
@@ -116,7 +121,7 @@ impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
 /// # Errors
 /// Forward `write_unary` and `write_bits` errors.
 #[inline(always)]
-fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>>(
+fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>, const USE_GAMMA_TABLE: bool>(
     backend: &mut B, mut value: u64,
 ) -> Result<()> {
     value += 1;
@@ -125,7 +130,7 @@ fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>>(
     // remove the most significant 1
     let short_value = value - (1 << number_of_bits_to_write);
     // Write the code
-    backend.write_gamma::<true>(number_of_bits_to_write)?;
+    backend.write_gamma::<USE_GAMMA_TABLE>(number_of_bits_to_write)?;
     backend.write_bits(short_value, number_of_bits_to_write as usize)?;
     Ok(())
 }

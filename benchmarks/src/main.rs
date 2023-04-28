@@ -38,7 +38,7 @@ mod data;
 use data::*;
 
 macro_rules! bench {
-    ($cal:expr, $code:literal, $read:ident, $write:ident, $gen_data:ident, $bo:ident, $table:expr) => {{
+    ($cal:expr, $code:literal, $read:ident, $write:ident, $gen_data:ident, $bo:ident, $($table:expr),*) => {{
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
@@ -60,7 +60,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let w_start = Instant::now();
         for value in &data {
-            black_box(r.$write::<$table>(*value).unwrap());
+            black_box(r.$write::<$($table),*>(*value).unwrap());
         }
         let nanos = w_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -83,7 +83,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let r_start = Instant::now();
         for _ in &data {
-            black_box(r.$read::<$table>().unwrap());
+            black_box(r.$read::<$($table),*>().unwrap());
         }
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -99,7 +99,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         // measure
         let r_start = Instant::now();
         for _ in &data {
-            black_box(r.$read::<$table>().unwrap());
+            black_box(r.$read::<$($table),*>().unwrap());
         }
         let nanos =  r_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
@@ -114,7 +114,7 @@ let read_buff = read_buff.finalize();
 let read_unbuff = read_unbuff.finalize();
 let write = write.finalize();
 
-let table = if $table {
+let table = if ($($table),*,).0 {
     "Table"
 } else {
     "NoTable"
@@ -192,9 +192,34 @@ pub fn main() {
         calibration, "gamma", read_gamma, write_gamma, gen_gamma_data
     );
     impl_code!(
-        calibration, "delta", read_delta, write_delta, gen_delta_data
-    );
-    impl_code!(
         calibration, "zeta3", read_zeta3, write_zeta3, gen_zeta3_data
+    );
+
+    // delta with gamma tables disabled
+    bench!(
+        calibration, "delta", read_delta, write_delta, gen_delta_data, M2L, true, false
+    );
+    bench!(
+        calibration, "delta", read_delta, write_delta, gen_delta_data, M2L, false, false
+    );
+    bench!(
+        calibration, "delta", read_delta, write_delta, gen_delta_data, L2M, true, false
+    );
+    bench!(
+        calibration, "delta", read_delta, write_delta, gen_delta_data, L2M, false, false
+    );
+
+    // delta with gamma tables enabled
+    bench!(
+        calibration, "delta_gamma", read_delta, write_delta, gen_delta_data, M2L, true, true
+    );
+    bench!(
+        calibration, "delta_gamma", read_delta, write_delta, gen_delta_data, M2L, false, true
+    );
+    bench!(
+        calibration, "delta_gamma", read_delta, write_delta, gen_delta_data, L2M, true, true
+    );
+    bench!(
+        calibration, "delta_gamma", read_delta, write_delta, gen_delta_data, L2M, false, true
     );
 }
