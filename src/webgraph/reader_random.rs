@@ -94,17 +94,11 @@ where
             }
         }
     
-        // decode the extra nodes if needed
+        // decode just the first extra, if present (the others will be decoded on demand)
         if nodes_left_to_decode != 0 {
             let node_id_offset = nat2int(result.reader.read_first_residual()?);
-            result.next_extra_node = (node_id as i64 + node_id_offset) as u64;
+            result.next_residual_node = (node_id as i64 + node_id_offset) as u64;
             result.residuals_to_go = nodes_left_to_decode - 1;
-            /*result.extra_nodes.push(extra);
-            // decode the successive extra nodes
-            for _ in 1..nodes_left_to_decode {
-                extra += 1 + result.reader.read_residual()?;
-                result.extra_nodes.push(extra);
-            }*/
         }
         
         Ok(result)
@@ -127,7 +121,7 @@ pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
     /// Remaining residual nodes
     residuals_to_go: usize,
     /// The next residual node
-    next_extra_node: u64,
+    next_residual_node: u64,
 }
 
 impl<CR: WebGraphCodesReader + BitSeek + Clone> ExactSizeIterator for SuccessorsIterRandom<CR> {
@@ -147,7 +141,7 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             intervals: vec![],
             intervals_idx: 0,
             residuals_to_go: 0,
-            next_extra_node: u64::MAX,
+            next_residual_node: u64::MAX,
         }
     }
 }
@@ -178,24 +172,25 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         debug_assert!(
             copied_value != u64::MAX 
             ||
-            self.next_extra_node != u64::MAX
+            self.next_residual_node != u64::MAX
             ||
             interval_node != u64::MAX,
             "At least one of the nodes must present, this should be a problem with the degree.",
         );
 
         // find the smallest of the values
-        let min = copied_value.min(self.next_extra_node).min(interval_node);
+        let min = copied_value.min(self.next_residual_node).min(interval_node);
 
         // depending on from where the node was, forward it
         if min == copied_value {
             self.copied_nodes_iter.as_mut().unwrap().next().unwrap();
-        } else if min == self.next_extra_node {
+        } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
-                self.next_extra_node = u64::MAX;
+                self.next_residual_node = u64::MAX;
             } else {
                 self.residuals_to_go -= 1;
-                self.next_extra_node += 1 + self.reader.read_residual().expect("Error while reading a residual");
+                // NOTE: here we cannot propagate the error
+                self.next_residual_node += 1 + self.reader.read_residual().expect("Error while reading a residual");
             }
         } else {
             let (start, len) = &mut self.intervals[self.intervals_idx];
