@@ -98,6 +98,7 @@ where
         if nodes_left_to_decode != 0 {
             let node_id_offset = nat2int(result.reader.read_first_residual()?);
             result.next_extra_node = (node_id as i64 + node_id_offset) as u64;
+            result.residuals_to_go = nodes_left_to_decode - 1;
             /*result.extra_nodes.push(extra);
             // decode the successive extra nodes
             for _ in 1..nodes_left_to_decode {
@@ -123,6 +124,8 @@ pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
     intervals: Vec<(u64, usize)>,
     /// The index of interval to return
     intervals_idx: usize,
+    /// Remaining residual nodes
+    residuals_to_go: usize,
     /// The next residual node
     next_extra_node: u64,
 }
@@ -143,6 +146,7 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             copied_nodes_iter: None,
             intervals: vec![],
             intervals_idx: 0,
+            residuals_to_go: 0,
             next_extra_node: u64::MAX,
         }
     }
@@ -187,7 +191,12 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         if min == copied_value {
             self.copied_nodes_iter.as_mut().unwrap().next().unwrap();
         } else if min == self.next_extra_node {
-            self.next_extra_node += 1 + self.reader.read_residual().expect("Error while reading a residual");
+            if self.residuals_to_go == 0 {
+                self.next_extra_node = u64::MAX;
+            } else {
+                self.residuals_to_go -= 1;
+                self.next_extra_node += 1 + self.reader.read_residual().expect("Error while reading a residual");
+            }
         } else {
             let (start, len) = &mut self.intervals[self.intervals_idx];
             debug_assert_ne!(*len, 0, "there should never be an interval with length zero here");
