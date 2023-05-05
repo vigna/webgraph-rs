@@ -97,6 +97,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pr = ProgressLogger::default();
     pr.name = "node".to_string();
     pr.local_speed = true;
+    pr.expected_updates = Some(num_nodes as usize);
     pr.start("Visiting graph...");
 
     for start in 0..num_nodes {
