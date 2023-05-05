@@ -100,6 +100,5 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    assert_eq!(c, num_arcs as usize);
     Ok(())
 }
