@@ -81,7 +81,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut visited = BitMap::new(num_nodes as usize);
     let mut queue = VecDeque::new();
 
-    let mut pr = ProgressLogger::new("node");
+    let mut pr = ProgressLogger::default();
+    pr.name = "node".to_string();
     pr.start("Visiting graph...");
     
     for start in 0..num_nodes {
@@ -105,7 +106,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    pr.done::<String>(None);
+    pr.done();
 
     Ok(())
 }

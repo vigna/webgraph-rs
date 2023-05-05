@@ -25,7 +25,7 @@ fn test_sequential_reading() {
     let mut offset = 0;
     for _ in 0..NODES {
         offset += reader.read_gamma::<true>().unwrap() as usize;
-        offsets.push(offset);
+        offsets.push(offset as u64);
     }
 
     let mut data = std::fs::read("tests/data/cnr-2000.graph").unwrap();

@@ -69,10 +69,10 @@ pub const fn int2nat(x: i64) -> u64 {
 /// # use webgraph::utils::*;
 /// 
 /// assert_eq!(nat2int(0), 0);
-/// assert_eq!(nat2int(1), 1);
-/// assert_eq!(nat2int(2), -1);
-/// assert_eq!(nat2int(3), 2);
-/// assert_eq!(nat2int(4), -2);
+/// assert_eq!(nat2int(1), -1);
+/// assert_eq!(nat2int(2), 1);
+/// assert_eq!(nat2int(3), -2);
+/// assert_eq!(nat2int(4), 2);
 /// ```
 pub const fn nat2int(x: u64) -> i64 {
     (
