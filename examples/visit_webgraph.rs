@@ -47,7 +47,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
     let data_graph = mmap_file(&format!("{}.graph", args.basename));
 
-    eprintln!("Reading offsets...");
+    let offsets_slice = unsafe {
+        core::slice::from_raw_parts(
+            data_offsets.as_ptr() as *const ReadType, 
+            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+        )
+    };
+    let graph_slice = unsafe {
+        core::slice::from_raw_parts(
+            data_graph.as_ptr() as *const ReadType, 
+            (data_graph.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+        )
+    };
 
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
@@ -55,19 +66,17 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         num_nodes,
     );
     let mut reader =
-        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_offsets));
+        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
     let mut offset = 0;
     for _ in 0..num_nodes {
         offset += reader.read_gamma::<true>().unwrap() as usize;
         offsets.push(offset as _).unwrap();
     }
-    let offsets: EliasFano<
-        SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, 
-        CompactArray<Vec<u64>>,
-    > = offsets.build().convert_to().unwrap();
+    let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
+        offsets.build().convert_to().unwrap();
 
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-        MemWordReadInfinite::new(&data_graph),
+        MemWordReadInfinite::new(&graph_slice),
     ));
     let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
 

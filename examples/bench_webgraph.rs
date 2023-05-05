@@ -5,10 +5,11 @@ use rand::Rng;
 use rand::SeedableRng;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::Read;
 use std::io::Seek;
+use mmap_rs::*;
 use webgraph::prelude::*;
 use sux::prelude::*;
-use mmap_rs::*;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -58,13 +59,26 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
     let data_graph = mmap_file(&format!("{}.graph", args.basename));
 
+    let offsets_slice = unsafe {
+        core::slice::from_raw_parts(
+            data_offsets.as_ptr() as *const ReadType, 
+            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+        )
+    };
+    let graph_slice = unsafe {
+        core::slice::from_raw_parts(
+            data_graph.as_ptr() as *const ReadType, 
+            (data_graph.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+        )
+    };
+
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
         (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
         num_nodes,
     );
     let mut reader =
-        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_offsets));
+        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
     let mut offset = 0;
     for _ in 0..num_nodes {
         offset += reader.read_gamma::<true>().unwrap() as usize;
@@ -76,13 +90,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.check {
         // Create a sequential reader
         let mut code_reader = DefaultCodesReader::new(
-            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_graph)),
+            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         );
         let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
 
         // create a random access reader
         let code_reader = DefaultCodesReader::new(
-            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_graph)),
+            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         );
         let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
 
@@ -102,7 +116,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Create a sequential reader
             let mut code_reader =
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&data_graph),
+                    MemWordReadInfinite::new(&graph_slice),
                 ));
             let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
             let mut c: usize = 0;
