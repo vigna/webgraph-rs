@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Addind baremetal arm target
+    - name: Adding baremetal arm target
       run: rustup target add aarch64-unknown-none
     - name: Install Miri
       run: |

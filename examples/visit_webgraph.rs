@@ -6,6 +6,8 @@ use std::io::BufReader;
 use sux::prelude::*;
 use webgraph::prelude::*;
 use webgraph::utils::ProgressLogger;
+use std::io::Seek;
+use mmap_rs::*;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -15,6 +17,16 @@ type BufferType = u64;
 struct Args {
     /// The basename of the graph.
     basename: String,
+}
+
+fn mmap_file(path: &str) -> Mmap {
+    let mut file = std::fs::File::open(path).unwrap();
+    let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
+    unsafe{
+        MmapOptions::new(file_len as _).unwrap()
+        .with_file(file, 0)
+        .map().unwrap()
+    }
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,28 +44,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
     let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
     // Read the offsets
-    let mut data_offsets = std::fs::read(format!("{}.offsets", args.basename)).unwrap();
-    // pad with zeros so we can read with ReadType words
-    while data_offsets.len() % core::mem::size_of::<ReadType>() != 0 {
-        data_offsets.push(0);
-    }
-    // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
-    let data_offsets = data_offsets
-        .chunks(core::mem::size_of::<ReadType>())
-        .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
-        .collect::<Vec<_>>();
-    eprintln!("Reading graph...");
-    
-    let mut data_graph = std::fs::read(format!("{}.graph", args.basename)).unwrap();
-    // pad with zeros so we can read with ReadType words
-    while data_graph.len() % core::mem::size_of::<ReadType>() != 0 {
-        data_graph.push(0);
-    }
-    // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
-    let data_graph = data_graph
-        .chunks(core::mem::size_of::<ReadType>())
-        .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
-        .collect::<Vec<_>>();
+    let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
+    let data_graph = mmap_file(&format!("{}.graph", args.basename));
 
     eprintln!("Reading offsets...");
 
@@ -69,9 +61,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         offset += reader.read_gamma::<true>().unwrap() as usize;
         offsets.push(offset as _).unwrap();
     }
-
-    let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
-        offsets.build().convert_to().unwrap();
+    let offsets: EliasFano<
+        SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, 
+        CompactArray<Vec<u64>>,
+    > = offsets.build().convert_to().unwrap();
 
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
         MemWordReadInfinite::new(&data_graph),

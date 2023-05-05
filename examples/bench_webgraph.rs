@@ -5,8 +5,10 @@ use rand::Rng;
 use rand::SeedableRng;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::Seek;
 use webgraph::prelude::*;
 use sux::prelude::*;
+use mmap_rs::*;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -34,6 +36,16 @@ struct Args {
     check: bool,
 }
 
+fn mmap_file(path: &str) -> Mmap {
+    let mut file = std::fs::File::open(path).unwrap();
+    let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
+    unsafe{
+        MmapOptions::new(file_len as _).unwrap()
+        .with_file(file, 0)
+        .map().unwrap()
+    }
+}
+
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -43,27 +55,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
     let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
     // Read the offsets
-    let mut data_offsets = std::fs::read(format!("{}.offsets", args.basename)).unwrap();
-    // pad with zeros so we can read with ReadType words
-    while data_offsets.len() % core::mem::size_of::<ReadType>() != 0 {
-        data_offsets.push(0);
-    }
-    // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
-    let data_offsets = data_offsets
-        .chunks(core::mem::size_of::<ReadType>())
-        .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
-        .collect::<Vec<_>>();
-    let mut data_graph = std::fs::read(format!("{}.graph", args.basename)).unwrap();
-    // pad with zeros so we can read with ReadType words
-    while data_graph.len() % core::mem::size_of::<ReadType>() != 0 {
-        data_graph.push(0);
-    }
-    // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
-    let data_graph = data_graph
-        .chunks(core::mem::size_of::<ReadType>())
-        .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
-        .collect::<Vec<_>>();
-            
+    let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
+    let data_graph = mmap_file(&format!("{}.graph", args.basename));
+
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
         (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64, 
