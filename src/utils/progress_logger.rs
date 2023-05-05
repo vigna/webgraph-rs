@@ -139,10 +139,13 @@ pub struct ProgressLogger {
     pub log_interval: Duration,
     pub expected_updates: Option<usize>,
     pub time_unit: Option<TimeUnit>,
+    pub local_speed: bool,
     start: Option<Instant>,
+    last_log_time: Instant,
     next_log_time: Instant,
     stop_time: Option<Instant>,
     count: usize,
+	last_count: usize,
 }
 
 impl Default for ProgressLogger {
@@ -152,10 +155,13 @@ impl Default for ProgressLogger {
             log_interval: Duration::from_secs(10),
             expected_updates: None,
             time_unit: None,
+			local_speed: false,
             start: None,
+			last_log_time: Instant::now(),
             next_log_time: Instant::now(),
             stop_time: None,
             count: 0,
+			last_count: 0,
         }
     }
 }
@@ -175,7 +181,8 @@ impl ProgressLogger {
         let now = Instant::now();
         if self.next_log_time <= now {
             info!("{}", self);
-
+			self.last_count = self.count;
+			self.last_log_time = now;
             self.next_log_time = now + self.log_interval;
         }
     }
@@ -233,8 +240,7 @@ impl Display for ProgressLogger {
                 .time_unit
                 .unwrap_or_else(|| TimeUnit::nice_speed_unit(seconds_per_item));
 
-            write!(
-                f,
+            f.write_fmt(format_args!(
                 "{}, {}, {:.3} {}/{}, {:.3} {}/{}",
                 pluralize(&self.name, self.count as isize, true),
                 TimeUnit::pretty_print(elapsed.as_millis()),
@@ -243,8 +249,35 @@ impl Display for ProgressLogger {
                 pluralize(&self.name, 2, false),
                 items_per_second * time_unit_speed.to_seconds(),
                 pluralize(&self.name, 2, false),
-                time_unit_speed.label(),
-            )
+                time_unit_speed.label()
+            ))?;
+
+            if self.local_speed {
+                let elapsed = now - self.last_log_time;
+
+                let seconds_per_item = elapsed.as_secs_f64() / (self.count - self.last_count) as f64;
+                let items_per_second = 1.0 / seconds_per_item;
+
+                let time_unit_timing = self
+                    .time_unit
+                    .unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
+
+                let time_unit_speed = self
+                    .time_unit
+                    .unwrap_or_else(|| TimeUnit::nice_speed_unit(seconds_per_item));
+
+                f.write_fmt(format_args!(
+                    " [{:.3} {}/{}, {:.3} {}/{}]",
+                    seconds_per_item / time_unit_timing.to_seconds(),
+                    time_unit_timing.label(),
+                    pluralize(&self.name, 2, false),
+                    items_per_second * time_unit_speed.to_seconds(),
+                    pluralize(&self.name, 2, false),
+                    time_unit_speed.label()
+                ))?;
+            }
+
+            Ok(())
         } else {
             write!(f, "ProgressLogger not started")
         }

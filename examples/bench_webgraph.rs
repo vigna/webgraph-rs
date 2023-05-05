@@ -1,5 +1,6 @@
 use clap::Parser;
 use java_properties;
+use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -40,10 +41,12 @@ struct Args {
 fn mmap_file(path: &str) -> Mmap {
     let mut file = std::fs::File::open(path).unwrap();
     let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-    unsafe{
-        MmapOptions::new(file_len as _).unwrap()
-        .with_file(file, 0)
-        .map().unwrap()
+    unsafe {
+        MmapOptions::new(file_len as _)
+            .unwrap()
+            .with_file(file, 0)
+            .map()
+            .unwrap()
     }
 }
 

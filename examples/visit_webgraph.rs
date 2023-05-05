@@ -1,13 +1,13 @@
 use clap::Parser;
 use java_properties;
+use mmap_rs::*;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::Seek;
 use sux::prelude::*;
 use webgraph::prelude::*;
 use webgraph::utils::ProgressLogger;
-use std::io::Seek;
-use mmap_rs::*;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -22,10 +22,12 @@ struct Args {
 fn mmap_file(path: &str) -> Mmap {
     let mut file = std::fs::File::open(path).unwrap();
     let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-    unsafe{
-        MmapOptions::new(file_len as _).unwrap()
-        .with_file(file, 0)
-        .map().unwrap()
+    unsafe {
+        MmapOptions::new(file_len as _)
+            .unwrap()
+            .with_file(file, 0)
+            .map()
+            .unwrap()
     }
 }
 
@@ -78,6 +80,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         offsets.push(offset as _).unwrap();
         pr_offsets.update();
     }
+
     pr_offsets.done_with_count(num_nodes as _);
 
     let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
@@ -93,6 +96,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut pr = ProgressLogger::default();
     pr.name = "node".to_string();
+    pr.local_speed = true;
     pr.start("Visiting graph...");
 
     for start in 0..num_nodes {
