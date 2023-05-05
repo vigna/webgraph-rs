@@ -1,18 +1,14 @@
 //! # Zeta
-//! 
+//!
 
 use anyhow::Result;
 
+use super::{len_minimal_binary, len_unary, zeta_tables, MinimalBinaryRead, MinimalBinaryWrite};
 use crate::traits::*;
-use super::{
-    zeta_tables,
-    MinimalBinaryRead, MinimalBinaryWrite,
-    len_unary, len_minimal_binary,
-};
 use crate::utils::{fast_log2_floor, fast_pow_2};
 
 /// Returns how long the zeta code for `value` will be
-/// 
+///
 /// `USE_TABLE` enables or disables the use of pre-computed tables
 /// for decoding
 #[must_use]
@@ -33,13 +29,13 @@ pub fn len_zeta<const USE_TABLE: bool>(mut value: u64, k: u64) -> usize {
 /// Trait for objects that can read Zeta codes
 pub trait ZetaRead<BO: BitOrder>: MinimalBinaryRead<BO> {
     /// Generic ζ code reader
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
     fn read_zeta<const USE_TABLE: bool>(&mut self, k: u64) -> Result<u64>;
     /// Specialized ζ code reader for k = 3
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
@@ -56,7 +52,7 @@ impl<B: BitRead<M2L>> ZetaRead<M2L> for B {
     fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = zeta_tables::read_table_m2l(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         default_read_zeta(self, 3)
@@ -72,7 +68,7 @@ impl<B: BitRead<L2M>> ZetaRead<L2M> for B {
     fn read_zeta3<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = zeta_tables::read_table_l2m(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         default_read_zeta(self, 3)
@@ -91,13 +87,13 @@ fn default_read_zeta<BO: BitOrder, B: BitRead<BO>>(backend: &mut B, k: u64) -> R
 /// Trait for objects that can write Zeta codes
 pub trait ZetaWrite<BO: BitOrder>: MinimalBinaryWrite<BO> {
     /// Generic ζ code writer
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitWrite backend has problems writing
     /// bits, as when the stream ended unexpectedly
     fn write_zeta<const USE_TABLE: bool>(&mut self, value: u64, k: u64) -> Result<()>;
     /// Specialized ζ code writer for k = 3
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitWrite backend has problems writing
     /// bits, as when the stream ended unexpectedly
@@ -123,7 +119,7 @@ impl<B: BitWrite<M2L>> ZetaWrite<M2L> for B {
 impl<B: BitWrite<L2M>> ZetaWrite<L2M> for B {
     #[inline]
     fn write_zeta<const USE_TABLE: bool>(&mut self, value: u64, k: u64) -> Result<()> {
-         default_write_zeta(self, value, k)
+        default_write_zeta(self, value, k)
     }
 
     #[inline]
@@ -138,12 +134,14 @@ impl<B: BitWrite<L2M>> ZetaWrite<L2M> for B {
 }
 
 /// Common part of the M2L and L2M impl
-/// 
+///
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
 #[inline(always)]
 fn default_write_zeta<BO: BitOrder, B: BitWrite<BO>>(
-    backend: &mut B, mut value: u64, k: u64,
+    backend: &mut B,
+    mut value: u64,
+    k: u64,
 ) -> Result<()> {
     value += 1;
     let h = fast_log2_floor(value) / k;

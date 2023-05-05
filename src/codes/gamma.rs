@@ -4,15 +4,15 @@
 //! preceded by a unary representation of its length (minus one).
 //! More precisely, to represent x we write in unary floor(log(x)) and then in
 //! binary x - 2^ceil(log(x)) (on floor(log(x)) bits)
-//! 
+//!
 
-use anyhow::Result;
-use crate::traits::*;
 use super::gamma_tables;
+use crate::traits::*;
 use crate::utils::fast_log2_floor;
+use anyhow::Result;
 
 /// Returns how long the gamma code for `value` will be
-/// 
+///
 /// `USE_TABLE` enables or disables the use of pre-computed tables
 /// for decoding
 #[must_use]
@@ -31,10 +31,10 @@ pub fn len_gamma<const USE_TABLE: bool>(mut value: u64) -> usize {
 /// Trait for objects that can read Gamma codes
 pub trait GammaRead<BO: BitOrder>: BitRead<BO> {
     /// Read a gamma code from the stream.
-    /// 
+    ///
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
@@ -42,7 +42,7 @@ pub trait GammaRead<BO: BitOrder>: BitRead<BO> {
 }
 
 /// Common part of the M2L and L2M impl
-/// 
+///
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
 #[inline(always)]
@@ -57,7 +57,7 @@ impl<B: BitRead<M2L>> GammaRead<M2L> for B {
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = gamma_tables::read_table_m2l(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         default_read_gamma(self)
@@ -68,7 +68,7 @@ impl<B: BitRead<L2M>> GammaRead<L2M> for B {
     fn read_gamma<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = gamma_tables::read_table_l2m(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         default_read_gamma(self)
@@ -78,10 +78,10 @@ impl<B: BitRead<L2M>> GammaRead<L2M> for B {
 /// Trait for objects that can write Gamma codes
 pub trait GammaWrite<BO: BitOrder>: BitWrite<BO> {
     /// Write a value on the stream
-    /// 
+    ///
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitWrite backend has problems writing
     /// bits, as when the stream ended unexpectedly
@@ -112,12 +112,13 @@ impl<B: BitWrite<L2M>> GammaWrite<L2M> for B {
 }
 
 /// Common part of the M2L and L2M impl
-/// 
+///
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
 #[inline(always)]
 fn default_write_gamma<BO: BitOrder, B: BitWrite<BO>>(
-    backend: &mut B, mut value: u64,
+    backend: &mut B,
+    mut value: u64,
 ) -> Result<()> {
     value += 1;
     let number_of_bits_to_write = fast_log2_floor(value);

@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 /// Traits of the operations we can do on a graph
-pub trait Graph: {
-    type NeighboursIter<'a>: Iterator<Item=u64> + 'a 
+pub trait Graph {
+    type NeighboursIter<'a>: Iterator<Item = u64> + 'a
     where
         Self: 'a;
 
@@ -23,7 +23,7 @@ pub trait Graph: {
             }
             // early stop
             if neighbour_id > dst_node_id {
-                return Ok(false)
+                return Ok(false);
             }
         }
         Ok(false)

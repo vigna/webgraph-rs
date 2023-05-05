@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::traits::Word;
+use anyhow::Result;
 
 /// A Seekable word stream
 pub trait WordStream {
@@ -18,12 +18,12 @@ pub trait WordStream {
     /// read on the next [`WordRead::read_next_word`] call.
     #[must_use]
     fn get_position(&self) -> usize;
-    
+
     /// Set the position in the stream so that the `word_index`-th word will be
     /// read on the next [`WordRead::read_next_word`] call.
-    /// 
+    ///
     /// # Errors
-    /// This function fails if the given `word_index` is out of bound of the 
+    /// This function fails if the given `word_index` is out of bound of the
     /// underneath backend memory.
     fn set_position(&mut self, word_index: usize) -> Result<()>;
 }
@@ -33,7 +33,7 @@ pub trait WordRead {
     /// The type that can be read
     type Word: Word;
     /// Read a [`u64`] word from the stream and advance the position by 8 bytes.
-    /// 
+    ///
     /// # Errors
     /// This function fails if we cannot read the next word in the stream,
     /// usually this happens when the stream ended.
@@ -45,7 +45,7 @@ pub trait WordWrite {
     /// The type that can be wrote
     type Word: Word;
     /// Write a [`u64`] word from the stream and advance the position by 8 bytes.
-    /// 
+    ///
     /// # Errors
     /// This function fails if we cannot write a word to the stream,
     /// usually this happens when the stream ended.

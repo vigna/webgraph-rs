@@ -5,30 +5,30 @@ mod progress_logger;
 pub use progress_logger::*;
 
 /// Return the lowest `n_bits` of `value`.
-/// Calling with `n_bits == 0` or `n_bits > 64` will result in undefined 
+/// Calling with `n_bits == 0` or `n_bits > 64` will result in undefined
 /// behaviour.
-/// 
+///
 /// ### Example
 /// ```
 /// use webgraph::utils::get_lowest_bits;
-/// 
+///
 /// assert_eq!(get_lowest_bits(0b1011_0110_1010_1101_u64, 1), 0b1);
 /// assert_eq!(get_lowest_bits(0b1011_0110_1010_1101_u64, 2), 0b01);
 /// assert_eq!(get_lowest_bits(0b1011_0110_1010_1101_u64, 3), 0b101);
 /// assert_eq!(get_lowest_bits(0b1011_0110_1010_1101_u64, 4), 0b1101);
 /// assert_eq!(get_lowest_bits(0b1011_0110_1010_1101_u64, 5), 0b0_1101);
 /// assert_eq!(get_lowest_bits(0b1011_0110_1010_1101_u64, 6), 0b10_1101);
-/// 
+///
 /// assert_eq!(get_lowest_bits(u64::MAX, 64), u64::MAX);
 /// ```
-#[inline(always)] 
+#[inline(always)]
 #[must_use]
 pub fn get_lowest_bits<W: Word>(value: W, n_bits: usize) -> W {
     debug_assert!(n_bits <= W::BITS);
     value & (W::MAX >> (W::BITS - n_bits))
 }
 
-/// Compute the `floor(log2(value))` exploiting BMI instructions 
+/// Compute the `floor(log2(value))` exploiting BMI instructions
 /// based on <https://bugzilla.mozilla.org/show_bug.cgi?id=327129>
 ///
 /// On `x86_64` this should compile to:
@@ -67,7 +67,7 @@ pub const fn int2nat(x: i64) -> u64 {
 ///
 /// ```
 /// # use webgraph::utils::*;
-/// 
+///
 /// assert_eq!(nat2int(0), 0);
 /// assert_eq!(nat2int(1), -1);
 /// assert_eq!(nat2int(2), 1);
@@ -75,7 +75,5 @@ pub const fn int2nat(x: i64) -> u64 {
 /// assert_eq!(nat2int(4), 2);
 /// ```
 pub const fn nat2int(x: u64) -> i64 {
-    (
-        (x >> 1) ^ !((x & 1).wrapping_sub(1))
-    ) as i64
+    ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
 }

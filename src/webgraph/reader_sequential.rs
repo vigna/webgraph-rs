@@ -9,10 +9,14 @@ pub struct WebgraphReaderSequential<'a, CR: WebGraphCodesReader> {
 }
 
 impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
-    pub fn new(codes_reader: &'a mut CR, min_interval_length: usize, compression_window: usize) -> Self {
+    pub fn new(
+        codes_reader: &'a mut CR,
+        min_interval_length: usize,
+        compression_window: usize,
+    ) -> Self {
         Self {
             codes_reader,
-            backrefs: CircularBuffer::new(compression_window + 1), 
+            backrefs: CircularBuffer::new(compression_window + 1),
             min_interval_length,
         }
     }
@@ -21,7 +25,7 @@ impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
         let mut res = self.backrefs.take();
         for node in self.get_successors_iter_priv(node_id)? {
             res.push(node);
-        } 
+        }
         Ok(self.backrefs.push(res))
     }
 
@@ -34,7 +38,7 @@ impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
             return Ok(result);
         }
         result.size = degree;
-        let mut nodes_left_to_decode = degree; 
+        let mut nodes_left_to_decode = degree;
         // read the reference offset
         let ref_delta = self.codes_reader.read_reference_offset()?;
         // if we copy nodes from a previous one
@@ -57,15 +61,12 @@ impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
                 }
             }
             // create the masked iterator
-            let res = MaskedIterator::new(
-                neighbours.iter().copied(), 
-                blocks,
-            );
+            let res = MaskedIterator::new(neighbours.iter().copied(), blocks);
             nodes_left_to_decode -= res.len();
-            
+
             result.copied_nodes_iter = Some(res.peekable());
         };
-    
+
         // if we still have to read nodes
         if nodes_left_to_decode != 0 {
             // read the number of intervals
@@ -87,14 +88,14 @@ impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
                     start += 1 + self.codes_reader.read_interval_start()?;
                     delta = self.codes_reader.read_interval_len()? as usize;
                     delta += self.min_interval_length;
-                    
+
                     result.intervals.push((start, delta));
                     start += delta as u64;
                     nodes_left_to_decode -= delta;
                 }
             }
         }
-    
+
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
@@ -108,7 +109,7 @@ impl<'a, CR: WebGraphCodesReader> WebgraphReaderSequential<'a, CR> {
                 result.extra_nodes.push(extra);
             }
         }
-    
+
         Ok(result)
     }
 }
@@ -119,7 +120,8 @@ pub struct SuccessorsIterSequential<'a> {
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<Peekable<MaskedIterator<core::iter::Copied<core::slice::Iter<'a, u64>>>>>,
+    copied_nodes_iter:
+        Option<Peekable<MaskedIterator<core::iter::Copied<core::slice::Iter<'a, u64>>>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(u64, usize)>,
@@ -164,26 +166,31 @@ impl<'a> Iterator for SuccessorsIterSequential<'a> {
         self.size -= 1;
 
         // Get the different nodes or usize::MAX if not present
-        let copied_value = *self.copied_nodes_iter.as_mut().map(|x| 
-            x.peek().unwrap_or(&u64::MAX)
-        ).unwrap_or(&u64::MAX);
+        let copied_value = *self
+            .copied_nodes_iter
+            .as_mut()
+            .map(|x| x.peek().unwrap_or(&u64::MAX))
+            .unwrap_or(&u64::MAX);
 
-        let extra_node = *self.extra_nodes.get(self.extra_nodes_idx)
+        let extra_node = *self
+            .extra_nodes
+            .get(self.extra_nodes_idx)
             .unwrap_or(&u64::MAX);
 
         let interval_node = *{
-            let (start, len) = self.intervals.get(self.intervals_idx)
+            let (start, len) = self
+                .intervals
+                .get(self.intervals_idx)
                 .unwrap_or(&(u64::MAX, usize::MAX));
-            debug_assert_ne!(*len, 0, "there should never be an interval with length zero here");
+            debug_assert_ne!(
+                *len, 0,
+                "there should never be an interval with length zero here"
+            );
             start
         };
 
         debug_assert!(
-            copied_value != u64::MAX 
-            ||
-            extra_node != u64::MAX
-            ||
-            interval_node != u64::MAX,
+            copied_value != u64::MAX || extra_node != u64::MAX || interval_node != u64::MAX,
             "At least one of the nodes must present, this should be a problem with the degree.",
         );
 
@@ -197,7 +204,10 @@ impl<'a> Iterator for SuccessorsIterSequential<'a> {
             self.extra_nodes_idx += 1;
         } else {
             let (start, len) = &mut self.intervals[self.intervals_idx];
-            debug_assert_ne!(*len, 0, "there should never be an interval with length zero here");
+            debug_assert_ne!(
+                *len, 0,
+                "there should never be an interval with length zero here"
+            );
             // if the interval has other values, just reduce the interval
             if *len > 1 {
                 *len -= 1;

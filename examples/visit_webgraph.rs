@@ -51,7 +51,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
-        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64, 
+        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
         num_nodes,
     );
     let mut reader =
@@ -77,7 +77,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pr = ProgressLogger::default();
     pr.name = "node".to_string();
     pr.start("Visiting graph...");
-    
+
     for start in 0..num_nodes {
         if visited.get(start as usize).unwrap() != 0 {
             continue;

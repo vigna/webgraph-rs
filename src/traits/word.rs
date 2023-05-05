@@ -1,27 +1,48 @@
-
-use core::fmt::{Debug, Display, LowerHex, Binary};
+use core::fmt::{Binary, Debug, Display, LowerHex};
 use core::ops::*;
 
 /// Trait with all the common operations that we need for a generic word
 /// of memory
-pub trait Word : Sized + Send + Sync +
-    Debug + Display + LowerHex + Binary +
-    Default + Clone + Copy +
-    PartialOrd + Ord + 
-    PartialEq + Eq + 
-    Add<Output=Self> + AddAssign<Self> +
-    BitAnd<Output=Self> + BitAndAssign<Self> +
-    BitOr<Output=Self> + BitOrAssign<Self> +
-    BitXor<Output=Self> + BitXorAssign<Self> +
-    Div<Output=Self> + DivAssign<Self> +
-    Mul<Output=Self> + MulAssign<Self> + 
-    Not<Output=Self> + 
-    Rem<Output=Self> + RemAssign<Self> +
-    Shl<Output=Self> + ShlAssign<Self> +
-    Shl<usize, Output=Self> + ShlAssign<usize> +
-    Shr<Output=Self> + ShrAssign<Self> +
-    Shr<usize, Output=Self> + ShrAssign<usize> +
-    Sub<Output=Self> + SubAssign<Self> + 
+pub trait Word:
+    Sized
+    + Send
+    + Sync
+    + Debug
+    + Display
+    + LowerHex
+    + Binary
+    + Default
+    + Clone
+    + Copy
+    + PartialOrd
+    + Ord
+    + PartialEq
+    + Eq
+    + Add<Output = Self>
+    + AddAssign<Self>
+    + BitAnd<Output = Self>
+    + BitAndAssign<Self>
+    + BitOr<Output = Self>
+    + BitOrAssign<Self>
+    + BitXor<Output = Self>
+    + BitXorAssign<Self>
+    + Div<Output = Self>
+    + DivAssign<Self>
+    + Mul<Output = Self>
+    + MulAssign<Self>
+    + Not<Output = Self>
+    + Rem<Output = Self>
+    + RemAssign<Self>
+    + Shl<Output = Self>
+    + ShlAssign<Self>
+    + Shl<usize, Output = Self>
+    + ShlAssign<usize>
+    + Shr<Output = Self>
+    + ShrAssign<Self>
+    + Shr<usize, Output = Self>
+    + ShrAssign<usize>
+    + Sub<Output = Self>
+    + SubAssign<Self>
 {
     /// Number of bits in the word
     const BITS: usize;
@@ -48,7 +69,7 @@ pub trait Word : Sized + Send + Sync +
 
     /// Returns the number of leading ones in the binary representation of self.
     fn leading_ones(self) -> usize;
-    
+
     /// Returns the number of trailing zeros in the binary representation of self.
     fn leading_zeros(self) -> usize;
 
@@ -58,20 +79,20 @@ pub trait Word : Sized + Send + Sync +
     /// Returns the number of trailing zeros in the binary representation of self.
     fn trailing_zeros(self) -> usize;
 
-    /// Panic-free bitwise shift-left; yields self << mask(rhs), where mask 
-    /// removes any high-order bits of rhs that would cause the shift to exceed 
+    /// Panic-free bitwise shift-left; yields self << mask(rhs), where mask
+    /// removes any high-order bits of rhs that would cause the shift to exceed
     /// the bitwidth of the type.
-    /// Note that this is not the same as a rotate-left; the RHS of a wrapping 
-    /// shift-left is restricted to the range of the type, rather than the bits 
-    /// shifted out of the LHS being returned to the other end. The primitive 
-    /// integer types all implement a rotate_left function, which may be what 
+    /// Note that this is not the same as a rotate-left; the RHS of a wrapping
+    /// shift-left is restricted to the range of the type, rather than the bits
+    /// shifted out of the LHS being returned to the other end. The primitive
+    /// integer types all implement a rotate_left function, which may be what
     /// you want instead.
     fn wrapping_shl(self, rhs: usize) -> Self;
 }
 
 macro_rules! impl_word {
     ($($ty:ty),*) => {$(
-        
+
 impl Word for $ty {
     const BITS: usize = <$ty>::BITS as _;
     const BYTES: usize = core::mem::size_of::<$ty>() as _;

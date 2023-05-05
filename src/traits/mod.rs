@@ -1,7 +1,7 @@
 //! # Traits
 //! This modules contains the traits that are used throughout the crate.
 //! They are collected into a module so you can do `use webgraph::traits::*;`
-//! for ease of use. 
+//! for ease of use.
 
 mod castable;
 pub use castable::*;

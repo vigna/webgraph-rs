@@ -1,15 +1,15 @@
 //! # Minimal Binary
 //!
 //! Also called [Truncated binary encoding](https://en.wikipedia.org/wiki/Truncated_binary_encoding)
-//! is optimal for uniform distributions. 
+//! is optimal for uniform distributions.
 //! When the size of the alphabet is a power of two, this is equivalent to
 //! the classical binary encoding.
 
-use anyhow::{Result, bail};
 use crate::traits::*;
 use crate::utils::fast_log2_floor;
+use anyhow::{bail, Result};
 
-/// Returns how long the minimal binary code for `value` will be for a given 
+/// Returns how long the minimal binary code for `value` will be for a given
 /// `max`
 #[must_use]
 #[inline]
@@ -29,7 +29,7 @@ pub fn len_minimal_binary(value: u64, max: u64) -> usize {
 /// Trait for objects that can read Minimal Binary codes
 pub trait MinimalBinaryRead<BO: BitOrder>: BitRead<BO> {
     /// Read a minimal binary code from the stream.
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
@@ -55,13 +55,12 @@ pub trait MinimalBinaryRead<BO: BitOrder>: BitRead<BO> {
 /// Trait for objects that can write Minimal Binary codes
 pub trait MinimalBinaryWrite<BO: BitOrder>: BitWrite<BO> {
     /// Write a value on the stream
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitRead backend has problems writing
     /// bits, as when the stream ended unexpectedly
     #[inline]
-    fn write_minimal_binary(
-        &mut self, value: u64, max: u64) -> Result<()> {
+    fn write_minimal_binary(&mut self, value: u64, max: u64) -> Result<()> {
         if max == 0 {
             bail!("The max of a minimal binary value can't be zero.");
         }

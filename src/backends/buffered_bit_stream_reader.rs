@@ -1,8 +1,8 @@
 use crate::codes::unary_tables;
 use crate::traits::*;
-use anyhow::{Result, bail, Context};
+use anyhow::{bail, Context, Result};
 
-/// A BitStream built uppon a generic [`WordRead`] that caches the read words 
+/// A BitStream built uppon a generic [`WordRead`] that caches the read words
 /// in a buffer
 #[derive(Debug)]
 pub struct BufferedBitStreamRead<E: BitOrder, BW: Word, WR: WordRead> {
@@ -16,9 +16,10 @@ pub struct BufferedBitStreamRead<E: BitOrder, BW: Word, WR: WordRead> {
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: BitOrder, BW: Word, WR: WordRead + Clone> core::clone::Clone 
-    for BufferedBitStreamRead<E, BW, WR> {
-    // No need to copy the buffer 
+impl<E: BitOrder, BW: Word, WR: WordRead + Clone> core::clone::Clone
+    for BufferedBitStreamRead<E, BW, WR>
+{
+    // No need to copy the buffer
     // TODO!: think about how to make a lightweight clone
     fn clone(&self) -> Self {
         Self {
@@ -32,7 +33,7 @@ impl<E: BitOrder, BW: Word, WR: WordRead + Clone> core::clone::Clone
 
 impl<E: BitOrder, BW: Word, WR: WordRead> BufferedBitStreamRead<E, BW, WR> {
     /// Create a new [`BufferedBitStreamRead`] on a generic backend
-    /// 
+    ///
     /// ### Example
     /// ```
     /// use webgraph::prelude::*;
@@ -65,17 +66,19 @@ where
         let free_bits = BW::BITS - self.valid_bits;
         debug_assert!(free_bits >= WR::Word::BITS);
 
-        let new_word: BW = self.backend.read_next_word()
+        let new_word: BW = self
+            .backend
+            .read_next_word()
             .with_context(|| "Error while reflling BufferedBitStreamRead")?
-            .to_be().upcast();
+            .to_be()
+            .upcast();
         self.valid_bits += WR::Word::BITS;
         self.buffer |= new_word << (BW::BITS - self.valid_bits);
         Ok(())
     }
 }
 
-impl<BW: Word, WR: WordRead + WordStream> BitSeek 
-    for BufferedBitStreamRead<M2L, BW, WR> 
+impl<BW: Word, WR: WordRead + WordStream> BitSeek for BufferedBitStreamRead<M2L, BW, WR>
 where
     WR::Word: UpcastableInto<BW>,
 {
@@ -86,7 +89,8 @@ where
 
     #[inline]
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
-        self.backend.set_position(bit_index / WR::Word::BITS)
+        self.backend
+            .set_position(bit_index / WR::Word::BITS)
             .with_context(|| "BufferedBitStreamRead was seeking_bit")?;
         let bit_offset = bit_index % WR::Word::BITS;
         self.buffer = BW::ZERO;
@@ -100,8 +104,7 @@ where
     }
 }
 
-impl<BW: Word, WR: WordRead> BitRead<M2L> 
-    for BufferedBitStreamRead<M2L, BW, WR> 
+impl<BW: Word, WR: WordRead> BitRead<M2L> for BufferedBitStreamRead<M2L, BW, WR>
 where
     BW: DowncastableInto<WR::Word> + CastableInto<u64>,
     WR::Word: UpcastableInto<BW> + UpcastableInto<u64>,
@@ -111,7 +114,11 @@ where
     #[inline]
     fn peek_bits(&mut self, n_bits: usize) -> Result<Self::PeekType> {
         if n_bits > WR::Word::BITS {
-            bail!("The n of bits to peek has to be in [0, {}] and {} is not.", WR::Word::BITS, n_bits);
+            bail!(
+                "The n of bits to peek has to be in [0, {}] and {} is not.",
+                WR::Word::BITS,
+                n_bits
+            );
         }
         if n_bits == 0 {
             return Ok(WR::Word::ZERO);
@@ -150,7 +157,7 @@ where
 
         Ok(())
     }
-    
+
     #[inline(always)]
     fn skip_bits_after_table_lookup(&mut self, n_bits: usize) -> Result<()> {
         self.valid_bits -= n_bits;
@@ -162,7 +169,7 @@ where
     fn read_bits(&mut self, mut n_bits: usize) -> Result<u64> {
         debug_assert!(self.valid_bits < BW::BITS);
 
-        // most common path, we just read the buffer        
+        // most common path, we just read the buffer
         if n_bits <= self.valid_bits {
             // Valid right shift of BW::BITS - n_bits, even when n_bits is zero
             let result: u64 = (self.buffer >> (BW::BITS - n_bits - 1) >> 1).cast();
@@ -170,16 +177,20 @@ where
             self.buffer <<= n_bits;
             return Ok(result);
         }
-        
+
         if n_bits > 64 {
-            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
+            bail!(
+                "The n of bits to peek has to be in [0, 64] and {} is not.",
+                n_bits
+            );
         }
 
         let mut result: u64 = if self.valid_bits != 0 {
             self.buffer >> (BW::BITS - self.valid_bits)
         } else {
             BW::ZERO
-        }.cast();
+        }
+        .cast();
         n_bits -= self.valid_bits;
 
         // Directly read to the result without updating the buffer
@@ -197,7 +208,7 @@ where
         result = (result << n_bits) | final_bits;
         // and put the rest in the buffer
         self.buffer = new_word.upcast();
-        self.buffer = (self.buffer << (BW::BITS - self.valid_bits -1 )) << 1;
+        self.buffer = (self.buffer << (BW::BITS - self.valid_bits - 1)) << 1;
 
         Ok(result)
     }
@@ -206,7 +217,7 @@ where
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = unary_tables::read_table_m2l(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         let mut result: u64 = 0;
@@ -214,7 +225,7 @@ where
             // count the zeros from the left
             let zeros: usize = self.buffer.leading_zeros();
 
-            // if we encountered an 1 in the valid_bits we can return            
+            // if we encountered an 1 in the valid_bits we can return
             if zeros < self.valid_bits {
                 result += zeros as u64;
                 self.buffer <<= zeros + 1;
@@ -223,8 +234,8 @@ where
             }
 
             result += self.valid_bits as u64;
-            
-            // otherwise we didn't encounter the ending 1 yet so we need to 
+
+            // otherwise we didn't encounter the ending 1 yet so we need to
             // refill and iter again
             let new_word: BW = self.backend.read_next_word()?.to_be().upcast();
             self.valid_bits = WR::Word::BITS;
@@ -247,17 +258,19 @@ where
         let free_bits = BW::BITS - self.valid_bits;
         debug_assert!(free_bits >= WR::Word::BITS);
 
-        let new_word: BW = self.backend.read_next_word()
+        let new_word: BW = self
+            .backend
+            .read_next_word()
             .with_context(|| "Error while reflling BufferedBitStreamRead")?
-            .to_le().upcast();
+            .to_le()
+            .upcast();
         self.buffer |= new_word << self.valid_bits;
         self.valid_bits += WR::Word::BITS;
         Ok(())
     }
 }
 
-impl<BW: Word, WR: WordRead + WordStream> BitSeek 
-    for BufferedBitStreamRead<L2M, BW, WR> 
+impl<BW: Word, WR: WordRead + WordStream> BitSeek for BufferedBitStreamRead<L2M, BW, WR>
 where
     WR::Word: UpcastableInto<BW>,
 {
@@ -268,7 +281,8 @@ where
 
     #[inline]
     fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
-        self.backend.set_position(bit_index / WR::Word::BITS)
+        self.backend
+            .set_position(bit_index / WR::Word::BITS)
             .with_context(|| "BufferedBitStreamRead was seeking_bit")?;
         let bit_offset = bit_index % WR::Word::BITS;
         self.buffer = BW::ZERO;
@@ -282,8 +296,7 @@ where
     }
 }
 
-impl<BW: Word, WR: WordRead> BitRead<L2M> 
-    for BufferedBitStreamRead<L2M, BW, WR> 
+impl<BW: Word, WR: WordRead> BitRead<L2M> for BufferedBitStreamRead<L2M, BW, WR>
 where
     BW: DowncastableInto<WR::Word> + CastableInto<u64>,
     WR::Word: UpcastableInto<BW> + UpcastableInto<u64>,
@@ -326,16 +339,19 @@ where
     fn read_bits(&mut self, mut n_bits: usize) -> Result<u64> {
         debug_assert!(self.valid_bits < BW::BITS);
 
-        // most common path, we just read the buffer        
+        // most common path, we just read the buffer
         if n_bits <= self.valid_bits {
-            let result: u64 = (self.buffer & ((BW::ONE << n_bits) - BW::ONE)).cast(); 
+            let result: u64 = (self.buffer & ((BW::ONE << n_bits) - BW::ONE)).cast();
             self.valid_bits -= n_bits;
             self.buffer >>= n_bits;
             return Ok(result);
         }
 
         if n_bits > 64 {
-            bail!("The n of bits to peek has to be in [0, 64] and {} is not.", n_bits);
+            bail!(
+                "The n of bits to peek has to be in [0, 64] and {} is not.",
+                n_bits
+            );
         }
 
         let mut result: u64 = self.buffer.cast();
@@ -368,14 +384,18 @@ where
     #[inline]
     fn peek_bits(&mut self, n_bits: usize) -> Result<Self::PeekType> {
         if n_bits > WR::Word::BITS {
-            bail!("The n of bits to peek has to be in [0, {}] and {} is not.", WR::Word::BITS, n_bits);
+            bail!(
+                "The n of bits to peek has to be in [0, {}] and {} is not.",
+                WR::Word::BITS,
+                n_bits
+            );
         }
         if n_bits == 0 {
             return Ok(WR::Word::ZERO);
         }
         // a peek can do at most one refill, otherwise we might loose data
         if n_bits > self.valid_bits {
-            self.refill()?;  
+            self.refill()?;
         }
 
         // read the `n_bits` highest bits of the buffer and shift them to
@@ -388,7 +408,7 @@ where
     fn read_unary<const USE_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = unary_tables::read_table_l2m(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         let mut result: u64 = 0;
@@ -396,7 +416,7 @@ where
             // count the zeros from the left
             let zeros: usize = self.buffer.trailing_zeros();
 
-            // if we encountered an 1 in the valid_bits we can return            
+            // if we encountered an 1 in the valid_bits we can return
             if zeros < self.valid_bits {
                 result += zeros as u64;
                 self.buffer >>= zeros + 1;
@@ -405,8 +425,8 @@ where
             }
 
             result += self.valid_bits as u64;
-            
-            // otherwise we didn't encounter the ending 1 yet so we need to 
+
+            // otherwise we didn't encounter the ending 1 yet so we need to
             // refill and iter again
             let new_word: BW = self.backend.read_next_word()?.to_le().upcast();
             self.valid_bits = WR::Word::BITS;

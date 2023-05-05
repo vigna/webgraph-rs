@@ -1,4 +1,3 @@
-
 /// `UpcastableInto : UpcastableFrom = Into : From`, It's easyer to use to
 /// specify bounds on generic variables
 pub trait UpcastableInto<W>: Sized {
@@ -15,9 +14,9 @@ pub trait UpcastableFrom<W>: Sized {
 }
 
 /// UpcastableFrom implies UpcastableInto
-impl<T, U> UpcastableInto<U> for T 
-where 
-    U: UpcastableFrom<T>
+impl<T, U> UpcastableInto<U> for T
+where
+    U: UpcastableFrom<T>,
 {
     #[inline(always)]
     fn upcast(self) -> U {

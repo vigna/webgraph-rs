@@ -1,5 +1,3 @@
-
-
 /// `CastableInto : CastableFrom = Into : From`, It's easyer to use to
 /// specify bounds on generic variables
 pub trait CastableInto<W>: Sized {
@@ -7,11 +5,11 @@ pub trait CastableInto<W>: Sized {
     fn cast(self) -> W;
 }
 
-/// Trait for primitive integers, this is the combination of 
-/// [`DowncastableFrom`] and [`UpcastableFrom`]. Prefer using the other two 
+/// Trait for primitive integers, this is the combination of
+/// [`DowncastableFrom`] and [`UpcastableFrom`]. Prefer using the other two
 /// traits, as casting without knowing which value will be bigger might result
 /// in hard to find bugs.
-/// 
+///
 /// This is equivalent to calling `as` between two types
 pub trait CastableFrom<W>: Sized {
     /// Call `Self as W`
@@ -27,9 +25,9 @@ impl<T> CastableFrom<T> for T {
 }
 
 /// UpcastableFrom implies UpcastableInto
-impl<T, U> CastableInto<U> for T 
-where 
-    U: CastableFrom<T>
+impl<T, U> CastableInto<U> for T
+where
+    U: CastableFrom<T>,
 {
     #[inline(always)]
     fn cast(self) -> U {

@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-
 // No warnings
 //#![deny(warnings)]
 
@@ -9,10 +8,8 @@
 #![deny(clippy::panicking_unwrap)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
-
 // for now we don't need any new feature but we might remove this in the future
 #![deny(unstable_features)]
-
 // no dead code
 //#![deny(dead_code)]
 #![deny(trivial_casts)]
@@ -34,23 +31,22 @@
 //#![deny(clippy::missing_crate_level_docs)]
 //#![deny(clippy::missing_docs_in_private_items)]
 //#![deny(missing_debug_implementations)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-#![cfg_attr(not(feature="std"), no_std)]
-
-#[cfg(feature="alloc")]
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 pub mod backends;
 pub mod codes;
-pub mod utils;
 pub mod traits;
+pub mod utils;
 pub mod webgraph;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {
     pub use crate::backends::*;
     pub use crate::codes::*;
-    pub use crate::utils::*;
     pub use crate::traits::*;
+    pub use crate::utils::*;
     pub use crate::webgraph::*;
 }

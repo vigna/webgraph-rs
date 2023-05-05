@@ -60,7 +60,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
-        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64, 
+        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
         num_nodes,
     );
     let mut reader =
@@ -70,10 +70,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         offset += reader.read_gamma::<true>().unwrap() as usize;
         offsets.push(offset as _).unwrap();
     }
-    let offsets: EliasFano<
-        SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, 
-        CompactArray<Vec<u64>>,
-    > = offsets.build().convert_to().unwrap();
+    let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
+        offsets.build().convert_to().unwrap();
 
     if args.check {
         // Create a sequential reader
@@ -123,9 +121,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Random-access speed test
         for _ in 0..args.repeats {
             // create a random access reader
-            let code_reader = DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_graph)),
-            );
+            let code_reader =
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&data_graph),
+                ));
             let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
 
             let mut random = SmallRng::seed_from_u64(0);

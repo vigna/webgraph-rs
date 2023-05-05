@@ -1,5 +1,4 @@
-
-/// A circular buffer which is used to keep the backreferences both in 
+/// A circular buffer which is used to keep the backreferences both in
 /// sequential reads and for compressing during writes.
 /// For efficency reasons, we re-use the allocated buffers to avoid pressure
 /// over the allocator.
@@ -9,7 +8,7 @@ pub(crate) struct CircularBuffer {
 }
 
 impl CircularBuffer {
-    /// Create a new circular buffer that can hold `len` values. This should be 
+    /// Create a new circular buffer that can hold `len` values. This should be
     /// equal to the compression windows + 1 so there is space for the new data.
     pub(crate) fn new(len: usize) -> Self {
         Self {
@@ -30,13 +29,11 @@ impl CircularBuffer {
         let idx = node_id % self.data.len() as u64;
         &self.data[idx as usize]
     }
-    
+
     /// Take the buffer to write the neighbours of the new node
     pub(crate) fn take(&mut self) -> Vec<u64> {
         let idx = self.end_node_id % self.data.len() as u64;
-        let mut res = core::mem::take(
-            &mut self.data[idx as usize], 
-        );
+        let mut res = core::mem::take(&mut self.data[idx as usize]);
         res.clear();
         res
     }

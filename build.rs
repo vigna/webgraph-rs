@@ -12,6 +12,5 @@ fn main() {
         .unwrap()
         .wait()
         .unwrap()
-        .success()
-    );
+        .success());
 }

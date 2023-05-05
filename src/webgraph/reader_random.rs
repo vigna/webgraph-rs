@@ -10,7 +10,7 @@ pub struct WebgraphReaderRandomAccess<CR, OFF> {
     offsets: OFF,
 }
 
-impl<CR, OFF: > WebgraphReaderRandomAccess<CR, OFF> 
+impl<CR, OFF> WebgraphReaderRandomAccess<CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
@@ -35,7 +35,7 @@ where
             return Ok(result);
         }
         result.size = degree;
-        let mut nodes_left_to_decode = degree; 
+        let mut nodes_left_to_decode = degree;
         // read the reference offset
         let ref_delta = result.reader.read_reference_offset()?;
         // if we copy nodes from a previous one
@@ -58,15 +58,12 @@ where
                 }
             }
             // create the masked iterator
-            let res = MaskedIterator::new(
-                neighbours, 
-                blocks,
-            );
+            let res = MaskedIterator::new(neighbours, blocks);
             nodes_left_to_decode -= res.len();
-            
+
             result.copied_nodes_iter = Some(res.peekable());
         };
-    
+
         // if we still have to read nodes
         if nodes_left_to_decode != 0 {
             // read the number of intervals
@@ -88,21 +85,21 @@ where
                     start += 1 + result.reader.read_interval_start()?;
                     delta = result.reader.read_interval_len()? as usize;
                     delta += self.min_interval_length;
-                    
+
                     result.intervals.push((start, delta));
                     start += delta as u64;
                     nodes_left_to_decode -= delta;
                 }
             }
         }
-    
+
         // decode just the first extra, if present (the others will be decoded on demand)
         if nodes_left_to_decode != 0 {
             let node_id_offset = nat2int(result.reader.read_first_residual()?);
             result.next_residual_node = (node_id as i64 + node_id_offset) as u64;
             result.residuals_to_go = nodes_left_to_decode - 1;
         }
-        
+
         Ok(result)
     }
 }
@@ -160,23 +157,29 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         self.size -= 1;
 
         // Get the different nodes or usize::MAX if not present
-        let copied_value = self.copied_nodes_iter.as_mut().and_then(|x| 
-            x.peek().copied()
-        ).unwrap_or(u64::MAX);
+        let copied_value = self
+            .copied_nodes_iter
+            .as_mut()
+            .and_then(|x| x.peek().copied())
+            .unwrap_or(u64::MAX);
 
         let interval_node = {
-            let (start, len) = self.intervals.get(self.intervals_idx).copied()
+            let (start, len) = self
+                .intervals
+                .get(self.intervals_idx)
+                .copied()
                 .unwrap_or((u64::MAX, usize::MAX));
-            debug_assert_ne!(len, 0, "there should never be an interval with length zero here");
+            debug_assert_ne!(
+                len, 0,
+                "there should never be an interval with length zero here"
+            );
             start
         };
 
         debug_assert!(
-            copied_value != u64::MAX 
-            ||
-            self.next_residual_node != u64::MAX
-            ||
-            interval_node != u64::MAX,
+            copied_value != u64::MAX
+                || self.next_residual_node != u64::MAX
+                || interval_node != u64::MAX,
             "At least one of the nodes must present, this should be a problem with the degree.",
         );
 
@@ -192,11 +195,17 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
             } else {
                 self.residuals_to_go -= 1;
                 // NOTE: here we cannot propagate the error
-                self.next_residual_node += 1 + self.reader.read_residual().expect("Error while reading a residual");
+                self.next_residual_node += 1 + self
+                    .reader
+                    .read_residual()
+                    .expect("Error while reading a residual");
             }
         } else {
             let (start, len) = &mut self.intervals[self.intervals_idx];
-            debug_assert_ne!(*len, 0, "there should never be an interval with length zero here");
+            debug_assert_ne!(
+                *len, 0,
+                "there should never be an interval with length zero here"
+            );
             // if the interval has other values, just reduce the interval
             if *len > 1 {
                 *len -= 1;

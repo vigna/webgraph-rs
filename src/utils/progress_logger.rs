@@ -1,87 +1,94 @@
 use log::info;
+use pluralizer::pluralize;
 use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Copy, Clone)]
 
 pub enum TimeUnit {
-	NanoSeconds,
-	MicroSeconds,
-	MilliSeconds,
+    NanoSeconds,
+    MicroSeconds,
+    MilliSeconds,
     Seconds,
     Minutes,
     Hours,
-    Days
+    Days,
 }
 
 pub const TIME_UNITS: [TimeUnit; 7] = [
-	TimeUnit::Days,
-	TimeUnit::Hours,
-	TimeUnit::Minutes,
-	TimeUnit::Seconds,
-	TimeUnit::MilliSeconds,
-	TimeUnit::MicroSeconds,
-	TimeUnit::NanoSeconds,
+    TimeUnit::NanoSeconds,
+    TimeUnit::MicroSeconds,
+    TimeUnit::MilliSeconds,
+    TimeUnit::Seconds,
+    TimeUnit::Minutes,
+    TimeUnit::Hours,
+    TimeUnit::Days,
 ];
 
 impl TimeUnit {
-	pub fn label(&self) -> &'static str {
-		match self {
-			TimeUnit::NanoSeconds => "ns",
-			TimeUnit::MicroSeconds => "us",
-			TimeUnit::MilliSeconds => "ms",
-			TimeUnit::Seconds => "s",
-			TimeUnit::Minutes => "m",
-			TimeUnit::Hours => "h",
-			TimeUnit::Days => "d",
-		}
-	}
+    pub fn label(&self) -> &'static str {
+        match self {
+            TimeUnit::NanoSeconds => "ns",
+            TimeUnit::MicroSeconds => "μs",
+            TimeUnit::MilliSeconds => "ms",
+            TimeUnit::Seconds => "s",
+            TimeUnit::Minutes => "m",
+            TimeUnit::Hours => "h",
+            TimeUnit::Days => "d",
+        }
+    }
 
-	pub fn to_seconds(&self) -> f64 {
-		match self {
-			TimeUnit::NanoSeconds => 1.0e9,
-			TimeUnit::MicroSeconds => 1.0e6,
-			TimeUnit::MilliSeconds => 1.0e3,
-			TimeUnit::Seconds => 1.0,
-			TimeUnit::Minutes => 1.0 / 60.0,
-			TimeUnit::Hours => 1.0 / 3600.0,
-			TimeUnit::Days => 1.0 / 86400.0,
-		}
-	}
+    pub fn to_seconds(&self) -> f64 {
+        match self {
+            TimeUnit::NanoSeconds => 1.0e-9,
+            TimeUnit::MicroSeconds => 1.0e-6,
+            TimeUnit::MilliSeconds => 1.0e-3,
+            TimeUnit::Seconds => 1.0,
+            TimeUnit::Minutes => 60.0,
+            TimeUnit::Hours => 3600.0,
+            TimeUnit::Days => 86400.0,
+        }
+    }
 
-	pub fn nice_time_unit(seconds: f64) -> Self {
-		for unit in TIME_UNITS {
-			if seconds >= unit.to_seconds() {
-				return unit;
-			}
-		}
-		TimeUnit::NanoSeconds
-	}
+    pub fn nice_time_unit(seconds: f64) -> Self {
+        for unit in TIME_UNITS.iter().rev() {
+            if seconds >= unit.to_seconds() {
+                return *unit;
+            }
+        }
+        TimeUnit::NanoSeconds
+    }
 
-	pub fn pretty_print(mut seconds: f64) -> String {
-		let mut result = String::new();
+    pub fn nice_speed_unit(seconds: f64) -> Self {
+        for unit in TIME_UNITS[3..].iter() {
+            if seconds <= unit.to_seconds() {
+                return *unit;
+            }
+        }
+        TimeUnit::NanoSeconds
+    }
 
-		for unit in [
-			TimeUnit::Days,
-			TimeUnit::Hours,
-			TimeUnit::Minutes,
-		] {
-			if seconds > unit.to_seconds() {
-				result.push_str(&format!(
-					"{}{} ",
-					seconds / unit.to_seconds(), unit.label(),
-				));
-				seconds %= unit.to_seconds();
-			}
-		}
+    pub fn pretty_print(milliseconds: u128) -> String {
+        let mut result = String::new();
 
-		result.push_str(
-			&format!("{}s", seconds) 
-		);
+        if milliseconds < 1000 {
+            return format!("{}ms", milliseconds);
+        }
 
-		result
-	}
+        let mut seconds = milliseconds / 1000;
 
+        for unit in [TimeUnit::Days, TimeUnit::Hours, TimeUnit::Minutes] {
+            let to_seconds = unit.to_seconds() as u128;
+            if seconds >= to_seconds {
+                result.push_str(&format!("{}{} ", seconds / to_seconds, unit.label(),));
+                seconds %= to_seconds;
+            }
+        }
+
+        result.push_str(&format!("{}s", seconds));
+
+        result
+    }
 }
 
 /// A tunable progress logger to log progress information about long-lasting activities.
@@ -131,7 +138,7 @@ pub struct ProgressLogger {
     pub name: String,
     pub log_interval: Duration,
     pub expected_updates: Option<usize>,
-	pub time_unit: Option<TimeUnit>,
+    pub time_unit: Option<TimeUnit>,
     start: Option<Instant>,
     next_log_time: Instant,
     stop_time: Option<Instant>,
@@ -144,7 +151,7 @@ impl Default for ProgressLogger {
             name: "items".to_string(),
             log_interval: Duration::from_secs(10),
             expected_updates: None,
-			time_unit: None,
+            time_unit: None,
             start: None,
             next_log_time: Instant::now(),
             stop_time: None,
@@ -157,7 +164,7 @@ impl ProgressLogger {
     const LIGHT_UPDATE_MASK: usize = (1 << 10) - 1;
 
     pub fn start<T: AsRef<str>>(&mut self, msg: T) {
-		let now = Instant::now();
+        let now = Instant::now();
         self.start = Some(now);
         self.stop_time = None;
         self.next_log_time = now + self.log_interval;
@@ -209,36 +216,34 @@ impl ProgressLogger {
     }
 }
 
-
 impl Display for ProgressLogger {
-
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let now = self.stop_time.unwrap_or_else(|| Instant::now());
         if let Some(start) = self.start {
             let elapsed = now - start;
 
-            let seconds_per_item = self.count as f64 / elapsed.as_secs_f64();
-            let items_per_second = elapsed.as_secs_f64() / self.count as f64;
+            let seconds_per_item = elapsed.as_secs_f64() / self.count as f64;
+            let items_per_second = 1.0 / seconds_per_item;
 
-			let time_unit_is = self.time_unit.unwrap_or_else(|| 
-				TimeUnit::nice_time_unit(items_per_second)
-			);
-			let time_unit_si = self.time_unit.unwrap_or_else(|| 
-				TimeUnit::nice_time_unit(seconds_per_item)
-			);
+            let time_unit_timing = self
+                .time_unit
+                .unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
+
+            let time_unit_speed = self
+                .time_unit
+                .unwrap_or_else(|| TimeUnit::nice_speed_unit(seconds_per_item));
 
             write!(
                 f,
-                "{} {}, {}, {:.3} {}/{}, {:.3} {}/{}",
-				self.count,
-				self.name,
-				TimeUnit::pretty_print(elapsed.as_secs_f64()),
-				seconds_per_item / time_unit_si.to_seconds(),
-				time_unit_si.label(),
-				self.name,
-				items_per_second / time_unit_is.to_seconds(),
-				time_unit_is.label(),
-				self.name,
+                "{}, {}, {:.3} {}/{}, {:.3} {}/{}",
+                pluralize(&self.name, self.count as isize, true),
+                TimeUnit::pretty_print(elapsed.as_millis()),
+                seconds_per_item / time_unit_timing.to_seconds(),
+                time_unit_timing.label(),
+                pluralize(&self.name, 2, false),
+                items_per_second * time_unit_speed.to_seconds(),
+                pluralize(&self.name, 2, false),
+                time_unit_speed.label(),
             )
         } else {
             write!(f, "ProgressLogger not started")

@@ -2,18 +2,15 @@
 //! universal coding of x ∈ N+ is obtained by representing x in binary
 //! preceded by a representation of its length in γ.
 
-use anyhow::Result;
+use super::{delta_tables, len_gamma, GammaRead, GammaWrite};
 use crate::traits::*;
-use super::{
-    GammaRead, GammaWrite, len_gamma, 
-    delta_tables,
-};
 use crate::utils::fast_log2_floor;
+use anyhow::Result;
 
 #[must_use]
 #[inline]
 /// Returns how long the Delta code for `value` will be
-/// 
+///
 /// `USE_TABLE` enables or disables the use of pre-computed tables
 /// for decoding
 pub fn len_delta<const USE_TABLE: bool>(value: u64) -> usize {
@@ -29,24 +26,22 @@ pub fn len_delta<const USE_TABLE: bool>(value: u64) -> usize {
 /// Trait for objects that can read Delta codes
 pub trait DeltaRead<BO: BitOrder>: GammaRead<BO> {
     /// Read a delta code from the stream.
-    /// 
+    ///
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitRead backend has problems reading
     /// bits, as when the stream ended unexpectedly
-    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self)
-        -> Result<u64>;
+    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self) -> Result<u64>;
 }
 
 impl<B: GammaRead<M2L>> DeltaRead<M2L> for B {
     #[inline]
-    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self) 
-        -> Result<u64> {
+    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = delta_tables::read_table_m2l(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         default_read_delta::<M2L, _, USE_GAMMA_TABLE>(self)
@@ -54,11 +49,10 @@ impl<B: GammaRead<M2L>> DeltaRead<M2L> for B {
 }
 impl<B: GammaRead<L2M>> DeltaRead<L2M> for B {
     #[inline]
-    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self)
-        -> Result<u64> {
+    fn read_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self) -> Result<u64> {
         if USE_TABLE {
             if let Some(res) = delta_tables::read_table_l2m(self)? {
-                return Ok(res)
+                return Ok(res);
             }
         }
         default_read_delta::<L2M, _, USE_GAMMA_TABLE>(self)
@@ -67,11 +61,11 @@ impl<B: GammaRead<L2M>> DeltaRead<L2M> for B {
 
 #[inline(always)]
 /// Default impl, so specialized impls can call it
-/// 
+///
 /// # Errors
 /// Forward `read_unary` and `read_bits` errors.
 fn default_read_delta<BO: BitOrder, B: GammaRead<BO>, const USE_GAMMA_TABLE: bool>(
-    backend: &mut B
+    backend: &mut B,
 ) -> Result<u64> {
     let n_bits = backend.read_gamma::<USE_GAMMA_TABLE>()?;
     debug_assert!(n_bits <= 64);
@@ -81,20 +75,25 @@ fn default_read_delta<BO: BitOrder, B: GammaRead<BO>, const USE_GAMMA_TABLE: boo
 /// Trait for objects that can write Delta codes
 pub trait DeltaWrite<BO: BitOrder>: GammaWrite<BO> {
     /// Write a value on the stream
-    /// 
+    ///
     /// `USE_TABLE` enables or disables the use of pre-computed tables
     /// for decoding
-    /// 
+    ///
     /// # Errors
     /// This function fails only if the BitWrite backend has problems writing
     /// bits, as when the stream ended unexpectedly
     fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(
-        &mut self, value: u64) -> Result<()>;
+        &mut self,
+        value: u64,
+    ) -> Result<()>;
 }
 
 impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
     #[inline]
-    fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(&mut self, value: u64) -> Result<()> {
+    fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(
+        &mut self,
+        value: u64,
+    ) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
                 return self.write_bits(*bits as u64, *n_bits as usize);
@@ -106,7 +105,9 @@ impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
 impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
     #[inline]
     fn write_delta<const USE_TABLE: bool, const USE_GAMMA_TABLE: bool>(
-        &mut self, value: u64) -> Result<()> {
+        &mut self,
+        value: u64,
+    ) -> Result<()> {
         if USE_TABLE {
             if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
                 return self.write_bits(*bits as u64, *n_bits as usize);
@@ -117,12 +118,13 @@ impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
 }
 
 /// Default impl, so specialized impls can call it
-/// 
+///
 /// # Errors
 /// Forward `write_unary` and `write_bits` errors.
 #[inline(always)]
 fn default_write_delta<BO: BitOrder, B: GammaWrite<BO>, const USE_GAMMA_TABLE: bool>(
-    backend: &mut B, mut value: u64,
+    backend: &mut B,
+    mut value: u64,
 ) -> Result<()> {
     value += 1;
     let number_of_bits_to_write = fast_log2_floor(value);

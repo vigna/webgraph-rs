@@ -1,6 +1,6 @@
 use crate::codes::unary_tables;
 use crate::traits::*;
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 
 /// An implementation of [`BitWrite`] on a generic [`WordWrite`]
 #[derive(Debug)]
@@ -41,19 +41,19 @@ impl<BO: BBSWDrop<WR>, WR: WordWrite> core::ops::Drop for BufferedBitStreamWrite
     }
 }
 
-/// Ignore. Inner trait needed for dispatching of drop logic based on endianess 
-/// of a [`BufferedBitStreamWrite`]. This is public to avoid the leak of 
+/// Ignore. Inner trait needed for dispatching of drop logic based on endianess
+/// of a [`BufferedBitStreamWrite`]. This is public to avoid the leak of
 /// private traits in public defs, an user should never need to implement this.
-/// 
+///
 /// I discussed this [here](https://users.rust-lang.org/t/on-generic-associated-enum-and-type-comparisons/92072).
 pub trait BBSWDrop<WR: WordWrite>: Sized + BitOrder {
     /// handle the drop
-    fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()>;
+    fn drop(data: &mut BufferedBitStreamWrite<Self, WR>) -> Result<()>;
 }
 
-impl<WR: WordWrite<Word=u64>> BBSWDrop<WR> for M2L {
+impl<WR: WordWrite<Word = u64>> BBSWDrop<WR> for M2L {
     #[inline]
-    fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()> {
+    fn drop(data: &mut BufferedBitStreamWrite<Self, WR>) -> Result<()> {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
             let mut word = data.buffer as u64;
@@ -65,7 +65,7 @@ impl<WR: WordWrite<Word=u64>> BBSWDrop<WR> for M2L {
     }
 }
 
-impl<WR: WordWrite<Word=u64>> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite<Word = u64>> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn partial_flush(&mut self) -> Result<()> {
         if self.bits_in_buffer < 64 {
@@ -78,11 +78,14 @@ impl<WR: WordWrite<Word=u64>> BitWriteBuffered<M2L> for BufferedBitStreamWrite<M
     }
 }
 
-impl<WR: WordWrite<Word=u64>> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
+impl<WR: WordWrite<Word = u64>> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: usize) -> Result<()> {
         if n_bits > 64 {
-            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
+            bail!(
+                "The n of bits to read has to be in [0, 64] and {} is not.",
+                n_bits
+            );
         }
         if n_bits == 0 {
             return Ok(());
@@ -142,9 +145,9 @@ impl<WR: WordWrite<Word=u64>> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR> 
     }
 }
 
-impl<WR: WordWrite<Word=u64>> BBSWDrop<WR> for L2M {
+impl<WR: WordWrite<Word = u64>> BBSWDrop<WR> for L2M {
     #[inline]
-    fn drop(data: &mut  BufferedBitStreamWrite<Self, WR>) -> Result<()> {
+    fn drop(data: &mut BufferedBitStreamWrite<Self, WR>) -> Result<()> {
         data.partial_flush()?;
         if data.bits_in_buffer > 0 {
             let mut word = (data.buffer >> 64) as u64;
@@ -156,7 +159,7 @@ impl<WR: WordWrite<Word=u64>> BBSWDrop<WR> for L2M {
     }
 }
 
-impl<WR: WordWrite<Word=u64>> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite<Word = u64>> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn partial_flush(&mut self) -> Result<()> {
         if self.bits_in_buffer < 64 {
@@ -169,11 +172,14 @@ impl<WR: WordWrite<Word=u64>> BitWriteBuffered<L2M> for BufferedBitStreamWrite<L
     }
 }
 
-impl<WR: WordWrite<Word=u64>> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
+impl<WR: WordWrite<Word = u64>> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR> {
     #[inline]
     fn write_bits(&mut self, value: u64, n_bits: usize) -> Result<()> {
         if n_bits > 64 {
-            bail!("The n of bits to read has to be in [0, 64] and {} is not.", n_bits);
+            bail!(
+                "The n of bits to read has to be in [0, 64] and {} is not.",
+                n_bits
+            );
         }
         if n_bits == 0 {
             return Ok(());
