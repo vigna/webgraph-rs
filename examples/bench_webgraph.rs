@@ -6,6 +6,7 @@ use rand::SeedableRng;
 use std::fs::File;
 use std::io::BufReader;
 use webgraph::prelude::*;
+use sux::prelude::*;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -42,48 +43,49 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
     let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
     // Read the offsets
-    let mut data = std::fs::read(format!("{}.offsets", args.basename)).unwrap();
+    let mut data_offsets = std::fs::read(format!("{}.offsets", args.basename)).unwrap();
     // pad with zeros so we can read with ReadType words
-    while data.len() % core::mem::size_of::<ReadType>() != 0 {
-        data.push(0);
+    while data_offsets.len() % core::mem::size_of::<ReadType>() != 0 {
+        data_offsets.push(0);
     }
     // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
-    let data = data
+    let data_offsets = data_offsets
         .chunks(core::mem::size_of::<ReadType>())
         .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
         .collect::<Vec<_>>();
-
+    let mut data_graph = std::fs::read(format!("{}.graph", args.basename)).unwrap();
+    // pad with zeros so we can read with ReadType words
+    while data_graph.len() % core::mem::size_of::<ReadType>() != 0 {
+        data_graph.push(0);
+    }
+    // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
+    let data_graph = data_graph
+        .chunks(core::mem::size_of::<ReadType>())
+        .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
+        .collect::<Vec<_>>();
+            
     // Read the offsets gammas
-    let mut offsets = Vec::with_capacity(num_nodes as usize);
+    let mut offsets = EliasFanoBuilder::new(data_graph.len() as u64 * 8, num_nodes);
     let mut reader =
-        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data));
+        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_offsets));
     let mut offset = 0;
     for _ in 0..num_nodes {
         offset += reader.read_gamma::<true>().unwrap() as usize;
-        offsets.push(offset);
+        offsets.push(offset as _).unwrap();
     }
 
-    let mut data = std::fs::read(format!("{}.graph", args.basename)).unwrap();
-    // pad with zeros so we can read with ReadType words
-    while data.len() % core::mem::size_of::<ReadType>() != 0 {
-        data.push(0);
-    }
-    // we must do this becasue Vec<u8> is not guaranteed to be properly aligned
-    let data = data
-        .chunks(core::mem::size_of::<ReadType>())
-        .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
-        .collect::<Vec<_>>();
+    let offsets = offsets.build();
 
     if args.check {
         // Create a sequential reader
         let mut code_reader = DefaultCodesReader::new(
-            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
+            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_graph)),
         );
         let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
 
         // create a random access reader
         let code_reader = DefaultCodesReader::new(
-            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
+            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_graph)),
         );
         let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
 
@@ -103,7 +105,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Create a sequential reader
             let mut code_reader =
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&data),
+                    MemWordReadInfinite::new(&data_graph),
                 ));
             let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
             let mut c: usize = 0;
@@ -123,7 +125,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // create a random access reader
             let code_reader = DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
+                BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_graph)),
             );
             let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
 

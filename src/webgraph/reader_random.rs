@@ -1,3 +1,5 @@
+use sux::traits::VSlice;
+
 use super::*;
 use crate::utils::nat2int;
 use core::iter::Peekable;
@@ -11,7 +13,7 @@ pub struct WebgraphReaderRandomAccess<CR, OFF> {
 impl<CR, OFF: > WebgraphReaderRandomAccess<CR, OFF> 
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
-    OFF: core::ops::Index<usize, Output=usize>,
+    OFF: VSlice,
 {
     pub fn new(codes_reader: CR, offsets: OFF, min_interval_length: usize) -> Self {
         Self {
@@ -24,7 +26,7 @@ where
     #[inline(always)]
     pub fn get_successors_iter(&self, node_id: u64) -> Result<SuccessorsIterRandom<CR>> {
         let mut codes_reader = self.codes_reader.clone();
-        codes_reader.seek_bit(self.offsets[node_id as usize])?;
+        codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
 
         let mut result = SuccessorsIterRandom::new(codes_reader);
         let degree = result.reader.read_outdegree()? as usize;
