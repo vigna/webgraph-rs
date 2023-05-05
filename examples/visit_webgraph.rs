@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::BufReader;
 use sux::prelude::*;
 use webgraph::prelude::*;
-use std::time::Instant;
+use webgraph::utils::ProgressLogger;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -19,6 +19,12 @@ struct Args {
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
 
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
@@ -75,16 +81,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut visited = BitMap::new(num_nodes as usize);
     let mut queue = VecDeque::new();
 
-    eprintln!("Visiting graph...");
-
-    let start = Instant::now();
-
+    let mut pr = ProgressLogger::new("node");
+    pr.start("Visiting graph...");
+    
     for start in 0..num_nodes {
         if visited.get(start as usize).unwrap() != 0 {
             continue;
         }
         queue.push_back(start as _);
         visited.set(start as _, 1).unwrap();
+        pr.update();
         let mut current_node;
 
         while queue.len() > 0 {
@@ -93,13 +99,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if visited.get(succ as usize).unwrap() == 0 {
                     queue.push_back(succ);
                     visited.set(succ as _, 1).unwrap();
+                    pr.update();
                 }
             }
         }
     }
 
-    let elapsed = start.elapsed().as_secs_f64();
-    println!("{:.2}s, {:.2}ns/arc", elapsed, elapsed * 1.0E9 / num_arcs as f64);
+    pr.done::<String>(None);
 
     Ok(())
 }
