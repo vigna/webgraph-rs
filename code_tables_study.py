@@ -5,7 +5,13 @@ create a `table.csv` file with all the results
 import os
 import sys
 import subprocess
-from code_tables_generator import *
+from code_tables_generator import (
+    gen_unary,
+    gen_gamma,
+    gen_delta,
+    gen_zeta,
+    generate_default_tables,
+)
 
 for bits in range(1, 18):
     print("Table bits:", bits, file=sys.stderr)
@@ -17,7 +23,8 @@ for bits in range(1, 18):
         )
         # Run the benchmark with native cpu optimizations
         stdout = subprocess.check_output(
-            "cargo run --release", shell=True,
+            "cargo run --release",
+            shell=True,
             env={
                 **os.environ,
                 "UNARY_CODE_TABLE_BITS":str(bits),
@@ -32,12 +39,12 @@ for bits in range(1, 18):
 
         # Dump the header only the first time
         if bits == 1 and tables_num == 1:
-            print("n_bits,tables_num," + stdout.split('\n')[0])
+            print("n_bits,tables_num," + stdout.split("\n")[0])
         # Dump all lines and add the `n_bits` column
         for line in stdout.split("\n")[1:]:
             if len(line.strip()) != 0:
                 print("{},{},{}".format(bits, tables_num, line))
-        
+
         sys.stdout.flush()
 
 # Reset the tables to the original state

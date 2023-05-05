@@ -20,39 +20,55 @@ for code in ["unary", "gamma", "delta", "delta_gamma", "zeta3"]:
                 marker = "s"
 
             for pat in [
-                "%s::L2M::Table"%code,
-                "%s::M2L::Table"%code,
+                "%s::L2M::Table" % code,
+                "%s::M2L::Table" % code,
             ]:
-                values = df[(df.pat == pat) & (df.type == ty) & (df.tables_num == tables_n)]
+                values = df[
+                    (df.pat == pat) & (df.type == ty) & (df.tables_num == tables_n)
+                ]
                 m = min(values.ns_median)
                 i = np.argmin(values.ns_median)
                 plt.errorbar(
-                    values.n_bits, values.ns_median, #values.ns_std,
-                    label="{}::{}::{} (min: {:.3f}ns {} bits)".format("::".join(pat.split("::")[1:]), table_txt, ty, m, i), 
+                    values.n_bits,
+                    values.ns_median,  # values.ns_std,
+                    label="{}::{}::{} (min: {:.3f}ns {} bits)".format(
+                        "::".join(pat.split("::")[1:]), table_txt, ty, m, i
+                    ),
                     marker=marker,
                 )
                 plt.fill_between(
-                    values.n_bits, values.ns_perc25, values.ns_perc75, 
+                    values.n_bits,
+                    values.ns_perc25,
+                    values.ns_perc75,
                     alpha=0.3,
                 )
 
         for pat in [
-            "%s::L2M::NoTable"%code,
-            "%s::M2L::NoTable"%code,
-        ]:  
+            "%s::L2M::NoTable" % code,
+            "%s::M2L::NoTable" % code,
+        ]:
             values = df[(df.pat == pat) & (df.type == ty)].groupby("n_bits").mean()
             m = min(values.ns_median)
             plt.errorbar(
-                values.index, values.ns_median, #values.ns_std,
-                label="{}::{} (min: {:.3f}ns)".format("::".join(pat.split("::")[1:]), ty, m, i), 
+                values.index,
+                values.ns_median,  # values.ns_std,
+                label="{}::{} (min: {:.3f}ns)".format(
+                    "::".join(pat.split("::")[1:]), ty, m
+                ),
                 marker="^",
             )
             plt.fill_between(
-                values.index, values.ns_perc25, values.ns_perc75, 
+                values.index,
+                values.ns_perc25,
+                values.ns_perc75,
                 alpha=0.3,
             )
 
-    ratios = df[df.pat.str.contains(code) & (df.tables_num == tables_n)].groupby("n_bits").mean()
+    ratios = (
+        df[df.pat.str.contains(code) & (df.tables_num == tables_n)]
+        .groupby("n_bits")
+        .mean()
+    )
     bars = plt.bar(
         ratios.index,
         ratios.ratio,
@@ -61,13 +77,14 @@ for code in ["unary", "gamma", "delta", "delta_gamma", "zeta3"]:
         linewidth=1,
         edgecolor="black",
     )
-    for ratio,rect in zip(ratios.ratio, bars):
+    for ratio, rect in zip(ratios.ratio, bars):
         height = rect.get_height()
         plt.text(
-            rect.get_x() + rect.get_width() / 2.0, 1.2, 
-            "{:.2f}%".format(ratio * 100), 
-            ha='center', 
-            va='bottom',
+            rect.get_x() + rect.get_width() / 2.0,
+            1.2,
+            "{:.2f}%".format(ratio * 100),
+            ha="center",
+            va="bottom",
             rotation=90,
         )
 
@@ -80,14 +97,21 @@ for code in ["unary", "gamma", "delta", "delta_gamma", "zeta3"]:
         "--",
         alpha=0.3,
         color="gray",
-        label="table hit ratio 100% line"
+        label="table hit ratio 100% line",
     )
-        
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.ylim(bottom=0) #ymin is your value
-    plt.xlim([left, right]) #ymin is your value
+
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    plt.ylim(bottom=0)  # ymin is your value
+    plt.xlim([left, right])  # ymin is your value
     plt.xticks(ratios.index)
-    plt.title("Performances of %s codes read and writes in function of the table size\nShaded areas are the 25%% and 75%% percentiles and the plots are medians with stds."%(code.capitalize()))
+    plt.title(
+        (
+            "Performances of %s codes read and writes in function of the table size\n"
+            "Shaded areas are the 25%% and 75%% percentiles and the plots "
+            "are medians with stds."
+        )
+        % (code.capitalize())
+    )
     plt.xlabel("Table Bits")
     plt.ylabel("ns")
-    plt.savefig("%s_tables.png"%code, bbox_inches="tight")
+    plt.savefig("%s_tables.png" % code, bbox_inches="tight")
