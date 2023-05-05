@@ -65,7 +65,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<_>>();
             
     // Read the offsets gammas
-    let mut offsets = EliasFanoBuilder::new(data_graph.len() as u64 * 8, num_nodes);
+    let mut offsets = EliasFanoBuilder::new(
+        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64, 
+        num_nodes,
+    );
     let mut reader =
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data_offsets));
     let mut offset = 0;
@@ -73,8 +76,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         offset += reader.read_gamma::<true>().unwrap() as usize;
         offsets.push(offset as _).unwrap();
     }
-
-    let offsets = offsets.build();
+    let offsets: EliasFano<
+        SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, 
+        CompactArray<Vec<u64>>,
+    > = offsets.build().convert_to().unwrap();
 
     if args.check {
         // Create a sequential reader
@@ -135,7 +140,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let start = std::time::Instant::now();
             for _ in 0..args.n {
                 c += random_reader
-                    .get_successors_iter(random.gen_range(0..args.n))?
+                    .get_successors_iter(random.gen_range(0..num_nodes))?
                     .count();
             }
 
