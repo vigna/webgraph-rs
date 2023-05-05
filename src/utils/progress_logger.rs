@@ -2,6 +2,75 @@ use log::info;
 use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
 
+#[derive(Debug, Copy, Clone)]
+
+pub enum TimeUnit {
+	NanoSeconds,
+	MicroSeconds,
+	MilliSeconds,
+    Seconds,
+    Minutes,
+    Hours,
+    Days
+}
+
+impl TimeUnit {
+	pub fn label(&self) -> &'static str {
+		match self {
+			TimeUnit::NanoSeconds => "ns",
+			TimeUnit::MicroSeconds => "us",
+			TimeUnit::MilliSeconds => "ms",
+			TimeUnit::Seconds => "s",
+			TimeUnit::Minutes => "m",
+			TimeUnit::Hours => "h",
+			TimeUnit::Days => "d",
+		}
+	}
+
+	pub fn from_secs(&self, secs: f64) -> f64 {
+		match self {
+			TimeUnit::NanoSeconds => secs * 1.0e9,
+			TimeUnit::MicroSeconds => secs * 1.0e6,
+			TimeUnit::MilliSeconds => secs * 1.0e3,
+			TimeUnit::Seconds => secs,
+			TimeUnit::Minutes => secs / 60.0,
+			TimeUnit::Hours => secs / 3600.0,
+			TimeUnit::Days => secs / 86400.0,
+		}
+	}
+
+	pub fn nice_rate(seconds_per_item: f64) -> Self {
+		if seconds_per_item >= 1.0 {
+			TimeUnit::Seconds
+		} else if seconds_per_item * 60.0 >= 1.0 {
+			TimeUnit::Minutes
+		} else if seconds_per_item * 3600.0 >= 1.0 {
+			TimeUnit::Hours
+		} else {
+			TimeUnit::Days
+		}
+	}
+
+	pub fn nice_time_unit(seconds_per_item: f64) -> Self {
+		if seconds_per_item >= 86400.0 {
+			TimeUnit::Days
+		}	else if seconds_per_item >= 3600.0 {
+			TimeUnit::Hours
+		} else if seconds_per_item >= 60.0 {
+			TimeUnit::Minutes
+		} else if seconds_per_item >= 1.0 {
+			TimeUnit::Seconds
+		} else if seconds_per_item >= 1.0e-3 {
+			TimeUnit::MilliSeconds
+		} else if seconds_per_item >= 1.0e-6 {
+			TimeUnit::MicroSeconds
+		} else {
+			TimeUnit::NanoSeconds
+		}
+	}
+
+}
+
 /// A tunable progress logger to log progress information about long-lasting activities.
 /// It is a port of the Java class `it.unimi.dsi.util.ProgressLogger` from the [DSI Utilities](https://dsiutils.di.unimi.it/).
 ///
@@ -49,6 +118,7 @@ pub struct ProgressLogger {
     pub name: String,
     pub log_interval: Duration,
     pub expected_updates: Option<usize>,
+	pub time_unit: Option<TimeUnit>,
     start: Option<Instant>,
     next_log_time: Instant,
     stop_time: Option<Instant>,
@@ -61,6 +131,7 @@ impl Default for ProgressLogger {
             name: "items".to_string(),
             log_interval: Duration::from_secs(10),
             expected_updates: None,
+			time_unit: None,
             start: None,
             next_log_time: Instant::now(),
             stop_time: None,
@@ -123,20 +194,51 @@ impl ProgressLogger {
         // just to avoid wrong reuses
         info!("{}", self);
     }
+
+	fn items_per_time_interval(seconds_per_item: f64, name: &str, time_unit: Option<TimeUnit>) -> String {
+		let time_unit = time_unit.unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
+		format!("{:.3} {}/{}", time_unit.from_secs(seconds_per_item), name, time_unit.label())
+	}
+
+	fn time_per_item(seconds_per_item: f64, name: &str, time_unit: Option<TimeUnit>) -> String {
+		let time_unit = time_unit.unwrap_or_else(|| TimeUnit::nice_rate(seconds_per_item));
+		format!("{:.3} {}/{}", time_unit.from_secs(seconds_per_item), time_unit.label(), name)
+	}
+
+	fn millis_2_hms(t: u128) ->String {
+		if t < 1000 {
+			return format!("{}ms", t);
+		}
+		let s = (t / 1000) % 60;
+		let m = ((t / 1000) / 60) % 60;
+		let h = t / (3600 * 1000);
+		if h == 0 && m == 0 {
+			return format!("{}s", s);
+		}
+		if h == 0 {
+			return format!("{}m {}s", m, s);
+		}
+		format!("{}h {}m {}s", h, m, s)
+	}
+
 }
 
+
 impl Display for ProgressLogger {
+
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let now = self.stop_time.unwrap_or_else(|| Instant::now());
         if let Some(start) = self.start {
             let elapsed = now - start;
-            let rate = self.count as f64 / elapsed.as_secs_f64();
-            let speed_in_ns = 1.0E9 / rate;
+            let seconds_per_item = self.count as f64 / elapsed.as_secs_f64();
             write!(
                 f,
-                "{count} {name}, {speed_in_ns} ns/{name} {rate} {name}/s",
-                count = self.count,
-                name = self.name
+                "{count} {name}, {overall}, {items_per_time_interval}, {time_per_item}",
+				count = self.count,
+				name = self.name,
+				overall = Self::millis_2_hms(elapsed.as_millis()),
+                time_per_item = Self::time_per_item(seconds_per_item, &self.name, self.time_unit),
+				items_per_time_interval = Self::items_per_time_interval(seconds_per_item, &self.name, self.time_unit),
             )
         } else {
             write!(f, "ProgressLogger not started")
