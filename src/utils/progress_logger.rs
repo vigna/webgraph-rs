@@ -14,6 +14,16 @@ pub enum TimeUnit {
     Days
 }
 
+pub const TIME_UNITS: [TimeUnit; 7] = [
+	TimeUnit::Days,
+	TimeUnit::Hours,
+	TimeUnit::Minutes,
+	TimeUnit::Seconds,
+	TimeUnit::MilliSeconds,
+	TimeUnit::MicroSeconds,
+	TimeUnit::NanoSeconds,
+];
+
 impl TimeUnit {
 	pub fn label(&self) -> &'static str {
 		match self {
@@ -27,46 +37,49 @@ impl TimeUnit {
 		}
 	}
 
-	pub fn from_secs(&self, secs: f64) -> f64 {
+	pub fn to_seconds(&self) -> f64 {
 		match self {
-			TimeUnit::NanoSeconds => secs * 1.0e9,
-			TimeUnit::MicroSeconds => secs * 1.0e6,
-			TimeUnit::MilliSeconds => secs * 1.0e3,
-			TimeUnit::Seconds => secs,
-			TimeUnit::Minutes => secs / 60.0,
-			TimeUnit::Hours => secs / 3600.0,
-			TimeUnit::Days => secs / 86400.0,
+			TimeUnit::NanoSeconds => 1.0e9,
+			TimeUnit::MicroSeconds => 1.0e6,
+			TimeUnit::MilliSeconds => 1.0e3,
+			TimeUnit::Seconds => 1.0,
+			TimeUnit::Minutes => 1.0 / 60.0,
+			TimeUnit::Hours => 1.0 / 3600.0,
+			TimeUnit::Days => 1.0 / 86400.0,
 		}
 	}
 
-	pub fn nice_rate(seconds_per_item: f64) -> Self {
-		if seconds_per_item >= 1.0 {
-			TimeUnit::Seconds
-		} else if seconds_per_item * 60.0 >= 1.0 {
-			TimeUnit::Minutes
-		} else if seconds_per_item * 3600.0 >= 1.0 {
-			TimeUnit::Hours
-		} else {
-			TimeUnit::Days
+	pub fn nice_time_unit(seconds: f64) -> Self {
+		for unit in TIME_UNITS {
+			if seconds >= unit.to_seconds() {
+				return unit;
+			}
 		}
+		TimeUnit::NanoSeconds
 	}
 
-	pub fn nice_time_unit(seconds_per_item: f64) -> Self {
-		if seconds_per_item >= 86400.0 {
-			TimeUnit::Days
-		}	else if seconds_per_item >= 3600.0 {
-			TimeUnit::Hours
-		} else if seconds_per_item >= 60.0 {
-			TimeUnit::Minutes
-		} else if seconds_per_item >= 1.0 {
-			TimeUnit::Seconds
-		} else if seconds_per_item >= 1.0e-3 {
-			TimeUnit::MilliSeconds
-		} else if seconds_per_item >= 1.0e-6 {
-			TimeUnit::MicroSeconds
-		} else {
-			TimeUnit::NanoSeconds
+	pub fn pretty_print(mut seconds: f64) -> String {
+		let mut result = String::new();
+
+		for unit in [
+			TimeUnit::Days,
+			TimeUnit::Hours,
+			TimeUnit::Minutes,
+		] {
+			if seconds > unit.to_seconds() {
+				result.push_str(&format!(
+					"{}{} ",
+					seconds / unit.to_seconds(), unit.label(),
+				));
+				seconds %= unit.to_seconds();
+			}
 		}
+
+		result.push_str(
+			&format!("{}s", seconds) 
+		);
+
+		result
 	}
 
 }
@@ -194,33 +207,6 @@ impl ProgressLogger {
         // just to avoid wrong reuses
         info!("{}", self);
     }
-
-	fn items_per_time_interval(seconds_per_item: f64, name: &str, time_unit: Option<TimeUnit>) -> String {
-		let time_unit = time_unit.unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
-		format!("{:.3} {}/{}", time_unit.from_secs(seconds_per_item), name, time_unit.label())
-	}
-
-	fn time_per_item(seconds_per_item: f64, name: &str, time_unit: Option<TimeUnit>) -> String {
-		let time_unit = time_unit.unwrap_or_else(|| TimeUnit::nice_rate(seconds_per_item));
-		format!("{:.3} {}/{}", time_unit.from_secs(seconds_per_item), time_unit.label(), name)
-	}
-
-	fn millis_2_hms(t: u128) ->String {
-		if t < 1000 {
-			return format!("{}ms", t);
-		}
-		let s = (t / 1000) % 60;
-		let m = ((t / 1000) / 60) % 60;
-		let h = t / (3600 * 1000);
-		if h == 0 && m == 0 {
-			return format!("{}s", s);
-		}
-		if h == 0 {
-			return format!("{}m {}s", m, s);
-		}
-		format!("{}h {}m {}s", h, m, s)
-	}
-
 }
 
 
@@ -230,15 +216,29 @@ impl Display for ProgressLogger {
         let now = self.stop_time.unwrap_or_else(|| Instant::now());
         if let Some(start) = self.start {
             let elapsed = now - start;
+
             let seconds_per_item = self.count as f64 / elapsed.as_secs_f64();
+            let items_per_second = elapsed.as_secs_f64() / self.count as f64;
+
+			let time_unit_is = self.time_unit.unwrap_or_else(|| 
+				TimeUnit::nice_time_unit(items_per_second)
+			);
+			let time_unit_si = self.time_unit.unwrap_or_else(|| 
+				TimeUnit::nice_time_unit(seconds_per_item)
+			);
+
             write!(
                 f,
-                "{count} {name}, {overall}, {items_per_time_interval}, {time_per_item}",
-				count = self.count,
-				name = self.name,
-				overall = Self::millis_2_hms(elapsed.as_millis()),
-                time_per_item = Self::time_per_item(seconds_per_item, &self.name, self.time_unit),
-				items_per_time_interval = Self::items_per_time_interval(seconds_per_item, &self.name, self.time_unit),
+                "{} {}, {}, {:.3} {}/{}, {:.3} {}/{}",
+				self.count,
+				self.name,
+				TimeUnit::pretty_print(elapsed.as_secs_f64()),
+				seconds_per_item / time_unit_si.to_seconds(),
+				time_unit_si.label(),
+				self.name,
+				items_per_second / time_unit_is.to_seconds(),
+				time_unit_is.label(),
+				self.name,
             )
         } else {
             write!(f, "ProgressLogger not started")

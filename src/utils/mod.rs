@@ -2,7 +2,7 @@
 use crate::traits::*;
 
 mod progress_logger;
-pub use progress_logger::ProgressLogger;
+pub use progress_logger::*;
 
 /// Return the lowest `n_bits` of `value`.
 /// Calling with `n_bits == 0` or `n_bits > 64` will result in undefined 
