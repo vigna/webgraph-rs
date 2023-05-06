@@ -1,8 +1,8 @@
 use log::info;
+use num_format::{Locale, ToFormattedString};
 use pluralizer::pluralize;
 use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
-use num_format::{Locale, ToFormattedString};
 
 #[derive(Debug, Copy, Clone)]
 
@@ -146,7 +146,7 @@ pub struct ProgressLogger {
     next_log_time: Instant,
     stop_time: Option<Instant>,
     count: usize,
-	last_count: usize,
+    last_count: usize,
 }
 
 impl Default for ProgressLogger {
@@ -156,13 +156,13 @@ impl Default for ProgressLogger {
             log_interval: Duration::from_secs(10),
             expected_updates: None,
             time_unit: None,
-			local_speed: false,
+            local_speed: false,
             start: None,
-			last_log_time: Instant::now(),
+            last_log_time: Instant::now(),
             next_log_time: Instant::now(),
             stop_time: None,
             count: 0,
-			last_count: 0,
+            last_count: 0,
         }
     }
 }
@@ -182,8 +182,8 @@ impl ProgressLogger {
         let now = Instant::now();
         if self.next_log_time <= now {
             info!("{}", self);
-			self.last_count = self.count;
-			self.last_log_time = now;
+            self.last_count = self.count;
+            self.last_log_time = now;
             self.next_log_time = now + self.log_interval;
         }
     }
@@ -222,6 +222,30 @@ impl ProgressLogger {
         // just to avoid wrong reuses
         info!("{}", self);
     }
+
+    fn fmt_timing_speed(&self, f: &mut Formatter<'_>, seconds_per_item: f64) -> Result {
+        let items_per_second = 1.0 / seconds_per_item;
+
+        let time_unit_timing = self
+            .time_unit
+            .unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
+
+        let time_unit_speed = self
+            .time_unit
+            .unwrap_or_else(|| TimeUnit::nice_speed_unit(seconds_per_item));
+
+        f.write_fmt(format_args!(
+            "{:.2} {}/{}, {:.2} {}/{}",
+            seconds_per_item / time_unit_timing.to_seconds(),
+            time_unit_timing.label(),
+            self.name,
+            items_per_second * time_unit_speed.to_seconds(),
+            pluralize(&self.name, 2, false),
+            time_unit_speed.label()
+        ))?;
+
+        Ok(())
+    }
 }
 
 impl Display for ProgressLogger {
@@ -230,59 +254,36 @@ impl Display for ProgressLogger {
         if let Some(start) = self.start {
             let elapsed = now - start;
 
-            let seconds_per_item = elapsed.as_secs_f64() / self.count as f64;
-            let items_per_second = 1.0 / seconds_per_item;
-
-            let time_unit_timing = self
-                .time_unit
-                .unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
-
-            let time_unit_speed = self
-                .time_unit
-                .unwrap_or_else(|| TimeUnit::nice_speed_unit(seconds_per_item));
-
             f.write_fmt(format_args!(
-                "{} {}, {}, {:.2} {}/{}, {:.2} {}/{}",
+                "{} {}, {}, ",
                 self.count.to_formatted_string(&Locale::en),
                 pluralize(&self.name, self.count as isize, false),
                 TimeUnit::pretty_print(elapsed.as_millis()),
-                seconds_per_item / time_unit_timing.to_seconds(),
-                time_unit_timing.label(),
-                self.name,
-                items_per_second * time_unit_speed.to_seconds(),
-                pluralize(&self.name, 2, false),
-                time_unit_speed.label()
             ))?;
 
+            let seconds_per_item = elapsed.as_secs_f64() / self.count as f64;
+            self.fmt_timing_speed(f, seconds_per_item)?;
+
             if let Some(expected_updates) = self.expected_updates {
+                let millis_to_end: u128 = ((expected_updates - self.count) as u128
+                    * elapsed.as_millis())
+                    / (self.count as u128 + 1);
                 f.write_fmt(format_args!(
-                    "; {:.2}% done", 100.0 * self.count as f64 / expected_updates as f64
+                    "; {:.2}% done, {} to end",
+                    100.0 * self.count as f64 / expected_updates as f64,
+                    TimeUnit::pretty_print(millis_to_end)
                 ))?;
             }
 
-            if self.local_speed && self.stop_time.is_none(){
+            if self.local_speed && self.stop_time.is_none() {
+                f.write_fmt(format_args!(" ["))?;
+
                 let elapsed = now - self.last_log_time;
+                let seconds_per_item =
+                    elapsed.as_secs_f64() / (self.count - self.last_count) as f64;
+                self.fmt_timing_speed(f, seconds_per_item)?;
 
-                let seconds_per_item = elapsed.as_secs_f64() / (self.count - self.last_count) as f64;
-                let items_per_second = 1.0 / seconds_per_item;
-
-                let time_unit_timing = self
-                    .time_unit
-                    .unwrap_or_else(|| TimeUnit::nice_time_unit(seconds_per_item));
-
-                let time_unit_speed = self
-                    .time_unit
-                    .unwrap_or_else(|| TimeUnit::nice_speed_unit(seconds_per_item));
-
-                f.write_fmt(format_args!(
-                    " [{:.2} {}/{}, {:.2} {}/{}]",
-                    seconds_per_item / time_unit_timing.to_seconds(),
-                    time_unit_timing.label(),
-                    self.name,
-                    items_per_second * time_unit_speed.to_seconds(),
-                    pluralize(&self.name, 2, false),
-                    time_unit_speed.label()
-                ))?;
+                f.write_fmt(format_args!("]"))?;
             }
 
             Ok(())
