@@ -66,7 +66,7 @@ impl TimeUnit {
                 return *unit;
             }
         }
-        TimeUnit::NanoSeconds
+        TimeUnit::Days
     }
 
     pub fn pretty_print(milliseconds: u128) -> String {
