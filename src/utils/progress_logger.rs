@@ -16,17 +16,17 @@ pub enum TimeUnit {
     Days,
 }
 
-pub const TIME_UNITS: [TimeUnit; 7] = [
-    TimeUnit::NanoSeconds,
-    TimeUnit::MicroSeconds,
-    TimeUnit::MilliSeconds,
-    TimeUnit::Seconds,
-    TimeUnit::Minutes,
-    TimeUnit::Hours,
-    TimeUnit::Days,
-];
-
 impl TimeUnit {
+    pub const VALUES: [TimeUnit; 7] = [
+        TimeUnit::NanoSeconds,
+        TimeUnit::MicroSeconds,
+        TimeUnit::MilliSeconds,
+        TimeUnit::Seconds,
+        TimeUnit::Minutes,
+        TimeUnit::Hours,
+        TimeUnit::Days,
+    ];
+
     pub fn label(&self) -> &'static str {
         match self {
             TimeUnit::NanoSeconds => "ns",
@@ -52,7 +52,7 @@ impl TimeUnit {
     }
 
     pub fn nice_time_unit(seconds: f64) -> Self {
-        for unit in TIME_UNITS.iter().rev() {
+        for unit in TimeUnit::VALUES.iter().rev() {
             if seconds >= unit.to_seconds() {
                 return *unit;
             }
@@ -61,7 +61,7 @@ impl TimeUnit {
     }
 
     pub fn nice_speed_unit(seconds: f64) -> Self {
-        for unit in TIME_UNITS[3..].iter() {
+        for unit in TimeUnit::VALUES[3..].iter() {
             if seconds <= unit.to_seconds() {
                 return *unit;
             }
@@ -93,28 +93,33 @@ impl TimeUnit {
 }
 
 /// A tunable progress logger to log progress information about long-lasting activities.
-/// It is a port of the Java class `it.unimi.dsi.util.ProgressLogger` from the [DSI Utilities](https://dsiutils.di.unimi.it/).
+/// It is a port of the Java class [`it.unimi.dsi.util.ProgressLogger`](https://dsiutils.di.unimi.it/docs/it/unimi/dsi/logging/ProgressLogger.html)
+/// from the [DSI Utilities](https://dsiutils.di.unimi.it/).
+/// Logging is based on the standard [`log`](https://docs.rs/log) crate at the `info` level.
 ///
-/// Once you create a progress logger, you can set the name of the counted items, the log interval and
-/// optionally the expected number of items, which will be used to estimate the completion time.
-///
-/// To log the progress of an activity, you call [`ProgressLogger::start`]. Then, each time you want to mark progress,
-/// you call usually [`xProgressLogger::update`], which increases the item counter, and will log progress information
+/// To log the progress of an activity, you call [`start`](#methods.start). Then, each time you want to mark progress,
+/// you call [`update`](#methods.update), which increases the item counter, and will log progress information
 /// if enough time has passed since the last log. The time check happens only on multiples of
-/// [`ProgressLogger::LIGHT_UPDATE_MASK`] + 1 in the case of [`ProgressLogger::light_update`], which should be used when the activity
+/// [`LIGHT_UPDATE_MASK`](#fields.LIGHT_UPDATE_MASK) + 1 in the case of [`light_update`](#methods.light_update), 
+/// which should be used when the activity has an extremely low cost that is comparable to that
+/// of the time check (a call to [`Instant::now()`]) itself.
+///
+/// Some fields can be set at any time to customize the logger: please see the [documentation of the fields](#fields).
 ///
 /// At any time, displaying the progress logger will give you time information up to the present.
-/// When the activity is over, you call [`ProgressLogger::stop`], which fixes the final time, and
-/// possibly display the logger. [`ProgressLogger::done`] will stop the logger and log the final data.
+/// When the activity is over, you call [`stop`](#methods.stop), which fixes the final time, and
+/// possibly display again the logger. [`done`](#methods.done) will stop the logger, print `Completed.`,
+/// and display the final stats. There are also a few other utility methods that make it possible to
+/// customize the logging process.
 ///
-/// After you finished a run of the progress logger, you can change its attributes and call [`ProgressLogger::start`]
+/// After you finished a run of the progress logger, can call [`start`](#fields.start)
 /// again to measure another activity.
 ///
 /// A typical call sequence to a progress logger is as follows:
 /// ```
 /// use webgraph::utils::ProgressLogger;
 /// let mut pl = ProgressLogger::default();
-/// pl.name = "pumpkins".to_string();
+/// pl.name = "pumpkin".to_string();
 /// pl.start("Smashing pumpkins...");
 /// for _ in 0..100 {
 /// 	// do something on each pumlkin
@@ -126,7 +131,7 @@ impl TimeUnit {
 /// ```
 /// use webgraph::utils::ProgressLogger;
 /// let mut pl = ProgressLogger::default();
-/// pl.name = "pumpkins".to_string();
+/// pl.name = "pumpkin".to_string();
 /// pl.start("Smashing pumpkins...");
 /// for _ in 0..100 {
 /// 	// do something on each pumlkin
@@ -136,10 +141,18 @@ impl TimeUnit {
 ///
 
 pub struct ProgressLogger {
+    /// The name of an item. Defaults to `item`.
     pub name: String,
+    /// The log interval. Defaults to 10 seconds.
     pub log_interval: Duration,
+    /// The expected number of updates. If set, the logger will display the percentage of completion and 
+    /// an estimate of the time to completion.
     pub expected_updates: Option<usize>,
+    /// The time unit to use for speed. If set, the logger will always display the speed in this unit
+    /// instead of making a choice of readable unit based on the elapsed time. Moreover, large numbers
+    /// will not be thousands separated. This is useful when the output of the logger must be parsed.
     pub time_unit: Option<TimeUnit>,
+    /// Display additionally the speed achieved during the last log interval.
     pub local_speed: bool,
     start: Option<Instant>,
     last_log_time: Instant,
@@ -152,7 +165,7 @@ pub struct ProgressLogger {
 impl Default for ProgressLogger {
     fn default() -> Self {
         Self {
-            name: "items".to_string(),
+            name: "item".to_string(),
             log_interval: Duration::from_secs(10),
             expected_updates: None,
             time_unit: None,
@@ -168,8 +181,11 @@ impl Default for ProgressLogger {
 }
 
 impl ProgressLogger {
-    const LIGHT_UPDATE_MASK: usize = (1 << 10) - 1;
-
+    /// Calls to [light_update](#method.light_update) will cause a call to
+    /// [`Instant::now`] only if the current count
+    /// is a multiple of this mask plus one.
+    pub const LIGHT_UPDATE_MASK: usize = (1 << 10) - 1;
+    /// Start the logger, displaying the given message.
     pub fn start<T: AsRef<str>>(&mut self, msg: T) {
         let now = Instant::now();
         self.start = Some(now);
@@ -188,6 +204,19 @@ impl ProgressLogger {
         }
     }
 
+    /// Increase the count and check whether it is time to log.
+    pub fn update(&mut self) {
+        self.count += 1;
+        self.update_if();
+    }
+
+    /// Set the count and check whether it is time to log.
+    pub fn update_with_count(&mut self, count: usize) {
+        self.count += count;
+        self.update_if();
+    }
+
+    /// Increase the count and, once every [`LIGHT_UPDATE_MASK`](#fields.LIGHT_UPDATE_MASK) + 1 calls, check whether it is time to log.
     pub fn light_update(&mut self) {
         self.count += 1;
         if (self.count & Self::LIGHT_UPDATE_MASK) == 0 {
@@ -195,32 +224,44 @@ impl ProgressLogger {
         }
     }
 
-    pub fn update(&mut self) {
-        self.count += 1;
-        self.update_if();
-    }
-
+    /// Increase the count and force a log.
     pub fn update_and_display(&mut self) {
         self.count += 1;
         info!("{}", self);
         self.next_log_time = Instant::now() + self.log_interval;
     }
 
-    pub fn done_with_count(&mut self, count: usize) {
-        self.count = count;
-        self.done();
-    }
-
+    /// Stop the logger, fixing the final time.
     pub fn stop(&mut self) {
         self.stop_time = Some(Instant::now());
         self.expected_updates = None;
     }
 
+    /// Stop the logger, print `Completed.`, and display the final stats. The number of expected updates will be cleared.
     pub fn done(&mut self) {
         self.stop();
         info!("Completed.");
         // just to avoid wrong reuses
+        self.expected_updates = None;
         info!("{}", self);
+    }
+
+    /// Stop the logger, set the count, print `Completed.`, and display the final stats.
+    /// The number of expected updates will be cleared. 
+    /// 
+    /// This method is particularly useful in two circumstances:
+	/// * you have updated the logger with some approximate values (e.g., in a multicore computation) but before
+    ///   printing the final stats you want the internal counter to contain an exact value;
+	/// * you have used the logger as a handy timer, calling just [`start`](#fields.start) and this method.
+
+    pub fn done_with_count(&mut self, count: usize) {
+        self.count = count;
+        self.done();
+    }
+
+    /// Return the elapsed time since the logger was started, or `None` if the logger has not been started.
+    pub fn elapsed(&self) -> Option<Duration> {
+        self.start?.elapsed().into()
     }
 
     fn fmt_timing_speed(&self, f: &mut Formatter<'_>, seconds_per_item: f64) -> Result {
@@ -254,9 +295,15 @@ impl Display for ProgressLogger {
         if let Some(start) = self.start {
             let elapsed = now - start;
 
+            let count_fmtd = if self.time_unit.is_none() {
+                self.count.to_formatted_string(&Locale::en)
+            } else {
+                self.count.to_string()
+            };
+
             f.write_fmt(format_args!(
                 "{} {}, {}, ",
-                self.count.to_formatted_string(&Locale::en),
+                count_fmtd,
                 pluralize(&self.name, self.count as isize, false),
                 TimeUnit::pretty_print(elapsed.as_millis()),
             ))?;
