@@ -44,7 +44,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map = java_properties::read(BufReader::new(f))?;
 
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
+
     // Read the offsets
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
     let data_graph = mmap_file(&format!("{}.graph", args.basename));

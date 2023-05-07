@@ -4,7 +4,7 @@ use pluralizer::pluralize;
 use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
 use sysinfo::{Pid,System,SystemExt,ProcessExt,RefreshKind};
-use human_repr::{HumanCount, HumanCountData};
+use human_repr::HumanCount;
 
 #[derive(Debug, Copy, Clone)]
 
@@ -109,7 +109,11 @@ impl TimeUnit {
 
  Some fields can be set at any time to customize the logger: please see the [documentation of the fields](#fields).
  It is also possible to log used and free memory at each log interval by calling
- ['display_memory'](#methods.display_memory).
+ [`display_memory`](#methods.display_memory). Memory is read from system data by the [`sysinfo`] crate, and
+ will be updated at each log interval (note that this will slightly slow down the logging process). Moreover,
+ since it is impossible to update the memory information from the [`Display::fmt`] implementation, 
+ you should call [`refresh_memory`](#methods.refresh_memory) before displaying the logger
+ on your own.
 
  At any time, displaying the progress logger will give you time information up to the present.
  When the activity is over, you call [`stop`](#methods.stop), which fixes the final time, and
@@ -124,7 +128,7 @@ impl TimeUnit {
  ```
  use webgraph::utils::ProgressLogger;
  let mut pl = ProgressLogger::default();
- pl.name = "pumpkin".to_string();
+ pl.item_name = "pumpkin".to_string();
  pl.start("Smashing pumpkins...");
  for _ in 0..100 {
     // do something on each pumlkin
@@ -136,14 +140,19 @@ impl TimeUnit {
  ```
  use webgraph::utils::ProgressLogger;
  let mut pl = ProgressLogger::default();
- pl.name = "pumpkin".to_string();
+ pl.item_name = "pumpkin".to_string();
  pl.start("Smashing pumpkins...");
  for _ in 0..100 {
     // do something on each pumlkin
  }
  pl.done_with_count(100);
  ```
-*/
+ This progress logger will display information about  memory usage:
+ ```
+ use webgraph::utils::ProgressLogger;
+ let mut pl = ProgressLogger::default().display_memory();
+ ```
+ */
 pub struct ProgressLogger {
     /// The name of an item. Defaults to `item`.
     pub item_name: String,
@@ -217,11 +226,17 @@ impl ProgressLogger {
         self
     }
 
-    fn log(&mut self, now: Instant) {
+    /// Refresh memory information, if previously requested with [`display_memory`](#methods.display_memory).
+    /// You do not need to call this method unless you display the logger manually.
+    pub fn refresh(&mut self) {   
         if let Some(system) = &mut self.system {
             system.refresh_memory();
             system.refresh_process(self.pid);
         }
+    }
+
+    fn log(&mut self, now: Instant) {
+        self.refresh();
         info!("{}", self);
         self.last_count = self.count;
         self.last_log_time = now;

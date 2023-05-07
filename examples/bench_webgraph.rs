@@ -1,12 +1,10 @@
 use clap::Parser;
 use java_properties;
-use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::fs::File;
 use std::io::BufReader;
-use std::io::Read;
 use std::io::Seek;
 use mmap_rs::*;
 use webgraph::prelude::*;
@@ -76,15 +74,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Read the offsets gammas
-    let mut offsets = EliasFanoBuilder::new(
-        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
-        num_nodes,
-    );
     let mut reader =
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
         
     let mut pr_offsets = ProgressLogger::default();
-    pr_offsets.name = "offset".to_string();
+    pr_offsets.item_name = "offset".to_string();
     pr_offsets.start("Loading offsets...");
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
