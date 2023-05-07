@@ -1,10 +1,10 @@
+use human_repr::HumanCount;
 use log::info;
 use num_format::{Locale, ToFormattedString};
 use pluralizer::pluralize;
 use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
-use sysinfo::{Pid,System,SystemExt,ProcessExt,RefreshKind};
-use human_repr::HumanCount;
+use sysinfo::{Pid, ProcessExt, RefreshKind, System, SystemExt};
 
 #[derive(Debug, Copy, Clone)]
 
@@ -95,70 +95,70 @@ impl TimeUnit {
 }
 
 /**
- A tunable progress logger to log progress information about long-lasting activities.
- It is a port of the Java class [`it.unimi.dsi.util.ProgressLogger`](https://dsiutils.di.unimi.it/docs/it/unimi/dsi/logging/ProgressLogger.html)
- from the [DSI Utilities](https://dsiutils.di.unimi.it/).
- Logging is based on the standard [`log`](https://docs.rs/log) crate at the `info` level.
+A tunable progress logger to log progress information about long-lasting activities.
+It is a port of the Java class [`it.unimi.dsi.util.ProgressLogger`](https://dsiutils.di.unimi.it/docs/it/unimi/dsi/logging/ProgressLogger.html)
+from the [DSI Utilities](https://dsiutils.di.unimi.it/).
+Logging is based on the standard [`log`](https://docs.rs/log) crate at the `info` level.
 
- To log the progress of an activity, you call [`start`](#methods.start). Then, each time you want to mark progress,
- you call [`update`](#methods.update), which increases the item counter, and will log progress information
- if enough time has passed since the last log. The time check happens only on multiples of
- [`LIGHT_UPDATE_MASK`](#fields.LIGHT_UPDATE_MASK) + 1 in the case of [`light_update`](#methods.light_update), 
- which should be used when the activity has an extremely low cost that is comparable to that
- of the time check (a call to [`Instant::now()`]) itself.
+To log the progress of an activity, you call [`start`](#methods.start). Then, each time you want to mark progress,
+you call [`update`](#methods.update), which increases the item counter, and will log progress information
+if enough time has passed since the last log. The time check happens only on multiples of
+[`LIGHT_UPDATE_MASK`](#fields.LIGHT_UPDATE_MASK) + 1 in the case of [`light_update`](#methods.light_update),
+which should be used when the activity has an extremely low cost that is comparable to that
+of the time check (a call to [`Instant::now()`]) itself.
 
- Some fields can be set at any time to customize the logger: please see the [documentation of the fields](#fields).
- It is also possible to log used and free memory at each log interval by calling
- [`display_memory`](#methods.display_memory). Memory is read from system data by the [`sysinfo`] crate, and
- will be updated at each log interval (note that this will slightly slow down the logging process). Moreover,
- since it is impossible to update the memory information from the [`Display::fmt`] implementation, 
- you should call [`refresh_memory`](#methods.refresh_memory) before displaying the logger
- on your own.
+Some fields can be set at any time to customize the logger: please see the [documentation of the fields](#fields).
+It is also possible to log used and free memory at each log interval by calling
+[`display_memory`](#methods.display_memory). Memory is read from system data by the [`sysinfo`] crate, and
+will be updated at each log interval (note that this will slightly slow down the logging process). Moreover,
+since it is impossible to update the memory information from the [`Display::fmt`] implementation,
+you should call [`refresh_memory`](#methods.refresh_memory) before displaying the logger
+on your own.
 
- At any time, displaying the progress logger will give you time information up to the present.
- When the activity is over, you call [`stop`](#methods.stop), which fixes the final time, and
- possibly display again the logger. [`done`](#methods.done) will stop the logger, print `Completed.`,
- and display the final stats. There are also a few other utility methods that make it possible to
- customize the logging process.
+At any time, displaying the progress logger will give you time information up to the present.
+When the activity is over, you call [`stop`](#methods.stop), which fixes the final time, and
+possibly display again the logger. [`done`](#methods.done) will stop the logger, print `Completed.`,
+and display the final stats. There are also a few other utility methods that make it possible to
+customize the logging process.
 
- After you finished a run of the progress logger, can call [`start`](#fields.start)
- again to measure another activity.
+After you finished a run of the progress logger, can call [`start`](#fields.start)
+again to measure another activity.
 
- A typical call sequence to a progress logger is as follows:
- ```
- use webgraph::utils::ProgressLogger;
- let mut pl = ProgressLogger::default();
- pl.item_name = "pumpkin".to_string();
- pl.start("Smashing pumpkins...");
- for _ in 0..100 {
-    // do something on each pumlkin
-    pl.update();
- }
- pl.done();
- ```
- A progress logger can also be used as a handy timer:
- ```
- use webgraph::utils::ProgressLogger;
- let mut pl = ProgressLogger::default();
- pl.item_name = "pumpkin".to_string();
- pl.start("Smashing pumpkins...");
- for _ in 0..100 {
-    // do something on each pumlkin
- }
- pl.done_with_count(100);
- ```
- This progress logger will display information about  memory usage:
- ```
- use webgraph::utils::ProgressLogger;
- let mut pl = ProgressLogger::default().display_memory();
- ```
- */
+A typical call sequence to a progress logger is as follows:
+```
+use webgraph::utils::ProgressLogger;
+let mut pl = ProgressLogger::default();
+pl.item_name = "pumpkin".to_string();
+pl.start("Smashing pumpkins...");
+for _ in 0..100 {
+   // do something on each pumlkin
+   pl.update();
+}
+pl.done();
+```
+A progress logger can also be used as a handy timer:
+```
+use webgraph::utils::ProgressLogger;
+let mut pl = ProgressLogger::default();
+pl.item_name = "pumpkin".to_string();
+pl.start("Smashing pumpkins...");
+for _ in 0..100 {
+   // do something on each pumlkin
+}
+pl.done_with_count(100);
+```
+This progress logger will display information about  memory usage:
+```
+use webgraph::utils::ProgressLogger;
+let mut pl = ProgressLogger::default().display_memory();
+```
+*/
 pub struct ProgressLogger {
     /// The name of an item. Defaults to `item`.
     pub item_name: String,
     /// The log interval. Defaults to 10 seconds.
     pub log_interval: Duration,
-    /// The expected number of updates. If set, the logger will display the percentage of completion and 
+    /// The expected number of updates. If set, the logger will display the percentage of completion and
     /// an estimate of the time to completion.
     pub expected_updates: Option<usize>,
     /// The time unit to use for speed. If set, the logger will always display the speed in this unit
@@ -167,7 +167,7 @@ pub struct ProgressLogger {
     pub time_unit: Option<TimeUnit>,
     /// Display additionally the speed achieved during the last log interval.
     pub local_speed: bool,
-    start: Option<Instant>,
+    start_time: Option<Instant>,
     last_log_time: Instant,
     next_log_time: Instant,
     stop_time: Option<Instant>,
@@ -187,7 +187,7 @@ impl Default for ProgressLogger {
             expected_updates: None,
             time_unit: None,
             local_speed: false,
-            start: None,
+            start_time: None,
             last_log_time: Instant::now(),
             next_log_time: Instant::now(),
             stop_time: None,
@@ -207,7 +207,7 @@ impl ProgressLogger {
     /// Start the logger, displaying the given message.
     pub fn start<T: AsRef<str>>(&mut self, msg: T) {
         let now = Instant::now();
-        self.start = Some(now);
+        self.start_time = Some(now);
         self.stop_time = None;
         self.count = 0;
         self.last_count = 0;
@@ -217,18 +217,16 @@ impl ProgressLogger {
     }
 
     /// Chainable setter enabling memory display.
-    pub fn display_memory(mut self) -> Self {   
+    pub fn display_memory(mut self) -> Self {
         if self.system.is_none() {
-            self.system = Some(System::new_with_specifics(
-                    RefreshKind::new().with_memory(),
-                ));
+            self.system = Some(System::new_with_specifics(RefreshKind::new().with_memory()));
         }
         self
     }
 
     /// Refresh memory information, if previously requested with [`display_memory`](#methods.display_memory).
     /// You do not need to call this method unless you display the logger manually.
-    pub fn refresh(&mut self) {   
+    pub fn refresh(&mut self) {
         if let Some(system) = &mut self.system {
             system.refresh_memory();
             system.refresh_process(self.pid);
@@ -292,12 +290,12 @@ impl ProgressLogger {
     }
 
     /// Stop the logger, set the count, print `Completed.`, and display the final stats.
-    /// The number of expected updates will be cleared. 
-    /// 
+    /// The number of expected updates will be cleared.
+    ///
     /// This method is particularly useful in two circumstances:
-	/// * you have updated the logger with some approximate values (e.g., in a multicore computation) but before
+    /// * you have updated the logger with some approximate values (e.g., in a multicore computation) but before
     ///   printing the final stats you want the internal counter to contain an exact value;
-	/// * you have used the logger as a handy timer, calling just [`start`](#fields.start) and this method.
+    /// * you have used the logger as a handy timer, calling just [`start`](#fields.start) and this method.
 
     pub fn done_with_count(&mut self, count: usize) {
         self.count = count;
@@ -306,7 +304,7 @@ impl ProgressLogger {
 
     /// Return the elapsed time since the logger was started, or `None` if the logger has not been started.
     pub fn elapsed(&self) -> Option<Duration> {
-        self.start?.elapsed().into()
+        self.start_time?.elapsed().into()
     }
 
     fn fmt_timing_speed(&self, f: &mut Formatter<'_>, seconds_per_item: f64) -> Result {
@@ -336,54 +334,79 @@ impl ProgressLogger {
 
 impl Display for ProgressLogger {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let now = self.stop_time.unwrap_or_else(|| Instant::now());
-        if let Some(start) = self.start {
-            let elapsed = now - start;
-
+        if let Some(start_time) = self.start_time {
             let count_fmtd = if self.time_unit.is_none() {
                 self.count.to_formatted_string(&Locale::en)
             } else {
                 self.count.to_string()
             };
 
-            f.write_fmt(format_args!(
-                "{} {}, {}, ",
-                count_fmtd,
-                pluralize(&self.item_name, self.count as isize, false),
-                TimeUnit::pretty_print(elapsed.as_millis()),
-            ))?;
+            if let Some(stop_time) = self.stop_time {
+                let elapsed = stop_time - start_time;
+                let seconds_per_item = elapsed.as_secs_f64() / self.count as f64;
 
-            let seconds_per_item = elapsed.as_secs_f64() / self.count as f64;
-            self.fmt_timing_speed(f, seconds_per_item)?;
-
-            if let Some(expected_updates) = self.expected_updates {
-                let millis_to_end: u128 = ((expected_updates - self.count) as u128
-                    * elapsed.as_millis())
-                    / (self.count as u128 + 1);
                 f.write_fmt(format_args!(
-                    "; {:.2}% done, {} to end",
-                    100.0 * self.count as f64 / expected_updates as f64,
-                    TimeUnit::pretty_print(millis_to_end)
+                    "Elapsed: {}",
+                    TimeUnit::pretty_print(elapsed.as_millis())
                 ))?;
-            }
 
-            if self.local_speed && self.stop_time.is_none() {
-                f.write_fmt(format_args!(" ["))?;
+                if self.count != 0 {
+                    f.write_fmt(format_args!(" [{} {}, ",
+                        count_fmtd,
+                        pluralize(&self.item_name, self.count as isize, false)
+                    ))?;
+                    self.fmt_timing_speed(f, seconds_per_item)?;
+                    f.write_fmt(format_args!("]"))?
+                }
+            } else {
+                let now = Instant::now();
 
-                let elapsed = now - self.last_log_time;
-                let seconds_per_item =
-                    elapsed.as_secs_f64() / (self.count - self.last_count) as f64;
+                let elapsed = now - start_time;
+
+                f.write_fmt(format_args!(
+                    "{} {}, {}, ",
+                    count_fmtd,
+                    pluralize(&self.item_name, self.count as isize, false),
+                    TimeUnit::pretty_print(elapsed.as_millis()),
+                ))?;
+
+                let seconds_per_item = elapsed.as_secs_f64() / self.count as f64;
                 self.fmt_timing_speed(f, seconds_per_item)?;
 
-                f.write_fmt(format_args!("]"))?;
+                if let Some(expected_updates) = self.expected_updates {
+                    let millis_to_end: u128 = ((expected_updates - self.count) as u128
+                        * elapsed.as_millis())
+                        / (self.count as u128 + 1);
+                    f.write_fmt(format_args!(
+                        "; {:.2}% done, {} to end",
+                        100.0 * self.count as f64 / expected_updates as f64,
+                        TimeUnit::pretty_print(millis_to_end)
+                    ))?;
+                }
+
+                if self.local_speed && self.stop_time.is_none() {
+                    f.write_fmt(format_args!(" ["))?;
+
+                    let elapsed = now - self.last_log_time;
+                    let seconds_per_item =
+                        elapsed.as_secs_f64() / (self.count - self.last_count) as f64;
+                    self.fmt_timing_speed(f, seconds_per_item)?;
+
+                    f.write_fmt(format_args!("]"))?;
+                }
             }
 
             if let Some(system) = &self.system {
-                f.write_fmt(format_args!("; used/avail/free/total mem {}/{}/{}/{}",
-                    system.process(self.pid).map(|process| process.memory().human_count_bytes().to_string()).unwrap_or("N/A".to_string()),
+                f.write_fmt(format_args!(
+                    "; used/avail/free/total mem {}/{}/{}/{}",
+                    system
+                        .process(self.pid)
+                        .map(|process| process.memory().human_count_bytes().to_string())
+                        .unwrap_or("N/A".to_string()),
                     system.available_memory().human_count_bytes(),
                     system.free_memory().human_count_bytes(),
-                    system.total_memory().human_count_bytes()))?;
+                    system.total_memory().human_count_bytes()
+                ))?;
             }
 
             Ok(())

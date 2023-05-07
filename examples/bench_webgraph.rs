@@ -113,7 +113,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for node_id in 0..num_nodes {
             let seq = seq_reader.get_successors_iter(node_id)?;
             let random = random_reader
-                .get_successors_iter(node_id)?
+                .successors(node_id)?
                 .collect::<Vec<_>>();
 
             // Why won't assert!(seq.iter().eq(random.iter())) work if I don't collect?
@@ -156,7 +156,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let start = std::time::Instant::now();
             for _ in 0..args.n {
                 c += random_reader
-                    .get_successors_iter(random.gen_range(0..num_nodes))?
+                    .successors(random.gen_range(0..num_nodes))?
                     .count();
             }
 

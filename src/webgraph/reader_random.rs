@@ -24,7 +24,7 @@ where
     }
 
     #[inline(always)]
-    pub fn get_successors_iter(&self, node_id: u64) -> Result<SuccessorsIterRandom<CR>> {
+    pub fn successors(&self, node_id: u64) -> Result<SuccessorsIterRandom<CR>> {
         let mut codes_reader = self.codes_reader.clone();
         codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
 
@@ -43,7 +43,7 @@ where
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
-            let neighbours = self.get_successors_iter(reference_node_id)?;
+            let neighbours = self.successors(reference_node_id)?;
             debug_assert!(neighbours.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count()? as usize;

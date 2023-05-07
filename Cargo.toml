@@ -23,15 +23,17 @@ human-repr = "1.1.0"
 log = "0.4.17"
 num-format = "0.4.4"
 pluralizer = "0.4.0"
+rayon = "1.7.0"
 stderrlog = "0.5.4"
 sux = {git = "https://github.com/vigna/sux-rs"}
 sysinfo = "0.29.0"
-
-[dev-dependencies]
 clap = { version = "4.1.6", features = ["derive"] }
 java-properties = "1.4.1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 mmap-rs = "0.5.0"
+bitvec = "1.0.1"
+
+[dev-dependencies]
 
 [profile.release] # Used for the examples
 opt-level = 3             # like --release

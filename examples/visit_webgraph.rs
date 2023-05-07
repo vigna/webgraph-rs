@@ -111,7 +111,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         while queue.len() > 0 {
             current_node = queue.pop_front().unwrap();
-            for succ in random_reader.get_successors_iter(current_node).unwrap() {
+            for succ in random_reader.successors(current_node).unwrap() {
                 if visited.get(succ as usize).unwrap() == 0 {
                     queue.push_back(succ);
                     visited.set(succ as _, 1).unwrap();

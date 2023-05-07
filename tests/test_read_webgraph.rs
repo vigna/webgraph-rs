@@ -55,7 +55,7 @@ fn test_sequential_reading() {
     // Check that they read the same
     for node_id in 0..(NODES as u64) {
         let rand_nodes = random_reader
-            .get_successors_iter(node_id)
+            .successors(node_id)
             .unwrap()
             .collect::<Vec<_>>();
         let seq_nodes = seq_reader.get_successors_iter(node_id).unwrap();
