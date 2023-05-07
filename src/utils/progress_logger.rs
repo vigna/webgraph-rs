@@ -3,6 +3,8 @@ use num_format::{Locale, ToFormattedString};
 use pluralizer::pluralize;
 use std::fmt::{Display, Formatter, Result};
 use std::time::{Duration, Instant};
+use sysinfo::{Pid,System,SystemExt,ProcessExt,RefreshKind};
+use human_repr::{HumanCount, HumanCountData};
 
 #[derive(Debug, Copy, Clone)]
 
@@ -106,6 +108,8 @@ impl TimeUnit {
  of the time check (a call to [`Instant::now()`]) itself.
 
  Some fields can be set at any time to customize the logger: please see the [documentation of the fields](#fields).
+ It is also possible to log used and free memory at each log interval by calling
+ ['display_memory'](#methods.display_memory).
 
  At any time, displaying the progress logger will give you time information up to the present.
  When the activity is over, you call [`stop`](#methods.stop), which fixes the final time, and
@@ -142,7 +146,7 @@ impl TimeUnit {
 */
 pub struct ProgressLogger {
     /// The name of an item. Defaults to `item`.
-    pub name: String,
+    pub item_name: String,
     /// The log interval. Defaults to 10 seconds.
     pub log_interval: Duration,
     /// The expected number of updates. If set, the logger will display the percentage of completion and 
@@ -160,12 +164,16 @@ pub struct ProgressLogger {
     stop_time: Option<Instant>,
     count: usize,
     last_count: usize,
+    /// Display additionally the amount of used and free memory using this [`sysinfo::System`]
+    system: Option<System>,
+    /// The pid of the current process
+    pid: Pid,
 }
 
 impl Default for ProgressLogger {
     fn default() -> Self {
         Self {
-            name: "item".to_string(),
+            item_name: "item".to_string(),
             log_interval: Duration::from_secs(10),
             expected_updates: None,
             time_unit: None,
@@ -176,6 +184,8 @@ impl Default for ProgressLogger {
             stop_time: None,
             count: 0,
             last_count: 0,
+            system: None,
+            pid: Pid::from(std::process::id() as usize),
         }
     }
 }
@@ -190,45 +200,65 @@ impl ProgressLogger {
         let now = Instant::now();
         self.start = Some(now);
         self.stop_time = None;
+        self.count = 0;
+        self.last_count = 0;
+        self.last_log_time = now;
         self.next_log_time = now + self.log_interval;
         info!("{}", msg.as_ref());
     }
 
-    fn update_if(&mut self) {
+    /// Chainable setter enabling memory display.
+    pub fn display_memory(mut self) -> Self {   
+        if self.system.is_none() {
+            self.system = Some(System::new_with_specifics(
+                    RefreshKind::new().with_memory(),
+                ));
+        }
+        self
+    }
+
+    fn log(&mut self, now: Instant) {
+        if let Some(system) = &mut self.system {
+            system.refresh_memory();
+            system.refresh_process(self.pid);
+        }
+        info!("{}", self);
+        self.last_count = self.count;
+        self.last_log_time = now;
+        self.next_log_time = now + self.log_interval;
+    }
+
+    fn log_if(&mut self) {
         let now = Instant::now();
         if self.next_log_time <= now {
-            info!("{}", self);
-            self.last_count = self.count;
-            self.last_log_time = now;
-            self.next_log_time = now + self.log_interval;
+            self.log(now);
         }
     }
 
     /// Increase the count and check whether it is time to log.
     pub fn update(&mut self) {
         self.count += 1;
-        self.update_if();
+        self.log_if();
     }
 
     /// Set the count and check whether it is time to log.
     pub fn update_with_count(&mut self, count: usize) {
         self.count += count;
-        self.update_if();
+        self.log_if();
     }
 
     /// Increase the count and, once every [`LIGHT_UPDATE_MASK`](#fields.LIGHT_UPDATE_MASK) + 1 calls, check whether it is time to log.
     pub fn light_update(&mut self) {
         self.count += 1;
         if (self.count & Self::LIGHT_UPDATE_MASK) == 0 {
-            self.update_if();
+            self.log_if();
         }
     }
 
     /// Increase the count and force a log.
     pub fn update_and_display(&mut self) {
         self.count += 1;
-        info!("{}", self);
-        self.next_log_time = Instant::now() + self.log_interval;
+        self.log(Instant::now());
     }
 
     /// Stop the logger, fixing the final time.
@@ -279,9 +309,9 @@ impl ProgressLogger {
             "{:.2} {}/{}, {:.2} {}/{}",
             seconds_per_item / time_unit_timing.to_seconds(),
             time_unit_timing.label(),
-            self.name,
+            self.item_name,
             items_per_second * time_unit_speed.to_seconds(),
-            pluralize(&self.name, 2, false),
+            pluralize(&self.item_name, 2, false),
             time_unit_speed.label()
         ))?;
 
@@ -304,7 +334,7 @@ impl Display for ProgressLogger {
             f.write_fmt(format_args!(
                 "{} {}, {}, ",
                 count_fmtd,
-                pluralize(&self.name, self.count as isize, false),
+                pluralize(&self.item_name, self.count as isize, false),
                 TimeUnit::pretty_print(elapsed.as_millis()),
             ))?;
 
@@ -331,6 +361,14 @@ impl Display for ProgressLogger {
                 self.fmt_timing_speed(f, seconds_per_item)?;
 
                 f.write_fmt(format_args!("]"))?;
+            }
+
+            if let Some(system) = &self.system {
+                f.write_fmt(format_args!("; used/avail/free/total mem {}/{}/{}/{}",
+                    system.process(self.pid).map(|process| process.memory().human_count_bytes().to_string()).unwrap_or("N/A".to_string()),
+                    system.available_memory().human_count_bytes(),
+                    system.free_memory().human_count_bytes(),
+                    system.total_memory().human_count_bytes()))?;
             }
 
             Ok(())

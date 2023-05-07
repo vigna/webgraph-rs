@@ -66,7 +66,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
 
     let mut pr_offsets = ProgressLogger::default();
-    pr_offsets.name = "offset".to_string();
+    pr_offsets.item_name = "offset".to_string();
     pr_offsets.start("Loading offsets...");
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
@@ -94,8 +94,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut visited = BitMap::new(num_nodes as usize);
     let mut queue = VecDeque::new();
 
-    let mut pr = ProgressLogger::default();
-    pr.name = "node".to_string();
+    let mut pr = ProgressLogger::default().display_memory();
+    pr.item_name = "node".to_string();
     pr.local_speed = true;
     pr.expected_updates = Some(num_nodes as usize);
     pr.start("Visiting graph...");

@@ -19,11 +19,13 @@ alloc = []
 
 [dependencies]
 anyhow = { version = "1.0.70", default-features = false }
+human-repr = "1.1.0"
 log = "0.4.17"
 num-format = "0.4.4"
 pluralizer = "0.4.0"
 stderrlog = "0.5.4"
 sux = {git = "https://github.com/vigna/sux-rs"}
+sysinfo = "0.29.0"
 
 [dev-dependencies]
 clap = { version = "4.1.6", features = ["derive"] }
