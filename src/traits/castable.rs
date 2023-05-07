@@ -6,7 +6,7 @@ pub trait CastableInto<W>: Sized {
 }
 
 /// Trait for primitive integers, this is the combination of
-/// [`DowncastableFrom`] and [`UpcastableFrom`]. Prefer using the other two
+/// [`webgraph-rs::traits::DowncastableFrom`] and [`webgraph-rs::traits::UpcastableFrom`]. Prefer using the other two
 /// traits, as casting without knowing which value will be bigger might result
 /// in hard to find bugs.
 ///
