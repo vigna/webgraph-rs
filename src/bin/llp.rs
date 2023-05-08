@@ -156,8 +156,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let gamma = 0.0;
 
-    glob_pr.start("Starting updates...");
-
     //let mut label_store = LabelStore::new(num_nodes as _);
     let mut labels = Vec::with_capacity(num_nodes as _);
     let mut volumes = Vec::with_capacity(num_nodes as _);
@@ -168,6 +166,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut rand = SmallRng::seed_from_u64(0);
     let mut perm = (0..num_nodes).into_iter().collect::<Vec<_>>();
+
+    glob_pr.start("Starting updates...");
 
     for _ in 0..100 {
         let mut delta = Mutex::new(0.0);
@@ -264,9 +264,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             local_delta += max - old;
 
-                            let pr = &mut prlock.lock().unwrap();
-                            pr.update_with_count(GRANULARITY);
                         }
+                        let pr = &mut prlock.lock().unwrap();
+                        pr.update_with_count(GRANULARITY);
                     }
                 });
             }
