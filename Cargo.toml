@@ -32,6 +32,7 @@ java-properties = "1.4.1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 mmap-rs = "0.5.0"
 bitvec = { version = "1.0.1", features = ["atomic"] }
+num_cpus = "1.15.0"
 
 [dev-dependencies]
 

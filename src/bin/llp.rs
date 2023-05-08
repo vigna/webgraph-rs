@@ -188,7 +188,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             WebgraphReaderRandomAccess::new(code_reader.clone(), offsets.clone(), 4);
 
         thread::scope(|scope| {
-            for _ in 0..10 {
+            for _ in 0..num_cpus::get() {
                 scope.spawn(|| {
                     let mut local_delta = 0.0;
                     let mut rand = SmallRng::seed_from_u64(0);
