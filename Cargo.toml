@@ -31,7 +31,7 @@ clap = { version = "4.1.6", features = ["derive"] }
 java-properties = "1.4.1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 mmap-rs = "0.5.0"
-bitvec = "1.0.1"
+bitvec = { version = "1.0.1", features = ["atomic"] }
 
 [dev-dependencies]
 

@@ -1,5 +1,6 @@
 use bitvec::prelude::*;
 use clap::Parser;
+use core::num;
 use java_properties;
 use log::info;
 use mmap_rs::*;
@@ -12,8 +13,12 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Seek;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
+use std::sync::mpsc::channel;
+use std::sync::Mutex;
+use std::thread;
 use sux::prelude::*;
 use webgraph::prelude::*;
 use webgraph::utils::ProgressLogger;
@@ -37,6 +42,42 @@ fn mmap_file(path: &str) -> Mmap {
             .with_file(file, 0)
             .map()
             .unwrap()
+    }
+}
+
+struct LabelStore {
+    labels: Box<[AtomicUsize]>,
+    volumes: Box<[AtomicUsize]>,
+}
+
+impl LabelStore {
+    fn new(n: usize) -> Self {
+        let mut labels = Vec::with_capacity(n);
+        let mut volumes = Vec::with_capacity(n);
+        for l in 0..n {
+            labels.push(AtomicUsize::new(l));
+            volumes.push(AtomicUsize::new(1));
+        }
+        Self {
+            labels: labels.into_boxed_slice(),
+            volumes: volumes.into_boxed_slice(),
+        }
+    }
+
+    fn set(&mut self, node: usize, label: usize) {
+        let new_label = self.labels[node].swap(label, Relaxed);
+        if label != label {
+            self.volumes[label].fetch_sub(1, Relaxed);
+            self.volumes[new_label].fetch_add(1, Relaxed);
+        }
+    }
+
+    fn label(&mut self, node: usize) -> usize {
+        self.labels[node].load(Relaxed)
+    }
+
+    fn volume(&mut self, label: usize) -> usize {
+        self.volumes[label].load(Relaxed)
     }
 }
 
@@ -100,21 +141,27 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
         MemWordReadInfinite::new(&graph_slice),
     ));
-    let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
 
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "update".to_string();
-
-    let mut can_change = bitvec![usize, Lsb0; 0];
+    /*
+    let mut can_change = bitvec![AtomicUsize, Lsb0; 0];
     can_change.resize(num_nodes as _, true);
+    */
+    let mut can_change = Vec::with_capacity(num_nodes as _);
+
+    for _ in 0..num_nodes as usize {
+        can_change.push(AtomicBool::new(true));
+    }
 
     let gamma = 0.0;
-    
+
     glob_pr.start("Starting updates...");
 
+    //let mut label_store = LabelStore::new(num_nodes as _);
     let mut labels = Vec::with_capacity(num_nodes as _);
     let mut volumes = Vec::with_capacity(num_nodes as _);
-    for l in 0..num_nodes as usize {
+    for l in 0..num_nodes as _ {
         labels.push(AtomicUsize::new(l));
         volumes.push(AtomicUsize::new(1));
     }
@@ -123,82 +170,118 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut perm = (0..num_nodes).into_iter().collect::<Vec<_>>();
 
     for _ in 0..100 {
-        perm.chunks_mut(100000).for_each(|chunk| chunk.shuffle(&mut rand));
+        let mut delta = Mutex::new(0.0);
+        perm.chunks_mut(100000)
+            .for_each(|chunk| chunk.shuffle(&mut rand));
         let mut pr = ProgressLogger::default();
         pr.item_name = "node".to_string();
         pr.local_speed = true;
         pr.expected_updates = Some(num_nodes as usize);
         pr.start("Updating...");
+        let prlock = Mutex::new(&mut pr);
 
-        let mut modified: usize = 0;
-        let mut map = HashMap::<usize, usize>::new();
-        let mut delta = 0.0;
+        let delta = Mutex::new(0.0);
+        let modified = AtomicUsize::new(0);
+        let pos = AtomicUsize::new(0);
+        const GRANULARITY: usize = 1000;
+        let random_reader =
+            WebgraphReaderRandomAccess::new(code_reader.clone(), offsets.clone(), 4);
 
-        for &node in &perm {
-            if !can_change[node as usize] {
-                continue;   
+        thread::scope(|scope| {
+            for _ in 0..10 {
+                scope.spawn(|| {
+                    let mut local_delta = 0.0;
+                    let mut rand = SmallRng::seed_from_u64(0);
+                    loop {
+                        let next_pos = pos.fetch_add(GRANULARITY, Relaxed);
+                        if next_pos >= num_nodes as usize {
+                            let mut delta = delta.lock().unwrap();
+                            *delta += local_delta;
+                            break;
+                        }
+                        for &node in
+                            perm[next_pos..(next_pos + GRANULARITY).min(perm.len())].into_iter()
+                        {
+                            if !can_change[node as usize].load(Relaxed) {
+                                continue;
+                            }
+
+                            can_change[node as usize].store(false, Relaxed);
+
+                            let successors = random_reader.successors(node).unwrap();
+
+                            if successors.len() == 0 {
+                                continue;
+                            }
+
+                            let mut map = HashMap::<usize, usize>::with_capacity(successors.len()); 
+
+                            let curr_label = labels[node as usize].load(Relaxed);
+
+                            for succ in successors {
+                                map.entry(labels[succ as usize].load(Relaxed))
+                                    .and_modify(|counter| *counter += 1)
+                                    .or_insert(1);
+                            }
+
+                            //map.entry(curr_label).or_insert(0);
+
+                            let mut max = f64::MIN;
+                            let mut old = 0.0;
+                            let mut majorities = vec![];
+
+                            for (&label, &count) in map.iter() {
+                                let volume = volumes[label].load(Relaxed);
+                                let val = count as f64 - gamma * (volume + 1 - count) as f64;
+
+                                if max == val {
+                                    majorities.push(label);
+                                }
+
+                                if max < val {
+                                    majorities.clear();
+                                    max = val;
+                                    majorities.push(label);
+                                }
+
+                                if label == curr_label {
+                                    old = val;
+                                }
+                            }
+
+                            debug_assert!(majorities.len() > 0);
+                            let next_label = *majorities.choose(&mut rand).unwrap();
+                            if next_label != curr_label {
+                                modified.fetch_add(1, Relaxed);
+                                for succ in random_reader.successors(node).unwrap() {
+                                    can_change[succ as usize].store(true, Relaxed);
+                                }
+
+                                labels[node as usize].store(next_label, Relaxed);
+                                volumes[curr_label].fetch_sub(1, Relaxed);
+                                volumes[next_label].fetch_add(1, Relaxed);
+                            }
+
+                            local_delta += max - old;
+
+                            let pr = &mut prlock.lock().unwrap();
+                            pr.update_with_count(GRANULARITY);
+                        }
+                    }
+                });
             }
-            
-            can_change.set(node as usize, false);
+        });
 
-            // This can be set at start time
-            if random_reader.successors(node).unwrap().len() == 0 {
-                continue;
-            }
-
-            map.clear();
-            let curr_label = labels[node as usize].load(Relaxed);
-            volumes[curr_label].fetch_sub(1, Relaxed);
-            for succ in random_reader.successors(node as u64).unwrap() {
-                let succ_label = labels[succ as usize].load(Relaxed);
-                map.entry(succ_label).and_modify(|counter| *counter += 1).or_insert(1);
-            }
-
-            map.entry(curr_label).or_insert(0);
-
-            let mut max = f64::MIN;
-            let mut old = 0.0;
-            let mut majorities = vec![];
-            
-            for (&label, &count) in map.iter() {
-                let volume = volumes[label].load(Relaxed);
-
-                let val = count as f64 - gamma * (volume + 1 - count) as f64;
-				
-                if max == val {
-                    majorities.push(label);
-                }
-
-                if max < val {
-                    majorities.clear();
-                    max = val;
-                    majorities.push(label);
-                }
-
-                if label == curr_label {
-                    old = val;
-                }
-            }
-
-            // We have always the current label in
-            let next_label = *majorities.choose(&mut rand).unwrap();
-            if next_label != curr_label {
-                modified += 1;
-                for succ in random_reader.successors(node as u64).unwrap() {
-                    can_change.set(succ as usize, true);
-                }
-            }
-
-            labels[node as usize].store(next_label, Relaxed);
-            volumes[next_label].fetch_add(1, Relaxed);
-            delta += max - old;
-
-            pr.update();
-        }
-
-        pr.done();
-        info!("Modified: {} Delta: {}", modified, delta);
+        pr.done_with_count(num_nodes as _);
+        info!(
+            "Modified: {} Delta: {}",
+            modified.load_value(),
+            delta.lock().unwrap()
+        );
         glob_pr.update_and_display();
+        if modified.load_value() == 0 {
+            break;
+        }
     }
     glob_pr.done();
     Ok(())
