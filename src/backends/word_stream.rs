@@ -189,19 +189,21 @@ impl<W: Word, B: AsMut<[W]>> MemWordWrite<W, B> {
 /// ```
 #[derive(Debug)]
 #[cfg(feature = "alloc")]
-pub struct MemWordWriteVec<W: Word> {
-    data: alloc::vec::Vec<W>,
+pub struct MemWordWriteVec<W: Word, B: AsMut<alloc::vec::Vec<W>>> {
+    data: B,
     word_index: usize,
+    _marker: core::marker::PhantomData<W>,
 }
 
 #[cfg(feature = "alloc")]
-impl<W: Word> MemWordWriteVec<W> {
+impl<W: Word, B: AsMut<alloc::vec::Vec<W>>> MemWordWriteVec<W, B> {
     /// Create a new [`MemWordWrite`] from a slice of **ZERO INITIALIZED** data
     #[must_use]
-    pub fn new(data: alloc::vec::Vec<W>) -> Self {
+    pub fn new(data: B) -> Self {
         Self {
             data,
             word_index: 0,
+            _marker: Default::default(),
         }
     }
 }
@@ -313,26 +315,27 @@ impl<W: Word, B: AsMut<[W]>> WordWrite for MemWordWrite<W, B> {
 }
 
 #[cfg(feature = "alloc")]
-impl<W: Word> WordWrite for MemWordWriteVec<W> {
+impl<W: Word, B: AsMut<alloc::vec::Vec<W>>> WordWrite for MemWordWriteVec<W, B> {
     type Word = W;
 
     #[inline]
     fn write_word(&mut self, word: W) -> Result<()> {
-        if self.word_index >= self.data.len() {
-            self.data.resize(self.word_index + 1, W::ZERO);
+        if self.word_index >= self.data.as_mut().len() {
+            self.data.as_mut().resize(self.word_index + 1, W::ZERO);
         }
-        self.data[self.word_index] = word;
+        self.data.as_mut()[self.word_index] = word;
         self.word_index += 1;
         Ok(())
     }
 }
 
-impl<W: Word> WordRead for MemWordWriteVec<W> {
+#[cfg(feature = "alloc")]
+impl<W: Word, B: AsMut<alloc::vec::Vec<W>>> WordRead for MemWordWriteVec<W, B> {
     type Word = W;
 
     #[inline]
     fn read_next_word(&mut self) -> Result<W> {
-        match self.data.get(self.word_index) {
+        match self.data.as_mut().get(self.word_index) {
             Some(word) => {
                 self.word_index += 1;
                 Ok(*word)
@@ -344,11 +347,12 @@ impl<W: Word> WordRead for MemWordWriteVec<W> {
     }
 }
 
-impl<W: Word> WordStream for MemWordWriteVec<W> {
+#[cfg(feature = "alloc")]
+impl<W: Word, B: AsMut<alloc::vec::Vec<W>> + AsRef<alloc::vec::Vec<W>>> WordStream for MemWordWriteVec<W, B> {
     #[inline]
     #[must_use]
     fn len(&self) -> usize {
-        self.data.len()
+        self.data.as_ref().len()
     }
 
     #[inline]

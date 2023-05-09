@@ -109,8 +109,8 @@ impl<B: BitWrite<M2L>> ZetaWrite<M2L> for B {
     #[inline]
     fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
-            if let Some((bits, n_bits)) = zeta_tables::WRITE_M2L.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits as usize);
+            if zeta_tables::write_table_m2l(self, value)? {
+                return Ok(());
             }
         }
         default_write_zeta(self, value, 3)
@@ -125,8 +125,8 @@ impl<B: BitWrite<L2M>> ZetaWrite<L2M> for B {
     #[inline]
     fn write_zeta3<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
-            if let Some((bits, n_bits)) = zeta_tables::WRITE_L2M.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits as usize);
+            if zeta_tables::write_table_l2m(self, value)? {
+                return Ok(());
             }
         }
         default_write_zeta(self, value, 3)

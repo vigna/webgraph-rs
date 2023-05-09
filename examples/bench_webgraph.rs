@@ -111,6 +111,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         );
         let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
+    
+        // Create a sequential reader
+        let code_reader =
+            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                MemWordReadInfinite::new(&graph_slice),
+            ));
+        let mut deg_reader = WebgraphReaderDegrees::new(code_reader, 4, 16);
 
         // Check that sequential and random-access interfaces return the same result
         for node_id in 0..num_nodes {
@@ -119,8 +126,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .successors(node_id)?
                 .collect::<Vec<_>>();
 
-            // Why won't assert!(seq.iter().eq(random.iter())) work if I don't collect?
-            assert!(seq.iter().eq(random.iter()));
+            assert_eq!(deg_reader.next_degree()? as usize, seq.len(), "{}", node_id);
+            assert_eq!(seq, random, "{}", node_id);
         }
     } else if args.sequential {
         // Sequential speed test

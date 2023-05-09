@@ -17,6 +17,7 @@ libc = "0.2.141"
 
 [features]
 rtdsc = []
+reads = []
 
 [profile.release]
 opt-level = 3             # like --release

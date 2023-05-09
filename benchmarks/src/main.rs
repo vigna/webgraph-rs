@@ -17,7 +17,9 @@ const CALIBRATION_ITERS: usize = 100_000;
 /// extract
 const DELTA_DISTR_SIZE: usize = 1_000_000;
 
+#[cfg(feature="read")]
 type ReadWord = u32;
+#[cfg(feature="read")]
 type BufferWord = u64;
 
 #[cfg(feature = "rtdsc")]
@@ -42,7 +44,9 @@ macro_rules! bench {
 // the memory where we will write values
 let mut buffer = Vec::with_capacity(VALUES);
 // counters for the total read time and total write time
+#[cfg(feature="read")]
 let mut read_buff = MetricsStream::with_capacity(VALUES);
+#[cfg(feature="read")]
 let mut read_unbuff = MetricsStream::with_capacity(VALUES);
 let mut write = MetricsStream::with_capacity(VALUES);
 
@@ -68,12 +72,14 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
             write.update((nanos - $cal) as f64);
         }
     }
-
+    
+    #[cfg(feature="read")]
     let transmuted_buff: &[ReadWord] = unsafe{core::slice::from_raw_parts(
         buffer.as_ptr() as *const ReadWord,
         buffer.len() * (core::mem::size_of::<u64>() / core::mem::size_of::<ReadWord>()),
     )};
 
+    #[cfg(feature="read")]
     // read the codes
     {
         // init the reader
@@ -91,6 +97,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
             read_buff.update((nanos - $cal) as f64);
         }
     }
+    #[cfg(feature="read")]
     {
         // init the reader
         let mut r = UnbufferedBitStreamRead::<$bo, _>::new(
@@ -110,7 +117,9 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
 }
 
 // convert from cycles to nano seconds
+#[cfg(feature="read")]
 let read_buff = read_buff.finalize();
+#[cfg(feature="read")]
 let read_unbuff = read_unbuff.finalize();
 let write = write.finalize();
 
@@ -130,6 +139,7 @@ println!("{}::{}::{},{},{},{},{},{},{},{}",
     write.median / VALUES as f64,
     write.percentile_75 / VALUES as f64,
 );
+#[cfg(feature="read")]
 println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_buff",
@@ -140,6 +150,7 @@ println!("{}::{}::{},{},{},{},{},{},{},{}",
     read_buff.median / VALUES as f64,
     read_buff.percentile_75 / VALUES as f64,
 );
+#[cfg(feature="read")]
 println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "read_unbuff",

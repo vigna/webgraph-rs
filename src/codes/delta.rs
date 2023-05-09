@@ -95,8 +95,8 @@ impl<B: GammaWrite<M2L>> DeltaWrite<M2L> for B {
         value: u64,
     ) -> Result<()> {
         if USE_TABLE {
-            if let Some((bits, n_bits)) = delta_tables::WRITE_M2L.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits as usize);
+            if delta_tables::write_table_m2l(self, value)? {
+                return Ok(());
             }
         }
         default_write_delta::<M2L, _, USE_GAMMA_TABLE>(self, value)
@@ -109,8 +109,8 @@ impl<B: GammaWrite<L2M>> DeltaWrite<L2M> for B {
         value: u64,
     ) -> Result<()> {
         if USE_TABLE {
-            if let Some((bits, n_bits)) = delta_tables::WRITE_L2M.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits as usize);
+            if delta_tables::write_table_l2m(self, value)? {
+                return Ok(());
             }
         }
         default_write_delta::<L2M, _, USE_GAMMA_TABLE>(self, value)

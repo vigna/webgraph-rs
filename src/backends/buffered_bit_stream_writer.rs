@@ -107,8 +107,10 @@ impl<WR: WordWrite<Word = u64>> BitWrite<M2L> for BufferedBitStreamWrite<M2L, WR
     #[inline]
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         debug_assert_ne!(value, u64::MAX);
-        if let Some((bits, n_bits)) = unary_tables::WRITE_M2L.get(value as usize) {
-            return self.write_bits(*bits as _, *n_bits as usize);
+        if USE_TABLE {
+            if unary_tables::write_table_m2l(self, value)? {
+                return Ok(());
+            }
         }
 
         let mut code_length = value + 1;
@@ -203,8 +205,10 @@ impl<WR: WordWrite<Word = u64>> BitWrite<L2M> for BufferedBitStreamWrite<L2M, WR
     #[inline]
     fn write_unary<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         debug_assert_ne!(value, u64::MAX);
-        if let Some((bits, n_bits)) = unary_tables::WRITE_L2M.get(value as usize) {
-            return self.write_bits(*bits as _, *n_bits as usize);
+        if USE_TABLE {
+            if unary_tables::write_table_l2m(self, value)? {
+                return Ok(());
+            }
         }
         let mut code_length = value + 1;
 

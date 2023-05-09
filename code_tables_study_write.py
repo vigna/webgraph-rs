@@ -17,14 +17,14 @@ for bits in range(1, 18):
         )
         # Run the benchmark with native cpu optimizations
         stdout = subprocess.check_output(
-            "cargo run --release --features \"reads\"",
+            "cargo run --release",
             shell=True,
             env={
                 **os.environ,
-                "UNARY_CODE_TABLE_BITS":str(bits),
-                "GAMMA_CODE_TABLE_BITS":str(bits),
-                "DELTA_CODE_TABLE_BITS":str(bits),
-                "ZETA_CODE_TABLE_BITS":str(bits),
+                "UNARY_CODE_TABLE_MAX":str(bits),
+                "GAMMA_CODE_TABLE_MAX":str(bits),
+                "DELTA_CODE_TABLE_MAX":str(bits),
+                "ZETA_CODE_TABLE_MAX":str(bits),
                 "MERGED_TABLES":str(2 - tables_num),
                 "RUSTFLAGS":"-C target-cpu=native",
             },
@@ -33,8 +33,8 @@ for bits in range(1, 18):
 
         # Dump the header only the first time
         if bits == 1 and tables_num == 1:
-            print("n_bits,tables_num," + stdout.split("\n")[0])
-        # Dump all lines and add the `n_bits` column
+            print("max,tables_num," + stdout.split("\n")[0])
+        # Dump all lines and add the `max` column
         for line in stdout.split("\n")[1:]:
             if len(line.strip()) != 0:
                 print("{},{},{}".format(bits, tables_num, line))

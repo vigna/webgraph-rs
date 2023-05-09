@@ -36,7 +36,7 @@ for bits in range(1, 18):
         )
         # Run the benchmark with native cpu optimizations and collect pgo
         _stdout = subprocess.check_output(
-            "cargo run --release --target=x86_64-unknown-linux-gnu", shell=True,
+            "cargo run --release --target=x86_64-unknown-linux-gnu --features \"reads\"", shell=True,
             env={
                 **os.environ,
                 "UNARY_CODE_TABLE_BITS":str(bits),
@@ -59,7 +59,7 @@ for bits in range(1, 18):
 
         # Run the benchmark with native cpu optimizations and pgo
         stdout = subprocess.check_output(
-            "cargo run --release --target=x86_64-unknown-linux-gnu", shell=True,
+            "cargo run --release --target=x86_64-unknown-linux-gnu --features \"reads\"", shell=True,
             env={
                 **os.environ,
                 "UNARY_CODE_TABLE_BITS":str(bits),

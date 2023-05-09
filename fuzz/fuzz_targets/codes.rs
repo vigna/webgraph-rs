@@ -77,13 +77,13 @@ fuzz_target!(|data: FuzzCase| {
                     let value = (*value).min(u64::MAX - 1);
                     let (big_success, little_success) = if *write_tab {
                         (
-                            big.write_delta::<true>(value).is_ok(),
-                            little.write_delta::<true>(value).is_ok(),
+                            big.write_delta::<true, false>(value).is_ok(),
+                            little.write_delta::<true, false>(value).is_ok(),
                         )
                     } else {
                         (
-                            big.write_delta::<false>(value).is_ok(),
-                            little.write_delta::<false>(value).is_ok(),
+                            big.write_delta::<false, false>(value).is_ok(),
+                            little.write_delta::<false, false>(value).is_ok(),
                         )
                     };
                     assert_eq!(big_success, little_success);
@@ -258,17 +258,17 @@ fuzz_target!(|data: FuzzCase| {
                     let value = (*value).min(u64::MAX - 1);
                     let (b, l, bb, lb) = if *read_tab {
                         (
-                            big.read_delta::<true>(),
-                            little.read_delta::<true>(),
-                            big_buff.read_delta::<true>(),
-                            little_buff.read_delta::<true>(),
+                            big.read_delta::<true, false>(),
+                            little.read_delta::<true, false>(),
+                            big_buff.read_delta::<true, false>(),
+                            little_buff.read_delta::<true, false>(),
                         )
                     } else {
                         (
-                            big.read_delta::<false>(),
-                            little.read_delta::<false>(),
-                            big_buff.read_delta::<false>(),
-                            little_buff.read_delta::<false>(),
+                            big.read_delta::<false, false>(),
+                            little.read_delta::<false, false>(),
+                            big_buff.read_delta::<false, false>(),
+                            little_buff.read_delta::<false, false>(),
                         )
                     };
                     if *succ {

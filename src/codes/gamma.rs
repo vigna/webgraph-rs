@@ -92,8 +92,8 @@ impl<B: BitWrite<M2L>> GammaWrite<M2L> for B {
     #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
-            if let Some((bits, n_bits)) = gamma_tables::WRITE_M2L.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits as usize);
+            if gamma_tables::write_table_m2l(self, value)? {
+                return Ok(());
             }
         }
         default_write_gamma(self, value)
@@ -103,8 +103,8 @@ impl<B: BitWrite<L2M>> GammaWrite<L2M> for B {
     #[inline]
     fn write_gamma<const USE_TABLE: bool>(&mut self, value: u64) -> Result<()> {
         if USE_TABLE {
-            if let Some((bits, n_bits)) = gamma_tables::WRITE_L2M.get(value as usize) {
-                return self.write_bits(*bits as u64, *n_bits as usize);
+            if gamma_tables::write_table_l2m(self, value)? {
+                return Ok(());
             }
         }
         default_write_gamma(self, value)
