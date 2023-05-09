@@ -4,6 +4,9 @@ use anyhow::Result;
 mod circular_buffer;
 pub(crate) use circular_buffer::CircularBuffer;
 
+mod reader_degrees;
+pub use reader_degrees::*;
+
 mod reader_sequential;
 pub use reader_sequential::*;
 

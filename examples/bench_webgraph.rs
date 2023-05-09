@@ -30,6 +30,9 @@ struct Args {
     /// Test sequential access speed by scanning the whole graph
     #[arg(short = 's', long)]
     sequential: bool,
+    /// Test sequential degrees_on;y access speed by scanning the whole graph
+    #[arg(short = 'd', long)]
+    degrees_only: bool,
 
     /// Do not test speed, but check that the sequential and random-access successor lists are the same
     #[arg(short = 'c', long)]
@@ -135,6 +138,27 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             println!(
                 "Sequential:{:>20} ns/arcs",
+                (start.elapsed().as_secs_f64() / c as f64) * 1e9
+            );
+
+            assert_eq!(c, num_arcs as usize);
+        }
+    } else if args.degrees_only {
+        // Sequential speed test
+        for _ in 0..args.repeats {
+            // Create a sequential reader
+            let code_reader =
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&graph_slice),
+                ));
+            let mut seq_reader = WebgraphReaderDegrees::new(code_reader, 4, 16);
+            let mut c: usize = 0;
+            let start = std::time::Instant::now();
+            for _ in 0..num_nodes {
+                c += seq_reader.next_degree()? as usize;
+            }
+            println!(
+                "Degrees Only:{:>20} ns/arcs",
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
 
