@@ -17,7 +17,12 @@ macro_rules! compute_ratio {
     ($data:expr, $table:ident, $len_func:ident) => {{
         let mut total = 0.0;
         for value in &$data {
+            #[cfg(feature="read")]
             if $len_func::<false>(*value) <= $table::READ_BITS as usize {
+                total += 1.0;
+            }
+            #[cfg(not(feature="read"))]
+            if *value <= $table::WRITE_MAX {
                 total += 1.0;
             }
         }
@@ -93,7 +98,14 @@ pub fn gen_zeta3_data() -> (f64, Vec<u64>) {
         .collect::<Vec<_>>();
 
     let ratio = zeta3_data.iter().map(|value| {
+        #[cfg(feature="read")]
         if len_zeta::<false>(*value, 3) <= zeta_tables::READ_BITS as usize {
+            1
+        } else {
+            0
+        }
+        #[cfg(not(feature="read"))]
+        if *value <= zeta_tables::WRITE_MAX {
             1
         } else {
             0

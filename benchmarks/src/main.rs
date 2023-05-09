@@ -48,6 +48,7 @@ let mut buffer = Vec::with_capacity(VALUES);
 let mut read_buff = MetricsStream::with_capacity(VALUES);
 #[cfg(feature="read")]
 let mut read_unbuff = MetricsStream::with_capacity(VALUES);
+#[cfg(not(feature="read"))]
 let mut write = MetricsStream::with_capacity(VALUES);
 
 // measure
@@ -68,6 +69,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
         }
         let nanos = w_start.elapsed().as_nanos();
         // add the measurement if we are not in the warmup
+        #[cfg(not(feature="read"))]
         if iter >= WARMUP_ITERS {
             write.update((nanos - $cal) as f64);
         }
@@ -121,6 +123,7 @@ for iter in 0..(WARMUP_ITERS + BENCH_ITERS) {
 let read_buff = read_buff.finalize();
 #[cfg(feature="read")]
 let read_unbuff = read_unbuff.finalize();
+#[cfg(not(feature="read"))]
 let write = write.finalize();
 
 let table = if ($($table),*,).0 {
@@ -129,6 +132,7 @@ let table = if ($($table),*,).0 {
     "NoTable"
 };
 // print the results
+#[cfg(not(feature="read"))]
 println!("{}::{}::{},{},{},{},{},{},{},{}",
     $code, stringify!($bo), table, // the informations about what we are benchmarking
     "write",

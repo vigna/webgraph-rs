@@ -148,6 +148,13 @@ def gen_table(
             "pub const MISSING_VALUE_LEN: {} = {};\n".format(len_ty, MISSING_VALUE_LEN)
         )
 
+        f.write(
+            "/// Maximum value writable using the table(s)\n"
+        )
+        f.write(
+            "pub const WRITE_MAX: u64 = {};\n".format(write_max_val)
+        )
+
         if merged_table:
             read_func_template = read_func_merged_table
             write_func_template = write_func_merged_table
