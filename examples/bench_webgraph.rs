@@ -101,7 +101,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut code_reader = DefaultCodesReader::new(
             BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         );
-        let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
+        let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
 
         // create a random access reader
         let code_reader = DefaultCodesReader::new(
@@ -111,7 +111,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Check that sequential and random-access interfaces return the same result
         for node_id in 0..num_nodes {
-            let seq = seq_reader.get_successors_iter(node_id)?;
+            let seq = seq_reader.next_successors()?;
             let random = random_reader
                 .successors(node_id)?
                 .collect::<Vec<_>>();
@@ -127,11 +127,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
                     MemWordReadInfinite::new(&graph_slice),
                 ));
-            let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
+            let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
             let mut c: usize = 0;
             let start = std::time::Instant::now();
-            for node_id in 0..num_nodes {
-                c += seq_reader.get_successors_iter(node_id)?.iter().count();
+            for _ in 0..num_nodes {
+                c += seq_reader.next_successors()?.iter().count();
             }
             println!(
                 "Sequential:{:>20} ns/arcs",
