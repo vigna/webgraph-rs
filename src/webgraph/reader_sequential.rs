@@ -50,33 +50,35 @@ impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
             debug_assert!(neighbours.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
+            
             // no blocks, we copy everything
             if number_of_blocks == 0 {
                 results.extend_from_slice(neighbours);
             } else {
                 // otherwise we copy only the blocks of even index
-
+                
                 // the first block could be zero
                 let mut idx = self.codes_reader.read_blocks()? as usize;
                 results.extend_from_slice(&neighbours[..idx]);
+                
                 // while the other can't
                 for block_id in 1..number_of_blocks {
                     let block = self.codes_reader.read_blocks()? as usize;
-                    let end = idx + block;
+                    let end = idx + block + 1;
                     if block_id % 2 == 0 {
                         results.extend_from_slice(&neighbours[idx..end]);
                     }
                     idx = end;
                 }
-                // if the last block was a skip one, copy the rest of the nodes
-                if number_of_blocks % 2 != 0 {
+                if number_of_blocks & 1 == 0 {
                     results.extend_from_slice(&neighbours[idx..]);
                 }
             }
         };
 
         // if we still have to read nodes
-        if (degree - results.len()) != 0 {
+        let nodes_left_to_decode = degree - results.len();
+        if nodes_left_to_decode != 0 {
             // read the number of intervals
             let number_of_intervals = self.codes_reader.read_interval_count()? as usize;
             if number_of_intervals != 0 {
@@ -87,9 +89,7 @@ impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
                 let mut delta = self.codes_reader.read_interval_len()? as usize;
                 delta += self.min_interval_length;
                 // save the first interval
-                for node_id in start..(start + delta as u64) {
-                    results.push(node_id);
-                }
+                results.extend(start..(start + delta as u64));
                 start += delta as u64;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
@@ -97,9 +97,7 @@ impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
                     delta = self.codes_reader.read_interval_len()? as usize;
                     delta += self.min_interval_length;
 
-                    for node_id in start..(start + delta as u64) {
-                        results.push(node_id);
-                    }
+                    results.extend(start..(start + delta as u64));
                     
                     start += delta as u64;
                 }
@@ -107,20 +105,20 @@ impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
         }
 
         // decode the extra nodes if needed
-        if (degree - results.len()) != 0 {
+        let nodes_left_to_decode = degree - results.len();
+        if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
             let node_id_offset = nat2int(self.codes_reader.read_first_residual()?);
             let mut extra = (node_id as i64 + node_id_offset) as u64;
             results.push(extra);
             // decode the successive extra nodes
-            for _ in 1..(degree - results.len()) {
+            for _ in 1..nodes_left_to_decode {
                 extra += 1 + self.codes_reader.read_residual()?;
                 results.push(extra);
             }
         }
 
         results.sort();
-
         Ok(())
     }
 }

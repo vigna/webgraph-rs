@@ -98,7 +98,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.check {
         // Create a sequential reader
-        let mut code_reader = DefaultCodesReader::new(
+        let code_reader = DefaultCodesReader::new(
             BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         );
         let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
@@ -123,7 +123,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Sequential speed test
         for _ in 0..args.repeats {
             // Create a sequential reader
-            let mut code_reader =
+            let code_reader =
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
                     MemWordReadInfinite::new(&graph_slice),
                 ));
