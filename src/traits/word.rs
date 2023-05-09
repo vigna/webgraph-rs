@@ -49,7 +49,7 @@ pub trait Word:
     /// Number of bytes in the word
     const BYTES: usize;
     /// The byte array form of the value = `[u8; Self::BYTES]`
-    type BytesForm;
+    type BytesForm: AsRef<[u8]> + Copy;
     /// Zero represented by `Self`
     const ZERO: Self;
     /// One represented by `Self`
@@ -66,6 +66,34 @@ pub trait Word:
     /// Converts self to little endian from the target’s endianness.
     /// On little endian this is a no-op. On big endian the bytes are swapped.
     fn to_le(self) -> Self;
+
+    /// Create a native endian integer value from its representation as a byte 
+    /// array in big endian.
+    fn from_be_bytes(bytes: Self::BytesForm) -> Self;
+
+    /// Create a native endian integer value from its representation as a byte 
+    /// array in little endian.
+    fn from_le_bytes(bytes: Self::BytesForm) -> Self;
+
+    /// Create a native endian integer value from its memory representation as 
+    /// a byte array in native endianness.
+    /// As the target platform’s native endianness is used, portable code likely 
+    /// wants to use from_be_bytes or from_le_bytes, as appropriate instead.
+    fn from_ne_bytes(bytes: Self::BytesForm) -> Self;
+
+    /// Return the memory representation of this integer as a byte array in 
+    /// big-endian (network) byte order.
+    fn to_be_bytes(self) -> Self::BytesForm;
+
+    /// Return the memory representation of this integer as a byte array in 
+    /// little-endian byte order.
+    fn to_le_bytes(self) -> Self::BytesForm;
+
+    /// Return the memory representation of this integer as a byte array in 
+    /// native byte order.
+    /// As the target platform’s native endianness is used, portable code should
+    /// use to_be_bytes or to_le_bytes, as appropriate, instead.
+    fn to_ne_bytes(self) -> Self::BytesForm;
 
     /// Returns the number of leading ones in the binary representation of self.
     fn leading_ones(self) -> usize;
@@ -106,6 +134,18 @@ impl Word for $ty {
     fn to_be(self) -> Self{self.to_be()}
     #[inline(always)]
     fn to_le(self) -> Self{self.to_le()}
+    #[inline(always)]
+    fn from_be_bytes(bytes: Self::BytesForm) -> Self {<$ty>::from_be_bytes(bytes)}
+    #[inline(always)]
+    fn from_le_bytes(bytes: Self::BytesForm) -> Self {<$ty>::from_le_bytes(bytes)}
+    #[inline(always)]
+    fn from_ne_bytes(bytes: Self::BytesForm) -> Self {<$ty>::from_ne_bytes(bytes)}
+    #[inline(always)]
+    fn to_be_bytes(self) -> Self::BytesForm{self.to_be_bytes()}
+    #[inline(always)]
+    fn to_le_bytes(self) -> Self::BytesForm{self.to_le_bytes()}
+    #[inline(always)]
+    fn to_ne_bytes(self) -> Self::BytesForm{self.to_ne_bytes()}
     #[inline(always)]
     fn leading_ones(self) -> usize {self.leading_ones() as usize}
     #[inline(always)]

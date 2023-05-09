@@ -7,6 +7,11 @@ pub struct WebgraphReaderSequential<CR: WebGraphCodesReader> {
     backrefs: CircularBuffer,
     min_interval_length: usize,
 }
+impl<CR: WebGraphCodesReader + BitSeek> WebgraphReaderSequential<CR> {
+    pub fn get_position(&self) -> usize {
+        self.codes_reader.get_position()
+    }
+}
 
 impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
     pub fn new(
@@ -123,49 +128,62 @@ impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
     }
 }
 
-/*
 #[cfg(feature="std")]
 /// `std` dependent implementations for [`WebgraphReaderSequential`]
 mod p {
     use super::*;
     use java_properties;
-    use mmap_rs::*;
     use std::fs::*;
     use std::io::*;
-    use crate::prelude::{BufferedBitStreamRead, MemWordReadInfinite};
+    use mmap_rs::*;
+    use anyhow::{Result, bail};
+    use crate::prelude::{BufferedBitStreamRead, MemWordReadInfinite, MmapBackend};
 
-    fn mmap_file<T>(path: String) -> Result<T> {
-        let mut file = std::fs::File::open(path).unwrap();
-        let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-        unsafe {
-            MmapOptions::new(file_len as _)
-                .unwrap()
-                .with_file(file, 0)
-                .map()
-                .unwrap()
-        }
-    
-    
-    }
+    type ReadType = u32;
+    type BufferType = u64;
 
-    impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
-        pub fn from_basename<'a>(basename: &'a str) -> Result<
-            WebgraphReaderSequential<DefaultCodesReader<M2L, 
-                BufferedBitStreamRead<M2L, u64, MemWordReadInfinite<'a, u32>>
-            >>
-        > {
+    impl<'a> WebgraphReaderSequential<DefaultCodesReader<M2L, 
+        BufferedBitStreamRead<M2L, BufferType, MemWordReadInfinite<ReadType, MmapBackend<ReadType>>>
+    >> {
+        pub fn from_basename(basename: &str) -> Result<(u64, Self)> {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
 
             let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
 
-            // Read the offsets
-            let data_offsets = mmap_file(&format!("{}.offsets", basename));
-            let data_graph = mmap_file(&format!("{}.graph", basename));
+            let compressions_flags = map.get("compressionflags").unwrap().as_str();
+            if compressions_flags != "" {
+                bail!("You cannot read a graph with compression_flags not empty with the default codes reader");
+            }
 
-            panic!();
+            let mut file = std::fs::File::open(format!("{}.graph", basename)).unwrap();
+            let mut file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
+            
+            // align the len to readtypes, TODO!: arithmize
+            while file_len % std::mem::size_of::<ReadType>() as u64 != 0 {
+                file_len += 1;
+            }
+
+            let data = unsafe {
+                MmapOptions::new(file_len as _)
+                    .unwrap()
+                    .with_file(file, 0)
+                    .map()
+                    .unwrap()
+            };
+
+            let code_reader = DefaultCodesReader::new(
+                BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                        MemWordReadInfinite::new(MmapBackend::new(data))
+                    ),
+            );
+            let seq_reader = WebgraphReaderSequential::new(
+                code_reader, 
+                map.get("minintervallength").unwrap().parse::<usize>()?, 
+                map.get("windowsize").unwrap().parse::<usize>()?, 
+            );
+    
+            Ok((num_nodes, seq_reader))
         }
     }
 }
-
-*/

@@ -3,10 +3,11 @@
 mod word_stream;
 pub use word_stream::*;
 
-#[cfg(feautre="std")]
 mod file_backend;
-#[cfg(feautre="std")]
 pub use file_backend::*;
+
+mod mmap_backend;
+pub use mmap_backend::*;
 
 mod unbuffered_bit_stream_reader;
 pub use unbuffered_bit_stream_reader::UnbufferedBitStreamRead;

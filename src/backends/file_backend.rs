@@ -50,26 +50,7 @@ impl<W: Word, B: core::fmt::Debug> core::fmt::Debug for FileBackend<W, B> {
     }
 }
 
-/// Convert [`std::io::Seek`] to [`WordStream`]
-impl<W: Word, B: std::io::Seek> WordStream for FileBackend<W, B> {
-    #[inline]
-    #[must_use]
-    fn len(&self) -> usize {
-        self.file.stream_len()
-    }
-
-    #[inline]
-    #[must_use]
-    fn get_position(&self) -> usize {
-        self.file.stream_position()
-    }
-
-    #[inline]
-    fn set_position(&mut self, word_index: usize) -> Result<()> {
-        self.file.seek(std::io::SeekFrom::Start(word_index))
-    }
-}
-
+/*
 /// Convert [`std::io::Read`] to [`WordRead`]
 impl<W: Word, B: std::io::Read> WordRead for FileBackend<W, B> {
     type Word = W;
@@ -78,9 +59,10 @@ impl<W: Word, B: std::io::Read> WordRead for FileBackend<W, B> {
     fn read_next_word(&mut self) -> Result<W> {
         let mut res = [0; 8];
         self.file.read(&mut res)?;
-        Ok(W::from_ne_bytes(res))
+        let res_ptr = &res as *const u8 as *const W::BytesForm;
+        Ok(W::from_ne_bytes(unsafe{*res_ptr}))
     }
-}
+}*/
 
 /// Convert [`std::io::Write`] to [`WordWrite`]
 impl<W: Word, B: std::io::Write> WordWrite for FileBackend<W, B> {
@@ -88,7 +70,7 @@ impl<W: Word, B: std::io::Write> WordWrite for FileBackend<W, B> {
 
     #[inline]
     fn write_word(&mut self, word: W) -> Result<()> {
-        self.file.write(&word.to_ne_bytes())?;
+        self.file.write(word.to_ne_bytes().as_ref())?;
         Ok(())
     }
 }

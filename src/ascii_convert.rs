@@ -18,14 +18,14 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let mut seq_reader = WebgraphReaderSequential::from_basename(args.basename)?;
+    let (nodes_num, mut seq_reader) = WebgraphReaderSequential::from_basename(&args.basename)?;
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "offset".into();
     pr.start("Computing offsets...");
 
-    for node_id in 0..seq_reader.get_nodes_number() {
-        for succ in seq_reader.get_successors_iter(node_id)?.iter() {
+    for node_id in 0..nodes_num {
+        for succ in seq_reader.next_successors()?.iter() {
             println!("{}\t{}", node_id, succ);
         }
     }
