@@ -22,7 +22,7 @@ for bits in range(1, 18):
             shell=True,
             env={
                 **os.environ,
-                "UNARY_CODE_TABLE_MAX":str(value_max),
+                "UNARY_CODE_TABLE_MAX":str(min(value_max, 64)),
                 "GAMMA_CODE_TABLE_MAX":str(value_max),
                 "DELTA_CODE_TABLE_MAX":str(value_max),
                 "ZETA_CODE_TABLE_MAX":str(value_max),
