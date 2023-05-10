@@ -9,6 +9,7 @@ use std::io::Seek;
 use mmap_rs::*;
 use webgraph::prelude::*;
 use sux::prelude::*;
+use std::hint::black_box;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -30,6 +31,11 @@ struct Args {
     /// Test sequential access speed by scanning the whole graph
     #[arg(short = 's', long)]
     sequential: bool,
+
+    /// Test random access to the first successor
+    #[arg(short = 'f', long)]
+    first: bool,
+
     /// Test sequential degrees_on;y access speed by scanning the whole graph
     #[arg(short = 'd', long)]
     degrees_only: bool,
@@ -53,6 +59,13 @@ fn mmap_file(path: &str) -> Mmap {
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
+
 
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
@@ -144,7 +157,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 c += seq_reader.next_successors()?.iter().count();
             }
             println!(
-                "Sequential:{:>20} ns/arcs",
+                "Sequential:{:>20} ns/arc",
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
 
@@ -166,7 +179,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 c += seq_reader.next_degree()? as usize;
             }
             println!(
-                "Degrees Only:{:>20} ns/arcs",
+                "Degrees Only:{:>20} ns/arc",
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
 
@@ -185,18 +198,30 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut random = SmallRng::seed_from_u64(0);
             let mut c: usize = 0;
+            let mut u: u64 = 0;
 
             let start = std::time::Instant::now();
-            for _ in 0..args.n {
-                c += random_reader
-                    .successors(random.gen_range(0..num_nodes))?
-                    .count();
+            if args.first {
+                for _ in 0..args.n {
+                    u += random_reader
+                        .successors(random.gen_range(0..num_nodes))?
+                        .next().unwrap_or(0);
+                    c += 1;
+                }
+            } else {
+                for _ in 0..args.n {
+                    c += random_reader
+                        .successors(random.gen_range(0..num_nodes))?
+                        .count();
+                }
             }
 
             println!(
-                "Random:    {:>20} ns/arcs",
+                "{}:    {:>20} ns/arc",
+                if args.first { "First" } else { "Random" },
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
+            black_box(u);
         }
     }
     Ok(())
