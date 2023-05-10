@@ -63,17 +63,17 @@ impl LabelStore {
         }
     }
 
-    fn set(&mut self, node: usize, new_label: usize) {
+    fn set(&self, node: usize, new_label: usize) {
         let old_label = self.labels[node].swap(new_label, Relaxed);
         self.volumes[old_label].fetch_sub(1, Relaxed);
         self.volumes[new_label].fetch_add(1, Relaxed);
     }
 
-    fn label(&mut self, node: usize) -> usize {
+    fn label(&self, node: usize) -> usize {
         self.labels[node].load(Relaxed)
     }
 
-    fn volume(&mut self, label: usize) -> usize {
+    fn volume(&self, label: usize) -> usize {
         self.volumes[label].load(Relaxed)
     }
 }
@@ -155,14 +155,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let gamma = 0.0;
-
-    glob_pr.start("Starting updates...");
-
-    //let mut label_store = LabelStore::new(num_nodes as _);
-    let mut label_store = LabelStore::new(num_nodes as _);
-
+    let label_store = LabelStore::new(num_nodes as _);
     let mut rand = SmallRng::seed_from_u64(0);
     let mut perm = (0..num_nodes).into_iter().collect::<Vec<_>>();
+
+    glob_pr.start("Starting updates...");
 
     for _ in 0..100 {
         let mut delta = Mutex::new(0.0);
