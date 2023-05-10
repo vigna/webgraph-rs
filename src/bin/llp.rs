@@ -16,7 +16,6 @@ use std::io::Seek;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
-use std::sync::mpsc::channel;
 use std::sync::Mutex;
 use std::thread;
 use sux::prelude::*;
@@ -64,12 +63,10 @@ impl LabelStore {
         }
     }
 
-    fn set(&mut self, node: usize, label: usize) {
-        let new_label = self.labels[node].swap(label, Relaxed);
-        if label != label {
-            self.volumes[label].fetch_sub(1, Relaxed);
-            self.volumes[new_label].fetch_add(1, Relaxed);
-        }
+    fn set(&mut self, node: usize, new_label: usize) {
+        let old_label = self.labels[node].swap(new_label, Relaxed);
+        self.volumes[old_label].fetch_sub(1, Relaxed);
+        self.volumes[new_label].fetch_add(1, Relaxed);
     }
 
     fn label(&mut self, node: usize) -> usize {
@@ -80,6 +77,9 @@ impl LabelStore {
         self.volumes[label].load(Relaxed)
     }
 }
+
+unsafe impl Send for LabelStore {}
+unsafe impl Sync for LabelStore {}
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
@@ -159,12 +159,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     glob_pr.start("Starting updates...");
 
     //let mut label_store = LabelStore::new(num_nodes as _);
-    let mut labels = Vec::with_capacity(num_nodes as _);
-    let mut volumes = Vec::with_capacity(num_nodes as _);
-    for l in 0..num_nodes as _ {
-        labels.push(AtomicUsize::new(l));
-        volumes.push(AtomicUsize::new(1));
-    }
+    let mut label_store = LabelStore::new(num_nodes as _);
 
     let mut rand = SmallRng::seed_from_u64(0);
     let mut perm = (0..num_nodes).into_iter().collect::<Vec<_>>();
@@ -216,10 +211,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             let mut map = HashMap::<usize, usize>::with_capacity(successors.len()); 
 
-                            let curr_label = labels[node as usize].load(Relaxed);
+                            let curr_label = label_store.label(node as _);
 
                             for succ in successors {
-                                map.entry(labels[succ as usize].load(Relaxed))
+                                map.entry(label_store.label(succ as usize))
                                     .and_modify(|counter| *counter += 1)
                                     .or_insert(1);
                             }
@@ -231,7 +226,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut majorities = vec![];
 
                             for (&label, &count) in map.iter() {
-                                let volume = volumes[label].load(Relaxed);
+                                let volume = label_store.volume(label);
                                 let val = count as f64 - gamma * (volume + 1 - count) as f64;
 
                                 if max == val {
@@ -257,9 +252,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     can_change[succ as usize].store(true, Relaxed);
                                 }
 
-                                labels[node as usize].store(next_label, Relaxed);
-                                volumes[curr_label].fetch_sub(1, Relaxed);
-                                volumes[next_label].fetch_add(1, Relaxed);
+                                label_store.set(node as _, next_label);
                             }
 
                             local_delta += max - old;
@@ -275,11 +268,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         pr.done_with_count(num_nodes as _);
         info!(
             "Modified: {} Delta: {}",
-            modified.load_value(),
+            modified.load(Relaxed),
             delta.lock().unwrap()
         );
         glob_pr.update_and_display();
-        if modified.load_value() == 0 {
+        if modified.load(Relaxed) == 0 {
             break;
         }
     }
