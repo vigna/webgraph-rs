@@ -44,6 +44,24 @@ fn mmap_file(path: &str) -> Mmap {
     }
 }
 
+struct PermutedGraph<'a, CR, OFF> {
+    graph: &'a WebgraphReaderRandomAccess<CR, OFF>,
+    perm: &'a[u64]
+}
+
+struct PermutedSuccessorsIterator<I: Iterator> {
+    iterator: I,
+    perm: [usize],
+}
+
+impl Iterator for PermutedSuccessorsIterator<Iterator> {
+    type Item = u64;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next().map(|x| self.perm[x])
+    }
+}
+
+
 struct LabelStore {
     labels: Box<[AtomicUsize]>,
     volumes: Box<[AtomicUsize]>,
