@@ -151,12 +151,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else if args.degrees_only {
+        let data = <MmapBackend<ReadType>>::new(data_graph);
         // Sequential speed test
         for _ in 0..args.repeats {
             // Create a sequential reader
             let code_reader =
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice),
+                    MemWordReadInfinite::new(&data),
                 ));
             let mut seq_reader = WebgraphReaderDegrees::new(code_reader, 4, 16);
             let mut c: usize = 0;
@@ -172,12 +173,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else {
+        let data = <MmapBackend<ReadType>>::new(data_graph);
         // Random-access speed test
         for _ in 0..args.repeats {
             // create a random access reader
             let code_reader =
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&data_graph),
+                    MemWordReadInfinite::new(&data),
                 ));
             let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
 
