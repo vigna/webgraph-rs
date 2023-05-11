@@ -2,7 +2,6 @@ use sux::traits::VSlice;
 
 use super::*;
 use crate::utils::nat2int;
-use core::iter::Peekable;
 
 pub struct WebgraphReaderRandomAccess<CR, OFF> {
     codes_reader: CR,
@@ -56,15 +55,14 @@ where
                 blocks.push(result.reader.read_blocks()? as usize);
                 // while the other can't
                 for _ in 1..number_of_blocks {
-                    let block = result.reader.read_blocks()? as usize;
-                    blocks.push(block + 1);
+                    blocks.push(result.reader.read_blocks()? as usize + 1);
                 }
             }
             // create the masked iterator
             let res = MaskedIterator::new(neighbours, blocks);
             nodes_left_to_decode -= res.len();
 
-            result.copied_nodes_iter = Some(res.peekable());
+            result.copied_nodes_iter = Some(res);
         };
 
         // if we still have to read nodes
@@ -112,7 +110,9 @@ where
         result.next_copied_node = if result.copied_nodes_iter.is_none() {
             u64::MAX
         } else {
-            *result.copied_nodes_iter.as_mut().unwrap().peek().unwrap()
+            result.copied_nodes_iter.as_mut().unwrap().next().unwrap_or(
+                u64::MAX
+            )
         };
 
         Ok(result)
@@ -126,7 +126,7 @@ pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<Peekable<MaskedIterator<SuccessorsIterRandom<CR>>>>,
+    copied_nodes_iter: Option<MaskedIterator<SuccessorsIterRandom<CR>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(u64, usize)>,
