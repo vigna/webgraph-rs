@@ -182,10 +182,10 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         );
 
         // find the smallest of the values
-        let min = self.next_copied_node.min(self.next_residual_node).min(self.next_interval_node);
+        let min = self.next_residual_node.min(self.next_interval_node);
 
         // depending on from where the node was, forward it
-        if min == self.next_copied_node {
+        if min >= self.next_copied_node {
             self.next_copied_node = self.copied_nodes_iter.as_mut().unwrap().next().unwrap_or(u64::MAX);
         } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
