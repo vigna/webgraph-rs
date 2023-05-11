@@ -47,18 +47,18 @@ fn test_sequential_reading() {
     let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
 
     // Create a sequential reader
-    let mut code_reader = DefaultCodesReader::new(
+    let code_reader = DefaultCodesReader::new(
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
     );
-    let mut seq_reader = WebgraphReaderSequential::new(&mut code_reader, 4, 16);
+    let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
 
     // Check that they read the same
-    for node_id in 0..(NODES as u64) {
+    for node_id in 0..(NODES as u64 - 1) {
         let rand_nodes = random_reader
             .successors(node_id)
             .unwrap()
             .collect::<Vec<_>>();
-        let seq_nodes = seq_reader.get_successors_iter(node_id).unwrap();
+        let seq_nodes = seq_reader.next_successors().unwrap();
         assert_eq!(&rand_nodes, seq_nodes);
     }
 }
