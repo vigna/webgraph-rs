@@ -100,6 +100,18 @@ where
             result.residuals_to_go = nodes_left_to_decode - 1;
         }
 
+        result.next_interval_node = if result.intervals.is_empty() {
+            u64::MAX
+        } else {
+            result.intervals[0].0
+        };
+
+        result.next_copied_node = if result.copied_nodes_iter.is_none() {
+            u64::MAX
+        } else {
+            *result.copied_nodes_iter.as_mut().unwrap().peek().unwrap()
+        };
+
         Ok(result)
     }
 }
@@ -121,6 +133,10 @@ pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
     residuals_to_go: usize,
     /// The next residual node
     next_residual_node: u64,
+    /// The next residual node
+    next_copied_node: u64,
+    /// The next interval node
+    next_interval_node: u64,
 }
 
 impl<CR: WebGraphCodesReader + BitSeek + Clone> ExactSizeIterator for SuccessorsIterRandom<CR> {
@@ -140,7 +156,9 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             intervals: vec![],
             intervals_idx: 0,
             residuals_to_go: 0,
-            next_residual_node: u64::MAX,
+            next_residual_node: 0,
+            next_copied_node:  0,
+            next_interval_node: 0,
         }
     }
 }
@@ -156,39 +174,19 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
 
         self.size -= 1;
 
-        // Get the different nodes or usize::MAX if not present
-        let copied_value = self
-            .copied_nodes_iter
-            .as_mut()
-            .and_then(|x| x.peek().copied())
-            .unwrap_or(u64::MAX);
-
-        let interval_node = {
-            let (start, len) = self
-                .intervals
-                .get(self.intervals_idx)
-                .copied()
-                .unwrap_or((u64::MAX, usize::MAX));
-            debug_assert_ne!(
-                len, 0,
-                "there should never be an interval with length zero here"
-            );
-            start
-        };
-
         debug_assert!(
-            copied_value != u64::MAX
+            self.next_copied_node != u64::MAX
                 || self.next_residual_node != u64::MAX
-                || interval_node != u64::MAX,
+                || self.next_interval_node != u64::MAX,
             "At least one of the nodes must present, this should be a problem with the degree.",
         );
 
         // find the smallest of the values
-        let min = copied_value.min(self.next_residual_node).min(interval_node);
+        let min = self.next_copied_node.min(self.next_residual_node).min(self.next_interval_node);
 
         // depending on from where the node was, forward it
-        if min == copied_value {
-            self.copied_nodes_iter.as_mut().unwrap().next().unwrap();
+        if min == self.next_copied_node {
+            self.next_copied_node = self.copied_nodes_iter.as_mut().unwrap().next().unwrap_or(u64::MAX);
         } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
                 self.next_residual_node = u64::MAX;
@@ -210,9 +208,15 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
             if *len > 1 {
                 *len -= 1;
                 *start += 1;
+                self.next_interval_node = *start;
             } else {
                 // otherwise just increase the idx to use the next interval
                 self.intervals_idx += 1;
+                self.next_interval_node = if self.intervals_idx == self.intervals.len() {
+                    u64::MAX
+                } else {
+                    self.intervals[self.intervals_idx].0
+                };
             }
         }
 
