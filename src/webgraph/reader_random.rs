@@ -185,8 +185,9 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
 
         // depending on from where the node was, forward it
         if min >= self.next_copied_node {
-            self.next_copied_node = self.copied_nodes_iter.as_mut().unwrap()
-                .next().unwrap_or(u64::MAX);
+            self.next_copied_node = self.copied_nodes_iter.as_mut()
+                .map_or(None, |iter| iter.next())
+                .unwrap_or(u64::MAX);
         } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
                 self.next_residual_node = u64::MAX;
@@ -205,19 +206,14 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
                 "there should never be an interval with length zero here"
             );
             // if the interval has other values, just reduce the interval
-            if *len > 1 {
-                *len -= 1;
-                *start += 1;
-                self.next_interval_node = *start;
-            } else {
-                // otherwise just increase the idx to use the next interval
-                self.intervals_idx += 1;
-                self.next_interval_node = if self.intervals_idx == self.intervals.len() {
-                    u64::MAX
-                } else {
-                    self.intervals[self.intervals_idx].0
-                };
-            }
+            *len -= (*len != 0) as usize;
+            *start += 1;
+            self.next_interval_node = *start;
+
+            self.intervals_idx += (*len == 0) as usize;
+            self.next_interval_node |= (
+                (self.intervals_idx != self.intervals.len()) as i64 - 1
+            ) as u64;
         }
 
         Some(min)
