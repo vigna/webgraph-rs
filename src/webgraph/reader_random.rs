@@ -107,13 +107,8 @@ where
             result.intervals[0].0
         };
 
-        result.next_copied_node = if result.copied_nodes_iter.is_none() {
-            u64::MAX
-        } else {
-            result.copied_nodes_iter.as_mut().unwrap().next().unwrap_or(
-                u64::MAX
-            )
-        };
+        result.next_copied_node = result.copied_nodes_iter.as_mut().unwrap()
+            .next().unwrap_or(u64::MAX);
 
         Ok(result)
     }
