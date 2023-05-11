@@ -47,7 +47,7 @@ where
             debug_assert!(neighbours.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count()? as usize;
-            let mut blocks = Vec::with_capacity(number_of_blocks as usize);
+            let mut blocks = Vec::with_capacity(1 + number_of_blocks as usize);
             if number_of_blocks != 0 {
                 // the first block could be zero
                 blocks.push(result.reader.read_blocks()? as usize);
@@ -186,7 +186,8 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
 
         // depending on from where the node was, forward it
         if min >= self.next_copied_node {
-            self.next_copied_node = self.copied_nodes_iter.as_mut().unwrap().next().unwrap_or(u64::MAX);
+            self.next_copied_node = self.copied_nodes_iter.as_mut().unwrap()
+                .next().unwrap_or(u64::MAX);
         } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
                 self.next_residual_node = u64::MAX;
