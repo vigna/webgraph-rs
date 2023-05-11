@@ -47,7 +47,10 @@ where
             debug_assert!(neighbours.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count()? as usize;
-            let mut blocks = Vec::with_capacity(1 + number_of_blocks as usize);
+            // add +1 if the number of blocks is even, so we have capacity for
+            // the block that will be added in the masked iterator
+            let alloc_len = 1 + number_of_blocks - (number_of_blocks & 1);
+            let mut blocks = Vec::with_capacity(alloc_len as usize);
             if number_of_blocks != 0 {
                 // the first block could be zero
                 blocks.push(result.reader.read_blocks()? as usize);
