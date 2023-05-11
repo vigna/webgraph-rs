@@ -71,7 +71,7 @@ where
             let number_of_intervals = result.reader.read_interval_count()? as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                result.intervals = Vec::with_capacity(number_of_intervals);
+                result.intervals = Vec::with_capacity(number_of_intervals + 1);
                 let node_id_offset = nat2int(result.reader.read_interval_start()?);
                 debug_assert!((node_id as i64 + node_id_offset) >= 0);
                 let mut start = (node_id as i64 + node_id_offset) as u64;
@@ -91,6 +91,7 @@ where
                     start += delta as u64;
                     nodes_left_to_decode -= delta;
                 }
+                result.intervals.push((u64::MAX - 1, 1));
             }
         }
 
@@ -101,10 +102,12 @@ where
             result.residuals_to_go = nodes_left_to_decode - 1;
         }
 
-        result.next_interval_node = if result.intervals.is_empty() {
-            u64::MAX
-        } else {
-            result.intervals[0].0
+        if !result.intervals.is_empty() {
+            let (start, len) = &mut result.intervals[0];
+            *len -= 1;
+            result.next_interval_node = *start;
+            *start += 1;
+            result.intervals_idx += (*len == 0) as usize;
         };
 
         result.next_copied_node = result.copied_nodes_iter.as_mut()
@@ -155,9 +158,9 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             intervals: vec![],
             intervals_idx: 0,
             residuals_to_go: 0,
-            next_residual_node: 0,
-            next_copied_node:  0,
-            next_interval_node: 0,
+            next_residual_node: u64::MAX,
+            next_copied_node:  u64::MAX,
+            next_interval_node: u64::MAX,
         }
     }
 }
@@ -172,7 +175,6 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         }
 
         self.size -= 1;
-
         debug_assert!(
             self.next_copied_node != u64::MAX
                 || self.next_residual_node != u64::MAX
@@ -208,13 +210,10 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
                 "there should never be an interval with length zero here"
             );
             // if the interval has other values, just reduce the interval
-            *len -= (*len != 0) as usize;
-            *start += 1;
+            *len -= 1;
             self.next_interval_node = *start;
-
+            *start += 1;
             self.intervals_idx += (*len == 0) as usize;
-            let at_the_end = (*len == 0) && (self.intervals_idx == self.intervals.len());
-            self.next_interval_node |= ((!at_the_end) as i64 - 1) as u64;
         }
 
         Some(min)
