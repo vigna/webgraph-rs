@@ -2,29 +2,39 @@ use super::*;
 use crate::utils::nat2int;
 use anyhow::Result;
 
-pub struct WebgraphReaderSequential<CR: WebGraphCodesReader> {
+/// A fast sequential iterator over the nodes of the graph and their successors.
+/// This iterator does not require to know the offsets of each node in the graph.
+pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     codes_reader: CR,
     backrefs: CircularBuffer,
     min_interval_length: usize,
+    number_of_nodes: usize,
 }
-impl<CR: WebGraphCodesReader + BitSeek> WebgraphReaderSequential<CR> {
+impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     pub fn get_position(&self) -> usize {
         self.codes_reader.get_position()
     }
 }
 
-impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
+impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     pub fn new(
         codes_reader: CR,
         min_interval_length: usize,
         compression_window: usize,
+        number_of_nodes: usize,
     ) -> Self {
         Self {
             codes_reader,
             backrefs: CircularBuffer::new(compression_window + 1),
             min_interval_length,
+            number_of_nodes,
         }
     }
+    
+    pub fn get_number_of_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+
     /// Get the successors of the next node in the stream
     pub fn next_successors(&mut self) -> Result<&[u64]> {
         let node_id = self.backrefs.get_end_node_id();
@@ -128,8 +138,22 @@ impl<CR: WebGraphCodesReader> WebgraphReaderSequential<CR> {
     }
 }
 
+impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
+    type Item = Vec<u64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node_id = self.backrefs.get_end_node_id();
+        if node_id > self.number_of_nodes as _ {
+            return None;
+        }
+        let mut res = self.backrefs.take();
+        self.get_successors_iter_priv(node_id, &mut res).unwrap();
+        Some(self.backrefs.push(res).to_vec())
+    }
+}
+
 #[cfg(feature="std")]
-/// `std` dependent implementations for [`WebgraphReaderSequential`]
+/// `std` dependent implementations for [`WebgraphSequentialIter`]
 mod p {
     use super::*;
     use java_properties;
@@ -142,14 +166,12 @@ mod p {
     type ReadType = u32;
     type BufferType = u64;
 
-    impl<'a> WebgraphReaderSequential<DefaultCodesReader<M2L, 
+    impl<'a> WebgraphSequentialIter<DefaultCodesReader<M2L, 
         BufferedBitStreamRead<M2L, BufferType, MemWordReadInfinite<ReadType, MmapBackend<ReadType>>>
     >> {
-        pub fn from_basename(basename: &str) -> Result<(u64, Self)> {
+        pub fn load_mapped(basename: &str) -> Result<Self> {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
-
-            let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
 
             let compressions_flags = map.get("compressionflags").unwrap().as_str();
             if compressions_flags != "" {
@@ -177,13 +199,14 @@ mod p {
                         MemWordReadInfinite::new(MmapBackend::new(data))
                     ),
             );
-            let seq_reader = WebgraphReaderSequential::new(
+            let seq_reader = WebgraphSequentialIter::new(
                 code_reader, 
                 map.get("minintervallength").unwrap().parse::<usize>()?, 
                 map.get("windowsize").unwrap().parse::<usize>()?, 
+                map.get("nodes").unwrap().parse::<usize>()?, 
             );
     
-            Ok((num_nodes, seq_reader))
+            Ok(seq_reader)
         }
     }
 }

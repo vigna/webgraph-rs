@@ -20,7 +20,7 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     // Create the sequential iterator over the graph
-    let (nodes_num, mut seq_reader) = WebgraphReaderDegrees::from_basename(&args.basename)?;
+    let mut seq_reader = WebgraphDegreesIter::load_mapped(&args.basename)?;
     // Create the offsets file
     let file = std::fs::File::create(&format!("{}.offsets", args.basename))?;
     // create a bit writer on the file
@@ -32,13 +32,11 @@ pub fn main() -> Result<()> {
     pr.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;
-    for _node_id in 0..nodes_num.saturating_sub(1) {
+    for (new_offset, _node_id, _degree) in &mut seq_reader {
         // write where
-        let new_offset = seq_reader.get_position();
         writer.write_gamma::<true>((new_offset - offset) as _)?;
         offset = new_offset;
         // decode the next nodes so we know where the next node_id starts
-        let _ = seq_reader.next_degree()?;
         pr.light_update();
     }
     // write the last offset, this is done to avoid decoding the last node

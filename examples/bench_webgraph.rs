@@ -72,6 +72,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
     let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
+    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
+    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
+
+    assert_eq!(map.get("compressionflags").unwrap(), "");
     // Read the offsets
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
     let data_graph = mmap_file(&format!("{}.graph", args.basename));
@@ -114,23 +118,41 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.check {
         // Create a sequential reader
-        let code_reader = DefaultCodesReader::new(
-            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
+        let mut seq_reader = WebgraphSequentialIter::new(
+            DefaultCodesReader::new(
+                BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&graph_slice)
+                ),
+            ),
+            min_interval_length,
+            compression_window,
+            num_nodes as usize,
         );
-        let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
 
-        // create a random access reader
-        let code_reader = DefaultCodesReader::new(
-            BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
+        // create a random access reader;
+        let random_reader = BVGraph::new(
+            DefaultCodesReader::new(
+                BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                        MemWordReadInfinite::new(&graph_slice)
+                    ),
+            ), 
+            offsets,
+            min_interval_length, 
+            compression_window, 
+            num_nodes as usize,
         );
-        let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
-    
-        // Create a sequential reader
-        let code_reader =
-            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                MemWordReadInfinite::new(&graph_slice),
-            ));
-        let mut deg_reader = WebgraphReaderDegrees::new(code_reader, 4, 16);
+
+        // Create a degrees reader
+        let mut deg_reader = WebgraphDegreesIter::new(
+            DefaultCodesReader::new(
+                BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&graph_slice)
+                )
+            ),
+            min_interval_length,
+            compression_window,
+            num_nodes as usize,
+        );
 
         // Check that sequential and random-access interfaces return the same result
         for node_id in 0..num_nodes {
@@ -145,12 +167,19 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if args.sequential {
         // Sequential speed test
         for _ in 0..args.repeats {
+            
             // Create a sequential reader
-            let code_reader =
-                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice),
-                ));
-            let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
+            let mut seq_reader = WebgraphSequentialIter::new(
+                DefaultCodesReader::new(
+                    BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                        MemWordReadInfinite::new(&graph_slice)
+                    ),
+                ),
+                min_interval_length,
+                compression_window,
+                num_nodes as usize,
+            );
+            
             let mut c: usize = 0;
             let start = std::time::Instant::now();
             for _ in 0..num_nodes {
@@ -164,19 +193,25 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else if args.degrees_only {
-        let data = <MmapBackend<ReadType>>::new(data_graph);
         // Sequential speed test
         for _ in 0..args.repeats {
-            // Create a sequential reader
-            let code_reader =
-                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&data),
-                ));
-            let mut seq_reader = WebgraphReaderDegrees::new(code_reader, 4, 16);
+                
+            // Create a degrees reader
+            let mut deg_reader = WebgraphDegreesIter::new(
+                DefaultCodesReader::new(
+                    BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                        MemWordReadInfinite::new(&graph_slice)
+                    )
+                ),
+                min_interval_length,
+                compression_window,
+                num_nodes as usize,
+            );
+                
             let mut c: usize = 0;
             let start = std::time::Instant::now();
             for _ in 0..num_nodes {
-                c += seq_reader.next_degree()? as usize;
+                c += deg_reader.next_degree()? as usize;
             }
             println!(
                 "Degrees Only:{:>20} ns/arc",
@@ -186,15 +221,20 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else {
-        let data = <MmapBackend<ReadType>>::new(data_graph);
         // Random-access speed test
         for _ in 0..args.repeats {
-            // create a random access reader
-            let code_reader =
-                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&data),
-                ));
-            let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
+            // create a random access reader;
+            let random_reader = BVGraph::new(
+                DefaultCodesReader::new(
+                    BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                            MemWordReadInfinite::new(&graph_slice)
+                        ),
+                ), 
+                offsets.clone(),
+                min_interval_length, 
+                compression_window, 
+                num_nodes as usize,
+            );
 
             let mut random = SmallRng::seed_from_u64(0);
             let mut c: usize = 0;
