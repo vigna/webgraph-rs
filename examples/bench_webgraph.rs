@@ -98,6 +98,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
         
     let mut pr_offsets = ProgressLogger::default();
+    pr_offsets.expected_updates = Some(num_nodes as _);
     pr_offsets.item_name = "offset".to_string();
     pr_offsets.start("Loading offsets...");
     // Read the offsets gammas
