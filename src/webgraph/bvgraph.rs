@@ -3,26 +3,61 @@ use sux::traits::VSlice;
 use super::*;
 use crate::utils::nat2int;
 
-pub struct WebgraphReaderRandomAccess<CR, OFF> {
+/// BVGraph is an highly compressed graph format that can be traversed 
+/// sequentially or randomly without having to decode the whole graph. 
+pub struct BVGraph<CR, OFF> {
+    /// Backend that allows us to read the bitstream of the graph to decode
+    /// the edges.
     codes_reader: CR,
+    /// The minimum size of the intervals we are going to decode.
     min_interval_length: usize,
+    /// The bit offset at which we will have to start for decoding the edges of
+    /// each node.
     offsets: OFF,
+    /// The maximum distance between two nodes that reference each other.
+    compression_window: usize,
+    /// The number of nodes in the graph.
+    number_of_nodes: usize,
 }
 
-impl<CR, OFF> WebgraphReaderRandomAccess<CR, OFF>
+impl<CR, OFF> BVGraph<CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
 {
-    pub fn new(codes_reader: CR, offsets: OFF, min_interval_length: usize) -> Self {
+    pub fn new(codes_reader: CR, offsets: OFF, min_interval_length: usize, compression_window: usize, number_of_nodes: usize) -> Self {
         Self {
             codes_reader,
             min_interval_length,
             offsets,
+            compression_window,
+            number_of_nodes,
         }
     }
 
+    pub fn get_number_of_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+
+    /// Return a fast sequential iterator over the nodes of the graph and their successors.
+    pub fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
+        WebgraphSequentialIter::new(
+            self.codes_reader.clone(),
+            self.min_interval_length,
+            self.compression_window,
+            self.number_of_nodes,
+        )
+    }
+
+    /// Return the outdegree of a node.
+    pub fn outdegree(&self, node_id: u64) -> Result<usize> {
+        let mut codes_reader = self.codes_reader.clone();
+        codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
+        Ok(codes_reader.read_outdegree()? as usize)
+    }
+
     #[inline(always)]
+    /// Return a random access iterator over the successors of a node.
     pub fn successors(&self, node_id: u64) -> Result<SuccessorsIterRandom<CR>> {
         let mut codes_reader = self.codes_reader.clone();
         codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
@@ -91,6 +126,8 @@ where
                     start += delta as u64;
                     nodes_left_to_decode -= delta;
                 }
+                // fake final interval to avoid checks in the implementation of
+                // `next`
                 result.intervals.push((u64::MAX - 1, 1));
             }
         }
@@ -102,6 +139,7 @@ where
             result.residuals_to_go = nodes_left_to_decode - 1;
         }
 
+        // setup the first interval node so we can decode without branches
         if !result.intervals.is_empty() {
             let (start, len) = &mut result.intervals[0];
             *len -= 1;
@@ -110,6 +148,8 @@ where
             result.intervals_idx += (*len == 0) as usize;
         };
 
+        // cache the first copied node so we don't have to check if the iter
+        // ended at every call of `next`
         result.next_copied_node = result.copied_nodes_iter.as_mut()
             .map_or(None, |iter| iter.next())
             .unwrap_or(u64::MAX);

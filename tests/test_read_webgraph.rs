@@ -44,13 +44,14 @@ fn test_sequential_reading() {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
         MemWordReadInfinite::new(&data),
     ));
-    let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets, 4);
+    let random_reader = BVGraph::new(code_reader, offsets, 4, 16, NODES);
 
     // Create a sequential reader
     let code_reader = DefaultCodesReader::new(
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data)),
     );
-    let mut seq_reader = WebgraphReaderSequential::new(code_reader, 4, 16);
+    let mut seq_reader = WebgraphSequentialIter::new(
+        code_reader, 4, 16, NODES);
 
     // Check that they read the same
     for node_id in 0..(NODES as u64 - 1) {

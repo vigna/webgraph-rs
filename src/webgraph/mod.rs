@@ -10,8 +10,8 @@ pub use reader_degrees::*;
 mod reader_sequential;
 pub use reader_sequential::*;
 
-mod reader_random;
-pub use reader_random::*;
+mod bvgraph;
+pub use bvgraph::*;
 
 mod code_readers;
 pub use code_readers::*;

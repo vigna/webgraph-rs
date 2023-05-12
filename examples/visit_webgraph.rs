@@ -44,6 +44,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map = java_properties::read(BufReader::new(f))?;
 
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
+    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
+
+    assert_eq!(map.get("compressionflags").unwrap(), "");
 
     // Read the offsets
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
@@ -89,7 +93,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
         MemWordReadInfinite::new(&graph_slice),
     ));
-    let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
+    let random_reader = BVGraph::new(
+        code_reader, offsets.clone(), 
+        min_interval_length, compression_window, num_nodes as usize,
+    );
 
     let mut visited = BitMap::new(num_nodes as usize);
     let mut queue = VecDeque::new();

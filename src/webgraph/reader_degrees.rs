@@ -1,24 +1,42 @@
 use super::*;
 use anyhow::Result;
 
-pub struct WebgraphReaderDegrees<CR: WebGraphCodesReader> {
+/// Fast iterator over the degrees of each node in the graph without having 
+/// the offsets.
+/// This has limited uses, but is very fast. Most notably, this can be used to
+/// build the offsets of a graph.
+pub struct WebgraphDegreesIter<CR: WebGraphCodesReader> {
     codes_reader: CR,
     backrefs: Vec<u64>,
     node_id: u64,
     min_interval_length: usize,
     compression_window: usize,
+    number_of_nodes: usize,
 }
-impl<CR: WebGraphCodesReader + BitSeek> WebgraphReaderDegrees<CR> {
+
+impl<CR: WebGraphCodesReader + BitSeek> WebgraphDegreesIter<CR> {
     pub fn get_position(&self) -> usize {
         self.codes_reader.get_position()
     }
 }
 
-impl<CR: WebGraphCodesReader> WebgraphReaderDegrees<CR> {
+impl<CR: WebGraphCodesReader + BitSeek> Iterator for WebgraphDegreesIter<CR> {
+    type Item = (usize, u64, u64);
+    fn next(&mut self) -> Option<(usize, u64, u64)> {
+        if self.node_id >= self.number_of_nodes as u64 {
+            return None;
+        }
+        let offset = self.get_position();
+        Some((offset, self.node_id, self.next_degree().unwrap()))
+    }
+}
+
+impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
     pub fn new(
         codes_reader: CR,
         min_interval_length: usize,
         compression_window: usize,
+        number_of_nodes: usize,
     ) -> Self {
         Self {
             codes_reader,
@@ -26,7 +44,12 @@ impl<CR: WebGraphCodesReader> WebgraphReaderDegrees<CR> {
             node_id: 0,
             min_interval_length,
             compression_window,
+            number_of_nodes,
         }
+    }
+
+    pub fn get_number_of_nodes(&self) -> usize {
+        self.number_of_nodes
     }
 
     #[inline(always)]
@@ -116,7 +139,7 @@ impl<CR: WebGraphCodesReader> WebgraphReaderDegrees<CR> {
 }
 
 #[cfg(feature="std")]
-/// `std` dependent implementations for [`WebgraphReaderDegrees`]
+/// `std` dependent implementations for [`WebgraphDegreesIter`]
 mod p {
     use super::*;
     use java_properties;
@@ -129,14 +152,12 @@ mod p {
     type ReadType = u32;
     type BufferType = u64;
 
-    impl<'a> WebgraphReaderDegrees<DefaultCodesReader<M2L, 
+    impl<'a> WebgraphDegreesIter<DefaultCodesReader<M2L, 
         BufferedBitStreamRead<M2L, BufferType, MemWordReadInfinite<ReadType, MmapBackend<ReadType>>>
     >> {
-        pub fn from_basename(basename: &str) -> Result<(u64, Self)> {
+        pub fn load_mapped(basename: &str) -> Result<Self> {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
-
-            let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
 
             let compressions_flags = map.get("compressionflags").unwrap().as_str();
             if compressions_flags != "" {
@@ -164,13 +185,14 @@ mod p {
                         MemWordReadInfinite::new(MmapBackend::new(data))
                     ),
             );
-            let seq_reader = WebgraphReaderDegrees::new(
+            let seq_reader = WebgraphDegreesIter::new(
                 code_reader, 
                 map.get("minintervallength").unwrap().parse::<usize>()?, 
                 map.get("windowsize").unwrap().parse::<usize>()?, 
+                map.get("nodes").unwrap().parse::<usize>()?, 
             );
     
-            Ok((num_nodes, seq_reader))
+            Ok(seq_reader)
         }
     }
 }
