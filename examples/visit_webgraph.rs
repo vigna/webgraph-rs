@@ -1,4 +1,5 @@
 use clap::Parser;
+use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use mmap_rs::*;
 use std::collections::VecDeque;
@@ -7,7 +8,6 @@ use std::io::BufReader;
 use std::io::Seek;
 use sux::prelude::*;
 use webgraph::prelude::*;
-use webgraph::utils::ProgressLogger;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -55,14 +55,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let offsets_slice = unsafe {
         core::slice::from_raw_parts(
-            data_offsets.as_ptr() as *const ReadType, 
-            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+            data_offsets.as_ptr() as *const ReadType,
+            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1)
+                / core::mem::size_of::<ReadType>(),
         )
     };
     let graph_slice = unsafe {
         core::slice::from_raw_parts(
-            data_graph.as_ptr() as *const ReadType, 
-            (data_graph.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+            data_graph.as_ptr() as *const ReadType,
+            (data_graph.len() + core::mem::size_of::<ReadType>() - 1)
+                / core::mem::size_of::<ReadType>(),
         )
     };
 
@@ -95,8 +97,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         MemWordReadInfinite::new(&graph_slice),
     ));
     let random_reader = BVGraph::new(
-        code_reader, offsets.clone(), 
-        min_interval_length, compression_window, num_nodes as usize,
+        code_reader,
+        offsets.clone(),
+        min_interval_length,
+        compression_window,
+        num_nodes as usize,
     );
 
     let mut visited = BitMap::new(num_nodes as usize);

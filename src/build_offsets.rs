@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use dsi_progress_logger::ProgressLogger;
 use std::io::BufWriter;
 use webgraph::prelude::*;
 

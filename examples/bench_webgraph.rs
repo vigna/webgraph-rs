@@ -1,15 +1,16 @@
 use clap::Parser;
+use dsi_progress_logger::ProgressLogger;
 use java_properties;
+use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::fs::File;
+use std::hint::black_box;
 use std::io::BufReader;
 use std::io::Seek;
-use mmap_rs::*;
-use webgraph::prelude::*;
 use sux::prelude::*;
-use std::hint::black_box;
+use webgraph::prelude::*;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -59,38 +60,40 @@ fn mmap_file(path: &str) -> Mmap {
 
 macro_rules! build_offsets {
     ($basename:expr, $num_nodes:expr, $data_graph:expr) => {{
-    let data_offsets = mmap_file(&format!("{}.offsets", $basename));
-    let offsets_slice = unsafe {
-        core::slice::from_raw_parts(
-            data_offsets.as_ptr() as *const ReadType, 
-            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
-        )
-    };
-    // Read the offsets gammas
-    let mut reader =
-        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
-        
-    let mut pr_offsets = ProgressLogger::default();
-    pr_offsets.expected_updates = Some($num_nodes as _);
-    pr_offsets.item_name = "offset".to_string();
-    pr_offsets.start("Loading offsets...");
-    // Read the offsets gammas
-    let mut offsets = EliasFanoBuilder::new(
-        ($data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
-        $num_nodes,
-    );
+        let data_offsets = mmap_file(&format!("{}.offsets", $basename));
+        let offsets_slice = unsafe {
+            core::slice::from_raw_parts(
+                data_offsets.as_ptr() as *const ReadType,
+                (data_offsets.len() + core::mem::size_of::<ReadType>() - 1)
+                    / core::mem::size_of::<ReadType>(),
+            )
+        };
+        // Read the offsets gammas
+        let mut reader = BufferedBitStreamRead::<M2L, BufferType, _>::new(
+            MemWordReadInfinite::new(&offsets_slice),
+        );
 
-    let mut offset = 0;
-    for _ in 0..$num_nodes {
-        offset += reader.read_gamma::<true>().unwrap() as usize;
-        offsets.push(offset as _).unwrap();
-        pr_offsets.update();
-    }
-    pr_offsets.done_with_count($num_nodes as _);
-    let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
-        offsets.build().convert_to().unwrap();
-    
-    offsets
+        let mut pr_offsets = ProgressLogger::default();
+        pr_offsets.expected_updates = Some($num_nodes as _);
+        pr_offsets.item_name = "offset".to_string();
+        pr_offsets.start("Loading offsets...");
+        // Read the offsets gammas
+        let mut offsets = EliasFanoBuilder::new(
+            ($data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
+            $num_nodes,
+        );
+
+        let mut offset = 0;
+        for _ in 0..$num_nodes {
+            offset += reader.read_gamma::<true>().unwrap() as usize;
+            offsets.push(offset as _).unwrap();
+            pr_offsets.update();
+        }
+        pr_offsets.done_with_count($num_nodes as _);
+        let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
+            offsets.build().convert_to().unwrap();
+
+        offsets
     }};
 }
 
@@ -102,7 +105,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()
         .unwrap();
-
 
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
@@ -118,8 +120,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let graph_slice = unsafe {
         core::slice::from_raw_parts(
-            data_graph.as_ptr() as *const ReadType, 
-            (data_graph.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+            data_graph.as_ptr() as *const ReadType,
+            (data_graph.len() + core::mem::size_of::<ReadType>() - 1)
+                / core::mem::size_of::<ReadType>(),
         )
     };
 
@@ -127,11 +130,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let offsets = build_offsets!(args.basename, num_nodes, data_graph);
         // Create a sequential reader
         let mut seq_reader = WebgraphSequentialIter::new(
-            DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice)
-                ),
-            ),
+            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                MemWordReadInfinite::new(&graph_slice),
+            )),
             min_interval_length,
             compression_window,
             num_nodes as usize,
@@ -139,24 +140,20 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // create a random access reader;
         let random_reader = BVGraph::new(
-            DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                        MemWordReadInfinite::new(&graph_slice)
-                    ),
-            ), 
+            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                MemWordReadInfinite::new(&graph_slice),
+            )),
             offsets,
-            min_interval_length, 
-            compression_window, 
+            min_interval_length,
+            compression_window,
             num_nodes as usize,
         );
 
         // Create a degrees reader
         let mut deg_reader = WebgraphDegreesIter::new(
-            DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice)
-                )
-            ),
+            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                MemWordReadInfinite::new(&graph_slice),
+            )),
             min_interval_length,
             compression_window,
             num_nodes as usize,
@@ -165,9 +162,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Check that sequential and random-access interfaces return the same result
         for node_id in 0..num_nodes {
             let seq = seq_reader.next_successors()?;
-            let random = random_reader
-                .successors(node_id)?
-                .collect::<Vec<_>>();
+            let random = random_reader.successors(node_id)?.collect::<Vec<_>>();
 
             assert_eq!(deg_reader.next_degree()? as usize, seq.len(), "{}", node_id);
             assert_eq!(seq, random, "{}", node_id);
@@ -175,19 +170,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if args.sequential {
         // Sequential speed test
         for _ in 0..args.repeats {
-            
             // Create a sequential reader
             let mut seq_reader = WebgraphSequentialIter::new(
-                DefaultCodesReader::new(
-                    BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                        MemWordReadInfinite::new(&graph_slice)
-                    ),
-                ),
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&graph_slice),
+                )),
                 min_interval_length,
                 compression_window,
                 num_nodes as usize,
             );
-            
+
             let mut c: usize = 0;
             let start = std::time::Instant::now();
             for _ in 0..num_nodes {
@@ -203,19 +195,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if args.degrees_only {
         // Sequential speed test
         for _ in 0..args.repeats {
-                
             // Create a degrees reader
             let mut deg_reader = WebgraphDegreesIter::new(
-                DefaultCodesReader::new(
-                    BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                        MemWordReadInfinite::new(&graph_slice)
-                    )
-                ),
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&graph_slice),
+                )),
                 min_interval_length,
                 compression_window,
                 num_nodes as usize,
             );
-                
+
             let mut c: usize = 0;
             let start = std::time::Instant::now();
             for _ in 0..num_nodes {
@@ -234,14 +223,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // create a random access reader;
             let random_reader = BVGraph::new(
-                DefaultCodesReader::new(
-                    BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                            MemWordReadInfinite::new(&graph_slice)
-                        ),
-                ), 
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(&graph_slice),
+                )),
                 offsets.clone(),
-                min_interval_length, 
-                compression_window, 
+                min_interval_length,
+                compression_window,
                 num_nodes as usize,
             );
 
@@ -254,7 +241,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for _ in 0..args.n {
                     u += random_reader
                         .successors(random.gen_range(0..num_nodes))?
-                        .next().unwrap_or(0);
+                        .next()
+                        .unwrap_or(0);
                     c += 1;
                 }
             } else {

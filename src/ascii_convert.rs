@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use dsi_progress_logger::ProgressLogger;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -25,9 +26,17 @@ pub fn main() -> Result<()> {
     pr.start("Computing offsets...");
 
     for (node_id, successors) in seq_reader.enumerate() {
-        println!("{}\t{}", node_id, successors.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("\t"));
+        println!(
+            "{}\t{}",
+            node_id,
+            successors
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join("\t")
+        );
     }
-    
+
     pr.done();
 
     Ok(())
