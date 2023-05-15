@@ -1,10 +1,11 @@
+use dsi_bitstream::prelude::*;
 use sux::traits::VSlice;
 
 use super::*;
 use crate::utils::nat2int;
 
-/// BVGraph is an highly compressed graph format that can be traversed 
-/// sequentially or randomly without having to decode the whole graph. 
+/// BVGraph is an highly compressed graph format that can be traversed
+/// sequentially or randomly without having to decode the whole graph.
 pub struct BVGraph<CR, OFF> {
     /// Backend that allows us to read the bitstream of the graph to decode
     /// the edges.
@@ -25,7 +26,13 @@ where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
 {
-    pub fn new(codes_reader: CR, offsets: OFF, min_interval_length: usize, compression_window: usize, number_of_nodes: usize) -> Self {
+    pub fn new(
+        codes_reader: CR,
+        offsets: OFF,
+        min_interval_length: usize,
+        compression_window: usize,
+        number_of_nodes: usize,
+    ) -> Self {
         Self {
             codes_reader,
             min_interval_length,
@@ -150,7 +157,9 @@ where
 
         // cache the first copied node so we don't have to check if the iter
         // ended at every call of `next`
-        result.next_copied_node = result.copied_nodes_iter.as_mut()
+        result.next_copied_node = result
+            .copied_nodes_iter
+            .as_mut()
             .map_or(None, |iter| iter.next())
             .unwrap_or(u64::MAX);
 
@@ -199,7 +208,7 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             intervals_idx: 0,
             residuals_to_go: 0,
             next_residual_node: u64::MAX,
-            next_copied_node:  u64::MAX,
+            next_copied_node: u64::MAX,
             next_interval_node: u64::MAX,
         }
     }
@@ -228,7 +237,9 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         // depending on from where the node was, forward it
         if min >= self.next_copied_node {
             let res = self.next_copied_node;
-            self.next_copied_node = self.copied_nodes_iter.as_mut()
+            self.next_copied_node = self
+                .copied_nodes_iter
+                .as_mut()
                 .map_or(None, |iter| iter.next())
                 .unwrap_or(u64::MAX);
             return Some(res);

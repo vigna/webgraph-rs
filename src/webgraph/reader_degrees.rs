@@ -1,7 +1,8 @@
 use super::*;
 use anyhow::Result;
+use dsi_bitstream::prelude::*;
 
-/// Fast iterator over the degrees of each node in the graph without having 
+/// Fast iterator over the degrees of each node in the graph without having
 /// the offsets.
 /// This has limited uses, but is very fast. Most notably, this can be used to
 /// build the offsets of a graph.
@@ -74,13 +75,13 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
             let ref_degree = self.backrefs[reference_node_id as usize % self.compression_window];
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
-            
+
             // no blocks, we copy everything
             if number_of_blocks == 0 {
                 nodes_left_to_decode -= ref_degree;
             } else {
                 // otherwise we copy only the blocks of even index
-                
+
                 // the first block could be zero
                 let mut idx = self.codes_reader.read_blocks()?;
                 nodes_left_to_decode -= idx;
@@ -131,30 +132,39 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
                 let _ = self.codes_reader.read_residual()?;
             }
         }
-        
+
         self.backrefs[self.node_id as usize % self.compression_window] = degree;
         self.node_id += 1;
         Ok(degree)
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 /// `std` dependent implementations for [`WebgraphDegreesIter`]
 mod p {
     use super::*;
+    use crate::utils::MmapBackend;
+    use anyhow::{bail, Result};
     use java_properties;
+    use mmap_rs::*;
     use std::fs::*;
     use std::io::*;
-    use mmap_rs::*;
-    use anyhow::{Result, bail};
-    use crate::prelude::{BufferedBitStreamRead, MemWordReadInfinite, MmapBackend};
 
     type ReadType = u32;
     type BufferType = u64;
 
-    impl<'a> WebgraphDegreesIter<DefaultCodesReader<M2L, 
-        BufferedBitStreamRead<M2L, BufferType, MemWordReadInfinite<ReadType, MmapBackend<ReadType>>>
-    >> {
+    impl<'a>
+        WebgraphDegreesIter<
+            DefaultCodesReader<
+                M2L,
+                BufferedBitStreamRead<
+                    M2L,
+                    BufferType,
+                    MemWordReadInfinite<ReadType, MmapBackend<ReadType>>,
+                >,
+            >,
+        >
+    {
         pub fn load_mapped(basename: &str) -> Result<Self> {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
@@ -166,7 +176,7 @@ mod p {
 
             let mut file = std::fs::File::open(format!("{}.graph", basename)).unwrap();
             let mut file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-            
+
             // align the len to readtypes, TODO!: arithmize
             while file_len % std::mem::size_of::<ReadType>() as u64 != 0 {
                 file_len += 1;
@@ -180,18 +190,17 @@ mod p {
                     .unwrap()
             };
 
-            let code_reader = DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                        MemWordReadInfinite::new(MmapBackend::new(data))
-                    ),
-            );
+            let code_reader =
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(MmapBackend::new(data)),
+                ));
             let seq_reader = WebgraphDegreesIter::new(
-                code_reader, 
-                map.get("minintervallength").unwrap().parse::<usize>()?, 
-                map.get("windowsize").unwrap().parse::<usize>()?, 
-                map.get("nodes").unwrap().parse::<usize>()?, 
+                code_reader,
+                map.get("minintervallength").unwrap().parse::<usize>()?,
+                map.get("windowsize").unwrap().parse::<usize>()?,
+                map.get("nodes").unwrap().parse::<usize>()?,
             );
-    
+
             Ok(seq_reader)
         }
     }

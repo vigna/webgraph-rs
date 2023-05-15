@@ -2,7 +2,7 @@ use anyhow::Result;
 
 /// Traits of the operations we can do on a graph
 pub trait Graph {
-    type NodesIter<'a>: Iterator<Item = (u64, )> + 'a
+    type NodesIter<'a>: Iterator<Item = (u64,)> + 'a
     where
         Self: 'a;
     type NeighboursIter<'a>: Iterator<Item = u64> + 'a

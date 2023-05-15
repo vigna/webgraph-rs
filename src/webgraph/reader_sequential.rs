@@ -1,6 +1,7 @@
 use super::*;
 use crate::utils::nat2int;
 use anyhow::Result;
+use dsi_bitstream::prelude::*;
 
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
@@ -30,7 +31,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             number_of_nodes,
         }
     }
-    
+
     pub fn get_number_of_nodes(&self) -> usize {
         self.number_of_nodes
     }
@@ -65,17 +66,17 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             debug_assert!(neighbours.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
-            
+
             // no blocks, we copy everything
             if number_of_blocks == 0 {
                 results.extend_from_slice(neighbours);
             } else {
                 // otherwise we copy only the blocks of even index
-                
+
                 // the first block could be zero
                 let mut idx = self.codes_reader.read_blocks()? as usize;
                 results.extend_from_slice(&neighbours[..idx]);
-                
+
                 // while the other can't
                 for block_id in 1..number_of_blocks {
                     let block = self.codes_reader.read_blocks()? as usize;
@@ -113,7 +114,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
                     delta += self.min_interval_length;
 
                     results.extend(start..(start + delta as u64));
-                    
+
                     start += delta as u64;
                 }
             }
@@ -152,23 +153,32 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 /// `std` dependent implementations for [`WebgraphSequentialIter`]
 mod p {
     use super::*;
+    use crate::utils::MmapBackend;
+    use anyhow::{bail, Result};
     use java_properties;
+    use mmap_rs::*;
     use std::fs::*;
     use std::io::*;
-    use mmap_rs::*;
-    use anyhow::{Result, bail};
-    use crate::prelude::{BufferedBitStreamRead, MemWordReadInfinite, MmapBackend};
 
     type ReadType = u32;
     type BufferType = u64;
 
-    impl<'a> WebgraphSequentialIter<DefaultCodesReader<M2L, 
-        BufferedBitStreamRead<M2L, BufferType, MemWordReadInfinite<ReadType, MmapBackend<ReadType>>>
-    >> {
+    impl<'a>
+        WebgraphSequentialIter<
+            DefaultCodesReader<
+                M2L,
+                BufferedBitStreamRead<
+                    M2L,
+                    BufferType,
+                    MemWordReadInfinite<ReadType, MmapBackend<ReadType>>,
+                >,
+            >,
+        >
+    {
         pub fn load_mapped(basename: &str) -> Result<Self> {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
@@ -180,7 +190,7 @@ mod p {
 
             let mut file = std::fs::File::open(format!("{}.graph", basename)).unwrap();
             let mut file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-            
+
             // align the len to readtypes, TODO!: arithmize
             while file_len % std::mem::size_of::<ReadType>() as u64 != 0 {
                 file_len += 1;
@@ -194,18 +204,17 @@ mod p {
                     .unwrap()
             };
 
-            let code_reader = DefaultCodesReader::new(
-                BufferedBitStreamRead::<M2L, BufferType, _>::new(
-                        MemWordReadInfinite::new(MmapBackend::new(data))
-                    ),
-            );
+            let code_reader =
+                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                    MemWordReadInfinite::new(MmapBackend::new(data)),
+                ));
             let seq_reader = WebgraphSequentialIter::new(
-                code_reader, 
-                map.get("minintervallength").unwrap().parse::<usize>()?, 
-                map.get("windowsize").unwrap().parse::<usize>()?, 
-                map.get("nodes").unwrap().parse::<usize>()?, 
+                code_reader,
+                map.get("minintervallength").unwrap().parse::<usize>()?,
+                map.get("windowsize").unwrap().parse::<usize>()?,
+                map.get("nodes").unwrap().parse::<usize>()?,
             );
-    
+
             Ok(seq_reader)
         }
     }

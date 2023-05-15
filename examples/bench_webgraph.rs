@@ -1,4 +1,5 @@
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use mmap_rs::*;

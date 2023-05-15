@@ -1,5 +1,5 @@
 use super::*;
-use crate::codes::*;
+use dsi_bitstream::prelude::*;
 
 #[repr(transparent)]
 /// An implementation of WebGraphCodesReader with the most commonly used codes
