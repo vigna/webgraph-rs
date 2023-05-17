@@ -67,7 +67,7 @@ where
     }
 
     fn num_arcs(&self) -> usize {
-        self.number_of_nodes
+        self.number_of_arcs
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
