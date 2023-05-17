@@ -19,6 +19,12 @@ impl CircularBuffer {
         }
     }
 
+    #[inline]
+    #[must_use]
+    pub(crate) fn get_end_node_id(&self) -> u64 {
+        self.end_node_id
+    }
+
     /// Get a backreference, it **has to be ** in the compression windows
     pub(crate) fn get(&self, node_id: u64) -> &[u64] {
         debug_assert_ne!(self.end_node_id, node_id);

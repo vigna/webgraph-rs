@@ -1,4 +1,6 @@
 use clap::Parser;
+use dsi_bitstream::prelude::*;
+use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use mmap_rs::*;
 use std::collections::VecDeque;
@@ -7,7 +9,6 @@ use std::io::BufReader;
 use std::io::Seek;
 use sux::prelude::*;
 use webgraph::prelude::*;
-use webgraph::utils::ProgressLogger;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -44,6 +45,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map = java_properties::read(BufReader::new(f))?;
 
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
+    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
+
+    assert_eq!(map.get("compressionflags").unwrap(), "");
 
     // Read the offsets
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
@@ -51,14 +56,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let offsets_slice = unsafe {
         core::slice::from_raw_parts(
-            data_offsets.as_ptr() as *const ReadType, 
-            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+            data_offsets.as_ptr() as *const ReadType,
+            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1)
+                / core::mem::size_of::<ReadType>(),
         )
     };
     let graph_slice = unsafe {
         core::slice::from_raw_parts(
-            data_graph.as_ptr() as *const ReadType, 
-            (data_graph.len() + core::mem::size_of::<ReadType>() - 1) / core::mem::size_of::<ReadType>(),
+            data_graph.as_ptr() as *const ReadType,
+            (data_graph.len() + core::mem::size_of::<ReadType>() - 1)
+                / core::mem::size_of::<ReadType>(),
         )
     };
 
@@ -66,6 +73,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
 
     let mut pr_offsets = ProgressLogger::default();
+    pr_offsets.expected_updates = Some(num_nodes as _);
     pr_offsets.item_name = "offset".to_string();
     pr_offsets.start("Loading offsets...");
     // Read the offsets gammas
@@ -89,7 +97,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
         MemWordReadInfinite::new(&graph_slice),
     ));
-    let random_reader = WebgraphReaderRandomAccess::new(code_reader, offsets.clone(), 4);
+    let random_reader = BVGraph::new(
+        code_reader,
+        offsets.clone(),
+        min_interval_length,
+        compression_window,
+        num_nodes as usize,
+    );
 
     let mut visited = BitMap::new(num_nodes as usize);
     let mut queue = VecDeque::new();

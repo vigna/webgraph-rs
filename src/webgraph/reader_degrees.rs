@@ -1,23 +1,38 @@
 use super::*;
-use crate::utils::nat2int;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
-/// A fast sequential iterator over the nodes of the graph and their successors.
-/// This iterator does not require to know the offsets of each node in the graph.
-pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
+/// Fast iterator over the degrees of each node in the graph without having
+/// the offsets.
+/// This has limited uses, but is very fast. Most notably, this can be used to
+/// build the offsets of a graph.
+pub struct WebgraphDegreesIter<CR: WebGraphCodesReader> {
     codes_reader: CR,
-    backrefs: CircularBuffer,
+    backrefs: Vec<u64>,
+    node_id: u64,
     min_interval_length: usize,
+    compression_window: usize,
     number_of_nodes: usize,
 }
-impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
+
+impl<CR: WebGraphCodesReader + BitSeek> WebgraphDegreesIter<CR> {
     pub fn get_position(&self) -> usize {
         self.codes_reader.get_position()
     }
 }
 
-impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
+impl<CR: WebGraphCodesReader + BitSeek> Iterator for WebgraphDegreesIter<CR> {
+    type Item = (usize, u64, u64);
+    fn next(&mut self) -> Option<(usize, u64, u64)> {
+        if self.node_id >= self.number_of_nodes as u64 {
+            return None;
+        }
+        let offset = self.get_position();
+        Some((offset, self.node_id, self.next_degree().unwrap()))
+    }
+}
+
+impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
     pub fn new(
         codes_reader: CR,
         min_interval_length: usize,
@@ -26,8 +41,10 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     ) -> Self {
         Self {
             codes_reader,
-            backrefs: CircularBuffer::new(compression_window + 1),
+            backrefs: vec![0; compression_window + 1],
+            node_id: 0,
             min_interval_length,
+            compression_window,
             number_of_nodes,
         }
     }
@@ -36,125 +53,94 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
         self.number_of_nodes
     }
 
-    /// Get the successors of the next node in the stream
-    pub fn next_successors(&mut self) -> Result<&[u64]> {
-        let node_id = self.backrefs.get_end_node_id();
-        let mut res = self.backrefs.take();
-        self.get_successors_iter_priv(node_id, &mut res)?;
-        Ok(self.backrefs.push(res))
-    }
-
     #[inline(always)]
-    fn get_successors_iter_priv(&mut self, node_id: u64, results: &mut Vec<u64>) -> Result<()> {
-        let degree = self.codes_reader.read_outdegree()? as usize;
+    pub fn next_degree(&mut self) -> Result<u64> {
+        let degree = self.codes_reader.read_outdegree()?;
         // no edges, we are done!
         if degree == 0 {
-            return Ok(());
+            self.backrefs[self.node_id as usize % self.compression_window] = degree;
+            self.node_id += 1;
+            return Ok(degree);
         }
 
-        // ensure that we have enough capacity in the vector for not reallocating
-        results.reserve(degree.saturating_sub(results.capacity()));
+        let mut nodes_left_to_decode = degree;
 
         // read the reference offset
         let ref_delta = self.codes_reader.read_reference_offset()?;
         // if we copy nodes from a previous one
         if ref_delta != 0 {
             // compute the node id of the reference
-            let reference_node_id = node_id - ref_delta;
+            let reference_node_id = self.node_id - ref_delta;
             // retrieve the data
-            let neighbours = self.backrefs.get(reference_node_id);
-            debug_assert!(neighbours.len() != 0);
+            let ref_degree = self.backrefs[reference_node_id as usize % self.compression_window];
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
 
             // no blocks, we copy everything
             if number_of_blocks == 0 {
-                results.extend_from_slice(neighbours);
+                nodes_left_to_decode -= ref_degree;
             } else {
                 // otherwise we copy only the blocks of even index
 
                 // the first block could be zero
-                let mut idx = self.codes_reader.read_blocks()? as usize;
-                results.extend_from_slice(&neighbours[..idx]);
+                let mut idx = self.codes_reader.read_blocks()?;
+                nodes_left_to_decode -= idx;
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
-                    let block = self.codes_reader.read_blocks()? as usize;
+                    let block = self.codes_reader.read_blocks()?;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
-                        results.extend_from_slice(&neighbours[idx..end]);
+                        nodes_left_to_decode -= block + 1;
                     }
                     idx = end;
                 }
                 if number_of_blocks & 1 == 0 {
-                    results.extend_from_slice(&neighbours[idx..]);
+                    nodes_left_to_decode -= ref_degree - idx;
                 }
             }
         };
 
         // if we still have to read nodes
-        let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
             // read the number of intervals
             let number_of_intervals = self.codes_reader.read_interval_count()? as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                let node_id_offset = nat2int(self.codes_reader.read_interval_start()?);
-                debug_assert!((node_id as i64 + node_id_offset) >= 0);
-                let mut start = (node_id as i64 + node_id_offset) as u64;
-                let mut delta = self.codes_reader.read_interval_len()? as usize;
-                delta += self.min_interval_length;
+                let _ = self.codes_reader.read_interval_start()?;
+                let mut delta = self.codes_reader.read_interval_len()?;
+                delta += self.min_interval_length as u64;
                 // save the first interval
-                results.extend(start..(start + delta as u64));
-                start += delta as u64;
+                nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
-                    start += 1 + self.codes_reader.read_interval_start()?;
-                    delta = self.codes_reader.read_interval_len()? as usize;
-                    delta += self.min_interval_length;
+                    let _ = self.codes_reader.read_interval_start()?;
+                    delta = self.codes_reader.read_interval_len()?;
+                    delta += self.min_interval_length as u64;
 
-                    results.extend(start..(start + delta as u64));
-
-                    start += delta as u64;
+                    nodes_left_to_decode -= delta;
                 }
             }
         }
 
         // decode the extra nodes if needed
-        let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
-            let node_id_offset = nat2int(self.codes_reader.read_first_residual()?);
-            let mut extra = (node_id as i64 + node_id_offset) as u64;
-            results.push(extra);
+            let _ = self.codes_reader.read_first_residual()?;
             // decode the successive extra nodes
             for _ in 1..nodes_left_to_decode {
-                extra += 1 + self.codes_reader.read_residual()?;
-                results.push(extra);
+                let _ = self.codes_reader.read_residual()?;
             }
         }
 
-        results.sort();
-        Ok(())
-    }
-}
-
-impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
-    type Item = Vec<u64>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let node_id = self.backrefs.get_end_node_id();
-        if node_id > self.number_of_nodes as _ {
-            return None;
-        }
-        let mut res = self.backrefs.take();
-        self.get_successors_iter_priv(node_id, &mut res).unwrap();
-        Some(self.backrefs.push(res).to_vec())
+        self.backrefs[self.node_id as usize % self.compression_window] = degree;
+        self.node_id += 1;
+        Ok(degree)
     }
 }
 
 #[cfg(feature = "std")]
-/// `std` dependent implementations for [`WebgraphSequentialIter`]
+/// `std` dependent implementations for [`WebgraphDegreesIter`]
 mod p {
     use super::*;
     use crate::utils::MmapBackend;
@@ -168,7 +154,7 @@ mod p {
     type BufferType = u64;
 
     impl<'a>
-        WebgraphSequentialIter<
+        WebgraphDegreesIter<
             DefaultCodesReader<
                 M2L,
                 BufferedBitStreamRead<
@@ -208,7 +194,7 @@ mod p {
                 DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
                     MemWordReadInfinite::new(MmapBackend::new(data)),
                 ));
-            let seq_reader = WebgraphSequentialIter::new(
+            let seq_reader = WebgraphDegreesIter::new(
                 code_reader,
                 map.get("minintervallength").unwrap().parse::<usize>()?,
                 map.get("windowsize").unwrap().parse::<usize>()?,

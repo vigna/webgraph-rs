@@ -1,29 +1,70 @@
+use dsi_bitstream::prelude::*;
 use sux::traits::VSlice;
 
 use super::*;
 use crate::utils::nat2int;
-use core::iter::Peekable;
 
-pub struct WebgraphReaderRandomAccess<CR, OFF> {
+/// BVGraph is an highly compressed graph format that can be traversed
+/// sequentially or randomly without having to decode the whole graph.
+pub struct BVGraph<CR, OFF> {
+    /// Backend that allows us to read the bitstream of the graph to decode
+    /// the edges.
     codes_reader: CR,
+    /// The minimum size of the intervals we are going to decode.
     min_interval_length: usize,
+    /// The bit offset at which we will have to start for decoding the edges of
+    /// each node.
     offsets: OFF,
+    /// The maximum distance between two nodes that reference each other.
+    compression_window: usize,
+    /// The number of nodes in the graph.
+    number_of_nodes: usize,
 }
 
-impl<CR, OFF> WebgraphReaderRandomAccess<CR, OFF>
+impl<CR, OFF> BVGraph<CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
 {
-    pub fn new(codes_reader: CR, offsets: OFF, min_interval_length: usize) -> Self {
+    pub fn new(
+        codes_reader: CR,
+        offsets: OFF,
+        min_interval_length: usize,
+        compression_window: usize,
+        number_of_nodes: usize,
+    ) -> Self {
         Self {
             codes_reader,
             min_interval_length,
             offsets,
+            compression_window,
+            number_of_nodes,
         }
     }
 
+    pub fn get_number_of_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+
+    /// Return a fast sequential iterator over the nodes of the graph and their successors.
+    pub fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
+        WebgraphSequentialIter::new(
+            self.codes_reader.clone(),
+            self.min_interval_length,
+            self.compression_window,
+            self.number_of_nodes,
+        )
+    }
+
+    /// Return the outdegree of a node.
+    pub fn outdegree(&self, node_id: u64) -> Result<usize> {
+        let mut codes_reader = self.codes_reader.clone();
+        codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
+        Ok(codes_reader.read_outdegree()? as usize)
+    }
+
     #[inline(always)]
+    /// Return a random access iterator over the successors of a node.
     pub fn successors(&self, node_id: u64) -> Result<SuccessorsIterRandom<CR>> {
         let mut codes_reader = self.codes_reader.clone();
         codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
@@ -47,21 +88,23 @@ where
             debug_assert!(neighbours.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count()? as usize;
-            let mut blocks = Vec::with_capacity(number_of_blocks as usize);
+            // add +1 if the number of blocks is even, so we have capacity for
+            // the block that will be added in the masked iterator
+            let alloc_len = 1 + number_of_blocks - (number_of_blocks & 1);
+            let mut blocks = Vec::with_capacity(alloc_len as usize);
             if number_of_blocks != 0 {
                 // the first block could be zero
                 blocks.push(result.reader.read_blocks()? as usize);
                 // while the other can't
                 for _ in 1..number_of_blocks {
-                    let block = result.reader.read_blocks()? as usize;
-                    blocks.push(block + 1);
+                    blocks.push(result.reader.read_blocks()? as usize + 1);
                 }
             }
             // create the masked iterator
             let res = MaskedIterator::new(neighbours, blocks);
             nodes_left_to_decode -= res.len();
 
-            result.copied_nodes_iter = Some(res.peekable());
+            result.copied_nodes_iter = Some(res);
         };
 
         // if we still have to read nodes
@@ -70,7 +113,7 @@ where
             let number_of_intervals = result.reader.read_interval_count()? as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                result.intervals = Vec::with_capacity(number_of_intervals);
+                result.intervals = Vec::with_capacity(number_of_intervals + 1);
                 let node_id_offset = nat2int(result.reader.read_interval_start()?);
                 debug_assert!((node_id as i64 + node_id_offset) >= 0);
                 let mut start = (node_id as i64 + node_id_offset) as u64;
@@ -90,6 +133,9 @@ where
                     start += delta as u64;
                     nodes_left_to_decode -= delta;
                 }
+                // fake final interval to avoid checks in the implementation of
+                // `next`
+                result.intervals.push((u64::MAX - 1, 1));
             }
         }
 
@@ -99,6 +145,23 @@ where
             result.next_residual_node = (node_id as i64 + node_id_offset) as u64;
             result.residuals_to_go = nodes_left_to_decode - 1;
         }
+
+        // setup the first interval node so we can decode without branches
+        if !result.intervals.is_empty() {
+            let (start, len) = &mut result.intervals[0];
+            *len -= 1;
+            result.next_interval_node = *start;
+            *start += 1;
+            result.intervals_idx += (*len == 0) as usize;
+        };
+
+        // cache the first copied node so we don't have to check if the iter
+        // ended at every call of `next`
+        result.next_copied_node = result
+            .copied_nodes_iter
+            .as_mut()
+            .map_or(None, |iter| iter.next())
+            .unwrap_or(u64::MAX);
 
         Ok(result)
     }
@@ -111,7 +174,7 @@ pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<Peekable<MaskedIterator<SuccessorsIterRandom<CR>>>>,
+    copied_nodes_iter: Option<MaskedIterator<SuccessorsIterRandom<CR>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(u64, usize)>,
@@ -121,6 +184,10 @@ pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
     residuals_to_go: usize,
     /// The next residual node
     next_residual_node: u64,
+    /// The next residual node
+    next_copied_node: u64,
+    /// The next interval node
+    next_interval_node: u64,
 }
 
 impl<CR: WebGraphCodesReader + BitSeek + Clone> ExactSizeIterator for SuccessorsIterRandom<CR> {
@@ -141,6 +208,8 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             intervals_idx: 0,
             residuals_to_go: 0,
             next_residual_node: u64::MAX,
+            next_copied_node: u64::MAX,
+            next_interval_node: u64::MAX,
         }
     }
 }
@@ -155,40 +224,25 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
         }
 
         self.size -= 1;
-
-        // Get the different nodes or usize::MAX if not present
-        let copied_value = self
-            .copied_nodes_iter
-            .as_mut()
-            .and_then(|x| x.peek().copied())
-            .unwrap_or(u64::MAX);
-
-        let interval_node = {
-            let (start, len) = self
-                .intervals
-                .get(self.intervals_idx)
-                .copied()
-                .unwrap_or((u64::MAX, usize::MAX));
-            debug_assert_ne!(
-                len, 0,
-                "there should never be an interval with length zero here"
-            );
-            start
-        };
-
         debug_assert!(
-            copied_value != u64::MAX
+            self.next_copied_node != u64::MAX
                 || self.next_residual_node != u64::MAX
-                || interval_node != u64::MAX,
+                || self.next_interval_node != u64::MAX,
             "At least one of the nodes must present, this should be a problem with the degree.",
         );
 
         // find the smallest of the values
-        let min = copied_value.min(self.next_residual_node).min(interval_node);
+        let min = self.next_residual_node.min(self.next_interval_node);
 
         // depending on from where the node was, forward it
-        if min == copied_value {
-            self.copied_nodes_iter.as_mut().unwrap().next().unwrap();
+        if min >= self.next_copied_node {
+            let res = self.next_copied_node;
+            self.next_copied_node = self
+                .copied_nodes_iter
+                .as_mut()
+                .map_or(None, |iter| iter.next())
+                .unwrap_or(u64::MAX);
+            return Some(res);
         } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
                 self.next_residual_node = u64::MAX;
@@ -207,13 +261,10 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
                 "there should never be an interval with length zero here"
             );
             // if the interval has other values, just reduce the interval
-            if *len > 1 {
-                *len -= 1;
-                *start += 1;
-            } else {
-                // otherwise just increase the idx to use the next interval
-                self.intervals_idx += 1;
-            }
+            *len -= 1;
+            self.next_interval_node = *start;
+            *start += 1;
+            self.intervals_idx += (*len == 0) as usize;
         }
 
         Some(min)

@@ -2,9 +2,18 @@ use anyhow::Result;
 
 /// Traits of the operations we can do on a graph
 pub trait Graph {
+    type NodesIter<'a>: Iterator<Item = (u64,)> + 'a
+    where
+        Self: 'a;
     type NeighboursIter<'a>: Iterator<Item = u64> + 'a
     where
         Self: 'a;
+
+    fn get_number_of_nodes(&self) -> usize;
+
+    fn get_number_of_edges(&self) -> usize;
+
+    fn iter_nodes(&self) -> Self::NodesIter<'_>;
 
     /// Get a sorted iterator over the neighbours node_id
     fn get_neighbours(&self, node_id: u64) -> Result<Self::NeighboursIter<'_>>;
