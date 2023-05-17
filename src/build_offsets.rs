@@ -27,7 +27,7 @@ pub fn main() -> Result<()> {
     let file = std::fs::File::create(&format!("{}.offsets", args.basename))?;
     // create a bit writer on the file
     let mut writer =
-        <BufferedBitStreamWrite<M2L, _>>::new(<FileBackend<u64, _>>::new(BufWriter::new(file)));
+        <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(BufWriter::new(file)));
     // progress bar
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "offset".into();

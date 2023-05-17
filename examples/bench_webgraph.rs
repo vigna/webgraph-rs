@@ -70,9 +70,9 @@ macro_rules! build_offsets {
             )
         };
         // Read the offsets gammas
-        let mut reader = BufferedBitStreamRead::<M2L, BufferType, _>::new(
-            MemWordReadInfinite::new(&offsets_slice),
-        );
+        let mut reader = BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+            &offsets_slice,
+        ));
 
         let mut pr_offsets = ProgressLogger::default();
         pr_offsets.expected_updates = Some($num_nodes as _);
@@ -131,7 +131,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let offsets = build_offsets!(args.basename, num_nodes, data_graph);
         // Create a sequential reader
         let mut seq_reader = WebgraphSequentialIter::new(
-            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+            DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                 MemWordReadInfinite::new(&graph_slice),
             )),
             min_interval_length,
@@ -141,7 +141,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // create a random access reader;
         let random_reader = BVGraph::new(
-            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+            DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                 MemWordReadInfinite::new(&graph_slice),
             )),
             offsets,
@@ -153,7 +153,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Create a degrees reader
         let mut deg_reader = WebgraphDegreesIter::new(
-            DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+            DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                 MemWordReadInfinite::new(&graph_slice),
             )),
             min_interval_length,
@@ -174,7 +174,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut seq_reader = WebgraphSequentialIter::new(
-                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                     MemWordReadInfinite::new(&graph_slice),
                 )),
                 min_interval_length,
@@ -199,7 +199,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a degrees reader
             let mut deg_reader = WebgraphDegreesIter::new(
-                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                     MemWordReadInfinite::new(&graph_slice),
                 )),
                 min_interval_length,
@@ -225,7 +225,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // create a random access reader;
             let random_reader = BVGraph::new(
-                DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+                DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                     MemWordReadInfinite::new(&graph_slice),
                 )),
                 offsets.clone(),

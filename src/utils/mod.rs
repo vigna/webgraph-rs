@@ -1,4 +1,6 @@
 //! Collection of common functions we use throughout the codebase
+use dsi_bitstream::prelude::*;
+use mmap_rs::*;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
 pub const fn int2nat(x: i64) -> u64 {
