@@ -55,7 +55,7 @@ fn test_sequential_reading() {
     let mut seq_reader = WebgraphSequentialIter::new(code_reader, 4, 16, NODES);
 
     // Check that they read the same
-    for node_id in 0..(NODES as u64 - 1) {
+    for node_id in 0..(NODES - 1) {
         let rand_nodes = random_reader
             .successors(node_id)
             .unwrap()

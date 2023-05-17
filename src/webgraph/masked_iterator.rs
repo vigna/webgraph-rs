@@ -10,14 +10,14 @@ pub struct MaskedIterator<I> {
     size: usize,
 }
 
-impl<I: Iterator<Item = u64>> ExactSizeIterator for MaskedIterator<I> {
+impl<I: Iterator<Item = usize>> ExactSizeIterator for MaskedIterator<I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-impl<I: Iterator<Item = u64> + ExactSizeIterator> MaskedIterator<I> {
+impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIterator<I> {
     pub fn new(parent: I, mut blocks: Vec<usize>) -> Self {
         // the number of copied nodes
         let mut size: usize = 0;
@@ -49,8 +49,8 @@ impl<I: Iterator<Item = u64> + ExactSizeIterator> MaskedIterator<I> {
     }
 }
 
-impl<I: Iterator<Item = u64>> Iterator for MaskedIterator<I> {
-    type Item = u64;
+impl<I: Iterator<Item = usize>> Iterator for MaskedIterator<I> {
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
         debug_assert!(self.block_idx <= self.blocks.len());
