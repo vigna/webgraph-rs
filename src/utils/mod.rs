@@ -28,6 +28,9 @@ use mmap_rs::*;
 mod permuted_graph;
 pub use permuted_graph::*;
 
+mod sort_pairs;
+pub use sort_pairs::*;
+
 /// Treat an mmap as a slice.
 /// Mmap only implements [`AsRef<[u8]>`] but we need also other types
 /// to be able to read bigger words.

@@ -1,6 +1,7 @@
 use bitvec::prelude::*;
 use clap::Parser;
 use core::num;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use log::info;
@@ -93,7 +94,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
 
-    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Read the offsets
     let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
@@ -123,7 +124,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Read the offsets gammas
     let mut offsets = EliasFanoBuilder::new(
         (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
-        num_nodes,
+        num_nodes as u64,
     );
 
     let mut offset = 0;
@@ -141,6 +142,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<LE, BufferType, _>::new(
         MemWordReadInfinite::new(&graph_slice),
     ));
+
+    let random_reader = BVGraph::new(
+        code_reader,
+        offsets,
+        map.get("minintervallength").unwrap().parse::<usize>()?,
+        map.get("compressionwindow").unwrap().parse::<usize>()?,
+        num_nodes,
+        map.get("arcs").unwrap().parse::<usize>()?,
+    );
 
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "update".to_string();
@@ -176,8 +186,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let modified = AtomicUsize::new(0);
         let pos = AtomicUsize::new(0);
         const GRANULARITY: usize = 1000;
-        let random_reader =
-            WebgraphReaderRandomAccess::new(code_reader.clone(), offsets.clone(), 4);
 
         thread::scope(|scope| {
             for _ in 0..num_cpus::get() {
