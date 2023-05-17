@@ -25,12 +25,11 @@ pub fn main() -> Result<()> {
     pr.item_name = "offset".into();
     pr.start("Computing offsets...");
 
-    for (node_id, successors) in seq_reader.enumerate() {
+    for (node_id, successors) in seq_reader {
         println!(
             "{}\t{}",
             node_id,
             successors
-                .iter()
                 .map(|x| x.to_string())
                 .collect::<Vec<_>>()
                 .join("\t")

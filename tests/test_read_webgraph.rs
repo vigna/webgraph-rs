@@ -5,6 +5,7 @@ type ReadType = u32;
 type BufferType = u64;
 
 const NODES: usize = 325557;
+const ARCS: usize = 3216152;
 
 #[test]
 fn test_sequential_reading() {
@@ -45,7 +46,7 @@ fn test_sequential_reading() {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
         MemWordReadInfinite::new(&data),
     ));
-    let random_reader = BVGraph::new(code_reader, offsets, 4, 16, NODES);
+    let random_reader = BVGraph::new(code_reader, offsets, 4, 16, NODES, ARCS);
 
     // Create a sequential reader
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
@@ -54,7 +55,7 @@ fn test_sequential_reading() {
     let mut seq_reader = WebgraphSequentialIter::new(code_reader, 4, 16, NODES);
 
     // Check that they read the same
-    for node_id in 0..(NODES as u64 - 1) {
+    for node_id in 0..(NODES - 1) {
         let rand_nodes = random_reader
             .successors(node_id)
             .unwrap()

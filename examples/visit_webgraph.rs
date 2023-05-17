@@ -45,6 +45,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map = java_properties::read(BufReader::new(f))?;
 
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
     let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
     let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
 
@@ -103,6 +104,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         min_interval_length,
         compression_window,
         num_nodes as usize,
+        num_arcs as usize,
     );
 
     let mut visited = BitMap::new(num_nodes as usize);

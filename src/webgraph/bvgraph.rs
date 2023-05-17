@@ -19,6 +19,8 @@ pub struct BVGraph<CR, OFF> {
     compression_window: usize,
     /// The number of nodes in the graph.
     number_of_nodes: usize,
+    /// The number of arcs in the graph.
+    number_of_arcs: usize,
 }
 
 impl<CR, OFF> BVGraph<CR, OFF>
@@ -32,6 +34,7 @@ where
         min_interval_length: usize,
         compression_window: usize,
         number_of_nodes: usize,
+        number_of_arcs: usize,
     ) -> Self {
         Self {
             codes_reader,
@@ -39,15 +42,36 @@ where
             offsets,
             compression_window,
             number_of_nodes,
+            number_of_arcs,
         }
     }
+}
 
-    pub fn get_number_of_nodes(&self) -> usize {
+impl<CR, OFF> Graph for BVGraph<CR, OFF>
+where
+    CR: WebGraphCodesReader + BitSeek + Clone,
+    OFF: VSlice,
+{
+    type NodesIter<'a> = WebgraphSequentialIter<CR>
+        where CR: 'a,
+        OFF: 'a;
+    type RandomSuccessorIter<'a> = RandomSuccessorIter<CR>
+        where CR: 'a,
+        OFF: 'a;
+    type SequentialSuccessorIter<'a> = std::vec::IntoIter<usize>
+        where CR: 'a,
+        OFF: 'a;
+
+    fn num_nodes(&self) -> usize {
         self.number_of_nodes
     }
 
+    fn num_arcs(&self) -> usize {
+        self.number_of_arcs
+    }
+
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    pub fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
+    fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
         WebgraphSequentialIter::new(
             self.codes_reader.clone(),
             self.min_interval_length,
@@ -57,7 +81,7 @@ where
     }
 
     /// Return the outdegree of a node.
-    pub fn outdegree(&self, node_id: u64) -> Result<usize> {
+    fn outdegree(&self, node_id: usize) -> Result<usize> {
         let mut codes_reader = self.codes_reader.clone();
         codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
         Ok(codes_reader.read_outdegree()? as usize)
@@ -65,11 +89,11 @@ where
 
     #[inline(always)]
     /// Return a random access iterator over the successors of a node.
-    pub fn successors(&self, node_id: u64) -> Result<SuccessorsIterRandom<CR>> {
+    fn successors(&self, node_id: usize) -> Result<RandomSuccessorIter<CR>> {
         let mut codes_reader = self.codes_reader.clone();
         codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
 
-        let mut result = SuccessorsIterRandom::new(codes_reader);
+        let mut result = RandomSuccessorIter::new(codes_reader);
         let degree = result.reader.read_outdegree()? as usize;
         // no edges, we are done!
         if degree == 0 {
@@ -78,7 +102,7 @@ where
         result.size = degree;
         let mut nodes_left_to_decode = degree;
         // read the reference offset
-        let ref_delta = result.reader.read_reference_offset()?;
+        let ref_delta = result.reader.read_reference_offset()? as usize;
         // if we copy nodes from a previous one
         if ref_delta != 0 {
             // compute the node id of the reference
@@ -116,33 +140,33 @@ where
                 result.intervals = Vec::with_capacity(number_of_intervals + 1);
                 let node_id_offset = nat2int(result.reader.read_interval_start()?);
                 debug_assert!((node_id as i64 + node_id_offset) >= 0);
-                let mut start = (node_id as i64 + node_id_offset) as u64;
+                let mut start = (node_id as i64 + node_id_offset) as usize;
                 let mut delta = result.reader.read_interval_len()? as usize;
                 delta += self.min_interval_length;
                 // save the first interval
                 result.intervals.push((start, delta));
-                start += delta as u64;
+                start += delta as usize;
                 nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
-                    start += 1 + result.reader.read_interval_start()?;
+                    start += 1 + result.reader.read_interval_start()? as usize;
                     delta = result.reader.read_interval_len()? as usize;
                     delta += self.min_interval_length;
 
                     result.intervals.push((start, delta));
-                    start += delta as u64;
+                    start += delta as usize;
                     nodes_left_to_decode -= delta;
                 }
                 // fake final interval to avoid checks in the implementation of
                 // `next`
-                result.intervals.push((u64::MAX - 1, 1));
+                result.intervals.push((usize::MAX - 1, 1));
             }
         }
 
         // decode just the first extra, if present (the others will be decoded on demand)
         if nodes_left_to_decode != 0 {
             let node_id_offset = nat2int(result.reader.read_first_residual()?);
-            result.next_residual_node = (node_id as i64 + node_id_offset) as u64;
+            result.next_residual_node = (node_id as i64 + node_id_offset) as usize;
             result.residuals_to_go = nodes_left_to_decode - 1;
         }
 
@@ -161,43 +185,43 @@ where
             .copied_nodes_iter
             .as_mut()
             .map_or(None, |iter| iter.next())
-            .unwrap_or(u64::MAX);
+            .unwrap_or(usize::MAX);
 
         Ok(result)
     }
 }
 
 ///
-pub struct SuccessorsIterRandom<CR: WebGraphCodesReader + BitSeek + Clone> {
+pub struct RandomSuccessorIter<CR: WebGraphCodesReader + BitSeek + Clone> {
     reader: CR,
     /// The number of values left
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<MaskedIterator<SuccessorsIterRandom<CR>>>,
+    copied_nodes_iter: Option<MaskedIterator<RandomSuccessorIter<CR>>>,
 
     /// Intervals of extra nodes
-    intervals: Vec<(u64, usize)>,
+    intervals: Vec<(usize, usize)>,
     /// The index of interval to return
     intervals_idx: usize,
     /// Remaining residual nodes
     residuals_to_go: usize,
     /// The next residual node
-    next_residual_node: u64,
+    next_residual_node: usize,
     /// The next residual node
-    next_copied_node: u64,
+    next_copied_node: usize,
     /// The next interval node
-    next_interval_node: u64,
+    next_interval_node: usize,
 }
 
-impl<CR: WebGraphCodesReader + BitSeek + Clone> ExactSizeIterator for SuccessorsIterRandom<CR> {
+impl<CR: WebGraphCodesReader + BitSeek + Clone> ExactSizeIterator for RandomSuccessorIter<CR> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
+impl<CR: WebGraphCodesReader + BitSeek + Clone> RandomSuccessorIter<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
@@ -207,15 +231,15 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> SuccessorsIterRandom<CR> {
             intervals: vec![],
             intervals_idx: 0,
             residuals_to_go: 0,
-            next_residual_node: u64::MAX,
-            next_copied_node: u64::MAX,
-            next_interval_node: u64::MAX,
+            next_residual_node: usize::MAX,
+            next_copied_node: usize::MAX,
+            next_interval_node: usize::MAX,
         }
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRandom<CR> {
-    type Item = u64;
+impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for RandomSuccessorIter<CR> {
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
         // check if we should stop iterating
@@ -225,9 +249,9 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
 
         self.size -= 1;
         debug_assert!(
-            self.next_copied_node != u64::MAX
-                || self.next_residual_node != u64::MAX
-                || self.next_interval_node != u64::MAX,
+            self.next_copied_node != usize::MAX
+                || self.next_residual_node != usize::MAX
+                || self.next_interval_node != usize::MAX,
             "At least one of the nodes must present, this should be a problem with the degree.",
         );
 
@@ -241,18 +265,19 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for SuccessorsIterRando
                 .copied_nodes_iter
                 .as_mut()
                 .map_or(None, |iter| iter.next())
-                .unwrap_or(u64::MAX);
+                .unwrap_or(usize::MAX);
             return Some(res);
         } else if min == self.next_residual_node {
             if self.residuals_to_go == 0 {
-                self.next_residual_node = u64::MAX;
+                self.next_residual_node = usize::MAX;
             } else {
                 self.residuals_to_go -= 1;
                 // NOTE: here we cannot propagate the error
                 self.next_residual_node += 1 + self
                     .reader
                     .read_residual()
-                    .expect("Error while reading a residual");
+                    .expect("Error while reading a residual")
+                    as usize;
             }
         } else {
             let (start, len) = &mut self.intervals[self.intervals_idx];

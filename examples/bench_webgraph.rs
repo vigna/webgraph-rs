@@ -28,7 +28,7 @@ struct Args {
 
     /// The number of successor lists in random-access tests
     #[arg(short, long, default_value = "1000000")]
-    n: u64,
+    n: usize,
 
     /// Test sequential access speed by scanning the whole graph
     #[arg(short = 's', long)]
@@ -81,7 +81,7 @@ macro_rules! build_offsets {
         // Read the offsets gammas
         let mut offsets = EliasFanoBuilder::new(
             ($data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
-            $num_nodes,
+            $num_nodes as u64,
         );
 
         let mut offset = 0;
@@ -110,8 +110,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
 
-    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
+    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
+    let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
     let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
     let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
 
@@ -148,6 +148,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             min_interval_length,
             compression_window,
             num_nodes as usize,
+            num_arcs as usize,
         );
 
         // Create a degrees reader
@@ -231,11 +232,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 min_interval_length,
                 compression_window,
                 num_nodes as usize,
+                num_arcs as usize,
             );
 
             let mut random = SmallRng::seed_from_u64(0);
             let mut c: usize = 0;
-            let mut u: u64 = 0;
+            let mut u: usize = 0;
 
             let start = std::time::Instant::now();
             if args.first {
