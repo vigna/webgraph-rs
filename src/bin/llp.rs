@@ -1,6 +1,7 @@
 use bitvec::prelude::*;
 use clap::Parser;
 use core::num;
+use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use log::info;
 use mmap_rs::*;
@@ -20,7 +21,6 @@ use std::sync::Mutex;
 use std::thread;
 use sux::prelude::*;
 use webgraph::prelude::*;
-use webgraph::utils::ProgressLogger;
 
 type ReadType = u32;
 type BufferType = u64;
@@ -46,7 +46,7 @@ fn mmap_file(path: &str) -> Mmap {
 
 struct PermutedGraph<'a, CR, OFF> {
     graph: &'a WebgraphReaderRandomAccess<CR, OFF>,
-    perm: &'a[u64]
+    perm: &'a [u64],
 }
 
 struct PermutedSuccessorsIterator<I: Iterator> {
@@ -60,7 +60,6 @@ impl Iterator for PermutedSuccessorsIterator<Iterator> {
         self.iterator.next().map(|x| self.perm[x])
     }
 }
-
 
 struct LabelStore {
     labels: Box<[AtomicUsize]>,
@@ -224,7 +223,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 continue;
                             }
 
-                            let mut map = HashMap::<usize, usize>::with_capacity(successors.len()); 
+                            let mut map = HashMap::<usize, usize>::with_capacity(successors.len());
 
                             let curr_label = label_store.label(node as _);
 
