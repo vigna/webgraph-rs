@@ -148,6 +148,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             min_interval_length,
             compression_window,
             num_nodes as usize,
+            num_arcs as usize,
         );
 
         // Create a degrees reader
@@ -231,6 +232,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 min_interval_length,
                 compression_window,
                 num_nodes as usize,
+                num_arcs as usize,
             );
 
             let mut random = SmallRng::seed_from_u64(0);

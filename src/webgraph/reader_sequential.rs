@@ -140,7 +140,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
 }
 
 impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
-    type Item = Vec<u64>;
+    type Item = (u64, std::vec::IntoIter<u64>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let node_id = self.backrefs.get_end_node_id();
@@ -149,7 +149,7 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
         }
         let mut res = self.backrefs.take();
         self.get_successors_iter_priv(node_id, &mut res).unwrap();
-        Some(self.backrefs.push(res).to_vec())
+        Some((node_id, self.backrefs.push(res).to_vec().into_iter()))
     }
 }
 
