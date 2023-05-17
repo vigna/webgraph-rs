@@ -44,23 +44,6 @@ fn mmap_file(path: &str) -> Mmap {
     }
 }
 
-struct PermutedGraph<'a, CR, OFF> {
-    graph: &'a WebgraphReaderRandomAccess<CR, OFF>,
-    perm: &'a [u64],
-}
-
-struct PermutedSuccessorsIterator<I: Iterator> {
-    iterator: I,
-    perm: [usize],
-}
-
-impl Iterator for PermutedSuccessorsIterator<Iterator> {
-    type Item = u64;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next().map(|x| self.perm[x])
-    }
-}
-
 struct LabelStore {
     labels: Box<[AtomicUsize]>,
     volumes: Box<[AtomicUsize]>,
@@ -132,7 +115,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut reader =
-        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
+        BufferedBitStreamRead::<LE, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
 
     let mut pr_offsets = ProgressLogger::default();
     pr_offsets.item_name = "offset".to_string();
@@ -155,7 +138,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
         offsets.build().convert_to().unwrap();
 
-    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<LE, BufferType, _>::new(
         MemWordReadInfinite::new(&graph_slice),
     ));
 

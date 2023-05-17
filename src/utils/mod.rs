@@ -23,6 +23,9 @@ pub const fn nat2int(x: u64) -> i64 {
 use dsi_bitstream::prelude::*;
 use mmap_rs::*;
 
+mod permuted_graph;
+pub use permuted_graph::*;
+
 /// Treat an mmap as a slice.
 /// Mmap only implements [`AsRef<[u8]>`] but we need also other types
 /// to be able to read bigger words.
