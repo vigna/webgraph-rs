@@ -29,6 +29,8 @@ clap = { version = "4.1.6", features = ["derive"] }
 dsi-progress-logger = "0.1.0"
 log = "0.4.17"
 stderrlog = "0.5.4"
+voracious_radix_sort = {version="1.2.0", features = ["voracious_multithread"]}
+rayon = "1.7.0"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }

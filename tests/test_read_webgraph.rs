@@ -24,7 +24,7 @@ fn test_sequential_reading() {
     // Read the offsets gammas
     let mut offsets = Vec::with_capacity(NODES);
     let mut reader =
-        BufferedBitStreamRead::<M2L, BufferType, _>::new(MemWordReadInfinite::new(&data));
+        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data));
     let mut offset = 0;
     for _ in 0..NODES {
         offset += reader.read_gamma::<true>().unwrap() as usize;
@@ -43,13 +43,13 @@ fn test_sequential_reading() {
         .collect::<Vec<_>>();
 
     // create a random access reader
-    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
         MemWordReadInfinite::new(&data),
     ));
     let random_reader = BVGraph::new(code_reader, offsets, 4, 16, NODES, ARCS);
 
     // Create a sequential reader
-    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<M2L, BufferType, _>::new(
+    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
         MemWordReadInfinite::new(&data),
     ));
     let mut seq_reader = WebgraphSequentialIter::new(code_reader, 4, 16, NODES);
