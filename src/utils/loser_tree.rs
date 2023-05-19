@@ -6,6 +6,8 @@ use std::cmp::max_by_key;
 use std::cmp::min_by_key;
 use std::mem::swap;
 
+use alloc::vec;
+
 #[derive(Debug, Clone)]
 pub struct LoserTree<T> {
     tree: Vec<usize>,
@@ -85,14 +87,11 @@ impl<T: Ord + Copy> LoserTree<T> {
 }
 
 fn main() {
-    let mut tree = LoserTree::new(vec![2, 4, 7, 0, 1, 5, 2, 6]);
+    v = vec![2, 4, 7, 0, 1];
+    let len = v.len();
+    let mut tree = LoserTree::new(v);
     dbg!(&tree);
-    dbg!(tree.next());
-    dbg!(tree.next());
-    dbg!(tree.next());
-    dbg!(tree.next());
-    dbg!(tree.next());
-    dbg!(tree.next());
-    dbg!(tree.next());
-    dbg!(tree.next());
+    for i in 0..len {
+        dbg!(tree.next());
+    }
 }
