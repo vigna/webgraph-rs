@@ -2,7 +2,6 @@
 An inplementation of loser trees.
 */
 
-use num::Bounded;
 use std::cmp::max_by_key;
 use std::cmp::min_by_key;
 use std::mem::swap;
@@ -11,25 +10,26 @@ use std::mem::swap;
 pub struct LoserTree<T> {
     tree: Vec<usize>,
     data: Vec<T>,
+    exhausted: Vec<bool>,
 }
 
-impl<T: Ord + Copy + Bounded> Iterator for LoserTree<T> {
+impl<T: Ord + Copy> Iterator for LoserTree<T> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
         let tree = &mut self.tree;
         let data = &mut self.data;
+        let exhausted = &mut self.exhausted;
         let len = data.len();
         dbg!(len);
 
         let mut winner = tree[0];
         let result = data[winner];
-        data[winner] = T::max_value();
-        // Promote sibling to loser
+        exhausted[winner] = true;
         let mut parent = (winner + len) / 2;
         dbg!(winner, parent);
 
         while parent != 0 {
-            if data[tree[parent]] < data[winner] {
+            if exhausted[winner] || data[tree[parent]] < data[winner] {
                 swap(&mut tree[parent], &mut winner);
             }
             parent = parent / 2;
@@ -39,11 +39,7 @@ impl<T: Ord + Copy + Bounded> Iterator for LoserTree<T> {
     }
 }
 
-impl<T: Ord> LoserTree<T> {
-    pub fn top(&self) -> &T {
-        &self.data[self.tree[0]]
-    }
-
+impl<T: Ord + Copy> LoserTree<T> {
     fn new(data: Vec<T>) -> Self {
         let mut tree = vec![0_usize; data.len()];
         let len = data.len();
@@ -80,13 +76,20 @@ impl<T: Ord> LoserTree<T> {
             tree[i] = max_by_key(2 * i - len, 2 * i - len + 1, |x| &data[*x]);
         }
 
-        Self { data, tree }
+        Self {
+            data: data,
+            tree: tree,
+            exhausted: vec![false; len],
+        }
     }
 }
 
 fn main() {
-    let mut tree = LoserTree::new(vec![2, 4, 7, 0, 1, 5, 7, 8, 2, 0, -1]);
+    let mut tree = LoserTree::new(vec![2, 4, 7, 0, 1, 5, 2, 6]);
     dbg!(&tree);
+    dbg!(tree.next());
+    dbg!(tree.next());
+    dbg!(tree.next());
     dbg!(tree.next());
     dbg!(tree.next());
     dbg!(tree.next());
