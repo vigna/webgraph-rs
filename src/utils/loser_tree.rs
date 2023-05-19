@@ -27,18 +27,14 @@ impl<T: Ord + Copy + Bounded> Iterator for LoserTree<T> {
         // Promote sibling to loser
         let mut parent = (winner + len) / 2;
         dbg!(winner, parent);
-        let mut curr = winner + 1 - ((winner + len) % 2) * 2;
-        dbg!(winner, parent, curr);
-        tree[parent] = tree[curr];
-        parent /= 2;
 
         while parent != 0 {
-            if data[tree[parent]] < data[tree[curr]] {
-                swap(&mut tree[parent], &mut curr);
+            if data[tree[parent]] < data[winner] {
+                swap(&mut tree[parent], &mut winner);
             }
-            (curr, parent) = (parent, parent / 2);
+            parent = parent / 2;
         }
-        tree[0] = curr;
+        tree[0] = winner;
         Some(result)
     }
 }
