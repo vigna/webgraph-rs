@@ -1,7 +1,7 @@
 use itertools;
 
-use std::fmt;
-use std::mem::replace;
+use std::mem::{replace, swap};
+use std::time::Instant;
 
 /// Head element and Tail iterator pair
 ///
@@ -39,13 +39,7 @@ where
 pub type KMerge<I> = KMergeBy<I, KMergeByLt>;
 
 pub trait KMergePredicate<T: Iterator> {
-    fn kmerge_pred(
-        &mut self,
-        a: &Option<HeadTail<T>>,
-        i: usize,
-        b: &Option<HeadTail<T>>,
-        j: usize,
-    ) -> bool;
+    fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool;
 }
 
 #[derive(Clone, Debug)]
@@ -55,16 +49,11 @@ impl<T: Iterator> KMergePredicate<T> for KMergeByLt
 where
     T::Item: PartialOrd,
 {
-    fn kmerge_pred(
-        &mut self,
-        a: &Option<HeadTail<T>>,
-        i: usize,
-        b: &Option<HeadTail<T>>,
-        j: usize,
-    ) -> bool {
-        if let Some(a) = &a {
-            if let Some(b) = &b {
-                return a.head < b.head || a.head == b.head && i < j;
+    fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
+        if let Some(a) = &v[i] {
+            if let Some(b) = &v[j] {
+                // Stable comparison
+                return a.head < b.head || (a.head == b.head && i < j);
             } else {
                 return true;
             }
@@ -74,20 +63,15 @@ where
     }
 }
 
-impl<T: Iterator, F: FnMut(&T, &T) -> bool> KMergePredicate<T> for F
+impl<T: Iterator, F: FnMut(&T::Item, &T::Item) -> bool> KMergePredicate<T> for F
 where
     T::Item: PartialOrd,
 {
-    fn kmerge_pred(
-        &mut self,
-        a: &Option<HeadTail<T>>,
-        i: usize,
-        b: &Option<HeadTail<T>>,
-        j: usize,
-    ) -> bool {
-        if let Some(a) = &a {
-            if let Some(b) = &b {
-                return true; //self(&a.head, &b.head) || a.head == b.head && i < j;
+    fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
+        if let Some(a) = &v[i] {
+            if let Some(b) = &v[j] {
+                // Stable comparison
+                return self(&a.head, &b.head) || (a.head == b.head && i < j);
             } else {
                 return true;
             }
@@ -160,7 +144,7 @@ where
         // Winner tree
         for i in (1..len).rev() {
             let (left, right) = (idx_to_item(2 * i, &tree), idx_to_item(2 * i + 1, &tree));
-            tree[i] = if less_than.kmerge_pred(&src[left], left, &src[right], right) {
+            tree[i] = if less_than.kmerge_pred(src, left, right) {
                 left
             } else {
                 right
@@ -172,7 +156,7 @@ where
         }
         for i in 1..len {
             let (left, right) = (idx_to_item(2 * i, &tree), idx_to_item(2 * i + 1, &tree));
-            tree[i] = if less_than.kmerge_pred(&src[left], left, &src[right], right) {
+            tree[i] = if less_than.kmerge_pred(src, left, right) {
                 right
             } else {
                 left
@@ -182,17 +166,16 @@ where
         tree
     }
 
+    #[inline(always)]
     fn fix_tree(&mut self, winner: usize) {
         let mut winner = winner;
         let mut parent = (winner + self.tree.len()) / 2;
         while parent != 0 {
-            if self.less_than.kmerge_pred(
-                &self.src[self.tree[parent]],
-                self.tree[parent],
-                &self.src[winner],
-                winner,
-            ) {
-                std::mem::swap(&mut self.tree[parent], &mut winner);
+            if self
+                .less_than
+                .kmerge_pred(&self.src, self.tree[parent], winner)
+            {
+                swap(&mut self.tree[parent], &mut winner);
             }
             parent = parent / 2;
         }
@@ -214,10 +197,11 @@ where
 {
     let iter = iterable.into_iter();
     let (lower, _) = iter.size_hint();
-    let src: Vec<_> = iter
-        .filter_map(|it| HeadTail::new(it.into_iter()))
-        .map(Some)
-        .collect();
+    let mut src: Vec<_> = Vec::with_capacity(lower);
+    src.extend(
+        iter.filter_map(|it| HeadTail::new(it.into_iter()))
+            .map(Some),
+    );
     let active = src.len();
     let tree = KMergeBy::build_tree(&src, &mut less_than);
 
@@ -249,9 +233,8 @@ where
             result = replace(&mut head_tail.head, next);
             self.fix_tree(winner);
         } else {
-            result = replace(&mut self.src[winner], None)
-                .map(|ht| ht.head)
-                .unwrap();
+            // SAFETY: We already checked that self.src[winner] is Some
+            result = unsafe { replace(&mut self.src[winner], None).unwrap_unchecked().head };
             self.fix_tree(winner);
 
             self.active -= 1;
@@ -266,16 +249,27 @@ where
     }
 }
 
-fn main() {
+fn build_iters() -> Vec<impl Iterator<Item = usize>> {
     let mut v = vec![];
-    for i in 0..7 {
-        v.push(((i / 2) * 100_000_000..((i + 1) / 2 + 1) * 100_000_000).into_iter());
+    for i in 0..1000 {
+        v.push((0..1_000_000).into_iter());
     }
-    //let m = itertools::kmerge(v);
-    let m = kmerge(v);
+    v
+}
+fn main() {
+    let m = itertools::kmerge(build_iters());
+    let start = Instant::now();
     for i in m {
         std::hint::black_box(i);
     }
+    println!("itertools: {:?}", start.elapsed());
+
+    let start = Instant::now();
+    let m = kmerge(build_iters());
+    for i in m {
+        std::hint::black_box(i);
+    }
+    println!("kmerge: {:?}", start.elapsed());
 }
 
 #[cfg(test)]
