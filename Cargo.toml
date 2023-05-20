@@ -35,6 +35,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 voracious_radix_sort = {version="1.2.0", features = ["voracious_multithread"]}
 rayon = "1.7.0"
 tournament-kway = { git = "https://github.com/vigna/tournament", branch = "expose_comparators" }
+itertools = "0.10.5"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }
