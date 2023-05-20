@@ -49,6 +49,7 @@ impl<T: Iterator> KMergePredicate<T> for KMergeByLt
 where
     T::Item: PartialOrd,
 {
+    #[inline(always)]
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
         if let Some(a) = &v[i] {
             if let Some(b) = &v[j] {
@@ -67,6 +68,7 @@ impl<T: Iterator, F: FnMut(&T::Item, &T::Item) -> bool> KMergePredicate<T> for F
 where
     T::Item: PartialOrd,
 {
+    #[inline(always)]
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
         if let Some(a) = &v[i] {
             if let Some(b) = &v[j] {
