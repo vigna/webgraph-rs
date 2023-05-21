@@ -46,20 +46,11 @@ fn test_sequential_reading() {
     let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
         MemWordReadInfinite::new(&data),
     ));
-    let random_reader = BVGraph::new(code_reader, offsets, 4, 16, NODES, ARCS);
-
-    // Create a sequential reader
-    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-        MemWordReadInfinite::new(&data),
-    ));
-    let mut seq_reader = WebgraphSequentialIter::new(code_reader, 4, 16, NODES);
+    let bvgraph = BVGraph::new(code_reader, offsets, 4, 16, NODES, ARCS);
 
     // Check that they read the same
-    for (node_id, seq_succ) in random_reader.iter_nodes() {
-        let rand_succ = random_reader
-            .successors(node_id)
-            .unwrap()
-            .collect::<Vec<_>>();
+    for (node_id, seq_succ) in bvgraph.iter_nodes() {
+        let rand_succ = bvgraph.successors(node_id).unwrap().collect::<Vec<_>>();
         dbg!(node_id);
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }
