@@ -1,5 +1,5 @@
 use crate::traits::Graph;
-
+use crate::webgraph::VecGraph;
 pub struct PermutedGraph<'a, G: Graph> {
     graph: &'a G,
     perm: &'a [usize],
@@ -83,4 +83,24 @@ impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| self.perm[x])
     }
+}
+
+#[cfg(test)]
+#[test]
+
+fn test_permuted_graph() {
+    let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
+    let p = PermutedGraph {
+        graph: &g,
+        perm: &[2, 0, 1],
+    };
+
+    assert_eq!(p.num_nodes(), 3);
+    assert_eq!(p.num_arcs(), 4);
+    assert_eq!(p.outdegree(0).unwrap(), 1);
+    assert_eq!(p.outdegree(1).unwrap(), 2);
+    assert_eq!(p.outdegree(2).unwrap(), 1);
+    assert_eq!(p.successors(0).unwrap().collect::<Vec<_>>(), vec![1]);
+    assert_eq!(p.successors(1).unwrap().collect::<Vec<_>>(), vec![2, 0]);
+    assert_eq!(p.successors(2).unwrap().collect::<Vec<_>>(), vec![0]);
 }

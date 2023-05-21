@@ -1,20 +1,19 @@
 use dsi_bitstream::prelude::*;
+use itertools;
+use itertools::KMerge;
 use rayon::prelude::*;
 use std::env::temp_dir;
-use std::fmt::Display;
 use std::path::PathBuf;
-use tournament_kway::MinComparator;
-use tournament_kway::Tournament;
 
-pub struct SortPairs<T: Send + Display + Copy> {
+pub struct SortPairs<T: Send + Copy> {
     max_len: usize,
     pairs: Vec<(usize, usize, T)>,
     dir: PathBuf,
     num_batches: usize,
 }
 
-impl<T: Send + Display + Copy> SortPairs<T> {
-    fn new(max_len: usize) -> Self {
+impl<T: Send + Copy> SortPairs<T> {
+    pub fn new(max_len: usize) -> Self {
         SortPairs {
             max_len: max_len,
             pairs: Vec::with_capacity(max_len),
@@ -25,13 +24,6 @@ impl<T: Send + Display + Copy> SortPairs<T> {
 
     fn dump(&mut self) {
         self.pairs.par_sort_unstable_by_key(|(x, y, _)| (*x, *y));
-        println!(
-            "Dumping {:?}",
-            self.pairs
-                .iter()
-                .map(|(x, y, _)| (*x, *y))
-                .collect::<Vec<_>>()
-        );
         let batch_name = self.dir.join(format!("{}", self.num_batches));
         let file = std::io::BufWriter::new(std::fs::File::create(&batch_name).unwrap());
         let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
@@ -54,21 +46,22 @@ impl<T: Send + Display + Copy> SortPairs<T> {
         for _ in 0..self.pairs.len() {
             let x = stream.read_gamma::<false>().unwrap();
             let y = stream.read_gamma::<false>().unwrap();
-            dbg!(x, y);
         }
 
         self.pairs.clear();
         self.num_batches += 1;
+        println!("End");
     }
 
-    fn push(&mut self, x: usize, y: usize, t: T) {
+    pub fn push(&mut self, x: usize, y: usize, t: T) {
         self.pairs.push((x, y, t));
         if self.pairs.len() >= self.max_len {
             self.dump();
         }
     }
 
-    fn build(mut self) -> Tournament<BatchIterator, MinComparator<(usize, usize)>> {
+    pub fn build(mut self) -> KMerge<BatchIterator> {
+        println!("Building");
         let last_batch_len = self.pairs.len();
         self.dump();
         let mut iterators = Vec::with_capacity(self.num_batches);
@@ -90,11 +83,11 @@ impl<T: Send + Display + Copy> SortPairs<T> {
             });
         }
 
-        Tournament::from_iters_min(iterators)
+        itertools::kmerge(iterators)
     }
 }
 
-struct BatchIterator {
+pub struct BatchIterator {
     stream: BufferedBitStreamRead<LE, u64, FileBackend<u32, std::io::BufReader<std::fs::File>>>,
     len: usize,
     current: usize,
