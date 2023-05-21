@@ -5,11 +5,8 @@ use std::time::Instant;
 
 /// Head element and Tail iterator pair
 ///
-/// `PartialEq`, `Eq`, `PartialOrd` and `Ord` are implemented by comparing sequences based on
-/// first items (which are guaranteed to exist).
-///
-/// The meanings of `PartialOrd` and `Ord` are reversed so as to turn the heap used in
-/// `KMerge` into a min-heap.
+/// The head is the last element returned by the
+/// iterator, which may be empty.
 #[derive(Debug)]
 pub struct HeadTail<I>
 where
@@ -23,7 +20,9 @@ impl<I> HeadTail<I>
 where
     I: Iterator,
 {
-    /// Constructs a `HeadTail` from an `Iterator`. Returns `None` if the `Iterator` is empty.
+    /// Constructs a `HeadTail` from an `Iterator` extrating
+    /// the first element and storing it in the head.
+    ///  Returns `None` if the `Iterator` is empty.
     fn new(mut it: I) -> Option<HeadTail<I>> {
         let head = it.next();
         head.map(|h| HeadTail { head: h, tail: it })
@@ -31,11 +30,12 @@ where
 }
 
 /// An iterator adaptor that merges an abitrary number of base iterators in ascending order.
-/// If all base iterators are sorted (ascending), the result is sorted.
+/// If all base iterators are sorted (ascending), the result is sorted. If `STABLE` is true,
+/// the merge is stable.
 ///
 /// Iterator element type is `I::Item`.
 ///
-/// See [`.kmerge()`](crate::Itertools::kmerge) for more information.
+/// See [`.kmerge()`] for more information.
 pub type KMerge<I, const STABLE: bool> = KMergeBy<I, KMergeByLt, STABLE>;
 
 pub trait KMergePredicate<T: Iterator, const STABLE: bool> {
@@ -49,10 +49,11 @@ impl<T: Iterator, const STABLE: bool> KMergePredicate<T, STABLE> for KMergeByLt
 where
     T::Item: PartialOrd,
 {
+    /// Compares the heads of the two iterators; `None` is infinity.
     #[inline(always)]
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
         match (&v[i], &v[j]) {
-            (None, None) => false,
+            (None, None) => false, // Stability is irrelevant here
             (None, Some(_)) => false,
             (Some(_), None) => true,
             (Some(a), Some(b)) => a.head < b.head || (STABLE && a.head == b.head && i < j),
@@ -66,10 +67,11 @@ impl<T: Iterator, const STABLE: bool> KMergePredicate<T, STABLE> for KMergeByGe
 where
     T::Item: PartialOrd,
 {
+    /// Compares the heads of the two iterators; `None` is minus infinity.
     #[inline(always)]
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
         match (&v[i], &v[j]) {
-            (None, None) => false,
+            (None, None) => false, // Stability is irrelevant here
             (None, Some(_)) => false,
             (Some(_), None) => true,
             (Some(a), Some(b)) => a.head > b.head || (STABLE && a.head == b.head && i < j),
@@ -83,9 +85,11 @@ where
     T::Item: PartialOrd,
 {
     #[inline(always)]
+    // Compares the heads of the two iterators; `None` is larger than anything in
+    /// the order of 'F'.
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
         match (&v[i], &v[j]) {
-            (None, None) => false,
+            (None, None) => false, // Stability is irrelevant here
             (None, Some(_)) => false,
             (Some(_), None) => true,
             (Some(a), Some(b)) => self(&a.head, &b.head) || (STABLE && a.head == b.head && i < j),
@@ -93,15 +97,15 @@ where
     }
 }
 
-/// Create an iterator that merges elements of the contained iterators using
-/// the ordering function.
+/// Create an iterator that merges elements of the contained iterators
+/// in a stable way using the ordering function.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge`].
 ///
 /// ```
 /// use itertools::kmerge;
 ///
-/// for elt in kmerge(vec![vec![0, 2, 4], vec![1, 3, 5], vec![6, 7]]) {
+/// for elt in kmerge_stable(vec![vec![0, 2, 4], vec![1, 3, 5], vec![6, 7]]) {
 ///     /* loop body */
 /// }
 /// ```
@@ -115,14 +119,14 @@ where
 }
 
 /// Create an iterator that merges elements of the contained iterators using
-/// the ordering function.
+/// the ordering function; stability is not guaranteed.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge`].
 ///
 /// ```
 /// use itertools::kmerge;
 ///
-/// for elt in kmerge(vec![vec![0, 2, 4], vec![1, 3, 5], vec![6, 7]]) {
+/// for elt in kmerge_unstable(vec![vec![0, 2, 4], vec![1, 3, 5], vec![6, 7]]) {
 ///     /* loop body */
 /// }
 /// ```
@@ -136,11 +140,12 @@ where
 }
 
 /// An iterator adaptor that merges an abitrary number of base iterators
-/// according to an ordering function.
+/// according to an ordering function.  If `STABLE` is true,
+/// the merge is stable.
 ///
 /// Iterator element type is `I::Item`.
 ///
-/// See [`.kmerge_by()`](crate::Itertools::kmerge_by) for more
+/// See [`.kmerge_by()`] for more
 /// information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 pub struct KMergeBy<I, F, const STABLE: bool>
@@ -158,6 +163,7 @@ where
     I: Iterator,
     F: KMergePredicate<I, STABLE>,
 {
+    /// Create and returns a loser tree.
     fn build_tree(src: &Vec<Option<HeadTail<I>>>, less_than: &mut F) -> Vec<usize>
     where
         I: Iterator,
@@ -165,7 +171,8 @@ where
     {
         let len = src.len();
         let mut tree = vec![0_usize; len];
-
+        // Maps a virtual index in the tree to an index in the source array.
+        // Nodes larger then len represent leaves, and thus inputs.
         let idx_to_item = |idx: usize, tree: &Vec<usize>| -> usize {
             if idx < len {
                 tree[idx]
@@ -183,10 +190,10 @@ where
                 right
             };
         }
-        // Loser tree
         if len > 1 {
             tree[0] = tree[1]; // winner
         }
+        // Loser tree
         for i in 1..len {
             let (left, right) = (idx_to_item(2 * i, &tree), idx_to_item(2 * i + 1, &tree));
             tree[i] = if less_than.kmerge_pred(src, left, right) {
@@ -199,6 +206,8 @@ where
         tree
     }
 
+    // Fixes the loser tree after the winner has been extracted
+    // and corresponding iterator advanced.
     #[inline(always)]
     fn fix_tree(&mut self, winner: usize) {
         let mut winner = winner;
@@ -217,6 +226,7 @@ where
 }
 
 /// Create an iterator that merges elements of the contained iterators.
+/// If STABLE is true, the merge is stable.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
 fn kmerge_by<I, F, const STABLE: bool>(
@@ -246,7 +256,8 @@ where
     }
 }
 
-/// Create an iterator that merges elements of the contained iterators.
+/// Create an iterator that merges elements of the contained iterators
+/// in a stable way.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
 pub fn kmerge_by_stable<I, F>(
@@ -261,7 +272,8 @@ where
     kmerge_by(iterable, less_than)
 }
 
-/// Create an iterator that merges elements of the contained iterators.
+/// Create an iterator that merges elements of the contained iterators;
+/// stability is not guaranteed.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
 pub fn kmerge_by_unstable<I, F>(
@@ -289,7 +301,9 @@ where
         }
 
         let winner = self.tree[0];
-        let head_tail = self.src[winner].as_mut().expect("winner is None");
+        let head_tail = self.src[winner]
+            .as_mut()
+            .expect("winner is None and active > 0");
 
         let result;
         if let Some(next) = head_tail.tail.next() {
@@ -301,6 +315,7 @@ where
             self.fix_tree(winner);
 
             self.active -= 1;
+            // Restructure tree if more than half of the currents iterators are exhausted.
             if self.active < self.src.len() / 2 {
                 self.src.retain(Option::is_some);
                 debug_assert_eq!(self.src.len(), self.active);
