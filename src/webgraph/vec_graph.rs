@@ -1,5 +1,4 @@
 use alloc::collections::BTreeSet;
-use rayon::prelude::{FromParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use super::*;
 
@@ -20,11 +19,11 @@ impl VecGraph {
         }
     }
 
-    pub fn empty(n: usize) -> Result<Self> {
-        Ok(Self {
+    pub fn empty(n: usize) -> Self {
+        Self {
             number_of_arcs: 0,
             succ: Vec::from_iter((0..n).map(|_| BTreeSet::new())),
-        })
+        }
     }
 
     pub fn from_arc_list(arcs: &[(usize, usize)]) -> Self {
@@ -33,6 +32,37 @@ impl VecGraph {
             g.add_arc(*u, *v);
         }
         g
+    }
+
+    pub fn from_node_iter(
+        iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
+    ) -> Self {
+        let mut g = Self::new();
+        for (node, succ) in iterator {
+            for v in succ {
+                g.add_arc(node, v);
+            }
+        }
+        g
+    }
+
+    pub fn add_arc_list(&mut self, arcs: &[(usize, usize)]) -> &mut Self {
+        for (u, v) in arcs {
+            self.add_arc(*u, *v);
+        }
+        self
+    }
+
+    pub fn add_node_iter(
+        &mut self,
+        iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
+    ) -> &mut Self {
+        for (node, succ) in iterator {
+            for v in succ {
+                self.add_arc(node, v);
+            }
+        }
+        self
     }
 
     pub fn add_arc(&mut self, u: usize, v: usize) {
@@ -60,10 +90,9 @@ impl Iterator for VecGraphNodesIter<'_> {
     }
 }
 
-impl Graph for VecGraph {
-    type NodesIter<'a> = VecGraphNodesIter<'a>;
+impl RandomAccessGraph for VecGraph {
     type RandomSuccessorIter<'a> = <BTreeSet<usize> as IntoIterator>::IntoIter;
-    type SequentialSuccessorIter<'a> = <BTreeSet<usize> as IntoIterator>::IntoIter;
+
     fn num_nodes(&self) -> usize {
         self.succ.len()
     }
@@ -72,18 +101,26 @@ impl Graph for VecGraph {
         self.number_of_arcs
     }
 
-    /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes(&self) -> VecGraphNodesIter<'_> {
-        VecGraphNodesIter {
-            iter: self.succ.iter().enumerate(),
-        }
-    }
-
     fn outdegree(&self, node: usize) -> Result<usize> {
         Ok(self.succ[node].len())
     }
 
-    fn successors(&self, node: usize) -> Result<Self::SequentialSuccessorIter<'_>> {
+    fn successors(&self, node: usize) -> Result<Self::RandomSuccessorIter<'_>> {
         Ok(self.succ[node].clone().into_iter())
     }
 }
+
+impl SequentialGraph for VecGraph {
+    type NodesIter<'a> = VecGraphNodesIter<'a>;
+    type SequentialSuccessorIter<'a> = <BTreeSet<usize> as IntoIterator>::IntoIter;
+
+    fn num_nodes(&self) -> usize {
+        self.succ.len()
+    }
+
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        unreachable!()
+    }
+}
+
+impl SortedSuccessors for VecGraph {}

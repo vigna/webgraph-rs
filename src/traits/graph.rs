@@ -1,13 +1,20 @@
 use anyhow::Result;
 
-/// Traits of the operations we can do on a graph
-pub trait Graph {
+// A graph that can be accessed sequentially
+pub trait SequentialGraph {
     type NodesIter<'a>: Iterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
     where
         Self: 'a;
     type SequentialSuccessorIter<'a>: Iterator<Item = usize> + 'a
     where
         Self: 'a;
+    fn num_nodes(&self) -> usize;
+
+    fn iter_nodes(&self) -> Self::NodesIter<'_>;
+}
+
+// A graph that can be accessed randomly
+pub trait RandomAccessGraph {
     type RandomSuccessorIter<'a>: Iterator<Item = usize> + 'a
     where
         Self: 'a;
@@ -15,8 +22,6 @@ pub trait Graph {
     fn num_nodes(&self) -> usize;
 
     fn num_arcs(&self) -> usize;
-
-    fn iter_nodes(&self) -> Self::NodesIter<'_>;
 
     /// Get a sorted iterator over the neighbours node_id
     fn successors(&self, node_id: usize) -> Result<Self::RandomSuccessorIter<'_>>;
@@ -41,3 +46,13 @@ pub trait Graph {
         Ok(false)
     }
 }
+
+// Marker trait for sequential graphs that enumerate nodes in increasing order
+pub trait SortedNodes {}
+
+// Marker trait for graphs that enumerate nodes in increasing order
+pub trait SortedSuccessors {}
+
+// A graph that can be accessed both sequentially and randomly,
+// and which enumerates nodes and successors in increasing order.
+pub trait Graph: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors {}
