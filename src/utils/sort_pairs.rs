@@ -13,10 +13,10 @@ pub struct SortPairs<T: Send + Copy> {
 }
 
 impl<T: Send + Copy> SortPairs<T> {
-    pub fn new(max_len: usize) -> Self {
+    pub fn new(batch_size: usize) -> Self {
         SortPairs {
-            max_len: max_len,
-            pairs: Vec::with_capacity(max_len),
+            max_len: batch_size,
+            pairs: Vec::with_capacity(batch_size),
             dir: temp_dir(),
             num_batches: 0,
         }
