@@ -251,7 +251,7 @@ where
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
 pub fn kmerge_by_stable<I, F>(
     iterable: I,
-    mut less_than: F,
+    less_than: F,
 ) -> KMergeBy<<I::Item as IntoIterator>::IntoIter, F, true>
 where
     I: IntoIterator,
@@ -266,7 +266,7 @@ where
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
 pub fn kmerge_by_unstable<I, F>(
     iterable: I,
-    mut less_than: F,
+    less_than: F,
 ) -> KMergeBy<<I::Item as IntoIterator>::IntoIter, F, false>
 where
     I: IntoIterator,
