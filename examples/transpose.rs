@@ -113,10 +113,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pl = ProgressLogger::default();
     pl.start("Creating batches...");
     pl.expected_updates = Some(num_arcs as _);
+    let mut c = 0;
     for (node, succ) in random_reader.iter_nodes() {
         for s in succ {
             sp.push(s, node, ());
             pl.light_update();
+        }
+        c += 1;
+        if c == num_nodes {
+            break;
         }
     }
     pl.done();

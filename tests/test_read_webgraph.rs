@@ -55,12 +55,12 @@ fn test_sequential_reading() {
     let mut seq_reader = WebgraphSequentialIter::new(code_reader, 4, 16, NODES);
 
     // Check that they read the same
-    for node_id in 0..(NODES - 1) {
-        let rand_nodes = random_reader
+    for (node_id, seq_succ) in random_reader.iter_nodes() {
+        let rand_succ = random_reader
             .successors(node_id)
             .unwrap()
             .collect::<Vec<_>>();
-        let seq_nodes = seq_reader.next_successors().unwrap();
-        assert_eq!(&rand_nodes, seq_nodes);
+        dbg!(node_id);
+        assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }
 }
