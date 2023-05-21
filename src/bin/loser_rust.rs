@@ -226,7 +226,7 @@ where
 }
 
 /// Create an iterator that merges elements of the contained iterators.
-/// If STABLE is true, the merge is stable.
+/// If `STABLE` is true, the merge is stable.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
 fn kmerge_by<I, F, const STABLE: bool>(
