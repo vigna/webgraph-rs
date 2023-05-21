@@ -109,7 +109,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         num_arcs as usize,
     );
 
-    let mut sp: SortPairs<()> = SortPairs::new(args.batch_size);
+    let mut sp: SortPairs<()> = SortPairs::new(args.batch_size).unwrap();
     let mut pl = ProgressLogger::default();
     pl.start("Creating batches...");
     pl.expected_updates = Some(num_arcs as _);

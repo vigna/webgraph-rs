@@ -2,8 +2,8 @@ use dsi_bitstream::prelude::*;
 use itertools;
 use itertools::KMerge;
 use rayon::prelude::*;
-use std::env::temp_dir;
 use std::path::PathBuf;
+use tempfile::tempdir;
 
 pub struct SortPairs<T: Send + Copy> {
     max_len: usize,
@@ -13,18 +13,18 @@ pub struct SortPairs<T: Send + Copy> {
 }
 
 impl<T: Send + Copy> SortPairs<T> {
-    pub fn new(batch_size: usize) -> Self {
-        SortPairs {
+    pub fn new(batch_size: usize) -> anyhow::Result<Self> {
+        Ok(SortPairs {
             max_len: batch_size,
             pairs: Vec::with_capacity(batch_size),
-            dir: temp_dir(),
+            dir: tempdir()?.into_path(),
             num_batches: 0,
-        }
+        })
     }
 
     fn dump(&mut self) {
         self.pairs.par_sort_unstable_by_key(|(x, y, _)| (*x, *y));
-        let batch_name = self.dir.join(format!("{}", self.num_batches));
+        let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
         let file = std::io::BufWriter::new(std::fs::File::create(&batch_name).unwrap());
         let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
 
@@ -66,7 +66,7 @@ impl<T: Send + Copy> SortPairs<T> {
         self.dump();
         let mut iterators = Vec::with_capacity(self.num_batches);
         for i in 0..self.num_batches {
-            let batch_name = self.dir.join(format!("{}", i));
+            let batch_name = self.dir.join(format!("{:06x}", i));
             let file = std::io::BufReader::new(std::fs::File::open(&batch_name).unwrap());
             let mut stream =
                 <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
@@ -117,7 +117,7 @@ impl Iterator for BatchIterator {
 #[cfg(test)]
 #[test]
 pub fn test_push() {
-    let mut sp = SortPairs::new(10);
+    let mut sp = SortPairs::new(10).unwrap();
     for i in 0..25 {
         sp.push(i, i, i);
     }
