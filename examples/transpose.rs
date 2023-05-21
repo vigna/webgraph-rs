@@ -120,15 +120,22 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             pl.light_update();
         }
         c += 1;
+        // TODO: remove then sequential iterator works
         if c == num_nodes {
             break;
         }
     }
+    let sorted = sp.build();
     pl.done();
+
+    pl.start("Reading batches...");
+    pl.expected_updates = Some(num_arcs as _);
     let mut c = 0;
-    for (a, b) in sp.build() {
+    for (a, b) in sorted {
         c += 1;
+        pl.light_update()
     }
+    pl.done();
     dbg!(c);
     Ok(())
 }
