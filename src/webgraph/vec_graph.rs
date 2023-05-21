@@ -34,8 +34,8 @@ impl VecGraph {
         g
     }
 
-    pub fn from_node_iter(
-        iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
+    pub fn from_node_iter<S: Iterator<Item = usize>, I: Iterator<Item = (usize, S)>>(
+        iterator: I,
     ) -> Self {
         let mut g = Self::new();
         for (node, succ) in iterator {
