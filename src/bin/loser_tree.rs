@@ -52,7 +52,7 @@ impl<T: Ord + Copy, I: Iterator<Item = T>> LoserTree<T, I> {
         let len = iterators.len();
         let mut tree = vec![0_usize; len];
         let mut data = vec![];
-        for mut iterator in &mut iterators {
+        for iterator in &mut iterators {
             data.push(iterator.next().unwrap());
         }
         // Winner tree
@@ -99,12 +99,14 @@ impl<T: Ord + Copy, I: Iterator<Item = T>> LoserTree<T, I> {
 
 fn main() {
     let mut v = vec![];
-    for i in 0..3 {
+    for _ in 0..3 {
         v.push((0..1_000_000_000).into_iter());
     }
     //let mut m = itertools::kmerge(v);
     let mut m = LoserTree::new(v);
-    for i in 0..3_000_000_000_usize {
+    let start = std::time::Instant::now();
+    for _ in 0..3_000_000_000_usize {
         std::hint::black_box(m.next());
     }
+    println!("{}", start.elapsed().as_secs_f64());
 }

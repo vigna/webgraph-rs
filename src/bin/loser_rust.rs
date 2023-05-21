@@ -51,16 +51,29 @@ where
 {
     #[inline(always)]
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
-        if let Some(a) = &v[i] {
-            if let Some(b) = &v[j] {
-                // Stable comparison
-                return a.head < b.head || (a.head == b.head && i < j);
-            } else {
-                return true;
-            }
+        match (&v[i], &v[j]) {
+            (None, None) => false,
+            (None, Some(_)) => false,
+            (Some(_), None) => true,
+            (Some(a), Some(b)) => a.head < b.head || (a.head == b.head && i < j),
         }
-        // We do not need to make stable the case where both are None
-        false
+    }
+}
+#[derive(Clone, Debug)]
+pub struct KMergeByGe;
+
+impl<T: Iterator> KMergePredicate<T> for KMergeByGe
+where
+    T::Item: PartialOrd,
+{
+    #[inline(always)]
+    fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
+        match (&v[i], &v[j]) {
+            (None, None) => false,
+            (None, Some(_)) => false,
+            (Some(_), None) => true,
+            (Some(a), Some(b)) => a.head > b.head || (a.head == b.head && i < j),
+        }
     }
 }
 
@@ -70,16 +83,12 @@ where
 {
     #[inline(always)]
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool {
-        if let Some(a) = &v[i] {
-            if let Some(b) = &v[j] {
-                // Stable comparison
-                return self(&a.head, &b.head) || (a.head == b.head && i < j);
-            } else {
-                return true;
-            }
+        match (&v[i], &v[j]) {
+            (None, None) => false,
+            (None, Some(_)) => false,
+            (Some(_), None) => true,
+            (Some(a), Some(b)) => self(&a.head, &b.head) || (a.head == b.head && i < j),
         }
-        // We do not need to make stable the case where both are None
-        false
     }
 }
 
