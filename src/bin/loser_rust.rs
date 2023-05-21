@@ -210,8 +210,8 @@ where
     let (lower, _) = iter.size_hint();
     let mut src: Vec<_> = Vec::with_capacity(lower);
     src.extend(
-        iter.filter_map(|it| HeadTail::new(it.into_iter()))
-            .map(Some),
+        iter.map(|it| HeadTail::new(it.into_iter()))
+            .filter(Option::is_some),
     );
     let active = src.len();
     let tree = KMergeBy::build_tree(&src, &mut less_than);
