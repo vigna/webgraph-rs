@@ -36,16 +36,16 @@ where
 /// Iterator element type is `I::Item`.
 ///
 /// See [`.kmerge()`](crate::Itertools::kmerge) for more information.
-pub type KMerge<I> = KMergeBy<I, KMergeByLt>;
+pub type KMerge<I, const STABLE: bool> = KMergeBy<I, KMergeByLt, STABLE>;
 
-pub trait KMergePredicate<T: Iterator> {
+pub trait KMergePredicate<T: Iterator, const STABLE: bool> {
     fn kmerge_pred(&mut self, v: &[Option<HeadTail<T>>], i: usize, j: usize) -> bool;
 }
 
 #[derive(Clone, Debug)]
 pub struct KMergeByLt;
 
-impl<T: Iterator> KMergePredicate<T> for KMergeByLt
+impl<T: Iterator, const STABLE: bool> KMergePredicate<T, STABLE> for KMergeByLt
 where
     T::Item: PartialOrd,
 {
@@ -55,14 +55,14 @@ where
             (None, None) => false,
             (None, Some(_)) => false,
             (Some(_), None) => true,
-            (Some(a), Some(b)) => a.head < b.head || (a.head == b.head && i < j),
+            (Some(a), Some(b)) => a.head < b.head || (STABLE && a.head == b.head && i < j),
         }
     }
 }
 #[derive(Clone, Debug)]
 pub struct KMergeByGe;
 
-impl<T: Iterator> KMergePredicate<T> for KMergeByGe
+impl<T: Iterator, const STABLE: bool> KMergePredicate<T, STABLE> for KMergeByGe
 where
     T::Item: PartialOrd,
 {
@@ -72,12 +72,13 @@ where
             (None, None) => false,
             (None, Some(_)) => false,
             (Some(_), None) => true,
-            (Some(a), Some(b)) => a.head > b.head || (a.head == b.head && i < j),
+            (Some(a), Some(b)) => a.head > b.head || (STABLE && a.head == b.head && i < j),
         }
     }
 }
 
-impl<T: Iterator, F: FnMut(&T::Item, &T::Item) -> bool> KMergePredicate<T> for F
+impl<T: Iterator, F: FnMut(&T::Item, &T::Item) -> bool, const STABLE: bool>
+    KMergePredicate<T, STABLE> for F
 where
     T::Item: PartialOrd,
 {
@@ -87,7 +88,7 @@ where
             (None, None) => false,
             (None, Some(_)) => false,
             (Some(_), None) => true,
-            (Some(a), Some(b)) => self(&a.head, &b.head) || (a.head == b.head && i < j),
+            (Some(a), Some(b)) => self(&a.head, &b.head) || (STABLE && a.head == b.head && i < j),
         }
     }
 }
@@ -104,7 +105,28 @@ where
 ///     /* loop body */
 /// }
 /// ```
-pub fn kmerge<I>(iterable: I) -> KMerge<<I::Item as IntoIterator>::IntoIter>
+pub fn kmerge_stable<I>(iterable: I) -> KMerge<<I::Item as IntoIterator>::IntoIter, true>
+where
+    I: IntoIterator,
+    I::Item: IntoIterator,
+    <<I as IntoIterator>::Item as IntoIterator>::Item: PartialOrd,
+{
+    kmerge_by(iterable, KMergeByLt)
+}
+
+/// Create an iterator that merges elements of the contained iterators using
+/// the ordering function.
+///
+/// [`IntoIterator`] enabled version of [`Itertools::kmerge`].
+///
+/// ```
+/// use itertools::kmerge;
+///
+/// for elt in kmerge(vec![vec![0, 2, 4], vec![1, 3, 5], vec![6, 7]]) {
+///     /* loop body */
+/// }
+/// ```
+pub fn kmerge_unstable<I>(iterable: I) -> KMerge<<I::Item as IntoIterator>::IntoIter, false>
 where
     I: IntoIterator,
     I::Item: IntoIterator,
@@ -121,7 +143,7 @@ where
 /// See [`.kmerge_by()`](crate::Itertools::kmerge_by) for more
 /// information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
-pub struct KMergeBy<I, F>
+pub struct KMergeBy<I, F, const STABLE: bool>
 where
     I: Iterator,
 {
@@ -131,15 +153,15 @@ where
     less_than: F,
 }
 
-impl<I, F> KMergeBy<I, F>
+impl<I, F, const STABLE: bool> KMergeBy<I, F, STABLE>
 where
     I: Iterator,
-    F: KMergePredicate<I>,
+    F: KMergePredicate<I, STABLE>,
 {
     fn build_tree(src: &Vec<Option<HeadTail<I>>>, less_than: &mut F) -> Vec<usize>
     where
         I: Iterator,
-        F: KMergePredicate<I>,
+        F: KMergePredicate<I, STABLE>,
     {
         let len = src.len();
         let mut tree = vec![0_usize; len];
@@ -197,14 +219,14 @@ where
 /// Create an iterator that merges elements of the contained iterators.
 ///
 /// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
-pub fn kmerge_by<I, F>(
+fn kmerge_by<I, F, const STABLE: bool>(
     iterable: I,
     mut less_than: F,
-) -> KMergeBy<<I::Item as IntoIterator>::IntoIter, F>
+) -> KMergeBy<<I::Item as IntoIterator>::IntoIter, F, STABLE>
 where
     I: IntoIterator,
     I::Item: IntoIterator,
-    F: KMergePredicate<<<I as IntoIterator>::Item as IntoIterator>::IntoIter>,
+    F: KMergePredicate<<<I as IntoIterator>::Item as IntoIterator>::IntoIter, STABLE>,
 {
     let iter = iterable.into_iter();
     let (lower, _) = iter.size_hint();
@@ -224,10 +246,40 @@ where
     }
 }
 
-impl<I, F> Iterator for KMergeBy<I, F>
+/// Create an iterator that merges elements of the contained iterators.
+///
+/// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
+pub fn kmerge_by_stable<I, F>(
+    iterable: I,
+    mut less_than: F,
+) -> KMergeBy<<I::Item as IntoIterator>::IntoIter, F, true>
+where
+    I: IntoIterator,
+    I::Item: IntoIterator,
+    F: KMergePredicate<<<I as IntoIterator>::Item as IntoIterator>::IntoIter, true>,
+{
+    kmerge_by(iterable, less_than)
+}
+
+/// Create an iterator that merges elements of the contained iterators.
+///
+/// [`IntoIterator`] enabled version of [`Itertools::kmerge_by`].
+pub fn kmerge_by_unstable<I, F>(
+    iterable: I,
+    mut less_than: F,
+) -> KMergeBy<<I::Item as IntoIterator>::IntoIter, F, false>
+where
+    I: IntoIterator,
+    I::Item: IntoIterator,
+    F: KMergePredicate<<<I as IntoIterator>::Item as IntoIterator>::IntoIter, false>,
+{
+    kmerge_by(iterable, less_than)
+}
+
+impl<I, F, const STABLE: bool> Iterator for KMergeBy<I, F, STABLE>
 where
     I: Iterator,
-    F: KMergePredicate<I>,
+    F: KMergePredicate<I, STABLE>,
 {
     type Item = I::Item;
 
@@ -276,7 +328,7 @@ fn main() {
     println!("itertools: {:?}", start.elapsed());
 
     let start = Instant::now();
-    let m = kmerge(build_iters());
+    let m = kmerge_unstable(build_iters());
     for i in m {
         std::hint::black_box(i);
     }
