@@ -75,7 +75,7 @@ impl VecGraph {
     }
 
     pub fn remove_arc(&mut self, u: usize, v: usize) -> Option<bool> {
-        if u >= self.succ.len() && v >= self.succ.len() {
+        if u >= self.succ.len() || v >= self.succ.len() {
             return None;
         }
         let result = self.succ[u].remove(&v);
@@ -83,8 +83,9 @@ impl VecGraph {
         Some(result)
     }
 
-    pub fn add_node(&mut self) {
+    pub fn add_node(&mut self) -> usize {
         self.succ.push(BTreeSet::new());
+        self.succ.len() - 1
     }
 }
 
@@ -111,5 +112,7 @@ impl RandomAccessGraph for VecGraph {
 }
 
 impl SequentialGraphImpl for VecGraph {}
+
+impl SortedNodes for VecGraph {}
 
 impl SortedSuccessors for VecGraph {}
