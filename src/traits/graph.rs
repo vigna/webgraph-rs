@@ -29,6 +29,10 @@ impl<T: SequentialGraphImpl> SequentialGraph for T {
         where
             Self: 'a;
 
+    fn num_arcs_hint(&self) -> Option<usize> {
+        Some(self.num_arcs())
+    }
+
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         SequentialGraphImplIter {
             graph: self,
@@ -52,6 +56,10 @@ pub trait SequentialGraph: NumNodes {
     where
         Self: 'a;
 
+    fn num_arcs_hint(&self) -> Option<usize> {
+        None
+    }
+
     fn iter_nodes(&self) -> Self::NodesIter<'_>;
 }
 
@@ -72,7 +80,7 @@ pub trait RandomAccessGraph: NumNodes {
     }
 
     /// Return if the given edge `src_node_id -> dst_node_id` exists or not
-    fn arc(&self, src_node_id: usize, dst_node_id: usize) -> Result<bool> {
+    fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> Result<bool> {
         for neighbour_id in self.successors(src_node_id)? {
             // found
             if neighbour_id == dst_node_id {

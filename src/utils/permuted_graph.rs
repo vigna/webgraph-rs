@@ -18,6 +18,10 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
         SequentialPermutedIterator<'b, G::SequentialSuccessorIter<'b>>
 		where Self: 'b;
 
+    fn num_arcs_hint(&self) -> Option<usize> {
+        self.graph.num_arcs_hint()
+    }
+
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         NodePermutedIterator {
             iter: self.graph.iter_nodes(),
@@ -67,19 +71,19 @@ fn test_permuted_graph() {
     use crate::traits::graph::RandomAccessGraph;
     use crate::webgraph::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
-    let p = VecGraph::from_node_iter(
-        PermutedGraph {
-            graph: &g,
-            perm: &[2, 0, 1],
-        }
-        .iter_nodes(),
-    );
-
+    let p = PermutedGraph {
+        graph: &g,
+        perm: &[2, 0, 1],
+    };
     assert_eq!(p.num_nodes(), 3);
-    assert_eq!(p.outdegree(0).unwrap(), 1);
-    assert_eq!(p.outdegree(1).unwrap(), 2);
-    assert_eq!(p.outdegree(2).unwrap(), 1);
-    assert_eq!(p.successors(0).unwrap().collect::<Vec<_>>(), vec![1]);
-    assert_eq!(p.successors(1).unwrap().collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(p.successors(2).unwrap().collect::<Vec<_>>(), vec![0]);
+    assert_eq!(p.num_arcs_hint(), Some(4));
+    let v = VecGraph::from_node_iter(p.iter_nodes());
+
+    assert_eq!(v.num_nodes(), 3);
+    assert_eq!(v.outdegree(0).unwrap(), 1);
+    assert_eq!(v.outdegree(1).unwrap(), 2);
+    assert_eq!(v.outdegree(2).unwrap(), 1);
+    assert_eq!(v.successors(0).unwrap().collect::<Vec<_>>(), vec![1]);
+    assert_eq!(v.successors(1).unwrap().collect::<Vec<_>>(), vec![0, 2]);
+    assert_eq!(v.successors(2).unwrap().collect::<Vec<_>>(), vec![0]);
 }
