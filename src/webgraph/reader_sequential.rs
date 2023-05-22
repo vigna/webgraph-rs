@@ -17,6 +17,12 @@ impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     }
 }
 
+impl<CR: WebGraphCodesReader> NumNodes for WebgraphSequentialIter<CR> {
+    fn num_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+}
+
 impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     pub fn new(
         codes_reader: CR,
@@ -30,10 +36,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             min_interval_length,
             number_of_nodes,
         }
-    }
-
-    pub fn get_number_of_nodes(&self) -> usize {
-        self.number_of_nodes
     }
 
     /// Get the successors of the next node in the stream
@@ -144,7 +146,7 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let node_id = self.backrefs.get_end_node_id();
-        if node_id > self.number_of_nodes as _ {
+        if node_id >= self.number_of_nodes as _ {
             return None;
         }
         let mut res = self.backrefs.take();

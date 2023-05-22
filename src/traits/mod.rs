@@ -6,5 +6,5 @@
 mod webgraph_codes;
 pub use webgraph_codes::*;
 
-mod graph;
+pub(crate) mod graph;
 pub use graph::*;

@@ -47,7 +47,17 @@ where
     }
 }
 
-impl<CR, OFF> Graph for BVGraph<CR, OFF>
+impl<CR, OFF> NumNodes for BVGraph<CR, OFF>
+where
+    CR: WebGraphCodesReader + BitSeek + Clone,
+    OFF: VSlice,
+{
+    fn num_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+}
+
+impl<CR, OFF> SequentialGraph for BVGraph<CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
@@ -55,20 +65,9 @@ where
     type NodesIter<'a> = WebgraphSequentialIter<CR>
         where CR: 'a,
         OFF: 'a;
-    type RandomSuccessorIter<'a> = RandomSuccessorIter<CR>
-        where CR: 'a,
-        OFF: 'a;
     type SequentialSuccessorIter<'a> = std::vec::IntoIter<usize>
         where CR: 'a,
         OFF: 'a;
-
-    fn num_nodes(&self) -> usize {
-        self.number_of_nodes
-    }
-
-    fn num_arcs(&self) -> usize {
-        self.number_of_arcs
-    }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
     fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
@@ -78,6 +77,27 @@ where
             self.compression_window,
             self.number_of_nodes,
         )
+    }
+}
+
+impl<CR, OFF> SortedNodes for BVGraph<CR, OFF>
+where
+    CR: WebGraphCodesReader + BitSeek + Clone,
+    OFF: VSlice,
+{
+}
+
+impl<CR, OFF> RandomAccessGraph for BVGraph<CR, OFF>
+where
+    CR: WebGraphCodesReader + BitSeek + Clone,
+    OFF: VSlice,
+{
+    type RandomSuccessorIter<'a> = RandomSuccessorIter<CR>
+        where CR: 'a,
+        OFF: 'a;
+
+    fn num_arcs(&self) -> usize {
+        self.number_of_arcs
     }
 
     /// Return the outdegree of a node.
@@ -189,6 +209,13 @@ where
 
         Ok(result)
     }
+}
+
+impl<CR, OFF> SortedSuccessors for BVGraph<CR, OFF>
+where
+    CR: WebGraphCodesReader + BitSeek + Clone,
+    OFF: VSlice,
+{
 }
 
 ///
