@@ -65,12 +65,22 @@ impl VecGraph {
         self
     }
 
-    pub fn add_arc(&mut self, u: usize, v: usize) {
+    pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         if u >= self.succ.len() {
             self.succ.resize(u + 1, BTreeSet::new());
         }
-        self.succ[u].insert(v);
-        self.number_of_arcs += 1;
+        let result = self.succ[u].insert(v);
+        self.number_of_arcs += result as usize;
+        result
+    }
+
+    pub fn remove_arc(&mut self, u: usize, v: usize) -> Option<bool> {
+        if u >= self.succ.len() && v >= self.succ.len() {
+            return None;
+        }
+        let result = self.succ[u].remove(&v);
+        self.number_of_arcs -= result as usize;
+        Some(result)
     }
 
     pub fn add_node(&mut self) {
@@ -78,24 +88,14 @@ impl VecGraph {
     }
 }
 
-pub struct VecGraphNodesIter<'a> {
-    iter: std::iter::Enumerate<std::slice::Iter<'a, BTreeSet<usize>>>,
-}
-
-impl Iterator for VecGraphNodesIter<'_> {
-    type Item = (usize, std::collections::btree_set::IntoIter<usize>);
-    fn next(&mut self) -> Option<Self::Item> {
-        None
-        //self.iter.next().map(|(node, succ)| (node, succ.iter()))
+impl NumNodes for VecGraph {
+    fn num_nodes(&self) -> usize {
+        self.succ.len()
     }
 }
 
 impl RandomAccessGraph for VecGraph {
     type RandomSuccessorIter<'a> = <BTreeSet<usize> as IntoIterator>::IntoIter;
-
-    fn num_nodes(&self) -> usize {
-        self.succ.len()
-    }
 
     fn num_arcs(&self) -> usize {
         self.number_of_arcs
@@ -110,17 +110,6 @@ impl RandomAccessGraph for VecGraph {
     }
 }
 
-impl SequentialGraph for VecGraph {
-    type NodesIter<'a> = VecGraphNodesIter<'a>;
-    type SequentialSuccessorIter<'a> = <BTreeSet<usize> as IntoIterator>::IntoIter;
-
-    fn num_nodes(&self) -> usize {
-        self.succ.len()
-    }
-
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        unreachable!()
-    }
-}
+impl SequentialGraphImpl for VecGraph {}
 
 impl SortedSuccessors for VecGraph {}

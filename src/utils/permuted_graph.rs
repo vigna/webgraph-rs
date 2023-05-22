@@ -1,7 +1,13 @@
-use crate::traits::SequentialGraph;
+use crate::traits::{NumNodes, SequentialGraph};
 pub struct PermutedGraph<'a, G: SequentialGraph> {
     graph: &'a G,
     perm: &'a [usize],
+}
+
+impl<'a, G: SequentialGraph> NumNodes for PermutedGraph<'a, G> {
+    fn num_nodes(&self) -> usize {
+        self.graph.num_nodes()
+    }
 }
 
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
@@ -11,9 +17,6 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     type SequentialSuccessorIter<'b> =
         SequentialPermutedIterator<'b, G::SequentialSuccessorIter<'b>>
 		where Self: 'b;
-    fn num_nodes(&self) -> usize {
-        self.graph.num_nodes()
-    }
 
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         NodePermutedIterator {
@@ -72,11 +75,11 @@ fn test_permuted_graph() {
         .iter_nodes(),
     );
 
-    assert_eq!(RandomAccessGraph::num_nodes(&p), 3);
+    assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.outdegree(0).unwrap(), 1);
     assert_eq!(p.outdegree(1).unwrap(), 2);
     assert_eq!(p.outdegree(2).unwrap(), 1);
     assert_eq!(p.successors(0).unwrap().collect::<Vec<_>>(), vec![1]);
-    assert_eq!(p.successors(1).unwrap().collect::<Vec<_>>(), vec![2, 0]);
+    assert_eq!(p.successors(1).unwrap().collect::<Vec<_>>(), vec![0, 2]);
     assert_eq!(p.successors(2).unwrap().collect::<Vec<_>>(), vec![0]);
 }
