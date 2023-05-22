@@ -35,6 +35,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.7.0"
 itertools = "0.10.5"
 tempfile = "3.5.0"
+itertools = "0.10.5"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }
@@ -43,7 +44,7 @@ rand = { version = "0.8.5", features = ["small_rng"] }
 opt-level = 3             # like --release
 lto = "fat"               # Full LTO
 overflow-checks = false   # Disable integer overflow checks.
-debug = false             # Include debug info.
+debug = true              # Include debug info.
 debug-assertions = false  # Enables debug assertions.
 codegen-units=1           # slower compile times, but maybe better perf
 
