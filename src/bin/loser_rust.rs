@@ -362,7 +362,7 @@ fn test_kmerge() {
 
     let mut curr = 0;
     let mut c = 0;
-    for i in kmerge(v) {
+    for i in kmerge_unstable(v) {
         assert!(curr <= i);
         curr = i;
         c += 1;
@@ -380,7 +380,7 @@ fn test_stability() {
 
     let mut curr = (0, 0);
     let mut c = 0;
-    for i in kmerge(v) {
+    for i in kmerge_stable(v) {
         assert!(curr <= i);
         curr = i;
         c += 1;
