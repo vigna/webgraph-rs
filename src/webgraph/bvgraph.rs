@@ -1,8 +1,50 @@
+use std::collections::HashMap;
+
 use dsi_bitstream::prelude::*;
 use sux::traits::VSlice;
 
 use super::*;
 use crate::utils::nat2int;
+
+pub struct CompFlags {
+    pub outdegrees: Code,
+    pub references: Code,
+    pub blocks: Code,
+    pub intervals: Code,
+    pub residuals: Code,
+}
+
+impl CompFlags {
+    pub fn from_properties(map: &HashMap<String, String>) -> Result<Self, String> {
+        // Default values, same as the Java class
+        let mut cf = CompFlags {
+            outdegrees: Code::Gamma,
+            references: Code::Unary,
+            blocks: Code::Gamma,
+            intervals: Code::Gamma,
+            residuals: Code::Zeta3,
+        };
+        if let Some(comp_flags) = map.get("compressionflags") {
+            if !comp_flags.is_empty() {
+                for flag in comp_flags.split('|') {
+                    dbg!(&flag);
+                    let s: Vec<_> = flag.split('_').collect();
+                    dbg!(&s);
+                    let code = Code::try_from(s[1].to_string())?;
+                    match s[0] {
+                        "OUTDEGREES" => cf.outdegrees = code,
+                        "REFERENCES" => cf.references = code,
+                        "BLOCKS" => cf.blocks = code,
+                        "INTERVALS" => cf.intervals = code,
+                        "RESIDUALS" => cf.residuals = code,
+                        _ => return Err(format!("Unknown compression flag {}", flag)),
+                    }
+                }
+            }
+        }
+        Ok(cf)
+    }
+}
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
@@ -152,7 +194,7 @@ where
         };
 
         // if we still have to read nodes
-        if nodes_left_to_decode != 0 {
+        if nodes_left_to_decode != 0 && self.min_interval_length != 0 {
             // read the number of intervals
             let number_of_intervals = result.reader.read_interval_count()? as usize;
             if number_of_intervals != 0 {

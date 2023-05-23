@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
 
@@ -43,9 +45,10 @@ fn test_sequential_reading() {
         .collect::<Vec<_>>();
 
     // create a random access reader
-    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-        MemWordReadInfinite::new(&data),
-    ));
+    let code_reader = DynamicCodesReader::new(
+        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data)),
+        &CompFlags::from_properties(&HashMap::new()).unwrap(),
+    );
     let bvgraph = BVGraph::new(code_reader, offsets, 4, 16, NODES, ARCS);
 
     // Check that they read the same

@@ -95,9 +95,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
         offsets.build().convert_to().unwrap();
 
-    let code_reader = DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-        MemWordReadInfinite::new(&graph_slice),
-    ));
+    let code_reader = DynamicCodesReader::new(
+        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
+        &CompFlags::from_properties(&map)?,
+    );
     let random_reader = BVGraph::new(
         code_reader,
         offsets.clone(),

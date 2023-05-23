@@ -16,19 +16,31 @@ pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone>
     _marker: core::marker::PhantomData<E>,
 }
 
+use dsi_bitstream::codes::Code::*;
+
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> DynamicCodesReader<E, CR> {
-    pub fn new(code_reader: CR) -> Self {
+    fn select_code(code: &Code) -> fn(&mut CR) -> Result<u64> {
+        return match code {
+            Unary => CR::read_unary,
+            Gamma => CR::read_gamma,
+            Delta => CR::read_delta,
+            Zeta3 => CR::read_zeta3,
+            _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
+        };
+    }
+
+    pub fn new(code_reader: CR, cf: &CompFlags) -> Self {
         Self {
             code_reader: code_reader,
-            read_outdegree: CR::read_gamma,
-            read_reference_offset: CR::read_unary,
-            read_block_count: CR::read_gamma,
-            read_blocks: CR::read_gamma,
-            read_interval_count: CR::read_gamma,
-            read_interval_start: CR::read_gamma,
-            read_interval_len: CR::read_gamma,
-            read_first_residual: CR::read_zeta3,
-            read_residual: CR::read_zeta3,
+            read_outdegree: Self::select_code(&cf.outdegrees),
+            read_reference_offset: Self::select_code(&cf.references),
+            read_block_count: Self::select_code(&cf.blocks),
+            read_blocks: Self::select_code(&cf.blocks),
+            read_interval_count: Self::select_code(&cf.intervals),
+            read_interval_start: Self::select_code(&cf.intervals),
+            read_interval_len: Self::select_code(&cf.intervals),
+            read_first_residual: Self::select_code(&cf.residuals),
+            read_residual: Self::select_code(&cf.residuals),
             _marker: core::marker::PhantomData::default(),
         }
     }

@@ -109,13 +109,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
-
+    let comp_flags = CompFlags::from_properties(&map)?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
     let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
     let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
     let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
 
-    assert_eq!(map.get("compressionflags").unwrap(), "");
     // Read the offsets
     let data_graph = mmap_file(&format!("{}.graph", args.basename));
 
@@ -131,9 +130,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let offsets = build_offsets!(args.basename, num_nodes, data_graph);
         // Create a sequential reader
         let mut seq_reader = WebgraphSequentialIter::new(
-            DynamicCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                MemWordReadInfinite::new(&graph_slice),
-            )),
+            DynamicCodesReader::new(
+                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                    &graph_slice,
+                )),
+                &comp_flags,
+            ),
             min_interval_length,
             compression_window,
             num_nodes as usize,
@@ -141,9 +143,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // create a random access reader;
         let random_reader = BVGraph::new(
-            DynamicCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                MemWordReadInfinite::new(&graph_slice),
-            )),
+            DynamicCodesReader::new(
+                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                    &graph_slice,
+                )),
+                &comp_flags,
+            ),
             offsets,
             min_interval_length,
             compression_window,
@@ -153,9 +158,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Create a degrees reader
         let mut deg_reader = WebgraphDegreesIter::new(
-            DynamicCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                MemWordReadInfinite::new(&graph_slice),
-            )),
+            DynamicCodesReader::new(
+                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                    &graph_slice,
+                )),
+                &comp_flags,
+            ),
             min_interval_length,
             compression_window,
             num_nodes as usize,
@@ -174,9 +182,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut seq_reader = WebgraphSequentialIter::new(
-                DynamicCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice),
-                )),
+                DynamicCodesReader::new(
+                    BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                        &graph_slice,
+                    )),
+                    &comp_flags,
+                ),
                 min_interval_length,
                 compression_window,
                 num_nodes as usize,
@@ -199,9 +210,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a degrees reader
             let mut deg_reader = WebgraphDegreesIter::new(
-                DynamicCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice),
-                )),
+                DynamicCodesReader::new(
+                    BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                        &graph_slice,
+                    )),
+                    &comp_flags,
+                ),
                 min_interval_length,
                 compression_window,
                 num_nodes as usize,
@@ -225,9 +239,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // create a random access reader;
             let random_reader = BVGraph::new(
-                DynamicCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                    MemWordReadInfinite::new(&graph_slice),
-                )),
+                DynamicCodesReader::new(
+                    BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                        &graph_slice,
+                    )),
+                    &comp_flags,
+                ),
                 offsets.clone(),
                 min_interval_length,
                 compression_window,

@@ -102,7 +102,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
         };
 
         // if we still have to read nodes
-        if nodes_left_to_decode != 0 {
+        if nodes_left_to_decode != 0 && self.min_interval_length != 0 {
             // read the number of intervals
             let number_of_intervals = self.codes_reader.read_interval_count()? as usize;
             if number_of_intervals != 0 {
