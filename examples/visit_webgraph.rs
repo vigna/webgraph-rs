@@ -85,7 +85,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut offset = 0;
     for _ in 0..num_nodes {
-        offset += reader.read_gamma::<true>().unwrap() as usize;
+        offset += reader.read_gamma().unwrap() as usize;
         offsets.push(offset as _).unwrap();
         pr_offsets.update();
     }

@@ -8,10 +8,10 @@ pub trait WriteCodes<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E
 
 /// blanket implementation so we can consider [`ReadCodes`] just as an alias for
 /// a sum of traits
-impl<E: Endianess, T> ReadCodes<E> for T where T: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
+impl<E: Endianness, T> ReadCodes<E> for T where T: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
 /// blanket implementation so we can consider [`WriteCodes`] just as an alias for
 /// a sum of traits
-impl<E: Endianess, T> WriteCodes<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
+impl<E: Endianness, T> WriteCodes<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
 pub trait WebGraphCodesReader {
     fn read_outdegree(&mut self) -> Result<u64>;
