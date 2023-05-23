@@ -38,15 +38,15 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> Clone for DynamicCodesRe
     fn clone(&self) -> Self {
         Self {
             code_reader: self.code_reader.clone(),
-            read_outdegree: CR::read_gamma,
-            read_reference_offset: CR::read_unary,
-            read_block_count: CR::read_gamma,
-            read_blocks: CR::read_gamma,
-            read_interval_count: CR::read_gamma,
-            read_interval_start: CR::read_gamma,
-            read_interval_len: CR::read_gamma,
-            read_first_residual: CR::read_zeta3,
-            read_residual: CR::read_zeta3,
+            read_outdegree: self.read_outdegree,
+            read_reference_offset: self.read_reference_offset,
+            read_block_count: self.read_block_count,
+            read_blocks: self.read_blocks,
+            read_interval_count: self.read_interval_count,
+            read_interval_start: self.read_interval_start,
+            read_interval_len: self.read_interval_len,
+            read_first_residual: self.read_first_residual,
+            read_residual: self.read_residual,
             _marker: self._marker.clone(),
         }
     }
