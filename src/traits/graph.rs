@@ -104,3 +104,4 @@ pub trait SortedSuccessors {}
 // A graph that can be accessed both sequentially and randomly,
 // and which enumerates nodes and successors in increasing order.
 pub trait Graph: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors {}
+impl<G: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors> Graph for G {}
