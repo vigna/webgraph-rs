@@ -1,4 +1,10 @@
 use anyhow::Result;
+use dsi_bitstream::prelude::*;
+
+// A trait combining the codes used by BVGraph when reading.
+pub trait ReadCodes<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
+// A trait combining the codes used by BVGraph when writing.
+pub trait WriteCodes<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
 pub trait WebGraphCodesReader {
     fn read_outdegree(&mut self) -> Result<u64>;

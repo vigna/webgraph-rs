@@ -12,8 +12,8 @@ pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     number_of_nodes: usize,
 }
 impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
-    pub fn get_position(&self) -> usize {
-        self.codes_reader.get_position()
+    pub fn get_pos(&self) -> usize {
+        self.codes_reader.get_pos()
     }
 }
 

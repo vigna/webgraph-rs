@@ -103,7 +103,7 @@ where
     /// Return the outdegree of a node.
     fn outdegree(&self, node_id: usize) -> Result<usize> {
         let mut codes_reader = self.codes_reader.clone();
-        codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
+        codes_reader.set_pos(self.offsets.get(node_id as usize).unwrap() as _)?;
         Ok(codes_reader.read_outdegree()? as usize)
     }
 
@@ -111,7 +111,7 @@ where
     /// Return a random access iterator over the successors of a node.
     fn successors(&self, node_id: usize) -> Result<RandomSuccessorIter<CR>> {
         let mut codes_reader = self.codes_reader.clone();
-        codes_reader.seek_bit(self.offsets.get(node_id as usize).unwrap() as _)?;
+        codes_reader.set_pos(self.offsets.get(node_id as usize).unwrap() as _)?;
 
         let mut result = RandomSuccessorIter::new(codes_reader);
         let degree = result.reader.read_outdegree()? as usize;

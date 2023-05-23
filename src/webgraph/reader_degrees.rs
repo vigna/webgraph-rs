@@ -16,8 +16,8 @@ pub struct WebgraphDegreesIter<CR: WebGraphCodesReader> {
 }
 
 impl<CR: WebGraphCodesReader + BitSeek> WebgraphDegreesIter<CR> {
-    pub fn get_position(&self) -> usize {
-        self.codes_reader.get_position()
+    pub fn get_pos(&self) -> usize {
+        self.codes_reader.get_pos()
     }
 }
 
@@ -27,7 +27,7 @@ impl<CR: WebGraphCodesReader + BitSeek> Iterator for WebgraphDegreesIter<CR> {
         if self.node_id >= self.number_of_nodes as usize {
             return None;
         }
-        let offset = self.get_position();
+        let offset = self.get_pos();
         Some((offset, self.node_id, self.next_degree().unwrap()))
     }
 }

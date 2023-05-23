@@ -30,12 +30,12 @@ impl<T: Send + Copy> SortPairs<T> {
 
         let (mut prev_x, mut prev_y, mut prev_t) = (0, 0, 0);
         for &(x, y, t) in &self.pairs {
-            stream.write_gamma::<true>((x - prev_x) as _).unwrap();
+            stream.write_gamma((x - prev_x) as _).unwrap();
             if x != prev_x {
                 // Reset prev_y
                 prev_y = 0;
             }
-            stream.write_gamma::<true>((y - prev_y) as _).unwrap();
+            stream.write_gamma((y - prev_y) as _).unwrap();
             (prev_x, prev_y) = (x, y);
         }
         println!("Dumping");
@@ -44,8 +44,8 @@ impl<T: Send + Copy> SortPairs<T> {
         let file = std::io::BufReader::new(std::fs::File::open(&batch_name).unwrap());
         let mut stream = <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
         for _ in 0..self.pairs.len() {
-            let x = stream.read_gamma::<false>().unwrap();
-            let y = stream.read_gamma::<false>().unwrap();
+            let x = stream.read_gamma().unwrap();
+            let y = stream.read_gamma().unwrap();
         }
 
         self.pairs.clear();
@@ -101,12 +101,12 @@ impl Iterator for BatchIterator {
         if self.current == self.len {
             return None;
         }
-        let x = self.prev_x + self.stream.read_gamma::<false>().unwrap() as usize;
+        let x = self.prev_x + self.stream.read_gamma().unwrap() as usize;
         if x != self.prev_x {
             // Reset prev_y
             self.prev_y = 0;
         }
-        let y = self.prev_y + self.stream.read_gamma::<false>().unwrap() as usize;
+        let y = self.prev_y + self.stream.read_gamma().unwrap() as usize;
         self.prev_x = x;
         self.prev_y = y;
         self.current += 1;

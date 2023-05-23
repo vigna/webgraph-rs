@@ -36,13 +36,13 @@ pub fn main() -> Result<()> {
     let mut offset = 0;
     for (new_offset, _node_id, _degree) in &mut seq_reader {
         // write where
-        writer.write_gamma::<true>((new_offset - offset) as _)?;
+        writer.write_gamma((new_offset - offset) as _)?;
         offset = new_offset;
         // decode the next nodes so we know where the next node_id starts
         pr.light_update();
     }
     // write the last offset, this is done to avoid decoding the last node
-    writer.write_gamma::<true>((seq_reader.get_position() - offset - 1) as _)?;
+    writer.write_gamma((seq_reader.get_pos() - offset - 1) as _)?;
     pr.light_update();
     pr.done();
     Ok(())

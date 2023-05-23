@@ -3,14 +3,12 @@ use dsi_bitstream::prelude::*;
 
 #[repr(transparent)]
 /// An implementation of WebGraphCodesReader with the most commonly used codes
-pub struct DefaultCodesReader<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO>> {
+pub struct DefaultCodesReader<E: Endianness, CR: ReadCodes<E>> {
     code_reader: CR,
-    _marker: core::marker::PhantomData<BO>,
+    _marker: core::marker::PhantomData<E>,
 }
 
-impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO> + Clone> Clone
-    for DefaultCodesReader<BO, CR>
-{
+impl<E: Endianness, CR: ReadCodes<E> + Clone> Clone for DefaultCodesReader<E, CR> {
     fn clone(&self) -> Self {
         Self {
             code_reader: self.code_reader.clone(),
@@ -19,19 +17,17 @@ impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO> + Clone> Clone
     }
 }
 
-impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO> + BitSeek> BitSeek
-    for DefaultCodesReader<BO, CR>
-{
-    fn seek_bit(&mut self, bit_index: usize) -> Result<()> {
-        self.code_reader.seek_bit(bit_index)
+impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DefaultCodesReader<E, CR> {
+    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_reader.set_pos(bit_index)
     }
 
-    fn get_position(&self) -> usize {
-        self.code_reader.get_position()
+    fn get_pos(&self) -> usize {
+        self.code_reader.get_pos()
     }
 }
 
-impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO>> DefaultCodesReader<BO, CR> {
+impl<E: Endianness, CR: ReadCodes<E>> DefaultCodesReader<E, CR> {
     pub fn new(code_reader: CR) -> Self {
         Self {
             code_reader,
@@ -40,47 +36,45 @@ impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO>> DefaultCodesR
     }
 }
 
-impl<BO: BitOrder, CR: BitRead<BO> + GammaRead<BO> + ZetaRead<BO>> WebGraphCodesReader
-    for DefaultCodesReader<BO, CR>
-{
+impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DefaultCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> Result<u64> {
-        self.code_reader.read_gamma::<true>()
+        self.code_reader.read_gamma()
     }
 
     #[inline(always)]
     fn read_reference_offset(&mut self) -> Result<u64> {
-        self.code_reader.read_unary::<false>()
+        self.code_reader.read_unary()
     }
 
     #[inline(always)]
     fn read_block_count(&mut self) -> Result<u64> {
-        self.code_reader.read_gamma::<true>()
+        self.code_reader.read_gamma()
     }
     #[inline(always)]
     fn read_blocks(&mut self) -> Result<u64> {
-        self.code_reader.read_gamma::<true>()
+        self.code_reader.read_gamma()
     }
 
     #[inline(always)]
     fn read_interval_count(&mut self) -> Result<u64> {
-        self.code_reader.read_gamma::<true>()
+        self.code_reader.read_gamma()
     }
     #[inline(always)]
     fn read_interval_start(&mut self) -> Result<u64> {
-        self.code_reader.read_gamma::<true>()
+        self.code_reader.read_gamma()
     }
     #[inline(always)]
     fn read_interval_len(&mut self) -> Result<u64> {
-        self.code_reader.read_gamma::<true>()
+        self.code_reader.read_gamma()
     }
 
     #[inline(always)]
     fn read_first_residual(&mut self) -> Result<u64> {
-        self.code_reader.read_zeta3::<true>()
+        self.code_reader.read_zeta3()
     }
     #[inline(always)]
     fn read_residual(&mut self) -> Result<u64> {
-        self.code_reader.read_zeta3::<true>()
+        self.code_reader.read_zeta3()
     }
 }
