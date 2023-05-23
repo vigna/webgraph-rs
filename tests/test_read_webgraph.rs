@@ -27,7 +27,7 @@ fn test_sequential_reading() {
         BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data));
     let mut offset = 0;
     for _ in 0..NODES {
-        offset += reader.read_gamma::<true>().unwrap() as usize;
+        offset += reader.read_gamma().unwrap() as usize;
         offsets.push(offset as u64);
     }
 
