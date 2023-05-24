@@ -1,6 +1,7 @@
-use std::collections::HashMap;
-
+use anyhow::bail;
 use dsi_bitstream::prelude::*;
+use std::collections::HashMap;
+use std::str::FromStr;
 use sux::traits::VSlice;
 
 use super::*;
@@ -12,10 +13,13 @@ pub struct CompFlags {
     pub blocks: Code,
     pub intervals: Code,
     pub residuals: Code,
+    pub k: u64,
+    pub min_interval_length: usize,
+    pub compression_window: usize,
 }
 
 impl CompFlags {
-    pub fn from_properties(map: &HashMap<String, String>) -> Result<Self, String> {
+    pub fn from_properties(map: &HashMap<String, String>) -> anyhow::Result<Self> {
         // Default values, same as the Java class
         let mut cf = CompFlags {
             outdegrees: Code::Gamma,
@@ -23,6 +27,9 @@ impl CompFlags {
             blocks: Code::Gamma,
             intervals: Code::Gamma,
             residuals: Code::Zeta3,
+            k: 3,
+            min_interval_length: 4,
+            compression_window: 7,
         };
         if let Some(comp_flags) = map.get("compressionflags") {
             if !comp_flags.is_empty() {
@@ -30,17 +37,28 @@ impl CompFlags {
                     dbg!(&flag);
                     let s: Vec<_> = flag.split('_').collect();
                     dbg!(&s);
-                    let code = Code::try_from(s[1].to_string())?;
+                    // FIXME: this is a hack to avoid having to implement
+                    // FromStr for Code
+                    let code = Code::from_str(s[1]).unwrap();
                     match s[0] {
                         "OUTDEGREES" => cf.outdegrees = code,
                         "REFERENCES" => cf.references = code,
                         "BLOCKS" => cf.blocks = code,
                         "INTERVALS" => cf.intervals = code,
                         "RESIDUALS" => cf.residuals = code,
-                        _ => return Err(format!("Unknown compression flag {}", flag)),
+                        _ => bail!(format!("Unknown compression flag {}", flag)),
                     }
                 }
             }
+        }
+        if let Some(k) = map.get("zeta_k") {
+            cf.k = k.parse()?;
+        }
+        if let Some(compression_window) = map.get("compressionwindow") {
+            cf.compression_window = compression_window.parse()?;
+        }
+        if let Some(min_interval_length) = map.get("minintervallength") {
+            cf.min_interval_length = min_interval_length.parse()?;
         }
         Ok(cf)
     }

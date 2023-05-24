@@ -44,12 +44,20 @@ fn test_sequential_reading() {
         .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
         .collect::<Vec<_>>();
 
+    let cf = &CompFlags::from_properties(&HashMap::new()).unwrap();
     // create a random access reader
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data)),
-        &CompFlags::from_properties(&HashMap::new()).unwrap(),
+        cf,
     );
-    let bvgraph = BVGraph::new(code_reader, offsets, 4, 16, NODES, ARCS);
+    let bvgraph = BVGraph::new(
+        code_reader,
+        offsets,
+        cf.min_interval_length,
+        cf.compression_window,
+        NODES,
+        ARCS,
+    );
 
     // Check that they read the same
     for (node_id, seq_succ) in bvgraph.iter_nodes() {

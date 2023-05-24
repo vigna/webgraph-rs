@@ -185,11 +185,6 @@ mod p {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
 
-            let compressions_flags = map.get("compressionflags").unwrap().as_str();
-            if compressions_flags != "" {
-                bail!("You cannot read a graph with compression_flags not empty with the default codes reader");
-            }
-
             let mut file = std::fs::File::open(format!("{}.graph", basename)).unwrap();
             let mut file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
 
