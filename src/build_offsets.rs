@@ -42,7 +42,7 @@ pub fn main() -> Result<()> {
         pr.light_update();
     }
     // write the last offset, this is done to avoid decoding the last node
-    writer.write_gamma((seq_reader.get_pos() - offset - 1) as _)?;
+    writer.write_gamma((seq_reader.get_pos() - offset) as _)?;
     pr.light_update();
     pr.done();
     Ok(())

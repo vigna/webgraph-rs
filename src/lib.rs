@@ -33,12 +33,17 @@
 //#![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sux::prelude::*;
+
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
 pub mod traits;
 pub mod utils;
 pub mod webgraph;
+
+pub type EF<Bitmap, Ones, Array> =
+    EliasFano<SparseIndex<BitMap<Bitmap>, Ones, 8>, CompactArray<Array>>;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {
