@@ -288,4 +288,8 @@ impl<
     fn write_residual(&mut self, value: u64) -> Result<usize> {
         select_code_write!(self, RESIDUALS, K, value)
     }
+
+    fn flush(self) -> Result<()> {
+        self.code_writer.flush()
+    }
 }

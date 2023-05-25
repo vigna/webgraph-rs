@@ -51,4 +51,6 @@ pub trait WebGraphCodesWriter {
     // extra nodes
     fn write_first_residual(&mut self, value: u64) -> Result<usize>;
     fn write_residual(&mut self, value: u64) -> Result<usize>;
+
+    fn flush(self) -> Result<()>;
 }

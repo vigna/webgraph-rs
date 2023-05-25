@@ -62,7 +62,6 @@ fn test_sequential_reading() {
     // Check that they read the same
     for (node_id, seq_succ) in bvgraph.iter_nodes() {
         let rand_succ = bvgraph.successors(node_id).unwrap().collect::<Vec<_>>();
-        dbg!(node_id);
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }
 }

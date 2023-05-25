@@ -118,7 +118,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> WebGraphCodesReader
 }
 
 /// An implementation of [`WebGraphCodesWriter`] with the most commonly used codes
-pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> {
+pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E>> {
     code_writer: CW,
     write_outdegree: fn(&mut CW, u64) -> Result<usize>,
     write_reference_offset: fn(&mut CW, u64) -> Result<usize>,
@@ -132,7 +132,7 @@ pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> DynamicCodesWriter<E, CW> {
+impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
     fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize> {
         match code {
             Unary => CW::write_unary,
@@ -160,24 +160,6 @@ impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> DynamicCodesWriter<E, C
     }
 }
 
-impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> Clone for DynamicCodesWriter<E, CW> {
-    fn clone(&self) -> Self {
-        Self {
-            code_writer: self.code_writer.clone(),
-            write_outdegree: self.write_outdegree,
-            write_reference_offset: self.write_reference_offset,
-            write_block_count: self.write_block_count,
-            write_blocks: self.write_blocks,
-            write_interval_count: self.write_interval_count,
-            write_interval_start: self.write_interval_start,
-            write_interval_len: self.write_interval_len,
-            write_first_residual: self.write_first_residual,
-            write_residual: self.write_residual,
-            _marker: self._marker,
-        }
-    }
-}
-
 impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
     fn set_pos(&mut self, bit_index: usize) -> Result<()> {
         self.code_writer.set_pos(bit_index)
@@ -188,9 +170,7 @@ impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCode
     }
 }
 
-impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> WebGraphCodesWriter
-    for DynamicCodesWriter<E, CW>
-{
+impl<E: Endianness, CW: WriteCodes<E>> WebGraphCodesWriter for DynamicCodesWriter<E, CW> {
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize> {
         (self.write_outdegree)(&mut self.code_writer, value)
@@ -230,5 +210,9 @@ impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> WebGraphCodesWriter
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize> {
         (self.write_residual)(&mut self.code_writer, value)
+    }
+
+    fn flush(self) -> Result<()> {
+        self.code_writer.flush()
     }
 }

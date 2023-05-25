@@ -2,6 +2,7 @@ use super::CircularBuffer;
 use crate::traits::*;
 use crate::utils::int2nat;
 use anyhow::Result;
+use dsi_bitstream::prelude::*;
 
 pub struct BVComp<WGCW: WebGraphCodesWriter> {
     backrefs: CircularBuffer,
@@ -27,8 +28,8 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
         let mut succ_vec = self.backrefs.take();
         let mut written_bits = 0;
-        let d = succ_vec.len();
         succ_vec.extend(succ_iter);
+        let d = succ_vec.len();
         written_bits += self.bit_write.write_outdegree(d as u64)?;
 
         if d != 0 {
@@ -53,11 +54,37 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
     ) -> Result<usize> {
         iter_nodes.map(|(_, succ)| self.push(succ)).sum()
     }
+
+    pub fn flush(self) -> Result<()> {
+        self.bit_write.flush()
+    }
 }
 
 #[cfg(test)]
 #[test]
-fn test() {
-    use crate::webgraph::VecGraph;
-    let _g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
+fn test() -> Result<()> {
+    use crate::{prelude::*, webgraph::VecGraph};
+    let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
+    let mut buffer: Vec<u64> = Vec::new();
+    let mut bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
+
+    let mut codes_writer = DynamicCodesWriter::new(
+        bit_write,
+        &CompFlags {
+            ..Default::default()
+        },
+    );
+    //let codes_writer = ConstCodesWriter::new(bit_write);
+    let mut bvcomp = BVComp::new(codes_writer, 0, 0);
+    bvcomp.extend(g.iter_nodes()).unwrap();
+    bvcomp.flush()?;
+
+    let mut buffer_32: &[u32] = unsafe { buffer.align_to().1 };
+    let mut bit_read =
+        <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
+    let mut codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default());
+    let seq_iter = WebgraphSequentialIter::new(codes_reader, 0, 0, g.num_nodes());
+    let h = VecGraph::from_node_iter(seq_iter);
+    assert_eq!(g, h);
+    Ok(())
 }

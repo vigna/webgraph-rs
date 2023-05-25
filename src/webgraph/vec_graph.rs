@@ -4,7 +4,7 @@ use super::*;
 
 /// Vector-based mutable [`Graph`] implementation.
 /// Successors are represented using a [`BTreeSet`].
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct VecGraph {
     /// The number of arcs in the graph.
     number_of_arcs: usize,
