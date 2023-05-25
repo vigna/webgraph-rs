@@ -181,7 +181,7 @@ mod p {
 
     impl
         WebgraphSequentialIter<
-            DefaultCodesReader<
+            ConstCodesReader<
                 BE,
                 BufferedBitStreamRead<
                     BE,
@@ -212,7 +212,7 @@ mod p {
             };
 
             let code_reader =
-                DefaultCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
+                ConstCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
                     MemWordReadInfinite::new(MmapBackend::new(data)),
                 ));
             let seq_reader = WebgraphSequentialIter::new(

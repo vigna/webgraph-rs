@@ -9,8 +9,8 @@ pub mod const_codes {
 }
 
 #[repr(transparent)]
-/// An implementation of WebGraphCodesReader with the most commonly used codes
-pub struct DefaultCodesReader<
+/// An implementation of [`WebGraphCodesReader`]  with compile time defined codes
+pub struct ConstCodesReader<
     E: Endianness,
     CR: ReadCodes<E>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
@@ -33,7 +33,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Clone for DefaultCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Clone for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     fn clone(&self) -> Self {
         Self {
@@ -52,8 +52,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BitSeek
-    for DefaultCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > BitSeek for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     fn set_pos(&mut self, bit_index: usize) -> Result<()> {
         self.code_reader.set_pos(bit_index)
@@ -73,7 +72,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > DefaultCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     pub fn new(code_reader: CR) -> Self {
         Self {
@@ -83,7 +82,7 @@ impl<
     }
 }
 
-macro_rules! select_code {
+macro_rules! select_code_read {
     ($self:ident, $code:expr, $k: expr) => {
         match $code {
             const_codes::UNARY => $self.code_reader.read_unary(),
@@ -106,46 +105,187 @@ impl<
         const RESIDUALS: usize,
         const K: u64,
     > WebGraphCodesReader
-    for DefaultCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> Result<u64> {
-        select_code!(self, OUTDEGREES, K)
+        select_code_read!(self, OUTDEGREES, K)
     }
 
     #[inline(always)]
     fn read_reference_offset(&mut self) -> Result<u64> {
-        select_code!(self, REFERENCES, K)
+        select_code_read!(self, REFERENCES, K)
     }
 
     #[inline(always)]
     fn read_block_count(&mut self) -> Result<u64> {
-        select_code!(self, BLOCKS, K)
+        select_code_read!(self, BLOCKS, K)
     }
     #[inline(always)]
     fn read_blocks(&mut self) -> Result<u64> {
-        select_code!(self, BLOCKS, K)
+        select_code_read!(self, BLOCKS, K)
     }
 
     #[inline(always)]
     fn read_interval_count(&mut self) -> Result<u64> {
-        select_code!(self, INTERVALS, K)
+        select_code_read!(self, INTERVALS, K)
     }
     #[inline(always)]
     fn read_interval_start(&mut self) -> Result<u64> {
-        select_code!(self, INTERVALS, K)
+        select_code_read!(self, INTERVALS, K)
     }
     #[inline(always)]
     fn read_interval_len(&mut self) -> Result<u64> {
-        select_code!(self, INTERVALS, K)
+        select_code_read!(self, INTERVALS, K)
     }
 
     #[inline(always)]
     fn read_first_residual(&mut self) -> Result<u64> {
-        select_code!(self, RESIDUALS, K)
+        select_code_read!(self, RESIDUALS, K)
     }
     #[inline(always)]
     fn read_residual(&mut self) -> Result<u64> {
-        select_code!(self, RESIDUALS, K)
+        select_code_read!(self, RESIDUALS, K)
+    }
+}
+
+#[repr(transparent)]
+/// An implementation of [`WebGraphCodesWriter`] with compile time defined codes
+pub struct ConstCodesWriter<
+    E: Endianness,
+    CW: WriteCodes<E>,
+    const OUTDEGREES: usize = { const_codes::GAMMA },
+    const REFERENCES: usize = { const_codes::UNARY },
+    const BLOCKS: usize = { const_codes::GAMMA },
+    const INTERVALS: usize = { const_codes::GAMMA },
+    const RESIDUALS: usize = { const_codes::ZETA },
+    const K: u64 = 3,
+> {
+    code_writer: CW,
+    _marker: core::marker::PhantomData<E>,
+}
+
+impl<
+        E: Endianness,
+        CW: WriteCodes<E> + Clone,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > Clone for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    fn clone(&self) -> Self {
+        Self {
+            code_writer: self.code_writer.clone(),
+            _marker: self._marker,
+        }
+    }
+}
+
+impl<
+        E: Endianness,
+        CW: WriteCodes<E> + BitSeek,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > BitSeek for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_writer.set_pos(bit_index)
+    }
+
+    fn get_pos(&self) -> usize {
+        self.code_writer.get_pos()
+    }
+}
+
+impl<
+        E: Endianness,
+        CW: WriteCodes<E>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    pub fn new(code_writer: CW) -> Self {
+        Self {
+            code_writer,
+            _marker: core::marker::PhantomData::default(),
+        }
+    }
+}
+
+macro_rules! select_code_write {
+    ($self:ident, $code:expr, $k: expr, $value:expr) => {
+        match $code {
+            const_codes::UNARY => $self.code_writer.write_unary($value),
+            const_codes::GAMMA => $self.code_writer.write_gamma($value),
+            const_codes::DELTA => $self.code_writer.write_delta($value),
+            const_codes::ZETA if $k == 3 => $self.code_writer.write_zeta3($value),
+            const_codes::ZETA => $self.code_writer.write_zeta($value, K),
+            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
+        }
+    };
+}
+
+impl<
+        E: Endianness,
+        CW: WriteCodes<E>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > WebGraphCodesWriter
+    for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    #[inline(always)]
+    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, OUTDEGREES, K, value)
+    }
+
+    #[inline(always)]
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, REFERENCES, K, value)
+    }
+
+    #[inline(always)]
+    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, BLOCKS, K, value)
+    }
+    #[inline(always)]
+    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, BLOCKS, K, value)
+    }
+
+    #[inline(always)]
+    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, INTERVALS, K, value)
+    }
+    #[inline(always)]
+    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, INTERVALS, K, value)
+    }
+    #[inline(always)]
+    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, INTERVALS, K, value)
+    }
+
+    #[inline(always)]
+    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, RESIDUALS, K, value)
+    }
+    #[inline(always)]
+    fn write_residual(&mut self, value: u64) -> Result<usize> {
+        select_code_write!(self, RESIDUALS, K, value)
     }
 }
