@@ -277,7 +277,8 @@ where
         // ended at every call of `next`
         result.next_copied_node = result
             .copied_nodes_iter
-            .as_mut().and_then(|iter| iter.next())
+            .as_mut()
+            .and_then(|iter| iter.next())
             .unwrap_or(usize::MAX);
 
         Ok(result)
@@ -363,7 +364,8 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for RandomSuccessorIter
             let res = self.next_copied_node;
             self.next_copied_node = self
                 .copied_nodes_iter
-                .as_mut().and_then(|iter| iter.next())
+                .as_mut()
+                .and_then(|iter| iter.next())
                 .unwrap_or(usize::MAX);
             return Some(res);
         } else if min == self.next_residual_node {
