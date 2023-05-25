@@ -211,10 +211,12 @@ mod p {
                     .unwrap()
             };
 
-            let code_reader =
-                ConstCodesReader::new(BufferedBitStreamRead::<BE, BufferType, _>::new(
-                    MemWordReadInfinite::new(MmapBackend::new(data)),
-                ));
+            let code_reader = ConstCodesReader::new(
+                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                    MmapBackend::new(data),
+                )),
+                &CompFlags::default(),
+            )?;
             let seq_reader = WebgraphSequentialIter::new(
                 code_reader,
                 map.get("minintervallength").unwrap().parse::<usize>()?,

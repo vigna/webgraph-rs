@@ -1,6 +1,9 @@
 use super::*;
+use anyhow::bail;
+use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
+/// Temporary constants while const enum generics are not stable
 pub mod const_codes {
     pub const UNARY: usize = 0;
     pub const GAMMA: usize = 1;
@@ -8,8 +11,19 @@ pub mod const_codes {
     pub const ZETA: usize = 3;
 }
 
+/// Temporary convertion function while const enum generics are not stable
+fn code_to_const(code: Code) -> Result<usize> {
+    Ok(match code {
+        Code::Unary => const_codes::UNARY,
+        Code::Gamma => const_codes::GAMMA,
+        Code::Delta => const_codes::DELTA,
+        Code::Zeta { k: _ } => const_codes::ZETA,
+        _ => bail!("Only unary, ɣ, δ, and ζ codes are allowed"),
+    })
+}
+
 #[repr(transparent)]
-/// An implementation of [`WebGraphCodesReader`]  with compile time defined codes
+/// An implementation of [`WebGraphCodesReader`]  with compile-time defined codes
 pub struct ConstCodesReader<
     E: Endianness,
     CR: ReadCodes<E>,
@@ -74,11 +88,26 @@ impl<
         const K: u64,
     > ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    pub fn new(code_reader: CR) -> Self {
-        Self {
+    pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self> {
+        if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
+            bail!("Code for outdegrees does not match");
+        }
+        if code_to_const(comp_flags.references)? != REFERENCES {
+            bail!("Cod for references does not match");
+        }
+        if code_to_const(comp_flags.blocks)? != BLOCKS {
+            bail!("Code for blocks does not match");
+        }
+        if code_to_const(comp_flags.intervals)? != INTERVALS {
+            bail!("Code for intervals does not match");
+        }
+        if code_to_const(comp_flags.residuals)? != RESIDUALS {
+            bail!("Code for residuals does not match");
+        }
+        Ok(Self {
             code_reader,
             _marker: core::marker::PhantomData::default(),
-        }
+        })
     }
 }
 
@@ -88,6 +117,7 @@ macro_rules! select_code_read {
             const_codes::UNARY => $self.code_reader.read_unary(),
             const_codes::GAMMA => $self.code_reader.read_gamma(),
             const_codes::DELTA => $self.code_reader.read_delta(),
+            const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma(),
             const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3(),
             const_codes::ZETA => $self.code_reader.read_zeta(K),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
@@ -229,6 +259,7 @@ macro_rules! select_code_write {
             const_codes::UNARY => $self.code_writer.write_unary($value),
             const_codes::GAMMA => $self.code_writer.write_gamma($value),
             const_codes::DELTA => $self.code_writer.write_delta($value),
+            const_codes::ZETA if $k == 1 => $self.code_writer.write_gamma($value),
             const_codes::ZETA if $k == 3 => $self.code_writer.write_zeta3($value),
             const_codes::ZETA => $self.code_writer.write_zeta($value, K),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
