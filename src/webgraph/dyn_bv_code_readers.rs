@@ -20,13 +20,13 @@ use dsi_bitstream::codes::Code::*;
 
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> DynamicCodesReader<E, CR> {
     fn select_code(code: &Code) -> fn(&mut CR) -> Result<u64> {
-        return match code {
+        match code {
             Unary => CR::read_unary,
             Gamma => CR::read_gamma,
             Delta => CR::read_delta,
-            Zeta3 => CR::read_zeta3,
+            Zeta { k: 3 } => CR::read_zeta3,
             _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
-        };
+        }
     }
 
     pub fn new(code_reader: CR, cf: &CompFlags) -> Self {

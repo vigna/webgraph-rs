@@ -13,7 +13,6 @@ pub struct CompFlags {
     pub blocks: Code,
     pub intervals: Code,
     pub residuals: Code,
-    pub k: u64,
     pub min_interval_length: usize,
     pub compression_window: usize,
 }
@@ -25,8 +24,6 @@ impl CompFlags {
             "GAMMA" => Some(Code::Gamma),
             "DELTA" => Some(Code::Delta),
             "ZETA" => Some(Code::Zeta { k: 3 }),
-            "GOLOMB" => Some(Code::Golomb),
-            "SKEWED_GOLOMB" => Some(Code::SkewedGolomb),
             "NIBBLE" => Some(Code::Nibble),
             _ => None,
         }
@@ -39,8 +36,7 @@ impl CompFlags {
             references: Code::Unary,
             blocks: Code::Gamma,
             intervals: Code::Gamma,
-            residuals: Code::Zeta3,
-            k: 3,
+            residuals: Code::Zeta { k: 3 },
             min_interval_length: 4,
             compression_window: 7,
         };
@@ -52,20 +48,22 @@ impl CompFlags {
                     dbg!(&s);
                     // FIXME: this is a hack to avoid having to implement
                     // FromStr for Code
-                    let code = Code::from_str(s[1]).unwrap();
+                    let code = CompFlags::code_from_str(s[1]).unwrap();
                     match s[0] {
                         "OUTDEGREES" => cf.outdegrees = code,
                         "REFERENCES" => cf.references = code,
                         "BLOCKS" => cf.blocks = code,
                         "INTERVALS" => cf.intervals = code,
                         "RESIDUALS" => cf.residuals = code,
-                        _ => bail!(format!("Unknown compression flag {}", flag)),
+                        _ => bail!("Unknown compression flag {}", flag),
                     }
                 }
             }
         }
         if let Some(k) = map.get("zeta_k") {
-            cf.k = k.parse()?;
+            if k.parse::<usize>()? != 3 {
+                bail!("Only ζ₃ is supported");
+            }
         }
         if let Some(compression_window) = map.get("compressionwindow") {
             cf.compression_window = compression_window.parse()?;
