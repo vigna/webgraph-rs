@@ -19,6 +19,19 @@ pub struct CompFlags {
 }
 
 impl CompFlags {
+    pub fn code_from_str(s: &str) -> Option<Code> {
+        match s.to_uppercase().as_str() {
+            "UNARY" => Some(Code::Unary),
+            "GAMMA" => Some(Code::Gamma),
+            "DELTA" => Some(Code::Delta),
+            "ZETA" => Some(Code::Zeta { k: 3 }),
+            "GOLOMB" => Some(Code::Golomb),
+            "SKEWED_GOLOMB" => Some(Code::SkewedGolomb),
+            "NIBBLE" => Some(Code::Nibble),
+            _ => None,
+        }
+    }
+
     pub fn from_properties(map: &HashMap<String, String>) -> anyhow::Result<Self> {
         // Default values, same as the Java class
         let mut cf = CompFlags {

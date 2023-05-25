@@ -63,6 +63,19 @@ pub trait SequentialGraph: NumNodes {
     fn iter_nodes(&self) -> Self::NodesIter<'_>;
 }
 
+pub trait Labelled {
+    type LabelType;
+}
+
+pub trait LabelledIterator: Labelled {
+    fn label() -> Option<Self::LabelType>;
+}
+
+pub trait LabelledSequentialGraph: SequentialGraph + Labelled
+where
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+{
+}
 // A graph that can be accessed randomly
 pub trait RandomAccessGraph: NumNodes {
     type RandomSuccessorIter<'a>: Iterator<Item = usize> + 'a
@@ -95,6 +108,15 @@ pub trait RandomAccessGraph: NumNodes {
     }
 }
 
+pub trait LabelledRandomAccessGraph: RandomAccessGraph + Labelled
+where
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+{
+    type LabelledRandomSuccessorIter<'a>: Iterator<Item = (usize, Self::LabelType)> + 'a
+    where
+        Self: 'a;
+}
+
 // Marker trait for sequential graphs that enumerate nodes in increasing order
 pub trait SortedNodes {}
 
@@ -105,3 +127,19 @@ pub trait SortedSuccessors {}
 // and which enumerates nodes and successors in increasing order.
 pub trait Graph: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors {}
 impl<G: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors> Graph for G {}
+
+pub trait LabelledGraph:
+    LabelledSequentialGraph + LabelledRandomAccessGraph + SortedNodes + SortedSuccessors
+where
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+{
+}
+
+impl<G: LabelledSequentialGraph + LabelledRandomAccessGraph + SortedNodes + SortedSuccessors>
+    LabelledGraph for G
+where
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+{
+}
