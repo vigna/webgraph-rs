@@ -31,7 +31,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> DynamicCodesReader<E, CR
 
     pub fn new(code_reader: CR, cf: &CompFlags) -> Self {
         Self {
-            code_reader: code_reader,
+            code_reader,
             read_outdegree: Self::select_code(&cf.outdegrees),
             read_reference_offset: Self::select_code(&cf.references),
             read_block_count: Self::select_code(&cf.blocks),

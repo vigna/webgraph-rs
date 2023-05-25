@@ -75,7 +75,7 @@ impl<T: Send + Copy> SortPairs<T> {
                 } else {
                     self.max_len
                 },
-                stream: stream,
+                stream,
                 current: 0,
                 prev_x: 0,
                 prev_y: 0,

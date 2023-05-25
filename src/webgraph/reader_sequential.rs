@@ -71,7 +71,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
             let neighbours = self.backrefs.get(reference_node_id);
-            debug_assert!(neighbours.len() != 0);
+            debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
 
@@ -113,17 +113,17 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
                 let mut delta = self.codes_reader.read_interval_len()? as usize;
                 delta += self.min_interval_length;
                 // save the first interval
-                results.extend(start..(start + delta as usize));
-                start += delta as usize;
+                results.extend(start..(start + delta));
+                start += delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
                     start += 1 + self.codes_reader.read_interval_start()? as usize;
                     delta = self.codes_reader.read_interval_len()? as usize;
                     delta += self.min_interval_length;
 
-                    results.extend(start..(start + delta as usize));
+                    results.extend(start..(start + delta));
 
-                    start += delta as usize;
+                    start += delta;
                 }
             }
         }
@@ -157,6 +157,10 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
         }
         let mut res = self.backrefs.take();
         self.get_successors_iter_priv(node_id, &mut res).unwrap();
+
+        // this clippy suggestion is wrong, we cannot return a reference to a
+        // local variable
+        #[allow(clippy::unnecessary_to_owned)]
         Some((node_id, self.backrefs.push(res).to_vec().into_iter()))
     }
 }
@@ -175,7 +179,7 @@ mod p {
     type ReadType = u32;
     type BufferType = u64;
 
-    impl<'a>
+    impl
         WebgraphSequentialIter<
             DefaultCodesReader<
                 BE,

@@ -29,26 +29,26 @@ impl CircularBuffer {
     pub(crate) fn get(&self, node_id: usize) -> &[usize] {
         debug_assert_ne!(self.end_node_id, node_id);
         debug_assert!(
-            (self.end_node_id - node_id) < self.data.len() as usize,
+            (self.end_node_id - node_id) < self.data.len(),
             "The circular buffer was called with a node_id not in bound"
         );
-        let idx = node_id % self.data.len() as usize;
-        &self.data[idx as usize]
+        let idx = node_id % self.data.len();
+        &self.data[idx]
     }
 
     /// Take the buffer to write the neighbours of the new node
     pub(crate) fn take(&mut self) -> Vec<usize> {
-        let idx = self.end_node_id % self.data.len() as usize;
-        let mut res = core::mem::take(&mut self.data[idx as usize]);
+        let idx = self.end_node_id % self.data.len();
+        let mut res = core::mem::take(&mut self.data[idx]);
         res.clear();
         res
     }
 
     /// Put it back in the buffer so it can be read
     pub(crate) fn push(&mut self, data: Vec<usize>) -> &[usize] {
-        let idx = self.end_node_id % self.data.len() as usize;
+        let idx = self.end_node_id % self.data.len();
         self.end_node_id += 1;
-        self.data[idx as usize] = data;
-        &self.data[idx as usize]
+        self.data[idx] = data;
+        &self.data[idx]
     }
 }

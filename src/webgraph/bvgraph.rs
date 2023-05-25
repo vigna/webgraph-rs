@@ -173,7 +173,7 @@ where
     /// Return the outdegree of a node.
     fn outdegree(&self, node_id: usize) -> Result<usize> {
         let mut codes_reader = self.codes_reader.clone();
-        codes_reader.set_pos(self.offsets.get(node_id as usize).unwrap() as _)?;
+        codes_reader.set_pos(self.offsets.get(node_id).unwrap() as _)?;
         Ok(codes_reader.read_outdegree()? as usize)
     }
 
@@ -181,7 +181,7 @@ where
     /// Return a random access iterator over the successors of a node.
     fn successors(&self, node_id: usize) -> Result<RandomSuccessorIter<CR>> {
         let mut codes_reader = self.codes_reader.clone();
-        codes_reader.set_pos(self.offsets.get(node_id as usize).unwrap() as _)?;
+        codes_reader.set_pos(self.offsets.get(node_id).unwrap() as _)?;
 
         let mut result = RandomSuccessorIter::new(codes_reader);
         let degree = result.reader.read_outdegree()? as usize;
@@ -209,7 +209,7 @@ where
             // add +1 if the number of blocks is even, so we have capacity for
             // the block that will be added in the masked iterator
             let alloc_len = 1 + number_of_blocks - (number_of_blocks & 1);
-            let mut blocks = Vec::with_capacity(alloc_len as usize);
+            let mut blocks = Vec::with_capacity(alloc_len);
             if number_of_blocks != 0 {
                 // the first block could be zero
                 blocks.push(result.reader.read_blocks()? as usize);
@@ -239,7 +239,7 @@ where
                 delta += self.min_interval_length;
                 // save the first interval
                 result.intervals.push((start, delta));
-                start += delta as usize;
+                start += delta;
                 nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
@@ -248,7 +248,7 @@ where
                     delta += self.min_interval_length;
 
                     result.intervals.push((start, delta));
-                    start += delta as usize;
+                    start += delta;
                     nodes_left_to_decode -= delta;
                 }
                 // fake final interval to avoid checks in the implementation of
@@ -277,8 +277,7 @@ where
         // ended at every call of `next`
         result.next_copied_node = result
             .copied_nodes_iter
-            .as_mut()
-            .map_or(None, |iter| iter.next())
+            .as_mut().and_then(|iter| iter.next())
             .unwrap_or(usize::MAX);
 
         Ok(result)
@@ -326,7 +325,7 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> RandomSuccessorIter<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
-            reader: reader,
+            reader,
             size: 0,
             copied_nodes_iter: None,
             intervals: vec![],
@@ -364,8 +363,7 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for RandomSuccessorIter
             let res = self.next_copied_node;
             self.next_copied_node = self
                 .copied_nodes_iter
-                .as_mut()
-                .map_or(None, |iter| iter.next())
+                .as_mut().and_then(|iter| iter.next())
                 .unwrap_or(usize::MAX);
             return Some(res);
         } else if min == self.next_residual_node {

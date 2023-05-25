@@ -24,7 +24,7 @@ impl<CR: WebGraphCodesReader + BitSeek> WebgraphDegreesIter<CR> {
 impl<CR: WebGraphCodesReader + BitSeek> Iterator for WebgraphDegreesIter<CR> {
     type Item = (usize, usize, usize);
     fn next(&mut self) -> Option<(usize, usize, usize)> {
-        if self.node_id >= self.number_of_nodes as usize {
+        if self.node_id >= self.number_of_nodes {
             return None;
         }
         let offset = self.get_pos();
@@ -58,7 +58,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
         let degree = self.codes_reader.read_outdegree()? as usize;
         // no edges, we are done!
         if degree == 0 {
-            self.backrefs[self.node_id as usize % self.compression_window] = degree;
+            self.backrefs[self.node_id % self.compression_window] = degree;
             self.node_id += 1;
             return Ok(degree);
         }
@@ -72,7 +72,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
             // compute the node id of the reference
             let reference_node_id = self.node_id - ref_delta;
             // retrieve the data
-            let ref_degree = self.backrefs[reference_node_id as usize % self.compression_window];
+            let ref_degree = self.backrefs[reference_node_id % self.compression_window];
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
 
@@ -116,7 +116,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
                 for _ in 1..number_of_intervals {
                     let _ = self.codes_reader.read_interval_start()? as usize;
                     delta = self.codes_reader.read_interval_len()? as usize;
-                    delta += self.min_interval_length as usize;
+                    delta += self.min_interval_length;
 
                     nodes_left_to_decode -= delta;
                 }
@@ -133,7 +133,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
             }
         }
 
-        self.backrefs[self.node_id as usize % self.compression_window] = degree;
+        self.backrefs[self.node_id % self.compression_window] = degree;
         self.node_id += 1;
         Ok(degree)
     }
@@ -153,7 +153,7 @@ mod p {
     type ReadType = u32;
     type BufferType = u64;
 
-    impl<'a>
+    impl
         WebgraphDegreesIter<
             DefaultCodesReader<
                 BE,
@@ -170,7 +170,7 @@ mod p {
             let map = java_properties::read(BufReader::new(f))?;
 
             let compressions_flags = map.get("compressionflags").unwrap().as_str();
-            if compressions_flags != "" {
+            if !compressions_flags.is_empty() {
                 bail!("You cannot read a graph with compression_flags not empty with the default codes reader");
             }
 
