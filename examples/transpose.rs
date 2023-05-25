@@ -99,7 +99,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         &CompFlags::from_properties(&map)?,
-    );
+    )?;
     let random_reader = BVGraph::new(
         code_reader,
         offsets.clone(),

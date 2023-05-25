@@ -82,7 +82,7 @@ fn test() -> Result<()> {
     let mut buffer_32: &[u32] = unsafe { buffer.align_to().1 };
     let mut bit_read =
         <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
-    let mut codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default());
+    let mut codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
     let seq_iter = WebgraphSequentialIter::new(codes_reader, 0, 0, g.num_nodes());
     let h = VecGraph::from_node_iter(seq_iter);
     assert_eq!(g, h);

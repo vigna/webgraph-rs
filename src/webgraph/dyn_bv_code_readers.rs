@@ -1,4 +1,6 @@
 use super::*;
+use anyhow::bail;
+use anyhow::Result;
 use dsi_bitstream::codes::Code::*;
 use dsi_bitstream::prelude::*;
 
@@ -17,30 +19,36 @@ pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone>
     _marker: core::marker::PhantomData<E>,
 }
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> DynamicCodesReader<E, CR> {
-    fn select_code(code: &Code) -> fn(&mut CR) -> Result<u64> {
-        match code {
+    fn select_code(code: &Code) -> Result<fn(&mut CR) -> Result<u64>> {
+        Ok(match code {
             Unary => CR::read_unary,
             Gamma => CR::read_gamma,
             Delta => CR::read_delta,
+            Zeta { k: 1 } => CR::read_gamma,
+            Zeta { k: 2 } => |x| CR::read_zeta(x, 2),
             Zeta { k: 3 } => CR::read_zeta3,
-            _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
-        }
+            Zeta { k: 4 } => |x| CR::read_zeta(x, 4),
+            Zeta { k: 5 } => |x| CR::read_zeta(x, 5),
+            Zeta { k: 6 } => |x| CR::read_zeta(x, 6),
+            Zeta { k: 7 } => |x| CR::read_zeta(x, 7),
+            _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
+        })
     }
 
-    pub fn new(code_reader: CR, cf: &CompFlags) -> Self {
-        Self {
+    pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
+        Ok(Self {
             code_reader,
-            read_outdegree: Self::select_code(&cf.outdegrees),
-            read_reference_offset: Self::select_code(&cf.references),
-            read_block_count: Self::select_code(&cf.blocks),
-            read_blocks: Self::select_code(&cf.blocks),
-            read_interval_count: Self::select_code(&cf.intervals),
-            read_interval_start: Self::select_code(&cf.intervals),
-            read_interval_len: Self::select_code(&cf.intervals),
-            read_first_residual: Self::select_code(&cf.residuals),
-            read_residual: Self::select_code(&cf.residuals),
+            read_outdegree: Self::select_code(&cf.outdegrees)?,
+            read_reference_offset: Self::select_code(&cf.references)?,
+            read_block_count: Self::select_code(&cf.blocks)?,
+            read_blocks: Self::select_code(&cf.blocks)?,
+            read_interval_count: Self::select_code(&cf.intervals)?,
+            read_interval_start: Self::select_code(&cf.intervals)?,
+            read_interval_len: Self::select_code(&cf.intervals)?,
+            read_first_residual: Self::select_code(&cf.residuals)?,
+            read_residual: Self::select_code(&cf.residuals)?,
             _marker: core::marker::PhantomData::default(),
-        }
+        })
     }
 }
 

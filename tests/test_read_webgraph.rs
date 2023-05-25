@@ -49,7 +49,8 @@ fn test_sequential_reading() {
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data)),
         cf,
-    );
+    )
+    .unwrap();
     let bvgraph = BVGraph::new(
         code_reader,
         offsets,
