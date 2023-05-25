@@ -3,9 +3,8 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
+use std::io::{BufReader, BufWriter, Seek};
 use sux::prelude::*;
-use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Create the '.ef' file for a graph", long_about = None)]

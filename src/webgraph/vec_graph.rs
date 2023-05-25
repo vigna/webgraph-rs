@@ -4,11 +4,18 @@ use super::*;
 
 /// Vector-based mutable [`Graph`] implementation.
 /// Successors are represented using a [`BTreeSet`].
+#[derive(Clone, Debug, Hash)]
 pub struct VecGraph {
     /// The number of arcs in the graph.
     number_of_arcs: usize,
     /// For each node, its list of successors.
     succ: Vec<BTreeSet<usize>>,
+}
+
+impl core::default::Default for VecGraph {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VecGraph {

@@ -1,5 +1,3 @@
-use itertools;
-
 use std::mem::{replace, swap};
 use std::time::Instant;
 
@@ -219,7 +217,7 @@ where
             {
                 swap(&mut self.tree[parent], &mut winner);
             }
-            parent = parent / 2;
+            parent /= 2;
         }
         self.tree[0] = winner;
     }
@@ -311,7 +309,7 @@ where
             self.fix_tree(winner);
         } else {
             // SAFETY: We already checked that self.src[winner] is Some
-            result = unsafe { replace(&mut self.src[winner], None).unwrap_unchecked().head };
+            result = self.src[winner].take().unwrap().head;
             self.fix_tree(winner);
 
             self.active -= 1;
@@ -319,7 +317,7 @@ where
             if self.active < self.src.len() / 2 {
                 self.src.retain(Option::is_some);
                 debug_assert_eq!(self.src.len(), self.active);
-                self.tree = KMergeBy::build_tree(&mut self.src, &mut self.less_than);
+                self.tree = KMergeBy::build_tree(&self.src, &mut self.less_than);
             }
         };
 
@@ -329,8 +327,8 @@ where
 
 fn build_iters() -> Vec<impl Iterator<Item = usize>> {
     let mut v = vec![];
-    for i in 0..1000 {
-        v.push((0..1_000_000).into_iter());
+    for _ in 0..1000 {
+        v.push(0..1_000_000);
     }
     v
 }
@@ -354,7 +352,7 @@ fn main() {
 #[test]
 fn test_kmerge() {
     let mut v = vec![];
-    for i in 0..3 {
+    for _ in 0..3 {
         v.push((0..10).into_iter());
     }
     v.push((5..20).into_iter());

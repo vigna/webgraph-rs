@@ -1,16 +1,11 @@
-use bitvec::prelude::*;
 use clap::Parser;
-use core::num;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use java_properties;
 use log::info;
 use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
-use rand::Rng;
 use rand::SeedableRng;
-use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -135,9 +130,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     pr_offsets.done_with_count(num_nodes as _);
-
-    let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
-        offsets.build().convert_to().unwrap();
+    let offsets: webgraph::EF<Vec<u64>, Vec<u64>, Vec<u64>> = offsets.build().convert_to().unwrap();
 
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<LE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
@@ -161,25 +154,24 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     */
     let mut can_change = Vec::with_capacity(num_nodes as _);
 
-    for _ in 0..num_nodes as usize {
+    for _ in 0..num_nodes {
         can_change.push(AtomicBool::new(true));
     }
 
     let gamma = 0.0;
     let label_store = LabelStore::new(num_nodes as _);
     let mut rand = SmallRng::seed_from_u64(0);
-    let mut perm = (0..num_nodes).into_iter().collect::<Vec<_>>();
+    let mut perm = (0..num_nodes).collect::<Vec<_>>();
 
     glob_pr.start("Starting updates...");
 
     for _ in 0..100 {
-        let mut delta = Mutex::new(0.0);
         perm.chunks_mut(100000)
             .for_each(|chunk| chunk.shuffle(&mut rand));
         let mut pr = ProgressLogger::default();
         pr.item_name = "node".to_string();
         pr.local_speed = true;
-        pr.expected_updates = Some(num_nodes as usize);
+        pr.expected_updates = Some(num_nodes);
         pr.start("Updating...");
         let prlock = Mutex::new(&mut pr);
 
@@ -195,19 +187,17 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut rand = SmallRng::seed_from_u64(0);
                     loop {
                         let next_pos = pos.fetch_add(GRANULARITY, Relaxed);
-                        if next_pos >= num_nodes as usize {
+                        if next_pos >= num_nodes {
                             let mut delta = delta.lock().unwrap();
                             *delta += local_delta;
                             break;
                         }
-                        for &node in
-                            perm[next_pos..(next_pos + GRANULARITY).min(perm.len())].into_iter()
-                        {
-                            if !can_change[node as usize].load(Relaxed) {
+                        for &node in &perm[next_pos..(next_pos + GRANULARITY).min(perm.len())] {
+                            if !can_change[node].load(Relaxed) {
                                 continue;
                             }
 
-                            can_change[node as usize].store(false, Relaxed);
+                            can_change[node].store(false, Relaxed);
 
                             let successors = random_reader.successors(node).unwrap();
 
@@ -220,7 +210,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let curr_label = label_store.label(node as _);
 
                             for succ in successors {
-                                map.entry(label_store.label(succ as usize))
+                                map.entry(label_store.label(succ))
                                     .and_modify(|counter| *counter += 1)
                                     .or_insert(1);
                             }
@@ -250,12 +240,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                             }
 
-                            debug_assert!(majorities.len() > 0);
+                            debug_assert!(!majorities.is_empty());
                             let next_label = *majorities.choose(&mut rand).unwrap();
                             if next_label != curr_label {
                                 modified.fetch_add(1, Relaxed);
                                 for succ in random_reader.successors(node).unwrap() {
-                                    can_change[succ as usize].store(true, Relaxed);
+                                    can_change[succ].store(true, Relaxed);
                                 }
 
                                 label_store.set(node as _, next_label);

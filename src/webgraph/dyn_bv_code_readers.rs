@@ -59,7 +59,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> Clone for DynamicCodesRe
             read_interval_len: self.read_interval_len,
             read_first_residual: self.read_first_residual,
             read_residual: self.read_residual,
-            _marker: self._marker.clone(),
+            _marker: self._marker,
         }
     }
 }

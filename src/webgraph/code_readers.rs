@@ -38,7 +38,7 @@ impl<
     fn clone(&self) -> Self {
         Self {
             code_reader: self.code_reader.clone(),
-            _marker: self._marker.clone(),
+            _marker: self._marker,
         }
     }
 }

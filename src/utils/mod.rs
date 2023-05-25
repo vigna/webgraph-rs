@@ -22,9 +22,6 @@ pub const fn nat2int(x: u64) -> i64 {
     ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
 }
 
-use dsi_bitstream::prelude::*;
-use mmap_rs::*;
-
 mod permuted_graph;
 pub use permuted_graph::*;
 

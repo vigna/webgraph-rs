@@ -13,6 +13,9 @@ pub use reader_sequential::*;
 mod bvgraph;
 pub use bvgraph::*;
 
+mod bvgraph_writer;
+pub use bvgraph_writer::*;
+
 mod vec_graph;
 pub use vec_graph::*;
 

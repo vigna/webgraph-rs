@@ -27,9 +27,9 @@ impl<T: Send + Copy> SortPairs<T> {
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
         let file = std::io::BufWriter::new(std::fs::File::create(&batch_name).unwrap());
         let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
-
-        let (mut prev_x, mut prev_y, mut prev_t) = (0, 0, 0);
-        for &(x, y, t) in &self.pairs {
+        // TODO!: here the labels t are not considered
+        let (mut prev_x, mut prev_y, _prev_t) = (0, 0, 0);
+        for &(x, y, _t) in &self.pairs {
             stream.write_gamma((x - prev_x) as _).unwrap();
             if x != prev_x {
                 // Reset prev_y
@@ -44,8 +44,8 @@ impl<T: Send + Copy> SortPairs<T> {
         let file = std::io::BufReader::new(std::fs::File::open(&batch_name).unwrap());
         let mut stream = <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
         for _ in 0..self.pairs.len() {
-            let x = stream.read_gamma().unwrap();
-            let y = stream.read_gamma().unwrap();
+            let _x = stream.read_gamma().unwrap();
+            let _y = stream.read_gamma().unwrap();
         }
 
         self.pairs.clear();
@@ -68,8 +68,7 @@ impl<T: Send + Copy> SortPairs<T> {
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
             let file = std::io::BufReader::new(std::fs::File::open(&batch_name).unwrap());
-            let mut stream =
-                <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
+            let stream = <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
             iterators.push(BatchIterator {
                 len: if i == self.num_batches - 1 {
                     last_batch_len
@@ -123,7 +122,7 @@ pub fn test_push() {
     }
 
     let iter = sp.build();
-    for (i, (x, y)) in iter.enumerate() {
+    for (x, y) in iter {
         println!("{} {}", x, y)
     }
 }

@@ -166,7 +166,7 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
 mod p {
     use super::*;
     use crate::utils::MmapBackend;
-    use anyhow::{bail, Result};
+    use anyhow::Result;
     use java_properties;
     use mmap_rs::*;
     use std::fs::*;

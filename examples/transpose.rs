@@ -3,7 +3,6 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use mmap_rs::*;
-use std::collections::VecDeque;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Seek;
@@ -132,7 +131,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     pl.start("Reading batches...");
     pl.expected_updates = Some(num_arcs as _);
     let mut c = 0;
-    for (a, b) in sorted {
+    for _ in sorted {
         c += 1;
         pl.light_update()
     }

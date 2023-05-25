@@ -1,13 +1,6 @@
 #![doc = include_str!("../README.md")]
 // No warnings
 //#![deny(warnings)]
-
-// the code must be safe and shouldn't ever panic to be relayable
-#![deny(clippy::todo)]
-#![deny(clippy::panic)]
-#![deny(clippy::panicking_unwrap)]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
 // for now we don't need any new feature but we might remove this in the future
 #![deny(unstable_features)]
 // no dead code
