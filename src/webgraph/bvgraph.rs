@@ -16,6 +16,20 @@ pub struct CompFlags {
     pub compression_window: usize,
 }
 
+impl core::default::Default for CompFlags {
+    fn default() -> Self {
+        CompFlags {
+            outdegrees: Code::Gamma,
+            references: Code::Unary,
+            blocks: Code::Gamma,
+            intervals: Code::Gamma,
+            residuals: Code::Zeta { k: 3 },
+            min_interval_length: 4,
+            compression_window: 7,
+        }
+    }
+}
+
 impl CompFlags {
     pub fn code_from_str(s: &str) -> Option<Code> {
         match s.to_uppercase().as_str() {
@@ -30,15 +44,7 @@ impl CompFlags {
 
     pub fn from_properties(map: &HashMap<String, String>) -> anyhow::Result<Self> {
         // Default values, same as the Java class
-        let mut cf = CompFlags {
-            outdegrees: Code::Gamma,
-            references: Code::Unary,
-            blocks: Code::Gamma,
-            intervals: Code::Gamma,
-            residuals: Code::Zeta { k: 3 },
-            min_interval_length: 4,
-            compression_window: 7,
-        };
+        let mut cf = CompFlags::default();
         if let Some(comp_flags) = map.get("compressionflags") {
             if !comp_flags.is_empty() {
                 for flag in comp_flags.split('|') {
