@@ -34,21 +34,21 @@ pub trait WebGraphCodesReader {
 }
 
 pub trait WebGraphCodesWriter {
-    fn write_outdegree(&mut self) -> Result<u64>;
+    fn write_outdegree(&mut self, value: u64) -> Result<usize>;
 
     // node reference
-    fn write_reference_offset(&mut self) -> Result<u64>;
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize>;
 
     // run length reference copy
-    fn write_block_count(&mut self) -> Result<u64>;
-    fn write_blocks(&mut self) -> Result<u64>;
+    fn write_block_count(&mut self, value: u64) -> Result<usize>;
+    fn write_blocks(&mut self, value: u64) -> Result<usize>;
 
     // intervallizzation
-    fn write_interval_count(&mut self) -> Result<u64>;
-    fn write_interval_start(&mut self) -> Result<u64>;
-    fn write_interval_len(&mut self) -> Result<u64>;
+    fn write_interval_count(&mut self, value: u64) -> Result<usize>;
+    fn write_interval_start(&mut self, value: u64) -> Result<usize>;
+    fn write_interval_len(&mut self, value: u64) -> Result<usize>;
 
     // extra nodes
-    fn write_first_residual(&mut self) -> Result<u64>;
-    fn write_residual(&mut self) -> Result<u64>;
+    fn write_first_residual(&mut self, value: u64) -> Result<usize>;
+    fn write_residual(&mut self, value: u64) -> Result<usize>;
 }

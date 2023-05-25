@@ -8,6 +8,7 @@ use dsi_bitstream::prelude::*;
 pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     codes_reader: CR,
     backrefs: CircularBuffer,
+    compression_window: usize,
     min_interval_length: usize,
     number_of_nodes: usize,
 }
@@ -33,6 +34,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
         Self {
             codes_reader,
             backrefs: CircularBuffer::new(compression_window + 1),
+            compression_window,
             min_interval_length,
             number_of_nodes,
         }
@@ -58,7 +60,11 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
         results.reserve(degree.saturating_sub(results.capacity()));
 
         // read the reference offset
-        let ref_delta = self.codes_reader.read_reference_offset()? as usize;
+        let ref_delta = if self.compression_window != 0 {
+            self.codes_reader.read_reference_offset()? as usize
+        } else {
+            0
+        };
         // if we copy nodes from a previous one
         if ref_delta != 0 {
             // compute the node id of the reference
