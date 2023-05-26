@@ -27,8 +27,8 @@ impl<CR: WebGraphCodesReader> NumNodes for WebgraphSequentialIter<CR> {
 impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     pub fn new(
         codes_reader: CR,
-        min_interval_length: usize,
         compression_window: usize,
+        min_interval_length: usize,
         number_of_nodes: usize,
     ) -> Self {
         Self {
@@ -219,8 +219,8 @@ mod p {
             )?;
             let seq_reader = WebgraphSequentialIter::new(
                 code_reader,
-                map.get("minintervallength").unwrap().parse::<usize>()?,
                 map.get("windowsize").unwrap().parse::<usize>()?,
+                map.get("minintervallength").unwrap().parse::<usize>()?,
                 map.get("nodes").unwrap().parse::<usize>()?,
             );
 

@@ -136,8 +136,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )),
                 &comp_flags,
             )?,
-            min_interval_length,
             compression_window,
+            min_interval_length,
             num_nodes as usize,
         );
 
@@ -188,8 +188,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )),
                     &comp_flags,
                 )?,
-                min_interval_length,
                 compression_window,
+                min_interval_length,
                 num_nodes as usize,
             );
 

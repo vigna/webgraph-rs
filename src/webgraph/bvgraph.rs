@@ -149,8 +149,8 @@ where
     fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
         WebgraphSequentialIter::new(
             self.codes_reader.clone(),
-            self.min_interval_length,
             self.compression_window,
+            self.min_interval_length,
             self.number_of_nodes,
         )
     }
@@ -239,6 +239,7 @@ where
                 // pre-allocate with capacity for efficency
                 result.intervals = Vec::with_capacity(number_of_intervals + 1);
                 let node_id_offset = nat2int(result.reader.read_interval_start()?);
+
                 debug_assert!((node_id as i64 + node_id_offset) >= 0);
                 let mut start = (node_id as i64 + node_id_offset) as usize;
                 let mut delta = result.reader.read_interval_len()? as usize;
