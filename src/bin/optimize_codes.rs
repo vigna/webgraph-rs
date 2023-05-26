@@ -37,13 +37,23 @@ pub fn main() -> Result<()> {
 
     macro_rules! impl_best_code {
         ($total_bits:expr, $default_bits:expr, $stats:expr, $($code:ident - $def:ident),*) => {
+            println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
+                "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
+            );
             $(
-                let (code, len) = $stats.$code.get_best_code();
+                let (_, len) = $stats.$code.get_best_code();
                 $total_bits += len;
                 $default_bits += $stats.$code.$def;
-                println!("{:>16}: {:>16} : {:>16} Default: {:>16} Difference: {:>16} Improvement Ratio: {:.3}",
-                    stringify!($code), format!("{:?}", code), len,
-                    $stats.$code.$def, $stats.$code.$def - len, $stats.$code.$def as f64 / len as f64
+            )*
+
+            $(
+                let (code, len) = $stats.$code.get_best_code();
+                println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
+                    stringify!($code), format!("{:?}", code),
+                    format!("{:.3}", $stats.$code.$def as f64 / len as f64),
+                    format!("{:.3}", (($stats.$code.$def - len) as f64 / ($default_bits - $total_bits) as f64)),
+                    normalize(($stats.$code.$def - len) as f64 / 8.0),
+                    $stats.$code.$def - len,
                 );
             )*
         };
@@ -66,57 +76,41 @@ pub fn main() -> Result<()> {
         residual - zeta3
     );
 
-    println!("Total bits: {}", total_bits);
-
-    let mut tmp = total_bits / 8;
-    let mut uom = ' ';
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'K';
-    }
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'M';
-    }
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'G';
-    }
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'T';
-    }
-
-    println!("Total size: {}{}", tmp, uom);
-
-    ////
-
+    println!("  Total bits: {}", total_bits);
+    println!("  Total size: {}", normalize(total_bits as f64 / 8.0));
     println!("Default bits: {}", default_bits);
+    println!("Default size: {}", normalize(default_bits as f64 / 8.0));
 
-    let mut tmp = default_bits / 8;
-    let mut uom = ' ';
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'K';
-    }
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'M';
-    }
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'G';
-    }
-    if tmp > 1000 {
-        tmp /= 1000;
-        uom = 'T';
-    }
-
-    println!("Default size: {}{}", tmp, uom);
+    println!("Saved bits: {}", default_bits - total_bits);
+    println!(
+        "Saved size: {}",
+        normalize((default_bits - total_bits) as f64 / 8.0)
+    );
 
     println!(
         "Improvement: {:.3} times",
         default_bits as f64 / total_bits as f64
     );
     Ok(())
+}
+
+fn normalize(mut value: f64) -> String {
+    let mut uom = ' ';
+    if value > 1000.0 {
+        value /= 1000.0;
+        uom = 'K';
+    }
+    if value > 1000.0 {
+        value /= 1000.0;
+        uom = 'M';
+    }
+    if value > 1000.0 {
+        value /= 1000.0;
+        uom = 'G';
+    }
+    if value > 1000.0 {
+        value /= 1000.0;
+        uom = 'T';
+    }
+    format!("{:.3}{}", value, uom)
 }

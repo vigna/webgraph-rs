@@ -51,7 +51,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     #[inline(always)]
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
         let degree = self.codes_reader.read_outdegree()? as usize;
-        dbg!(degree);
         // no edges, we are done!
         if degree == 0 {
             return Ok(());
@@ -68,7 +67,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
         };
         // if we copy nodes from a previous one
         if ref_delta != 0 {
-            dbg!(ref_delta);
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
