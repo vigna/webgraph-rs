@@ -224,3 +224,87 @@ impl<E: Endianness, CW: WriteCodes<E>> WebGraphCodesWriter for DynamicCodesWrite
         self.code_writer.flush()
     }
 }
+
+/// An implementation of [`WebGraphCodesWriter`] that doesn't write anything
+/// but just returns the length of the bytes that would have been written.
+#[derive(Clone)]
+pub struct DynamicCodesMockWriter {
+    len_outdegree: fn(u64) -> usize,
+    len_reference_offset: fn(u64) -> usize,
+    len_block_count: fn(u64) -> usize,
+    len_blocks: fn(u64) -> usize,
+    len_interval_count: fn(u64) -> usize,
+    len_interval_start: fn(u64) -> usize,
+    len_interval_len: fn(u64) -> usize,
+    len_first_residual: fn(u64) -> usize,
+    len_residual: fn(u64) -> usize,
+}
+
+impl DynamicCodesMockWriter {
+    fn select_code(code: &Code) -> fn(u64) -> usize {
+        match code {
+            Unary => len_unary,
+            Gamma => len_gamma,
+            Delta => len_delta,
+            Zeta { k: 3 } => |x| len_zeta(3, x),
+            _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
+        }
+    }
+
+    pub fn new(cf: &CompFlags) -> Self {
+        Self {
+            len_outdegree: Self::select_code(&cf.outdegrees),
+            len_reference_offset: Self::select_code(&cf.references),
+            len_block_count: Self::select_code(&cf.blocks),
+            len_blocks: Self::select_code(&cf.blocks),
+            len_interval_count: Self::select_code(&cf.intervals),
+            len_interval_start: Self::select_code(&cf.intervals),
+            len_interval_len: Self::select_code(&cf.intervals),
+            len_first_residual: Self::select_code(&cf.residuals),
+            len_residual: Self::select_code(&cf.residuals),
+        }
+    }
+}
+
+impl WebGraphCodesWriter for DynamicCodesMockWriter {
+    #[inline(always)]
+    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_outdegree)(value))
+    }
+
+    #[inline(always)]
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_reference_offset)(value))
+    }
+
+    #[inline(always)]
+    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_block_count)(value))
+    }
+    #[inline(always)]
+    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_blocks)(value))
+    }
+
+    #[inline(always)]
+    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_interval_count)(value))
+    }
+    #[inline(always)]
+    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_interval_start)(value))
+    }
+    #[inline(always)]
+    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_interval_len)(value))
+    }
+
+    #[inline(always)]
+    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_first_residual)(value))
+    }
+    #[inline(always)]
+    fn write_residual(&mut self, value: u64) -> Result<usize> {
+        Ok((self.len_residual)(value))
+    }
+}

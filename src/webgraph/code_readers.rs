@@ -324,3 +324,94 @@ impl<
         self.code_writer.flush()
     }
 }
+
+#[repr(transparent)]
+/// An implementation of [`WebGraphCodesWriter`] that doesn't write but just
+/// returns the number of bits that would be written.
+#[derive(Clone)]
+pub struct ConstCodesMockWriter<
+    const OUTDEGREES: usize = { const_codes::GAMMA },
+    const REFERENCES: usize = { const_codes::UNARY },
+    const BLOCKS: usize = { const_codes::GAMMA },
+    const INTERVALS: usize = { const_codes::GAMMA },
+    const RESIDUALS: usize = { const_codes::ZETA },
+    const K: u64 = 3,
+>;
+
+impl<
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+macro_rules! select_code_mock_write {
+    ( $code:expr, $k: expr, $value:expr) => {
+        Ok(match $code {
+            const_codes::UNARY => len_unary($value),
+            const_codes::GAMMA => len_gamma($value),
+            const_codes::DELTA => len_delta($value),
+            const_codes::ZETA => len_zeta($value, K),
+            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
+        })
+    };
+}
+
+impl<
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > WebGraphCodesWriter
+    for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    #[inline(always)]
+    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(OUTDEGREES, K, value)
+    }
+
+    #[inline(always)]
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(REFERENCES, K, value)
+    }
+
+    #[inline(always)]
+    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(BLOCKS, K, value)
+    }
+    #[inline(always)]
+    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(BLOCKS, K, value)
+    }
+
+    #[inline(always)]
+    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(INTERVALS, K, value)
+    }
+    #[inline(always)]
+    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(INTERVALS, K, value)
+    }
+    #[inline(always)]
+    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(INTERVALS, K, value)
+    }
+
+    #[inline(always)]
+    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(RESIDUALS, K, value)
+    }
+    #[inline(always)]
+    fn write_residual(&mut self, value: u64) -> Result<usize> {
+        select_code_mock_write!(RESIDUALS, K, value)
+    }
+}
