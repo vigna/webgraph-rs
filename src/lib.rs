@@ -35,8 +35,7 @@ pub mod traits;
 pub mod utils;
 pub mod webgraph;
 
-pub type EF<Bitmap, Ones, Array> =
-    EliasFano<SparseIndex<BitMap<Bitmap>, Ones, 8>, CompactArray<Array>>;
+pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactArray<Memory>>;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {

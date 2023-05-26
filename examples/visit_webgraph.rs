@@ -70,7 +70,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map()?
     };
 
-    let offsets = <EliasFano<BitMap<&[u64]>, CompactArray<&[u64]>>>::deserialize(&mmap)?.0;
+    let offsets = webgraph::EF::<&[u64]>::deserialize(&mmap)?.0;
 
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),

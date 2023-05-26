@@ -19,15 +19,14 @@ pub fn main() -> Result<()> {
     stderrlog::new()
         .verbosity(2)
         .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+        .init()?;
 
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
 
-    let mut file = File::open(format!("{}.graph", args.basename)).unwrap();
-    let file_len = 8 * file.seek(std::io::SeekFrom::End(0)).unwrap();
+    let mut file = File::open(format!("{}.graph", args.basename))?;
+    let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
 
     let mut efb = EliasFanoBuilder::new(file_len, num_nodes + 1);
 
@@ -46,14 +45,14 @@ pub fn main() -> Result<()> {
     for _ in 0..num_nodes + 1 {
         // write where
         offset += reader.read_gamma()?;
-        efb.push(offset as _).unwrap();
+        efb.push(offset as _)?;
         // decode the next nodes so we know where the next node_id starts
         pr.light_update();
     }
     pr.done();
 
     let ef = efb.build();
-    let ef: webgraph::EF<_, _, _> = ef.convert_to().unwrap();
-    ef.serialize(&mut ef_file).unwrap();
+    let ef: webgraph::EF<_> = ef.convert_to().unwrap();
+    ef.serialize(&mut ef_file)?;
     Ok(())
 }

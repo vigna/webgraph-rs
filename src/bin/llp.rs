@@ -130,7 +130,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     pr_offsets.done_with_count(num_nodes as _);
-    let offsets: webgraph::EF<Vec<u64>, Vec<u64>, Vec<u64>> = offsets.build().convert_to().unwrap();
+    let offsets: webgraph::EF<Vec<u64>> = offsets.build().convert_to().unwrap();
 
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<LE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),

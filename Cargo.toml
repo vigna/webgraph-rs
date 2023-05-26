@@ -50,15 +50,3 @@ codegen-units=1           # slower compile times, but maybe better perf
 [lib]
 name = "webgraph"
 path = "src/lib.rs"
-
-[[bin]]
-name = "wg-offsets"
-path = "src/build_offsets.rs"
-
-[[bin]]
-name = "wg-ef"
-path = "src/build_eliasfano.rs"
-
-[[bin]]
-name = "wg-ascii"
-path = "src/ascii_convert.rs"
