@@ -27,3 +27,6 @@ pub use dyn_bv_code_readers::*;
 
 mod masked_iterator;
 pub use masked_iterator::*;
+
+mod codes_opt;
+pub use codes_opt::*;

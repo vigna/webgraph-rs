@@ -166,6 +166,37 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
             _marker: core::marker::PhantomData::default(),
         }
     }
+
+    /// Create a mock writer with the same configuration of self that does not
+    /// write anything
+    pub fn mock(&self) -> DynamicCodesMockWriter {
+        macro_rules! reconstruct_code {
+            ($code:expr) => {{
+                if $code == CW::write_unary {
+                    len_unary
+                } else if $code == CW::write_gamma {
+                    len_gamma
+                } else if $code == CW::write_delta {
+                    len_delta
+                } else if $code == CW::write_zeta3 {
+                    |x| len_zeta(x, 3)
+                } else {
+                    unreachable!()
+                }
+            }};
+        }
+        DynamicCodesMockWriter {
+            len_outdegree: reconstruct_code!(self.write_outdegree),
+            len_reference_offset: reconstruct_code!(self.write_reference_offset),
+            len_block_count: reconstruct_code!(self.write_block_count),
+            len_blocks: reconstruct_code!(self.write_blocks),
+            len_interval_count: reconstruct_code!(self.write_interval_count),
+            len_interval_start: reconstruct_code!(self.write_interval_start),
+            len_interval_len: reconstruct_code!(self.write_interval_len),
+            len_first_residual: reconstruct_code!(self.write_first_residual),
+            len_residual: reconstruct_code!(self.write_residual),
+        }
+    }
 }
 
 impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
@@ -306,5 +337,9 @@ impl WebGraphCodesWriter for DynamicCodesMockWriter {
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize> {
         Ok((self.len_residual)(value))
+    }
+
+    fn flush(self) -> Result<()> {
+        Ok(())
     }
 }

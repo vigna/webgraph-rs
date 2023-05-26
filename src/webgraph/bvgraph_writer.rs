@@ -2,7 +2,6 @@ use super::CircularBuffer;
 use crate::traits::*;
 use crate::utils::int2nat;
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
 
 pub struct BVComp<WGCW: WebGraphCodesWriter> {
     backrefs: CircularBuffer,
@@ -136,11 +135,12 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
 #[test]
 fn test_writer() -> Result<()> {
     use crate::{prelude::*, webgraph::VecGraph};
+    use dsi_bitstream::prelude::*;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let mut buffer: Vec<u64> = Vec::new();
-    let mut bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
+    let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
 
-    let mut codes_writer = DynamicCodesWriter::new(
+    let codes_writer = DynamicCodesWriter::new(
         bit_write,
         &CompFlags {
             ..Default::default()
@@ -151,10 +151,9 @@ fn test_writer() -> Result<()> {
     bvcomp.extend(g.iter_nodes()).unwrap();
     bvcomp.flush()?;
 
-    let mut buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-    let mut bit_read =
-        <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
-    let mut codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
+    let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
+    let bit_read = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
+    let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
     let seq_iter = WebgraphSequentialIter::new(codes_reader, 0, 1, g.num_nodes());
     for (node, succ) in seq_iter {
         dbg!(node, succ);

@@ -70,7 +70,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
-            let neighbours = self.backrefs.get(reference_node_id);
+            let neighbours = &self.backrefs[reference_node_id];
             debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
@@ -225,6 +225,33 @@ mod p {
             );
 
             Ok(seq_reader)
+        }
+    }
+
+    impl<'a>
+        WebgraphSequentialIter<
+            CodesReaderStats<
+                'a,
+                ConstCodesReader<
+                    BE,
+                    BufferedBitStreamRead<
+                        BE,
+                        BufferType,
+                        MemWordReadInfinite<ReadType, MmapBackend<ReadType>>,
+                    >,
+                >,
+            >,
+        >
+    {
+        pub fn load_mapped_stats(basename: &str, stats: &'a mut BVGraphCodesStats) -> Result<Self> {
+            let seq = WebgraphSequentialIter::load_mapped(basename)?;
+            Ok(WebgraphSequentialIter {
+                codes_reader: CodesReaderStats::new(seq.codes_reader, stats),
+                backrefs: seq.backrefs,
+                compression_window: seq.compression_window,
+                min_interval_length: seq.min_interval_length,
+                number_of_nodes: seq.number_of_nodes,
+            })
         }
     }
 }

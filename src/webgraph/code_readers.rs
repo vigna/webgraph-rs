@@ -251,6 +251,14 @@ impl<
             _marker: core::marker::PhantomData::default(),
         }
     }
+
+    /// Create a mock writer with the same configuration of self that does not
+    /// write anything
+    pub fn mock(
+        &self,
+    ) -> ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K> {
+        ConstCodesMockWriter::new()
+    }
 }
 
 macro_rules! select_code_write {
@@ -413,5 +421,9 @@ impl<
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize> {
         select_code_mock_write!(RESIDUALS, K, value)
+    }
+
+    fn flush(self) -> Result<()> {
+        Ok(())
     }
 }
