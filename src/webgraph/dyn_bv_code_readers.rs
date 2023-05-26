@@ -277,7 +277,7 @@ impl DynamicCodesMockWriter {
             Unary => len_unary,
             Gamma => len_gamma,
             Delta => len_delta,
-            Zeta { k: 3 } => |x| len_zeta(3, x),
+            Zeta { k: 3 } => |x| len_zeta(x, 3),
             _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
         }
     }

@@ -64,20 +64,20 @@ pub fn main() -> Result<()> {
 
     let mut tmp = total_bits / 8;
     let mut uom = ' ';
-    if tmp > 1024 {
-        tmp /= 1024;
+    if tmp > 1000 {
+        tmp /= 1000;
         uom = 'K';
     }
-    if tmp > 1024 {
-        tmp /= 1024;
+    if tmp > 1000 {
+        tmp /= 1000;
         uom = 'M';
     }
-    if tmp > 1024 {
-        tmp /= 1024;
+    if tmp > 1000 {
+        tmp /= 1000;
         uom = 'G';
     }
-    if tmp > 1024 {
-        tmp /= 1024;
+    if tmp > 1000 {
+        tmp /= 1000;
         uom = 'T';
     }
 

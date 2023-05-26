@@ -51,7 +51,7 @@ impl<'a, WGCR: WebGraphCodesReader> WebGraphCodesReader for CodesReaderStats<'a,
     fn read_reference_offset(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .reference_offset
             .update(self.codes_reader.read_reference_offset()?))
     }
 
@@ -59,36 +59,33 @@ impl<'a, WGCR: WebGraphCodesReader> WebGraphCodesReader for CodesReaderStats<'a,
     fn read_block_count(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .block_count
             .update(self.codes_reader.read_block_count()?))
     }
     #[inline(always)]
     fn read_blocks(&mut self) -> Result<u64> {
-        Ok(self
-            .stats
-            .outdegree
-            .update(self.codes_reader.read_blocks()?))
+        Ok(self.stats.blocks.update(self.codes_reader.read_blocks()?))
     }
 
     #[inline(always)]
     fn read_interval_count(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .interval_count
             .update(self.codes_reader.read_interval_count()?))
     }
     #[inline(always)]
     fn read_interval_start(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .interval_start
             .update(self.codes_reader.read_interval_start()?))
     }
     #[inline(always)]
     fn read_interval_len(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .interval_len
             .update(self.codes_reader.read_interval_len()?))
     }
 
@@ -96,14 +93,14 @@ impl<'a, WGCR: WebGraphCodesReader> WebGraphCodesReader for CodesReaderStats<'a,
     fn read_first_residual(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .first_residual
             .update(self.codes_reader.read_first_residual()?))
     }
     #[inline(always)]
     fn read_residual(&mut self) -> Result<u64> {
         Ok(self
             .stats
-            .outdegree
+            .residual
             .update(self.codes_reader.read_residual()?))
     }
 }
