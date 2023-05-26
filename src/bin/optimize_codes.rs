@@ -36,24 +36,24 @@ pub fn main() -> Result<()> {
     eprintln!("{:#?}", stats);
 
     macro_rules! impl_best_code {
-        ($total_bits:expr, $default_bits:expr, $stats:expr, $($code:ident - $def:ident),*) => {
+        ($total_bits:expr, $default_bits:expr, $stats:expr, $($code:ident - $def:expr),*) => {
             println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
                 "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
             );
             $(
                 let (_, len) = $stats.$code.get_best_code();
                 $total_bits += len;
-                $default_bits += $stats.$code.$def;
+                $default_bits += $def;
             )*
 
             $(
                 let (code, len) = $stats.$code.get_best_code();
                 println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
                     stringify!($code), format!("{:?}", code),
-                    format!("{:.3}", $stats.$code.$def as f64 / len as f64),
-                    format!("{:.3}", (($stats.$code.$def - len) as f64 / ($default_bits - $total_bits) as f64)),
-                    normalize(($stats.$code.$def - len) as f64 / 8.0),
-                    $stats.$code.$def - len,
+                    format!("{:.3}", $def as f64 / len as f64),
+                    format!("{:.3}", (($def - len) as f64 / ($default_bits - $total_bits) as f64)),
+                    normalize(($def - len) as f64 / 8.0),
+                    $def - len,
                 );
             )*
         };
@@ -65,15 +65,15 @@ pub fn main() -> Result<()> {
         total_bits,
         default_bits,
         stats,
-        outdegree - gamma,
-        reference_offset - unary,
-        block_count - gamma,
-        blocks - gamma,
-        interval_count - gamma,
-        interval_start - gamma,
-        interval_len - gamma,
-        first_residual - zeta3,
-        residual - zeta3
+        outdegree - stats.outdegree.gamma,
+        reference_offset - stats.reference_offset.unary,
+        block_count - stats.block_count.gamma,
+        blocks - stats.blocks.gamma,
+        interval_count - stats.interval_count.gamma,
+        interval_start - stats.interval_start.gamma,
+        interval_len - stats.interval_len.gamma,
+        first_residual - stats.first_residual.zeta[2],
+        residual - stats.residual.zeta[2]
     );
 
     println!("  Total bits: {:>16}", total_bits);
