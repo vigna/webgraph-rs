@@ -36,28 +36,34 @@ pub fn main() -> Result<()> {
     eprintln!("{:#?}", stats);
 
     macro_rules! impl_best_code {
-        ($total_bits:expr, $stats:expr, $($code:ident),*) => {
+        ($total_bits:expr, $default_bits:expr, $stats:expr, $($code:ident - $def:ident),*) => {
             $(
                 let (code, len) = $stats.$code.get_best_code();
                 $total_bits += len;
-                println!("{}: {:?} : {}", stringify!($code), code, len);
+                $default_bits += $stats.$code.$def;
+                println!("{:>16}: {:>16} : {:>16} Default: {:>16} Difference: {:>16} Improvement Ratio: {:.3}",
+                    stringify!($code), format!("{:?}", code), len,
+                    $stats.$code.$def, $stats.$code.$def - len, $stats.$code.$def as f64 / len as f64
+                );
             )*
         };
     }
 
     let mut total_bits = 0;
+    let mut default_bits = 0;
     impl_best_code!(
         total_bits,
+        default_bits,
         stats,
-        outdegree,
-        reference_offset,
-        block_count,
-        blocks,
-        interval_count,
-        interval_start,
-        interval_len,
-        first_residual,
-        residual
+        outdegree - gamma,
+        reference_offset - unary,
+        block_count - gamma,
+        blocks - gamma,
+        interval_count - gamma,
+        interval_start - gamma,
+        interval_len - gamma,
+        first_residual - zeta3,
+        residual - zeta3
     );
 
     println!("Total bits: {}", total_bits);
@@ -84,15 +90,6 @@ pub fn main() -> Result<()> {
     println!("Total size: {}{}", tmp, uom);
 
     ////
-
-    let default_bits = stats.outdegree.gamma
-        + stats.reference_offset.unary
-        + stats.block_count.gamma
-        + stats.blocks.gamma
-        + stats.interval_count.gamma
-        + stats.interval_start.gamma
-        + stats.first_residual.zeta3
-        + stats.residual.zeta3;
 
     println!("Default bits: {}", default_bits);
 
