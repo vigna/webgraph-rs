@@ -82,5 +82,41 @@ pub fn main() -> Result<()> {
     }
 
     println!("Total size: {}{}", tmp, uom);
+
+    ////
+
+    let default_bits = stats.outdegree.gamma
+        + stats.reference_offset.unary
+        + stats.block_count.gamma
+        + stats.blocks.gamma
+        + stats.interval_count.gamma
+        + stats.interval_start.gamma
+        + stats.first_residual.zeta3
+        + stats.residual.zeta3;
+
+    println!("Default bits: {}", default_bits);
+
+    let mut tmp = default_bits / 8;
+    let mut uom = ' ';
+    if tmp > 1000 {
+        tmp /= 1000;
+        uom = 'K';
+    }
+    if tmp > 1000 {
+        tmp /= 1000;
+        uom = 'M';
+    }
+    if tmp > 1000 {
+        tmp /= 1000;
+        uom = 'G';
+    }
+    if tmp > 1000 {
+        tmp /= 1000;
+        uom = 'T';
+    }
+
+    println!("Default size: {}{}", tmp, uom);
+
+    println!("Improvement: {} times", default_bits / total_bits);
     Ok(())
 }
