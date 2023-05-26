@@ -76,14 +76,14 @@ pub fn main() -> Result<()> {
         residual - zeta3
     );
 
-    println!("  Total bits: {}", total_bits);
-    println!("Default bits: {}", default_bits);
-    println!("  Saved bits: {}", default_bits - total_bits);
+    println!("  Total bits: {:>16}", total_bits);
+    println!("Default bits: {:>16}", default_bits);
+    println!("  Saved bits: {:>16}", default_bits - total_bits);
 
-    println!("  Total size: {}", normalize(total_bits as f64 / 8.0));
-    println!("Default size: {}", normalize(default_bits as f64 / 8.0));
+    println!("  Total size: {:>8}", normalize(total_bits as f64 / 8.0));
+    println!("Default size: {:>8}", normalize(default_bits as f64 / 8.0));
     println!(
-        "  Saved size: {}",
+        "  Saved size: {:>8}",
         normalize((default_bits - total_bits) as f64 / 8.0)
     );
 
