@@ -11,6 +11,7 @@ pub struct BVComp<WGCW: WebGraphCodesWriter> {
     #[allow(dead_code)]
     compression_window: usize,
     curr_node: usize,
+    blocks: Vec<usize>,
     extra_nodes: Vec<usize>,
     left_interval: Vec<usize>,
     len_interval: Vec<usize>,
@@ -28,6 +29,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             min_interval_length,
             compression_window,
             curr_node: 0,
+            blocks: Vec::with_capacity(1024),
             extra_nodes: Vec::with_capacity(1024),
             left_interval: Vec::with_capacity(1024),
             len_interval: Vec::with_capacity(1024),
@@ -66,6 +68,75 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         }
     }
 
+    fn diff_comp(&mut self, ref_list: &[usize], curr_list: &[usize]) {
+        // j is the index of the next successor of the current node we must examine
+        let mut j = 0;
+        // k is the index of the next successor of the reference node we must examine
+        let mut k = 0;
+        // copying is true iff we are producing a copy block (instead of an ignore block)
+        let mut copying = true;
+        // currBlockLen is the number of entries (in the reference list) we have already copied/ignored (in the current block)
+        let mut curr_block_len = 0;
+
+        self.blocks.clear();
+        self.extra_nodes.clear();
+
+        while j < curr_list.len() && k < ref_list.len() {
+            // First case: we are currectly copying entries from the reference list
+            if copying {
+                if curr_list[j] > ref_list[k] {
+                    /* If while copying we trespass the current element of the reference list,
+                    we must stop copying. */
+                    self.blocks.push(curr_block_len);
+                    copying = false;
+                    curr_block_len = 0;
+                } else if curr_list[j] < ref_list[k] {
+                    /* If while copying we find a non-matching element of the reference list which
+                    is larger than us, we can just add the current element to the extra list
+                    and move on. j gets increased. */
+                    self.extra_nodes.push(curr_list[j]);
+                    j += 1;
+                } else {
+                    // currList[j] == refList[k]
+                    /* If the current elements of the two lists are equal, we just increase the block length.
+                    both j and k get increased. */
+                    j += 1;
+                    k += 1;
+                    curr_block_len += 1;
+                    // if (forReal) copiedArcs++;
+                }
+            } else if curr_list[j] < curr_list[k] {
+                /* If we did not trespass the current element of the reference list, we just
+                add the current element to the extra list and move on. j gets increased. */
+                self.extra_nodes.push(curr_list[j]);
+                j += 1;
+            } else if curr_list[j] > ref_list[k] {
+                /* If we trespassed the currented element of the reference list, we
+                increase the block length. k gets increased. */
+                k += 1;
+                curr_block_len += 1;
+            } else {
+                // currList[j] == refList[k]
+                /* If we found a match we flush the current block and start a new copying phase. */
+                self.blocks.push(curr_block_len);
+                copying = true;
+                curr_block_len = 0;
+            }
+        }
+        /* We do not record the last block. The only case when we have to enqueue the last block's length
+         * is when we were copying and we did not copy up to the end of the reference list.
+         */
+        if copying && k < ref_list.len() {
+            self.blocks.push(curr_block_len);
+        }
+
+        // If there are still missing elements, we add them to the extra list.
+        while j < curr_list.len() {
+            self.extra_nodes.push(curr_list[j]);
+            j += 1;
+        }
+    }
+
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
         let mut succ_vec = self.backrefs.take();
         let mut written_bits = 0;
@@ -73,10 +144,14 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         let d = succ_vec.len();
         written_bits += self.bit_write.write_outdegree(d as u64)?;
 
-        self.extra_nodes.clear();
-        self.extra_nodes.extend_from_slice(&succ_vec);
-
         if d != 0 {
+            if self.compression_window != 0 {
+                self.diff_comp(&self.backrefs[self.curr_node as isize - 1], &succ_vec);
+            } else {
+                self.extra_nodes.clear();
+                self.extra_nodes.extend(&succ_vec)
+            }
+
             if self.min_interval_length != Self::NO_INTERVALS {
                 self.intervalize();
                 self.bit_write
