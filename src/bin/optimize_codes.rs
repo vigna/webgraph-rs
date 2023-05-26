@@ -117,6 +117,9 @@ pub fn main() -> Result<()> {
 
     println!("Default size: {}{}", tmp, uom);
 
-    println!("Improvement: {} times", default_bits / total_bits);
+    println!(
+        "Improvement: {:.3} times",
+        default_bits as f64 / total_bits as f64
+    );
     Ok(())
 }
