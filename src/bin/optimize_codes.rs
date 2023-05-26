@@ -77,13 +77,13 @@ pub fn main() -> Result<()> {
     );
 
     println!("  Total bits: {}", total_bits);
-    println!("  Total size: {}", normalize(total_bits as f64 / 8.0));
     println!("Default bits: {}", default_bits);
-    println!("Default size: {}", normalize(default_bits as f64 / 8.0));
+    println!("  Saved bits: {}", default_bits - total_bits);
 
-    println!("Saved bits: {}", default_bits - total_bits);
+    println!("  Total size: {}", normalize(total_bits as f64 / 8.0));
+    println!("Default size: {}", normalize(default_bits as f64 / 8.0));
     println!(
-        "Saved size: {}",
+        "  Saved size: {}",
         normalize((default_bits - total_bits) as f64 / 8.0)
     );
 
