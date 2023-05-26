@@ -68,7 +68,8 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         }
     }
 
-    fn diff_comp(&mut self, ref_list: &[usize], curr_list: &[usize]) {
+    fn diff_comp(&mut self, curr_list: &[usize]) {
+        let ref_list = &self.backrefs[self.curr_node as isize - 1];
         // j is the index of the next successor of the current node we must examine
         let mut j = 0;
         // k is the index of the next successor of the reference node we must examine
@@ -105,7 +106,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
                     curr_block_len += 1;
                     // if (forReal) copiedArcs++;
                 }
-            } else if curr_list[j] < curr_list[k] {
+            } else if curr_list[j] < ref_list[k] {
                 /* If we did not trespass the current element of the reference list, we just
                 add the current element to the extra list and move on. j gets increased. */
                 self.extra_nodes.push(curr_list[j]);
@@ -135,6 +136,14 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             self.extra_nodes.push(curr_list[j]);
             j += 1;
         }
+
+        dbg!(
+            self.curr_node,
+            &curr_list,
+            &ref_list,
+            &self.blocks,
+            &self.extra_nodes
+        );
     }
 
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
@@ -146,7 +155,21 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
 
         if d != 0 {
             if self.compression_window != 0 {
-                self.diff_comp(&self.backrefs[self.curr_node as isize - 1], &succ_vec);
+                if self.curr_node > 0 {
+                    self.diff_comp(&succ_vec);
+                    self.bit_write.write_reference_offset(1)?;
+                    self.bit_write.write_block_count(self.blocks.len() as _)?;
+                    if !self.blocks.is_empty() {
+                        self.blocks[0] += 1;
+                        for i in 0..self.blocks.len() {
+                            self.bit_write.write_blocks((self.blocks[i] - 1) as u64)?;
+                        }
+                    }
+                } else {
+                    self.bit_write.write_reference_offset(0)?;
+                    self.extra_nodes.clear();
+                    self.extra_nodes.extend(&succ_vec)
+                }
             } else {
                 self.extra_nodes.clear();
                 self.extra_nodes.extend(&succ_vec)
@@ -155,12 +178,12 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             if self.min_interval_length != Self::NO_INTERVALS {
                 self.intervalize();
                 self.bit_write
-                    .write_interval_count(self.left_interval.len() as u64)?;
+                    .write_interval_count(self.left_interval.len() as _)?;
 
                 if !self.left_interval.is_empty() {
-                    self.bit_write.write_interval_start(dbg!(int2nat(dbg!(
-                        self.left_interval[0] as i64 - self.curr_node as i64
-                    ),)))?;
+                    self.bit_write.write_interval_start(int2nat(
+                        self.left_interval[0] as i64 - self.curr_node as i64,
+                    ))?;
                     self.bit_write.write_interval_len(
                         (self.len_interval[0] - self.min_interval_length) as u64,
                     )?;
@@ -211,7 +234,22 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
 fn test_writer() -> Result<()> {
     use crate::{prelude::*, webgraph::VecGraph};
     use dsi_bitstream::prelude::*;
-    let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
+    let g = VecGraph::from_arc_list(&[
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (0, 5),
+        (0, 6),
+        (0, 7),
+        (1, 2),
+        (1, 3),
+        (1, 4),
+        (1, 6),
+        (1, 7),
+        (1, 10),
+        (2, 0),
+        (2, 8),
+    ]);
     let mut buffer: Vec<u64> = Vec::new();
     let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
 
@@ -222,19 +260,20 @@ fn test_writer() -> Result<()> {
         },
     );
     //let codes_writer = ConstCodesWriter::new(bit_write);
-    let mut bvcomp = BVComp::new(codes_writer, 0, 1);
+    let mut bvcomp = BVComp::new(codes_writer, 1, 1);
     bvcomp.extend(g.iter_nodes()).unwrap();
     bvcomp.flush()?;
 
     let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
     let bit_read = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
     let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
-    let seq_iter = WebgraphSequentialIter::new(codes_reader, 0, 1, g.num_nodes());
+    let seq_iter = WebgraphSequentialIter::new(codes_reader.clone(), 1, 1, g.num_nodes());
     for (node, succ) in seq_iter {
         dbg!(node, succ);
     }
 
-    //let h = VecGraph::from_node_iter(seq_iter);
-    //assert_eq!(g, h);
+    let seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, g.num_nodes());
+    let h = VecGraph::from_node_iter(seq_iter);
+    assert_eq!(g, h);
     Ok(())
 }

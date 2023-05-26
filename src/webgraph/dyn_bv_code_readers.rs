@@ -166,7 +166,7 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
             _marker: core::marker::PhantomData::default(),
         }
     }
-
+    /*
     /// Create a mock writer with the same configuration of self that does not
     /// write anything
     pub fn mock(&self) -> DynamicCodesMockWriter {
@@ -196,7 +196,7 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
             len_first_residual: reconstruct_code!(self.write_first_residual),
             len_residual: reconstruct_code!(self.write_residual),
         }
-    }
+    }*/
 }
 
 impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
