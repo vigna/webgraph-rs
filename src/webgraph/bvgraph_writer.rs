@@ -136,14 +136,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             self.extra_nodes.push(curr_list[j]);
             j += 1;
         }
-
-        dbg!(
-            self.curr_node,
-            &curr_list,
-            &ref_list,
-            &self.blocks,
-            &self.extra_nodes
-        );
     }
 
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
@@ -152,11 +144,12 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         succ_vec.extend(succ_iter);
         let d = succ_vec.len();
         written_bits += self.bit_write.write_outdegree(d as u64)?;
-
+        dbg!(self.curr_node);
         if d != 0 {
             if self.compression_window != 0 {
                 if self.curr_node > 0 {
                     self.diff_comp(&succ_vec);
+                    dbg!(&self.blocks);
                     self.bit_write.write_reference_offset(1)?;
                     self.bit_write.write_block_count(self.blocks.len() as _)?;
                     if !self.blocks.is_empty() {
@@ -251,7 +244,9 @@ fn test_writer() -> Result<()> {
         (2, 8),
     ]);
     let mut buffer: Vec<u64> = Vec::new();
-    let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
+    let bit_write = dsi_bitstream::utils::CountBitWrite::new(<BufferedBitStreamWrite<LE, _>>::new(
+        MemWordWriteVec::new(&mut buffer),
+    ));
 
     let codes_writer = DynamicCodesWriter::new(
         bit_write,
@@ -261,19 +256,40 @@ fn test_writer() -> Result<()> {
     );
     //let codes_writer = ConstCodesWriter::new(bit_write);
     let mut bvcomp = BVComp::new(codes_writer, 1, 1);
-    bvcomp.extend(g.iter_nodes()).unwrap();
+
+    let cnr = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+
+    bvcomp.extend(cnr.take(400)).unwrap();
     bvcomp.flush()?;
 
-    let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-    let bit_read = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
-    let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
-    let seq_iter = WebgraphSequentialIter::new(codes_reader.clone(), 1, 1, g.num_nodes());
-    for (node, succ) in seq_iter {
-        dbg!(node, succ);
-    }
+    let cnr_vec =
+        VecGraph::from_node_iter(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?);
 
-    let seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, g.num_nodes());
-    let h = VecGraph::from_node_iter(seq_iter);
-    assert_eq!(g, h);
+    let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
+    let bit_read =
+        dsi_bitstream::utils::count::CountBitRead::new(<BufferedBitStreamRead<LE, u64, _>>::new(
+            MemWordReadInfinite::new(buffer_32),
+        ));
+    let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
+
+    let mut seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, cnr_vec.num_nodes());
+    //let h = VecGraph::from_node_iter(seq_iter);
+    //assert_eq!(cnr_vec.num_nodes(), h.num_nodes());
+    //assert_eq!(cnr_vec.num_arcs(), h.num_arcs());
+    for i in 0..cnr_vec.num_nodes() {
+        dbg!(i);
+        let (_, succ) = seq_iter.next().unwrap();
+        assert_eq!(
+            cnr_vec.outdegree(i).unwrap(),
+            succ.len(),
+            "degrees do not match"
+        );
+        assert_eq!(
+            cnr_vec.successors(i).unwrap().collect::<Vec<_>>(),
+            succ.collect::<Vec<_>>(),
+            "{}",
+            i
+        );
+    }
     Ok(())
 }
