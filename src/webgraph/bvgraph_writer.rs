@@ -136,14 +136,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             self.extra_nodes.push(curr_list[j]);
             j += 1;
         }
-
-        dbg!(
-            self.curr_node,
-            &curr_list,
-            &ref_list,
-            &self.blocks,
-            &self.extra_nodes
-        );
     }
 
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
@@ -152,7 +144,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         succ_vec.extend(succ_iter);
         let d = succ_vec.len();
         written_bits += self.bit_write.write_outdegree(d as u64)?;
-
         if d != 0 {
             if self.compression_window != 0 {
                 if self.curr_node > 0 {
@@ -175,40 +166,42 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
                 self.extra_nodes.extend(&succ_vec)
             }
 
-            if self.min_interval_length != Self::NO_INTERVALS {
-                self.intervalize();
-                self.bit_write
-                    .write_interval_count(self.left_interval.len() as _)?;
+            if !self.extra_nodes.is_empty() {
+                if self.min_interval_length != Self::NO_INTERVALS {
+                    self.intervalize();
+                    self.bit_write
+                        .write_interval_count(self.left_interval.len() as _)?;
 
-                if !self.left_interval.is_empty() {
-                    self.bit_write.write_interval_start(int2nat(
-                        self.left_interval[0] as i64 - self.curr_node as i64,
-                    ))?;
-                    self.bit_write.write_interval_len(
-                        (self.len_interval[0] - self.min_interval_length) as u64,
-                    )?;
-                    let mut prev = self.left_interval[0] + self.len_interval[0];
-
-                    for i in 1..self.left_interval.len() {
-                        self.bit_write
-                            .write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                    if !self.left_interval.is_empty() {
+                        self.bit_write.write_interval_start(int2nat(
+                            self.left_interval[0] as i64 - self.curr_node as i64,
+                        ))?;
                         self.bit_write.write_interval_len(
-                            (self.len_interval[i] - self.min_interval_length) as u64,
+                            (self.len_interval[0] - self.min_interval_length) as u64,
                         )?;
-                        prev = self.left_interval[i] + self.len_interval[i];
+                        let mut prev = self.left_interval[0] + self.len_interval[0];
+
+                        for i in 1..self.left_interval.len() {
+                            self.bit_write
+                                .write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                            self.bit_write.write_interval_len(
+                                (self.len_interval[i] - self.min_interval_length) as u64,
+                            )?;
+                            prev = self.left_interval[i] + self.len_interval[i];
+                        }
                     }
                 }
-            }
 
-            if !self.residuals.is_empty() {
-                written_bits += self.bit_write.write_first_residual(int2nat(
-                    self.residuals[0] as i64 - self.curr_node as i64,
-                ))?;
+                if !self.residuals.is_empty() {
+                    written_bits += self.bit_write.write_first_residual(int2nat(
+                        self.residuals[0] as i64 - self.curr_node as i64,
+                    ))?;
 
-                for i in 1..self.residuals.len() {
-                    written_bits += self
-                        .bit_write
-                        .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?;
+                    for i in 1..self.residuals.len() {
+                        written_bits += self.bit_write.write_residual(
+                            (self.residuals[i] - self.residuals[i - 1] - 1) as u64,
+                        )?;
+                    }
                 }
             }
         }
@@ -261,19 +254,36 @@ fn test_writer() -> Result<()> {
     );
     //let codes_writer = ConstCodesWriter::new(bit_write);
     let mut bvcomp = BVComp::new(codes_writer, 1, 1);
-    bvcomp.extend(g.iter_nodes()).unwrap();
+
+    let cnr = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+
+    bvcomp.extend(cnr.take(400)).unwrap();
     bvcomp.flush()?;
+
+    let cnr_vec =
+        VecGraph::from_node_iter(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?);
 
     let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
     let bit_read = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
     let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
-    let seq_iter = WebgraphSequentialIter::new(codes_reader.clone(), 1, 1, g.num_nodes());
-    for (node, succ) in seq_iter {
-        dbg!(node, succ);
-    }
 
-    let seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, g.num_nodes());
-    let h = VecGraph::from_node_iter(seq_iter);
-    assert_eq!(g, h);
+    let mut seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, cnr_vec.num_nodes());
+    //let h = VecGraph::from_node_iter(seq_iter);
+    //assert_eq!(cnr_vec.num_nodes(), h.num_nodes());
+    //assert_eq!(cnr_vec.num_arcs(), h.num_arcs());
+    for i in 0..cnr_vec.num_nodes() {
+        let (_, succ) = seq_iter.next().unwrap();
+        assert_eq!(
+            cnr_vec.outdegree(i).unwrap(),
+            succ.len(),
+            "degrees do not match"
+        );
+        assert_eq!(
+            cnr_vec.successors(i).unwrap().collect::<Vec<_>>(),
+            succ.collect::<Vec<_>>(),
+            "{}",
+            i
+        );
+    }
     Ok(())
 }
