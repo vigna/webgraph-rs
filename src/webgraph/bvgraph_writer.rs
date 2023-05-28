@@ -144,7 +144,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         succ_vec.extend(succ_iter);
         let d = succ_vec.len();
         written_bits += self.bit_write.write_outdegree(d as u64)?;
-        dbg!(self.curr_node);
         if d != 0 {
             if self.compression_window != 0 {
                 if self.curr_node > 0 {
@@ -168,40 +167,42 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
                 self.extra_nodes.extend(&succ_vec)
             }
 
-            if self.min_interval_length != Self::NO_INTERVALS {
-                self.intervalize();
-                self.bit_write
-                    .write_interval_count(self.left_interval.len() as _)?;
+            if !self.extra_nodes.is_empty() {
+                if self.min_interval_length != Self::NO_INTERVALS {
+                    self.intervalize();
+                    self.bit_write
+                        .write_interval_count(self.left_interval.len() as _)?;
 
-                if !self.left_interval.is_empty() {
-                    self.bit_write.write_interval_start(int2nat(
-                        self.left_interval[0] as i64 - self.curr_node as i64,
-                    ))?;
-                    self.bit_write.write_interval_len(
-                        (self.len_interval[0] - self.min_interval_length) as u64,
-                    )?;
-                    let mut prev = self.left_interval[0] + self.len_interval[0];
-
-                    for i in 1..self.left_interval.len() {
-                        self.bit_write
-                            .write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                    if !self.left_interval.is_empty() {
+                        self.bit_write.write_interval_start(int2nat(
+                            self.left_interval[0] as i64 - self.curr_node as i64,
+                        ))?;
                         self.bit_write.write_interval_len(
-                            (self.len_interval[i] - self.min_interval_length) as u64,
+                            (self.len_interval[0] - self.min_interval_length) as u64,
                         )?;
-                        prev = self.left_interval[i] + self.len_interval[i];
+                        let mut prev = self.left_interval[0] + self.len_interval[0];
+
+                        for i in 1..self.left_interval.len() {
+                            self.bit_write
+                                .write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                            self.bit_write.write_interval_len(
+                                (self.len_interval[i] - self.min_interval_length) as u64,
+                            )?;
+                            prev = self.left_interval[i] + self.len_interval[i];
+                        }
                     }
                 }
-            }
 
-            if !self.residuals.is_empty() {
-                written_bits += self.bit_write.write_first_residual(int2nat(
-                    self.residuals[0] as i64 - self.curr_node as i64,
-                ))?;
+                if !self.residuals.is_empty() {
+                    written_bits += self.bit_write.write_first_residual(int2nat(
+                        self.residuals[0] as i64 - self.curr_node as i64,
+                    ))?;
 
-                for i in 1..self.residuals.len() {
-                    written_bits += self
-                        .bit_write
-                        .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?;
+                    for i in 1..self.residuals.len() {
+                        written_bits += self.bit_write.write_residual(
+                            (self.residuals[i] - self.residuals[i - 1] - 1) as u64,
+                        )?;
+                    }
                 }
             }
         }
@@ -244,9 +245,7 @@ fn test_writer() -> Result<()> {
         (2, 8),
     ]);
     let mut buffer: Vec<u64> = Vec::new();
-    let bit_write = dsi_bitstream::utils::CountBitWrite::new(<BufferedBitStreamWrite<LE, _>>::new(
-        MemWordWriteVec::new(&mut buffer),
-    ));
+    let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
 
     let codes_writer = DynamicCodesWriter::new(
         bit_write,
@@ -266,10 +265,7 @@ fn test_writer() -> Result<()> {
         VecGraph::from_node_iter(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?);
 
     let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-    let bit_read =
-        dsi_bitstream::utils::count::CountBitRead::new(<BufferedBitStreamRead<LE, u64, _>>::new(
-            MemWordReadInfinite::new(buffer_32),
-        ));
+    let bit_read = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
     let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
 
     let mut seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, cnr_vec.num_nodes());
@@ -277,7 +273,6 @@ fn test_writer() -> Result<()> {
     //assert_eq!(cnr_vec.num_nodes(), h.num_nodes());
     //assert_eq!(cnr_vec.num_arcs(), h.num_arcs());
     for i in 0..cnr_vec.num_nodes() {
-        dbg!(i);
         let (_, succ) = seq_iter.next().unwrap();
         assert_eq!(
             cnr_vec.outdegree(i).unwrap(),
