@@ -6,9 +6,11 @@ use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
+use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::BufWriter;
 use std::io::Seek;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
@@ -90,18 +92,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map = java_properties::read(BufReader::new(f))?;
 
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
+    let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
+    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
+    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
+
+    assert_eq!(map.get("compressionflags").unwrap(), "");
 
     // Read the offsets
-    let data_offsets = mmap_file(&format!("{}.offsets", args.basename));
     let data_graph = mmap_file(&format!("{}.graph", args.basename));
 
-    let offsets_slice = unsafe {
-        core::slice::from_raw_parts(
-            data_offsets.as_ptr() as *const ReadType,
-            (data_offsets.len() + core::mem::size_of::<ReadType>() - 1)
-                / core::mem::size_of::<ReadType>(),
-        )
-    };
     let graph_slice = unsafe {
         core::slice::from_raw_parts(
             data_graph.as_ptr() as *const ReadType,
@@ -110,40 +109,27 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     };
 
-    let mut reader =
-        BufferedBitStreamRead::<LE, BufferType, _>::new(MemWordReadInfinite::new(&offsets_slice));
+    let mut file = std::fs::File::open(format!("{}.ef", args.basename))?;
+    let file_len = file.seek(std::io::SeekFrom::End(0))?;
+    let mmap = unsafe {
+        mmap_rs::MmapOptions::new(file_len as _)?
+            .with_file(file, 0)
+            .map()?
+    };
 
-    let mut pr_offsets = ProgressLogger::default();
-    pr_offsets.item_name = "offset".to_string();
-    pr_offsets.start("Loading offsets...");
-    // Read the offsets gammas
-    let mut offsets = EliasFanoBuilder::new(
-        (data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
-        num_nodes as u64,
-    );
-
-    let mut offset = 0;
-    for _ in 0..num_nodes {
-        offset += reader.read_gamma().unwrap() as usize;
-        offsets.push(offset as _).unwrap();
-        pr_offsets.update();
-    }
-
-    pr_offsets.done_with_count(num_nodes as _);
-    let offsets: webgraph::EF<Vec<u64>> = offsets.build().convert_to().unwrap();
+    let offsets = webgraph::EF::<&[u64]>::deserialize(&mmap)?.0;
 
     let code_reader = DynamicCodesReader::new(
-        BufferedBitStreamRead::<LE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
+        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
         &CompFlags::from_properties(&map)?,
     )?;
-
     let random_reader = BVGraph::new(
         code_reader,
-        offsets,
-        map.get("minintervallength").unwrap().parse::<usize>()?,
-        map.get("compressionwindow").unwrap().parse::<usize>()?,
-        num_nodes,
-        map.get("arcs").unwrap().parse::<usize>()?,
+        offsets.clone(),
+        min_interval_length,
+        compression_window,
+        num_nodes as usize,
+        num_arcs as usize,
     );
 
     let mut glob_pr = ProgressLogger::default().display_memory();
@@ -272,6 +258,41 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
     }
+    glob_pr.done();
+
+    let mut perm = (0..num_nodes).collect::<Vec<_>>();
+    perm.par_sort_unstable_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
+
+    let file = std::fs::File::create(&format!("{}-llp.graph", args.basename))?;
+
+    let mut buffer: Vec<u64> = Vec::new();
+    let bit_write =
+        <BufferedBitStreamWrite<LE, _>>::new(<FileBackend<u64, _>>::new(BufWriter::new(file)));
+
+    let codes_writer = DynamicCodesWriter::new(
+        bit_write,
+        &CompFlags {
+            ..Default::default()
+        },
+    );
+
+    let mut bvcomp = BVComp::new(codes_writer, 1, 4);
+    glob_pr.expected_updates = Some(num_nodes);
+    glob_pr.start("Writing...");
+    bvcomp.extend(
+        PermutedGraph {
+            graph: &random_reader,
+            perm: &perm,
+        }
+        .iter_nodes()
+        .map(|(x, succ)| {
+            glob_pr.update();
+            let mut sorted = succ.collect::<Vec<_>>();
+            sorted.sort();
+            (x, sorted.into_iter())
+        }),
+    )?;
+    bvcomp.flush()?;
     glob_pr.done();
     Ok(())
 }

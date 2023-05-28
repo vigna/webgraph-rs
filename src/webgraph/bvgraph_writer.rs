@@ -148,7 +148,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             if self.compression_window != 0 {
                 if self.curr_node > 0 {
                     self.diff_comp(&succ_vec);
-                    dbg!(&self.blocks);
                     self.bit_write.write_reference_offset(1)?;
                     self.bit_write.write_block_count(self.blocks.len() as _)?;
                     if !self.blocks.is_empty() {
@@ -258,7 +257,7 @@ fn test_writer() -> Result<()> {
 
     let cnr = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
 
-    bvcomp.extend(cnr.take(400)).unwrap();
+    bvcomp.extend(cnr).unwrap();
     bvcomp.flush()?;
 
     let cnr_vec =

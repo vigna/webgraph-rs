@@ -1,7 +1,7 @@
 use crate::traits::{NumNodes, SequentialGraph};
 pub struct PermutedGraph<'a, G: SequentialGraph> {
-    graph: &'a G,
-    perm: &'a [usize],
+    pub graph: &'a G,
+    pub perm: &'a [usize],
 }
 
 impl<'a, G: SequentialGraph> NumNodes for PermutedGraph<'a, G> {

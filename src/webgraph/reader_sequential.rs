@@ -52,8 +52,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
         let degree = self.codes_reader.read_outdegree()? as usize;
 
-        dbg!(node_id, degree);
-
         // no edges, we are done!
         if degree == 0 {
             return Ok(());
@@ -77,7 +75,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             //debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
             let number_of_blocks = self.codes_reader.read_block_count()? as usize;
-            dbg!(number_of_blocks, neighbours.len());
             // no blocks, we copy everything
             if number_of_blocks == 0 {
                 results.extend_from_slice(neighbours);
@@ -85,13 +82,11 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero
                 let mut idx = self.codes_reader.read_blocks()? as usize;
-                dbg!(idx);
                 results.extend_from_slice(&neighbours[..idx]);
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
                     let block = self.codes_reader.read_blocks()? as usize;
-                    dbg!(block);
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
                         results.extend_from_slice(&neighbours[idx..end]);
@@ -112,7 +107,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
                 let node_id_offset = nat2int(self.codes_reader.read_interval_start()?);
-                debug_assert!((node_id as i64 + node_id_offset) >= 0);
                 let mut start = (node_id as i64 + node_id_offset) as usize;
                 let mut delta = self.codes_reader.read_interval_len()? as usize;
                 delta += self.min_interval_length;
