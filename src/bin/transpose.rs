@@ -125,13 +125,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
     }
-    let sorted = sp.build();
+    let sorted = sp.finish();
     pl.done();
 
     pl.start("Reading batches...");
     pl.expected_updates = Some(num_arcs as _);
     let mut c = 0;
-    for _ in sorted {
+    for _ in sorted.into_iter() {
         c += 1;
         pl.light_update()
     }

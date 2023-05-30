@@ -1,3 +1,4 @@
+use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use itertools;
 use itertools::KMerge;
@@ -7,6 +8,7 @@ use tempfile::tempdir;
 
 pub struct SortPairs<T: Send + Copy> {
     max_len: usize,
+    last_batch_len: usize,
     pairs: Vec<(usize, usize, T)>,
     dir: PathBuf,
     num_batches: usize,
@@ -16,54 +18,58 @@ impl<T: Send + Copy> SortPairs<T> {
     pub fn new(batch_size: usize) -> anyhow::Result<Self> {
         Ok(SortPairs {
             max_len: batch_size,
+            last_batch_len: 0,
             pairs: Vec::with_capacity(batch_size),
             dir: tempdir()?.into_path(),
             num_batches: 0,
         })
     }
 
-    fn dump(&mut self) {
+    fn dump(&mut self) -> Result<()> {
         self.pairs.par_sort_unstable_by_key(|(x, y, _)| (*x, *y));
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
-        let file = std::io::BufWriter::new(std::fs::File::create(&batch_name).unwrap());
+        let file = std::io::BufWriter::new(std::fs::File::create(&batch_name)?);
         let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
         // TODO!: here the labels t are not considered
         let (mut prev_x, mut prev_y, _prev_t) = (0, 0, 0);
         for &(x, y, _t) in &self.pairs {
-            stream.write_gamma((x - prev_x) as _).unwrap();
+            stream.write_gamma((x - prev_x) as _)?;
             if x != prev_x {
                 // Reset prev_y
                 prev_y = 0;
             }
-            stream.write_gamma((y - prev_y) as _).unwrap();
+            stream.write_gamma((y - prev_y) as _)?;
             (prev_x, prev_y) = (x, y);
         }
-        println!("Dumping");
         drop(stream);
 
-        let file = std::io::BufReader::new(std::fs::File::open(&batch_name).unwrap());
+        let file = std::io::BufReader::new(std::fs::File::open(&batch_name)?);
         let mut stream = <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
         for _ in 0..self.pairs.len() {
-            let _x = stream.read_gamma().unwrap();
-            let _y = stream.read_gamma().unwrap();
+            let _x = stream.read_gamma()?;
+            let _y = stream.read_gamma()?;
         }
 
         self.pairs.clear();
         self.num_batches += 1;
-        println!("End");
+
+        Ok(())
     }
 
-    pub fn push(&mut self, x: usize, y: usize, t: T) {
+    pub fn push(&mut self, x: usize, y: usize, t: T) -> Result<()> {
         self.pairs.push((x, y, t));
         if self.pairs.len() >= self.max_len {
-            self.dump();
+            self.dump()?;
         }
+        Ok(())
     }
 
-    pub fn build(mut self) -> KMerge<BatchIterator> {
-        println!("Building");
-        let last_batch_len = self.pairs.len();
-        self.dump();
+    pub fn finish(&mut self) -> Result<()> {
+        self.last_batch_len = self.pairs.len();
+        Ok(self.dump()?)
+    }
+
+    pub fn iter(&self) -> KMerge<BatchIterator> {
         let mut iterators = Vec::with_capacity(self.num_batches);
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
@@ -71,7 +77,7 @@ impl<T: Send + Copy> SortPairs<T> {
             let stream = <BufferedBitStreamRead<LE, u64, _>>::new(<FileBackend<u32, _>>::new(file));
             iterators.push(BatchIterator {
                 len: if i == self.num_batches - 1 {
-                    last_batch_len
+                    self.last_batch_len
                 } else {
                     self.max_len
                 },
@@ -110,6 +116,15 @@ impl Iterator for BatchIterator {
         self.prev_y = y;
         self.current += 1;
         Some((x, y))
+    }
+}
+
+impl<T: Send + Copy> core::ops::Drop for SortPairs<T> {
+    fn drop(&mut self) {
+        for i in 0..self.num_batches {
+            let batch_name = self.dir.join(format!("{:06x}", i));
+            std::fs::remove_file(batch_name);
+        }
     }
 }
 

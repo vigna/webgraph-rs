@@ -178,7 +178,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             *delta += local_delta;
                             break;
                         }
-                        for &node in &perm[next_pos..(next_pos + GRANULARITY).min(perm.len())] {
+                        let end_pos = (next_pos + GRANULARITY).min(perm.len());
+                        for &node in &perm[next_pos..end_pos] {
                             if !can_change[node].load(Relaxed) {
                                 continue;
                             }
@@ -207,9 +208,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut old = 0.0;
                             let mut majorities = vec![];
 
-                            for (&label, &count) in map.iter() {
+                            for (&label, &freq) in map.iter() {
                                 let volume = label_store.volume(label);
-                                let val = count as f64 - gamma * (volume + 1 - count) as f64;
+                                let val = (1.0 + gamma) * freq as f64 - gamma * (volume + 1) as f64;
 
                                 if max == val {
                                     majorities.push(label);
@@ -238,10 +239,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
 
                             local_delta += max - old;
-
-                            let pr = &mut prlock.lock().unwrap();
-                            pr.update_with_count(GRANULARITY);
                         }
+                        let pr = &mut prlock.lock().unwrap();
+                        pr.update_with_count(end_pos - next_pos);
                     }
                 });
             }
@@ -265,7 +265,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let file = std::fs::File::create(&format!("{}-llp.graph", args.basename))?;
 
-    let mut buffer: Vec<u64> = Vec::new();
     let bit_write =
         <BufferedBitStreamWrite<LE, _>>::new(<FileBackend<u64, _>>::new(BufWriter::new(file)));
 
@@ -275,24 +274,25 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..Default::default()
         },
     );
+    /*
+    let sort_pairs = Sorted::new(num_nodes, 1_000_000_000).unwrap();
+    PermutedGraph {
+        graph: &random_reader,
+        perm: &perm,
+    }
+    .iter_nodes()
+    .for_each(|(x, succ)| {
+        succ.for_each(|s| {
+            sort_pairs.push(x, s, ());
+        })
+    });
 
     let mut bvcomp = BVComp::new(codes_writer, 1, 4);
     glob_pr.expected_updates = Some(num_nodes);
+    glob_pr.item_name = "node".to_string();
     glob_pr.start("Writing...");
-    bvcomp.extend(
-        PermutedGraph {
-            graph: &random_reader,
-            perm: &perm,
-        }
-        .iter_nodes()
-        .map(|(x, succ)| {
-            glob_pr.update();
-            let mut sorted = succ.collect::<Vec<_>>();
-            sorted.sort();
-            (x, sorted.into_iter())
-        }),
-    )?;
+    bvcomp.extend(sort_pairs.build())?;
     bvcomp.flush()?;
-    glob_pr.done();
+    glob_pr.done();*/
     Ok(())
 }

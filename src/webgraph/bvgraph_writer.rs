@@ -227,7 +227,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
 fn test_writer() -> Result<()> {
     use crate::{prelude::*, webgraph::VecGraph};
     use dsi_bitstream::prelude::*;
-    let g = VecGraph::from_arc_list(&[
+    let _g = VecGraph::from_arc_list(&[
         (0, 1),
         (0, 2),
         (0, 3),

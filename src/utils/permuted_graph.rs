@@ -64,6 +64,97 @@ impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, 
     }
 }
 
+use super::{BatchIterator, SortPairs};
+use anyhow::Result;
+pub struct Sorted {
+    num_nodes: usize,
+    sort_pairs: SortPairs<()>,
+}
+
+impl Sorted {
+    pub fn new(num_nodes: usize, batch_size: usize) -> anyhow::Result<Self> {
+        Ok(Sorted {
+            num_nodes,
+            sort_pairs: SortPairs::new(batch_size)?,
+        })
+    }
+
+    pub fn push(&mut self, x: usize, y: usize) -> Result<()> {
+        self.sort_pairs.push(x, y, ())
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        self.sort_pairs.finish()
+    }
+
+    pub fn extend<I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>>(
+        &mut self,
+        iter_nodes: I,
+    ) -> Result<()> {
+        for (x, succ) in iter_nodes {
+            for s in succ {
+                self.push(x, s)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn build(self) -> MergedGraph {
+        MergedGraph {
+            num_nodes: self.num_nodes,
+            sorted_pairs: self.sort_pairs,
+        }
+    }
+}
+
+pub struct MergedGraph {
+    num_nodes: usize,
+    sorted_pairs: SortPairs<()>,
+}
+
+impl NumNodes for MergedGraph {
+    fn num_nodes(&self) -> usize {
+        self.num_nodes
+    }
+}
+
+impl SequentialGraph for MergedGraph {
+    type NodesIter<'b> = SortedNodePermutedIterator;
+    type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator;
+
+    fn num_arcs_hint(&self) -> Option<usize> {
+        None
+    }
+
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        SortedNodePermutedIterator {
+            iter: self.sorted_pairs.iter(),
+        }
+    }
+}
+
+pub struct SortedNodePermutedIterator {
+    iter: itertools::KMerge<BatchIterator>,
+}
+
+impl Iterator for SortedNodePermutedIterator {
+    type Item = (usize, SortedSequentialPermutedIterator);
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+}
+
+pub struct SortedSequentialPermutedIterator {
+    sorted_pairs: SortPairs<()>,
+}
+
+impl Iterator for SortedSequentialPermutedIterator {
+    type Item = usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+}
+
 #[cfg(test)]
 #[test]
 
