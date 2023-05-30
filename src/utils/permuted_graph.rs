@@ -35,7 +35,7 @@ pub struct NodePermutedIterator<'a, I: Iterator<Item = (usize, J)>, J: Iterator<
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
+impl<'a, I: Iterator<Item = (usize, J)>, J: ExactSizeIterator<Item = usize>> Iterator
     for NodePermutedIterator<'a, I, J>
 {
     type Item = (usize, SequentialPermutedIterator<'a, J>);
@@ -52,15 +52,23 @@ impl<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
     }
 }
 
-pub struct SequentialPermutedIterator<'a, I: Iterator<Item = usize>> {
+pub struct SequentialPermutedIterator<'a, I: ExactSizeIterator<Item = usize>> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
+impl<'a, I: ExactSizeIterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| self.perm[x])
+    }
+}
+
+impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
+    for SequentialPermutedIterator<'a, I>
+{
+    fn len(&self) -> usize {
+        self.iter.len()
     }
 }
 
@@ -152,6 +160,12 @@ impl Iterator for SortedSequentialPermutedIterator {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
         None
+    }
+}
+
+impl ExactSizeIterator for SortedSequentialPermutedIterator {
+    fn len(&self) -> usize {
+        0
     }
 }
 
