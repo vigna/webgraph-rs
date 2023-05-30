@@ -130,14 +130,16 @@ impl<T: Send + Copy> core::ops::Drop for SortPairs<T> {
 
 #[cfg(test)]
 #[test]
-pub fn test_push() {
-    let mut sp = SortPairs::new(10).unwrap();
+pub fn test_push() -> Result<()> {
+    let mut sp = SortPairs::new(10)?;
     for i in 0..25 {
-        sp.push(i, i, i);
+        sp.push(i, i, i)?;
     }
 
-    let iter = sp.build();
-    for (x, y) in iter {
+    sp.finish()?;
+    for (x, y) in sp.iter() {
         println!("{} {}", x, y)
     }
+
+    Ok(())
 }
