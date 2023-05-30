@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use core::{cell::RefCell, marker::PhantomData};
 
 use crate::traits::{NumNodes, SequentialGraph};
 pub struct PermutedGraph<'a, G: SequentialGraph> {
@@ -109,28 +109,30 @@ impl Sorted {
         Ok(())
     }
 
-    pub fn build(self) -> MergedGraph {
+    pub fn build<'a>(self) -> MergedGraph<'a> {
         MergedGraph {
             num_nodes: self.num_nodes,
             sorted_pairs: self.sort_pairs,
+            _marker: PhantomData,
         }
     }
 }
 
-pub struct MergedGraph {
+pub struct MergedGraph<'a> {
     num_nodes: usize,
     sorted_pairs: SortPairs<()>,
+    _marker: std::marker::PhantomData<&'a ()>,
 }
 
-impl NumNodes for MergedGraph {
+impl<'a> NumNodes for MergedGraph<'a> {
     fn num_nodes(&self) -> usize {
         self.num_nodes
     }
 }
 
-impl SequentialGraph for MergedGraph {
-    type NodesIter<'b> = SortedNodePermutedIterator<'b>;
-    type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator<'b>;
+impl<'a> SequentialGraph for MergedGraph<'a> {
+    type NodesIter<'b> = SortedNodePermutedIterator<'b> where Self: 'b;
+    type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator<'b> where Self: 'b;
 
     fn num_arcs_hint(&self) -> Option<usize> {
         None
@@ -140,17 +142,25 @@ impl SequentialGraph for MergedGraph {
         let mut iter = self.sorted_pairs.iter();
 
         SortedNodePermutedIterator {
-            num_nodes: self.num_nodes,
-            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
-            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
-            iter,
-            _marker: core::marker::PhantomData,
+            state: RefCell::new(SortedNodePermutedIteratorState {
+                max_node: self.num_nodes.wrapping_sub(1),
+                curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+                next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
+                iter,
+                _marker: PhantomData,
+            }),
+            _marker: PhantomData,
         }
     }
 }
 
 pub struct SortedNodePermutedIterator<'a> {
-    num_nodes: usize,
+    state: std::cell::RefCell<SortedNodePermutedIteratorState<'a>>,
+    _marker: std::marker::PhantomData<&'a ()>,
+}
+
+struct SortedNodePermutedIteratorState<'a> {
+    max_node: usize,
     curr_node: usize,
     next_pair: (usize, usize),
     iter: itertools::KMerge<BatchIterator>,
@@ -160,43 +170,39 @@ pub struct SortedNodePermutedIterator<'a> {
 impl<'a> Iterator for SortedNodePermutedIterator<'a> {
     type Item = (usize, SortedSequentialPermutedIterator<'a>);
     fn next(&mut self) -> Option<Self::Item> {
-        self.curr_node.wrapping_add(1);
-        if self.curr_node == self.num_nodes {
+        let mut self_mut = self.state.borrow_mut();
+        if self_mut.curr_node == self_mut.max_node {
             return None;
         }
+        self_mut.curr_node = self_mut.curr_node.wrapping_add(1);
 
-        while self.next_pair.0 < self.curr_node {
-            self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX));
+        while self_mut.next_pair.0 < self_mut.curr_node {
+            self_mut.next_pair = self_mut.iter.next().unwrap_or((usize::MAX, usize::MAX));
         }
 
-        let result = Some((
-            self.curr_node,
-            SortedSequentialPermutedIterator { node_iter: self },
-        ));
-        result
+        Some((
+            self_mut.curr_node,
+            SortedSequentialPermutedIterator { state: self_mut },
+        ))
     }
 }
 
-pub struct SortedSequentialPermutedIterator<'a: 'b, 'b> {
-    node_iter: &'b mut SortedNodePermutedIterator<'a>,
+pub struct SortedSequentialPermutedIterator<'a> {
+    state: std::cell::RefMut<'a, SortedNodePermutedIteratorState<'a>>,
 }
 
 impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.node_iter.next_pair.0 != self.node_iter.curr_node {
+        return if self.state.next_pair.0 != self.state.curr_node {
             None
         } else {
             loop {
                 // Skip duplicate pairs
-                let pair = self
-                    .node_iter
-                    .iter
-                    .next()
-                    .unwrap_or((usize::MAX, usize::MAX));
-                if pair != self.node_iter.next_pair {
-                    let result = self.node_iter.next_pair.1;
-                    self.node_iter.next_pair = pair;
+                let pair = self.state.iter.next().unwrap_or((usize::MAX, usize::MAX));
+                if pair != self.state.next_pair {
+                    let result = self.state.next_pair.1;
+                    self.state.next_pair = pair;
                     return Some(result);
                 }
             }
