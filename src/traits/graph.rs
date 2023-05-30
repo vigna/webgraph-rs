@@ -52,7 +52,7 @@ pub trait SequentialGraph: NumNodes {
     type NodesIter<'a>: Iterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
     where
         Self: 'a;
-    type SequentialSuccessorIter<'a>: ExactSizeIterator<Item = usize> + 'a
+    type SequentialSuccessorIter<'a>: Iterator<Item = usize> + 'a
     where
         Self: 'a;
 

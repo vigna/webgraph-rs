@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use crate::traits::{NumNodes, SequentialGraph};
 pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub graph: &'a G,
@@ -35,7 +37,7 @@ pub struct NodePermutedIterator<'a, I: Iterator<Item = (usize, J)>, J: Iterator<
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = (usize, J)>, J: ExactSizeIterator<Item = usize>> Iterator
+impl<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
     for NodePermutedIterator<'a, I, J>
 {
     type Item = (usize, SequentialPermutedIterator<'a, J>);
@@ -52,12 +54,12 @@ impl<'a, I: Iterator<Item = (usize, J)>, J: ExactSizeIterator<Item = usize>> Ite
     }
 }
 
-pub struct SequentialPermutedIterator<'a, I: ExactSizeIterator<Item = usize>> {
+pub struct SequentialPermutedIterator<'a, I: Iterator<Item = usize>> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: ExactSizeIterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
+impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| self.perm[x])
@@ -127,45 +129,78 @@ impl NumNodes for MergedGraph {
 }
 
 impl SequentialGraph for MergedGraph {
-    type NodesIter<'b> = SortedNodePermutedIterator;
-    type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator;
+    type NodesIter<'b> = SortedNodePermutedIterator<'b>;
+    type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator<'b>;
 
     fn num_arcs_hint(&self) -> Option<usize> {
         None
     }
 
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        let mut iter = self.sorted_pairs.iter();
+
         SortedNodePermutedIterator {
-            iter: self.sorted_pairs.iter(),
+            num_nodes: self.num_nodes,
+            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
+            iter,
+            _marker: core::marker::PhantomData,
         }
     }
 }
 
-pub struct SortedNodePermutedIterator {
+pub struct SortedNodePermutedIterator<'a> {
+    num_nodes: usize,
+    curr_node: usize,
+    next_pair: (usize, usize),
     iter: itertools::KMerge<BatchIterator>,
+    _marker: std::marker::PhantomData<&'a ()>,
 }
 
-impl Iterator for SortedNodePermutedIterator {
-    type Item = (usize, SortedSequentialPermutedIterator);
+impl<'a> Iterator for SortedNodePermutedIterator<'a> {
+    type Item = (usize, SortedSequentialPermutedIterator<'a>);
     fn next(&mut self) -> Option<Self::Item> {
-        None
+        self.curr_node.wrapping_add(1);
+        if self.curr_node == self.num_nodes {
+            return None;
+        }
+
+        while self.next_pair.0 < self.curr_node {
+            self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX));
+        }
+
+        let result = Some((
+            self.curr_node,
+            SortedSequentialPermutedIterator { node_iter: self },
+        ));
+        result
     }
 }
 
-pub struct SortedSequentialPermutedIterator {
-    sorted_pairs: SortPairs<()>,
+pub struct SortedSequentialPermutedIterator<'a: 'b, 'b> {
+    node_iter: &'b mut SortedNodePermutedIterator<'a>,
 }
 
-impl Iterator for SortedSequentialPermutedIterator {
+impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        None
-    }
-}
-
-impl ExactSizeIterator for SortedSequentialPermutedIterator {
-    fn len(&self) -> usize {
-        0
+        return if self.node_iter.next_pair.0 != self.node_iter.curr_node {
+            None
+        } else {
+            loop {
+                // Skip duplicate pairs
+                let pair = self
+                    .node_iter
+                    .iter
+                    .next()
+                    .unwrap_or((usize::MAX, usize::MAX));
+                if pair != self.node_iter.next_pair {
+                    let result = self.node_iter.next_pair.1;
+                    self.node_iter.next_pair = pair;
+                    return Some(result);
+                }
+            }
+        };
     }
 }
 
