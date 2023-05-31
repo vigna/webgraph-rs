@@ -12,7 +12,6 @@ pub struct SortPairs<T: Send + Copy> {
     pairs: Vec<(usize, usize, T)>,
     dir: PathBuf,
     num_batches: usize,
-    rc: std::rc::Rc<()>,
 }
 
 impl<T: Send + Copy> SortPairs<T> {
@@ -23,7 +22,6 @@ impl<T: Send + Copy> SortPairs<T> {
             pairs: Vec::with_capacity(batch_size),
             dir: tempdir()?.into_path(),
             num_batches: 0,
-            rc: std::rc::Rc::new(()),
         })
     }
 
@@ -71,7 +69,7 @@ impl<T: Send + Copy> SortPairs<T> {
         Ok(self.dump()?)
     }
 
-    pub fn iter(&self) -> MergedIterator {
+    pub fn iter(&self) -> MergedIterator<T> {
         let mut iterators = Vec::with_capacity(self.num_batches);
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
@@ -92,17 +90,17 @@ impl<T: Send + Copy> SortPairs<T> {
 
         MergedIterator {
             iter: itertools::kmerge(iterators),
-            reference: &self.rc,
+            _reference: self,
         }
     }
 }
 
-pub struct MergedIterator<'a> {
+pub struct MergedIterator<'a, T: Send + Copy> {
     pub iter: KMerge<BatchIterator>,
-    reference: &'a (),
+    _reference: &'a SortPairs<T>,
 }
 
-impl<'a> Into<KMerge<BatchIterator>> for MergedIterator<'a> {
+impl<'a> Into<KMerge<BatchIterator>> for MergedIterator<'a, ()> {
     fn into(self) -> KMerge<BatchIterator> {
         self.iter
     }
