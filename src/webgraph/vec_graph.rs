@@ -45,14 +45,11 @@ impl VecGraph {
         iterator: I,
     ) -> Self {
         let mut g = Self::new();
-        for (node, succ) in iterator {
-            for v in succ {
-                g.add_arc(node, v);
-            }
-        }
+        g.add_node_iter(iterator);
         g
     }
 
+    // TODO: return bool?
     pub fn add_arc_list(&mut self, arcs: &[(usize, usize)]) -> &mut Self {
         for (u, v) in arcs {
             self.add_arc(*u, *v);
@@ -65,6 +62,7 @@ impl VecGraph {
         iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
     ) -> &mut Self {
         for (node, succ) in iterator {
+            self.add_node(node);
             for v in succ {
                 self.add_arc(node, v);
             }
@@ -90,9 +88,11 @@ impl VecGraph {
         Some(result)
     }
 
-    pub fn add_node(&mut self) -> usize {
-        self.succ.push(BTreeSet::new());
-        self.succ.len() - 1
+    pub fn add_node(&mut self, node: usize) -> bool {
+        let len = self.succ.len();
+        self.succ
+            .extend((len..=node).into_iter().map(|_| BTreeSet::new()));
+        len <= node
     }
 }
 

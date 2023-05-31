@@ -1,7 +1,7 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use itertools;
 use itertools::KMerge;
+use itertools::{self, Merge};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -12,6 +12,7 @@ pub struct SortPairs<T: Send + Copy> {
     pairs: Vec<(usize, usize, T)>,
     dir: PathBuf,
     num_batches: usize,
+    rc: std::rc::Rc<()>,
 }
 
 impl<T: Send + Copy> SortPairs<T> {
@@ -22,6 +23,7 @@ impl<T: Send + Copy> SortPairs<T> {
             pairs: Vec::with_capacity(batch_size),
             dir: tempdir()?.into_path(),
             num_batches: 0,
+            rc: std::rc::Rc::new(()),
         })
     }
 
@@ -69,7 +71,7 @@ impl<T: Send + Copy> SortPairs<T> {
         Ok(self.dump()?)
     }
 
-    pub fn iter(&self) -> KMerge<BatchIterator> {
+    pub fn iter(&self) -> MergedIterator {
         let mut iterators = Vec::with_capacity(self.num_batches);
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
@@ -88,7 +90,21 @@ impl<T: Send + Copy> SortPairs<T> {
             });
         }
 
-        itertools::kmerge(iterators)
+        MergedIterator {
+            iter: itertools::kmerge(iterators),
+            reference: &self.rc,
+        }
+    }
+}
+
+pub struct MergedIterator<'a> {
+    pub iter: KMerge<BatchIterator>,
+    reference: &'a (),
+}
+
+impl<'a> Into<KMerge<BatchIterator>> for MergedIterator<'a> {
+    fn into(self) -> KMerge<BatchIterator> {
+        self.iter
     }
 }
 
@@ -123,7 +139,8 @@ impl<T: Send + Copy> core::ops::Drop for SortPairs<T> {
     fn drop(&mut self) {
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
-            std::fs::remove_file(batch_name);
+            // It's OK if something is not OK here
+            let _ = std::fs::remove_file(batch_name);
         }
     }
 }
@@ -137,7 +154,7 @@ pub fn test_push() -> Result<()> {
     }
 
     sp.finish()?;
-    for (x, y) in sp.iter() {
+    for (x, y) in sp.iter().iter {
         println!("{} {}", x, y)
     }
 

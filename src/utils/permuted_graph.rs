@@ -1,6 +1,6 @@
-use core::{cell::RefCell, marker::PhantomData};
-
 use crate::traits::{NumNodes, SequentialGraph};
+use anyhow::Result;
+use core::marker::PhantomData;
 pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub graph: &'a G,
     pub perm: &'a [usize],
@@ -75,7 +75,6 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
 }
 
 use super::{BatchIterator, SortPairs};
-use anyhow::Result;
 pub struct Sorted {
     num_nodes: usize,
     sort_pairs: SortPairs<()>,
@@ -93,10 +92,6 @@ impl Sorted {
         self.sort_pairs.push(x, y, ())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
-        self.sort_pairs.finish()
-    }
-
     pub fn extend<I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>>(
         &mut self,
         iter_nodes: I,
@@ -109,12 +104,13 @@ impl Sorted {
         Ok(())
     }
 
-    pub fn build<'a>(self) -> MergedGraph<'a> {
-        MergedGraph {
+    pub fn build<'a>(mut self) -> Result<MergedGraph<'a>> {
+        self.sort_pairs.finish()?;
+        Ok(MergedGraph {
             num_nodes: self.num_nodes,
             sorted_pairs: self.sort_pairs,
             _marker: PhantomData,
-        }
+        })
     }
 }
 
@@ -142,25 +138,17 @@ impl<'a> SequentialGraph for MergedGraph<'a> {
         let mut iter = self.sorted_pairs.iter();
 
         SortedNodePermutedIterator {
-            state: RefCell::new(SortedNodePermutedIteratorState {
-                max_node: self.num_nodes.wrapping_sub(1),
-                curr_node: 0_usize.wrapping_sub(1), // No node seen yet
-                next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
-                iter,
-                _marker: PhantomData,
-            }),
+            num_nodes: self.num_nodes,
+            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+            next_pair: iter.iter.next().unwrap_or((usize::MAX, usize::MAX)),
+            iter: iter.iter,
             _marker: PhantomData,
         }
     }
 }
 
 pub struct SortedNodePermutedIterator<'a> {
-    state: std::cell::RefCell<SortedNodePermutedIteratorState<'a>>,
-    _marker: std::marker::PhantomData<&'a ()>,
-}
-
-struct SortedNodePermutedIteratorState<'a> {
-    max_node: usize,
+    num_nodes: usize,
     curr_node: usize,
     next_pair: (usize, usize),
     iter: itertools::KMerge<BatchIterator>,
@@ -170,39 +158,44 @@ struct SortedNodePermutedIteratorState<'a> {
 impl<'a> Iterator for SortedNodePermutedIterator<'a> {
     type Item = (usize, SortedSequentialPermutedIterator<'a>);
     fn next(&mut self) -> Option<Self::Item> {
-        let mut self_mut = self.state.borrow_mut();
-        if self_mut.curr_node == self_mut.max_node {
+        self.curr_node = self.curr_node.wrapping_add(1);
+        if self.curr_node == self.num_nodes {
             return None;
         }
-        self_mut.curr_node = self_mut.curr_node.wrapping_add(1);
 
-        while self_mut.next_pair.0 < self_mut.curr_node {
-            self_mut.next_pair = self_mut.iter.next().unwrap_or((usize::MAX, usize::MAX));
+        while self.next_pair.0 < self.curr_node {
+            self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX));
         }
 
         Some((
-            self_mut.curr_node,
-            SortedSequentialPermutedIterator { state: self_mut },
+            self.curr_node,
+            SortedSequentialPermutedIterator {
+                node_iter_ptr: {
+                    let self_ptr: *mut SortedNodePermutedIterator = self;
+                    self_ptr
+                },
+            },
         ))
     }
 }
 
 pub struct SortedSequentialPermutedIterator<'a> {
-    state: std::cell::RefMut<'a, SortedNodePermutedIteratorState<'a>>,
+    node_iter_ptr: *mut SortedNodePermutedIterator<'a>,
 }
 
 impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.state.next_pair.0 != self.state.curr_node {
+        let node_iter = unsafe { &mut *self.node_iter_ptr };
+        return if node_iter.next_pair.0 != node_iter.curr_node {
             None
         } else {
             loop {
                 // Skip duplicate pairs
-                let pair = self.state.iter.next().unwrap_or((usize::MAX, usize::MAX));
-                if pair != self.state.next_pair {
-                    let result = self.state.next_pair.1;
-                    self.state.next_pair = pair;
+                let pair = node_iter.iter.next().unwrap_or((usize::MAX, usize::MAX));
+                if pair != node_iter.next_pair {
+                    let result = node_iter.next_pair.1;
+                    node_iter.next_pair = pair;
                     return Some(result);
                 }
             }
@@ -212,8 +205,7 @@ impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
 
 #[cfg(test)]
 #[test]
-
-fn test_permuted_graph() {
+fn test_permuted_graph() -> Result<()> {
     use crate::traits::graph::RandomAccessGraph;
     use crate::webgraph::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
@@ -226,10 +218,41 @@ fn test_permuted_graph() {
     let v = VecGraph::from_node_iter(p.iter_nodes());
 
     assert_eq!(v.num_nodes(), 3);
-    assert_eq!(v.outdegree(0).unwrap(), 1);
-    assert_eq!(v.outdegree(1).unwrap(), 2);
-    assert_eq!(v.outdegree(2).unwrap(), 1);
-    assert_eq!(v.successors(0).unwrap().collect::<Vec<_>>(), vec![1]);
-    assert_eq!(v.successors(1).unwrap().collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(v.successors(2).unwrap().collect::<Vec<_>>(), vec![0]);
+    assert_eq!(v.outdegree(0)?, 1);
+    assert_eq!(v.outdegree(1)?, 2);
+    assert_eq!(v.outdegree(2)?, 1);
+    assert_eq!(v.successors(0)?.collect::<Vec<_>>(), vec![1]);
+    assert_eq!(v.successors(1)?.collect::<Vec<_>>(), vec![0, 2]);
+    assert_eq!(v.successors(2)?.collect::<Vec<_>>(), vec![0]);
+
+    Ok(())
+}
+
+#[test]
+fn test_sorted_permuted_graph() -> Result<()> {
+    use crate::webgraph::VecGraph;
+    let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
+    let mut s = Sorted::new(g.num_nodes(), 1)?;
+    s.extend(g.iter_nodes())?;
+    let m = s.build()?;
+    let h = VecGraph::from_node_iter(m.iter_nodes());
+    assert_eq!(g, h);
+
+    for batch_size in vec![1, 10, 100] {
+        let mut s = Sorted::new(4, batch_size)?;
+        for _ in 0..1000 {
+            s.push(1, 2)?;
+            s.push(2, 2)?;
+            s.push(2, 1)?;
+            s.push(1, 1)?;
+        }
+
+        let m = s.build()?;
+        let mut g = VecGraph::empty(4);
+        g.add_arc_list(&[(1, 1), (1, 2), (2, 2), (2, 1)]);
+        let h = VecGraph::from_node_iter(m.iter_nodes());
+        assert_eq!(g, h);
+    }
+
+    Ok(())
 }
