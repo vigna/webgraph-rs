@@ -104,29 +104,27 @@ impl Sorted {
         Ok(())
     }
 
-    pub fn build<'a>(mut self) -> Result<MergedGraph<'a>> {
+    pub fn build(mut self) -> Result<MergedGraph> {
         self.sort_pairs.finish()?;
         Ok(MergedGraph {
             num_nodes: self.num_nodes,
             sorted_pairs: self.sort_pairs,
-            _marker: PhantomData,
         })
     }
 }
 
-pub struct MergedGraph<'a> {
+pub struct MergedGraph {
     num_nodes: usize,
     sorted_pairs: SortPairs<()>,
-    _marker: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a> NumNodes for MergedGraph<'a> {
+impl NumNodes for MergedGraph {
     fn num_nodes(&self) -> usize {
         self.num_nodes
     }
 }
 
-impl<'a> SequentialGraph for MergedGraph<'a> {
+impl SequentialGraph for MergedGraph {
     type NodesIter<'b> = SortedNodePermutedIterator<'b> where Self: 'b;
     type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator<'b> where Self: 'b;
 
