@@ -15,7 +15,7 @@ pub struct BVComp<WGCW: WebGraphCodesWriter> {
     curr_node: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Compressor {
     outdegree: usize,
     blocks: Vec<usize>,
@@ -101,7 +101,6 @@ impl Compressor {
         &mut self,
         curr_list: &[usize],
         ref_list: Option<&[usize]>,
-        curr_node: usize,
         min_interval_length: usize,
     ) -> Result<()> {
         self.outdegree = curr_list.len();
@@ -114,11 +113,7 @@ impl Compressor {
 
         if self.outdegree != 0 {
             if let Some(ref_list) = ref_list {
-                if curr_node > 0 {
-                    self.diff_comp(curr_list, ref_list);
-                } else {
-                    self.extra_nodes.extend(curr_list)
-                }
+                self.diff_comp(curr_list, ref_list);
             } else {
                 self.extra_nodes.extend(curr_list)
             }
@@ -265,7 +260,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         // first try to compress the current node without references
         let compressor = &mut self.compressors[0];
         // Compute how we would compress this
-        compressor.compress(curr_list, None, self.curr_node, self.min_interval_length)?;
+        compressor.compress(curr_list, None, self.min_interval_length)?;
         // avoid the mock writing
         if self.compression_window == 0 {
             let written_bits = compressor.write(
@@ -297,12 +292,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             // Get its compressor
             let compressor = &mut self.compressors[delta];
             // Compute how we would compress this
-            compressor.compress(
-                curr_list,
-                Some(ref_list),
-                self.curr_node,
-                self.min_interval_length,
-            )?;
+            compressor.compress(curr_list, Some(ref_list), self.min_interval_length)?;
             // Compute how many bits it would use, using the mock writer
             let bits = compressor.write(
                 &mut self.mock_writer,
@@ -351,6 +341,106 @@ mod test {
     use dsi_bitstream::prelude::*;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
+
+    #[test]
+    fn test_compressor_no_ref() -> Result<()> {
+        let mut compressor = Compressor::new();
+        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], None, 2)?;
+        assert_eq!(
+            compressor,
+            Compressor {
+                outdegree: 7,
+                blocks: vec![],
+                extra_nodes: vec![0, 1, 2, 5, 7, 8, 9],
+                left_interval: vec![0, 7],
+                len_interval: vec![3, 3],
+                residuals: vec![5],
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_compressor1() -> Result<()> {
+        let mut compressor = Compressor::new();
+        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2]), 2)?;
+        assert_eq!(
+            compressor,
+            Compressor {
+                outdegree: 7,
+                blocks: vec![],
+                extra_nodes: vec![5, 7, 8, 9],
+                left_interval: vec![7],
+                len_interval: vec![3],
+                residuals: vec![5],
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_compressor2() -> Result<()> {
+        let mut compressor = Compressor::new();
+        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2, 100]), 2)?;
+        assert_eq!(
+            compressor,
+            Compressor {
+                outdegree: 7,
+                blocks: vec![4],
+                extra_nodes: vec![5, 7, 8, 9],
+                left_interval: vec![7],
+                len_interval: vec![3],
+                residuals: vec![5],
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_compressor3() -> Result<()> {
+        let mut compressor = Compressor::new();
+        compressor.compress(
+            &[0, 1, 2, 5, 7, 8, 9, 100],
+            Some(&[0, 1, 2, 4, 7, 8, 9, 101]),
+            2,
+        )?;
+        assert_eq!(
+            compressor,
+            Compressor {
+                outdegree: 8,
+                blocks: vec![4, 1, 3],
+                extra_nodes: vec![5, 100],
+                left_interval: vec![],
+                len_interval: vec![],
+                residuals: vec![5, 100],
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_writer_window_zero() -> Result<()> {
+        test_compression(0, 0)?;
+        test_compression(0, 1)?;
+        test_compression(0, 2)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_writer_window_one() -> Result<()> {
+        test_compression(1, 0)?;
+        test_compression(1, 1)?;
+        test_compression(1, 2)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_writer_window_two() -> Result<()> {
+        test_compression(2, 0)?;
+        test_compression(2, 1)?;
+        test_compression(2, 2)?;
+        Ok(())
+    }
 
     #[test]
     fn test_writer_cnr() -> Result<()> {
@@ -407,34 +497,9 @@ mod test {
             assert_eq!(true_node_id, seq_node_id);
             let true_succ = true_succ.collect::<Vec<_>>();
             let seq_succ = seq_succ.collect::<Vec<_>>();
-            dbg!(true_node_id, &true_succ);
             assert_eq!(true_succ, seq_succ, "node_id: {}", i);
         }
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_writer_window_zero() -> Result<()> {
-        test_compression(0, 0)?;
-        test_compression(0, 1)?;
-        test_compression(0, 2)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_writer_window_one() -> Result<()> {
-        test_compression(1, 0)?;
-        test_compression(1, 1)?;
-        test_compression(1, 2)?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_writer_window_two() -> Result<()> {
-        test_compression(2, 0)?;
-        test_compression(2, 1)?;
-        test_compression(2, 2)?;
         Ok(())
     }
 
@@ -487,7 +552,6 @@ mod test {
             assert_eq!(true_node_id, seq_node_id);
             let true_succ = true_succ.collect::<Vec<_>>();
             let seq_succ = seq_succ.collect::<Vec<_>>();
-            dbg!(true_node_id, &true_succ);
             assert_eq!(true_succ, seq_succ, "node_id: {}", i);
         }
 
