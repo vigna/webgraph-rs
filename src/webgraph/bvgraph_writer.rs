@@ -349,6 +349,70 @@ mod test {
     use super::*;
     use crate::prelude::*;
     use dsi_bitstream::prelude::*;
+    use std::fs::File;
+    use std::io::{BufReader, BufWriter};
+
+    #[test]
+    fn test_writer_cnr() -> Result<()> {
+        let compression_window = 7;
+        let min_interval_length = 4;
+
+        let mut true_iter = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+
+        // Compress the graph
+        let file_path = std::env::temp_dir().join("cnr-2000.bvcomp");
+        let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
+            File::create(&file_path)?,
+        )));
+
+        let comp_flags = CompFlags {
+            ..Default::default()
+        };
+
+        //let codes_writer = DynamicCodesWriter::new(
+        //    bit_write,
+        //    &comp_flags,
+        //);
+        let codes_writer = <ConstCodesWriter<BE, _>>::new(bit_write);
+
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length);
+
+        bvcomp
+            .extend(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?)
+            .unwrap();
+        bvcomp.flush()?;
+
+        // Read it back
+
+        let bit_read = <BufferedBitStreamRead<BE, u64, _>>::new(<FileBackend<u32, _>>::new(
+            BufReader::new(File::open(&file_path)?),
+        ));
+
+        //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
+        let codes_reader = <ConstCodesReader<BE, _>>::new(bit_read, &comp_flags)?;
+
+        let mut seq_iter = WebgraphSequentialIter::new(
+            codes_reader,
+            compression_window,
+            min_interval_length,
+            true_iter.num_nodes(),
+        );
+
+        // Check that the graph is the same
+        for i in 0..true_iter.num_nodes() {
+            let (true_node_id, true_succ) = true_iter.next().unwrap();
+            let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
+
+            assert_eq!(true_node_id, i);
+            assert_eq!(true_node_id, seq_node_id);
+            let true_succ = true_succ.collect::<Vec<_>>();
+            let seq_succ = seq_succ.collect::<Vec<_>>();
+            dbg!(true_node_id, &true_succ);
+            assert_eq!(true_succ, seq_succ, "node_id: {}", i);
+        }
+
+        Ok(())
+    }
 
     #[test]
     fn test_writer_window_zero() -> Result<()> {
