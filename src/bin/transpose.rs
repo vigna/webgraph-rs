@@ -23,6 +23,9 @@ struct Args {
     transpose: String,
     /// The size of a batch.
     batch_size: usize,
+    /// Location for storage of temporary files
+    #[arg(short = 't', long)]
+    temp_dir: bool,
 }
 
 fn mmap_file(path: &str) -> Mmap {
@@ -50,15 +53,17 @@ pub fn main() -> Result<()> {
     let mut sorted = Sorted::new(seq_reader.num_nodes(), args.batch_size)?;
 
     let mut pl = ProgressLogger::default();
+    pl.item_name = "node".to_string();
+    pl.expected_updates = Some(seq_reader.num_nodes());
     pl.start("Creating batches...");
 
     let mut c = 0;
     for (node, succ) in seq_reader {
         for s in succ {
             sorted.push(s, node)?;
-            pl.light_update();
             c += 1;
         }
+        pl.light_update();
     }
     let sorted = sorted.build()?;
     pl.done();
