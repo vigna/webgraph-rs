@@ -5,7 +5,8 @@ use dsi_bitstream::codes::Code::*;
 use dsi_bitstream::prelude::*;
 
 /// An implementation of [`WebGraphCodesReader`] with the most commonly used codes
-pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> {
+#[derive(Clone)]
+pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek> {
     code_reader: CR,
     read_outdegree: fn(&mut CR) -> Result<u64>,
     read_reference_offset: fn(&mut CR) -> Result<u64>,
@@ -18,7 +19,8 @@ pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone>
     read_residual: fn(&mut CR) -> Result<u64>,
     _marker: core::marker::PhantomData<E>,
 }
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> DynamicCodesReader<E, CR> {
+
+impl<E: Endianness, CR: ReadCodes<E> + BitSeek> DynamicCodesReader<E, CR> {
     fn select_code(code: &Code) -> Result<fn(&mut CR) -> Result<u64>> {
         Ok(match code {
             Unary => CR::read_unary,
@@ -52,25 +54,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> DynamicCodesReader<E, CR
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> Clone for DynamicCodesReader<E, CR> {
-    fn clone(&self) -> Self {
-        Self {
-            code_reader: self.code_reader.clone(),
-            read_outdegree: self.read_outdegree,
-            read_reference_offset: self.read_reference_offset,
-            read_block_count: self.read_block_count,
-            read_blocks: self.read_blocks,
-            read_interval_count: self.read_interval_count,
-            read_interval_start: self.read_interval_start,
-            read_interval_len: self.read_interval_len,
-            read_first_residual: self.read_first_residual,
-            read_residual: self.read_residual,
-            _marker: self._marker,
-        }
-    }
-}
-
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReader<E, CR> {
     fn set_pos(&mut self, bit_index: usize) -> Result<()> {
         self.code_reader.set_pos(bit_index)
     }
@@ -80,9 +64,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> BitSeek for DynamicCodes
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek + Clone> WebGraphCodesReader
-    for DynamicCodesReader<E, CR>
-{
+impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesReader for DynamicCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> Result<u64> {
         (self.read_outdegree)(&mut self.code_reader)
@@ -166,19 +148,31 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
             _marker: core::marker::PhantomData::default(),
         }
     }
-    /*
-    /// Create a mock writer with the same configuration of self that does not
-    /// write anything
-    pub fn mock(&self) -> DynamicCodesMockWriter {
+}
+
+impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
+    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_writer.set_pos(bit_index)
+    }
+
+    fn get_pos(&self) -> usize {
+        self.code_writer.get_pos()
+    }
+}
+
+impl<E: Endianness, CW: WriteCodes<E>> WebGraphCodesWriter for DynamicCodesWriter<E, CW> {
+    type MockWriter = DynamicCodesMockWriter;
+    fn mock(&self) -> Self::MockWriter {
         macro_rules! reconstruct_code {
             ($code:expr) => {{
-                if $code == CW::write_unary {
+                let code = $code as usize;
+                if code == CW::write_unary as usize {
                     len_unary
-                } else if $code == CW::write_gamma {
+                } else if code == CW::write_gamma as usize {
                     len_gamma
-                } else if $code == CW::write_delta {
+                } else if code == CW::write_delta as usize {
                     len_delta
-                } else if $code == CW::write_zeta3 {
+                } else if code == CW::write_zeta3 as usize {
                     |x| len_zeta(x, 3)
                 } else {
                     unreachable!()
@@ -196,20 +190,8 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
             len_first_residual: reconstruct_code!(self.write_first_residual),
             len_residual: reconstruct_code!(self.write_residual),
         }
-    }*/
-}
-
-impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_writer.set_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_writer.get_pos()
-    }
-}
-
-impl<E: Endianness, CW: WriteCodes<E>> WebGraphCodesWriter for DynamicCodesWriter<E, CW> {
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize> {
         (self.write_outdegree)(&mut self.code_writer, value)
@@ -298,6 +280,11 @@ impl DynamicCodesMockWriter {
 }
 
 impl WebGraphCodesWriter for DynamicCodesMockWriter {
+    type MockWriter = Self;
+    fn mock(&self) -> Self::MockWriter {
+        self.clone()
+    }
+
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize> {
         Ok((self.len_outdegree)(value))

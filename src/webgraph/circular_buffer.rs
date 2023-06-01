@@ -47,11 +47,6 @@ impl core::ops::Index<usize> for CircularBuffer {
 
     #[inline]
     fn index(&self, node_id: usize) -> &Self::Output {
-        debug_assert_ne!(self.end_node_id, node_id);
-        debug_assert!(
-            (self.end_node_id - node_id) < self.data.len(),
-            "The circular buffer was called with a node_id not in bound"
-        );
         let idx = node_id % self.data.len();
         &self.data[idx]
     }

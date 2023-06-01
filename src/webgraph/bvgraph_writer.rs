@@ -6,11 +6,18 @@ use anyhow::Result;
 pub struct BVComp<WGCW: WebGraphCodesWriter> {
     backrefs: CircularBuffer,
     bit_write: WGCW,
+    mock_writer: WGCW::MockWriter,
+    compressors: Vec<Compressor>,
     #[allow(dead_code)]
     min_interval_length: usize,
     #[allow(dead_code)]
     compression_window: usize,
     curr_node: usize,
+}
+
+#[derive(Debug, Clone)]
+struct Compressor {
+    outdegree: usize,
     blocks: Vec<usize>,
     extra_nodes: Vec<usize>,
     left_interval: Vec<usize>,
@@ -18,17 +25,12 @@ pub struct BVComp<WGCW: WebGraphCodesWriter> {
     residuals: Vec<usize>,
 }
 
-impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
-    /// This value for `min_interval_length` implies that no intervalization will be performed.
-    pub const NO_INTERVALS: usize = 0;
+impl Compressor {
+    const NO_INTERVALS: usize = 0;
 
-    pub fn new(bit_write: WGCW, compression_window: usize, min_interval_length: usize) -> Self {
-        BVComp {
-            backrefs: CircularBuffer::new(compression_window + 1),
-            bit_write,
-            min_interval_length,
-            compression_window,
-            curr_node: 0,
+    fn new() -> Self {
+        Compressor {
+            outdegree: 0,
             blocks: Vec::with_capacity(1024),
             extra_nodes: Vec::with_capacity(1024),
             left_interval: Vec::with_capacity(1024),
@@ -37,12 +39,105 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         }
     }
 
-    fn intervalize(&mut self) {
-        let vl = self.extra_nodes.len();
-        let mut i = 0;
+    /// Writes the current node to the bitstream, this has to be called after
+    /// compress.
+    fn write<WGCW: WebGraphCodesWriter>(
+        &self,
+        writer: &mut WGCW,
+        curr_node: usize,
+        reference_offset: Option<usize>,
+        min_interval_length: usize,
+    ) -> Result<usize> {
+        let mut written_bits = 0;
+        written_bits += writer.write_outdegree(self.outdegree as u64)?;
+        if self.outdegree != 0 {
+            if let Some(reference_offset) = reference_offset {
+                writer.write_reference_offset(reference_offset as u64)?;
+                if reference_offset != 0 {
+                    writer.write_block_count(self.blocks.len() as _)?;
+                    if !self.blocks.is_empty() {
+                        for i in 0..self.blocks.len() {
+                            writer.write_blocks((self.blocks[i] - 1) as u64)?;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !self.extra_nodes.is_empty() && min_interval_length != Self::NO_INTERVALS {
+            writer.write_interval_count(self.left_interval.len() as _)?;
+
+            if !self.left_interval.is_empty() {
+                writer.write_interval_start(int2nat(
+                    self.left_interval[0] as i64 - curr_node as i64,
+                ))?;
+                writer.write_interval_len((self.len_interval[0] - min_interval_length) as u64)?;
+                let mut prev = self.left_interval[0] + self.len_interval[0];
+
+                for i in 1..self.left_interval.len() {
+                    writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                    writer
+                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)?;
+                    prev = self.left_interval[i] + self.len_interval[i];
+                }
+            }
+        }
+
+        if !self.residuals.is_empty() {
+            written_bits += writer
+                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?;
+
+            for i in 1..self.residuals.len() {
+                written_bits += writer
+                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?;
+            }
+        }
+
+        Ok(written_bits)
+    }
+
+    /// setup the internal buffers for the compression of the given values
+    fn compress(
+        &mut self,
+        curr_list: &[usize],
+        ref_list: Option<&[usize]>,
+        curr_node: usize,
+        min_interval_length: usize,
+    ) -> Result<()> {
+        self.outdegree = curr_list.len();
+        // reset all vectors
+        self.blocks.clear();
+        self.extra_nodes.clear();
         self.left_interval.clear();
         self.len_interval.clear();
         self.residuals.clear();
+
+        if self.outdegree != 0 {
+            if let Some(ref_list) = ref_list {
+                if curr_node > 0 {
+                    self.diff_comp(curr_list, ref_list);
+                } else {
+                    self.extra_nodes.extend(curr_list)
+                }
+            } else {
+                self.extra_nodes.extend(curr_list)
+            }
+
+            if !self.extra_nodes.is_empty() {
+                if min_interval_length != Self::NO_INTERVALS {
+                    self.intervalize(min_interval_length);
+                } else {
+                    self.residuals.extend(&self.extra_nodes);
+                }
+            }
+        }
+        debug_assert_eq!(self.left_interval.len(), self.len_interval.len());
+        Ok(())
+    }
+
+    fn intervalize(&mut self, min_interval_length: usize) {
+        let vl = self.extra_nodes.len();
+        let mut i = 0;
 
         while i < vl {
             let mut j = 0;
@@ -54,13 +149,13 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
                 j += 1;
 
                 // Now j is the number of integers in the interval.
-                if j >= self.min_interval_length {
+                if j >= min_interval_length {
                     self.left_interval.push(self.extra_nodes[i]);
                     self.len_interval.push(j);
                     i += j - 1;
                 }
             }
-            if j < self.min_interval_length {
+            if j < min_interval_length {
                 self.residuals.push(self.extra_nodes[i]);
             }
 
@@ -68,19 +163,15 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         }
     }
 
-    fn diff_comp(&mut self, curr_list: &[usize]) {
-        let ref_list = &self.backrefs[self.curr_node as isize - 1];
+    fn diff_comp(&mut self, curr_list: &[usize], ref_list: &[usize]) {
         // j is the index of the next successor of the current node we must examine
         let mut j = 0;
         // k is the index of the next successor of the reference node we must examine
         let mut k = 0;
-        // copying is true iff we are producing a copy block (instead of an ignore block)
-        let mut copying = true;
         // currBlockLen is the number of entries (in the reference list) we have already copied/ignored (in the current block)
         let mut curr_block_len = 0;
-
-        self.blocks.clear();
-        self.extra_nodes.clear();
+        // copying is true iff we are producing a copy block (instead of an ignore block)
+        let mut copying = true;
 
         while j < curr_list.len() && k < ref_list.len() {
             // First case: we are currectly copying entries from the reference list
@@ -136,76 +227,107 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             self.extra_nodes.push(curr_list[j]);
             j += 1;
         }
+        // add a 1 to the first block so we can uniformly write them later
+        if !self.blocks.is_empty() {
+            self.blocks[0] += 1;
+        }
+    }
+}
+
+impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
+    /// This value for `min_interval_length` implies that no intervalization will be performed.
+    pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
+
+    pub fn new(bit_write: WGCW, compression_window: usize, min_interval_length: usize) -> Self {
+        BVComp {
+            backrefs: CircularBuffer::new(compression_window + 1),
+            mock_writer: bit_write.mock(),
+            bit_write,
+            min_interval_length,
+            compression_window,
+            curr_node: 0,
+            compressors: (0..compression_window + 1)
+                .map(|_| Compressor::new())
+                .collect(),
+        }
     }
 
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
-        let mut succ_vec = self.backrefs.take();
-        let mut written_bits = 0;
-        succ_vec.extend(succ_iter);
-        let d = succ_vec.len();
-        written_bits += self.bit_write.write_outdegree(d as u64)?;
-        if d != 0 {
-            if self.compression_window != 0 {
-                if self.curr_node > 0 {
-                    self.diff_comp(&succ_vec);
-                    self.bit_write.write_reference_offset(1)?;
-                    self.bit_write.write_block_count(self.blocks.len() as _)?;
-                    if !self.blocks.is_empty() {
-                        self.blocks[0] += 1;
-                        for i in 0..self.blocks.len() {
-                            self.bit_write.write_blocks((self.blocks[i] - 1) as u64)?;
-                        }
-                    }
-                } else {
-                    self.bit_write.write_reference_offset(0)?;
-                    self.extra_nodes.clear();
-                    self.extra_nodes.extend(&succ_vec)
-                }
-            } else {
-                self.extra_nodes.clear();
-                self.extra_nodes.extend(&succ_vec)
-            }
+        // collect the iterator inside the backrefs, to reuse the capacity already
+        // allocated
+        {
+            let mut succ_vec = self.backrefs.take();
+            succ_vec.extend(succ_iter);
+            self.backrefs.push(succ_vec);
+        }
+        // get the ref
+        let curr_list = &self.backrefs[self.curr_node];
+        // first try to compress the current node without references
+        let compressor = &mut self.compressors[0];
+        // Compute how we would compress this
+        compressor.compress(curr_list, None, self.curr_node, self.min_interval_length)?;
+        // avoid the mock writing
+        if self.compression_window == 0 {
+            let written_bits = compressor.write(
+                &mut self.bit_write,
+                self.curr_node,
+                None,
+                self.min_interval_length,
+            )?;
+            // update the current node
+            self.curr_node += 1;
+            return Ok(written_bits);
+        }
 
-            if !self.extra_nodes.is_empty() {
-                if self.min_interval_length != Self::NO_INTERVALS {
-                    self.intervalize();
-                    self.bit_write
-                        .write_interval_count(self.left_interval.len() as _)?;
+        // The delta of the best reference, by default 0 which is no compression
+        let mut ref_delta = 0;
+        // Write the compressed data
+        let mut min_bits = compressor.write(
+            &mut self.mock_writer,
+            self.curr_node,
+            Some(0),
+            self.min_interval_length,
+        )?;
 
-                    if !self.left_interval.is_empty() {
-                        self.bit_write.write_interval_start(int2nat(
-                            self.left_interval[0] as i64 - self.curr_node as i64,
-                        ))?;
-                        self.bit_write.write_interval_len(
-                            (self.len_interval[0] - self.min_interval_length) as u64,
-                        )?;
-                        let mut prev = self.left_interval[0] + self.len_interval[0];
-
-                        for i in 1..self.left_interval.len() {
-                            self.bit_write
-                                .write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
-                            self.bit_write.write_interval_len(
-                                (self.len_interval[i] - self.min_interval_length) as u64,
-                            )?;
-                            prev = self.left_interval[i] + self.len_interval[i];
-                        }
-                    }
-                }
-
-                if !self.residuals.is_empty() {
-                    written_bits += self.bit_write.write_first_residual(int2nat(
-                        self.residuals[0] as i64 - self.curr_node as i64,
-                    ))?;
-
-                    for i in 1..self.residuals.len() {
-                        written_bits += self.bit_write.write_residual(
-                            (self.residuals[i] - self.residuals[i - 1] - 1) as u64,
-                        )?;
-                    }
-                }
+        let deltas = 1 + self.compression_window.min(self.curr_node);
+        // compression windows is not zero, so compress the current node
+        for delta in 1..deltas {
+            // Get the neighbours of this previous node
+            let ref_list = &self.backrefs[self.curr_node - delta];
+            // Get its compressor
+            let compressor = &mut self.compressors[delta];
+            // Compute how we would compress this
+            compressor.compress(
+                curr_list,
+                Some(ref_list),
+                self.curr_node,
+                self.min_interval_length,
+            )?;
+            // Compute how many bits it would use, using the mock writer
+            let bits = compressor.write(
+                &mut self.mock_writer,
+                self.curr_node,
+                Some(delta),
+                self.min_interval_length,
+            )?;
+            // keep track of the best, it's strictly less so we keep the
+            // nearest one in the case of multiple equal ones
+            if bits < min_bits {
+                min_bits = bits;
+                ref_delta = delta;
             }
         }
-        self.backrefs.push(succ_vec);
+        // write the best result reusing the precomputed compression
+        let compressor = &mut self.compressors[ref_delta];
+        let written_bits = compressor.write(
+            &mut self.bit_write,
+            self.curr_node,
+            Some(ref_delta),
+            self.min_interval_length,
+        )?;
+        // consistency check
+        debug_assert_eq!(written_bits, min_bits);
+        // update the current node
         self.curr_node += 1;
         Ok(written_bits)
     }
@@ -223,67 +345,88 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
 }
 
 #[cfg(test)]
-#[test]
-fn test_writer() -> Result<()> {
-    use crate::{prelude::*, webgraph::VecGraph};
+mod test {
+    use super::*;
+    use crate::prelude::*;
     use dsi_bitstream::prelude::*;
-    let _g = VecGraph::from_arc_list(&[
-        (0, 1),
-        (0, 2),
-        (0, 3),
-        (0, 5),
-        (0, 6),
-        (0, 7),
-        (1, 2),
-        (1, 3),
-        (1, 4),
-        (1, 6),
-        (1, 7),
-        (1, 10),
-        (2, 0),
-        (2, 8),
-    ]);
-    let mut buffer: Vec<u64> = Vec::new();
-    let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
 
-    let codes_writer = DynamicCodesWriter::new(
-        bit_write,
-        &CompFlags {
-            ..Default::default()
-        },
-    );
-    //let codes_writer = ConstCodesWriter::new(bit_write);
-    let mut bvcomp = BVComp::new(codes_writer, 1, 1);
-
-    let cnr = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
-
-    bvcomp.extend(cnr).unwrap();
-    bvcomp.flush()?;
-
-    let cnr_vec =
-        VecGraph::from_node_iter(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?);
-
-    let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-    let bit_read = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
-    let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &CompFlags::default())?;
-
-    let mut seq_iter = WebgraphSequentialIter::new(codes_reader, 1, 1, cnr_vec.num_nodes());
-    //let h = VecGraph::from_node_iter(seq_iter);
-    //assert_eq!(cnr_vec.num_nodes(), h.num_nodes());
-    //assert_eq!(cnr_vec.num_arcs(), h.num_arcs());
-    for i in 0..cnr_vec.num_nodes() {
-        let (_, succ) = seq_iter.next().unwrap();
-        assert_eq!(
-            cnr_vec.outdegree(i).unwrap(),
-            succ.len(),
-            "degrees do not match"
-        );
-        assert_eq!(
-            cnr_vec.successors(i).unwrap().collect::<Vec<_>>(),
-            succ.collect::<Vec<_>>(),
-            "{}",
-            i
-        );
+    #[test]
+    fn test_writer_window_zero() -> Result<()> {
+        test_compression(0, 0)?;
+        test_compression(0, 1)?;
+        test_compression(0, 2)?;
+        Ok(())
     }
-    Ok(())
+
+    #[test]
+    fn test_writer_window_one() -> Result<()> {
+        test_compression(1, 0)?;
+        test_compression(1, 1)?;
+        test_compression(1, 2)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_writer_window_two() -> Result<()> {
+        test_compression(2, 0)?;
+        test_compression(2, 1)?;
+        test_compression(2, 2)?;
+        Ok(())
+    }
+
+    fn test_compression(compression_window: usize, min_interval_length: usize) -> Result<()> {
+        let mut true_iter = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+
+        // Compress the graph
+        let mut buffer: Vec<u64> = Vec::new();
+        let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
+
+        let comp_flags = CompFlags {
+            ..Default::default()
+        };
+
+        //let codes_writer = DynamicCodesWriter::new(
+        //    bit_write,
+        //    &comp_flags,
+        //);
+        let codes_writer = <ConstCodesWriter<LE, _>>::new(bit_write);
+
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length);
+
+        bvcomp
+            .extend(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?)
+            .unwrap();
+        bvcomp.flush()?;
+
+        // Read it back
+
+        let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
+        let bit_read =
+            <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
+
+        //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
+        let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
+
+        let mut seq_iter = WebgraphSequentialIter::new(
+            codes_reader,
+            compression_window,
+            min_interval_length,
+            true_iter.num_nodes(),
+        );
+
+        // Check that the graph is the same
+        for i in 0..true_iter.num_nodes() {
+            let (true_node_id, true_succ) = true_iter.next().unwrap();
+            let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
+
+            assert_eq!(true_node_id, i);
+            assert_eq!(true_node_id, seq_node_id);
+            let true_succ = true_succ.collect::<Vec<_>>();
+            let seq_succ = seq_succ.collect::<Vec<_>>();
+            dbg!(true_node_id, &true_succ);
+            assert_eq!(true_succ, seq_succ, "node_id: {}", i);
+        }
+
+        Ok(())
+    }
 }

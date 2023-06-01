@@ -24,6 +24,7 @@ fn code_to_const(code: Code) -> Result<usize> {
 
 #[repr(transparent)]
 /// An implementation of [`WebGraphCodesReader`]  with compile-time defined codes
+#[derive(Clone)]
 pub struct ConstCodesReader<
     E: Endianness,
     CR: ReadCodes<E>,
@@ -36,25 +37,6 @@ pub struct ConstCodesReader<
 > {
     code_reader: CR,
     _marker: core::marker::PhantomData<E>,
-}
-
-impl<
-        E: Endianness,
-        CR: ReadCodes<E> + Clone,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-        const K: u64,
-    > Clone for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-{
-    fn clone(&self) -> Self {
-        Self {
-            code_reader: self.code_reader.clone(),
-            _marker: self._marker,
-        }
-    }
 }
 
 impl<
@@ -181,6 +163,7 @@ impl<
 
 #[repr(transparent)]
 /// An implementation of [`WebGraphCodesWriter`] with compile time defined codes
+#[derive(Clone)]
 pub struct ConstCodesWriter<
     E: Endianness,
     CW: WriteCodes<E>,
@@ -193,25 +176,6 @@ pub struct ConstCodesWriter<
 > {
     code_writer: CW,
     _marker: core::marker::PhantomData<E>,
-}
-
-impl<
-        E: Endianness,
-        CW: WriteCodes<E> + Clone,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-        const K: u64,
-    > Clone for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-{
-    fn clone(&self) -> Self {
-        Self {
-            code_writer: self.code_writer.clone(),
-            _marker: self._marker,
-        }
-    }
 }
 
 impl<
@@ -251,14 +215,6 @@ impl<
             _marker: core::marker::PhantomData::default(),
         }
     }
-
-    /// Create a mock writer with the same configuration of self that does not
-    /// write anything
-    pub fn mock(
-        &self,
-    ) -> ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K> {
-        ConstCodesMockWriter::new()
-    }
 }
 
 macro_rules! select_code_write {
@@ -287,6 +243,11 @@ impl<
     > WebGraphCodesWriter
     for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    type MockWriter = ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
+    fn mock(&self) -> Self::MockWriter {
+        ConstCodesMockWriter::new()
+    }
+
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize> {
         select_code_write!(self, OUTDEGREES, K, value)
@@ -382,6 +343,11 @@ impl<
     > WebGraphCodesWriter
     for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    type MockWriter = Self;
+    fn mock(&self) -> Self::MockWriter {
+        ConstCodesMockWriter::new()
+    }
+
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize> {
         select_code_mock_write!(OUTDEGREES, K, value)

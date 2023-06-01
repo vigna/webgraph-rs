@@ -34,6 +34,10 @@ pub trait WebGraphCodesReader {
 }
 
 pub trait WebGraphCodesWriter {
+    type MockWriter: WebGraphCodesWriter;
+    /// Returns a mock writer that does not write anything.
+    fn mock(&self) -> Self::MockWriter;
+
     fn write_outdegree(&mut self, value: u64) -> Result<usize>;
 
     // node reference
