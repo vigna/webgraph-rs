@@ -61,7 +61,7 @@ struct Args {
     intervals_code: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(default_value = "gamma")]
+    #[clap(default_value = "zeta3")]
     /// The code to use for the residuals
     residuals_code: PrivCode,
 }
