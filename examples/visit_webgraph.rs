@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Seek;
+use std::ops::Deref;
 use sux::prelude::*;
 use webgraph::prelude::*;
 
@@ -62,15 +63,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     };
 
-    let mut file = std::fs::File::open(format!("{}.ef", args.basename))?;
-    let file_len = file.seek(std::io::SeekFrom::End(0))?;
-    let mmap = unsafe {
-        mmap_rs::MmapOptions::new(file_len as _)?
-            .with_file(file, 0)
-            .map()?
-    };
-
-    let offsets = webgraph::EF::<&[u64]>::deserialize(&mmap)?.0;
+    let offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(format!("{}.ef", args.basename))?;
 
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
@@ -78,7 +71,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let random_reader = BVGraph::new(
         code_reader,
-        offsets.clone(),
+        offsets,
         min_interval_length,
         compression_window,
         num_nodes as usize,
