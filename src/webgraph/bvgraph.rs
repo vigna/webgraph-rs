@@ -1,7 +1,7 @@
 use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use std::{collections::HashMap, fs::File, io::BufReader};
-use sux::traits::{MemCase, VSlice};
+use sux::traits::{MemCase, RefCase, VSlice};
 
 use super::*;
 use crate::utils::nat2int;
@@ -129,7 +129,7 @@ pub fn load(
     BVGraph<
         DynamicCodesReader<
             BE,
-            BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, MemCase<&[u32]>>>,
+            BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, RefCase<[u32]>>>,
         >,
         crate::EF<&[u64]>,
     >,
