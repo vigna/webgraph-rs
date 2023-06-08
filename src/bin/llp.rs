@@ -88,61 +88,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()
         .unwrap();
 
-    let f = File::open(format!("{}.properties", args.basename))?;
-    let map = java_properties::read(BufReader::new(f))?;
-
-    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
-    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
-    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
-
-    assert_eq!(map.get("compressionflags").unwrap(), "");
-
-    // Read the offsets
-    let data_graph = mmap_file(&format!("{}.graph", args.basename));
-
-    let graph_slice = unsafe {
-        core::slice::from_raw_parts(
-            data_graph.as_ptr() as *const ReadType,
-            (data_graph.len() + core::mem::size_of::<ReadType>() - 1)
-                / core::mem::size_of::<ReadType>(),
-        )
-    };
-
-    let mut file = std::fs::File::open(format!("{}.ef", args.basename))?;
-    let file_len = file.seek(std::io::SeekFrom::End(0))?;
-    let mmap = unsafe {
-        mmap_rs::MmapOptions::new(file_len as _)?
-            .with_file(file, 0)
-            .map()?
-    };
-
-    let offsets = webgraph::EF::<&[u64]>::deserialize(&mmap)?.0;
-
-    let code_reader = DynamicCodesReader::new(
-        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
-        &CompFlags::from_properties(&map)?,
-    )?;
-    let random_reader = BVGraph::new(
-        code_reader,
-        offsets.clone(),
-        min_interval_length,
-        compression_window,
-        num_nodes as usize,
-        num_arcs as usize,
-    );
-
+    let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
+    let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "update".to_string();
-    /*
-    let mut can_change = bitvec![AtomicUsize, Lsb0; 0];
-    can_change.resize(num_nodes as _, true);
-    */
-    let mut can_change = Vec::with_capacity(num_nodes as _);
 
-    for _ in 0..num_nodes {
-        can_change.push(AtomicBool::new(true));
-    }
+    let mut can_change = Vec::with_capacity(num_nodes as _);
+    can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
 
     let gamma = 0.0;
     let label_store = LabelStore::new(num_nodes as _);
@@ -186,7 +138,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             can_change[node].store(false, Relaxed);
 
-                            let successors = random_reader.successors(node).unwrap();
+                            let successors = graph.successors(node).unwrap();
 
                             if successors.len() == 0 {
                                 continue;
@@ -231,7 +183,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let next_label = *majorities.choose(&mut rand).unwrap();
                             if next_label != curr_label {
                                 modified.fetch_add(1, Relaxed);
-                                for succ in random_reader.successors(node).unwrap() {
+                                for succ in graph.successors(node).unwrap() {
                                     can_change[succ].store(true, Relaxed);
                                 }
 

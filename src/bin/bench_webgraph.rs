@@ -127,7 +127,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if args.check {
-        let offsets = build_offsets!(args.basename, num_nodes, data_graph);
+        let offsets =
+            sux::prelude::map::<_, webgraph::EF<&[u64]>>(format!("{}.ef", args.basename))?;
+
         // Create a sequential reader
         let mut seq_reader = WebgraphSequentialIter::new(
             DynamicCodesReader::new(
@@ -234,23 +236,25 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else {
-        let offsets = build_offsets!(args.basename, num_nodes, data_graph);
+        let offsets =
+            sux::prelude::map::<_, webgraph::EF<&[u64]>>(format!("{}.ef", args.basename))?;
+
+        let random_reader = BVGraph::new(
+            DynamicCodesReader::new(
+                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
+                    &graph_slice,
+                )),
+                &comp_flags,
+            )?,
+            offsets,
+            min_interval_length,
+            compression_window,
+            num_nodes as usize,
+            num_arcs as usize,
+        );
         // Random-access speed test
         for _ in 0..args.repeats {
             // create a random access reader;
-            let random_reader = BVGraph::new(
-                DynamicCodesReader::new(
-                    BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
-                        &graph_slice,
-                    )),
-                    &comp_flags,
-                )?,
-                offsets.clone(),
-                min_interval_length,
-                compression_window,
-                num_nodes as usize,
-                num_arcs as usize,
-            );
 
             let mut random = SmallRng::seed_from_u64(0);
             let mut c: usize = 0;

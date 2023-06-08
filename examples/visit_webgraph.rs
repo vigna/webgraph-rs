@@ -7,7 +7,6 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Seek;
-use std::ops::Deref;
 use sux::prelude::*;
 use webgraph::prelude::*;
 
@@ -21,18 +20,6 @@ struct Args {
     basename: String,
 }
 
-fn mmap_file(path: &str) -> Mmap {
-    let mut file = std::fs::File::open(path).unwrap();
-    let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-    unsafe {
-        MmapOptions::new(file_len as _)
-            .unwrap()
-            .with_file(file, 0)
-            .map()
-            .unwrap()
-    }
-}
-
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -42,52 +29,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()
         .unwrap();
 
-    let f = File::open(format!("{}.properties", args.basename))?;
-    let map = java_properties::read(BufReader::new(f))?;
+    let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
 
-    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
-    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
-    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
-
-    assert_eq!(map.get("compressionflags").unwrap(), "");
-
-    // Read the offsets
-    let data_graph = mmap_file(&format!("{}.graph", args.basename));
-
-    let graph_slice = unsafe {
-        core::slice::from_raw_parts(
-            data_graph.as_ptr() as *const ReadType,
-            (data_graph.len() + core::mem::size_of::<ReadType>() - 1)
-                / core::mem::size_of::<ReadType>(),
-        )
-    };
-
-    let offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(format!("{}.ef", args.basename))?;
-
-    let code_reader = DynamicCodesReader::new(
-        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&graph_slice)),
-        &CompFlags::from_properties(&map)?,
-    )?;
-    let random_reader = BVGraph::new(
-        code_reader,
-        offsets,
-        min_interval_length,
-        compression_window,
-        num_nodes as usize,
-        num_arcs as usize,
-    );
-
-    let mut visited = BitMap::new(num_nodes as usize);
+    let mut visited = BitMap::new(graph.num_nodes());
     let mut queue = VecDeque::new();
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "node".to_string();
     pr.local_speed = true;
-    pr.expected_updates = Some(num_nodes as usize);
+    pr.expected_updates = Some(graph.num_nodes());
     pr.start("Visiting graph...");
 
-    for start in 0..num_nodes {
+    for start in 0..graph.num_nodes() {
         if visited.get(start as usize).unwrap() != 0 {
             continue;
         }
@@ -98,7 +51,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         while queue.len() > 0 {
             current_node = queue.pop_front().unwrap();
-            for succ in random_reader.successors(current_node).unwrap() {
+            for succ in graph.successors(current_node).unwrap() {
                 if visited.get(succ as usize).unwrap() == 0 {
                     queue.push_back(succ);
                     visited.set(succ as _, 1).unwrap();

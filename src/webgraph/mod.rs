@@ -10,7 +10,7 @@ pub use reader_degrees::*;
 mod reader_sequential;
 pub use reader_sequential::*;
 
-mod bvgraph;
+pub mod bvgraph;
 pub use bvgraph::*;
 
 mod bvgraph_writer;

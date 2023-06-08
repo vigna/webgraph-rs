@@ -1,7 +1,6 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use itertools::KMerge;
-use itertools::{self, Merge};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use tempfile::tempdir;
