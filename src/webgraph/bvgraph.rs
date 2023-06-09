@@ -144,8 +144,14 @@ pub fn load(
 
     assert_eq!(map.get("compressionflags").unwrap(), "");
 
-    let graph = sux::prelude::load_slice::<_, u32>(format!("{}.graph", basename))?;
-    let offsets = sux::prelude::load::<_, crate::EF<&[u64]>>(format!("{}.ef", basename))?;
+    let graph = sux::prelude::map_slice::<_, u32>(
+        format!("{}.graph", basename),
+        &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
+    )?;
+    let offsets = sux::prelude::map::<_, crate::EF<&[u64]>>(
+        format!("{}.ef", basename),
+        &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
+    )?;
 
     let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, u64, _>::new(MemWordReadInfinite::new(graph)),

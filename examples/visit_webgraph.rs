@@ -1,17 +1,8 @@
 use clap::Parser;
-use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use java_properties;
-use mmap_rs::*;
 use std::collections::VecDeque;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::Seek;
 use sux::prelude::*;
 use webgraph::prelude::*;
-
-type ReadType = u32;
-type BufferType = u64;
 
 #[derive(Parser, Debug)]
 #[command(about = "Visit the Rust Webgraph implementation", long_about = None)]

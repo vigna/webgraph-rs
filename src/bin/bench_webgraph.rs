@@ -1,6 +1,5 @@
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::ProgressLogger;
 use java_properties;
 use mmap_rs::*;
 use rand::rngs::SmallRng;
@@ -10,7 +9,6 @@ use std::fs::File;
 use std::hint::black_box;
 use std::io::BufReader;
 use std::io::Seek;
-use sux::prelude::*;
 use webgraph::prelude::*;
 
 type ReadType = u32;
@@ -127,8 +125,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if args.check {
-        let offsets =
-            sux::prelude::map::<_, webgraph::EF<&[u64]>>(format!("{}.ef", args.basename))?;
+        let offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(
+            format!("{}.ef", args.basename),
+            &sux::prelude::Flags::empty(),
+        )?;
 
         // Create a sequential reader
         let mut seq_reader = WebgraphSequentialIter::new(
@@ -236,8 +236,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else {
-        let offsets =
-            sux::prelude::map::<_, webgraph::EF<&[u64]>>(format!("{}.ef", args.basename))?;
+        let offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(
+            format!("{}.ef", args.basename),
+            &sux::prelude::Flags::empty(),
+        )?;
 
         let random_reader = BVGraph::new(
             DynamicCodesReader::new(

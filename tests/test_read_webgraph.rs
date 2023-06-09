@@ -53,7 +53,7 @@ fn test_sequential_reading() {
     .unwrap();
     let bvgraph = BVGraph::new(
         code_reader,
-        offsets,
+        sux::prelude::encase_mem(offsets),
         cf.min_interval_length,
         cf.compression_window,
         NODES,

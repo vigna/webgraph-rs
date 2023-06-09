@@ -8,8 +8,6 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Seek;
 use std::sync::atomic::AtomicBool;
@@ -17,11 +15,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Mutex;
 use std::thread;
-use sux::prelude::*;
 use webgraph::prelude::*;
-
-type ReadType = u32;
-type BufferType = u64;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]

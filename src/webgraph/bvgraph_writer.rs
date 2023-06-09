@@ -1,4 +1,4 @@
-use super::{BVGraph, CircularBuffer};
+use super::CircularBuffer;
 use crate::traits::*;
 use crate::utils::int2nat;
 use anyhow::Result;
