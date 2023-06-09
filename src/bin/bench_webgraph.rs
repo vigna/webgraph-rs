@@ -236,24 +236,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else {
-        let offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(
-            format!("{}.ef", args.basename),
-            &sux::prelude::Flags::empty(),
-        )?;
+        let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
 
-        let random_reader = BVGraph::new(
-            DynamicCodesReader::new(
-                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
-                    &graph_slice,
-                )),
-                &comp_flags,
-            )?,
-            offsets,
-            min_interval_length,
-            compression_window,
-            num_nodes as usize,
-            num_arcs as usize,
-        );
         // Random-access speed test
         for _ in 0..args.repeats {
             // create a random access reader;
@@ -265,7 +249,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let start = std::time::Instant::now();
             if args.first {
                 for _ in 0..args.n {
-                    u += random_reader
+                    u += graph
                         .successors(random.gen_range(0..num_nodes))?
                         .next()
                         .unwrap_or(0);
@@ -273,9 +257,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             } else {
                 for _ in 0..args.n {
-                    c += random_reader
-                        .successors(random.gen_range(0..num_nodes))?
-                        .count();
+                    c += graph.successors(random.gen_range(0..num_nodes))?.count();
                 }
             }
 
