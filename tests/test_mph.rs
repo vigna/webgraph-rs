@@ -12,9 +12,11 @@ fn test_mph() -> Result<()> {
     let mut s = HashSet::new();
     for line in reader.lines() {
         let line = line?;
-        assert!(s.insert(m.get(&line)));
+        let p = m.get(&line);
+        assert!(p < m.size());
+        assert!(s.insert(p));
     }
-
+    assert_eq!(s.len(), m.size());
     Ok(())
 }
 
