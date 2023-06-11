@@ -36,6 +36,10 @@ rayon = "1.7.0"
 tempfile = "3.5.0"
 itertools = "0.10.5"
 
+[build-dependencies]
+cc = "1.0.79"
+bindgen = "0.65.1"
+
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }
 
