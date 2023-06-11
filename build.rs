@@ -7,11 +7,25 @@ use std::path::PathBuf;
 // Handles compilation and bindings generation
 
 fn main() {
+	let libdir_path = PathBuf::from("c")
+        // Canonicalize the path as `rustc-link-search` requires an absolute
+        // path.
+        .canonicalize()
+        .expect("cannot canonicalize path");
+
+    let headers_path = libdir_path.join("mph.h");
+    let headers_path_str = headers_path.to_str().expect("Path is not a valid string");
+    let code_path = libdir_path.join("mph.c");
+    let code_path_str = code_path.to_str().expect("Path is not a valid string");
+    let spooky_path = libdir_path.join("spooky.c");
+    let spooky_path_str = spooky_path.to_str().expect("Path is not a valid string");
+
     // Compile into a library
     cc::Build::new()
         .opt_level(3)
-        .file("c/mph.c")
-        .file("c/spooky.c")
+        .file(headers_path_str)
+        .file(code_path_str)
+        .file(spooky_path_str)
         .compile("libmph.a");
 
     /*
@@ -28,14 +42,14 @@ fn main() {
     // Tell cargo to look for shared libraries in the root of the project
     println!("cargo:rustc-link-search=native=.");
 
-    // Tell cargo to tell rustc to link libcdflib.a
+    // Tell cargo to tell rustc to link libmph.a
     println!("cargo:rustc-link-lib=static=mph");
 
     // Tell cargo to invalidate the built crate whenever header changes
-    println!("cargo:rerun-if-changed=c/mph.h");
+    println!("cargo:rerun-if-changed={}", headers_path_str);
 
     // Tell cargo to invalidate the built crate whenever the code changes
-    println!("cargo:rerun-if-changed=c/mph.c");
+    println!("cargo:rerun-if-changed={}", code_path_str);
 
     // The bindgen::Builder is the main entry point
     // to bindgen, and lets you build up options for
@@ -43,7 +57,7 @@ fn main() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
-        .header("c/mph.h")
+        .header(headers_path_str)
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

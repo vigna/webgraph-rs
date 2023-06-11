@@ -31,5 +31,7 @@ typedef struct {
 } mph;
 
 mph *load_mph(const unsigned char * const filename);
+
 uint64_t mph_get_byte_array(const mph *mph, const unsigned char *const key, const uint64_t len);
+
 uint64_t mph_get_uint64_t(const mph *const mph, const uint64_t key);
