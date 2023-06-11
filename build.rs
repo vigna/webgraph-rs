@@ -7,7 +7,7 @@ use std::path::PathBuf;
 // Handles compilation and bindings generation
 
 fn main() {
-	let libdir_path = PathBuf::from("c")
+    let libdir_path = PathBuf::from("c")
         // Canonicalize the path as `rustc-link-search` requires an absolute
         // path.
         .canonicalize()
