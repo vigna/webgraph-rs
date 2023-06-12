@@ -19,6 +19,8 @@ fn main() {
     let code_path_str = code_path.to_str().expect("Path is not a valid string");
     let spooky_path = libdir_path.join("spooky.c");
     let spooky_path_str = spooky_path.to_str().expect("Path is not a valid string");
+    let spooky_path_header = libdir_path.join("spooky.h");
+    let spooky_path_header_str = spooky_path_header.to_str().expect("Path is not a valid string");
 
     // Compile into a library
     cc::Build::new()
@@ -46,6 +48,7 @@ fn main() {
         // The input header we would like to generate
         // bindings for.
         .header(headers_path_str)
+        .header(spooky_path_header_str)
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

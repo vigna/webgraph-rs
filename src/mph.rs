@@ -8,47 +8,47 @@ use std::io::Read;
 ///
 /// # Reference:
 /// [Marco Genuzio, Giuseppe Ottaviano, and Sebastiano Vigna, Fast Scalable Construction of (Minimal Perfect Hash) Functions](https://arxiv.org/pdf/1603.04330.pdf)
+#[derive(Debug)]
 pub struct GOVMPH {
-    size: u64,
-    multiplier: u64,
-    global_seed: u64,
-    edge_offset_and_seed: Vec<u64>,
-    array: Vec<u64>,
-}
-
-macro_rules! read {
-    ($file:expr, $type:ty) => {{
-        let mut buffer: [u8; core::mem::size_of::<$type>()] = [0; core::mem::size_of::<$type>()];
-        $file.read_exact(&mut buffer)?;
-        <$type>::from_le_bytes(buffer)
-    }};
-}
-
-macro_rules! read_array {
-    ($file:expr, $type:ty, $len:expr) => {{
-        // create a bytes buffer big enough for $len elements of type $type
-        let bytes = $len * core::mem::size_of::<$type>();
-        let mut buffer: Vec<u8> = Vec::with_capacity(bytes);
-        unsafe { buffer.set_len(bytes) };
-        // read the file in the buffer
-        $file.read_exact(&mut buffer)?;
-        // convert the buffer Vec<u8> into a Vec<$type>
-        let ptr = buffer.as_mut_ptr();
-        core::mem::forget(buffer);
-        unsafe { Vec::from_raw_parts(ptr as *mut $type, bytes, bytes) }
-    }};
+    pub size: u64,
+    pub multiplier: u64,
+    pub global_seed: u64,
+    pub edge_offset_and_seed: Vec<u64>,
+    pub array: Vec<u64>,
 }
 
 impl GOVMPH {
     /// Given a generic `Read` implementor, load a GOVMPH structure from a file.
     pub fn load<F: Read>(mut file: F) -> Result<Self> {
+        macro_rules! read {
+            ($file:expr, $type:ty) => {{
+                let mut buffer: [u8; core::mem::size_of::<$type>()] = [0; core::mem::size_of::<$type>()];
+                $file.read_exact(&mut buffer)?;
+                <$type>::from_le_bytes(buffer)
+            }};
+        }
+        
+        macro_rules! read_array {
+            ($file:expr, $type:ty) => {{
+                // create a bytes buffer big enough for $len elements of type $type
+                let len = read!($file, u64) as usize;
+                let bytes = len * core::mem::size_of::<$type>();
+                let mut buffer: Vec<u8> = Vec::with_capacity(bytes);
+                unsafe { buffer.set_len(bytes) };
+                // read the file in the buffer
+                $file.read_exact(&mut buffer)?;
+                // convert the buffer Vec<u8> into a Vec<$type>
+                let ptr = buffer.as_mut_ptr();
+                core::mem::forget(buffer);
+                unsafe { Vec::from_raw_parts(ptr as *mut $type, len, len) }
+            }};
+        }
+        // actually lod the data :)
         let size = read!(file, u64);
         let multiplier = read!(file, u64);
         let global_seed = read!(file, u64);
-        let edge_offset_and_seed_length = read!(file, u64) as usize;
-        let edge_offset_and_seed = read_array!(file, u64, edge_offset_and_seed_length);
-        let array_length = read!(file, u64) as usize;
-        let array = read_array!(file, u64, array_length);
+        let edge_offset_and_seed = read_array!(file, u64);
+        let array = read_array!(file, u64);
 
         Ok(Self {
             size,
@@ -69,7 +69,7 @@ impl GOVMPH {
         let edge_offset_seed = self.edge_offset_and_seed[bucket as usize];
         let bucket_offset = vertex_offset(edge_offset_seed);
         let num_variables =
-            vertex_offset(self.edge_offset_and_seed[bucket as usize + 1] - bucket_offset);
+            vertex_offset(self.edge_offset_and_seed[bucket as usize + 1]) - bucket_offset;
         let e = signature_to_equation(&signature, edge_offset_seed & (!OFFSET_MASK), num_variables);
         let eq_idx = (get_2bit_value(&self.array, e[0] + bucket_offset)
             + get_2bit_value(&self.array, e[1] + bucket_offset)
@@ -120,7 +120,7 @@ fn count_nonzero_pairs(start: u64, end: u64, array: &[u64]) -> u64 {
     pairs
 }
 
-const OFFSET_MASK: u64 = 0x0011_1111_1111_1111;
+const OFFSET_MASK: u64 = u64::MAX >> 8;
 const C_TIMES_256: u64 = 281; // floor((1.09 + 0.01) * 256.0)
 
 #[inline(always)]
@@ -128,11 +128,11 @@ const C_TIMES_256: u64 = 281; // floor((1.09 + 0.01) * 256.0)
 fn signature_to_equation(signature: &[u64; 4], seed: u64, num_variables: u64) -> [u64; 3] {
     let hash = spooky_short_rehash(signature, seed);
     let shift = num_variables.leading_zeros();
-    let mask = 1_u64.wrapping_shl(shift) - 1;
+    let mask = (1_u64 << shift) - 1;
     [
-        ((hash[0] & mask) * num_variables).wrapping_shr(shift),
-        ((hash[1] & mask) * num_variables).wrapping_shr(shift),
-        ((hash[2] & mask) * num_variables).wrapping_shr(shift),
+        ((hash[0] & mask) * num_variables) >> shift,
+        ((hash[1] & mask) * num_variables) >> shift,
+        ((hash[2] & mask) * num_variables) >> shift,
     ]
 }
 
@@ -144,6 +144,7 @@ const fn vertex_offset(edge_offset_seed: u64) -> u64 {
 
 #[inline(always)]
 #[must_use]
-const fn get_2bit_value(data: &[u64], pos: u64) -> u64 {
+const fn get_2bit_value(data: &[u64], mut pos: u64) -> u64 {
+    pos *= 2;
     (data[(pos / 64) as usize] >> (pos % 64)) & 3
 }
