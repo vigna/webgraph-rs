@@ -2,9 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use mmap_rs::*;
 use std::io::BufWriter;
-use std::io::Seek;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -19,18 +17,6 @@ struct Args {
     /// Location for storage of temporary files
     #[arg(short = 't', long)]
     temp_dir: bool,
-}
-
-fn mmap_file(path: &str) -> Mmap {
-    let mut file = std::fs::File::open(path).unwrap();
-    let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-    unsafe {
-        MmapOptions::new(file_len as _)
-            .unwrap()
-            .with_file(file, 0)
-            .map()
-            .unwrap()
-    }
 }
 
 pub fn main() -> Result<()> {
@@ -50,11 +36,9 @@ pub fn main() -> Result<()> {
     pl.expected_updates = Some(seq_reader.num_nodes());
     pl.start("Creating batches...");
 
-    let mut c = 0;
     for (node, succ) in seq_reader {
         for s in succ {
             sorted.push(s, node)?;
-            c += 1;
         }
         pl.light_update();
     }
@@ -78,7 +62,7 @@ pub fn main() -> Result<()> {
     pl.item_name = "node".to_string();
     pl.start("Writing...");
     for (_, succ) in sorted.iter_nodes() {
-        bvcomp.push(succ);
+        bvcomp.push(succ)?;
         pl.light_update();
     }
     bvcomp.flush()?;

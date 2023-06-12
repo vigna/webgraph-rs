@@ -2,38 +2,25 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use log::info;
-use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 use std::io::BufWriter;
-use std::io::Seek;
+use std::io::prelude::*;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Mutex;
 use std::thread;
 use webgraph::prelude::*;
-
+use bytemuck::cast_slice;
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
-}
-
-fn mmap_file(path: &str) -> Mmap {
-    let mut file = std::fs::File::open(path).unwrap();
-    let file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-    unsafe {
-        MmapOptions::new(file_len as _)
-            .unwrap()
-            .with_file(file, 0)
-            .map()
-            .unwrap()
-    }
 }
 
 struct LabelStore {
@@ -67,6 +54,10 @@ impl LabelStore {
 
     fn volume(&self, label: usize) -> usize {
         self.volumes[label].load(Relaxed)
+    }
+
+    fn labels(&self) -> &[AtomicUsize] {
+        &self.labels
     }
 }
 
@@ -186,8 +177,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                             local_delta += max - old;
                         }
-                        let pr = &mut prlock.lock().unwrap();
-                        pr.update_with_count(end_pos - next_pos);
+                        prlock.lock().unwrap().update_with_count(end_pos - next_pos);
                     }
                 });
             }
@@ -206,6 +196,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     glob_pr.done();
 
+    let labels = unsafe { std::mem::transmute::<&[AtomicUsize], &[u8]>(label_store.labels()) };
+    std::fs::File::create(format!("{}-{}.labels", args.basename, 0))?.write_all(labels)?;
+
     let mut perm = (0..num_nodes).collect::<Vec<_>>();
     perm.par_sort_unstable_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
 
@@ -220,16 +213,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..Default::default()
         },
     );
-    /*
-    let sort_pairs = Sorted::new(num_nodes, 1_000_000_000).unwrap();
+
+    let mut sort_pairs = Sorted::new(num_nodes, 1_000_000_000).unwrap();
     PermutedGraph {
-        graph: &random_reader,
+        graph: &graph,
         perm: &perm,
     }
     .iter_nodes()
     .for_each(|(x, succ)| {
         succ.for_each(|s| {
-            sort_pairs.push(x, s, ());
+            sort_pairs.push(x, s);
         })
     });
 
@@ -237,8 +230,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     glob_pr.expected_updates = Some(num_nodes);
     glob_pr.item_name = "node".to_string();
     glob_pr.start("Writing...");
-    bvcomp.extend(sort_pairs.build())?;
+    bvcomp.extend(sort_pairs.build()?.iter_nodes())?;
     bvcomp.flush()?;
-    glob_pr.done();*/
+    glob_pr.done();
     Ok(())
 }
