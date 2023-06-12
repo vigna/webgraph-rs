@@ -23,21 +23,9 @@ fn main() {
     // Compile into a library
     cc::Build::new()
         .opt_level(3)
-        .file(headers_path_str)
         .file(code_path_str)
         .file(spooky_path_str)
         .compile("libmph.a");
-
-    /*
-    cc::Build::new()
-        .cpp(true)
-        .flag("-std=c++11")
-        .flag_if_supported("-march=native")
-        .include("/opt/local/include")
-        .opt_level(3)
-        .file("block.cpp")
-        .compile("libblock.a");
-    */
 
     // Tell cargo to look for shared libraries in the root of the project
     println!("cargo:rustc-link-search=native=.");
