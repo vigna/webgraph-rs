@@ -31,8 +31,6 @@ use sux::prelude::*;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-pub mod mph;
-pub mod spooky;
 pub mod traits;
 pub mod utils;
 pub mod webgraph;

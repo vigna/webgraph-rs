@@ -29,7 +29,7 @@ mod sort_pairs;
 pub use sort_pairs::*;
 
 pub mod mph;
-pub use mph::*;
+pub mod spooky;
 
 /// Treat an mmap as a slice.
 /// Mmap only implements [`AsRef<[u8]>`] but we need also other types
