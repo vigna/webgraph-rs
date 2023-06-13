@@ -57,45 +57,6 @@ fn mmap_file(path: &str) -> Mmap {
     }
 }
 
-macro_rules! build_offsets {
-    ($basename:expr, $num_nodes:expr, $data_graph:expr) => {{
-        let data_offsets = mmap_file(&format!("{}.offsets", $basename));
-        let offsets_slice = unsafe {
-            core::slice::from_raw_parts(
-                data_offsets.as_ptr() as *const ReadType,
-                (data_offsets.len() + core::mem::size_of::<ReadType>() - 1)
-                    / core::mem::size_of::<ReadType>(),
-            )
-        };
-        // Read the offsets gammas
-        let mut reader = BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
-            &offsets_slice,
-        ));
-
-        let mut pr_offsets = ProgressLogger::default();
-        pr_offsets.expected_updates = Some($num_nodes as _);
-        pr_offsets.item_name = "offset".to_string();
-        pr_offsets.start("Loading offsets...");
-        // Read the offsets gammas
-        let mut offsets = EliasFanoBuilder::new(
-            ($data_graph.len() * 8 * core::mem::size_of::<ReadType>()) as u64,
-            $num_nodes as u64,
-        );
-
-        let mut offset = 0;
-        for _ in 0..$num_nodes {
-            offset += reader.read_gamma().unwrap() as usize;
-            offsets.push(offset as _).unwrap();
-            pr_offsets.update();
-        }
-        pr_offsets.done_with_count($num_nodes as _);
-        let offsets: EliasFano<SparseIndex<BitMap<Vec<u64>>, Vec<u64>, 8>, CompactArray<Vec<u64>>> =
-            offsets.build().convert_to().unwrap();
-
-        offsets
-    }};
-}
-
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 

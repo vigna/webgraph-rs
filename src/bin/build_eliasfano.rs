@@ -33,23 +33,47 @@ pub fn main() -> Result<()> {
     let mut ef_file = BufWriter::new(File::create(format!("{}.ef", args.basename))?);
 
     // Create the offsets file
-    let of_file = BufReader::new(File::open(&format!("{}.offsets", args.basename))?);
-    // create a bit reader on the file
-    let mut reader = BufferedBitStreamRead::<BE, u64, _>::new(<FileBackend<u32, _>>::new(of_file));
-    // progress bar
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "offset".into();
-    pr.start("Translating offsets...");
-    // read the graph a write the offsets
-    let mut offset = 0;
-    for _ in 0..num_nodes + 1 {
-        // write where
-        offset += reader.read_gamma()?;
-        efb.push(offset as _)?;
-        // decode the next nodes so we know where the next node_id starts
-        pr.light_update();
+    let of_file_str = format!("{}.offsets", args.basename);
+    let of_file_path = std::path::Path::new(&of_file_str);
+
+    // if the offset files exists, read it to build elias-fano
+    if of_file_path.exists() {
+        eprintln!("The offsets file exists, reading it to build Elias-Fano");
+        let of_file = BufReader::new(File::open(of_file_path)?);
+        // create a bit reader on the file
+        let mut reader =
+            BufferedBitStreamRead::<BE, u64, _>::new(<FileBackend<u32, _>>::new(of_file));
+        // progress bar
+        let mut pr = ProgressLogger::default().display_memory();
+        pr.item_name = "offset".into();
+        pr.start("Translating offsets...");
+        // read the graph a write the offsets
+        let mut offset = 0;
+        for _ in 0..num_nodes + 1 {
+            // write where
+            offset += reader.read_gamma()?;
+            efb.push(offset as _)?;
+            // decode the next nodes so we know where the next node_id starts
+            pr.light_update();
+        }
+        pr.done();
+    } else {
+        eprintln!("The offsets file does not exists, reading the graph to build Elias-Fano");
+        let mut seq_reader = webgraph::prelude::WebgraphDegreesIter::load_mapped(&args.basename)?;
+        // otherwise directly read the graph
+        // progress bar
+        let mut pr = ProgressLogger::default().display_memory();
+        pr.item_name = "offset".into();
+        pr.start("Translating offsets...");
+        // read the graph a write the offsets
+        for (new_offset, _node_id, _degree) in &mut seq_reader {
+            // write where
+            efb.push(new_offset as _)?;
+            // decode the next nodes so we know where the next node_id starts
+            pr.light_update();
+        }
+        pr.done();
     }
-    pr.done();
 
     let ef = efb.build();
     let ef: webgraph::EF<_> = ef.convert_to().unwrap();
