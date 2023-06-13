@@ -6,8 +6,15 @@ use std::io::Read;
 
 /// GOV Minimum perfect Hashing:
 ///
+/// Minimal perfect hash structure that reads Java-generated, dumped structures.
+///
+/// To obtain a file that can be read by this structure, load
+/// the Java instance of the MPH and write it to a file
+/// using the `dump` method.
+///
 /// # Reference:
 /// [Marco Genuzio, Giuseppe Ottaviano, and Sebastiano Vigna, Fast Scalable Construction of (Minimal Perfect Hash) Functions](https://arxiv.org/pdf/1603.04330.pdf)
+/// [Java version with `dump` method](https://github.com/vigna/Sux4J/blob/master/src/it/unimi/dsi/sux4j/mph/GOVMinimalPerfectHashFunction.java)
 #[derive(Debug)]
 pub struct GOVMPH {
     pub size: u64,

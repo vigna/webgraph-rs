@@ -7,15 +7,15 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
-use std::io::BufWriter;
 use std::io::prelude::*;
+use std::io::BufWriter;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Mutex;
 use std::thread;
 use webgraph::prelude::*;
-use bytemuck::cast_slice;
+
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
 struct Args {
@@ -222,7 +222,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     .iter_nodes()
     .for_each(|(x, succ)| {
         succ.for_each(|s| {
-            sort_pairs.push(x, s);
+            sort_pairs.push(x, s).unwrap();
         })
     });
 
