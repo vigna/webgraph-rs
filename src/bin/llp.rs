@@ -1,3 +1,4 @@
+use bytemuck::cast_slice;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
@@ -76,7 +77,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
-    glob_pr.item_name = "update".to_string();
+    glob_pr.item_name = "update";
 
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
@@ -92,7 +93,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         perm.chunks_mut(100000)
             .for_each(|chunk| chunk.shuffle(&mut rand));
         let mut pr = ProgressLogger::default();
-        pr.item_name = "node".to_string();
+        pr.item_name = "node";
         pr.local_speed = true;
         pr.expected_updates = Some(num_nodes);
         pr.start("Updating...");
@@ -228,7 +229,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut bvcomp = BVComp::new(codes_writer, 1, 4);
     glob_pr.expected_updates = Some(num_nodes);
-    glob_pr.item_name = "node".to_string();
+    glob_pr.item_name = "node";
     glob_pr.start("Writing...");
     bvcomp.extend(sort_pairs.build()?.iter_nodes())?;
     bvcomp.flush()?;
