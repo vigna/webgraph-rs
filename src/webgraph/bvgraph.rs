@@ -1,7 +1,14 @@
+use alloc::borrow::Cow;
 use anyhow::bail;
+use core::{
+    mem::MaybeUninit,
+    num,
+    ptr::{addr_of_mut, NonNull},
+};
 use dsi_bitstream::prelude::*;
 use std::{collections::HashMap, fs::File, io::BufReader};
 use sux::traits::{MemCase, RefCase, VSlice};
+use yoke::Yoke;
 
 use super::*;
 use crate::utils::nat2int;
@@ -82,7 +89,8 @@ impl CompFlags {
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<CR, OFF> {
+pub struct BVGraph<'a, CR, OFF> {
+    graph: RefCase<'a, [u32]>,
     /// Backend that allows us to read the bitstream of the graph to decode
     /// the edges.
     codes_reader: CR,
@@ -99,27 +107,35 @@ pub struct BVGraph<CR, OFF> {
     number_of_arcs: usize,
 }
 
-impl<'a, CR, OFF> BVGraph<CR, OFF>
+impl<'a, CR, OFF> BVGraph<'a, CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
 {
     pub fn new(
-        codes_reader: CR,
+        graph: RefCase<'a, [u32]>,
+        codes_reader: impl FnOnce(&[u32]) -> Result<CR>,
         offsets: MemCase<OFF>,
         min_interval_length: usize,
         compression_window: usize,
         number_of_nodes: usize,
         number_of_arcs: usize,
-    ) -> Self {
-        Self {
-            codes_reader,
-            offsets,
-            min_interval_length,
-            compression_window,
-            number_of_nodes,
-            number_of_arcs,
+    ) -> Result<Self> {
+        let mut uninit = MaybeUninit::<Self>::uninit();
+        let ptr = uninit.as_mut_ptr();
+
+        unsafe {
+            addr_of_mut!((*ptr).graph).write(graph);
+            addr_of_mut!((*ptr).codes_reader)
+                .write(codes_reader(addr_of_mut!((*ptr).graph).as_mut().unwrap())?);
+            addr_of_mut!((*ptr).offsets).write(offsets);
+            addr_of_mut!((*ptr).min_interval_length).write(min_interval_length);
+            addr_of_mut!((*ptr).compression_window).write(compression_window);
+            addr_of_mut!((*ptr).number_of_nodes).write(number_of_nodes);
+            addr_of_mut!((*ptr).number_of_arcs).write(number_of_arcs);
         }
+
+        unsafe { Ok(uninit.assume_init()) }
     }
 }
 
@@ -127,10 +143,7 @@ pub fn load(
     basename: &str,
 ) -> Result<
     BVGraph<
-        DynamicCodesReader<
-            BE,
-            BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, RefCase<[u32]>>>,
-        >,
+        DynamicCodesReader<BE, BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, &[u32]>>>,
         crate::EF<&[u64]>,
     >,
 > {
@@ -153,21 +166,35 @@ pub fn load(
         &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
     )?;
 
-    let code_reader = DynamicCodesReader::new(
+    /*let code_reader = DynamicCodesReader::new(
         BufferedBitStreamRead::<BE, u64, _>::new(MemWordReadInfinite::new(graph)),
         &CompFlags::from_properties(&map)?,
-    )?;
-    Ok(BVGraph::new(
-        code_reader,
+    )?;*/
+    Ok(BVGraph::<
+        DynamicCodesReader<BE, BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, &[u32]>>>,
+        crate::EF<&[u64]>,
+    >::new(
+        graph,
+        |backend: &[u32]| -> Result<
+            DynamicCodesReader<
+                BE,
+                BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, &[u32]>>,
+            >,
+        > {
+            Ok(DynamicCodesReader::new(
+                BufferedBitStreamRead::<BE, u64, _>::new(MemWordReadInfinite::new(backend)),
+                &CompFlags::from_properties(&map)?,
+            )?)
+        },
         offsets,
         min_interval_length,
         compression_window,
         num_nodes as usize,
         num_arcs as usize,
-    ))
+    )?)
 }
 
-impl<'a, CR, OFF> NumNodes for BVGraph<CR, OFF>
+impl<'a, CR, OFF> NumNodes for BVGraph<'a, CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
@@ -177,7 +204,7 @@ where
     }
 }
 
-impl<'a, CR, OFF> SequentialGraph for BVGraph<CR, OFF>
+impl<'a, CR, OFF> SequentialGraph for BVGraph<'a, CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
@@ -200,14 +227,14 @@ where
     }
 }
 
-impl<'a, CR, OFF> SortedNodes for BVGraph<CR, OFF>
+impl<'a, CR, OFF> SortedNodes for BVGraph<'a, CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
 {
 }
 
-impl<'a, CR, OFF> RandomAccessGraph for BVGraph<CR, OFF>
+impl<'a, CR, OFF> RandomAccessGraph for BVGraph<'a, CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
@@ -337,7 +364,7 @@ where
     }
 }
 
-impl<'a, CR, OFF> SortedSuccessors for BVGraph<CR, OFF>
+impl<'a, CR, OFF> SortedSuccessors for BVGraph<'a, CR, OFF>
 where
     CR: WebGraphCodesReader + BitSeek + Clone,
     OFF: VSlice,
