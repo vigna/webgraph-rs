@@ -26,7 +26,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut queue = VecDeque::new();
 
     let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "node".into();
+    pr.item_name = "node";
     pr.local_speed = true;
     pr.expected_updates = Some(graph.num_nodes());
     pr.start("Visiting graph...");
