@@ -6,7 +6,7 @@ pub trait ReadCodes<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
 // A trait combining the codes used by BVGraph when writing.
 pub trait WriteCodes<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
-/// Vlanket implementation so we can consider [`ReadCodes`] just as an alias for
+/// Blanket implementation so we can consider [`ReadCodes`] just as an alias for
 /// a sum of traits
 impl<E: Endianness, T> ReadCodes<E> for T where T: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
 /// Blanket implementation so we can consider [`WriteCodes`] just as an alias for

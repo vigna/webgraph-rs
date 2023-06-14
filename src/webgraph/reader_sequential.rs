@@ -7,7 +7,7 @@ use dsi_bitstream::prelude::*;
 /// This iterator does not require to know the offsets of each node in the graph.
 pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     codes_reader: CR,
-    backrefs: CircularBuffer,
+    backrefs: CircularBufferVec,
     compression_window: usize,
     min_interval_length: usize,
     number_of_nodes: usize,
@@ -33,7 +33,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     ) -> Self {
         Self {
             codes_reader,
-            backrefs: CircularBuffer::new(compression_window + 1),
+            backrefs: CircularBufferVec::new(compression_window + 1),
             compression_window,
             min_interval_length,
             number_of_nodes,

@@ -26,16 +26,29 @@
 //#![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use dsi_bitstream::prelude::*;
 use sux::prelude::*;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+mod load;
 pub mod traits;
 pub mod utils;
 pub mod webgraph;
+pub use load::*;
 
+/// The default veinarsion of EliasFano we use for the CLI
 pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactArray<Memory>>;
+
+/// The default version of BVGraph we use for the CLI
+pub type BVGraphDefault<Memory> = webgraph::BVGraph<
+    webgraph::DynamicCodesReader<
+        BE,
+        BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, Memory>>,
+    >,
+    EF<Memory>,
+>;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {

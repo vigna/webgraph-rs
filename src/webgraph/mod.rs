@@ -2,7 +2,7 @@ use crate::traits::*;
 use anyhow::Result;
 
 mod circular_buffer;
-pub(crate) use circular_buffer::CircularBuffer;
+pub(crate) use circular_buffer::*;
 
 mod reader_degrees;
 pub use reader_degrees::*;

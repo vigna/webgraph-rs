@@ -39,6 +39,9 @@ struct Args {
     /// The minimum interval length
     #[clap(default_value_t = 4)]
     min_interval_length: usize,
+    /// The maximum recursion depth for references
+    #[clap(default_value_t = 3)]
+    max_ref_count: usize,
 
     #[arg(value_enum)]
     #[clap(default_value = "gamma")]
@@ -94,7 +97,12 @@ pub fn main() -> Result<()> {
         )?))),
         &compression_flags,
     );
-    let mut bvcomp = BVComp::new(writer, args.compression_window, args.min_interval_length);
+    let mut bvcomp = BVComp::new(
+        writer,
+        args.compression_window,
+        args.min_interval_length,
+        args.max_ref_count,
+    );
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "node".into();

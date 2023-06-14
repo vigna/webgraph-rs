@@ -1,17 +1,17 @@
-use super::CircularBuffer;
+use super::{CircularBuffer, CircularBufferVec};
 use crate::traits::*;
 use crate::utils::int2nat;
 use anyhow::Result;
 
 pub struct BVComp<WGCW: WebGraphCodesWriter> {
-    backrefs: CircularBuffer,
+    backrefs: CircularBufferVec,
+    ref_counts: CircularBuffer<usize>,
     bit_write: WGCW,
     mock_writer: WGCW::MockWriter,
     compressors: Vec<Compressor>,
-    #[allow(dead_code)]
     min_interval_length: usize,
-    #[allow(dead_code)]
     compression_window: usize,
+    max_ref_count: usize,
     curr_node: usize,
 }
 
@@ -52,12 +52,12 @@ impl Compressor {
         written_bits += writer.write_outdegree(self.outdegree as u64)?;
         if self.outdegree != 0 {
             if let Some(reference_offset) = reference_offset {
-                writer.write_reference_offset(reference_offset as u64)?;
+                written_bits += writer.write_reference_offset(reference_offset as u64)?;
                 if reference_offset != 0 {
-                    writer.write_block_count(self.blocks.len() as _)?;
+                    written_bits += writer.write_block_count(self.blocks.len() as _)?;
                     if !self.blocks.is_empty() {
                         for i in 0..self.blocks.len() {
-                            writer.write_blocks((self.blocks[i] - 1) as u64)?;
+                            written_bits += writer.write_blocks((self.blocks[i] - 1) as u64)?;
                         }
                     }
                 }
@@ -65,18 +65,20 @@ impl Compressor {
         }
 
         if !self.extra_nodes.is_empty() && min_interval_length != Self::NO_INTERVALS {
-            writer.write_interval_count(self.left_interval.len() as _)?;
+            written_bits += writer.write_interval_count(self.left_interval.len() as _)?;
 
             if !self.left_interval.is_empty() {
-                writer.write_interval_start(int2nat(
+                written_bits += writer.write_interval_start(int2nat(
                     self.left_interval[0] as i64 - curr_node as i64,
                 ))?;
-                writer.write_interval_len((self.len_interval[0] - min_interval_length) as u64)?;
+                written_bits += writer
+                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)?;
                 let mut prev = self.left_interval[0] + self.len_interval[0];
 
                 for i in 1..self.left_interval.len() {
-                    writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
-                    writer
+                    written_bits +=
+                        writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                    written_bits += writer
                         .write_interval_len((self.len_interval[i] - min_interval_length) as u64)?;
                     prev = self.left_interval[i] + self.len_interval[i];
                 }
@@ -96,6 +98,16 @@ impl Compressor {
         Ok(written_bits)
     }
 
+    #[inline(always)]
+    fn clear(&mut self) {
+        self.outdegree = 0;
+        self.blocks.clear();
+        self.extra_nodes.clear();
+        self.left_interval.clear();
+        self.len_interval.clear();
+        self.residuals.clear();
+    }
+
     /// setup the internal buffers for the compression of the given values
     fn compress(
         &mut self,
@@ -103,13 +115,8 @@ impl Compressor {
         ref_list: Option<&[usize]>,
         min_interval_length: usize,
     ) -> Result<()> {
+        self.clear();
         self.outdegree = curr_list.len();
-        // reset all vectors
-        self.blocks.clear();
-        self.extra_nodes.clear();
-        self.left_interval.clear();
-        self.len_interval.clear();
-        self.residuals.clear();
 
         if self.outdegree != 0 {
             if let Some(ref_list) = ref_list {
@@ -233,13 +240,20 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
-    pub fn new(bit_write: WGCW, compression_window: usize, min_interval_length: usize) -> Self {
+    pub fn new(
+        bit_write: WGCW,
+        compression_window: usize,
+        min_interval_length: usize,
+        max_ref_count: usize,
+    ) -> Self {
         BVComp {
-            backrefs: CircularBuffer::new(compression_window + 1),
+            backrefs: CircularBufferVec::new(compression_window + 1),
+            ref_counts: CircularBuffer::new(compression_window + 1),
             mock_writer: bit_write.mock(),
             bit_write,
             min_interval_length,
             compression_window,
+            max_ref_count,
             curr_node: 0,
             compressors: (0..compression_window + 1)
                 .map(|_| Compressor::new())
@@ -283,12 +297,23 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             Some(0),
             self.min_interval_length,
         )?;
+        let mut ref_count = 0;
 
         let deltas = 1 + self.compression_window.min(self.curr_node);
         // compression windows is not zero, so compress the current node
         for delta in 1..deltas {
-            // Get the neighbours of this previous node
-            let ref_list = &self.backrefs[self.curr_node - delta];
+            let ref_node = self.curr_node - delta;
+            // If the reference node is too far, we don't consider it
+            let count = self.ref_counts[ref_node];
+            if count >= self.max_ref_count {
+                continue;
+            }
+            // Get the neighbours of this previous len_zetanode
+            let ref_list = &self.backrefs[ref_node];
+            // No neighbours, no compression
+            if ref_list.is_empty() {
+                continue;
+            }
             // Get its compressor
             let compressor = &mut self.compressors[delta];
             // Compute how we would compress this
@@ -305,6 +330,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             if bits < min_bits {
                 min_bits = bits;
                 ref_delta = delta;
+                ref_count = count + 1;
             }
         }
         // write the best result reusing the precomputed compression
@@ -315,6 +341,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             Some(ref_delta),
             self.min_interval_length,
         )?;
+        self.ref_counts[self.curr_node] = ref_count;
         // consistency check
         debug_assert_eq!(written_bits, min_bits);
         // update the current node
@@ -465,7 +492,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesWriter<BE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3);
 
         bvcomp
             .extend(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?)
@@ -520,7 +547,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesWriter<LE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3);
 
         bvcomp
             .extend(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?)
