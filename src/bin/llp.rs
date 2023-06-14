@@ -7,15 +7,14 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
-use std::io::BufWriter;
 use std::io::prelude::*;
+use std::io::BufWriter;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Mutex;
 use std::thread;
 use webgraph::prelude::*;
-use bytemuck::cast_slice;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -199,8 +198,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let labels = unsafe { std::mem::transmute::<&[AtomicUsize], &[u8]>(label_store.labels()) };
     std::fs::File::create(format!("{}-{}.labels", args.basename, 0))?.write_all(labels)?;
-
-    
 
     let mut perm = (0..num_nodes).collect::<Vec<_>>();
     perm.par_sort_unstable_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
