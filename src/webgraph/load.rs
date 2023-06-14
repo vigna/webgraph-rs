@@ -7,6 +7,7 @@ use std::fs::*;
 use std::io::*;
 use std::path::Path;
 
+/// Load a BVGraph for random access
 pub fn load(
     basename: &str,
 ) -> Result<BVGraph<DynamicCodesReaderBuilder<BE, MmapBackend<u32>>, crate::EF<&[u64]>>> {
@@ -48,4 +49,51 @@ pub fn load(
         num_nodes as usize,
         num_arcs as usize,
     ))
+}
+
+/// Load a BVGraph sequentially
+pub fn load_seq(
+    basename: &str,
+) -> Result<
+    WebgraphSequentialIter<
+        DynamicCodesReader<
+            BE,
+            BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, MmapBackend<u32>>>,
+        >,
+    >,
+> {
+    let f = File::open(format!("{}.properties", basename))?;
+    let map = java_properties::read(BufReader::new(f))?;
+
+    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
+    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
+
+    assert_eq!(map.get("compressionflags").unwrap(), "");
+
+    let graph_path_str = format!("{}.graph", basename);
+    let graph_path = Path::new(&graph_path_str);
+    let file_len = graph_path.metadata()?.len();
+    let file = std::fs::File::open(graph_path)?;
+
+    let graph = MmapBackend::new(unsafe {
+        mmap_rs::MmapOptions::new(file_len as _)?
+            .with_flags((sux::prelude::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
+            .with_file(file, 0)
+            .map()?
+    });
+
+    let code_reader = DynamicCodesReader::new(
+        BufferedBitStreamRead::new(MemWordReadInfinite::new(graph)),
+        &CompFlags::from_properties(&map)?,
+    )?;
+
+    let seq_reader = WebgraphSequentialIter::new(
+        code_reader,
+        compression_window,
+        min_interval_length,
+        num_nodes as usize,
+    );
+
+    Ok(seq_reader)
 }

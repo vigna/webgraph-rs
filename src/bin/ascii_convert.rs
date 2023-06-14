@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
-use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Dumps a graph as an COO arc list", long_about = None)]
@@ -19,8 +18,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let seq_reader = WebgraphSequentialIter::load_mapped(&args.basename)?;
-
+    let seq_reader = webgraph::webgraph::load_seq(&args.basename)?;
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "offset".into();
     pr.start("Computing offsets...");

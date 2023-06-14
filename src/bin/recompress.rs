@@ -88,8 +88,7 @@ pub fn main() -> Result<()> {
         compression_window: args.compression_window,
     };
 
-    let seq_reader = WebgraphSequentialIter::load_mapped(&args.basename)?;
-
+    let seq_reader = webgraph::webgraph::load_seq(&args.basename)?;
     let file_path = format!("{}.graph", args.new_basename);
     let writer = <DynamicCodesWriter<BE, _>>::new(
         <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(File::create(
