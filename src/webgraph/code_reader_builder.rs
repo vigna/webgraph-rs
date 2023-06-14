@@ -82,3 +82,80 @@ impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
         })
     }
 }
+
+pub struct ConstCodesReaderBuilder<
+    E: Endianness,
+    B: AsRef<[u32]>,
+    const OUTDEGREES: usize = { const_codes::GAMMA },
+    const REFERENCES: usize = { const_codes::UNARY },
+    const BLOCKS: usize = { const_codes::GAMMA },
+    const INTERVALS: usize = { const_codes::GAMMA },
+    const RESIDUALS: usize = { const_codes::ZETA },
+    const K: u64 = 3,
+> {
+    data: B,
+    _marker: core::marker::PhantomData<E>,
+}
+
+impl<
+        E: Endianness,
+        B: AsRef<[u32]>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    pub fn new(data: B, comp_flags: &CompFlags) -> Result<Self> {
+        if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
+            bail!("Code for outdegrees does not match");
+        }
+        if code_to_const(comp_flags.references)? != REFERENCES {
+            bail!("Cod for references does not match");
+        }
+        if code_to_const(comp_flags.blocks)? != BLOCKS {
+            bail!("Code for blocks does not match");
+        }
+        if code_to_const(comp_flags.intervals)? != INTERVALS {
+            bail!("Code for intervals does not match");
+        }
+        if code_to_const(comp_flags.residuals)? != RESIDUALS {
+            bail!("Code for residuals does not match");
+        }
+        Ok(Self {
+            data,
+            _marker: core::marker::PhantomData::default(),
+        })
+    }
+}
+
+impl<
+        E: Endianness,
+        B: AsRef<[u32]>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > WebGraphCodesReaderBuilder
+    for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    type Reader<'a> =
+        ConstCodesReader<BE, BitReader<'a>>
+    where
+        Self: 'a;
+
+    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+        let mut code_reader: BitReader<'_> =
+            BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
+        code_reader.set_pos(offset)?;
+
+        Ok(ConstCodesReader {
+            code_reader,
+            _marker: Default::default(),
+        })
+    }
+}

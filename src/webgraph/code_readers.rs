@@ -12,7 +12,7 @@ pub mod const_codes {
 }
 
 /// Temporary convertion function while const enum generics are not stable
-fn code_to_const(code: Code) -> Result<usize> {
+pub(crate) fn code_to_const(code: Code) -> Result<usize> {
     Ok(match code {
         Code::Unary => const_codes::UNARY,
         Code::Gamma => const_codes::GAMMA,
@@ -35,8 +35,8 @@ pub struct ConstCodesReader<
     const RESIDUALS: usize = { const_codes::ZETA },
     const K: u64 = 3,
 > {
-    code_reader: CR,
-    _marker: core::marker::PhantomData<E>,
+    pub(crate) code_reader: CR,
+    pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
 impl<
