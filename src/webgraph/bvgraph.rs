@@ -147,13 +147,14 @@ where
         OFF: 'b;
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes(&self) -> Result<WebgraphSequentialIter<CRB::Reader<'_>>> {
-        Ok(WebgraphSequentialIter::new(
-            self.codes_reader_builder.get_reader(0)?,
+    fn iter_nodes(&self) -> WebgraphSequentialIter<CRB::Reader<'_>> {
+        WebgraphSequentialIter::new(
+            // a reader at offset 0 should always be buildable
+            self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
-        ))
+        )
     }
 }
 
@@ -417,6 +418,6 @@ where
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter_nodes().unwrap()
+        self.iter_nodes()
     }
 }

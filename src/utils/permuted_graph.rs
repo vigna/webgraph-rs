@@ -24,11 +24,11 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
         self.graph.num_arcs_hint()
     }
 
-    fn iter_nodes(&self) -> Result<Self::NodesIter<'_>> {
-        Ok(NodePermutedIterator {
-            iter: self.graph.iter_nodes()?,
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        NodePermutedIterator {
+            iter: self.graph.iter_nodes(),
             perm: self.perm,
-        })
+        }
     }
 }
 
@@ -132,16 +132,16 @@ impl SequentialGraph for MergedGraph {
         None
     }
 
-    fn iter_nodes(&self) -> Result<Self::NodesIter<'_>> {
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
         let mut iter = self.sorted_pairs.iter();
 
-        Ok(SortedNodePermutedIterator {
+        SortedNodePermutedIterator {
             num_nodes: self.num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
             next_pair: iter.iter.next().unwrap_or((usize::MAX, usize::MAX)),
             iter: iter.iter,
             _marker: PhantomData,
-        })
+        }
     }
 }
 
@@ -213,7 +213,7 @@ fn test_permuted_graph() -> Result<()> {
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v = VecGraph::from_node_iter(p.iter_nodes()?);
+    let v = VecGraph::from_node_iter(p.iter_nodes());
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0)?, 1);
@@ -231,9 +231,9 @@ fn test_sorted_permuted_graph() -> Result<()> {
     use crate::webgraph::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let mut s = Sorted::new(g.num_nodes(), 1)?;
-    s.extend(g.iter_nodes()?)?;
+    s.extend(g.iter_nodes())?;
     let m = s.build()?;
-    let h = VecGraph::from_node_iter(m.iter_nodes()?);
+    let h = VecGraph::from_node_iter(m.iter_nodes());
     assert_eq!(g, h);
 
     for batch_size in vec![1, 10, 100] {
@@ -248,7 +248,7 @@ fn test_sorted_permuted_graph() -> Result<()> {
         let m = s.build()?;
         let mut g = VecGraph::empty(4);
         g.add_arc_list(&[(1, 1), (1, 2), (2, 2), (2, 1)]);
-        let h = VecGraph::from_node_iter(m.iter_nodes()?);
+        let h = VecGraph::from_node_iter(m.iter_nodes());
         assert_eq!(g, h);
     }
 

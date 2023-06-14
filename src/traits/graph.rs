@@ -33,11 +33,11 @@ impl<T: SequentialGraphImpl> SequentialGraph for T {
         Some(self.num_arcs())
     }
 
-    fn iter_nodes(&self) -> Result<Self::NodesIter<'_>> {
-        Ok(SequentialGraphImplIter {
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        SequentialGraphImplIter {
             graph: self,
             nodes: (0..self.num_nodes()),
-        })
+        }
     }
 }
 
@@ -60,7 +60,7 @@ pub trait SequentialGraph: NumNodes {
         None
     }
 
-    fn iter_nodes(&self) -> Result<Self::NodesIter<'_>>;
+    fn iter_nodes(&self) -> Self::NodesIter<'_>;
 }
 
 pub trait Labelled {
