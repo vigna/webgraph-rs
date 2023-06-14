@@ -61,7 +61,7 @@ pub fn main() -> Result<()> {
     pl.expected_updates = Some(sorted.num_nodes());
     pl.item_name = "node".into();
     pl.start("Writing...");
-    for (_, succ) in sorted.iter_nodes() {
+    for (_, succ) in sorted.iter_nodes()? {
         bvcomp.push(succ)?;
         pl.light_update();
     }

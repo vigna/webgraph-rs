@@ -86,11 +86,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if args.check {
-        let offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(
-            format!("{}.ef", args.basename),
-            &sux::prelude::Flags::empty(),
-        )?;
-
         // Create a sequential reader
         let mut seq_reader = WebgraphSequentialIter::new(
             DynamicCodesReader::new(
@@ -105,19 +100,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // create a random access reader;
-        let random_reader = BVGraph::new(
-            DynamicCodesReader::new(
-                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
-                    &graph_slice,
-                )),
-                &comp_flags,
-            )?,
-            offsets,
-            min_interval_length,
-            compression_window,
-            num_nodes as usize,
-            num_arcs as usize,
-        );
+        let random_reader = webgraph::webgraph::load(&args.basename)?;
 
         // Create a degrees reader
         let mut deg_reader = WebgraphDegreesIter::new(
@@ -197,7 +180,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs as usize);
         }
     } else {
-        let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
+        let graph = webgraph::webgraph::load(&args.basename)?;
 
         // Random-access speed test
         for _ in 0..args.repeats {

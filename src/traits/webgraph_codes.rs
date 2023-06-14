@@ -13,6 +13,17 @@ impl<E: Endianness, T> ReadCodes<E> for T where T: GammaRead<E> + DeltaRead<E> +
 /// a sum of traits
 impl<E: Endianness, T> WriteCodes<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
+/// An object that can create code readers, this is done so that the builder can
+/// own the data, and the readers can be created and thrown away freely
+pub trait WebGraphCodesReaderBuilder {
+    type Reader<'a>: WebGraphCodesReader + BitSeek + 'a
+    where
+        Self: 'a;
+
+    /// Create a new reader at bit-offset `offset`
+    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>>;
+}
+
 pub trait WebGraphCodesReader {
     fn read_outdegree(&mut self) -> Result<u64>;
 

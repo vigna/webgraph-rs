@@ -1,11 +1,12 @@
 use anyhow::bail;
 use dsi_bitstream::prelude::*;
-use std::{collections::HashMap, fs::File, io::BufReader};
-use sux::traits::{MemCase, RefCase, VSlice};
+use std::collections::HashMap;
+use sux::traits::{MemCase, VSlice};
 
 use super::*;
 use crate::utils::nat2int;
 
+#[derive(Clone, Debug)]
 pub struct CompFlags {
     pub outdegrees: Code,
     pub references: Code,
@@ -82,10 +83,10 @@ impl CompFlags {
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<CR, OFF> {
-    /// Backend that allows us to read the bitstream of the graph to decode
-    /// the edges.
-    codes_reader: CR,
+pub struct BVGraph<CRB: WebGraphCodesReaderBuilder, OFF: VSlice> {
+    /// Backend that can create objects that allows us to read the bitstream of
+    /// the graph to decode the edges.
+    codes_reader_builder: CRB,
     /// The bit offset at which we will have to start for decoding the edges of
     /// each node.
     offsets: MemCase<OFF>,
@@ -99,13 +100,13 @@ pub struct BVGraph<CR, OFF> {
     number_of_arcs: usize,
 }
 
-impl<'a, CR, OFF> BVGraph<CR, OFF>
+impl<'a, CRB, OFF> BVGraph<CRB, OFF>
 where
-    CR: WebGraphCodesReader + BitSeek + Clone,
+    CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
 {
     pub fn new(
-        codes_reader: CR,
+        codes_reader_builder: CRB,
         offsets: MemCase<OFF>,
         min_interval_length: usize,
         compression_window: usize,
@@ -113,7 +114,7 @@ where
         number_of_arcs: usize,
     ) -> Self {
         Self {
-            codes_reader,
+            codes_reader_builder,
             offsets,
             min_interval_length,
             compression_window,
@@ -123,53 +124,9 @@ where
     }
 }
 
-pub fn load(
-    basename: &str,
-) -> Result<
-    BVGraph<
-        DynamicCodesReader<
-            BE,
-            BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, RefCase<[u32]>>>,
-        >,
-        crate::EF<&[u64]>,
-    >,
-> {
-    let f = File::open(format!("{}.properties", basename))?;
-    let map = java_properties::read(BufReader::new(f))?;
-
-    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
-    let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
-    let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
-
-    assert_eq!(map.get("compressionflags").unwrap(), "");
-
-    let graph = sux::prelude::map_slice::<_, u32>(
-        format!("{}.graph", basename),
-        &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
-    )?;
-    let offsets = sux::prelude::map::<_, crate::EF<&[u64]>>(
-        format!("{}.ef", basename),
-        &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
-    )?;
-
-    let code_reader = DynamicCodesReader::new(
-        BufferedBitStreamRead::<BE, u64, _>::new(MemWordReadInfinite::new(graph)),
-        &CompFlags::from_properties(&map)?,
-    )?;
-    Ok(BVGraph::new(
-        code_reader,
-        offsets,
-        min_interval_length,
-        compression_window,
-        num_nodes as usize,
-        num_arcs as usize,
-    ))
-}
-
-impl<'a, CR, OFF> NumNodes for BVGraph<CR, OFF>
+impl<'a, CRB, OFF> NumNodes for BVGraph<CRB, OFF>
 where
-    CR: WebGraphCodesReader + BitSeek + Clone,
+    CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
 {
     fn num_nodes(&self) -> usize {
@@ -177,44 +134,44 @@ where
     }
 }
 
-impl<'a, CR, OFF> SequentialGraph for BVGraph<CR, OFF>
+impl<'a, CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
 where
-    CR: WebGraphCodesReader + BitSeek + Clone,
+    CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
 {
-    type NodesIter<'b> = WebgraphSequentialIter<CR>
-        where Self: 'b, CR: 'b,
+    type NodesIter<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
+        where Self: 'b, CRB: 'b,
         OFF: 'b;
     type SequentialSuccessorIter<'b> = std::vec::IntoIter<usize>
-        where Self: 'b, CR: 'b,
+        where Self: 'b, CRB: 'b,
         OFF: 'b;
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes(&self) -> WebgraphSequentialIter<CR> {
-        WebgraphSequentialIter::new(
-            self.codes_reader.clone(),
+    fn iter_nodes(&self) -> Result<WebgraphSequentialIter<CRB::Reader<'_>>> {
+        Ok(WebgraphSequentialIter::new(
+            self.codes_reader_builder.get_reader(0)?,
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
-        )
+        ))
     }
 }
 
-impl<'a, CR, OFF> SortedNodes for BVGraph<CR, OFF>
+impl<'a, CRB, OFF> SortedNodes for BVGraph<CRB, OFF>
 where
-    CR: WebGraphCodesReader + BitSeek + Clone,
+    CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
 {
 }
 
-impl<'a, CR, OFF> RandomAccessGraph for BVGraph<CR, OFF>
+impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
 where
-    CR: WebGraphCodesReader + BitSeek + Clone,
+    CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
 {
-    type RandomSuccessorIter<'b> = RandomSuccessorIter<CR>
+    type RandomSuccessorIter<'b> = RandomSuccessorIter<CRB::Reader<'b>>
         where Self: 'b,
-        CR: 'b,
+        CRB: 'b,
         OFF: 'b;
 
     fn num_arcs(&self) -> usize {
@@ -223,16 +180,18 @@ where
 
     /// Return the outdegree of a node.
     fn outdegree(&self, node_id: usize) -> Result<usize> {
-        let mut codes_reader = self.codes_reader.clone();
-        codes_reader.set_pos(self.offsets.get(node_id).unwrap() as _)?;
+        let mut codes_reader = self
+            .codes_reader_builder
+            .get_reader(self.offsets.get(node_id).unwrap() as _)?;
         Ok(codes_reader.read_outdegree()? as usize)
     }
 
     #[inline(always)]
     /// Return a random access iterator over the successors of a node.
-    fn successors(&self, node_id: usize) -> Result<RandomSuccessorIter<CR>> {
-        let mut codes_reader = self.codes_reader.clone();
-        codes_reader.set_pos(self.offsets.get(node_id).unwrap() as _)?;
+    fn successors(&self, node_id: usize) -> Result<RandomSuccessorIter<CRB::Reader<'_>>> {
+        let codes_reader = self
+            .codes_reader_builder
+            .get_reader(self.offsets.get(node_id).unwrap() as _)?;
 
         let mut result = RandomSuccessorIter::new(codes_reader);
         let degree = result.reader.read_outdegree()? as usize;
@@ -337,15 +296,15 @@ where
     }
 }
 
-impl<'a, CR, OFF> SortedSuccessors for BVGraph<CR, OFF>
+impl<'a, CRB, OFF> SortedSuccessors for BVGraph<CRB, OFF>
 where
-    CR: WebGraphCodesReader + BitSeek + Clone,
+    CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
 {
 }
 
 ///
-pub struct RandomSuccessorIter<CR: WebGraphCodesReader + BitSeek + Clone> {
+pub struct RandomSuccessorIter<CR: WebGraphCodesReader + BitSeek> {
     reader: CR,
     /// The number of values left
     size: usize,
@@ -367,14 +326,14 @@ pub struct RandomSuccessorIter<CR: WebGraphCodesReader + BitSeek + Clone> {
     next_interval_node: usize,
 }
 
-impl<CR: WebGraphCodesReader + BitSeek + Clone> ExactSizeIterator for RandomSuccessorIter<CR> {
+impl<CR: WebGraphCodesReader + BitSeek> ExactSizeIterator for RandomSuccessorIter<CR> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek + Clone> RandomSuccessorIter<CR> {
+impl<CR: WebGraphCodesReader + BitSeek> RandomSuccessorIter<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
@@ -391,7 +350,7 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> RandomSuccessorIter<CR> {
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for RandomSuccessorIter<CR> {
+impl<CR: WebGraphCodesReader + BitSeek> Iterator for RandomSuccessorIter<CR> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -446,5 +405,18 @@ impl<CR: WebGraphCodesReader + BitSeek + Clone> Iterator for RandomSuccessorIter
         }
 
         Some(min)
+    }
+}
+
+impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
+where
+    CRB: WebGraphCodesReaderBuilder,
+    OFF: VSlice,
+{
+    type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
+    type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_nodes().unwrap()
     }
 }

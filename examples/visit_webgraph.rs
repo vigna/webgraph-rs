@@ -20,7 +20,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()
         .unwrap();
 
-    let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
+    let graph = webgraph::webgraph::load(&args.basename)?;
 
     let mut visited = BitMap::new(graph.num_nodes());
     let mut queue = VecDeque::new();

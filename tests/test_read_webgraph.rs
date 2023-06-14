@@ -46,13 +46,8 @@ fn test_sequential_reading() {
 
     let cf = &CompFlags::from_properties(&HashMap::new()).unwrap();
     // create a random access reader
-    let code_reader = DynamicCodesReader::new(
-        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data)),
-        cf,
-    )
-    .unwrap();
     let bvgraph = BVGraph::new(
-        code_reader,
+        <DynamicCodesReaderBuilder<BE, _>>::new(data, cf).unwrap(),
         sux::prelude::encase_mem(offsets),
         cf.min_interval_length,
         cf.compression_window,
@@ -61,7 +56,7 @@ fn test_sequential_reading() {
     );
 
     // Check that they read the same
-    for (node_id, seq_succ) in bvgraph.iter_nodes() {
+    for (node_id, seq_succ) in bvgraph.iter_nodes().unwrap() {
         let rand_succ = bvgraph.successors(node_id).unwrap().collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }

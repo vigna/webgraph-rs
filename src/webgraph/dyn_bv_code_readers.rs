@@ -1,38 +1,36 @@
 use super::*;
-use anyhow::bail;
-use anyhow::Result;
-use dsi_bitstream::codes::Code::*;
+use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 
 /// An implementation of [`WebGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
 pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek> {
-    code_reader: CR,
-    read_outdegree: fn(&mut CR) -> Result<u64>,
-    read_reference_offset: fn(&mut CR) -> Result<u64>,
-    read_block_count: fn(&mut CR) -> Result<u64>,
-    read_blocks: fn(&mut CR) -> Result<u64>,
-    read_interval_count: fn(&mut CR) -> Result<u64>,
-    read_interval_start: fn(&mut CR) -> Result<u64>,
-    read_interval_len: fn(&mut CR) -> Result<u64>,
-    read_first_residual: fn(&mut CR) -> Result<u64>,
-    read_residual: fn(&mut CR) -> Result<u64>,
-    _marker: core::marker::PhantomData<E>,
+    pub(crate) code_reader: CR,
+    pub(crate) read_outdegree: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_reference_offset: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_block_count: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_blocks: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_interval_count: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_interval_start: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_interval_len: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_first_residual: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_residual: fn(&mut CR) -> Result<u64>,
+    pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek> DynamicCodesReader<E, CR> {
     fn select_code(code: &Code) -> Result<fn(&mut CR) -> Result<u64>> {
         Ok(match code {
-            Unary => CR::read_unary,
-            Gamma => CR::read_gamma,
-            Delta => CR::read_delta,
-            Zeta { k: 1 } => CR::read_gamma,
-            Zeta { k: 2 } => |x| CR::read_zeta(x, 2),
-            Zeta { k: 3 } => CR::read_zeta3,
-            Zeta { k: 4 } => |x| CR::read_zeta(x, 4),
-            Zeta { k: 5 } => |x| CR::read_zeta(x, 5),
-            Zeta { k: 6 } => |x| CR::read_zeta(x, 6),
-            Zeta { k: 7 } => |x| CR::read_zeta(x, 7),
+            Code::Unary => CR::read_unary,
+            Code::Gamma => CR::read_gamma,
+            Code::Delta => CR::read_delta,
+            Code::Zeta { k: 1 } => CR::read_gamma,
+            Code::Zeta { k: 2 } => |x| CR::read_zeta(x, 2),
+            Code::Zeta { k: 3 } => CR::read_zeta3,
+            Code::Zeta { k: 4 } => |x| CR::read_zeta(x, 4),
+            Code::Zeta { k: 5 } => |x| CR::read_zeta(x, 5),
+            Code::Zeta { k: 6 } => |x| CR::read_zeta(x, 6),
+            Code::Zeta { k: 7 } => |x| CR::read_zeta(x, 7),
             _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
         })
     }
@@ -125,10 +123,10 @@ pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E>> {
 impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
     fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize> {
         match code {
-            Unary => CW::write_unary,
-            Gamma => CW::write_gamma,
-            Delta => CW::write_delta,
-            Zeta { k: 3 } => CW::write_zeta3,
+            Code::Unary => CW::write_unary,
+            Code::Gamma => CW::write_gamma,
+            Code::Delta => CW::write_delta,
+            Code::Zeta { k: 3 } => CW::write_zeta3,
             _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
         }
     }
@@ -256,10 +254,10 @@ pub struct DynamicCodesMockWriter {
 impl DynamicCodesMockWriter {
     fn select_code(code: &Code) -> fn(u64) -> usize {
         match code {
-            Unary => len_unary,
-            Gamma => len_gamma,
-            Delta => len_delta,
-            Zeta { k: 3 } => |x| len_zeta(x, 3),
+            Code::Unary => len_unary,
+            Code::Gamma => len_gamma,
+            Code::Delta => len_delta,
+            Code::Zeta { k: 3 } => |x| len_zeta(x, 3),
             _ => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed"),
         }
     }

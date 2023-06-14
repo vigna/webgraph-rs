@@ -32,11 +32,10 @@ use sux::prelude::*;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-mod load;
 pub mod traits;
 pub mod utils;
 pub mod webgraph;
-pub use load::*;
+use crate::utils::MmapBackend;
 
 /// The default veinarsion of EliasFano we use for the CLI
 pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactArray<Memory>>;
@@ -45,7 +44,7 @@ pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactA
 pub type BVGraphDefault<Memory> = webgraph::BVGraph<
     webgraph::DynamicCodesReader<
         BE,
-        BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, Memory>>,
+        BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, MmapBackend<u32>>>,
     >,
     EF<Memory>,
 >;

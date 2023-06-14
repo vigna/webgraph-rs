@@ -73,7 +73,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()
         .unwrap();
 
-    let graph = webgraph::webgraph::bvgraph::load(&args.basename)?;
+    let graph = webgraph::webgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "update";
@@ -219,7 +219,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         graph: &graph,
         perm: &perm,
     }
-    .iter_nodes()
+    .iter_nodes()?
     .for_each(|(x, succ)| {
         succ.for_each(|s| {
             sort_pairs.push(x, s).unwrap();
@@ -230,7 +230,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     glob_pr.expected_updates = Some(num_nodes);
     glob_pr.item_name = "node";
     glob_pr.start("Writing...");
-    bvcomp.extend(sort_pairs.build()?.iter_nodes())?;
+    bvcomp.extend(sort_pairs.build()?.iter_nodes()?)?;
     bvcomp.flush()?;
     glob_pr.done();
     Ok(())
