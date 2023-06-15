@@ -53,6 +53,12 @@ where
         println!("{{g:{}}}", value);
         Ok(value)
     }
+
+    fn skip_gammas(&mut self, n: usize) -> Result<usize> {
+        let value = self.reader.skip_gammas(n)?;
+        println!("{{skip {} g:{}}}", n, value);
+        Ok(value)
+    }
 }
 
 impl<E: Endianness, CR: ReadCodes<E>> DeltaRead<E> for DbgCodeRead<E, CR>
