@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use sux::ranksel::elias_fano;
 use webgraph::prelude::*;
 
 type ReadType = u32;
@@ -10,7 +12,7 @@ const NODES: usize = 325557;
 const ARCS: usize = 3216152;
 
 #[test]
-fn test_sequential_reading() {
+fn test_sequential_reading() -> Result<()> {
     // Read the offsets
     let mut data = std::fs::read("tests/data/cnr-2000.offsets").unwrap();
     // pad with zeros so we can read with ReadType words
@@ -33,6 +35,11 @@ fn test_sequential_reading() {
         offsets.push(offset as u64);
     }
 
+    let mut builder = elias_fano::EliasFanoBuilder::new(offset as u64 + 1, offsets.len() as u64);
+    for o in offsets {
+        builder.push(o)?;
+    }
+
     let mut data = std::fs::read("tests/data/cnr-2000.graph").unwrap();
     // pad with zeros so we can read with ReadType words
     while data.len() % core::mem::size_of::<ReadType>() != 0 {
@@ -48,7 +55,7 @@ fn test_sequential_reading() {
     // create a random access reader
     let bvgraph = BVGraph::new(
         <DynamicCodesReaderBuilder<BE, _>>::new(data, cf).unwrap(),
-        sux::prelude::encase_mem(offsets),
+        sux::prelude::encase_mem(builder.build()),
         cf.min_interval_length,
         cf.compression_window,
         NODES,
@@ -57,7 +64,9 @@ fn test_sequential_reading() {
 
     // Check that they read the same
     for (node_id, seq_succ) in bvgraph.iter_nodes() {
-        let rand_succ = bvgraph.successors(node_id).unwrap().collect::<Vec<_>>();
+        let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }
+
+    Ok(())
 }

@@ -32,20 +32,20 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     pr.start("Visiting graph...");
 
     for start in 0..graph.num_nodes() {
-        if visited.get(start as usize).unwrap() != 0 {
+        if visited.get(start as usize) != 0 {
             continue;
         }
         queue.push_back(start as _);
-        visited.set(start as _, 1).unwrap();
+        visited.set(start as _, 1);
         pr.update();
         let mut current_node;
 
         while queue.len() > 0 {
             current_node = queue.pop_front().unwrap();
-            for succ in graph.successors(current_node).unwrap() {
-                if visited.get(succ as usize).unwrap() == 0 {
+            for succ in graph.successors(current_node) {
+                if visited.get(succ as usize) == 0 {
                     queue.push_back(succ);
-                    visited.set(succ as _, 1).unwrap();
+                    visited.set(succ as _, 1);
                     pr.update();
                 }
             }

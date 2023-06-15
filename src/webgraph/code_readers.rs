@@ -96,12 +96,12 @@ impl<
 macro_rules! select_code_read {
     ($self:ident, $code:expr, $k: expr) => {
         match $code {
-            const_codes::UNARY => $self.code_reader.read_unary(),
-            const_codes::GAMMA => $self.code_reader.read_gamma(),
-            const_codes::DELTA => $self.code_reader.read_delta(),
-            const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma(),
-            const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3(),
-            const_codes::ZETA => $self.code_reader.read_zeta(K),
+            const_codes::UNARY => $self.code_reader.read_unary().unwrap(),
+            const_codes::GAMMA => $self.code_reader.read_gamma().unwrap(),
+            const_codes::DELTA => $self.code_reader.read_delta().unwrap(),
+            const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma().unwrap(),
+            const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3().unwrap(),
+            const_codes::ZETA => $self.code_reader.read_zeta(K).unwrap(),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         }
     };
@@ -120,43 +120,43 @@ impl<
     for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
-    fn read_outdegree(&mut self) -> Result<u64> {
+    fn read_outdegree(&mut self) -> u64 {
         select_code_read!(self, OUTDEGREES, K)
     }
 
     #[inline(always)]
-    fn read_reference_offset(&mut self) -> Result<u64> {
+    fn read_reference_offset(&mut self) -> u64 {
         select_code_read!(self, REFERENCES, K)
     }
 
     #[inline(always)]
-    fn read_block_count(&mut self) -> Result<u64> {
+    fn read_block_count(&mut self) -> u64 {
         select_code_read!(self, BLOCKS, K)
     }
     #[inline(always)]
-    fn read_blocks(&mut self) -> Result<u64> {
+    fn read_blocks(&mut self) -> u64 {
         select_code_read!(self, BLOCKS, K)
     }
 
     #[inline(always)]
-    fn read_interval_count(&mut self) -> Result<u64> {
+    fn read_interval_count(&mut self) -> u64 {
         select_code_read!(self, INTERVALS, K)
     }
     #[inline(always)]
-    fn read_interval_start(&mut self) -> Result<u64> {
+    fn read_interval_start(&mut self) -> u64 {
         select_code_read!(self, INTERVALS, K)
     }
     #[inline(always)]
-    fn read_interval_len(&mut self) -> Result<u64> {
+    fn read_interval_len(&mut self) -> u64 {
         select_code_read!(self, INTERVALS, K)
     }
 
     #[inline(always)]
-    fn read_first_residual(&mut self) -> Result<u64> {
+    fn read_first_residual(&mut self) -> u64 {
         select_code_read!(self, RESIDUALS, K)
     }
     #[inline(always)]
-    fn read_residual(&mut self) -> Result<u64> {
+    fn read_residual(&mut self) -> u64 {
         select_code_read!(self, RESIDUALS, K)
     }
 }

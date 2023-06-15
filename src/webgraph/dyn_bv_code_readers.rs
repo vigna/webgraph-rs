@@ -6,31 +6,31 @@ use dsi_bitstream::prelude::*;
 #[derive(Clone)]
 pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek> {
     pub(crate) code_reader: CR,
-    pub(crate) read_outdegree: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_reference_offset: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_block_count: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_blocks: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_interval_count: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_interval_start: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_interval_len: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_first_residual: fn(&mut CR) -> Result<u64>,
-    pub(crate) read_residual: fn(&mut CR) -> Result<u64>,
+    pub(crate) read_outdegree: fn(&mut CR) -> u64,
+    pub(crate) read_reference_offset: fn(&mut CR) -> u64,
+    pub(crate) read_block_count: fn(&mut CR) -> u64,
+    pub(crate) read_blocks: fn(&mut CR) -> u64,
+    pub(crate) read_interval_count: fn(&mut CR) -> u64,
+    pub(crate) read_interval_start: fn(&mut CR) -> u64,
+    pub(crate) read_interval_len: fn(&mut CR) -> u64,
+    pub(crate) read_first_residual: fn(&mut CR) -> u64,
+    pub(crate) read_residual: fn(&mut CR) -> u64,
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek> DynamicCodesReader<E, CR> {
-    fn select_code(code: &Code) -> Result<fn(&mut CR) -> Result<u64>> {
+    fn select_code(code: &Code) -> Result<fn(&mut CR) -> u64> {
         Ok(match code {
-            Code::Unary => CR::read_unary,
-            Code::Gamma => CR::read_gamma,
-            Code::Delta => CR::read_delta,
-            Code::Zeta { k: 1 } => CR::read_gamma,
-            Code::Zeta { k: 2 } => |x| CR::read_zeta(x, 2),
-            Code::Zeta { k: 3 } => CR::read_zeta3,
-            Code::Zeta { k: 4 } => |x| CR::read_zeta(x, 4),
-            Code::Zeta { k: 5 } => |x| CR::read_zeta(x, 5),
-            Code::Zeta { k: 6 } => |x| CR::read_zeta(x, 6),
-            Code::Zeta { k: 7 } => |x| CR::read_zeta(x, 7),
+            Code::Unary => |x| CR::read_unary(x).unwrap(),
+            Code::Gamma => |x| CR::read_gamma(x).unwrap(),
+            Code::Delta => |x| CR::read_delta(x).unwrap(),
+            Code::Zeta { k: 1 } => |x| CR::read_gamma(x).unwrap(),
+            Code::Zeta { k: 2 } => |x| CR::read_zeta(x, 2).unwrap(),
+            Code::Zeta { k: 3 } => |x| CR::read_zeta3(x).unwrap(),
+            Code::Zeta { k: 4 } => |x| CR::read_zeta(x, 4).unwrap(),
+            Code::Zeta { k: 5 } => |x| CR::read_zeta(x, 5).unwrap(),
+            Code::Zeta { k: 6 } => |x| CR::read_zeta(x, 6).unwrap(),
+            Code::Zeta { k: 7 } => |x| CR::read_zeta(x, 7).unwrap(),
             _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
         })
     }
@@ -64,43 +64,43 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReader<E
 
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesReader for DynamicCodesReader<E, CR> {
     #[inline(always)]
-    fn read_outdegree(&mut self) -> Result<u64> {
+    fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn read_reference_offset(&mut self) -> Result<u64> {
+    fn read_reference_offset(&mut self) -> u64 {
         (self.read_reference_offset)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn read_block_count(&mut self) -> Result<u64> {
+    fn read_block_count(&mut self) -> u64 {
         (self.read_block_count)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn read_blocks(&mut self) -> Result<u64> {
+    fn read_blocks(&mut self) -> u64 {
         (self.read_blocks)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn read_interval_count(&mut self) -> Result<u64> {
+    fn read_interval_count(&mut self) -> u64 {
         (self.read_interval_count)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn read_interval_start(&mut self) -> Result<u64> {
+    fn read_interval_start(&mut self) -> u64 {
         (self.read_interval_start)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn read_interval_len(&mut self) -> Result<u64> {
+    fn read_interval_len(&mut self) -> u64 {
         (self.read_interval_len)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn read_first_residual(&mut self) -> Result<u64> {
+    fn read_first_residual(&mut self) -> u64 {
         (self.read_first_residual)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn read_residual(&mut self) -> Result<u64> {
+    fn read_residual(&mut self) -> u64 {
         (self.read_residual)(&mut self.code_reader)
     }
 }

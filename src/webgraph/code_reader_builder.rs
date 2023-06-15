@@ -6,15 +6,15 @@ type BitReader<'a> = BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, &'a
 
 pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
     data: B,
-    read_outdegree: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_reference_offset: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_block_count: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_blocks: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_interval_count: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_interval_start: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_interval_len: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_first_residual: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
-    read_residual: for<'a> fn(&mut BitReader<'a>) -> Result<u64>,
+    read_outdegree: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_reference_offset: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_block_count: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_blocks: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_interval_count: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_interval_start: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_interval_len: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_first_residual: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_residual: for<'a> fn(&mut BitReader<'a>) -> u64,
     _marker: core::marker::PhantomData<E>,
 }
 
@@ -23,16 +23,16 @@ impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
-                    Code::Unary => |x| x.read_unary(),
-                    Code::Gamma => |x| x.read_gamma(),
-                    Code::Delta => |x| x.read_delta(),
-                    Code::Zeta { k: 1 } => |x| x.read_gamma(),
-                    Code::Zeta { k: 2 } => |x| x.read_zeta(2),
-                    Code::Zeta { k: 3 } => |x| x.read_zeta3(),
-                    Code::Zeta { k: 4 } => |x| x.read_zeta(4),
-                    Code::Zeta { k: 5 } => |x| x.read_zeta(5),
-                    Code::Zeta { k: 6 } => |x| x.read_zeta(6),
-                    Code::Zeta { k: 7 } => |x| x.read_zeta(7),
+                    Code::Unary => |x| x.read_unary().unwrap(),
+                    Code::Gamma => |x| x.read_gamma().unwrap(),
+                    Code::Delta => |x| x.read_delta().unwrap(),
+                    Code::Zeta { k: 1 } => |x| x.read_gamma().unwrap(),
+                    Code::Zeta { k: 2 } => |x| x.read_zeta(2).unwrap(),
+                    Code::Zeta { k: 3 } => |x| x.read_zeta3().unwrap(),
+                    Code::Zeta { k: 4 } => |x| x.read_zeta(4).unwrap(),
+                    Code::Zeta { k: 5 } => |x| x.read_zeta(5).unwrap(),
+                    Code::Zeta { k: 6 } => |x| x.read_zeta(6).unwrap(),
+                    Code::Zeta { k: 7 } => |x| x.read_zeta(7).unwrap(),
                     _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
                 }
             };

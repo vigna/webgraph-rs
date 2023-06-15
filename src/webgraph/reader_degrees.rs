@@ -55,7 +55,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
 
     #[inline(always)]
     pub fn next_degree(&mut self) -> Result<usize> {
-        let degree = self.codes_reader.read_outdegree()? as usize;
+        let degree = self.codes_reader.read_outdegree() as usize;
         // no edges, we are done!
         if degree == 0 {
             self.backrefs[self.node_id % self.compression_window] = degree;
@@ -66,7 +66,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
         let mut nodes_left_to_decode = degree;
 
         // read the reference offset
-        let ref_delta = self.codes_reader.read_reference_offset()? as usize;
+        let ref_delta = self.codes_reader.read_reference_offset() as usize;
         // if we copy nodes from a previous one
         if ref_delta != 0 {
             // compute the node id of the reference
@@ -74,7 +74,7 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
             // retrieve the data
             let ref_degree = self.backrefs[reference_node_id % self.compression_window];
             // get the info on which destinations to copy
-            let number_of_blocks = self.codes_reader.read_block_count()? as usize;
+            let number_of_blocks = self.codes_reader.read_block_count() as usize;
 
             // no blocks, we copy everything
             if number_of_blocks == 0 {
@@ -83,12 +83,12 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
                 // otherwise we copy only the blocks of even index
 
                 // the first block could be zero
-                let mut idx = self.codes_reader.read_blocks()? as usize;
+                let mut idx = self.codes_reader.read_blocks() as usize;
                 nodes_left_to_decode -= idx;
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
-                    let block = self.codes_reader.read_blocks()? as usize;
+                    let block = self.codes_reader.read_blocks() as usize;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
                         nodes_left_to_decode -= block + 1;
@@ -104,18 +104,18 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
         // if we still have to read nodes
         if nodes_left_to_decode != 0 && self.min_interval_length != 0 {
             // read the number of intervals
-            let number_of_intervals = self.codes_reader.read_interval_count()? as usize;
+            let number_of_intervals = self.codes_reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                let _ = self.codes_reader.read_interval_start()? as usize;
-                let mut delta = self.codes_reader.read_interval_len()? as usize;
+                let _ = self.codes_reader.read_interval_start() as usize;
+                let mut delta = self.codes_reader.read_interval_len() as usize;
                 delta += self.min_interval_length;
                 // save the first interval
                 nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
-                    let _ = self.codes_reader.read_interval_start()? as usize;
-                    delta = self.codes_reader.read_interval_len()? as usize;
+                    let _ = self.codes_reader.read_interval_start() as usize;
+                    delta = self.codes_reader.read_interval_len() as usize;
                     delta += self.min_interval_length;
 
                     nodes_left_to_decode -= delta;
@@ -126,10 +126,10 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
-            let _ = self.codes_reader.read_first_residual()?;
+            let _ = self.codes_reader.read_first_residual();
             // decode the successive extra nodes
             for _ in 1..nodes_left_to_decode {
-                let _ = self.codes_reader.read_residual()?;
+                let _ = self.codes_reader.read_residual();
             }
         }
 

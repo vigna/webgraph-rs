@@ -50,7 +50,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
 
     #[inline(always)]
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
-        let degree = self.codes_reader.read_outdegree()? as usize;
+        let degree = self.codes_reader.read_outdegree() as usize;
 
         // no edges, we are done!
         if degree == 0 {
@@ -62,7 +62,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
 
         // read the reference offset
         let ref_delta = if self.compression_window != 0 {
-            self.codes_reader.read_reference_offset()? as usize
+            self.codes_reader.read_reference_offset() as usize
         } else {
             0
         };
@@ -74,19 +74,19 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             let neighbours = &self.backrefs[reference_node_id];
             //debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
-            let number_of_blocks = self.codes_reader.read_block_count()? as usize;
+            let number_of_blocks = self.codes_reader.read_block_count() as usize;
             // no blocks, we copy everything
             if number_of_blocks == 0 {
                 results.extend_from_slice(neighbours);
             } else {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero
-                let mut idx = self.codes_reader.read_blocks()? as usize;
+                let mut idx = self.codes_reader.read_blocks() as usize;
                 results.extend_from_slice(&neighbours[..idx]);
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
-                    let block = self.codes_reader.read_blocks()? as usize;
+                    let block = self.codes_reader.read_blocks() as usize;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
                         results.extend_from_slice(&neighbours[idx..end]);
@@ -103,20 +103,20 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
         let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 && self.min_interval_length != 0 {
             // read the number of intervals
-            let number_of_intervals = self.codes_reader.read_interval_count()? as usize;
+            let number_of_intervals = self.codes_reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                let node_id_offset = nat2int(self.codes_reader.read_interval_start()?);
+                let node_id_offset = nat2int(self.codes_reader.read_interval_start());
                 let mut start = (node_id as i64 + node_id_offset) as usize;
-                let mut delta = self.codes_reader.read_interval_len()? as usize;
+                let mut delta = self.codes_reader.read_interval_len() as usize;
                 delta += self.min_interval_length;
                 // save the first interval
                 results.extend(start..(start + delta));
                 start += delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
-                    start += 1 + self.codes_reader.read_interval_start()? as usize;
-                    delta = self.codes_reader.read_interval_len()? as usize;
+                    start += 1 + self.codes_reader.read_interval_start() as usize;
+                    delta = self.codes_reader.read_interval_len() as usize;
                     delta += self.min_interval_length;
 
                     results.extend(start..(start + delta));
@@ -130,12 +130,12 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
         let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
-            let node_id_offset = nat2int(self.codes_reader.read_first_residual()?);
+            let node_id_offset = nat2int(self.codes_reader.read_first_residual());
             let mut extra = (node_id as i64 + node_id_offset) as usize;
             results.push(extra);
             // decode the successive extra nodes
             for _ in 1..nodes_left_to_decode {
-                extra += 1 + self.codes_reader.read_residual()? as usize;
+                extra += 1 + self.codes_reader.read_residual() as usize;
                 results.push(extra);
             }
         }

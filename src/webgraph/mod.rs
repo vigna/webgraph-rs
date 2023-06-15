@@ -1,6 +1,4 @@
 use crate::traits::*;
-use anyhow::Result;
-
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 

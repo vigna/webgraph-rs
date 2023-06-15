@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::*;
+
 use dsi_progress_logger::ProgressLogger;
 use log::info;
 use rand::rngs::SmallRng;
@@ -9,7 +9,6 @@ use rand::SeedableRng;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 use std::io::prelude::*;
-use std::io::BufWriter;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
@@ -132,7 +131,7 @@ pub fn main() -> Result<()> {
 
                             can_change[node].store(false, Relaxed);
 
-                            let successors = graph.successors(node).unwrap();
+                            let successors = graph.successors(node);
 
                             if successors.len() == 0 {
                                 continue;
@@ -177,7 +176,7 @@ pub fn main() -> Result<()> {
                             let next_label = *majorities.choose(&mut rand).unwrap();
                             if next_label != curr_label {
                                 modified.fetch_add(1, Relaxed);
-                                for succ in graph.successors(node).unwrap() {
+                                for succ in graph.successors(node) {
                                     can_change[succ].store(true, Relaxed);
                                 }
 

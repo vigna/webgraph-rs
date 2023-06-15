@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 pub struct SequentialGraphImplIter<'a, G: RandomAccessGraph> {
     graph: &'a G,
     nodes: core::ops::Range<usize>,
@@ -11,7 +9,7 @@ impl<'a, G: RandomAccessGraph> Iterator for SequentialGraphImplIter<'a, G> {
     fn next(&mut self) -> Option<Self::Item> {
         self.nodes
             .next()
-            .map(|node_id| (node_id, self.graph.successors(node_id).unwrap()))
+            .map(|node_id| (node_id, self.graph.successors(node_id)))
     }
 }
 
@@ -85,26 +83,26 @@ pub trait RandomAccessGraph: NumNodes {
     fn num_arcs(&self) -> usize;
 
     /// Get a sorted iterator over the neighbours node_id
-    fn successors(&self, node_id: usize) -> Result<Self::RandomSuccessorIter<'_>>;
+    fn successors(&self, node_id: usize) -> Self::RandomSuccessorIter<'_>;
 
     /// Get the number of outgoing edges of a node
-    fn outdegree(&self, node_id: usize) -> Result<usize> {
-        Ok(self.successors(node_id)?.count())
+    fn outdegree(&self, node_id: usize) -> usize {
+        self.successors(node_id).count()
     }
 
     /// Return if the given edge `src_node_id -> dst_node_id` exists or not
-    fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> Result<bool> {
-        for neighbour_id in self.successors(src_node_id)? {
+    fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
+        for neighbour_id in self.successors(src_node_id) {
             // found
             if neighbour_id == dst_node_id {
-                return Ok(true);
+                return true;
             }
             // early stop
             if neighbour_id > dst_node_id {
-                return Ok(false);
+                return false;
             }
         }
-        Ok(false)
+        false
     }
 }
 

@@ -118,7 +118,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Check that sequential and random-access interfaces return the same result
         for node_id in 0..num_nodes {
             let seq = seq_reader.next_successors()?;
-            let random = random_reader.successors(node_id)?.collect::<Vec<_>>();
+            let random = random_reader.successors(node_id).collect::<Vec<_>>();
 
             assert_eq!(deg_reader.next_degree()? as usize, seq.len(), "{}", node_id);
             assert_eq!(seq, random, "{}", node_id);
@@ -183,14 +183,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             if args.first {
                 for _ in 0..args.n {
                     u += graph
-                        .successors(random.gen_range(0..num_nodes))?
+                        .successors(random.gen_range(0..num_nodes))
                         .next()
                         .unwrap_or(0);
                     c += 1;
                 }
             } else {
                 for _ in 0..args.n {
-                    c += graph.successors(random.gen_range(0..num_nodes))?.count();
+                    c += graph.successors(random.gen_range(0..num_nodes)).count();
                 }
             }
 

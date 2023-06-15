@@ -90,8 +90,7 @@ impl VecGraph {
 
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
-        self.succ
-            .extend((len..=node).map(|_| BTreeSet::new()));
+        self.succ.extend((len..=node).map(|_| BTreeSet::new()));
         len <= node
     }
 }
@@ -109,12 +108,12 @@ impl RandomAccessGraph for VecGraph {
         self.number_of_arcs
     }
 
-    fn outdegree(&self, node: usize) -> Result<usize> {
-        Ok(self.succ[node].len())
+    fn outdegree(&self, node: usize) -> usize {
+        self.succ[node].len()
     }
 
-    fn successors(&self, node: usize) -> Result<Self::RandomSuccessorIter<'_>> {
-        Ok(self.succ[node].clone().into_iter())
+    fn successors(&self, node: usize) -> Self::RandomSuccessorIter<'_> {
+        self.succ[node].clone().into_iter()
     }
 }
 
