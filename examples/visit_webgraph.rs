@@ -1,11 +1,11 @@
+use bitvec::prelude::*;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;
-use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(about = "Visit the Rust Webgraph implementation", long_about = None)]
+#[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
@@ -21,38 +21,37 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     let graph = webgraph::webgraph::load(&args.basename)?;
-
-    let mut visited = BitMap::new(graph.num_nodes());
+    let num_nodes = graph.num_nodes();
+    let mut visited = bitvec![u64, Lsb0; 0; num_nodes];
     let mut queue = VecDeque::new();
 
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "node";
-    pr.local_speed = true;
-    pr.expected_updates = Some(graph.num_nodes());
-    pr.start("Visiting graph...");
+    let mut pl = ProgressLogger::default().display_memory();
+    pl.item_name = "node";
+    pl.local_speed = true;
+    pl.expected_updates = Some(num_nodes);
+    pl.start("Visiting graph...");
 
-    for start in 0..graph.num_nodes() {
-        if visited.get(start as usize) != 0 {
+    for start in 0..num_nodes {
+        pl.update();
+        if visited[start] {
             continue;
         }
         queue.push_back(start as _);
-        visited.set(start as _, 1);
-        pr.update();
+        visited.set(start, true);
         let mut current_node;
 
         while queue.len() > 0 {
             current_node = queue.pop_front().unwrap();
             for succ in graph.successors(current_node) {
-                if visited.get(succ as usize) == 0 {
+                if !visited[succ] {
                     queue.push_back(succ);
-                    visited.set(succ as _, 1);
-                    pr.update();
+                    visited.set(succ as _, true);
                 }
             }
         }
     }
 
-    pr.done();
+    pl.done();
 
     Ok(())
 }
