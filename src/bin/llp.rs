@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
@@ -64,7 +65,15 @@ impl LabelStore {
 unsafe impl Send for LabelStore {}
 unsafe impl Sync for LabelStore {}
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn ceil_log2(x: usize) -> usize {
+    if x <= 2 {
+        x - 1
+    } else {
+        64 - (x - 1).leading_zeros() as usize
+    }
+}
+
+pub fn main() -> Result<()> {
     let args = Args::parse();
 
     stderrlog::new()
@@ -202,36 +211,25 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut perm = (0..num_nodes).collect::<Vec<_>>();
     perm.par_sort_unstable_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
 
-    let file = std::fs::File::create(&format!("{}-llp.graph", args.basename))?;
-
-    let bit_write =
-        <BufferedBitStreamWrite<LE, _>>::new(<FileBackend<u64, _>>::new(BufWriter::new(file)));
-
-    let codes_writer = DynamicCodesWriter::new(
-        bit_write,
-        &CompFlags {
-            ..Default::default()
-        },
-    );
-
-    let mut sort_pairs = Sorted::new(num_nodes, 1_000_000_000).unwrap();
     PermutedGraph {
         graph: &graph,
         perm: &perm,
     }
     .iter_nodes()
-    .for_each(|(x, succ)| {
-        succ.for_each(|s| {
-            sort_pairs.push(x, s).unwrap();
-        })
-    });
+    .map(|(x, succ)| {
+        let mut cost = 0;
+        if !succ.len() != 0 {
+            let mut sorted: Vec<_> = succ.collect();
+            sorted.sort();
+            cost += ceil_log2((x as isize - sorted[0] as isize).abs() as usize);
+            cost += sorted
+                .windows(2)
+                .map(|w| ceil_log2(w[1] - w[0]))
+                .sum::<usize>();
+        }
+        cost
+    })
+    .sum::<usize>();
 
-    let mut bvcomp = BVComp::new(codes_writer, 1, 4, 3);
-    glob_pr.expected_updates = Some(num_nodes);
-    glob_pr.item_name = "node";
-    glob_pr.start("Writing...");
-    bvcomp.extend(sort_pairs.build()?.iter_nodes())?;
-    bvcomp.flush()?;
-    glob_pr.done();
     Ok(())
 }
