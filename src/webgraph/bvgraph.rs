@@ -124,7 +124,7 @@ where
     }
 }
 
-impl<'a, CRB, OFF> NumNodes for BVGraph<CRB, OFF>
+impl<CRB, OFF> NumNodes for BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
@@ -158,7 +158,7 @@ where
     }
 }
 
-impl<'a, CRB, OFF> SortedNodes for BVGraph<CRB, OFF>
+impl<CRB, OFF> SortedNodes for BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,
@@ -297,7 +297,7 @@ where
     }
 }
 
-impl<'a, CRB, OFF> SortedSuccessors for BVGraph<CRB, OFF>
+impl<CRB, OFF> SortedSuccessors for BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
     OFF: VSlice,

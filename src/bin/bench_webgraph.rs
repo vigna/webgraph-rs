@@ -127,22 +127,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Sequential speed test
         for _ in 0..args.repeats {
             // Create a sequential reader
-            let mut seq_reader = WebgraphSequentialIter::new(
-                DynamicCodesReader::new(
-                    BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
-                        &graph_slice,
-                    )),
-                    &comp_flags,
-                )?,
-                compression_window,
-                min_interval_length,
-                num_nodes as usize,
-            );
-
-            let mut c: usize = 0;
+            let mut c = 0;
+            let graph = webgraph::webgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
-            for _ in 0..num_nodes {
-                c += seq_reader.next_successors()?.iter().count();
+            for (_, succ) in graph {
+                c += succ.count();
             }
             println!(
                 "Sequential:{:>20} ns/arc",

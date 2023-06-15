@@ -91,7 +91,7 @@ impl VecGraph {
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
         self.succ
-            .extend((len..=node).into_iter().map(|_| BTreeSet::new()));
+            .extend((len..=node).map(|_| BTreeSet::new()));
         len <= node
     }
 }

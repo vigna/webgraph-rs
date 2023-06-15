@@ -185,7 +185,7 @@ impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
         let node_iter = unsafe { &mut *self.node_iter_ptr };
-        return if node_iter.next_pair.0 != node_iter.curr_node {
+        if node_iter.next_pair.0 != node_iter.curr_node {
             None
         } else {
             loop {
@@ -197,7 +197,7 @@ impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
                     return Some(result);
                 }
             }
-        };
+        }
     }
 }
 
