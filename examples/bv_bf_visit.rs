@@ -38,10 +38,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         queue.push_back(start as _);
         visited.set(start, true);
-        let mut current_node;
 
-        while queue.len() > 0 {
-            current_node = queue.pop_front().unwrap();
+        while !queue.is_empty() {
+            let current_node = queue.pop_front().unwrap();
             for succ in graph.successors(current_node) {
                 if !visited[succ] {
                     queue.push_back(succ);
