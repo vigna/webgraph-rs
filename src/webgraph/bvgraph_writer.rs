@@ -1,3 +1,5 @@
+use core::cmp::Ordering;
+
 use super::{CircularBuffer, CircularBufferVec};
 use crate::traits::*;
 use crate::utils::int2nat;
@@ -178,43 +180,53 @@ impl Compressor {
         while j < curr_list.len() && k < ref_list.len() {
             // First case: we are currectly copying entries from the reference list
             if copying {
-                if curr_list[j] > ref_list[k] {
-                    /* If while copying we trespass the current element of the reference list,
-                    we must stop copying. */
-                    self.blocks.push(curr_block_len);
-                    copying = false;
-                    curr_block_len = 0;
-                } else if curr_list[j] < ref_list[k] {
-                    /* If while copying we find a non-matching element of the reference list which
-                    is larger than us, we can just add the current element to the extra list
-                    and move on. j gets increased. */
-                    self.extra_nodes.push(curr_list[j]);
-                    j += 1;
-                } else {
-                    // currList[j] == refList[k]
-                    /* If the current elements of the two lists are equal, we just increase the block length.
-                    both j and k get increased. */
-                    j += 1;
-                    k += 1;
-                    curr_block_len += 1;
-                    // if (forReal) copiedArcs++;
+                match curr_list[j].cmp(&ref_list[k]) {
+                    Ordering::Greater => {
+                        /* If while copying we trespass the current element of the reference list,
+                        we must stop copying. */
+                        self.blocks.push(curr_block_len);
+                        copying = false;
+                        curr_block_len = 0;
+                    }
+                    Ordering::Less => {
+                        /* If while copying we find a non-matching element of the reference list which
+                        is larger than us, we can just add the current element to the extra list
+                        and move on. j gets increased. */
+                        self.extra_nodes.push(curr_list[j]);
+                        j += 1;
+                    }
+                    Ordering::Equal => {
+                        // currList[j] == refList[k]
+                        /* If the current elements of the two lists are equal, we just increase the block length.
+                        both j and k get increased. */
+                        j += 1;
+                        k += 1;
+                        curr_block_len += 1;
+                        // if (forReal) copiedArcs++;
+                    }
                 }
-            } else if curr_list[j] < ref_list[k] {
-                /* If we did not trespass the current element of the reference list, we just
-                add the current element to the extra list and move on. j gets increased. */
-                self.extra_nodes.push(curr_list[j]);
-                j += 1;
-            } else if curr_list[j] > ref_list[k] {
-                /* If we trespassed the currented element of the reference list, we
-                increase the block length. k gets increased. */
-                k += 1;
-                curr_block_len += 1;
             } else {
-                // currList[j] == refList[k]
-                /* If we found a match we flush the current block and start a new copying phase. */
-                self.blocks.push(curr_block_len);
-                copying = true;
-                curr_block_len = 0;
+                match curr_list[j].cmp(&ref_list[k]) {
+                    Ordering::Greater => {
+                        /* If we trespassed the currented element of the reference list, we
+                        increase the block length. k gets increased. */
+                        k += 1;
+                        curr_block_len += 1;
+                    }
+                    Ordering::Less => {
+                        /* If we did not trespass the current element of the reference list, we just
+                        add the current element to the extra list and move on. j gets increased. */
+                        self.extra_nodes.push(curr_list[j]);
+                        j += 1;
+                    }
+                    Ordering::Equal => {
+                        // currList[j] == refList[k]
+                        /* If we found a match we flush the current block and start a new copying phase. */
+                        self.blocks.push(curr_block_len);
+                        copying = true;
+                        curr_block_len = 0;
+                    }
+                }
             }
         }
         /* We do not record the last block. The only case when we have to enqueue the last block's length

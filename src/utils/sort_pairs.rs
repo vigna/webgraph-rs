@@ -65,7 +65,7 @@ impl<T: Send + Copy> SortPairs<T> {
 
     pub fn finish(&mut self) -> Result<()> {
         self.last_batch_len = self.pairs.len();
-        Ok(self.dump()?)
+        self.dump()
     }
 
     pub fn iter(&self) -> MergedIterator<T> {
@@ -99,9 +99,9 @@ pub struct MergedIterator<'a, T: Send + Copy> {
     _reference: &'a SortPairs<T>,
 }
 
-impl<'a> Into<KMerge<BatchIterator>> for MergedIterator<'a, ()> {
-    fn into(self) -> KMerge<BatchIterator> {
-        self.iter
+impl<'a> From<MergedIterator<'a, ()>> for KMerge<BatchIterator> {
+    fn from(value: MergedIterator<'a, ()>) -> KMerge<BatchIterator> {
+        value.iter
     }
 }
 

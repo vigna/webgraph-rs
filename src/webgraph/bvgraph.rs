@@ -100,7 +100,7 @@ pub struct BVGraph<CRB: WebGraphCodesReaderBuilder, OFF: IndexedDict<Value = u64
     number_of_arcs: usize,
 }
 
-impl<'a, CRB, OFF> BVGraph<CRB, OFF>
+impl<CRB, OFF> BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,
@@ -134,7 +134,7 @@ where
     }
 }
 
-impl<'a, CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
+impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,

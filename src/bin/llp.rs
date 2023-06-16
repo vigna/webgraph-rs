@@ -220,7 +220,7 @@ pub fn main() -> Result<()> {
         if !succ.len() != 0 {
             let mut sorted: Vec<_> = succ.collect();
             sorted.sort();
-            cost += ceil_log2((x as isize - sorted[0] as isize).abs() as usize);
+            cost += ceil_log2((x as isize - sorted[0] as isize).unsigned_abs());
             cost += sorted
                 .windows(2)
                 .map(|w| ceil_log2(w[1] - w[0]))

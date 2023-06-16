@@ -30,7 +30,7 @@ pub fn main() -> Result<()> {
         <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(BufWriter::new(file)));
     // progress bar
     let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "offset".into();
+    pr.item_name = "offset";
     pr.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;

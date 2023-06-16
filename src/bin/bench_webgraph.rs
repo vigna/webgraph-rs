@@ -1,6 +1,5 @@
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use java_properties;
 use mmap_rs::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
@@ -96,7 +95,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?,
             compression_window,
             min_interval_length,
-            num_nodes as usize,
+            num_nodes,
         );
 
         // create a random access reader;
@@ -112,7 +111,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?,
             min_interval_length,
             compression_window,
-            num_nodes as usize,
+            num_nodes,
         );
 
         // Check that sequential and random-access interfaces return the same result
@@ -120,7 +119,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let seq = seq_reader.next_successors()?;
             let random = random_reader.successors(node_id).collect::<Vec<_>>();
 
-            assert_eq!(deg_reader.next_degree()? as usize, seq.len(), "{}", node_id);
+            assert_eq!(deg_reader.next_degree()?, seq.len(), "{}", node_id);
             assert_eq!(seq, random, "{}", node_id);
         }
     } else if args.sequential {
@@ -138,7 +137,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
 
-            assert_eq!(c, num_arcs as usize);
+            assert_eq!(c, num_arcs);
         }
     } else if args.degrees_only {
         // Sequential speed test
@@ -153,20 +152,20 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )?,
                 min_interval_length,
                 compression_window,
-                num_nodes as usize,
+                num_nodes,
             );
 
             let mut c: usize = 0;
             let start = std::time::Instant::now();
             for _ in 0..num_nodes {
-                c += deg_reader.next_degree()? as usize;
+                c += deg_reader.next_degree()?;
             }
             println!(
                 "Degrees Only:{:>20} ns/arc",
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
 
-            assert_eq!(c, num_arcs as usize);
+            assert_eq!(c, num_arcs);
         }
     } else {
         let graph = webgraph::webgraph::load(&args.basename)?;

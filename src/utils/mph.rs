@@ -41,8 +41,7 @@ impl GOVMPH {
                 // create a bytes buffer big enough for $len elements of type $type
                 let len = read!($file, u64) as usize;
                 let bytes = len * core::mem::size_of::<$type>();
-                let mut buffer: Vec<u8> = Vec::with_capacity(bytes);
-                unsafe { buffer.set_len(bytes) };
+                let mut buffer: Vec<u8> = vec![0; bytes];
                 // read the file in the buffer
                 $file.read_exact(&mut buffer)?;
                 // convert the buffer Vec<u8> into a Vec<$type>
@@ -73,7 +72,7 @@ impl GOVMPH {
 
     pub fn get_byte_array(&self, key: &[u8]) -> u64 {
         let signature = spooky_short(key, self.global_seed);
-        let bucket = (((signature[0] as u128) >> 1) * (self.multiplier as u128) >> 64) as u64;
+        let bucket = ((((signature[0] as u128) >> 1) * (self.multiplier as u128)) >> 64) as u64;
         let edge_offset_seed = self.edge_offset_and_seed[bucket as usize];
         let bucket_offset = vertex_offset(edge_offset_seed);
         let num_variables =
@@ -109,13 +108,13 @@ fn count_nonzero_pairs(start: u64, end: u64, array: &[u64]) -> u64 {
 
     if block == end_block {
         return count_non_zero_pairs_in_word(
-            (array[block as usize] & (1 << end_offset * 2) - 1) >> start_offset * 2,
+            (array[block as usize] & ((1 << (end_offset * 2)) - 1)) >> (start_offset * 2),
         );
     }
 
     let mut pairs = 0;
     if start_offset != 0 {
-        pairs += count_non_zero_pairs_in_word(array[block as usize] >> start_offset * 2);
+        pairs += count_non_zero_pairs_in_word(array[block as usize] >> (start_offset * 2));
         block += 1;
     }
     while block < end_block {
@@ -123,7 +122,8 @@ fn count_nonzero_pairs(start: u64, end: u64, array: &[u64]) -> u64 {
         block += 1;
     }
     if end_offset != 0 {
-        pairs += count_non_zero_pairs_in_word(array[block as usize] & (1 << end_offset * 2) - 1);
+        pairs +=
+            count_non_zero_pairs_in_word(array[block as usize] & ((1 << (end_offset * 2)) - 1));
     }
     pairs
 }
@@ -147,7 +147,7 @@ fn signature_to_equation(signature: &[u64; 4], seed: u64, num_variables: u64) ->
 #[inline(always)]
 #[must_use]
 const fn vertex_offset(edge_offset_seed: u64) -> u64 {
-    (edge_offset_seed & OFFSET_MASK) * C_TIMES_256 >> 8
+    ((edge_offset_seed & OFFSET_MASK) * C_TIMES_256) >> 8
 }
 
 #[inline(always)]

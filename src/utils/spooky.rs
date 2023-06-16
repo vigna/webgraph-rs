@@ -160,7 +160,7 @@ pub fn spooky_short(data: &[u8], seed: u64) -> [u64; 4] {
     // Handle the last 0..15 bytes, and its length
     // We copy it into a buffer filled with zeros so we can simplify the
     // code
-    if reminder.len() == 0 {
+    if reminder.is_empty() {
         h[2] = h[2].wrapping_add(SC_CONST);
         h[3] = h[3].wrapping_add(SC_CONST);
     } else {

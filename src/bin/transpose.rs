@@ -32,7 +32,7 @@ pub fn main() -> Result<()> {
     let mut sorted = Sorted::new(seq_reader.num_nodes(), args.batch_size)?;
 
     let mut pl = ProgressLogger::default();
-    pl.item_name = "node".into();
+    pl.item_name = "node";
     pl.expected_updates = Some(seq_reader.num_nodes());
     pl.start("Creating batches...");
 
@@ -59,7 +59,7 @@ pub fn main() -> Result<()> {
 
     let mut bvcomp = BVComp::new(codes_writer, 1, 4, 3);
     pl.expected_updates = Some(sorted.num_nodes());
-    pl.item_name = "node".into();
+    pl.item_name = "node";
     pl.start("Writing...");
     for (_, succ) in sorted.iter_nodes() {
         bvcomp.push(succ)?;

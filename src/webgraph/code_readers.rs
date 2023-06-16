@@ -297,7 +297,7 @@ impl<
 #[repr(transparent)]
 /// An implementation of [`WebGraphCodesWriter`] that doesn't write but just
 /// returns the number of bits that would be written.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ConstCodesMockWriter<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },

@@ -36,6 +36,9 @@ pub fn main() -> Result<()> {
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
+    let mut pr = ProgressLogger::default().display_memory();
+    pr.item_name = "offset";
+
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
         eprintln!("The offsets file exists, reading it to build Elias-Fano");
@@ -44,8 +47,6 @@ pub fn main() -> Result<()> {
         let mut reader =
             BufferedBitStreamRead::<BE, u64, _>::new(<FileBackend<u32, _>>::new(of_file));
         // progress bar
-        let mut pr = ProgressLogger::default().display_memory();
-        pr.item_name = "offset".into();
         pr.start("Translating offsets...");
         // read the graph a write the offsets
         let mut offset = 0;
@@ -62,8 +63,6 @@ pub fn main() -> Result<()> {
         let mut seq_reader = webgraph::prelude::WebgraphDegreesIter::load_mapped(&args.basename)?;
         // otherwise directly read the graph
         // progress bar
-        let mut pr = ProgressLogger::default().display_memory();
-        pr.item_name = "offset".into();
         pr.start("Translating offsets...");
         // read the graph a write the offsets
         for (new_offset, _node_id, _degree) in &mut seq_reader {

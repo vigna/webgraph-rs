@@ -23,7 +23,7 @@ pub fn main() -> Result<()> {
     let seq_reader = WebgraphSequentialIter::load_mapped_stats(&args.basename, &mut stats)?;
 
     let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "node".into();
+    pr.item_name = "node";
     pr.start("Reading nodes...");
     pr.expected_updates = Some(seq_reader.num_nodes());
 

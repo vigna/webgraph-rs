@@ -20,7 +20,7 @@ pub fn main() -> Result<()> {
 
     let seq_reader = webgraph::webgraph::load_seq(&args.basename)?;
     let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "offset".into();
+    pr.item_name = "offset";
     pr.start("Computing offsets...");
 
     for (node_id, successors) in seq_reader {
