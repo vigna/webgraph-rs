@@ -204,8 +204,8 @@ impl<'a> Iterator for SortedSequentialPermutedIterator<'a> {
 #[cfg(test)]
 #[test]
 fn test_permuted_graph() -> Result<()> {
+    use crate::bvgraph::VecGraph;
     use crate::traits::graph::RandomAccessGraph;
-    use crate::webgraph::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
         graph: &g,
@@ -228,7 +228,7 @@ fn test_permuted_graph() -> Result<()> {
 
 #[test]
 fn test_sorted_permuted_graph() -> Result<()> {
-    use crate::webgraph::VecGraph;
+    use crate::bvgraph::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let mut s = Sorted::new(g.num_nodes(), 1)?;
     s.extend(g.iter_nodes())?;

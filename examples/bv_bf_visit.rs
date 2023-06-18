@@ -1,3 +1,4 @@
+use anyhow::Result;
 use bitvec::prelude::*;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
@@ -11,7 +12,7 @@ struct Args {
     basename: String,
 }
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> Result<()> {
     let args = Args::parse();
 
     stderrlog::new()
@@ -20,7 +21,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init()
         .unwrap();
 
-    let graph = webgraph::webgraph::load(&args.basename)?;
+    let graph = webgraph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
     let mut visited = bitvec![u64, Lsb0; 0; num_nodes];
     let mut queue = VecDeque::new();

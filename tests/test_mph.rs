@@ -7,7 +7,7 @@ use std::io::BufReader;
 #[test]
 fn test_mph() -> Result<()> {
     // Read the offsets
-    let m = webgraph::utils::mph::GOVMPH::load(File::open("tests/data/test.cmph")?)?;
+    let m = webgraph::utils::mph::GOVMPH::load("tests/data/test.cmph")?;
     let reader = BufReader::new(File::open("tests/data/mph.txt")?);
     let mut s = HashSet::new();
     for line in reader.lines() {

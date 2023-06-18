@@ -99,7 +99,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // create a random access reader;
-        let random_reader = webgraph::webgraph::load(&args.basename)?;
+        let random_reader = webgraph::bvgraph::load(&args.basename)?;
 
         // Create a degrees reader
         let mut deg_reader = WebgraphDegreesIter::new(
@@ -127,7 +127,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut c = 0;
-            let graph = webgraph::webgraph::load_seq(&args.basename)?;
+            let graph = webgraph::bvgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
             for (_, succ) in graph {
                 c += succ.count();
@@ -168,7 +168,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, num_arcs);
         }
     } else {
-        let graph = webgraph::webgraph::load(&args.basename)?;
+        let graph = webgraph::bvgraph::load(&args.basename)?;
 
         // Random-access speed test
         for _ in 0..args.repeats {

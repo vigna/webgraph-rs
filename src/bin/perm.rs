@@ -26,7 +26,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let graph = webgraph::webgraph::load(&args.source)?;
+    let graph = webgraph::bvgraph::load(&args.source)?;
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "node";

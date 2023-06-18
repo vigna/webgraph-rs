@@ -15,8 +15,8 @@ use dsi_bitstream::{
 use dsi_progress_logger::ProgressLogger;
 use mmap_rs::MmapOptions;
 use webgraph::{
+    bvgraph::{BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter},
     utils::MmapBackend,
-    webgraph::{BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter},
 };
 
 #[cfg_attr(feature = "slow_tests", test)]

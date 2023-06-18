@@ -2,7 +2,10 @@
 
 use super::spooky::{spooky_short, spooky_short_rehash};
 use anyhow::Result;
+use std::fs::File;
+use std::io::BufReader;
 use std::io::Read;
+use std::path::Path;
 
 /// GOV Minimum perfect Hashing:
 ///
@@ -25,8 +28,14 @@ pub struct GOVMPH {
 }
 
 impl GOVMPH {
+    /// Given a path to a file `.cmph` generated from the java version,
+    /// load a GOVMPH structure from a file
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Self::load_reader(BufReader::new(File::open(path.as_ref())?))
+    }
+
     /// Given a generic `Read` implementor, load a GOVMPH structure from a file.
-    pub fn load<F: Read>(mut file: F) -> Result<Self> {
+    pub fn load_reader<F: Read>(mut file: F) -> Result<Self> {
         macro_rules! read {
             ($file:expr, $type:ty) => {{
                 let mut buffer: [u8; core::mem::size_of::<$type>()] =

@@ -81,7 +81,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let graph = webgraph::webgraph::load(&args.basename)?;
+    let graph = webgraph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "update";

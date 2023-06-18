@@ -31,16 +31,16 @@ use sux::prelude::*;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod bvgraph;
 pub mod traits;
 pub mod utils;
-pub mod webgraph;
 
 /// The default veinarsion of EliasFano we use for the CLI
 pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactArray<Memory>>;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {
+    pub use crate::bvgraph::*;
     pub use crate::traits::*;
     pub use crate::utils::*;
-    pub use crate::webgraph::*;
 }
