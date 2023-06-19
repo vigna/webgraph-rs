@@ -6,7 +6,7 @@ use dsi_bitstream::prelude::*;
 /// the offsets.
 /// This has limited uses, but is very fast. Most notably, this can be used to
 /// build the offsets of a graph.
-pub struct WebgraphDegreesIter<CR: WebGraphCodesReader> {
+pub struct WebgraphDegreesIter<CR: WebGraphCodesReader + WebGraphCodesSkipper> {
     codes_reader: CR,
     backrefs: Vec<usize>,
     node_id: usize,
@@ -15,13 +15,15 @@ pub struct WebgraphDegreesIter<CR: WebGraphCodesReader> {
     number_of_nodes: usize,
 }
 
-impl<CR: WebGraphCodesReader + BitSeek> WebgraphDegreesIter<CR> {
+impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> WebgraphDegreesIter<CR> {
     pub fn get_pos(&self) -> usize {
         self.codes_reader.get_pos()
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek> Iterator for WebgraphDegreesIter<CR> {
+impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> Iterator
+    for WebgraphDegreesIter<CR>
+{
     type Item = (usize, usize, usize);
     fn next(&mut self) -> Option<(usize, usize, usize)> {
         if self.node_id >= self.number_of_nodes {
@@ -32,7 +34,7 @@ impl<CR: WebGraphCodesReader + BitSeek> Iterator for WebgraphDegreesIter<CR> {
     }
 }
 
-impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
+impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
     pub fn new(
         codes_reader: CR,
         min_interval_length: usize,
@@ -107,14 +109,14 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
             let number_of_intervals = self.codes_reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                let _ = self.codes_reader.read_interval_start() as usize;
+                let _ = self.codes_reader.skip_interval_starts(1);
                 let mut delta = self.codes_reader.read_interval_len() as usize;
                 delta += self.min_interval_length;
                 // save the first interval
                 nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
-                    let _ = self.codes_reader.read_interval_start() as usize;
+                    let _ = self.codes_reader.skip_interval_starts(1);
                     delta = self.codes_reader.read_interval_len() as usize;
                     delta += self.min_interval_length;
 
@@ -126,11 +128,10 @@ impl<CR: WebGraphCodesReader> WebgraphDegreesIter<CR> {
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
-            let _ = self.codes_reader.read_first_residual();
-            // decode the successive extra nodes
-            for _ in 1..nodes_left_to_decode {
-                let _ = self.codes_reader.read_residual();
-            }
+            let _ = self.codes_reader.skip_first_residuals(1);
+            let _ = self
+                .codes_reader
+                .skip_residuals(nodes_left_to_decode.saturating_sub(1));
         }
 
         self.backrefs[self.node_id % self.compression_window] = degree;
