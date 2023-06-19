@@ -31,6 +31,7 @@ pub fn main() -> Result<()> {
     // progress bar
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "offset";
+    pr.expected_updates = Some(seq_reader.get_number_of_nodes());
     pr.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;

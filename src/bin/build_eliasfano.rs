@@ -37,6 +37,7 @@ pub fn main() -> Result<()> {
     let of_file_path = std::path::Path::new(&of_file_str);
 
     let mut pr = ProgressLogger::default().display_memory();
+    pr.expected_updates = Some(num_nodes as _);
     pr.item_name = "offset";
 
     // if the offset files exists, read it to build elias-fano
