@@ -103,7 +103,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Create a degrees reader
         let mut deg_reader = WebgraphDegreesIter::new(
-            DynamicCodesReader::new(
+            DynamicCodesReaderSkipper::new(
                 BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
                     &graph_slice,
                 )),
@@ -144,7 +144,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a degrees reader
             let mut deg_reader = WebgraphDegreesIter::new(
-                DynamicCodesReader::new(
+                DynamicCodesReaderSkipper::new(
                     BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
                         &graph_slice,
                     )),
