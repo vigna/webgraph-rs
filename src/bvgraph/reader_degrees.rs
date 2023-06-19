@@ -109,14 +109,20 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
             let number_of_intervals = self.codes_reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
+                #[cfg(feature = "skips")]
                 let _ = self.codes_reader.skip_interval_starts(1);
+                #[cfg(not(feature = "skips"))]
+                let _ = self.codes_reader.read_interval_start();
                 let mut delta = self.codes_reader.read_interval_len() as usize;
                 delta += self.min_interval_length;
                 // save the first interval
                 nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
+                    #[cfg(feature = "skips")]
                     let _ = self.codes_reader.skip_interval_starts(1);
+                    #[cfg(not(feature = "skips"))]
+                    let _ = self.codes_reader.read_interval_start();
                     delta = self.codes_reader.read_interval_len() as usize;
                     delta += self.min_interval_length;
 
@@ -128,10 +134,20 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
+            #[cfg(feature = "skips")]
             let _ = self.codes_reader.skip_first_residuals(1);
+            #[cfg(not(feature = "skips"))]
+            let _ = self.codes_reader.read_first_residual();
+
+            #[cfg(feature = "skips")]
             let _ = self
                 .codes_reader
                 .skip_residuals(nodes_left_to_decode.saturating_sub(1));
+
+            #[cfg(not(feature = "skips"))]
+            for _ in 1..nodes_left_to_decode {
+                let _ = self.codes_reader.read_residual();
+            }
         }
 
         self.backrefs[self.node_id % self.compression_window] = degree;

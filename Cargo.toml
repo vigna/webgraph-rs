@@ -15,6 +15,7 @@ default = ["std"]
 std = ["alloc", "anyhow/std"]
 alloc = []
 slow_tests = []
+skips = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
