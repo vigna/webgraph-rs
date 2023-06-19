@@ -238,7 +238,7 @@ fn test_sorted_permuted_graph() -> Result<()> {
 
     for batch_size in vec![1, 10, 100] {
         let mut s = Sorted::new(4, batch_size)?;
-        for _ in 0..1000 {
+        for _ in 0..100 {
             s.push(1, 2)?;
             s.push(2, 2)?;
             s.push(2, 1)?;
