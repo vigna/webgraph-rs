@@ -70,6 +70,12 @@ where
         println!("{{d:{}}}", value);
         Ok(value)
     }
+
+    fn skip_deltas(&mut self, n: usize) -> Result<usize> {
+        let value = self.reader.skip_deltas(n)?;
+        println!("skip: {} {{d}}", n);
+        Ok(value)
+    }
 }
 
 impl<E: Endianness, CR: ReadCodes<E>> ZetaRead<E> for DbgCodeRead<E, CR>
@@ -82,9 +88,21 @@ where
         Ok(value)
     }
 
+    fn skip_zeta3s(&mut self, n: usize) -> Result<usize> {
+        let value = self.reader.skip_zeta3s(n)?;
+        println!("skip: {} {{z3}}", n);
+        Ok(value)
+    }
+
     fn read_zeta(&mut self, k: u64) -> Result<u64> {
         let value = self.reader.read_zeta(k)?;
         println!("{{z{}:{}}}", k, value);
+        Ok(value)
+    }
+
+    fn skip_zetas(&mut self, k: u64, n: usize) -> Result<usize> {
+        let value = self.reader.skip_zetas(k, n)?;
+        println!("skip: {} {{z{}}}", n, k);
         Ok(value)
     }
 }

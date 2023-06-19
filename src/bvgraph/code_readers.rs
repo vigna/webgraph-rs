@@ -107,6 +107,20 @@ macro_rules! select_code_read {
     };
 }
 
+macro_rules! select_code_skip {
+    ($self:ident, $code:expr, $k: expr, $n:expr) => {
+        match $code {
+            const_codes::UNARY => $self.code_reader.skip_unaries($n).unwrap(),
+            const_codes::GAMMA => $self.code_reader.skip_gammas($n).unwrap(),
+            const_codes::DELTA => $self.code_reader.skip_deltas($n).unwrap(),
+            const_codes::ZETA if $k == 1 => $self.code_reader.skip_gammas($n).unwrap(),
+            const_codes::ZETA if $k == 3 => $self.code_reader.skip_zeta3s($n).unwrap(),
+            const_codes::ZETA => $self.code_reader.skip_zetas(K, $n).unwrap(),
+            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
+        }
+    };
+}
+
 impl<
         E: Endianness,
         CR: ReadCodes<E>,
@@ -158,6 +172,60 @@ impl<
     #[inline(always)]
     fn read_residual(&mut self) -> u64 {
         select_code_read!(self, RESIDUALS, K)
+    }
+}
+
+impl<
+        E: Endianness,
+        CR: ReadCodes<E>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > WebGraphCodesSkipper
+    for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    #[inline(always)]
+    fn skip_outdegrees(&mut self, n: usize) -> usize {
+        select_code_skip!(self, OUTDEGREES, K, n)
+    }
+
+    #[inline(always)]
+    fn skip_reference_offsets(&mut self, n: usize) -> usize {
+        select_code_skip!(self, REFERENCES, K, n)
+    }
+
+    #[inline(always)]
+    fn skip_block_counts(&mut self, n: usize) -> usize {
+        select_code_skip!(self, BLOCKS, K, n)
+    }
+    #[inline(always)]
+    fn skip_blocks(&mut self, n: usize) -> usize {
+        select_code_skip!(self, BLOCKS, K, n)
+    }
+
+    #[inline(always)]
+    fn skip_interval_counts(&mut self, n: usize) -> usize {
+        select_code_skip!(self, INTERVALS, K, n)
+    }
+    #[inline(always)]
+    fn skip_interval_starts(&mut self, n: usize) -> usize {
+        select_code_skip!(self, INTERVALS, K, n)
+    }
+    #[inline(always)]
+    fn skip_interval_lens(&mut self, n: usize) -> usize {
+        select_code_skip!(self, INTERVALS, K, n)
+    }
+
+    #[inline(always)]
+    fn skip_first_residuals(&mut self, n: usize) -> usize {
+        select_code_skip!(self, RESIDUALS, K, n)
+    }
+    #[inline(always)]
+    fn skip_residuals(&mut self, n: usize) -> usize {
+        select_code_skip!(self, RESIDUALS, K, n)
     }
 }
 

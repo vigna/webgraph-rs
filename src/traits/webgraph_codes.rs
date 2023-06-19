@@ -24,6 +24,26 @@ pub trait WebGraphCodesReaderBuilder {
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>>;
 }
 
+pub trait WebGraphCodesSkipper {
+    fn skip_outdegrees(&mut self, n: usize) -> usize;
+
+    // node reference
+    fn skip_reference_offsets(&mut self, n: usize) -> usize;
+
+    // run length reference copy
+    fn skip_block_counts(&mut self, n: usize) -> usize;
+    fn skip_blocks(&mut self, n: usize) -> usize;
+
+    // intervallizzation
+    fn skip_interval_counts(&mut self, n: usize) -> usize;
+    fn skip_interval_starts(&mut self, n: usize) -> usize;
+    fn skip_interval_lens(&mut self, n: usize) -> usize;
+
+    // extra nodes
+    fn skip_first_residuals(&mut self, n: usize) -> usize;
+    fn skip_residuals(&mut self, n: usize) -> usize;
+}
+
 pub trait WebGraphCodesReader {
     fn read_outdegree(&mut self) -> u64;
 
