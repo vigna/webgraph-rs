@@ -149,16 +149,16 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> DynamicCodesReaderSkipper<E, CR>
 
     fn select_skip_code(code: &Code) -> Result<fn(&mut CR, usize) -> usize> {
         Ok(match code {
-            Code::Unary => |x, n| CR::skip_unaries(x, n).unwrap(),
-            Code::Gamma => |x, n| CR::skip_gammas(x, n).unwrap(),
-            Code::Delta => |x, n| CR::skip_deltas(x, n).unwrap(),
-            Code::Zeta { k: 1 } => |x, n| CR::skip_gammas(x, n).unwrap(),
-            Code::Zeta { k: 2 } => |x, n| CR::skip_zetas(x, 2, n).unwrap(),
-            Code::Zeta { k: 3 } => |x, n| CR::skip_zeta3s(x, n).unwrap(),
-            Code::Zeta { k: 4 } => |x, n| CR::skip_zetas(x, 4, n).unwrap(),
-            Code::Zeta { k: 5 } => |x, n| CR::skip_zetas(x, 5, n).unwrap(),
-            Code::Zeta { k: 6 } => |x, n| CR::skip_zetas(x, 6, n).unwrap(),
-            Code::Zeta { k: 7 } => |x, n| CR::skip_zetas(x, 7, n).unwrap(),
+            Code::Unary => |x, n| CR::skip_unary(x, n).unwrap(),
+            Code::Gamma => |x, n| CR::skip_gamma(x, n).unwrap(),
+            Code::Delta => |x, n| CR::skip_delta(x, n).unwrap(),
+            Code::Zeta { k: 1 } => |x, n| CR::skip_gamma(x, n).unwrap(),
+            Code::Zeta { k: 2 } => |x, n| CR::skip_zeta(x, 2, n).unwrap(),
+            Code::Zeta { k: 3 } => |x, n| CR::skip_zeta3(x, n).unwrap(),
+            Code::Zeta { k: 4 } => |x, n| CR::skip_zeta(x, 4, n).unwrap(),
+            Code::Zeta { k: 5 } => |x, n| CR::skip_zeta(x, 5, n).unwrap(),
+            Code::Zeta { k: 6 } => |x, n| CR::skip_zeta(x, 6, n).unwrap(),
+            Code::Zeta { k: 7 } => |x, n| CR::skip_zeta(x, 7, n).unwrap(),
             _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
         })
     }

@@ -110,12 +110,12 @@ macro_rules! select_code_read {
 macro_rules! select_code_skip {
     ($self:ident, $code:expr, $k: expr, $n:expr) => {
         match $code {
-            const_codes::UNARY => $self.code_reader.skip_unaries($n).unwrap(),
-            const_codes::GAMMA => $self.code_reader.skip_gammas($n).unwrap(),
-            const_codes::DELTA => $self.code_reader.skip_deltas($n).unwrap(),
-            const_codes::ZETA if $k == 1 => $self.code_reader.skip_gammas($n).unwrap(),
-            const_codes::ZETA if $k == 3 => $self.code_reader.skip_zeta3s($n).unwrap(),
-            const_codes::ZETA => $self.code_reader.skip_zetas(K, $n).unwrap(),
+            const_codes::UNARY => $self.code_reader.skip_unary($n).unwrap(),
+            const_codes::GAMMA => $self.code_reader.skip_gamma($n).unwrap(),
+            const_codes::DELTA => $self.code_reader.skip_delta($n).unwrap(),
+            const_codes::ZETA if $k == 1 => $self.code_reader.skip_gamma($n).unwrap(),
+            const_codes::ZETA if $k == 3 => $self.code_reader.skip_zeta3($n).unwrap(),
+            const_codes::ZETA => $self.code_reader.skip_zeta(K, $n).unwrap(),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         }
     };
