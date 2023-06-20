@@ -41,7 +41,7 @@ macro_rules! impl_loads {
             )?;
 
             let code_reader_builder =
-                <$builder<BE, MmapBackend<u32>>>::new(graph, &CompFlags::from_properties(&map)?)?;
+                <$builder<BE, MmapBackend<u32>>>::new(graph, CompFlags::from_properties(&map)?)?;
 
             Ok(BVGraph::new(
                 code_reader_builder,
@@ -80,7 +80,7 @@ macro_rules! impl_loads {
             });
 
             let code_reader_builder =
-                <$builder<BE, MmapBackend<u32>>>::new(graph, &CompFlags::from_properties(&map)?)?;
+                <$builder<BE, MmapBackend<u32>>>::new(graph, CompFlags::from_properties(&map)?)?;
 
             let seq_reader = BVGraphSequential::new(
                 code_reader_builder,

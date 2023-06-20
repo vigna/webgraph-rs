@@ -82,6 +82,7 @@ impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB> {
         self.codes_reader_builder
     }
 }
+
 impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB>
 where
     for<'a> CRB::Reader<'a>: WebGraphCodesSkipper,
@@ -90,12 +91,13 @@ where
     pub fn iter_degrees(&self) -> WebgraphDegreesIter<CRB::Reader<'_>> {
         WebgraphDegreesIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
-            self.compression_window,
             self.min_interval_length,
+            self.compression_window,
             self.number_of_nodes,
         )
     }
 }
+
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {

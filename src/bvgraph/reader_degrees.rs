@@ -68,7 +68,11 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
         let mut nodes_left_to_decode = degree;
 
         // read the reference offset
-        let ref_delta = self.codes_reader.read_reference_offset() as usize;
+        let ref_delta = if self.compression_window != 0 {
+            self.codes_reader.read_reference_offset() as usize
+        } else {
+            0
+        };
         // if we copy nodes from a previous one
         if ref_delta != 0 {
             // compute the node id of the reference

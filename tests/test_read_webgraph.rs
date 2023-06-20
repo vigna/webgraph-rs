@@ -51,13 +51,16 @@ fn test_sequential_reading() -> Result<()> {
         .map(|chunk| ReadType::from_ne_bytes(chunk.try_into().unwrap()))
         .collect::<Vec<_>>();
 
-    let cf = &CompFlags::from_properties(&HashMap::new()).unwrap();
+    let cf = CompFlags::from_properties(&HashMap::new()).unwrap();
+    let compression_window = cf.compression_window;
+    let min_interval_length = cf.min_interval_length;
+
     // create a random access reader
     let bvgraph = BVGraph::new(
         <DynamicCodesReaderBuilder<BE, _>>::new(data, cf).unwrap(),
         sux::prelude::encase_mem(builder.build()),
-        cf.min_interval_length,
-        cf.compression_window,
+        min_interval_length,
+        compression_window,
         NODES,
         ARCS,
     );
