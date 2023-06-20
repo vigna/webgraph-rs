@@ -307,7 +307,7 @@ where
 }
 
 ///
-pub struct RandomSuccessorIter<CR: WebGraphCodesReader + BitSeek> {
+pub struct RandomSuccessorIter<CR: WebGraphCodesReader> {
     reader: CR,
     /// The number of values left
     size: usize,
@@ -329,14 +329,14 @@ pub struct RandomSuccessorIter<CR: WebGraphCodesReader + BitSeek> {
     next_interval_node: usize,
 }
 
-impl<CR: WebGraphCodesReader + BitSeek> ExactSizeIterator for RandomSuccessorIter<CR> {
+impl<CR: WebGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek> RandomSuccessorIter<CR> {
+impl<CR: WebGraphCodesReader> RandomSuccessorIter<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
@@ -353,7 +353,7 @@ impl<CR: WebGraphCodesReader + BitSeek> RandomSuccessorIter<CR> {
     }
 }
 
-impl<CR: WebGraphCodesReader + BitSeek> Iterator for RandomSuccessorIter<CR> {
+impl<CR: WebGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {

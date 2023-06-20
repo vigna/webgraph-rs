@@ -1,10 +1,9 @@
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
 
 /// An object that can create code readers, this is done so that the builder can
 /// own the data, and the readers can be created and thrown away freely
 pub trait WebGraphCodesReaderBuilder {
-    type Reader<'a>: WebGraphCodesReader + BitSeek + 'a
+    type Reader<'a>: WebGraphCodesReader + 'a
     where
         Self: 'a;
 

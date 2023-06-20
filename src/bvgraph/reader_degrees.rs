@@ -143,7 +143,6 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
             let _ = self
                 .codes_reader
                 .skip_residuals(nodes_left_to_decode.saturating_sub(1));
-
             #[cfg(not(feature = "skips"))]
             for _ in 1..nodes_left_to_decode {
                 let _ = self.codes_reader.read_residual();
