@@ -21,7 +21,7 @@ skips = []
 
 [dependencies]
 # Lib dependancies
-anyhow = { version = "1.0.70", default-features = false }
+anyhow = { version = "1.0.70", features=["backtrace"]}
 java-properties = "1.4.1"
 mmap-rs = "0.5.0"
 bitvec = { version = "1.0.1", features = ["atomic"] }

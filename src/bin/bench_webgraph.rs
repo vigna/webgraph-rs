@@ -27,7 +27,7 @@ struct Args {
     #[arg(short = 'f', long)]
     first: bool,
 
-    /// Test sequential degrees_on;y access speed by scanning the whole graph
+    /// Test sequential degrees_only access speed by scanning the whole graph
     #[arg(short = 'd', long)]
     degrees_only: bool,
 
