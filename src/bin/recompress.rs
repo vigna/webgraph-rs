@@ -88,7 +88,7 @@ pub fn main() -> Result<()> {
         compression_window: args.compression_window,
     };
 
-    let seq_reader = webgraph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
     let file_path = format!("{}.graph", args.new_basename);
     let writer = <DynamicCodesWriter<BE, _>>::new(
         <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(File::create(
@@ -106,9 +106,9 @@ pub fn main() -> Result<()> {
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "node";
     pr.start("Reading nodes...");
-    pr.expected_updates = Some(seq_reader.num_nodes());
+    pr.expected_updates = Some(seq_graph.num_nodes());
 
-    for (_, iter) in seq_reader {
+    for (_, iter) in &seq_graph {
         bvcomp.push(iter)?;
         pr.light_update();
     }

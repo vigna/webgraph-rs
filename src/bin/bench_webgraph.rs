@@ -127,9 +127,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut c = 0;
-            let graph = webgraph::bvgraph::load_seq(&args.basename)?;
+            let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
-            for (_, succ) in graph {
+            for (_, succ) in &seq_graph {
                 c += succ.count();
             }
             println!(

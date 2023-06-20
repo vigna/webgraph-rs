@@ -486,7 +486,7 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let mut true_iter = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+        let seq_graph = crate::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
         let file_path = std::env::temp_dir().join("cnr-2000.bvcomp");
@@ -506,9 +506,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3);
 
-        bvcomp
-            .extend(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?)
-            .unwrap();
+        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -524,12 +522,11 @@ mod test {
             codes_reader,
             compression_window,
             min_interval_length,
-            true_iter.num_nodes(),
+            seq_graph.num_nodes(),
         );
 
         // Check that the graph is the same
-        for i in 0..true_iter.num_nodes() {
-            let (true_node_id, true_succ) = true_iter.next().unwrap();
+        for (i, (true_node_id, true_succ)) in (&seq_graph).into_iter().enumerate() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
@@ -543,7 +540,7 @@ mod test {
     }
 
     fn test_compression(compression_window: usize, min_interval_length: usize) -> Result<()> {
-        let mut true_iter = WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+        let seq_graph = crate::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();
@@ -561,9 +558,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3);
 
-        bvcomp
-            .extend(WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?)
-            .unwrap();
+        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -579,12 +574,11 @@ mod test {
             codes_reader,
             compression_window,
             min_interval_length,
-            true_iter.num_nodes(),
+            seq_graph.num_nodes(),
         );
 
         // Check that the graph is the same
-        for i in 0..true_iter.num_nodes() {
-            let (true_node_id, true_succ) = true_iter.next().unwrap();
+        for (i, (true_node_id, true_succ)) in (&seq_graph).into_iter().enumerate() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);

@@ -3,6 +3,99 @@ use crate::utils::nat2int;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
+pub struct BVGraphSequential<CRB: WebGraphCodesReaderBuilder> {
+    codes_reader_builder: CRB,
+    number_of_nodes: usize,
+    number_of_arcs: Option<usize>,
+    compression_window: usize,
+    min_interval_length: usize,
+}
+
+impl<CRB: WebGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
+    type NodesIter<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
+    where
+        Self: 'a;
+
+    type SequentialSuccessorIter<'a> = std::vec::IntoIter<usize>
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<usize> {
+        self.number_of_arcs
+    }
+
+    #[inline(always)]
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        WebgraphSequentialIter::new(
+            self.codes_reader_builder.get_reader(0).unwrap(),
+            self.compression_window,
+            self.min_interval_length,
+            self.number_of_nodes,
+        )
+    }
+}
+
+impl<CRB: WebGraphCodesReaderBuilder> NumNodes for BVGraphSequential<CRB> {
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+}
+
+impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB> {
+    pub fn new(
+        codes_reader_builder: CRB,
+        compression_window: usize,
+        min_interval_length: usize,
+        number_of_nodes: usize,
+        number_of_arcs: Option<usize>,
+    ) -> Self {
+        Self {
+            codes_reader_builder,
+            compression_window,
+            min_interval_length,
+            number_of_nodes,
+            number_of_arcs,
+        }
+    }
+
+    #[inline(always)]
+    /// Change the codes reader builder
+    pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraphSequential<CRB2>
+    where
+        F: FnOnce(CRB) -> CRB2,
+        CRB2: WebGraphCodesReaderBuilder,
+    {
+        BVGraphSequential {
+            codes_reader_builder: map_func(self.codes_reader_builder),
+            number_of_nodes: self.number_of_nodes,
+            number_of_arcs: self.number_of_arcs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
+        }
+    }
+
+    #[inline(always)]
+    /// Consume self and return the codes reader builder
+    pub fn unwrap_codes_reader_builder(self) -> CRB {
+        self.codes_reader_builder
+    }
+}
+impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB>
+where
+    for<'a> CRB::Reader<'a>: WebGraphCodesSkipper,
+{
+    #[inline(always)]
+    pub fn iter_degrees(&self) -> WebgraphDegreesIter<CRB::Reader<'_>> {
+        WebgraphDegreesIter::new(
+            self.codes_reader_builder.get_reader(0).unwrap(),
+            self.compression_window,
+            self.min_interval_length,
+            self.number_of_nodes,
+        )
+    }
+}
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
@@ -12,15 +105,11 @@ pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     min_interval_length: usize,
     number_of_nodes: usize,
 }
+
 impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
+    #[inline(always)]
     pub fn get_pos(&self) -> usize {
         self.codes_reader.get_pos()
-    }
-}
-
-impl<CR: WebGraphCodesReader> NumNodes for WebgraphSequentialIter<CR> {
-    fn num_nodes(&self) -> usize {
-        self.number_of_nodes
     }
 }
 
@@ -163,93 +252,14 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     }
 }
 
-#[cfg(feature = "std")]
-/// `std` dependent implementations for [`WebgraphSequentialIter`]
-mod p {
-    use super::*;
-    use crate::utils::MmapBackend;
-    use anyhow::Result;
-    use java_properties;
-    use mmap_rs::*;
-    use std::fs::*;
-    use std::io::*;
+impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
+where
+    CRB: WebGraphCodesReaderBuilder,
+{
+    type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
+    type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
 
-    type ReadType = u32;
-    type BufferType = u64;
-
-    impl
-        WebgraphSequentialIter<
-            ConstCodesReader<
-                BE,
-                BufferedBitStreamRead<
-                    BE,
-                    BufferType,
-                    MemWordReadInfinite<ReadType, MmapBackend<ReadType>>,
-                >,
-            >,
-        >
-    {
-        pub fn load_mapped(basename: &str) -> Result<Self> {
-            let f = File::open(format!("{}.properties", basename))?;
-            let map = java_properties::read(BufReader::new(f))?;
-
-            let mut file = std::fs::File::open(format!("{}.graph", basename)).unwrap();
-            let mut file_len = file.seek(std::io::SeekFrom::End(0)).unwrap();
-
-            // align the len to readtypes, TODO!: arithmize
-            while file_len % std::mem::size_of::<ReadType>() as u64 != 0 {
-                file_len += 1;
-            }
-
-            let data = unsafe {
-                MmapOptions::new(file_len as _)
-                    .unwrap()
-                    .with_file(file, 0)
-                    .map()
-                    .unwrap()
-            };
-
-            let code_reader = ConstCodesReader::new(
-                BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(
-                    MmapBackend::new(data),
-                )),
-                &CompFlags::default(),
-            )?;
-            let seq_reader = WebgraphSequentialIter::new(
-                code_reader,
-                map.get("windowsize").unwrap().parse::<usize>()?,
-                map.get("minintervallength").unwrap().parse::<usize>()?,
-                map.get("nodes").unwrap().parse::<usize>()?,
-            );
-
-            Ok(seq_reader)
-        }
-    }
-
-    impl<'a>
-        WebgraphSequentialIter<
-            CodesReaderStats<
-                'a,
-                ConstCodesReader<
-                    BE,
-                    BufferedBitStreamRead<
-                        BE,
-                        BufferType,
-                        MemWordReadInfinite<ReadType, MmapBackend<ReadType>>,
-                    >,
-                >,
-            >,
-        >
-    {
-        pub fn load_mapped_stats(basename: &str, stats: &'a mut BVGraphCodesStats) -> Result<Self> {
-            let seq = WebgraphSequentialIter::load_mapped(basename)?;
-            Ok(WebgraphSequentialIter {
-                codes_reader: CodesReaderStats::new(seq.codes_reader, stats),
-                backrefs: seq.backrefs,
-                compression_window: seq.compression_window,
-                min_interval_length: seq.min_interval_length,
-                number_of_nodes: seq.number_of_nodes,
-            })
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_nodes()
     }
 }

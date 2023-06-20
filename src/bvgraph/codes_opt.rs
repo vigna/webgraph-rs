@@ -1,8 +1,9 @@
 use crate::prelude::*;
+use anyhow::Result;
 use dsi_bitstream::prelude::CodesStats;
 
 /// A struct that keeps track of how much bits each piece would take using
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Default)]
 pub struct BVGraphCodesStats {
     pub outdegree: CodesStats,
     pub reference_offset: CodesStats,
@@ -15,16 +16,66 @@ pub struct BVGraphCodesStats {
     pub residual: CodesStats,
 }
 
+pub struct CodesReaderStatsBuilder<WGCRB: WebGraphCodesReaderBuilder> {
+    codes_reader_builder: WGCRB,
+    pub stats: BVGraphCodesStats,
+}
+
+impl<WGCRB> CodesReaderStatsBuilder<WGCRB>
+where
+    WGCRB: WebGraphCodesReaderBuilder,
+{
+    pub fn new(codes_reader_builder: WGCRB) -> Self {
+        Self {
+            codes_reader_builder,
+            stats: BVGraphCodesStats::default(),
+        }
+    }
+
+    #[inline(always)]
+    pub fn unwrap(self) -> WGCRB {
+        self.codes_reader_builder
+    }
+}
+
+impl<WGCRB> From<WGCRB> for CodesReaderStatsBuilder<WGCRB>
+where
+    WGCRB: WebGraphCodesReaderBuilder,
+{
+    #[inline(always)]
+    fn from(value: WGCRB) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<WGCRB> WebGraphCodesReaderBuilder for CodesReaderStatsBuilder<WGCRB>
+where
+    WGCRB: WebGraphCodesReaderBuilder,
+{
+    type Reader<'a> = CodesReaderStats<'a, WGCRB::Reader<'a>>
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+        Ok(CodesReaderStats::new(
+            self.codes_reader_builder.get_reader(offset)?,
+            &self.stats,
+        ))
+    }
+}
+
 /// A wrapper over a generic [`WebGraphCodesReader`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
 pub struct CodesReaderStats<'a, WGCR: WebGraphCodesReader> {
     codes_reader: WGCR,
-    stats: &'a mut BVGraphCodesStats,
+    stats: &'a BVGraphCodesStats,
 }
 
 impl<'a, WGCR: WebGraphCodesReader> CodesReaderStats<'a, WGCR> {
     /// Wrap a reader
-    pub fn new(codes_reader: WGCR, stats: &'a mut BVGraphCodesStats) -> Self {
+    #[inline(always)]
+    pub fn new(codes_reader: WGCR, stats: &'a BVGraphCodesStats) -> Self {
         Self {
             codes_reader,
             stats,
@@ -32,6 +83,7 @@ impl<'a, WGCR: WebGraphCodesReader> CodesReaderStats<'a, WGCR> {
     }
 
     /// Return the wrapped codes reader and the stats
+    #[inline(always)]
     pub fn unwrap(self) -> WGCR {
         self.codes_reader
     }
@@ -93,5 +145,46 @@ impl<'a, WGCR: WebGraphCodesReader> WebGraphCodesReader for CodesReaderStats<'a,
         self.stats
             .residual
             .update(self.codes_reader.read_residual())
+    }
+}
+
+impl<'a, WGCR: WebGraphCodesReader + WebGraphCodesSkipper> WebGraphCodesSkipper
+    for CodesReaderStats<'a, WGCR>
+{
+    #[inline(always)]
+    fn skip_outdegrees(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_outdegrees(n)
+    }
+    #[inline(always)]
+    fn skip_reference_offsets(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_reference_offsets(n)
+    }
+    #[inline(always)]
+    fn skip_block_counts(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_block_counts(n)
+    }
+    #[inline(always)]
+    fn skip_blocks(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_blocks(n)
+    }
+    #[inline(always)]
+    fn skip_interval_counts(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_interval_counts(n)
+    }
+    #[inline(always)]
+    fn skip_interval_starts(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_interval_starts(n)
+    }
+    #[inline(always)]
+    fn skip_interval_lens(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_interval_lens(n)
+    }
+    #[inline(always)]
+    fn skip_first_residuals(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_first_residuals(n)
+    }
+    #[inline(always)]
+    fn skip_residuals(&mut self, n: usize) -> usize {
+        self.codes_reader.skip_residuals(n)
     }
 }

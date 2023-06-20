@@ -56,18 +56,12 @@ macro_rules! impl_loads {
         /// Load a BVGraph sequentially
         pub fn $load_seq_name(
             basename: &str,
-        ) -> Result<
-            WebgraphSequentialIter<
-                $reader<
-                    BE,
-                    BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, MmapBackend<u32>>>,
-                >,
-            >,
-        > {
+        ) -> Result<BVGraphSequential<$builder<BE, MmapBackend<u32>>>> {
             let f = File::open(format!("{}.properties", basename))?;
             let map = java_properties::read(BufReader::new(f))?;
 
             let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+            let num_arcs = map.get("arcs").unwrap().parse::<u64>()?;
             let min_interval_length = map.get("minintervallength").unwrap().parse::<usize>()?;
             let compression_window = map.get("windowsize").unwrap().parse::<usize>()?;
 
@@ -85,19 +79,15 @@ macro_rules! impl_loads {
                     .map()?
             });
 
-            let code_reader = <$reader<
-                BE,
-                BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, MmapBackend<u32>>>,
-            >>::new(
-                BufferedBitStreamRead::new(MemWordReadInfinite::new(graph)),
-                &CompFlags::from_properties(&map)?,
-            )?;
+            let code_reader_builder =
+                <$builder<BE, MmapBackend<u32>>>::new(graph, &CompFlags::from_properties(&map)?)?;
 
-            let seq_reader = WebgraphSequentialIter::new(
-                code_reader,
+            let seq_reader = BVGraphSequential::new(
+                code_reader_builder,
                 compression_window,
                 min_interval_length,
                 num_nodes as usize,
+                Some(num_arcs as _),
             );
 
             Ok(seq_reader)

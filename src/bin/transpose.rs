@@ -28,15 +28,15 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let seq_reader = WebgraphSequentialIter::load_mapped(&args.basename)?;
-    let mut sorted = Sorted::new(seq_reader.num_nodes(), args.batch_size)?;
+    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+    let mut sorted = Sorted::new(seq_graph.num_nodes(), args.batch_size)?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name = "node";
-    pl.expected_updates = Some(seq_reader.num_nodes());
+    pl.expected_updates = Some(seq_graph.num_nodes());
     pl.start("Creating batches...");
 
-    for (node, succ) in seq_reader {
+    for (node, succ) in &seq_graph {
         for s in succ {
             sorted.push(s, node)?;
         }

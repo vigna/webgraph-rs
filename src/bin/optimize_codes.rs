@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
+use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -19,19 +20,22 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let mut stats = BVGraphCodesStats::default();
-    let seq_reader = WebgraphSequentialIter::load_mapped_stats(&args.basename, &mut stats)?;
+    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = seq_graph.map_codes_reader_builder(|cbr| CodesReaderStatsBuilder::new(cbr));
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "node";
     pr.start("Reading nodes...");
-    pr.expected_updates = Some(seq_reader.num_nodes());
+    pr.expected_updates = Some(seq_graph.num_nodes());
 
-    for _ in seq_reader {
+    for _ in &seq_graph {
         pr.light_update();
     }
 
     pr.done();
+
+    let reader = seq_graph.unwrap_codes_reader_builder();
+    let stats = reader.stats;
 
     eprintln!("{:#?}", stats);
 
@@ -65,15 +69,15 @@ pub fn main() -> Result<()> {
         total_bits,
         default_bits,
         stats,
-        outdegree - stats.outdegree.gamma,
-        reference_offset - stats.reference_offset.unary,
-        block_count - stats.block_count.gamma,
-        blocks - stats.blocks.gamma,
-        interval_count - stats.interval_count.gamma,
-        interval_start - stats.interval_start.gamma,
-        interval_len - stats.interval_len.gamma,
-        first_residual - stats.first_residual.zeta[2],
-        residual - stats.residual.zeta[2]
+        outdegree - stats.outdegree.gamma.load(Ordering::Relaxed),
+        reference_offset - stats.reference_offset.unary.load(Ordering::Relaxed),
+        block_count - stats.block_count.gamma.load(Ordering::Relaxed),
+        blocks - stats.blocks.gamma.load(Ordering::Relaxed),
+        interval_count - stats.interval_count.gamma.load(Ordering::Relaxed),
+        interval_start - stats.interval_start.gamma.load(Ordering::Relaxed),
+        interval_len - stats.interval_len.gamma.load(Ordering::Relaxed),
+        first_residual - stats.first_residual.zeta[2].load(Ordering::Relaxed),
+        residual - stats.residual.zeta[2].load(Ordering::Relaxed)
     );
 
     println!("  Total bits: {:>16}", total_bits);

@@ -16,6 +16,7 @@ use dsi_progress_logger::ProgressLogger;
 use mmap_rs::MmapOptions;
 use webgraph::{
     bvgraph::{BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter},
+    prelude::*,
     utils::MmapBackend,
 };
 
@@ -48,8 +49,8 @@ fn test_bvcomp_slow() -> Result<()> {
                                         compression_window,
                                     };
 
-                                    let seq_reader =
-                                        WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
+                                    let seq_graph =
+                                        webgraph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
                                     let writer = <DynamicCodesWriter<BE, _>>::new(
                                         <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
@@ -69,16 +70,13 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.start("Compressing...");
                                     pl.expected_updates = Some(NODES);
 
-                                    for (_, iter) in seq_reader {
+                                    for (_, iter) in &seq_graph {
                                         bvcomp.push(iter)?;
                                         pl.light_update();
                                     }
 
                                     pl.done();
                                     bvcomp.flush()?;
-
-                                    let seq_reader0 =
-                                        WebgraphSequentialIter::load_mapped("tests/data/cnr-2000")?;
 
                                     let path = std::path::Path::new(tmp_path);
                                     let file_len = path.metadata()?.len();
@@ -108,7 +106,9 @@ fn test_bvcomp_slow() -> Result<()> {
                                     );
 
                                     pl.start("Checking equality...");
-                                    for ((_, iter0), (_, iter1)) in seq_reader0.zip(seq_reader1) {
+                                    for ((_, iter0), (_, iter1)) in
+                                        seq_graph.iter_nodes().zip(seq_reader1)
+                                    {
                                         itertools::assert_equal(iter0, iter1);
                                         pl.light_update();
                                     }

@@ -22,7 +22,9 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     // Create the sequential iterator over the graph
-    let mut seq_reader = WebgraphDegreesIter::load_mapped(&args.basename)?;
+    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph =
+        seq_graph.map_codes_reader_builder(|cbr| DynamicCodesReaderSkipperBuilder::from(cbr));
     // Create the offsets file
     let file = std::fs::File::create(&format!("{}.offsets", args.basename))?;
     // create a bit writer on the file
@@ -31,11 +33,12 @@ pub fn main() -> Result<()> {
     // progress bar
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "offset";
-    pr.expected_updates = Some(seq_reader.get_number_of_nodes());
+    pr.expected_updates = Some(seq_graph.num_nodes());
     pr.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;
-    for (new_offset, _node_id, _degree) in &mut seq_reader {
+    let mut degs_iter = seq_graph.iter_degrees();
+    for (new_offset, _node_id, _degree) in &mut degs_iter {
         // write where
         writer.write_gamma((new_offset - offset) as _)?;
         offset = new_offset;
@@ -43,7 +46,7 @@ pub fn main() -> Result<()> {
         pr.light_update();
     }
     // write the last offset, this is done to avoid decoding the last node
-    writer.write_gamma((seq_reader.get_pos() - offset) as _)?;
+    writer.write_gamma((degs_iter.get_pos() - offset) as _)?;
     pr.light_update();
     pr.done();
     Ok(())

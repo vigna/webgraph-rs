@@ -5,6 +5,7 @@ use dsi_progress_logger::ProgressLogger;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use sux::prelude::*;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Create the '.ef' file for a graph", long_about = None)]
@@ -61,12 +62,14 @@ pub fn main() -> Result<()> {
         pr.done();
     } else {
         eprintln!("The offsets file does not exists, reading the graph to build Elias-Fano");
-        let mut seq_reader = webgraph::prelude::WebgraphDegreesIter::load_mapped(&args.basename)?;
+        let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+        let seq_graph =
+            seq_graph.map_codes_reader_builder(|cbr| DynamicCodesReaderSkipperBuilder::from(cbr));
         // otherwise directly read the graph
         // progress bar
         pr.start("Translating offsets...");
         // read the graph a write the offsets
-        for (new_offset, _node_id, _degree) in &mut seq_reader {
+        for (new_offset, _node_id, _degree) in seq_graph.iter_degrees() {
             // write where
             efb.push(new_offset as _)?;
             // decode the next nodes so we know where the next node_id starts

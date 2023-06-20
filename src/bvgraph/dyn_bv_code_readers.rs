@@ -4,7 +4,7 @@ use dsi_bitstream::prelude::*;
 
 /// An implementation of [`WebGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
-pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek> {
+pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
     pub(crate) read_reference_offset: fn(&mut CR) -> u64,
@@ -18,19 +18,45 @@ pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E> + BitSeek> {
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> DynamicCodesReader<E, CR> {
-    fn select_code(code: &Code) -> Result<fn(&mut CR) -> u64> {
+impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
+    const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
+    const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
+    const READ_ZETA2: fn(&mut CR) -> u64 = |cr| cr.read_zeta(2).unwrap();
+    const READ_ZETA3: fn(&mut CR) -> u64 = |cr| cr.read_zeta3().unwrap();
+    const READ_ZETA4: fn(&mut CR) -> u64 = |cr| cr.read_zeta(4).unwrap();
+    const READ_ZETA5: fn(&mut CR) -> u64 = |cr| cr.read_zeta(5).unwrap();
+    const READ_ZETA6: fn(&mut CR) -> u64 = |cr| cr.read_zeta(6).unwrap();
+    const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
+    const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
+
+    pub(crate) fn select_code(code: &Code) -> Result<fn(&mut CR) -> u64> {
         Ok(match code {
-            Code::Unary => |x| CR::read_unary(x).unwrap(),
-            Code::Gamma => |x| CR::read_gamma(x).unwrap(),
-            Code::Delta => |x| CR::read_delta(x).unwrap(),
-            Code::Zeta { k: 1 } => |x| CR::read_gamma(x).unwrap(),
-            Code::Zeta { k: 2 } => |x| CR::read_zeta(x, 2).unwrap(),
-            Code::Zeta { k: 3 } => |x| CR::read_zeta3(x).unwrap(),
-            Code::Zeta { k: 4 } => |x| CR::read_zeta(x, 4).unwrap(),
-            Code::Zeta { k: 5 } => |x| CR::read_zeta(x, 5).unwrap(),
-            Code::Zeta { k: 6 } => |x| CR::read_zeta(x, 6).unwrap(),
-            Code::Zeta { k: 7 } => |x| CR::read_zeta(x, 7).unwrap(),
+            Code::Unary => Self::READ_UNARY,
+            Code::Gamma => Self::READ_GAMMA,
+            Code::Delta => Self::READ_DELTA,
+            Code::Zeta { k: 1 } => Self::READ_ZETA1,
+            Code::Zeta { k: 2 } => Self::READ_ZETA2,
+            Code::Zeta { k: 3 } => Self::READ_ZETA3,
+            Code::Zeta { k: 4 } => Self::READ_ZETA4,
+            Code::Zeta { k: 5 } => Self::READ_ZETA5,
+            Code::Zeta { k: 6 } => Self::READ_ZETA6,
+            Code::Zeta { k: 7 } => Self::READ_ZETA7,
+            _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
+        })
+    }
+    pub(crate) fn code_fn_to_code(skip_code: fn(&mut CR) -> u64) -> Result<Code> {
+        Ok(match skip_code as usize {
+            x if x == Self::READ_UNARY as usize => Code::Unary,
+            x if x == Self::READ_GAMMA as usize => Code::Gamma,
+            x if x == Self::READ_DELTA as usize => Code::Delta,
+            x if x == Self::READ_ZETA1 as usize => Code::Zeta { k: 1 },
+            x if x == Self::READ_ZETA2 as usize => Code::Zeta { k: 2 },
+            x if x == Self::READ_ZETA3 as usize => Code::Zeta { k: 3 },
+            x if x == Self::READ_ZETA4 as usize => Code::Zeta { k: 4 },
+            x if x == Self::READ_ZETA5 as usize => Code::Zeta { k: 5 },
+            x if x == Self::READ_ZETA6 as usize => Code::Zeta { k: 6 },
+            x if x == Self::READ_ZETA7 as usize => Code::Zeta { k: 7 },
             _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
         })
     }
@@ -62,7 +88,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReader<E
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesReader for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -105,84 +131,140 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesReader for DynamicC
     }
 }
 
+/// Forgetful functor :)
+impl<E: Endianness, CR: ReadCodes<E>> From<DynamicCodesReaderSkipper<E, CR>>
+    for DynamicCodesReader<E, CR>
+{
+    fn from(value: DynamicCodesReaderSkipper<E, CR>) -> Self {
+        Self {
+            code_reader: value.code_reader,
+            read_outdegree: value.read_outdegree,
+            read_reference_offset: value.read_reference_offset,
+            read_block_count: value.read_block_count,
+            read_blocks: value.read_blocks,
+            read_interval_count: value.read_interval_count,
+            read_interval_start: value.read_interval_start,
+            read_interval_len: value.read_interval_len,
+            read_first_residual: value.read_first_residual,
+            read_residual: value.read_residual,
+            _marker: core::marker::PhantomData::default(),
+        }
+    }
+}
+
+impl<E: Endianness, CR: ReadCodes<E>> From<DynamicCodesReader<E, CR>>
+    for DynamicCodesReaderSkipper<E, CR>
+{
+    fn from(value: DynamicCodesReader<E, CR>) -> Self {
+        Self {
+            code_reader: value.code_reader,
+            read_outdegree: value.read_outdegree,
+            read_reference_offset: value.read_reference_offset,
+            read_block_count: value.read_block_count,
+            read_blocks: value.read_blocks,
+            read_interval_count: value.read_interval_count,
+            read_interval_start: value.read_interval_start,
+            read_interval_len: value.read_interval_len,
+            read_first_residual: value.read_first_residual,
+            read_residual: value.read_residual,
+            _marker: core::marker::PhantomData::default(),
+            skip_outdegrees: Self::read_code_to_skip_code(value.read_outdegree),
+            skip_reference_offsets: Self::read_code_to_skip_code(value.read_reference_offset),
+            skip_block_counts: Self::read_code_to_skip_code(value.read_block_count),
+            skip_blocks: Self::read_code_to_skip_code(value.read_blocks),
+            skip_interval_counts: Self::read_code_to_skip_code(value.read_interval_count),
+            skip_interval_starts: Self::read_code_to_skip_code(value.read_interval_start),
+            skip_interval_lens: Self::read_code_to_skip_code(value.read_interval_len),
+            skip_first_residuals: Self::read_code_to_skip_code(value.read_first_residual),
+            skip_residuals: Self::read_code_to_skip_code(value.read_residual),
+        }
+    }
+}
+
 /// An implementation of [`WebGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
-pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E> + BitSeek> {
+pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) code_reader: CR,
+
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
-    pub(crate) skip_outdegrees: fn(&mut CR, usize) -> usize,
     pub(crate) read_reference_offset: fn(&mut CR) -> u64,
-    pub(crate) skip_reference_offsets: fn(&mut CR, usize) -> usize,
     pub(crate) read_block_count: fn(&mut CR) -> u64,
-    pub(crate) skip_block_counts: fn(&mut CR, usize) -> usize,
     pub(crate) read_blocks: fn(&mut CR) -> u64,
-    pub(crate) skip_blocks: fn(&mut CR, usize) -> usize,
     pub(crate) read_interval_count: fn(&mut CR) -> u64,
-    pub(crate) skip_interval_counts: fn(&mut CR, usize) -> usize,
     pub(crate) read_interval_start: fn(&mut CR) -> u64,
-    pub(crate) skip_interval_starts: fn(&mut CR, usize) -> usize,
     pub(crate) read_interval_len: fn(&mut CR) -> u64,
-    pub(crate) skip_interval_lens: fn(&mut CR, usize) -> usize,
     pub(crate) read_first_residual: fn(&mut CR) -> u64,
-    pub(crate) skip_first_residuals: fn(&mut CR, usize) -> usize,
     pub(crate) read_residual: fn(&mut CR) -> u64,
+
+    pub(crate) skip_outdegrees: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_reference_offsets: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_block_counts: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_blocks: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_interval_counts: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_interval_starts: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_interval_lens: fn(&mut CR, usize) -> usize,
+    pub(crate) skip_first_residuals: fn(&mut CR, usize) -> usize,
     pub(crate) skip_residuals: fn(&mut CR, usize) -> usize,
+
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> DynamicCodesReaderSkipper<E, CR> {
-    fn select_code(code: &Code) -> Result<fn(&mut CR) -> u64> {
+impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
+    const SKIP_UNARY: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_unary(n).unwrap();
+    const SKIP_GAMMA: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_unary(n).unwrap();
+    const SKIP_DELTA: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_delta(n).unwrap();
+    const SKIP_ZETA2: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_zeta(2, n).unwrap();
+    const SKIP_ZETA3: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_zeta3(n).unwrap();
+    const SKIP_ZETA4: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_zeta(4, n).unwrap();
+    const SKIP_ZETA5: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_zeta(5, n).unwrap();
+    const SKIP_ZETA6: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_zeta(6, n).unwrap();
+    const SKIP_ZETA7: fn(&mut CR, usize) -> usize = |cr, n| cr.skip_zeta(7, n).unwrap();
+    const SKIP_ZETA1: fn(&mut CR, usize) -> usize = Self::SKIP_GAMMA;
+
+    /// Get the selected function from the code
+    pub(crate) fn select_skip_code(code: &Code) -> Result<fn(&mut CR, usize) -> usize> {
         Ok(match code {
-            Code::Unary => |x| CR::read_unary(x).unwrap(),
-            Code::Gamma => |x| CR::read_gamma(x).unwrap(),
-            Code::Delta => |x| CR::read_delta(x).unwrap(),
-            Code::Zeta { k: 1 } => |x| CR::read_gamma(x).unwrap(),
-            Code::Zeta { k: 2 } => |x| CR::read_zeta(x, 2).unwrap(),
-            Code::Zeta { k: 3 } => |x| CR::read_zeta3(x).unwrap(),
-            Code::Zeta { k: 4 } => |x| CR::read_zeta(x, 4).unwrap(),
-            Code::Zeta { k: 5 } => |x| CR::read_zeta(x, 5).unwrap(),
-            Code::Zeta { k: 6 } => |x| CR::read_zeta(x, 6).unwrap(),
-            Code::Zeta { k: 7 } => |x| CR::read_zeta(x, 7).unwrap(),
+            Code::Unary => Self::SKIP_UNARY,
+            Code::Gamma => Self::SKIP_GAMMA,
+            Code::Delta => Self::SKIP_DELTA,
+            Code::Zeta { k: 1 } => Self::SKIP_ZETA1,
+            Code::Zeta { k: 2 } => Self::SKIP_ZETA2,
+            Code::Zeta { k: 3 } => Self::SKIP_ZETA3,
+            Code::Zeta { k: 4 } => Self::SKIP_ZETA4,
+            Code::Zeta { k: 5 } => Self::SKIP_ZETA5,
+            Code::Zeta { k: 6 } => Self::SKIP_ZETA6,
+            Code::Zeta { k: 7 } => Self::SKIP_ZETA7,
             _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
         })
     }
-
-    fn select_skip_code(code: &Code) -> Result<fn(&mut CR, usize) -> usize> {
-        Ok(match code {
-            Code::Unary => |x, n| CR::skip_unary(x, n).unwrap(),
-            Code::Gamma => |x, n| CR::skip_gamma(x, n).unwrap(),
-            Code::Delta => |x, n| CR::skip_delta(x, n).unwrap(),
-            Code::Zeta { k: 1 } => |x, n| CR::skip_gamma(x, n).unwrap(),
-            Code::Zeta { k: 2 } => |x, n| CR::skip_zeta(x, 2, n).unwrap(),
-            Code::Zeta { k: 3 } => |x, n| CR::skip_zeta3(x, n).unwrap(),
-            Code::Zeta { k: 4 } => |x, n| CR::skip_zeta(x, 4, n).unwrap(),
-            Code::Zeta { k: 5 } => |x, n| CR::skip_zeta(x, 5, n).unwrap(),
-            Code::Zeta { k: 6 } => |x, n| CR::skip_zeta(x, 6, n).unwrap(),
-            Code::Zeta { k: 7 } => |x, n| CR::skip_zeta(x, 7, n).unwrap(),
-            _ => bail!("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed"),
-        })
+    /// Translate a read code function to a skip code function
+    pub(crate) fn read_code_to_skip_code(
+        read_code: fn(&mut CR) -> u64,
+    ) -> fn(&mut CR, usize) -> usize {
+        Self::select_skip_code(&<DynamicCodesReader<E, CR>>::code_fn_to_code(read_code).unwrap())
+            .unwrap()
     }
 
     pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
         Ok(Self {
             code_reader,
-            read_outdegree: Self::select_code(&cf.outdegrees)?,
+            read_outdegree: <DynamicCodesReader<E, CR>>::select_code(&cf.outdegrees)?,
             skip_outdegrees: Self::select_skip_code(&cf.outdegrees)?,
-            read_reference_offset: Self::select_code(&cf.references)?,
+            read_reference_offset: <DynamicCodesReader<E, CR>>::select_code(&cf.references)?,
             skip_reference_offsets: Self::select_skip_code(&cf.references)?,
-            read_block_count: Self::select_code(&cf.blocks)?,
+            read_block_count: <DynamicCodesReader<E, CR>>::select_code(&cf.blocks)?,
             skip_block_counts: Self::select_skip_code(&cf.blocks)?,
-            read_blocks: Self::select_code(&cf.blocks)?,
+            read_blocks: <DynamicCodesReader<E, CR>>::select_code(&cf.blocks)?,
             skip_blocks: Self::select_skip_code(&cf.blocks)?,
-            read_interval_count: Self::select_code(&cf.intervals)?,
+            read_interval_count: <DynamicCodesReader<E, CR>>::select_code(&cf.intervals)?,
             skip_interval_counts: Self::select_skip_code(&cf.intervals)?,
-            read_interval_start: Self::select_code(&cf.intervals)?,
+            read_interval_start: <DynamicCodesReader<E, CR>>::select_code(&cf.intervals)?,
             skip_interval_starts: Self::select_skip_code(&cf.intervals)?,
-            read_interval_len: Self::select_code(&cf.intervals)?,
+            read_interval_len: <DynamicCodesReader<E, CR>>::select_code(&cf.intervals)?,
             skip_interval_lens: Self::select_skip_code(&cf.intervals)?,
-            read_first_residual: Self::select_code(&cf.residuals)?,
+            read_first_residual: <DynamicCodesReader<E, CR>>::select_code(&cf.residuals)?,
             skip_first_residuals: Self::select_skip_code(&cf.residuals)?,
-            read_residual: Self::select_code(&cf.residuals)?,
+            read_residual: <DynamicCodesReader<E, CR>>::select_code(&cf.residuals)?,
             skip_residuals: Self::select_skip_code(&cf.residuals)?,
             _marker: core::marker::PhantomData::default(),
         })
@@ -199,9 +281,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReaderSk
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesReader
-    for DynamicCodesReaderSkipper<E, CR>
-{
+impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -244,9 +324,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesReader
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> WebGraphCodesSkipper
-    for DynamicCodesReaderSkipper<E, CR>
-{
+impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesSkipper for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn skip_outdegrees(&mut self, n: usize) -> usize {
         (self.skip_outdegrees)(&mut self.code_reader, n)

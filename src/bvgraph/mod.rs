@@ -5,8 +5,8 @@ pub(crate) use circular_buffer::*;
 mod reader_degrees;
 pub use reader_degrees::*;
 
-mod reader_sequential;
-pub use reader_sequential::*;
+mod bvgraph_sequential;
+pub use bvgraph_sequential::*;
 
 pub mod bvgraph;
 pub use bvgraph::*;

@@ -83,6 +83,47 @@ impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
     }
 }
 
+pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
+    // TODO!: This can be optimized by caching the skip pointers
+    dynamic_codes_reader_builder: DynamicCodesReaderBuilder<E, B>,
+}
+
+impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
+    for DynamicCodesReaderSkipperBuilder<E, B>
+{
+    type Reader<'a> =
+        DynamicCodesReaderSkipper<BE, BitReader<'a>>
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+        self.dynamic_codes_reader_builder
+            .get_reader(offset)
+            .map(|x| x.into())
+    }
+}
+
+impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderBuilder<E, B>>
+    for DynamicCodesReaderSkipperBuilder<E, B>
+{
+    #[inline(always)]
+    fn from(value: DynamicCodesReaderBuilder<E, B>) -> Self {
+        Self {
+            dynamic_codes_reader_builder: value,
+        }
+    }
+}
+
+impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderSkipperBuilder<E, B>>
+    for DynamicCodesReaderBuilder<E, B>
+{
+    #[inline(always)]
+    fn from(value: DynamicCodesReaderSkipperBuilder<E, B>) -> Self {
+        value.dynamic_codes_reader_builder
+    }
+}
+
 pub struct ConstCodesReaderBuilder<
     E: Endianness,
     B: AsRef<[u32]>,

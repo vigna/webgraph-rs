@@ -122,6 +122,46 @@ where
             number_of_arcs,
         }
     }
+
+    #[inline(always)]
+    /// Change the codes reader builder
+    pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraph<CRB2, OFF>
+    where
+        F: FnOnce(CRB) -> CRB2,
+        CRB2: WebGraphCodesReaderBuilder,
+    {
+        BVGraph {
+            codes_reader_builder: map_func(self.codes_reader_builder),
+            offsets: self.offsets,
+            number_of_nodes: self.number_of_nodes,
+            number_of_arcs: self.number_of_arcs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
+        }
+    }
+
+    #[inline(always)]
+    /// Change the offsets
+    pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
+    where
+        F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
+        OFF2: IndexedDict<Value = u64>,
+    {
+        BVGraph {
+            codes_reader_builder: self.codes_reader_builder,
+            offsets: map_func(self.offsets),
+            number_of_nodes: self.number_of_nodes,
+            number_of_arcs: self.number_of_arcs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
+        }
+    }
+
+    #[inline(always)]
+    /// Consume self and return the codes reader builder and the offsets
+    pub fn unwrap(self) -> (CRB, MemCase<OFF>) {
+        (self.codes_reader_builder, self.offsets)
+    }
 }
 
 impl<CRB, OFF> NumNodes for BVGraph<CRB, OFF>
