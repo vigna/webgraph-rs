@@ -7,7 +7,6 @@ macro_rules! impl_fuzz_repr {
         #[test]
         fn $func_name() -> Result<()> {
             use arbitrary::Arbitrary;
-            use dsi_bitstream::fuzz::$fuzz_name::*;
             use std::io::Read;
             let dir = format!("fuzz/corpus/{}", stringify!($fuzz_name));
             if !std::path::Path::new(&dir).exists() {
@@ -28,8 +27,8 @@ macro_rules! impl_fuzz_repr {
                 file.read(&mut file_bytes)?;
 
                 let mut unstructured = arbitrary::Unstructured::new(&file_bytes);
-                let data = FuzzCase::arbitrary(&mut unstructured)?;
-                dsi_bitstream::fuzz::$fuzz_name::harness(data);
+                let data = webgraph::fuzz::$fuzz_name::FuzzCase::arbitrary(&mut unstructured)?;
+                webgraph::fuzz::$fuzz_name::harness(data);
             }
 
             Ok(())
@@ -39,7 +38,6 @@ macro_rules! impl_fuzz_repr {
         #[test]
         fn $func_zip_name() -> Result<()> {
             use arbitrary::Arbitrary;
-            use dsi_bitstream::fuzz::$fuzz_name::*;
             use std::io::prelude::*;
 
             let zip_path = format!("tests/corpus/{}.zip", stringify!($fuzz_name));
@@ -57,8 +55,8 @@ macro_rules! impl_fuzz_repr {
                 file.read(&mut file_bytes)?;
 
                 let mut unstructured = arbitrary::Unstructured::new(&file_bytes);
-                let data = FuzzCase::arbitrary(&mut unstructured)?;
-                dsi_bitstream::fuzz::$fuzz_name::harness(data);
+                let data = webgraph::fuzz::$fuzz_name::FuzzCase::arbitrary(&mut unstructured)?;
+                webgraph::fuzz::$fuzz_name::harness(data);
             }
 
             Ok(())
