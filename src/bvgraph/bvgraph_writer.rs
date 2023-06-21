@@ -562,7 +562,6 @@ mod test {
         bvcomp.flush()?;
 
         // Read it back
-
         let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
         let bit_read =
             <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));

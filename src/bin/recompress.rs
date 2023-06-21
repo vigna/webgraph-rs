@@ -86,6 +86,7 @@ pub fn main() -> Result<()> {
         residuals: args.residuals_code.into(),
         min_interval_length: args.min_interval_length,
         compression_window: args.compression_window,
+        max_ref_count: args.max_ref_count,
     };
 
     let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;

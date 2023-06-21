@@ -32,6 +32,8 @@ use sux::prelude::*;
 extern crate alloc;
 
 pub mod bvgraph;
+#[cfg(feature = "fuzz")]
+pub mod fuzz;
 pub mod traits;
 pub mod utils;
 

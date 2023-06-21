@@ -7,6 +7,7 @@ use super::*;
 use crate::utils::nat2int;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub struct CompFlags {
     pub outdegrees: Code,
     pub references: Code,
@@ -15,6 +16,7 @@ pub struct CompFlags {
     pub residuals: Code,
     pub min_interval_length: usize,
     pub compression_window: usize,
+    pub max_ref_count: usize,
 }
 
 impl core::default::Default for CompFlags {
@@ -27,6 +29,7 @@ impl core::default::Default for CompFlags {
             residuals: Code::Zeta { k: 3 },
             min_interval_length: 4,
             compression_window: 7,
+            max_ref_count: 3,
         }
     }
 }

@@ -47,6 +47,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         residuals,
                                         min_interval_length,
                                         compression_window,
+                                        max_ref_count,
                                     };
 
                                     let seq_graph =
