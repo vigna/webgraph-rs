@@ -20,7 +20,8 @@ pub fn main() -> Result<()> {
     stderrlog::new()
         .verbosity(2)
         .timestamp(stderrlog::Timestamp::Second)
-        .init()?;
+        .init()
+        .unwrap();
 
     let f = File::open(format!("{}.properties", args.basename))?;
     let map = java_properties::read(BufReader::new(f))?;
@@ -44,22 +45,21 @@ pub fn main() -> Result<()> {
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
         eprintln!("The offsets file exists, reading it to build Elias-Fano");
-        let of_file = BufReader::new(File::open(of_file_path)?);
+        let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
         // create a bit reader on the file
         let mut reader =
             BufferedBitStreamRead::<BE, u64, _>::new(<FileBackend<u32, _>>::new(of_file));
         // progress bar
-        pr.start("Translating offsets...");
+        pr.start("Translating offsets to EliasFano...");
         // read the graph a write the offsets
         let mut offset = 0;
-        for _ in 0..num_nodes + 1 {
+        for _node_id in 0..num_nodes + 1 {
             // write where
             offset += reader.read_gamma()?;
             efb.push(offset as _)?;
             // decode the next nodes so we know where the next node_id starts
             pr.light_update();
         }
-        pr.done();
     } else {
         eprintln!("The offsets file does not exists, reading the graph to build Elias-Fano");
         let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
@@ -67,7 +67,7 @@ pub fn main() -> Result<()> {
             seq_graph.map_codes_reader_builder(|cbr| DynamicCodesReaderSkipperBuilder::from(cbr));
         // otherwise directly read the graph
         // progress bar
-        pr.start("Translating offsets...");
+        pr.start("Building EliasFano...");
         // read the graph a write the offsets
         for (new_offset, _node_id, _degree) in seq_graph.iter_degrees() {
             // write where
@@ -75,8 +75,8 @@ pub fn main() -> Result<()> {
             // decode the next nodes so we know where the next node_id starts
             pr.light_update();
         }
-        pr.done();
     }
+    pr.done();
 
     let ef = efb.build();
     let ef: webgraph::EF<_> = ef.convert_to().unwrap();
