@@ -300,6 +300,8 @@ pub fn main() -> Result<()> {
             line, sorted_id, node_id.0
         );
         assert_eq!(line, node2swhid.get(node_id).unwrap().to_string());
+
+        pl.light_update();
     }
 
     pl.done();
