@@ -15,6 +15,12 @@ use std::path::Path;
 /// the Java instance of the MPH and write it to a file
 /// using the `dump` method.
 ///
+/// You can do it through:
+/// ```shell
+/// echo '((it.unimi.dsi.sux4j.mph.GOVMinimalPerfectHashFunction)it.unimi.dsi.fastutil.io.BinIO.loadObject("test.mph")).dump("test.cmph");' | jshell
+/// ```
+/// or using the [`SWH Mph2Cmph class`](https://gitlab.softwareheritage.org/swh/devel/swh-graph/-/blob/master/java/src/main/java/org/softwareheritage/graph/utils/Mph2Cmph.java).
+///
 /// # Reference:
 /// [Marco Genuzio, Giuseppe Ottaviano, and Sebastiano Vigna, Fast Scalable Construction of (Minimal Perfect Hash) Functions](https://arxiv.org/pdf/1603.04330.pdf)
 /// [Java version with `dump` method](https://github.com/vigna/Sux4J/blob/master/src/it/unimi/dsi/sux4j/mph/GOVMinimalPerfectHashFunction.java)
