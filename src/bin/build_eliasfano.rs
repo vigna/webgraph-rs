@@ -79,7 +79,15 @@ pub fn main() -> Result<()> {
     pr.done();
 
     let ef = efb.build();
+
+    let mut pr = ProgressLogger::default().display_memory();
+    pr.start("Building the Index over the ones in the high-bits...");
     let ef: webgraph::EF<_> = ef.convert_to().unwrap();
+    pr.done();
+
+    let mut pr = ProgressLogger::default().display_memory();
+    pr.start("Writing to disk...");
     ef.serialize(&mut ef_file)?;
+    pr.done();
     Ok(())
 }
