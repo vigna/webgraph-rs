@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
+use log::info;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use sux::prelude::*;
@@ -44,7 +45,7 @@ pub fn main() -> Result<()> {
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
-        eprintln!("The offsets file exists, reading it to build Elias-Fano");
+        info!("The offsets file exists, reading it to build Elias-Fano");
         let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
         // create a bit reader on the file
         let mut reader =
@@ -61,7 +62,7 @@ pub fn main() -> Result<()> {
             pr.light_update();
         }
     } else {
-        eprintln!("The offsets file does not exists, reading the graph to build Elias-Fano");
+        info!("The offsets file does not exists, reading the graph to build Elias-Fano");
         let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
         let seq_graph =
             seq_graph.map_codes_reader_builder(|cbr| DynamicCodesReaderSkipperBuilder::from(cbr));
