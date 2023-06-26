@@ -152,39 +152,39 @@ impl<'a, WGCR: WebGraphCodesReader + WebGraphCodesSkipper> WebGraphCodesSkipper
     for CodesReaderStats<'a, WGCR>
 {
     #[inline(always)]
-    fn skip_outdegrees(&mut self, n: usize) -> usize {
+    fn skip_outdegrees(&mut self, n: usize) {
         self.codes_reader.skip_outdegrees(n)
     }
     #[inline(always)]
-    fn skip_reference_offsets(&mut self, n: usize) -> usize {
+    fn skip_reference_offsets(&mut self, n: usize) {
         self.codes_reader.skip_reference_offsets(n)
     }
     #[inline(always)]
-    fn skip_block_counts(&mut self, n: usize) -> usize {
+    fn skip_block_counts(&mut self, n: usize) {
         self.codes_reader.skip_block_counts(n)
     }
     #[inline(always)]
-    fn skip_blocks(&mut self, n: usize) -> usize {
+    fn skip_blocks(&mut self, n: usize) {
         self.codes_reader.skip_blocks(n)
     }
     #[inline(always)]
-    fn skip_interval_counts(&mut self, n: usize) -> usize {
+    fn skip_interval_counts(&mut self, n: usize) {
         self.codes_reader.skip_interval_counts(n)
     }
     #[inline(always)]
-    fn skip_interval_starts(&mut self, n: usize) -> usize {
+    fn skip_interval_starts(&mut self, n: usize) {
         self.codes_reader.skip_interval_starts(n)
     }
     #[inline(always)]
-    fn skip_interval_lens(&mut self, n: usize) -> usize {
+    fn skip_interval_lens(&mut self, n: usize) {
         self.codes_reader.skip_interval_lens(n)
     }
     #[inline(always)]
-    fn skip_first_residuals(&mut self, n: usize) -> usize {
+    fn skip_first_residuals(&mut self, n: usize) {
         self.codes_reader.skip_first_residuals(n)
     }
     #[inline(always)]
-    fn skip_residuals(&mut self, n: usize) -> usize {
+    fn skip_residuals(&mut self, n: usize) {
         self.codes_reader.skip_residuals(n)
     }
 }

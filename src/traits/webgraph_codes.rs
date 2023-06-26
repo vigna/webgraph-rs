@@ -12,23 +12,23 @@ pub trait WebGraphCodesReaderBuilder {
 }
 
 pub trait WebGraphCodesSkipper {
-    fn skip_outdegrees(&mut self, n: usize) -> usize;
+    fn skip_outdegrees(&mut self, n: usize);
 
     // node reference
-    fn skip_reference_offsets(&mut self, n: usize) -> usize;
+    fn skip_reference_offsets(&mut self, n: usize);
 
     // run length reference copy
-    fn skip_block_counts(&mut self, n: usize) -> usize;
-    fn skip_blocks(&mut self, n: usize) -> usize;
+    fn skip_block_counts(&mut self, n: usize);
+    fn skip_blocks(&mut self, n: usize);
 
     // intervallizzation
-    fn skip_interval_counts(&mut self, n: usize) -> usize;
-    fn skip_interval_starts(&mut self, n: usize) -> usize;
-    fn skip_interval_lens(&mut self, n: usize) -> usize;
+    fn skip_interval_counts(&mut self, n: usize);
+    fn skip_interval_starts(&mut self, n: usize);
+    fn skip_interval_lens(&mut self, n: usize);
 
     // extra nodes
-    fn skip_first_residuals(&mut self, n: usize) -> usize;
-    fn skip_residuals(&mut self, n: usize) -> usize;
+    fn skip_first_residuals(&mut self, n: usize);
+    fn skip_residuals(&mut self, n: usize);
 }
 
 pub trait WebGraphCodesReader {

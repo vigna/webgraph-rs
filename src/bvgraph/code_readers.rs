@@ -188,43 +188,43 @@ impl<
     for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
-    fn skip_outdegrees(&mut self, n: usize) -> usize {
+    fn skip_outdegrees(&mut self, n: usize) {
         select_code_skip!(self, OUTDEGREES, K, n)
     }
 
     #[inline(always)]
-    fn skip_reference_offsets(&mut self, n: usize) -> usize {
+    fn skip_reference_offsets(&mut self, n: usize) {
         select_code_skip!(self, REFERENCES, K, n)
     }
 
     #[inline(always)]
-    fn skip_block_counts(&mut self, n: usize) -> usize {
+    fn skip_block_counts(&mut self, n: usize) {
         select_code_skip!(self, BLOCKS, K, n)
     }
     #[inline(always)]
-    fn skip_blocks(&mut self, n: usize) -> usize {
+    fn skip_blocks(&mut self, n: usize) {
         select_code_skip!(self, BLOCKS, K, n)
     }
 
     #[inline(always)]
-    fn skip_interval_counts(&mut self, n: usize) -> usize {
+    fn skip_interval_counts(&mut self, n: usize) {
         select_code_skip!(self, INTERVALS, K, n)
     }
     #[inline(always)]
-    fn skip_interval_starts(&mut self, n: usize) -> usize {
+    fn skip_interval_starts(&mut self, n: usize) {
         select_code_skip!(self, INTERVALS, K, n)
     }
     #[inline(always)]
-    fn skip_interval_lens(&mut self, n: usize) -> usize {
+    fn skip_interval_lens(&mut self, n: usize) {
         select_code_skip!(self, INTERVALS, K, n)
     }
 
     #[inline(always)]
-    fn skip_first_residuals(&mut self, n: usize) -> usize {
+    fn skip_first_residuals(&mut self, n: usize) {
         select_code_skip!(self, RESIDUALS, K, n)
     }
     #[inline(always)]
-    fn skip_residuals(&mut self, n: usize) -> usize {
+    fn skip_residuals(&mut self, n: usize) {
         select_code_skip!(self, RESIDUALS, K, n)
     }
 }
