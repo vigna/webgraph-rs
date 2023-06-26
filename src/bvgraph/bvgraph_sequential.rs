@@ -142,7 +142,6 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     #[inline(always)]
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
         let degree = self.codes_reader.read_outdegree() as usize;
-
         // no edges, we are done!
         if degree == 0 {
             return Ok(());

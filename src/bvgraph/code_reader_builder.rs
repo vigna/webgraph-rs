@@ -2,34 +2,37 @@ use super::*;
 use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 
-type BitReader<'a> = BufferedBitStreamRead<BE, u64, MemWordReadInfinite<u32, &'a [u32]>>;
+type BitReader<'a, E> = BufferedBitStreamRead<E, u64, MemWordReadInfinite<u32, &'a [u32]>>;
 
 pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
     data: B,
     compression_flags: CompFlags,
-    read_outdegree: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_reference_offset: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_block_count: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_blocks: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_interval_count: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_interval_start: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_interval_len: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_first_residual: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_residual: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_outdegree: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_reference_offset: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_block_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_blocks: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_interval_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_interval_start: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_interval_len: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B> {
-    const READ_UNARY: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: for<'a> fn(&mut BitReader<'a>) -> u64 = Self::READ_GAMMA;
+impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+{
+    const READ_UNARY: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_gamma().unwrap();
+    const READ_DELTA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_delta().unwrap();
+    const READ_ZETA2: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(2).unwrap();
+    const READ_ZETA3: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta3().unwrap();
+    const READ_ZETA4: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(4).unwrap();
+    const READ_ZETA5: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(5).unwrap();
+    const READ_ZETA6: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(6).unwrap();
+    const READ_ZETA7: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(7).unwrap();
+    const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
 
     #[inline(always)]
     pub fn get_compression_flags(&self) -> CompFlags {
@@ -75,16 +78,17 @@ impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B> {
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
-    for DynamicCodesReaderBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
     type Reader<'a> =
-        DynamicCodesReader<BE, BitReader<'a>>
+        DynamicCodesReader<E, BitReader<'a, E>>
     where
         Self: 'a;
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
-        let mut code_reader: BitReader<'_> =
+        let mut code_reader: BitReader<'_, E> =
             BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
         code_reader.set_pos(offset)?;
 
@@ -108,60 +112,63 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
     data: B,
     compression_flags: CompFlags,
 
-    read_outdegree: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_reference_offset: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_block_count: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_blocks: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_interval_count: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_interval_start: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_interval_len: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_first_residual: for<'a> fn(&mut BitReader<'a>) -> u64,
-    read_residual: for<'a> fn(&mut BitReader<'a>) -> u64,
+    read_outdegree: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_reference_offset: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_block_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_blocks: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_interval_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_interval_start: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_interval_len: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
 
-    skip_outdegrees: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_reference_offsets: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_block_counts: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_blocks: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_interval_counts: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_interval_starts: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_interval_lens: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_first_residuals: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
-    skip_residuals: for<'a> fn(&mut BitReader<'a>, usize) -> usize,
+    skip_outdegrees: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_reference_offsets: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_block_counts: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_blocks: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_interval_counts: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_interval_starts: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_interval_lens: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_first_residuals: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
+    skip_residuals: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize,
 
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B> {
-    const READ_UNARY: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: for<'a> fn(&mut BitReader<'a>) -> u64 = |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: for<'a> fn(&mut BitReader<'a>) -> u64 = Self::READ_GAMMA;
+impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+{
+    const READ_UNARY: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_gamma().unwrap();
+    const READ_DELTA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_delta().unwrap();
+    const READ_ZETA2: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(2).unwrap();
+    const READ_ZETA3: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta3().unwrap();
+    const READ_ZETA4: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(4).unwrap();
+    const READ_ZETA5: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(5).unwrap();
+    const READ_ZETA6: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(6).unwrap();
+    const READ_ZETA7: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(7).unwrap();
+    const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
 
-    const SKIP_UNARY: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_UNARY: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_unary(n).unwrap();
-    const SKIP_GAMMA: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_GAMMA: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_gamma(n).unwrap();
-    const SKIP_DELTA: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_DELTA: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_delta(n).unwrap();
-    const SKIP_ZETA2: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_ZETA2: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_zeta(2, n).unwrap();
-    const SKIP_ZETA3: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_ZETA3: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_zeta3(n).unwrap();
-    const SKIP_ZETA4: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_ZETA4: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_zeta(4, n).unwrap();
-    const SKIP_ZETA5: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_ZETA5: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_zeta(5, n).unwrap();
-    const SKIP_ZETA6: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_ZETA6: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_zeta(6, n).unwrap();
-    const SKIP_ZETA7: for<'a> fn(&mut BitReader<'a>, usize) -> usize =
+    const SKIP_ZETA7: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize =
         |cr, n| cr.skip_zeta(7, n).unwrap();
-    const SKIP_ZETA1: for<'a> fn(&mut BitReader<'a>, usize) -> usize = Self::SKIP_GAMMA;
+    const SKIP_ZETA1: for<'a> fn(&mut BitReader<'a, E>, usize) -> usize = Self::SKIP_GAMMA;
 
     #[inline(always)]
     pub fn get_compression_flags(&self) -> CompFlags {
@@ -242,15 +249,17 @@ impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B> {
 
 impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
     for DynamicCodesReaderSkipperBuilder<E, B>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
     type Reader<'a> =
-        DynamicCodesReaderSkipper<BE, BitReader<'a>>
+        DynamicCodesReaderSkipper<E, BitReader<'a, E>>
     where
         Self: 'a;
 
     #[inline(always)]
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
-        let mut code_reader: BitReader<'_> =
+        let mut code_reader: BitReader<'_, E> =
             BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
         code_reader.set_pos(offset)?;
         Ok(DynamicCodesReaderSkipper {
@@ -280,6 +289,8 @@ impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
 
 impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderBuilder<E, B>>
     for DynamicCodesReaderSkipperBuilder<E, B>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderBuilder<E, B>) -> Self {
@@ -289,6 +300,8 @@ impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderBuilder<E, B>>
 
 impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderSkipperBuilder<E, B>>
     for DynamicCodesReaderBuilder<E, B>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderSkipperBuilder<E, B>) -> Self {
@@ -355,14 +368,16 @@ impl<
         const K: u64,
     > WebGraphCodesReaderBuilder
     for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+where
+    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
     type Reader<'a> =
-        ConstCodesReader<BE, BitReader<'a>>
+        ConstCodesReader<E, BitReader<'a, E>>
     where
         Self: 'a;
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
-        let mut code_reader: BitReader<'_> =
+        let mut code_reader: BitReader<'_, E> =
             BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
         code_reader.set_pos(offset)?;
 

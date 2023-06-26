@@ -71,8 +71,9 @@ impl VecGraph {
     }
 
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
-        if u >= self.succ.len() {
-            self.succ.resize(u + 1, BTreeSet::new());
+        let max = u.max(v);
+        if max >= self.succ.len() {
+            self.succ.resize(max + 1, BTreeSet::new());
         }
         let result = self.succ[u].insert(v);
         self.number_of_arcs += result as usize;
