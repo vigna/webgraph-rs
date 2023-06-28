@@ -122,15 +122,15 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
     read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
 
-    skip_outdegrees: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_reference_offsets: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_block_counts: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_blocks: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_interval_counts: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_interval_starts: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_interval_lens: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_first_residuals: for<'a> fn(&mut BitReader<'a, E>, usize),
-    skip_residuals: for<'a> fn(&mut BitReader<'a, E>, usize),
+    skip_outdegrees: for<'a> fn(&mut BitReader<'a, E>),
+    skip_reference_offsets: for<'a> fn(&mut BitReader<'a, E>),
+    skip_block_counts: for<'a> fn(&mut BitReader<'a, E>),
+    skip_blocks: for<'a> fn(&mut BitReader<'a, E>),
+    skip_interval_counts: for<'a> fn(&mut BitReader<'a, E>),
+    skip_interval_starts: for<'a> fn(&mut BitReader<'a, E>),
+    skip_interval_lens: for<'a> fn(&mut BitReader<'a, E>),
+    skip_first_residuals: for<'a> fn(&mut BitReader<'a, E>),
+    skip_residuals: for<'a> fn(&mut BitReader<'a, E>),
 
     _marker: core::marker::PhantomData<E>,
 }
@@ -150,21 +150,16 @@ where
     const READ_ZETA7: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
 
-    const SKIP_UNARY: for<'a> fn(&mut BitReader<'a, E>, usize) = |cr, n| cr.skip_unary(n).unwrap();
-    const SKIP_GAMMA: for<'a> fn(&mut BitReader<'a, E>, usize) = |cr, n| cr.skip_gamma(n).unwrap();
-    const SKIP_DELTA: for<'a> fn(&mut BitReader<'a, E>, usize) = |cr, n| cr.skip_delta(n).unwrap();
-    const SKIP_ZETA2: for<'a> fn(&mut BitReader<'a, E>, usize) =
-        |cr, n| cr.skip_zeta(2, n).unwrap();
-    const SKIP_ZETA3: for<'a> fn(&mut BitReader<'a, E>, usize) = |cr, n| cr.skip_zeta3(n).unwrap();
-    const SKIP_ZETA4: for<'a> fn(&mut BitReader<'a, E>, usize) =
-        |cr, n| cr.skip_zeta(4, n).unwrap();
-    const SKIP_ZETA5: for<'a> fn(&mut BitReader<'a, E>, usize) =
-        |cr, n| cr.skip_zeta(5, n).unwrap();
-    const SKIP_ZETA6: for<'a> fn(&mut BitReader<'a, E>, usize) =
-        |cr, n| cr.skip_zeta(6, n).unwrap();
-    const SKIP_ZETA7: for<'a> fn(&mut BitReader<'a, E>, usize) =
-        |cr, n| cr.skip_zeta(7, n).unwrap();
-    const SKIP_ZETA1: for<'a> fn(&mut BitReader<'a, E>, usize) = Self::SKIP_GAMMA;
+    const SKIP_UNARY: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_unary().unwrap();
+    const SKIP_GAMMA: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_gamma().unwrap();
+    const SKIP_DELTA: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_delta().unwrap();
+    const SKIP_ZETA2: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(2).unwrap();
+    const SKIP_ZETA3: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta3().unwrap();
+    const SKIP_ZETA4: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(4).unwrap();
+    const SKIP_ZETA5: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(5).unwrap();
+    const SKIP_ZETA6: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(6).unwrap();
+    const SKIP_ZETA7: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(7).unwrap();
+    const SKIP_ZETA1: for<'a> fn(&mut BitReader<'a, E>) = Self::SKIP_GAMMA;
 
     #[inline(always)]
     pub fn get_compression_flags(&self) -> CompFlags {

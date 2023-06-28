@@ -108,14 +108,14 @@ macro_rules! select_code_read {
 }
 
 macro_rules! select_code_skip {
-    ($self:ident, $code:expr, $k: expr, $n:expr) => {
+    ($self:ident, $code:expr, $k: expr) => {
         match $code {
-            const_codes::UNARY => $self.code_reader.skip_unary($n).unwrap(),
-            const_codes::GAMMA => $self.code_reader.skip_gamma($n).unwrap(),
-            const_codes::DELTA => $self.code_reader.skip_delta($n).unwrap(),
-            const_codes::ZETA if $k == 1 => $self.code_reader.skip_gamma($n).unwrap(),
-            const_codes::ZETA if $k == 3 => $self.code_reader.skip_zeta3($n).unwrap(),
-            const_codes::ZETA => $self.code_reader.skip_zeta(K, $n).unwrap(),
+            const_codes::UNARY => $self.code_reader.skip_unary().unwrap(),
+            const_codes::GAMMA => $self.code_reader.skip_gamma().unwrap(),
+            const_codes::DELTA => $self.code_reader.skip_delta().unwrap(),
+            const_codes::ZETA if $k == 1 => $self.code_reader.skip_gamma().unwrap(),
+            const_codes::ZETA if $k == 3 => $self.code_reader.skip_zeta3().unwrap(),
+            const_codes::ZETA => $self.code_reader.skip_zeta(K).unwrap(),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         }
     };
@@ -188,44 +188,44 @@ impl<
     for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
-    fn skip_outdegrees(&mut self, n: usize) {
-        select_code_skip!(self, OUTDEGREES, K, n)
+    fn skip_outdegree(&mut self) {
+        select_code_skip!(self, OUTDEGREES, K)
     }
 
     #[inline(always)]
-    fn skip_reference_offsets(&mut self, n: usize) {
-        select_code_skip!(self, REFERENCES, K, n)
+    fn skip_reference_offset(&mut self) {
+        select_code_skip!(self, REFERENCES, K)
     }
 
     #[inline(always)]
-    fn skip_block_counts(&mut self, n: usize) {
-        select_code_skip!(self, BLOCKS, K, n)
+    fn skip_block_count(&mut self) {
+        select_code_skip!(self, BLOCKS, K)
     }
     #[inline(always)]
-    fn skip_blocks(&mut self, n: usize) {
-        select_code_skip!(self, BLOCKS, K, n)
-    }
-
-    #[inline(always)]
-    fn skip_interval_counts(&mut self, n: usize) {
-        select_code_skip!(self, INTERVALS, K, n)
-    }
-    #[inline(always)]
-    fn skip_interval_starts(&mut self, n: usize) {
-        select_code_skip!(self, INTERVALS, K, n)
-    }
-    #[inline(always)]
-    fn skip_interval_lens(&mut self, n: usize) {
-        select_code_skip!(self, INTERVALS, K, n)
+    fn skip_block(&mut self) {
+        select_code_skip!(self, BLOCKS, K)
     }
 
     #[inline(always)]
-    fn skip_first_residuals(&mut self, n: usize) {
-        select_code_skip!(self, RESIDUALS, K, n)
+    fn skip_interval_count(&mut self) {
+        select_code_skip!(self, INTERVALS, K)
     }
     #[inline(always)]
-    fn skip_residuals(&mut self, n: usize) {
-        select_code_skip!(self, RESIDUALS, K, n)
+    fn skip_interval_start(&mut self) {
+        select_code_skip!(self, INTERVALS, K)
+    }
+    #[inline(always)]
+    fn skip_interval_len(&mut self) {
+        select_code_skip!(self, INTERVALS, K)
+    }
+
+    #[inline(always)]
+    fn skip_first_residual(&mut self) {
+        select_code_skip!(self, RESIDUALS, K)
+    }
+    #[inline(always)]
+    fn skip_residual(&mut self) {
+        select_code_skip!(self, RESIDUALS, K)
     }
 }
 

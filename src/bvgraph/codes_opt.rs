@@ -152,39 +152,39 @@ impl<'a, WGCR: WebGraphCodesReader + WebGraphCodesSkipper> WebGraphCodesSkipper
     for CodesReaderStats<'a, WGCR>
 {
     #[inline(always)]
-    fn skip_outdegrees(&mut self, n: usize) {
-        self.codes_reader.skip_outdegrees(n)
+    fn skip_outdegree(&mut self) {
+        self.codes_reader.skip_outdegree()
     }
     #[inline(always)]
-    fn skip_reference_offsets(&mut self, n: usize) {
-        self.codes_reader.skip_reference_offsets(n)
+    fn skip_reference_offset(&mut self) {
+        self.codes_reader.skip_reference_offset()
     }
     #[inline(always)]
-    fn skip_block_counts(&mut self, n: usize) {
-        self.codes_reader.skip_block_counts(n)
+    fn skip_block_count(&mut self) {
+        self.codes_reader.skip_block_count()
     }
     #[inline(always)]
-    fn skip_blocks(&mut self, n: usize) {
-        self.codes_reader.skip_blocks(n)
+    fn skip_block(&mut self) {
+        self.codes_reader.skip_block()
     }
     #[inline(always)]
-    fn skip_interval_counts(&mut self, n: usize) {
-        self.codes_reader.skip_interval_counts(n)
+    fn skip_interval_count(&mut self) {
+        self.codes_reader.skip_interval_count()
     }
     #[inline(always)]
-    fn skip_interval_starts(&mut self, n: usize) {
-        self.codes_reader.skip_interval_starts(n)
+    fn skip_interval_start(&mut self) {
+        self.codes_reader.skip_interval_start()
     }
     #[inline(always)]
-    fn skip_interval_lens(&mut self, n: usize) {
-        self.codes_reader.skip_interval_lens(n)
+    fn skip_interval_len(&mut self) {
+        self.codes_reader.skip_interval_len()
     }
     #[inline(always)]
-    fn skip_first_residuals(&mut self, n: usize) {
-        self.codes_reader.skip_first_residuals(n)
+    fn skip_first_residual(&mut self) {
+        self.codes_reader.skip_first_residual()
     }
     #[inline(always)]
-    fn skip_residuals(&mut self, n: usize) {
-        self.codes_reader.skip_residuals(n)
+    fn skip_residual(&mut self) {
+        self.codes_reader.skip_residual()
     }
 }

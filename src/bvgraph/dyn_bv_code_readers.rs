@@ -136,15 +136,15 @@ pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) read_first_residual: fn(&mut CR) -> u64,
     pub(crate) read_residual: fn(&mut CR) -> u64,
 
-    pub(crate) skip_outdegrees: fn(&mut CR, usize),
-    pub(crate) skip_reference_offsets: fn(&mut CR, usize),
-    pub(crate) skip_block_counts: fn(&mut CR, usize),
-    pub(crate) skip_blocks: fn(&mut CR, usize),
-    pub(crate) skip_interval_counts: fn(&mut CR, usize),
-    pub(crate) skip_interval_starts: fn(&mut CR, usize),
-    pub(crate) skip_interval_lens: fn(&mut CR, usize),
-    pub(crate) skip_first_residuals: fn(&mut CR, usize),
-    pub(crate) skip_residuals: fn(&mut CR, usize),
+    pub(crate) skip_outdegrees: fn(&mut CR),
+    pub(crate) skip_reference_offsets: fn(&mut CR),
+    pub(crate) skip_block_counts: fn(&mut CR),
+    pub(crate) skip_blocks: fn(&mut CR),
+    pub(crate) skip_interval_counts: fn(&mut CR),
+    pub(crate) skip_interval_starts: fn(&mut CR),
+    pub(crate) skip_interval_lens: fn(&mut CR),
+    pub(crate) skip_first_residuals: fn(&mut CR),
+    pub(crate) skip_residuals: fn(&mut CR),
 
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
@@ -161,16 +161,16 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
     const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
 
-    const SKIP_UNARY: fn(&mut CR, usize) = |cr, n| cr.skip_unary(n).unwrap();
-    const SKIP_GAMMA: fn(&mut CR, usize) = |cr, n| cr.skip_unary(n).unwrap();
-    const SKIP_DELTA: fn(&mut CR, usize) = |cr, n| cr.skip_delta(n).unwrap();
-    const SKIP_ZETA2: fn(&mut CR, usize) = |cr, n| cr.skip_zeta(2, n).unwrap();
-    const SKIP_ZETA3: fn(&mut CR, usize) = |cr, n| cr.skip_zeta3(n).unwrap();
-    const SKIP_ZETA4: fn(&mut CR, usize) = |cr, n| cr.skip_zeta(4, n).unwrap();
-    const SKIP_ZETA5: fn(&mut CR, usize) = |cr, n| cr.skip_zeta(5, n).unwrap();
-    const SKIP_ZETA6: fn(&mut CR, usize) = |cr, n| cr.skip_zeta(6, n).unwrap();
-    const SKIP_ZETA7: fn(&mut CR, usize) = |cr, n| cr.skip_zeta(7, n).unwrap();
-    const SKIP_ZETA1: fn(&mut CR, usize) = Self::SKIP_GAMMA;
+    const SKIP_UNARY: fn(&mut CR) = |cr| cr.skip_unary().unwrap();
+    const SKIP_GAMMA: fn(&mut CR) = |cr| cr.skip_unary().unwrap();
+    const SKIP_DELTA: fn(&mut CR) = |cr| cr.skip_delta().unwrap();
+    const SKIP_ZETA2: fn(&mut CR) = |cr| cr.skip_zeta(2).unwrap();
+    const SKIP_ZETA3: fn(&mut CR) = |cr| cr.skip_zeta3().unwrap();
+    const SKIP_ZETA4: fn(&mut CR) = |cr| cr.skip_zeta(4).unwrap();
+    const SKIP_ZETA5: fn(&mut CR) = |cr| cr.skip_zeta(5).unwrap();
+    const SKIP_ZETA6: fn(&mut CR) = |cr| cr.skip_zeta(6).unwrap();
+    const SKIP_ZETA7: fn(&mut CR) = |cr| cr.skip_zeta(7).unwrap();
+    const SKIP_ZETA1: fn(&mut CR) = Self::SKIP_GAMMA;
 
     pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
         macro_rules! select_code {
@@ -294,44 +294,44 @@ impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReader
 
 impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesSkipper for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
-    fn skip_outdegrees(&mut self, n: usize) {
-        (self.skip_outdegrees)(&mut self.code_reader, n)
+    fn skip_outdegree(&mut self) {
+        (self.skip_outdegrees)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn skip_reference_offsets(&mut self, n: usize) {
-        (self.skip_reference_offsets)(&mut self.code_reader, n)
+    fn skip_reference_offset(&mut self) {
+        (self.skip_reference_offsets)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn skip_block_counts(&mut self, n: usize) {
-        (self.skip_block_counts)(&mut self.code_reader, n)
+    fn skip_block_count(&mut self) {
+        (self.skip_block_counts)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn skip_blocks(&mut self, n: usize) {
-        (self.skip_blocks)(&mut self.code_reader, n)
-    }
-
-    #[inline(always)]
-    fn skip_interval_counts(&mut self, n: usize) {
-        (self.skip_interval_counts)(&mut self.code_reader, n)
-    }
-    #[inline(always)]
-    fn skip_interval_starts(&mut self, n: usize) {
-        (self.skip_interval_starts)(&mut self.code_reader, n)
-    }
-    #[inline(always)]
-    fn skip_interval_lens(&mut self, n: usize) {
-        (self.skip_interval_lens)(&mut self.code_reader, n)
+    fn skip_block(&mut self) {
+        (self.skip_blocks)(&mut self.code_reader)
     }
 
     #[inline(always)]
-    fn skip_first_residuals(&mut self, n: usize) {
-        (self.skip_first_residuals)(&mut self.code_reader, n)
+    fn skip_interval_count(&mut self) {
+        (self.skip_interval_counts)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn skip_residuals(&mut self, n: usize) {
-        (self.skip_residuals)(&mut self.code_reader, n)
+    fn skip_interval_start(&mut self) {
+        (self.skip_interval_starts)(&mut self.code_reader)
+    }
+    #[inline(always)]
+    fn skip_interval_len(&mut self) {
+        (self.skip_interval_lens)(&mut self.code_reader)
+    }
+
+    #[inline(always)]
+    fn skip_first_residual(&mut self) {
+        (self.skip_first_residuals)(&mut self.code_reader)
+    }
+    #[inline(always)]
+    fn skip_residual(&mut self) {
+        (self.skip_residuals)(&mut self.code_reader)
     }
 }
 
