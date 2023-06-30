@@ -102,6 +102,7 @@ pub fn main() -> Result<()> {
         args.compression_window,
         args.min_interval_length,
         args.max_ref_count,
+        0,
     );
 
     let mut pr = ProgressLogger::default().display_memory();

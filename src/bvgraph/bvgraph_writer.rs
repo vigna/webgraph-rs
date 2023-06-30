@@ -15,6 +15,7 @@ pub struct BVComp<WGCW: WebGraphCodesWriter> {
     compression_window: usize,
     max_ref_count: usize,
     curr_node: usize,
+    start_node: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -257,6 +258,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         compression_window: usize,
         min_interval_length: usize,
         max_ref_count: usize,
+        start_node: usize,
     ) -> Self {
         BVComp {
             backrefs: CircularBufferVec::new(compression_window + 1),
@@ -266,7 +268,8 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             min_interval_length,
             compression_window,
             max_ref_count,
-            curr_node: 0,
+            start_node,
+            curr_node: start_node,
             compressors: (0..compression_window + 1)
                 .map(|_| Compressor::new())
                 .collect(),
@@ -299,7 +302,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             self.curr_node += 1;
             return Ok(written_bits);
         }
-
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
         // Write the compressed data
@@ -311,7 +313,9 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         )?;
         let mut ref_count = 0;
 
-        let deltas = 1 + self.compression_window.min(self.curr_node);
+        let deltas = 1 + self
+            .compression_window
+            .min(self.curr_node - self.start_node);
         // compression windows is not zero, so compress the current node
         for delta in 1..deltas {
             let ref_node = self.curr_node - delta;
@@ -504,7 +508,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesWriter<BE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         bvcomp.extend(seq_graph.iter_nodes()).unwrap();
         bvcomp.flush()?;
@@ -556,7 +560,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesWriter<LE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         bvcomp.extend(seq_graph.iter_nodes()).unwrap();
         bvcomp.flush()?;

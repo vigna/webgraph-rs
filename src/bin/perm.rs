@@ -58,7 +58,7 @@ pub fn main() -> Result<()> {
         })
     });
 
-    let mut bvcomp = BVComp::new(codes_writer, 1, 4, 3);
+    let mut bvcomp = BVComp::new(codes_writer, 1, 4, 3, 0);
     glob_pr.expected_updates = Some(num_nodes);
     glob_pr.item_name = "node";
     glob_pr.start("Writing...");

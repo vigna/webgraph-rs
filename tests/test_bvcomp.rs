@@ -64,6 +64,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         compression_window,
                                         min_interval_length,
                                         max_ref_count,
+                                        0,
                                     );
 
                                     let mut pl = ProgressLogger::default().display_memory();

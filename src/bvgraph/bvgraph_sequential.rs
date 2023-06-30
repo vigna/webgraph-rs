@@ -100,6 +100,7 @@ where
 
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
+#[derive(Clone)]
 pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     codes_reader: CR,
     backrefs: CircularBufferVec,
@@ -251,7 +252,14 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
         #[allow(clippy::unnecessary_to_owned)]
         Some((node_id, self.backrefs.push(res).to_vec().into_iter()))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.number_of_nodes - self.backrefs.get_end_node_id();
+        (len, Some(len))
+    }
 }
+
+impl<CR: WebGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 
 impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
 where

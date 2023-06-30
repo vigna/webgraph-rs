@@ -2,6 +2,7 @@
 /// sequential reads and for compressing during writes.
 /// For efficency reasons, we re-use the allocated buffers to avoid pressure
 /// over the allocator.
+#[derive(Clone)]
 pub(crate) struct CircularBufferVec {
     data: Vec<Vec<usize>>,
     end_node_id: usize,
