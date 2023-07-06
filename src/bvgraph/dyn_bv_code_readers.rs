@@ -20,7 +20,7 @@ pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E>> {
 
 impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
     const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
     const READ_ZETA2: fn(&mut CR) -> u64 = |cr| cr.read_zeta(2).unwrap();
     const READ_ZETA3: fn(&mut CR) -> u64 = |cr| cr.read_zeta3().unwrap();
@@ -151,7 +151,7 @@ pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E>> {
 
 impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
     const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
     const READ_ZETA2: fn(&mut CR) -> u64 = |cr| cr.read_zeta(2).unwrap();
     const READ_ZETA3: fn(&mut CR) -> u64 = |cr| cr.read_zeta3().unwrap();
@@ -162,7 +162,7 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
     const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
 
     const SKIP_UNARY: fn(&mut CR) = |cr| cr.skip_unary().unwrap();
-    const SKIP_GAMMA: fn(&mut CR) = |cr| cr.skip_unary().unwrap();
+    const SKIP_GAMMA: fn(&mut CR) = |cr| cr.skip_gamma().unwrap();
     const SKIP_DELTA: fn(&mut CR) = |cr| cr.skip_delta().unwrap();
     const SKIP_ZETA2: fn(&mut CR) = |cr| cr.skip_zeta(2).unwrap();
     const SKIP_ZETA3: fn(&mut CR) = |cr| cr.skip_zeta3().unwrap();
