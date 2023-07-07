@@ -280,9 +280,9 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
-            let mut succ_vec = self.backrefs.take();
+            let mut succ_vec = self.backrefs.take(self.curr_node);
             succ_vec.extend(succ_iter);
-            self.backrefs.push(succ_vec);
+            self.backrefs.push(self.curr_node, succ_vec);
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];

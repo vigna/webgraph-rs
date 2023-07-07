@@ -18,7 +18,7 @@ fn test_par_bvcomp() -> Result<()> {
 
     // load the graph
     let graph = webgraph::bvgraph::load_seq("tests/data/cnr-2000")?;
-    for thread_num in 1..2 {
+    for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
         // we can test with different number of threads
@@ -72,13 +72,13 @@ fn test_par_bvcomp() -> Result<()> {
             assert_eq!(node, new_node);
             let succ = succ_iter.collect::<Vec<_>>();
             let new_succ = new_succ_iter.collect::<Vec<_>>();
-            assert_eq!(succ, new_succ);
+            assert_eq!(succ, new_succ, "Node {} differs", node);
             pr.light_update();
         }
 
         pr.done();
         // cancel the file at the end
-        //std::fs::remove_file(tmp_path)?;
+        std::fs::remove_file(tmp_path)?;
         log::info!("\n");
     }
 

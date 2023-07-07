@@ -107,6 +107,7 @@ pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     compression_window: usize,
     min_interval_length: usize,
     number_of_nodes: usize,
+    current_node: usize,
 }
 
 impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
@@ -129,15 +130,17 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
             compression_window,
             min_interval_length,
             number_of_nodes,
+            current_node: 0,
         }
     }
 
     /// Get the successors of the next node in the stream
     pub fn next_successors(&mut self) -> Result<&[usize]> {
-        let node_id = self.backrefs.get_end_node_id();
-        let mut res = self.backrefs.take();
-        self.get_successors_iter_priv(node_id, &mut res)?;
-        Ok(self.backrefs.push(res))
+        let mut res = self.backrefs.take(self.current_node);
+        self.get_successors_iter_priv(self.current_node, &mut res)?;
+        let res = self.backrefs.push(self.current_node, res);
+        self.current_node += 1;
+        Ok(res)
     }
 
     #[inline(always)]
@@ -240,21 +243,27 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     type Item = (usize, std::vec::IntoIter<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let node_id = self.backrefs.get_end_node_id();
-        if node_id >= self.number_of_nodes as _ {
+        if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
-        let mut res = self.backrefs.take();
-        self.get_successors_iter_priv(node_id, &mut res).unwrap();
+        let mut res = self.backrefs.take(self.current_node);
+        self.get_successors_iter_priv(self.current_node, &mut res)
+            .unwrap();
 
         // this clippy suggestion is wrong, we cannot return a reference to a
         // local variable
         #[allow(clippy::unnecessary_to_owned)]
-        Some((node_id, self.backrefs.push(res).to_vec().into_iter()))
+        let res = self
+            .backrefs
+            .push(self.current_node, res)
+            .to_vec()
+            .into_iter();
+        self.current_node += 1;
+        Some((self.current_node, res))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.number_of_nodes - self.backrefs.get_end_node_id();
+        let len = self.number_of_nodes - self.current_node;
         (len, Some(len))
     }
 }

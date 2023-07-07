@@ -5,7 +5,6 @@
 #[derive(Clone)]
 pub(crate) struct CircularBufferVec {
     data: Vec<Vec<usize>>,
-    end_node_id: usize,
 }
 
 impl CircularBufferVec {
@@ -13,31 +12,23 @@ impl CircularBufferVec {
     /// equal to the compression windows + 1 so there is space for the new data.
     pub(crate) fn new(len: usize) -> Self {
         Self {
-            end_node_id: 0,
             data: (0..len)
                 .map(|_| Vec::with_capacity(100))
                 .collect::<Vec<_>>(),
         }
     }
 
-    #[inline]
-    #[must_use]
-    pub(crate) fn get_end_node_id(&self) -> usize {
-        self.end_node_id
-    }
-
     /// Take the buffer to write the neighbours of the new node
-    pub(crate) fn take(&mut self) -> Vec<usize> {
-        let idx = self.end_node_id % self.data.len();
+    pub(crate) fn take(&mut self, index: usize) -> Vec<usize> {
+        let idx = index % self.data.len();
         let mut res = core::mem::take(&mut self.data[idx]);
         res.clear();
         res
     }
 
     /// Put it back in the buffer so it can be read
-    pub(crate) fn push(&mut self, data: Vec<usize>) -> &[usize] {
-        let idx = self.end_node_id % self.data.len();
-        self.end_node_id += 1;
+    pub(crate) fn push(&mut self, index: usize, data: Vec<usize>) -> &[usize] {
+        let idx = index % self.data.len();
         self.data[idx] = data;
         &self.data[idx]
     }

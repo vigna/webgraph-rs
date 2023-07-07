@@ -5,8 +5,10 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-//use tempfile::tempdir;
+use tempfile::tempdir;
 
+/// Compress an iterator of nodes and successors in parllel and return the
+/// lenght in bits of the produced file
 pub fn parallel_compress_sequential_iter<
     P: AsRef<Path> + Send + Sync,
     I: Iterator<Item = (usize, J)> + Clone + ExactSizeIterator + Send,
@@ -15,13 +17,13 @@ pub fn parallel_compress_sequential_iter<
     result_bitstream_path: P,
     mut iter: I,
     compression_flags: CompFlags,
-) -> Result<()> {
+) -> Result<usize> {
     let result_bitstream_path = result_bitstream_path.as_ref();
     let num_threads = rayon::current_num_threads();
     assert_ne!(num_threads, 0);
     let num_nodes = iter.len();
     let nodes_per_thread = num_nodes / num_threads;
-    let dir = std::path::PathBuf::from("tests/data/"); //tempdir()?.into_path();
+    let dir = tempdir()?.into_path();
     let tmp_dir = dir.clone();
     // vec of atomic usize where we store the size in bits of the compressed
     // portion of the graph, usize::MAX represent that the task is not finished
@@ -42,9 +44,9 @@ pub fn parallel_compress_sequential_iter<
 
         log::info!(
             "Spawning the main compression thread {} writing on {} writing from node_id {} to {}",
-            num_threads - 1,
+            last_thread_id,
             last_file_path.to_string_lossy(),
-            nodes_per_thread * (num_threads - 1),
+            last_thread_id * nodes_per_thread,
             num_nodes,
         );
         s.spawn(move || {
@@ -77,7 +79,7 @@ pub fn parallel_compress_sequential_iter<
                         cpflags.compression_window,
                         cpflags.min_interval_length,
                         cpflags.max_ref_count,
-                        thread_id * nodes_per_thread,
+                        nodes_per_thread * thread_id,
                     );
                     let written_bits = bvcomp.extend(thread_iter).unwrap();
 
@@ -86,6 +88,7 @@ pub fn parallel_compress_sequential_iter<
                         thread_id,
                         written_bits
                     );
+
                     semaphores_ref[thread_id].store(written_bits, Ordering::Release);
                 });
 
@@ -110,9 +113,11 @@ pub fn parallel_compress_sequential_iter<
             let written_bits = bvcomp.extend(iter).unwrap();
 
             log::info!(
-                "Finished Compression thread {} and wrote {} bits",
+                "Finished Compression thread {} and wrote {} bits [{}, {})",
                 last_thread_id,
-                written_bits
+                written_bits,
+                last_thread_id * nodes_per_thread,
+                num_nodes,
             );
             semaphores_ref[last_thread_id].store(written_bits, Ordering::Release);
         });
@@ -125,6 +130,7 @@ pub fn parallel_compress_sequential_iter<
         let mut result_writer =
             <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(file)));
 
+        let mut result_len = 0;
         // glue toghether the bitstreams as they finish, this allows us to do
         // task pipelining for better performance
         for thread_id in 0..num_threads {
@@ -141,11 +147,14 @@ pub fn parallel_compress_sequential_iter<
             // compute the path of the bitstream created by this thread
             let file_path = dir.clone().join(format!("{:016x}.bitstream", thread_id));
             log::info!(
-                "Copying {} bits from {} to {}",
+                "Copying {} [{}, {}) bits from {} to {}",
                 bits_to_copy,
+                result_len,
+                result_len + bits_to_copy,
                 file_path.to_string_lossy(),
                 result_bitstream_path.to_string_lossy()
             );
+            result_len += bits_to_copy;
 
             let mut reader = <BufferedBitStreamRead<BE, u64, _>>::new(<FileBackend<u32, _>>::new(
                 BufReader::new(File::open(&file_path).unwrap()),
@@ -161,6 +170,6 @@ pub fn parallel_compress_sequential_iter<
 
         log::info!("Flushing the merged Compression bitstream");
         result_writer.flush().unwrap();
-        Ok(())
+        Ok(result_len)
     })
 }
