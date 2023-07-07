@@ -174,6 +174,8 @@ pub fn parallel_compress_sequential_iter<
 
         log::info!("Flushing the merged Compression bitstream");
         result_writer.flush().unwrap();
+        // cleanup the temp files
+        std::fs::remove_dir_all(dir)?;
         Ok(result_len)
     })
 }
