@@ -47,7 +47,7 @@ impl<W: Word> MmapBackend<W> {
         Self {
             len: (mmap.len() + core::mem::size_of::<W>() - 1) / core::mem::size_of::<W>(),
             mmap,
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         }
     }
 }

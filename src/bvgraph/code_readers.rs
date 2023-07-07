@@ -5,9 +5,13 @@ use dsi_bitstream::prelude::*;
 
 /// Temporary constants while const enum generics are not stable
 pub mod const_codes {
+    /// The int associated to UNARY code
     pub const UNARY: usize = 0;
+    /// The int associated to GAMMA code
     pub const GAMMA: usize = 1;
+    /// The int associated to DELTA code
     pub const DELTA: usize = 2;
+    /// The int associated to ZETA code
     pub const ZETA: usize = 3;
 }
 
@@ -35,7 +39,10 @@ pub struct ConstCodesReader<
     const RESIDUALS: usize = { const_codes::ZETA },
     const K: u64 = 3,
 > {
+    /// The inner codes reader we will dispatch to
     pub(crate) code_reader: CR,
+    /// Make the compiler happy with the generics we don't use in the struct
+    /// (but we need them to be able to use the trait)
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
@@ -70,6 +77,10 @@ impl<
         const K: u64,
     > ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    /// Create a new [`ConstCodesReader`] from a [`ReadCodes`] implementation
+    /// and a [`CompFlags`] struct
+    /// # Errors
+    /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
     pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
@@ -88,7 +99,7 @@ impl<
         }
         Ok(Self {
             code_reader,
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         })
     }
 }
@@ -277,10 +288,11 @@ impl<
         const K: u64,
     > ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    /// Creates a new [`ConstCodesWriter`] with the given [`WriteCodes`] implementation
     pub fn new(code_writer: CW) -> Self {
         Self {
             code_writer,
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         }
     }
 }
@@ -384,6 +396,7 @@ impl<
         const K: u64,
     > ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    /// Creates a new [`ConstCodesMockWriter`]
     pub fn new() -> Self {
         Self
     }

@@ -30,6 +30,9 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
     const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
 
+    /// Create a new [`DynamicCodesReader`] from a [`ReadCodes`] implementation
+    /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
+    /// method
     pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
@@ -63,7 +66,7 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
             read_interval_len: select_code!(&cf.intervals),
             read_first_residual: select_code!(&cf.residuals),
             read_residual: select_code!(&cf.residuals),
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         })
     }
 }
@@ -172,6 +175,9 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
     const SKIP_ZETA7: fn(&mut CR) = |cr| cr.skip_zeta(7).unwrap();
     const SKIP_ZETA1: fn(&mut CR) = Self::SKIP_GAMMA;
 
+    /// Create a new [`DynamicCodesReader`] from a [`ReadCodes`] implementation
+    /// This will be called by [`DynamicCodesReaderSkipperBuilder`] in the [`get_reader`]
+    /// method
     pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
@@ -234,7 +240,7 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
             skip_first_residuals: select_skip_code!(&cf.residuals),
             read_residual: select_code!(&cf.residuals),
             skip_residuals: select_skip_code!(&cf.residuals),
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         })
     }
 }
@@ -361,6 +367,9 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
         }
     }
 
+    /// Create a new [`ConstCodesReaderBuilder`] from a [`ReadCodes`] implementation
+    /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
+    /// method
     pub fn new(code_writer: CW, cf: &CompFlags) -> Self {
         Self {
             code_writer,
@@ -373,7 +382,7 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
             write_interval_len: Self::select_code(&cf.intervals),
             write_first_residual: Self::select_code(&cf.residuals),
             write_residual: Self::select_code(&cf.residuals),
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         }
     }
 }
@@ -482,6 +491,7 @@ pub struct DynamicCodesMockWriter {
 }
 
 impl DynamicCodesMockWriter {
+    /// Selects the length function for the given [`Code`].
     fn select_code(code: &Code) -> fn(u64) -> usize {
         match code {
             Code::Unary => len_unary,
@@ -495,6 +505,7 @@ impl DynamicCodesMockWriter {
         }
     }
 
+    /// Creates a new [`DynamicCodesMockWriter`] from the given [`CompFlags`].
     pub fn new(cf: &CompFlags) -> Self {
         Self {
             len_outdegree: Self::select_code(&cf.outdegrees),

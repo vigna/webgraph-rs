@@ -48,8 +48,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.check {
         // Create a sequential reader
         let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
-        let seq_graph =
-            seq_graph.map_codes_reader_builder(|cbr| DynamicCodesReaderSkipperBuilder::from(cbr));
+        let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
         // create a random access reader;
         let random_reader = webgraph::bvgraph::load(&args.basename)?;
 
@@ -84,8 +83,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Sequential speed test
         for _ in 0..args.repeats {
             let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
-            let seq_graph = seq_graph
-                .map_codes_reader_builder(|cbr| DynamicCodesReaderSkipperBuilder::from(cbr));
+            let seq_graph =
+                seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
             let mut deg_reader = seq_graph.iter_degrees();
 
             let mut c: usize = 0;

@@ -5,32 +5,64 @@ use crate::traits::*;
 use crate::utils::int2nat;
 use anyhow::Result;
 
+/// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: WebGraphCodesWriter> {
+    /// The ring-buffer that stores the neighbours of the last
+    /// `compression_window` neighbours
     backrefs: CircularBufferVec,
+    /// The ring-buffer that stores how many recursion steps are needed to
+    /// decode the last `compression_window` nodes, this is used for
+    /// `max_ref_count` which is used to modulate the compression / decoding
+    /// speed tradeoff
     ref_counts: CircularBuffer<usize>,
+    /// The bitstream writer, this implements the mock function so we can
+    /// do multiple tentative compressions and use the real one once we figured
+    /// out how to compress the graph best
     bit_write: WGCW,
+    /// The mock writer, this is used to do tentative compressions
     mock_writer: WGCW::MockWriter,
+    /// When compressing we need to store metadata. So we store the compressors
+    /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
+    /// The minimum length of sequences that will be compressed as a (start, len)
     min_interval_length: usize,
+    /// The number of previous nodes that will be considered during the compression
     compression_window: usize,
+    /// The maximum recursion depth that will be used to decompress a node
     max_ref_count: usize,
+    /// The current node we are compressing
     curr_node: usize,
+    /// The first node we are compressing, this is needed because during
+    /// parallel compression we need to work on different chunks
     start_node: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Compute how to encode the successors of a node, given a reference node.
+/// This could be a function, but we made it a struct so we can reuse the
+/// allocations for performance reasons
 struct Compressor {
+    /// The outdegree of the node we are compressing
     outdegree: usize,
+    /// The blocks of nodes we are copying from the reference node
     blocks: Vec<usize>,
+    /// The non-copied nodes
     extra_nodes: Vec<usize>,
+    /// The starts of the intervals
     left_interval: Vec<usize>,
+    /// The lengths of the intervls
     len_interval: Vec<usize>,
+    /// The nodes left to encode as gaps
     residuals: Vec<usize>,
 }
 
 impl Compressor {
+    /// Constant used only to make the code more readable.
+    /// When min_interval_length is 0, we don't use intervals, which might be
+    /// counter-intuitive
     const NO_INTERVALS: usize = 0;
 
+    /// Create a new empty compressor
     fn new() -> Self {
         Compressor {
             outdegree: 0,
@@ -42,8 +74,11 @@ impl Compressor {
         }
     }
 
-    /// Writes the current node to the bitstream, this has to be called after
-    /// compress.
+    /// Writes the current node to the bitstream, this dumps the internal
+    /// buffers which are initialized by calling `compress` so this has to be
+    /// called only after `compress`.
+    ///
+    /// This returns the number of bits written.
     fn write<WGCW: WebGraphCodesWriter>(
         &self,
         writer: &mut WGCW,
@@ -52,7 +87,9 @@ impl Compressor {
         min_interval_length: usize,
     ) -> Result<usize> {
         let mut written_bits = 0;
+        // write the outdegree
         written_bits += writer.write_outdegree(self.outdegree as u64)?;
+        // write the references
         if self.outdegree != 0 {
             if let Some(reference_offset) = reference_offset {
                 written_bits += writer.write_reference_offset(reference_offset as u64)?;
@@ -66,7 +103,7 @@ impl Compressor {
                 }
             }
         }
-
+        // write the intervals
         if !self.extra_nodes.is_empty() && min_interval_length != Self::NO_INTERVALS {
             written_bits += writer.write_interval_count(self.left_interval.len() as _)?;
 
@@ -87,7 +124,7 @@ impl Compressor {
                 }
             }
         }
-
+        // write the residuals
         if !self.residuals.is_empty() {
             written_bits += writer
                 .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?;
@@ -102,6 +139,7 @@ impl Compressor {
     }
 
     #[inline(always)]
+    /// Reset the compressor for a new compression
     fn clear(&mut self) {
         self.outdegree = 0;
         self.blocks.clear();
@@ -140,6 +178,8 @@ impl Compressor {
         Ok(())
     }
 
+    /// Get the extra nodes, compute all the intervals of consecutive nodes
+    /// longer than min_interval_length and put the rest in the residuals
     fn intervalize(&mut self, min_interval_length: usize) {
         let vl = self.extra_nodes.len();
         let mut i = 0;
@@ -168,6 +208,8 @@ impl Compressor {
         }
     }
 
+    /// Compute the copy blocks and the ignore blocks.
+    /// The copy blocks are blocks of nodes we will copy from the reference node.
     fn diff_comp(&mut self, curr_list: &[usize], ref_list: &[usize]) {
         // j is the index of the next successor of the current node we must examine
         let mut j = 0;
@@ -253,6 +295,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
+    /// Create a new BVGraph compressor.
     pub fn new(
         bit_write: WGCW,
         compression_window: usize,
@@ -276,6 +319,10 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         }
     }
 
+    /// Push a new node to the compressor.
+    /// The iterator must yield the successors of the node and the nodes HAVE
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// empty iterator)
     pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
@@ -365,6 +412,12 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         Ok(written_bits)
     }
 
+    /// Given an iterator over the nodes successors iterators, push them all.
+    /// The iterator must yield the successors of the node and the nodes HAVE
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// empty iterator).
+    ///
+    /// This most commonly is called with `graph.iter_nodes()` as input.
     pub fn extend<I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>>(
         &mut self,
         iter_nodes: I,
@@ -372,6 +425,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         iter_nodes.map(|(_, succ)| self.push(succ)).sum()
     }
 
+    /// Consume the compressor and flush the inner writer.
     pub fn flush(self) -> Result<()> {
         self.bit_write.flush()
     }

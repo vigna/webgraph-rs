@@ -5,19 +5,37 @@ use dsi_bitstream::prelude::CodesStats;
 /// A struct that keeps track of how much bits each piece would take using
 #[derive(Debug, Default)]
 pub struct BVGraphCodesStats {
+    /// The statistics for the outdegrees values
     pub outdegree: CodesStats,
+    /// The statistics for the reference_offset values
     pub reference_offset: CodesStats,
+    /// The statistics for the block_count values
     pub block_count: CodesStats,
+    /// The statistics for the blocks values
     pub blocks: CodesStats,
+    /// The statistics for the interval_count values
     pub interval_count: CodesStats,
+    /// The statistics for the interval_start values
     pub interval_start: CodesStats,
+    /// The statistics for the interval_len values
     pub interval_len: CodesStats,
+    /// The statistics for the first_residual values
     pub first_residual: CodesStats,
+    /// The statistics for the residual values
     pub residual: CodesStats,
 }
 
+/// A wrapper that keeps track of how much bits each piece would take using
+/// different codes for compressions for a [`WebGraphCodesReaderBuilder`]
+/// implementation and returns the stats.
+///
+/// The statistics can be updated in a concurrent way using atomic operations.
+/// So this struct can be used in a parallel compression scenario but
+/// you might want to have finished reading the graph before looking at the
+/// statistics.
 pub struct CodesReaderStatsBuilder<WGCRB: WebGraphCodesReaderBuilder> {
     codes_reader_builder: WGCRB,
+    /// The statistics for the codes
     pub stats: BVGraphCodesStats,
 }
 
@@ -25,6 +43,7 @@ impl<WGCRB> CodesReaderStatsBuilder<WGCRB>
 where
     WGCRB: WebGraphCodesReaderBuilder,
 {
+    /// Create a new builder
     pub fn new(codes_reader_builder: WGCRB) -> Self {
         Self {
             codes_reader_builder,
@@ -33,6 +52,7 @@ where
     }
 
     #[inline(always)]
+    /// Consume the builder and return the inner reader
     pub fn unwrap(self) -> WGCRB {
         self.codes_reader_builder
     }

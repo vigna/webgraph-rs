@@ -3,6 +3,9 @@ use crate::utils::nat2int;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
+/// A sequential BVGraph that can be read from a `codes_reader_builder`.
+/// The builder is needed because we should be able to create multiple iterators
+/// and this allows us to have a single place where to store the mmaped file.
 pub struct BVGraphSequential<CRB: WebGraphCodesReaderBuilder> {
     codes_reader_builder: CRB,
     number_of_nodes: usize,
@@ -38,12 +41,15 @@ impl<CRB: WebGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB>
 
 impl<CRB: WebGraphCodesReaderBuilder> NumNodes for BVGraphSequential<CRB> {
     #[inline(always)]
+    /// Return the number of nodes in the graph
     fn num_nodes(&self) -> usize {
         self.number_of_nodes
     }
 }
 
 impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB> {
+    /// Create a new sequential graph from a codes reader builder
+    /// and the number of nodes.
     pub fn new(
         codes_reader_builder: CRB,
         compression_window: usize,
@@ -88,6 +94,9 @@ where
     for<'a> CRB::Reader<'a>: WebGraphCodesSkipper,
 {
     #[inline(always)]
+    /// Create an iterator specialized in the degrees of the nodes.
+    /// This is slightly faster because it can avoid decoding some of the nodes
+    /// and completely skip the merging step.
     pub fn iter_degrees(&self) -> WebgraphDegreesIter<CRB::Reader<'_>> {
         WebgraphDegreesIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
@@ -112,12 +121,15 @@ pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
 
 impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     #[inline(always)]
+    /// Forward the call of `get_pos` to the inner `codes_reader`.
+    /// This returns the current bits offset in the bitstream.
     pub fn get_pos(&self) -> usize {
         self.codes_reader.get_pos()
     }
 }
 
 impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
+    /// Create a new iterator from a codes reader
     pub fn new(
         codes_reader: CR,
         compression_window: usize,
@@ -144,6 +156,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 
     #[inline(always)]
+    /// Inner method called by `next_successors` and the iterator `next` method
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
         let degree = self.codes_reader.read_outdegree() as usize;
         // no edges, we are done!
@@ -258,8 +271,9 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
             .push(self.current_node, res)
             .to_vec()
             .into_iter();
+        let node_id = self.current_node;
         self.current_node += 1;
-        Some((self.current_node, res))
+        Some((node_id, res))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

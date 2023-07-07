@@ -8,8 +8,8 @@ pub use reader_degrees::*;
 mod bvgraph_sequential;
 pub use bvgraph_sequential::*;
 
-pub mod bvgraph;
-pub use bvgraph::*;
+pub mod bvgraph_random_access;
+pub use bvgraph_random_access::*;
 
 mod bvgraph_writer;
 pub use bvgraph_writer::*;

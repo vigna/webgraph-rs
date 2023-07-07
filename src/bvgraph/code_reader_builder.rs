@@ -4,9 +4,15 @@ use dsi_bitstream::prelude::*;
 
 type BitReader<'a, E> = BufferedBitStreamRead<E, u64, MemWordReadInfinite<u32, &'a [u32]>>;
 
+/// A builder for the [`DynamicCodesReader`] that stores the data and gives
+/// references to the [`DynamicCodesReader`]. This does single-static-dispatching
+/// to optimize the reader building time.
 pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
+    /// The owned data we will read as a bitstream.
     data: B,
+    /// The compression flags.
     compression_flags: CompFlags,
+    // The cached functions to read the codes.
     read_outdegree: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_reference_offset: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_block_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
@@ -16,6 +22,8 @@ pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
     read_interval_len: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    /// Tell the compiler that's Ok that we don't store `E` but we need it
+    /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
@@ -23,6 +31,9 @@ impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
+    // Const cached functions we use to decode the data. These could be general
+    // functions, but this way we have better visibility and we ensure that
+    // they are compiled once!
     const READ_UNARY: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_unary().unwrap();
     const READ_GAMMA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_delta().unwrap();
@@ -35,10 +46,12 @@ where
     const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
 
     #[inline(always)]
+    /// Return a clone of the compression flags.
     pub fn get_compression_flags(&self) -> CompFlags {
         self.compression_flags.clone()
     }
 
+    /// Create a new builder from the data and the compression flags.
     pub fn new(data: B, cf: CompFlags) -> Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
@@ -73,7 +86,7 @@ where
             read_first_residual: select_code!(cf.residuals),
             read_residual: select_code!(cf.residuals),
             compression_flags: cf,
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         })
     }
 }
@@ -108,10 +121,20 @@ where
     }
 }
 
+/// A builder for [`DynamicCodesReaderSkipper`]. It is similar to
+/// [`DynamicCodesReaderBuilder`] but also supports skipping codes.
+///
+/// This is a different struct because we need to store the skipper functions
+/// which basically double the size of the readers. So during random access
+/// we won't need them, so we can slightly speedup the random accesses at the
+/// cost of more code.
 pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
+    /// The owned data we will read as a bitstream.
     data: B,
+    /// The compression flags.
     compression_flags: CompFlags,
 
+    // The cached functions to read the codes.
     read_outdegree: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_reference_offset: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_block_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
@@ -122,6 +145,7 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
     read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
     read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
 
+    // The cached functions to skip the codes.
     skip_outdegrees: for<'a> fn(&mut BitReader<'a, E>),
     skip_reference_offsets: for<'a> fn(&mut BitReader<'a, E>),
     skip_block_counts: for<'a> fn(&mut BitReader<'a, E>),
@@ -132,6 +156,8 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
     skip_first_residuals: for<'a> fn(&mut BitReader<'a, E>),
     skip_residuals: for<'a> fn(&mut BitReader<'a, E>),
 
+    /// Tell the compiler that's Ok that we don't store `E` but we need it
+    /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
@@ -139,6 +165,9 @@ impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
+    // Const cached functions we use to decode the data. These could be general
+    // functions, but this way we have better visibility and we ensure that
+    // they are compiled once!
     const READ_UNARY: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_unary().unwrap();
     const READ_GAMMA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_delta().unwrap();
@@ -150,6 +179,9 @@ where
     const READ_ZETA7: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
 
+    // Const cached functions we use to skip the data. These could be general
+    // functions, but this way we have better visibility and we ensure that
+    // they are compiled once!
     const SKIP_UNARY: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_unary().unwrap();
     const SKIP_GAMMA: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_gamma().unwrap();
     const SKIP_DELTA: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_delta().unwrap();
@@ -162,11 +194,15 @@ where
     const SKIP_ZETA1: for<'a> fn(&mut BitReader<'a, E>) = Self::SKIP_GAMMA;
 
     #[inline(always)]
+    /// Return a copy of the compression flags used to build this reader.
     pub fn get_compression_flags(&self) -> CompFlags {
         self.compression_flags.clone()
     }
 
+    /// Build a new `DynamicCodesReaderSkipper` from the given data and
+    /// compression flags.
     pub fn new(data: B, cf: CompFlags) -> Result<Self> {
+        // macro used to dispatch the right function to read the data
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -188,6 +224,7 @@ where
             };
         }
 
+        // macro used to dispatch the right function to skip the data
         macro_rules! select_skip_code {
             ($code:expr) => {
                 match $code {
@@ -233,7 +270,7 @@ where
             skip_residuals: select_skip_code!(cf.residuals),
 
             compression_flags: cf,
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         })
     }
 }
@@ -300,6 +337,9 @@ where
     }
 }
 
+/// A compile type dispatched codes reader builder.
+/// This will create slighlty faster readers than the dynamic one as it avoids
+/// the indirection layer which can results in more / better inlining.
 pub struct ConstCodesReaderBuilder<
     E: Endianness,
     B: AsRef<[u32]>,
@@ -310,7 +350,10 @@ pub struct ConstCodesReaderBuilder<
     const RESIDUALS: usize = { const_codes::ZETA },
     const K: u64 = 3,
 > {
+    /// The owned data
     data: B,
+    /// Tell the compiler that's Ok that we don't store `E` but we need it
+    /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
@@ -325,6 +368,7 @@ impl<
         const K: u64,
     > ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    /// Create a new builder from the given data and compression flags.
     pub fn new(data: B, comp_flags: CompFlags) -> Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
@@ -343,7 +387,7 @@ impl<
         }
         Ok(Self {
             data,
-            _marker: core::marker::PhantomData::default(),
+            _marker: core::marker::PhantomData,
         })
     }
 }

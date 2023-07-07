@@ -1,4 +1,4 @@
-use anyhow::bail;
+use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 use std::collections::HashMap;
 use sux::traits::{IndexedDict, MemCase};
@@ -8,14 +8,30 @@ use crate::utils::nat2int;
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
+/// The compression flags for reading or compressing a graph.
+///
+/// As documented, one code might sets multiple values. This is done for
+/// compatibility with the previous Java version of the library.
+/// But the codes optimizers will return the optimal codes for each of them,
+/// so if it identify some big save from using different codes, we can consider
+/// splitting them.
 pub struct CompFlags {
+    /// The instantaneous code to use to encode the `outdegrees`
     pub outdegrees: Code,
+    /// The instantaneous code to use to encode the `reference_offset`
     pub references: Code,
+    /// The instantaneous code to use to encode the `block_count` and `blocks`
     pub blocks: Code,
+    /// The instantaneous code to use to encode the `interval_count`, `interval_start`, and `interval_len`.
     pub intervals: Code,
+    /// The instantaneous code to use to encode the `first_residual` and `residual`
     pub residuals: Code,
+    /// The minimum length of an interval to be compressed as (start, len)
     pub min_interval_length: usize,
+    /// The number of previous nodes to use for reference compression
     pub compression_window: usize,
+    /// The maximum recursion depth during decoding, this modulates the tradeoff
+    /// between compression ratio and decoding speed
     pub max_ref_count: usize,
 }
 
@@ -35,6 +51,10 @@ impl core::default::Default for CompFlags {
 }
 
 impl CompFlags {
+    /// Convert a string from the `compflags` field from the `.properties` file
+    /// into which code to use.
+    ///
+    /// Returns `None` if the string is not recognized.
     pub fn code_from_str(s: &str) -> Option<Code> {
         match s.to_uppercase().as_str() {
             "UNARY" => Some(Code::Unary),
@@ -46,7 +66,8 @@ impl CompFlags {
         }
     }
 
-    pub fn from_properties(map: &HashMap<String, String>) -> anyhow::Result<Self> {
+    /// Convert the decoded `.properties` file into a `CompFlags` struct.
+    pub fn from_properties(map: &HashMap<String, String>) -> Result<Self> {
         // Default values, same as the Java class
         let mut cf = CompFlags::default();
         if let Some(comp_flags) = map.get("compressionflags") {
@@ -108,6 +129,21 @@ where
     CRB: WebGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,
 {
+    /// Create a new BVGraph from the given parameters.
+    ///
+    /// # Arguments
+    /// - `codes_reader_builder`: backend that can create objects that allows
+    /// us to read the bitstream of the graph to decode the edges.
+    /// - `offsets`: the bit offset at which we will have to start for decoding
+    /// the edges of each node. (This is needed for the random accesses,
+    /// [`BVGraphSequential`] does not need them)
+    /// - `min_interval_length`: the minimum size of the intervals we are going
+    /// to decode.
+    /// - `compression_window`: the maximum distance between two nodes that
+    /// reference each other.
+    /// - `number_of_nodes`: the number of nodes in the graph.
+    /// - `number_of_arcs`: the number of arcs in the graph.
+    ///
     pub fn new(
         codes_reader_builder: CRB,
         offsets: MemCase<OFF>,
@@ -127,7 +163,7 @@ where
     }
 
     #[inline(always)]
-    /// Change the codes reader builder
+    /// Change the codes reader builder (monad style)
     pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraph<CRB2, OFF>
     where
         F: FnOnce(CRB) -> CRB2,
@@ -144,7 +180,7 @@ where
     }
 
     #[inline(always)]
-    /// Change the offsets
+    /// Change the offsets (monad style)
     pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
     where
         F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
@@ -349,7 +385,8 @@ where
 {
 }
 
-///
+/// The iterator returend from [`BVGraph`] that returns the successors of a
+/// node in sorted order.
 pub struct RandomSuccessorIter<CR: WebGraphCodesReader> {
     reader: CR,
     /// The number of values left
@@ -450,6 +487,7 @@ impl<CR: WebGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     }
 }
 
+/// Allow to do `for (node, succ_iter) in &graph`
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,

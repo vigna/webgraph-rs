@@ -16,6 +16,7 @@ pub struct WebgraphDegreesIter<CR: WebGraphCodesReader + WebGraphCodesSkipper> {
 }
 
 impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> WebgraphDegreesIter<CR> {
+    /// Get the current bit-offset in the bitstream
     pub fn get_pos(&self) -> usize {
         self.codes_reader.get_pos()
     }
@@ -35,6 +36,7 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> Iterator
 }
 
 impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
+    /// Create a new iterator over the degrees of the graph.
     pub fn new(
         codes_reader: CR,
         min_interval_length: usize,
@@ -51,11 +53,16 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
         }
     }
 
+    /// Get the number of nodes in the graph
+    #[inline(always)]
     pub fn get_number_of_nodes(&self) -> usize {
         self.number_of_nodes
     }
 
     #[inline(always)]
+    /// Manually get the next degree, this is what the iterator calls internally
+    /// but it calls `.unwrap()` on it because the trait Graph doesn't allows
+    /// errors.
     pub fn next_degree(&mut self) -> Result<usize> {
         let degree = self.codes_reader.read_outdegree() as usize;
         // no edges, we are done!

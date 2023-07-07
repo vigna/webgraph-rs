@@ -3,6 +3,7 @@ use anyhow::Result;
 /// An object that can create code readers, this is done so that the builder can
 /// own the data, and the readers can be created and thrown away freely
 pub trait WebGraphCodesReaderBuilder {
+    /// The type of the reader that we are building
     type Reader<'a>: WebGraphCodesReader + 'a
     where
         Self: 'a;
@@ -11,68 +12,90 @@ pub trait WebGraphCodesReaderBuilder {
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>>;
 }
 
+/// The generic interface we need to skip codes
 pub trait WebGraphCodesSkipper {
+    /// skip a outdegree code
     fn skip_outdegree(&mut self);
 
-    // node reference
+    /// skip a reference offset code
     fn skip_reference_offset(&mut self);
 
-    // run length reference copy
+    /// skip a block count code
     fn skip_block_count(&mut self);
+    /// skip a block code
     fn skip_block(&mut self);
 
-    // intervallizzation
+    /// skip a interval count code
     fn skip_interval_count(&mut self);
+    /// skip a interval start code
     fn skip_interval_start(&mut self);
+    /// skip a interval len code
     fn skip_interval_len(&mut self);
 
-    // extra nodes
+    /// skip a first residual code
     fn skip_first_residual(&mut self);
+    /// skip a residual code
     fn skip_residual(&mut self);
 }
 
+/// The generic interface we need to read codes to decode a [`BVGraph`]
 pub trait WebGraphCodesReader {
+    /// read a outdegree code
     fn read_outdegree(&mut self) -> u64;
 
-    // node reference
+    /// read a reference offset code
     fn read_reference_offset(&mut self) -> u64;
 
-    // run length reference copy
+    /// read a blocks count code
     fn read_block_count(&mut self) -> u64;
+    /// read a block code
     fn read_blocks(&mut self) -> u64;
 
-    // intervallizzation
+    /// read a interval count code
     fn read_interval_count(&mut self) -> u64;
+    /// read a interval start code
     fn read_interval_start(&mut self) -> u64;
+    /// read a interval len code
     fn read_interval_len(&mut self) -> u64;
 
-    // extra nodes
+    /// read a first residual code
     fn read_first_residual(&mut self) -> u64;
+    /// read a residual code
     fn read_residual(&mut self) -> u64;
 }
 
+/// The generic interface we need to write codes to write a [`BVGraph`] to
+/// a bitstream
 pub trait WebGraphCodesWriter {
+    /// A mock writer that does not write anything but returns how many bits
+    /// this writer with this configuration would have written
     type MockWriter: WebGraphCodesWriter;
     /// Returns a mock writer that does not write anything.
     fn mock(&self) -> Self::MockWriter;
 
+    /// Write `value` as a outdegree code and return the number of bits written
     fn write_outdegree(&mut self, value: u64) -> Result<usize>;
 
-    // node reference
+    /// Write `value` as a reference offset code and return the number of bits written
     fn write_reference_offset(&mut self, value: u64) -> Result<usize>;
 
-    // run length reference copy
+    /// Write `value` as a block count code and return the number of bits written
     fn write_block_count(&mut self, value: u64) -> Result<usize>;
+    /// Write `value` as a block  code and return the number of bits written
     fn write_blocks(&mut self, value: u64) -> Result<usize>;
 
-    // intervallizzation
+    /// Write `value` as a interval count code and return the number of bits written
     fn write_interval_count(&mut self, value: u64) -> Result<usize>;
+    /// Write `value` as a interval start code and return the number of bits written
     fn write_interval_start(&mut self, value: u64) -> Result<usize>;
+    /// Write `value` as a interval len code and return the number of bits written
     fn write_interval_len(&mut self, value: u64) -> Result<usize>;
 
-    // extra nodes
+    /// Write `value` as a first residual code and return the number of bits written
     fn write_first_residual(&mut self, value: u64) -> Result<usize>;
+    /// Write `value` as a residual code and return the number of bits written
     fn write_residual(&mut self, value: u64) -> Result<usize>;
 
+    /// Consume the writer and call flush on the underlying writer
     fn flush(self) -> Result<()>;
 }

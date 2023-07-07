@@ -68,7 +68,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     );
 
                                     let mut pl = ProgressLogger::default().display_memory();
-                                    pl.item_name = "node".into();
+                                    pl.item_name = "node";
                                     pl.start("Compressing...");
                                     pl.expected_updates = Some(NODES);
 

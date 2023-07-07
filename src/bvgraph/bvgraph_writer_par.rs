@@ -38,9 +38,7 @@ pub fn parallel_compress_sequential_iter<
         // this will be the longest running thread
         let last_thread_id = num_threads - 1;
         // handle the case when this is the only available thread
-        let last_file_path = tmp_dir
-            .clone()
-            .join(format!("{:016x}.bitstream", last_thread_id));
+        let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
 
         log::info!(
             "Spawning the main compression thread {} writing on {} writing from node_id {} to {}",
@@ -52,7 +50,11 @@ pub fn parallel_compress_sequential_iter<
         s.spawn(move || {
             // for the first N - 1 threads, clone the iter and skip to the next
             // splitting point, then start a new compression thread
-            for thread_id in 0..num_threads.saturating_sub(1) {
+            for (thread_id, semaphore) in semaphores_ref
+                .iter()
+                .enumerate()
+                .take(num_threads.saturating_sub(1))
+            {
                 // the first thread can directly write to the result bitstream
                 let file_path = tmp_dir
                     .clone()
@@ -84,12 +86,14 @@ pub fn parallel_compress_sequential_iter<
                     let written_bits = bvcomp.extend(thread_iter).unwrap();
 
                     log::info!(
-                        "Finished Compression thread {} and wrote {} bits",
+                        "Finished Compression thread {} and wrote {} bits bits [{}, {})",
                         thread_id,
-                        written_bits
+                        written_bits,
+                        nodes_per_thread * thread_id,
+                        nodes_per_thread * (thread_id + 1),
                     );
 
-                    semaphores_ref[thread_id].store(written_bits, Ordering::Release);
+                    semaphore.store(written_bits, Ordering::Release);
                 });
 
                 // skip the next nodes_per_thread nodes
@@ -124,7 +128,7 @@ pub fn parallel_compress_sequential_iter<
 
         // setup the final bitstream from the end, because the first thread
         // already wrote the first chunk
-        let file = File::create(&result_bitstream_path)?;
+        let file = File::create(result_bitstream_path)?;
 
         // create hte buffered writer
         let mut result_writer =
@@ -133,11 +137,11 @@ pub fn parallel_compress_sequential_iter<
         let mut result_len = 0;
         // glue toghether the bitstreams as they finish, this allows us to do
         // task pipelining for better performance
-        for thread_id in 0..num_threads {
+        for (thread_id, semaphore) in semaphores.iter().enumerate() {
             log::info!("Waiting for thread {}", thread_id);
             // wait for the thread to finish
             let mut bits_to_copy = loop {
-                let bits_to_copy = semaphores[thread_id].load(Ordering::Acquire);
+                let bits_to_copy = semaphore.load(Ordering::Acquire);
                 if bits_to_copy != usize::MAX {
                     break bits_to_copy;
                 }

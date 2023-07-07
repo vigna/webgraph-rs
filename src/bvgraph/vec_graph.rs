@@ -19,6 +19,7 @@ impl core::default::Default for VecGraph {
 }
 
 impl VecGraph {
+    /// Create a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -26,6 +27,7 @@ impl VecGraph {
         }
     }
 
+    /// Create a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
@@ -33,6 +35,7 @@ impl VecGraph {
         }
     }
 
+    /// Convert a COO arc list into a graph by sorting and deduplicating.
     pub fn from_arc_list(arcs: &[(usize, usize)]) -> Self {
         let mut g = Self::new();
         for (u, v) in arcs {
@@ -41,6 +44,7 @@ impl VecGraph {
         g
     }
 
+    /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
     pub fn from_node_iter<S: Iterator<Item = usize>, I: Iterator<Item = (usize, S)>>(
         iterator: I,
     ) -> Self {
@@ -49,7 +53,8 @@ impl VecGraph {
         g
     }
 
-    // TODO: return bool?
+    /// Add an arc to the graph and return a reference to self to allow a
+    /// builder-like usage.
     pub fn add_arc_list(&mut self, arcs: &[(usize, usize)]) -> &mut Self {
         for (u, v) in arcs {
             self.add_arc(*u, *v);
@@ -57,6 +62,7 @@ impl VecGraph {
         self
     }
 
+    /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
     pub fn add_node_iter(
         &mut self,
         iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
@@ -70,6 +76,8 @@ impl VecGraph {
         self
     }
 
+    /// Add an arc to the graph and return if it was a new one or not.
+    /// `true` => already exist, `false` => new arc.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -80,6 +88,8 @@ impl VecGraph {
         result
     }
 
+    /// Remove an arc from the graph and return if it was present or not.
+    /// Return Nones if the either nodes (`u` or `v`) do not exist.
     pub fn remove_arc(&mut self, u: usize, v: usize) -> Option<bool> {
         if u >= self.succ.len() || v >= self.succ.len() {
             return None;
@@ -89,6 +99,8 @@ impl VecGraph {
         Some(result)
     }
 
+    /// Add a node to the graph without successors and return if it was a new
+    /// one or not.
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
         self.succ.extend((len..=node).map(|_| BTreeSet::new()));

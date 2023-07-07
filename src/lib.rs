@@ -15,14 +15,14 @@
 //#![deny(unused_results)]
 
 // the code must be documented and everything should have a debug print implementation
-//#![deny(unused_doc_comments)]
+#![deny(unused_doc_comments)]
 //#![deny(missing_docs)]
+//#![deny(clippy::missing_docs_in_private_items)]
 //#![deny(clippy::missing_errors_doc)]
 //#![deny(clippy::missing_panics_doc)]
 //#![deny(clippy::missing_safety_doc)]
 //#![deny(clippy::missing_doc_code_examples)]
 //#![deny(clippy::missing_crate_level_docs)]
-//#![deny(clippy::missing_docs_in_private_items)]
 //#![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
