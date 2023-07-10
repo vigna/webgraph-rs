@@ -1,5 +1,5 @@
 use crate::traits::*;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use dsi_progress_logger::ProgressLogger;
 use log::info;
 use rand::rngs::SmallRng;
@@ -12,21 +12,22 @@ use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::Mutex;
 
-/// Return the permutation computed by the LLP algorithm, and the labels of said
-/// permutation.
+/// Write the permutation computed by the LLP algorithm inside `perm`,
+/// and return the labels of said permutation.
 ///
 /// # References
 /// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
 #[allow(clippy::type_complexity)]
 pub fn layered_label_propagation<G>(
     graph: &G,
+    perm: &mut [usize],
     gamma: f64,
     num_cpus: Option<usize>,
     max_iters: usize,
     chunk_size: usize,
     granularity: usize,
     seed: u64,
-) -> Result<(Box<[usize]>, Box<[usize]>)>
+) -> Result<Box<[usize]>>
 where
     G: RandomAccessGraph,
     for<'a> &'a G: Send + Sync,
@@ -34,10 +35,19 @@ where
     let num_cpus = num_cpus.unwrap_or_else(num_cpus::get);
     let num_nodes = graph.num_nodes();
 
+    if perm.len() != num_nodes {
+        bail!(
+            "The permutation slice is long {} but we expect it to be {}.",
+            perm.len(),
+            num_nodes
+        );
+    }
+    // init the permutation with the indices
+    perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
+
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
     let label_store = LabelStore::new(num_nodes as _);
-    let mut perm = (0..num_nodes).collect::<Vec<_>>();
 
     // build a thread_pool so we avoid having to re-create the threads
     let thread_pool = rayon::ThreadPoolBuilder::new()
@@ -173,18 +183,13 @@ where
 
     glob_pr.done();
 
-    // re-use the perm vector for the result so we are sure that it wont use a
-    // new allocation
-    perm.clear();
-    perm.extend(0..num_nodes);
-    let mut perm = perm.into_boxed_slice();
     // create sorted clusters by contiguous labels
     perm.par_sort_unstable_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
 
     let labels =
         unsafe { std::mem::transmute::<Box<[AtomicUsize]>, Box<[usize]>>(label_store.labels) };
 
-    Ok((perm, labels))
+    Ok(labels)
 }
 
 struct LabelStore {
