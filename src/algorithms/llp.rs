@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicU64, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::Mutex;
 use sux::prelude::*;
 
@@ -23,20 +23,20 @@ pub fn layered_label_propagation<G>(
     graph: &G,
     gamma: f64,
     num_cpus: Option<usize>,
+    max_iters: usize,
+    chunk_size: usize,
+    granularity: usize,
     seed: u64,
 ) -> Result<(Box<[usize]>, Box<[usize]>)>
 where
     G: RandomAccessGraph,
     for<'a> &'a G: Send + Sync,
 {
-    const ITERS: usize = 100;
-    const GRANULARITY: usize = 1000;
-    const CHUNK_SIZE: usize = 100000;
-
     let num_cpus = num_cpus.unwrap_or_else(num_cpus::get);
     let num_nodes = graph.num_nodes();
 
-    let can_change = BitMap::new_atomic(num_nodes, true);
+    let mut can_change = Vec::with_capacity(num_nodes as _);
+    can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
     let label_store = LabelStore::new(num_nodes as _);
     let mut perm = (0..num_nodes).collect::<Vec<_>>();
 
@@ -51,10 +51,10 @@ where
     glob_pr.start("Starting updates...");
 
     let seed = AtomicU64::new(seed);
-    for _ in 0..ITERS {
+    for _ in 0..max_iters {
         // parallel shuffle using the num_cpus
         thread_pool.install(|| {
-            perm.par_chunks_mut(CHUNK_SIZE).for_each(|chunk| {
+            perm.par_chunks_mut(chunk_size).for_each(|chunk| {
                 let seed = seed.fetch_add(1, Ordering::Relaxed);
                 let mut rand = SmallRng::seed_from_u64(seed);
                 chunk.shuffle(&mut rand);
@@ -72,20 +72,18 @@ where
         let modified = AtomicUsize::new(0);
         // in parallel run the computation
         let delta: f64 = perm
-            .par_chunks(GRANULARITY)
+            .par_chunks(granularity)
             .map(|chunk| {
                 let mut local_delta = 0.0;
                 let mut map = HashMap::new();
                 let mut rand = SmallRng::seed_from_u64(seed.fetch_add(1, Ordering::Relaxed));
                 for &node in chunk {
                     // if the node can't change we can skip it
-                    if unsafe { can_change.get_atomic_unchecked(node, Ordering::Relaxed) } == 0 {
+                    if !can_change[node].load(Ordering::Relaxed) {
                         continue;
                     }
                     // set that the node can't change by default and we'll unset later it if it can
-                    unsafe {
-                        can_change.set_atomic_unchecked(node, 0, Ordering::Relaxed);
-                    }
+                    can_change[node].store(false, Ordering::Relaxed);
 
                     let successors = graph.successors(node);
                     if successors.len() == 0 {
@@ -132,7 +130,7 @@ where
                     if next_label != curr_label {
                         modified.fetch_add(1, Ordering::Relaxed);
                         for succ in graph.successors(node) {
-                            unsafe { can_change.set_atomic_unchecked(succ, 1, Ordering::Relaxed) };
+                            can_change[succ].store(true, Ordering::Relaxed);
                         }
 
                         label_store.set(node as _, next_label);

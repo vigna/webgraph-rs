@@ -9,6 +9,19 @@ struct Args {
     /// The basename of the graph.
     basename: String,
 
+    #[arg(short, long, default_value_t = 100)]
+    /// The maximum number of LLP iterations
+    max_iters: usize,
+
+    #[arg(short, long, default_value_t = 1000)]
+    /// The size of the chunks each thread processes for the LLP
+    granularity: usize,
+
+    #[arg(short, long, default_value_t = 100000)]
+    /// The size of the cnunks each thread processes for the random permutation
+    /// at the start of each iteration
+    chunk_size: usize,
+
     #[arg(short, long, default_value_t = 1.0)]
     /// The gamma to use in LLP
     gamma: f64,
@@ -43,7 +56,15 @@ pub fn main() -> Result<()> {
     let graph = webgraph::bvgraph::load(&args.basename)?;
 
     // compute the LLP
-    let (perm, labels) = layered_label_propagation(&graph, args.gamma, args.num_cpus, 0)?;
+    let (perm, labels) = layered_label_propagation(
+        &graph,
+        args.gamma,
+        args.num_cpus,
+        args.max_iters,
+        args.chunk_size,
+        args.granularity,
+        0,
+    )?;
 
     // dump the labels
     let labels = unsafe { std::mem::transmute::<Box<[usize]>, Box<[u8]>>(labels) };
