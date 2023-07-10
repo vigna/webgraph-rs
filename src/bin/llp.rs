@@ -75,7 +75,7 @@ pub fn main() -> Result<()> {
     std::fs::File::create(format!("{}-{}.labels", args.basename, 0))?.write_all(&labels)?;
 
     // dump the permutation
-    PermutedGraph {
+    let cost = PermutedGraph {
         graph: &graph,
         perm: &perm,
     }
@@ -94,6 +94,7 @@ pub fn main() -> Result<()> {
         cost
     })
     .sum::<usize>();
+    log::info!("The final cost is: {}", cost);
 
     Ok(())
 }

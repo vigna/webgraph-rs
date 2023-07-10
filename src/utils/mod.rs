@@ -28,6 +28,9 @@ pub use permuted_graph::*;
 mod sort_pairs;
 pub use sort_pairs::*;
 
+mod order;
+pub use order::*;
+
 pub mod mph;
 pub mod spooky;
 
