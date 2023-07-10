@@ -44,6 +44,7 @@ fn ceil_log2(x: usize) -> usize {
 }
 
 pub fn main() -> Result<()> {
+    let start = std::time::Instant::now();
     let args = Args::parse();
 
     stderrlog::new()
@@ -66,6 +67,7 @@ pub fn main() -> Result<()> {
         0,
     )?;
 
+    log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     // dump the labels
     let labels = unsafe { std::mem::transmute::<Box<[usize]>, Box<[u8]>>(labels) };
     std::fs::File::create(format!("{}-{}.labels", args.basename, 0))?.write_all(&labels)?;

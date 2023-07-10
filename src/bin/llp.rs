@@ -73,6 +73,7 @@ fn ceil_log2(x: usize) -> usize {
 }
 
 pub fn main() -> Result<()> {
+    let start = std::time::Instant::now();
     let args = Args::parse();
 
     stderrlog::new()
@@ -204,6 +205,7 @@ pub fn main() -> Result<()> {
     }
     glob_pr.done();
 
+    log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     let labels = unsafe { std::mem::transmute::<&[AtomicUsize], &[u8]>(label_store.labels()) };
     std::fs::File::create(format!("{}-{}.labels", args.basename, 0))?.write_all(labels)?;
 

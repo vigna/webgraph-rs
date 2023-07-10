@@ -52,15 +52,14 @@ where
 
     let seed = AtomicU64::new(seed);
     for _ in 0..max_iters {
-        // parallel shuffle using the num_cpus
         thread_pool.install(|| {
+            // parallel shuffle using the num_cpus
             perm.par_chunks_mut(chunk_size).for_each(|chunk| {
                 let seed = seed.fetch_add(1, Ordering::Relaxed);
                 let mut rand = SmallRng::seed_from_u64(seed);
                 chunk.shuffle(&mut rand);
-            })
+            });
         });
-
         let mut pr = ProgressLogger::default();
         pr.item_name = "node";
         pr.local_speed = true;
@@ -70,91 +69,109 @@ where
 
         // If this iteration modified anything (early stop)
         let modified = AtomicUsize::new(0);
+        let delta = Mutex::new(0.0);
+        let pos = AtomicUsize::new(0);
+
         // in parallel run the computation
-        let delta: f64 = perm
-            .par_chunks(granularity)
-            .map(|chunk| {
-                let mut local_delta = 0.0;
-                let mut map = HashMap::new();
-                let mut rand = SmallRng::seed_from_u64(seed.fetch_add(1, Ordering::Relaxed));
-                for &node in chunk {
-                    // if the node can't change we can skip it
-                    if !can_change[node].load(Ordering::Relaxed) {
-                        continue;
-                    }
-                    // set that the node can't change by default and we'll unset later it if it can
-                    can_change[node].store(false, Ordering::Relaxed);
+        thread_pool.scope(|scope| {
+            for _ in 0..num_cpus {
+                scope.spawn(|_s| {
+                    let mut local_delta = 0.0;
+                    let mut map = HashMap::new();
+                    let mut rand = SmallRng::seed_from_u64(seed.fetch_add(1, Ordering::Relaxed));
 
-                    let successors = graph.successors(node);
-                    if successors.len() == 0 {
-                        continue;
-                    }
-
-                    // get the label of this node
-                    let curr_label = label_store.label(node as _);
-                    // get the count of how many times a
-                    // label appears in the successors
-                    map.clear();
-                    for succ in successors {
-                        map.entry(label_store.label(succ))
-                            .and_modify(|counter| *counter += 1)
-                            .or_insert(1);
-                    }
-
-                    let mut max = f64::MIN;
-                    let mut old = 0.0;
-                    let mut majorities = vec![];
-                    // compute the most entropic label
-                    for (&label, &count) in map.iter() {
-                        let volume = label_store.volume(label);
-                        let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
-
-                        if max == val {
-                            majorities.push(label);
+                    loop {
+                        let next_pos = pos.fetch_add(granularity, Ordering::Relaxed);
+                        if next_pos >= num_nodes {
+                            let mut delta = delta.lock().unwrap();
+                            *delta += local_delta;
+                            break;
                         }
+                        let end_pos = (next_pos + granularity).min(perm.len());
 
-                        if max < val {
-                            majorities.clear();
-                            max = val;
-                            majorities.push(label);
-                        }
+                        let chunk = &perm[next_pos..end_pos];
 
-                        if label == curr_label {
-                            old = val;
+                        for &node in chunk {
+                            // if the node can't change we can skip it
+                            if !can_change[node].load(Ordering::Relaxed) {
+                                continue;
+                            }
+                            // set that the node can't change by default and we'll unset later it if it can
+                            can_change[node].store(false, Ordering::Relaxed);
+
+                            let successors = graph.successors(node);
+                            if successors.len() == 0 {
+                                continue;
+                            }
+
+                            // get the label of this node
+                            let curr_label = label_store.label(node as _);
+                            // get the count of how many times a
+                            // label appears in the successors
+                            map.clear();
+                            for succ in successors {
+                                map.entry(label_store.label(succ))
+                                    .and_modify(|counter| *counter += 1)
+                                    .or_insert(1);
+                            }
+
+                            let mut max = f64::MIN;
+                            let mut old = 0.0;
+                            let mut majorities = vec![];
+                            // compute the most entropic label
+                            for (&label, &count) in map.iter() {
+                                let volume = label_store.volume(label);
+                                let val =
+                                    (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
+
+                                if max == val {
+                                    majorities.push(label);
+                                }
+
+                                if max < val {
+                                    majorities.clear();
+                                    max = val;
+                                    majorities.push(label);
+                                }
+
+                                if label == curr_label {
+                                    old = val;
+                                }
+                            }
+                            // randomly break ties
+                            let next_label = *majorities.choose(&mut rand).unwrap();
+                            // if the label changed we need to update the label store
+                            // and signal that this could change the neighbour nodes
+                            if next_label != curr_label {
+                                modified.fetch_add(1, Ordering::Relaxed);
+                                for succ in graph.successors(node) {
+                                    can_change[succ].store(true, Ordering::Relaxed);
+                                }
+
+                                label_store.set(node as _, next_label);
+                            }
+
+                            local_delta += max - old;
                         }
+                        // update the progress logger with how many nodes we processed
+                        prlock.lock().unwrap().update_with_count(perm.len());
                     }
-                    // randomly break ties
-                    let next_label = *majorities.choose(&mut rand).unwrap();
-                    // if the label changed we need to update the label store
-                    // and signal that this could change the neighbour nodes
-                    if next_label != curr_label {
-                        modified.fetch_add(1, Ordering::Relaxed);
-                        for succ in graph.successors(node) {
-                            can_change[succ].store(true, Ordering::Relaxed);
-                        }
-
-                        label_store.set(node as _, next_label);
-                    }
-
-                    local_delta += max - old;
-                }
-                // update the progress logger with how many nodes we processed
-                prlock.lock().unwrap().update_with_count(perm.len());
-                local_delta
-            })
-            .sum();
+                })
+            }
+        });
 
         pr.done_with_count(num_nodes as _);
         info!(
             "Modified: {} Delta: {}",
             modified.load(Ordering::Relaxed),
-            delta
+            delta.lock().unwrap()
         );
         glob_pr.update_and_display();
         if modified.load(Ordering::Relaxed) == 0 {
             break;
         }
     }
+
     glob_pr.done();
 
     // re-use the perm vector for the result so we are sure that it wont use a
