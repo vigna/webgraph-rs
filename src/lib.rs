@@ -31,6 +31,7 @@ use sux::prelude::*;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod algorithms;
 pub mod bvgraph;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
@@ -42,6 +43,7 @@ pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactA
 
 /// Prelude module to import everything from this crate
 pub mod prelude {
+    pub use crate::algorithms::*;
     pub use crate::bvgraph::*;
     pub use crate::traits::*;
     pub use crate::utils::*;
