@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::Mutex;
-use sux::prelude::*;
 
 /// Return the permutation computed by the LLP algorithm, and the labels of said
 /// permutation.
