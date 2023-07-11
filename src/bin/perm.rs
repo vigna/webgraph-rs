@@ -1,10 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::*;
-use dsi_progress_logger::ProgressLogger;
-use std::io::prelude::*;
-use std::io::BufWriter;
-use webgraph::prelude::*;
+//use dsi_bitstream::prelude::*;
+//use dsi_progress_logger::ProgressLogger;
+//use std::io::prelude::*;
+//use std::io::BufWriter;
+//use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -18,6 +18,8 @@ struct Args {
 }
 
 pub fn main() -> Result<()> {
+    todo!();
+    /*
     let args = Args::parse();
 
     stderrlog::new()
@@ -25,7 +27,6 @@ pub fn main() -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()
         .unwrap();
-
     let graph = webgraph::bvgraph::load(&args.source)?;
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
@@ -66,4 +67,5 @@ pub fn main() -> Result<()> {
     bvcomp.flush()?;
     glob_pr.done();
     Ok(())
+    */
 }

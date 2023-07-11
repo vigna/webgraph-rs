@@ -11,17 +11,18 @@ use tempfile::tempdir;
 /// lenght in bits of the produced file
 pub fn parallel_compress_sequential_iter<
     P: AsRef<Path> + Send + Sync,
-    I: Iterator<Item = (usize, J)> + Clone + ExactSizeIterator + Send,
+    I: Iterator<Item = (usize, J)> + Clone + Send,
     J: Iterator<Item = usize>,
 >(
-    result_bitstream_path: P,
+    basename: P,
     mut iter: I,
+    num_nodes: usize,
     compression_flags: CompFlags,
 ) -> Result<usize> {
-    let result_bitstream_path = result_bitstream_path.as_ref();
+    let basename = basename.as_ref();
+    let graph_path = format!("{}.graph", basename.to_string_lossy());
     let num_threads = rayon::current_num_threads();
     assert_ne!(num_threads, 0);
-    let num_nodes = iter.len();
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();
     let tmp_dir = dir.clone();
@@ -32,6 +33,8 @@ pub fn parallel_compress_sequential_iter<
         .collect::<Vec<_>>();
     // borrow to make the compiler happy
     let semaphores_ref = &semaphores;
+    let num_arcs = AtomicUsize::new(0);
+    let num_arcs_ref = &num_arcs;
 
     std::thread::scope(|s| {
         // spawn a the thread for the last chunk that will spawn all the previous ones
@@ -60,7 +63,7 @@ pub fn parallel_compress_sequential_iter<
                     .clone()
                     .join(format!("{:016x}.bitstream", thread_id));
 
-                let cpflags = compression_flags.clone();
+                let cpflags = compression_flags;
                 // spawn the thread
                 log::info!(
                     "Spawning compression thread {} writing on {} form node id {} to {}",
@@ -93,6 +96,7 @@ pub fn parallel_compress_sequential_iter<
                         nodes_per_thread * (thread_id + 1),
                     );
 
+                    num_arcs_ref.fetch_add(bvcomp.arcs, Ordering::Release);
                     semaphore.store(written_bits, Ordering::Release);
                 });
 
@@ -123,12 +127,13 @@ pub fn parallel_compress_sequential_iter<
                 last_thread_id * nodes_per_thread,
                 num_nodes,
             );
+            num_arcs_ref.fetch_add(bvcomp.arcs, Ordering::Release);
             semaphores_ref[last_thread_id].store(written_bits, Ordering::Release);
         });
 
         // setup the final bitstream from the end, because the first thread
         // already wrote the first chunk
-        let file = File::create(result_bitstream_path)?;
+        let file = File::create(graph_path)?;
 
         // create hte buffered writer
         let mut result_writer =
@@ -156,7 +161,7 @@ pub fn parallel_compress_sequential_iter<
                 result_len,
                 result_len + bits_to_copy,
                 file_path.to_string_lossy(),
-                result_bitstream_path.to_string_lossy()
+                basename.to_string_lossy()
             );
             result_len += bits_to_copy;
 
@@ -174,6 +179,22 @@ pub fn parallel_compress_sequential_iter<
 
         log::info!("Flushing the merged Compression bitstream");
         result_writer.flush().unwrap();
+
+        log::info!("Writing the .properties file");
+        let properties =
+            compression_flags.to_properties(num_nodes, num_arcs.load(Ordering::Acquire));
+        std::fs::write(
+            format!("{}.properties", basename.to_string_lossy()),
+            properties,
+        )?;
+
+        log::info!(
+            "Compressed {} arcs into {} bits for {:.4} bits/arc",
+            num_arcs.load(Ordering::Acquire),
+            result_len,
+            result_len as f64 / num_arcs.load(Ordering::Acquire) as f64
+        );
+
         // cleanup the temp files
         std::fs::remove_dir_all(dir)?;
         Ok(result_len)

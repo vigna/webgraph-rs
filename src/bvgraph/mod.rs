@@ -37,3 +37,6 @@ pub use code_reader_builder::*;
 
 mod load;
 pub use load::*;
+
+mod comp_flags;
+pub use comp_flags::*;

@@ -2,9 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use clap::ValueEnum;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::ProgressLogger;
-use std::fs::File;
-use std::io::BufWriter;
+use rayon::ThreadPoolBuilder;
 use webgraph::prelude::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -27,12 +25,17 @@ impl From<PrivCode> for Code {
 }
 
 #[derive(Parser, Debug)]
-#[command(about = "Recompress a graph", long_about = None)]
+#[command(about = "Recompress a BVGraph", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
     /// The basename for the newly compressed graph.
     new_basename: String,
+
+    #[arg(short = 'j', long)]
+    /// The number of cores to use
+    num_cpus: Option<usize>,
+
     /// The compression windows
     #[clap(default_value_t = 7)]
     compression_window: usize,
@@ -90,32 +93,20 @@ pub fn main() -> Result<()> {
     };
 
     let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
-    let file_path = format!("{}.graph", args.new_basename);
-    let writer = <DynamicCodesWriter<BE, _>>::new(
-        <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(File::create(
-            &file_path,
-        )?))),
-        &compression_flags,
-    );
-    let mut bvcomp = BVComp::new(
-        writer,
-        args.compression_window,
-        args.min_interval_length,
-        args.max_ref_count,
-        0,
-    );
 
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "node";
-    pr.start("Reading nodes...");
-    pr.expected_updates = Some(seq_graph.num_nodes());
+    ThreadPoolBuilder::new()
+        .num_threads(args.num_cpus.unwrap_or(rayon::max_num_threads()))
+        .build()
+        .unwrap()
+        .install(|| {
+            webgraph::bvgraph::parallel_compress_sequential_iter(
+                args.new_basename,
+                seq_graph.iter_nodes(),
+                seq_graph.num_nodes(),
+                compression_flags,
+            )
+            .unwrap();
+        });
 
-    for (_, iter) in &seq_graph {
-        bvcomp.push(iter)?;
-        pr.light_update();
-    }
-
-    pr.done();
-    bvcomp.flush()?;
     Ok(())
 }

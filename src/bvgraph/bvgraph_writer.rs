@@ -35,6 +35,8 @@ pub struct BVComp<WGCW: WebGraphCodesWriter> {
     /// The first node we are compressing, this is needed because during
     /// parallel compression we need to work on different chunks
     start_node: usize,
+    /// The number of arcs compressed so far
+    pub arcs: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,6 +318,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
             compressors: (0..compression_window + 1)
                 .map(|_| Compressor::new())
                 .collect(),
+            arcs: 0,
         }
     }
 
@@ -333,6 +336,7 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];
+        self.arcs += curr_list.len();
         // first try to compress the current node without references
         let compressor = &mut self.compressors[0];
         // Compute how we would compress this

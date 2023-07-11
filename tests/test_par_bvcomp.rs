@@ -1,9 +1,5 @@
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use mmap_rs::MmapOptions;
-use std::fs::File;
-use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[test]
@@ -14,7 +10,7 @@ fn test_par_bvcomp() -> Result<()> {
         .init()
         .unwrap();
     let comp_flags = CompFlags::default();
-    let tmp_path = "tests/data/cnr-2000-par.graph";
+    let tmp_basename = "tests/data/cnr-2000-par";
 
     // load the graph
     let graph = webgraph::bvgraph::load_seq("tests/data/cnr-2000")?;
@@ -30,37 +26,17 @@ fn test_par_bvcomp() -> Result<()> {
             .install(|| {
                 // recompress the graph in parallel
                 webgraph::bvgraph::parallel_compress_sequential_iter(
-                    tmp_path,
+                    tmp_basename,
                     graph.iter_nodes(),
+                    graph.num_nodes(),
                     comp_flags.clone(),
                 )
                 .unwrap();
             });
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        // manually load a sequential iter on the parallelly compressed graph
-        let file_len = PathBuf::from(tmp_path).metadata()?.len();
-        let tmp_file = File::open(tmp_path)?;
-        let data = unsafe {
-            MmapOptions::new(file_len as _)?
-                .with_flags((sux::prelude::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
-                .with_file(tmp_file, 0)
-                .map()?
-        };
-
-        let bitstream = BufferedBitStreamRead::<BE, u64, _>::new(
-            MemWordReadInfinite::<u32, _>::new(MmapBackend::new(data)),
-        );
-        let code_reader = DynamicCodesReader::new(bitstream, &comp_flags)?;
-
-        let mut iter = WebgraphSequentialIter::new(
-            code_reader,
-            comp_flags.compression_window,
-            comp_flags.min_interval_length,
-            graph.num_nodes(),
-        );
-
-        // check that it's the same as the original graph = seq_graph.map_codes_reader_builder(|cbr| CodesReaderStatsBuilder::new(cbr));
+        let comp_graph = webgraph::bvgraph::load_seq(tmp_basename)?;
+        let mut iter = comp_graph.iter_nodes();
 
         let mut pr = ProgressLogger::default().display_memory();
         pr.item_name = "node";
@@ -78,7 +54,8 @@ fn test_par_bvcomp() -> Result<()> {
 
         pr.done();
         // cancel the file at the end
-        std::fs::remove_file(tmp_path)?;
+        std::fs::remove_file(format!("{}.graph", tmp_basename))?;
+        std::fs::remove_file(format!("{}.properties", tmp_basename))?;
         log::info!("\n");
     }
 

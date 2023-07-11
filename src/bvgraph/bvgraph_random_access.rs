@@ -1,109 +1,7 @@
-use anyhow::{bail, Result};
-use dsi_bitstream::prelude::*;
-use std::collections::HashMap;
 use sux::traits::{IndexedDict, MemCase};
 
 use super::*;
 use crate::utils::nat2int;
-
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-/// The compression flags for reading or compressing a graph.
-///
-/// As documented, one code might sets multiple values. This is done for
-/// compatibility with the previous Java version of the library.
-/// But the codes optimizers will return the optimal codes for each of them,
-/// so if it identify some big save from using different codes, we can consider
-/// splitting them.
-pub struct CompFlags {
-    /// The instantaneous code to use to encode the `outdegrees`
-    pub outdegrees: Code,
-    /// The instantaneous code to use to encode the `reference_offset`
-    pub references: Code,
-    /// The instantaneous code to use to encode the `block_count` and `blocks`
-    pub blocks: Code,
-    /// The instantaneous code to use to encode the `interval_count`, `interval_start`, and `interval_len`.
-    pub intervals: Code,
-    /// The instantaneous code to use to encode the `first_residual` and `residual`
-    pub residuals: Code,
-    /// The minimum length of an interval to be compressed as (start, len)
-    pub min_interval_length: usize,
-    /// The number of previous nodes to use for reference compression
-    pub compression_window: usize,
-    /// The maximum recursion depth during decoding, this modulates the tradeoff
-    /// between compression ratio and decoding speed
-    pub max_ref_count: usize,
-}
-
-impl core::default::Default for CompFlags {
-    fn default() -> Self {
-        CompFlags {
-            outdegrees: Code::Gamma,
-            references: Code::Unary,
-            blocks: Code::Gamma,
-            intervals: Code::Gamma,
-            residuals: Code::Zeta { k: 3 },
-            min_interval_length: 4,
-            compression_window: 7,
-            max_ref_count: 3,
-        }
-    }
-}
-
-impl CompFlags {
-    /// Convert a string from the `compflags` field from the `.properties` file
-    /// into which code to use.
-    ///
-    /// Returns `None` if the string is not recognized.
-    pub fn code_from_str(s: &str) -> Option<Code> {
-        match s.to_uppercase().as_str() {
-            "UNARY" => Some(Code::Unary),
-            "GAMMA" => Some(Code::Gamma),
-            "DELTA" => Some(Code::Delta),
-            "ZETA" => Some(Code::Zeta { k: 3 }),
-            "NIBBLE" => Some(Code::Nibble),
-            _ => None,
-        }
-    }
-
-    /// Convert the decoded `.properties` file into a `CompFlags` struct.
-    pub fn from_properties(map: &HashMap<String, String>) -> Result<Self> {
-        // Default values, same as the Java class
-        let mut cf = CompFlags::default();
-        if let Some(comp_flags) = map.get("compressionflags") {
-            if !comp_flags.is_empty() {
-                for flag in comp_flags.split('|') {
-                    dbg!(&flag);
-                    let s: Vec<_> = flag.split('_').collect();
-                    dbg!(&s);
-                    // FIXME: this is a hack to avoid having to implement
-                    // FromStr for Code
-                    let code = CompFlags::code_from_str(s[1]).unwrap();
-                    match s[0] {
-                        "OUTDEGREES" => cf.outdegrees = code,
-                        "REFERENCES" => cf.references = code,
-                        "BLOCKS" => cf.blocks = code,
-                        "INTERVALS" => cf.intervals = code,
-                        "RESIDUALS" => cf.residuals = code,
-                        _ => bail!("Unknown compression flag {}", flag),
-                    }
-                }
-            }
-        }
-        if let Some(k) = map.get("zeta_k") {
-            if k.parse::<usize>()? != 3 {
-                bail!("Only ζ₃ is supported");
-            }
-        }
-        if let Some(compression_window) = map.get("compressionwindow") {
-            cf.compression_window = compression_window.parse()?;
-        }
-        if let Some(min_interval_length) = map.get("minintervallength") {
-            cf.min_interval_length = min_interval_length.parse()?;
-        }
-        Ok(cf)
-    }
-}
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
@@ -203,16 +101,6 @@ where
     }
 }
 
-impl<CRB, OFF> NumNodes for BVGraph<CRB, OFF>
-where
-    CRB: WebGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = u64>,
-{
-    fn num_nodes(&self) -> usize {
-        self.number_of_nodes
-    }
-}
-
 impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
@@ -224,6 +112,16 @@ where
     type SequentialSuccessorIter<'b> = std::vec::IntoIter<usize>
         where Self: 'b, CRB: 'b,
         OFF: 'b;
+
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<usize> {
+        Some(self.number_of_arcs)
+    }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
     fn iter_nodes(&self) -> WebgraphSequentialIter<CRB::Reader<'_>> {

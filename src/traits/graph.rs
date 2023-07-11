@@ -1,11 +1,15 @@
 /// A struct used to implement the [`SequentialGraph`] trait for a struct that
 /// implements [`RandomAccessGraph`].
 pub struct SequentialGraphImplIter<'a, G: RandomAccessGraph> {
-    graph: &'a G,
-    nodes: core::ops::Range<usize>,
+    pub graph: &'a G,
+    pub nodes: core::ops::Range<usize>,
 }
 
-impl<'a, G: RandomAccessGraph> Iterator for SequentialGraphImplIter<'a, G> {
+impl<'a, G> Iterator for SequentialGraphImplIter<'a, G>
+where
+    G: RandomAccessGraph
+        + SequentialGraph<SequentialSuccessorIter<'a> = G::RandomSuccessorIter<'a>>,
+{
     type Item = (usize, G::RandomSuccessorIter<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -15,41 +19,8 @@ impl<'a, G: RandomAccessGraph> Iterator for SequentialGraphImplIter<'a, G> {
     }
 }
 
-/// Marker trait to inherit the default implementation of [`SequentialGraph`]
-/// if your struct implements [`RandomAccessGraph`]. This can be avoided when
-/// the specialization feature becomes stable.
-pub trait SequentialGraphImpl: RandomAccessGraph {}
-
-impl<T: SequentialGraphImpl> SequentialGraph for T {
-    type NodesIter<'a> =  SequentialGraphImplIter<'a, Self>
-        where
-            Self: 'a;
-
-    type SequentialSuccessorIter<'a> = <Self as RandomAccessGraph>::RandomSuccessorIter<'a>
-        where
-            Self: 'a;
-
-    fn num_arcs_hint(&self) -> Option<usize> {
-        Some(self.num_arcs())
-    }
-
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        SequentialGraphImplIter {
-            graph: self,
-            nodes: (0..self.num_nodes()),
-        }
-    }
-}
-
-/// Made to avoid ambiguity when calling num_nodes on a struct that implements
-/// both [`SequentialGraph`] and [`RandomAccessGraph`].
-pub trait NumNodes {
-    /// Get the number of nodes in the graph
-    fn num_nodes(&self) -> usize;
-}
-
 /// A graph that can be accessed sequentially
-pub trait SequentialGraph: NumNodes {
+pub trait SequentialGraph {
     /// Iterator over the nodes of the graph
     type NodesIter<'a>: Iterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
     where
@@ -58,6 +29,9 @@ pub trait SequentialGraph: NumNodes {
     type SequentialSuccessorIter<'a>: Iterator<Item = usize> + 'a
     where
         Self: 'a;
+
+    /// Get the number of nodes in the graph
+    fn num_nodes(&self) -> usize;
 
     /// Get the number of arcs in the graph if available
     fn num_arcs_hint(&self) -> Option<usize> {
@@ -69,7 +43,7 @@ pub trait SequentialGraph: NumNodes {
 }
 
 /// A graph that can be accessed randomly
-pub trait RandomAccessGraph: NumNodes {
+pub trait RandomAccessGraph: SequentialGraph {
     /// Iterator over the successors of a node
     type RandomSuccessorIter<'a>: ExactSizeIterator<Item = usize> + 'a
     where

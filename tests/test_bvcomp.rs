@@ -111,7 +111,10 @@ fn test_bvcomp_slow() -> Result<()> {
                                     for ((_, iter0), (_, iter1)) in
                                         seq_graph.iter_nodes().zip(seq_reader1)
                                     {
-                                        itertools::assert_equal(iter0, iter1);
+                                        assert_eq!(
+                                            iter0.collect::<Vec<_>>(),
+                                            iter1.collect::<Vec<_>>()
+                                        );
                                         pl.light_update();
                                     }
                                     pl.done();

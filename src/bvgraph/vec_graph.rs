@@ -108,12 +108,6 @@ impl VecGraph {
     }
 }
 
-impl NumNodes for VecGraph {
-    fn num_nodes(&self) -> usize {
-        self.succ.len()
-    }
-}
-
 impl RandomAccessGraph for VecGraph {
     type RandomSuccessorIter<'a> = <BTreeSet<usize> as IntoIterator>::IntoIter;
 
@@ -130,7 +124,33 @@ impl RandomAccessGraph for VecGraph {
     }
 }
 
-impl SequentialGraphImpl for VecGraph {}
+impl SequentialGraph for VecGraph {
+    type NodesIter<'a> = SequentialGraphImplIter<'a, Self>
+                where
+                    Self: 'a;
+
+    type SequentialSuccessorIter<'a> = <Self as RandomAccessGraph>::RandomSuccessorIter<'a>
+                where
+                    Self: 'a;
+
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.succ.len()
+    }
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<usize> {
+        Some(self.num_arcs())
+    }
+
+    #[inline(always)]
+    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+        SequentialGraphImplIter {
+            graph: self,
+            nodes: (0..self.num_nodes()),
+        }
+    }
+}
 
 impl SortedNodes for VecGraph {}
 

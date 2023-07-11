@@ -48,7 +48,7 @@ where
     #[inline(always)]
     /// Return a clone of the compression flags.
     pub fn get_compression_flags(&self) -> CompFlags {
-        self.compression_flags.clone()
+        self.compression_flags
     }
 
     /// Create a new builder from the data and the compression flags.
@@ -196,7 +196,7 @@ where
     #[inline(always)]
     /// Return a copy of the compression flags used to build this reader.
     pub fn get_compression_flags(&self) -> CompFlags {
-        self.compression_flags.clone()
+        self.compression_flags
     }
 
     /// Build a new `DynamicCodesReaderSkipper` from the given data and

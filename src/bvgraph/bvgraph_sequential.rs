@@ -24,6 +24,12 @@ impl<CRB: WebGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB>
         Self: 'a;
 
     #[inline(always)]
+    /// Return the number of nodes in the graph
+    fn num_nodes(&self) -> usize {
+        self.number_of_nodes
+    }
+
+    #[inline(always)]
     fn num_arcs_hint(&self) -> Option<usize> {
         self.number_of_arcs
     }
@@ -36,14 +42,6 @@ impl<CRB: WebGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB>
             self.min_interval_length,
             self.number_of_nodes,
         )
-    }
-}
-
-impl<CRB: WebGraphCodesReaderBuilder> NumNodes for BVGraphSequential<CRB> {
-    #[inline(always)]
-    /// Return the number of nodes in the graph
-    fn num_nodes(&self) -> usize {
-        self.number_of_nodes
     }
 }
 

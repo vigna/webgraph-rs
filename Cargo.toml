@@ -37,7 +37,7 @@ stderrlog = "0.5.4"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.7.0"
 tempfile = "3.5.0"
-itertools = "0.10.5"
+#itertools = "0.10.5"
 bytemuck = "1.13.1"
 arbitrary = { version = "1", features = ["derive"], optional = true }
 zip = {version="0.6.6", optional=true}

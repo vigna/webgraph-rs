@@ -22,8 +22,17 @@ pub const fn nat2int(x: u64) -> i64 {
     ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
 }
 
+mod coo_to_graph;
+pub use coo_to_graph::*;
+
 mod permuted_graph;
 pub use permuted_graph::*;
+
+//mod sorted_graph;
+//pub use sorted_graph::*;
+
+mod kary_heap;
+pub use kary_heap::*;
 
 mod sort_pairs;
 pub use sort_pairs::*;
