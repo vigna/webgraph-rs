@@ -35,39 +35,38 @@ struct Args {
     #[arg(short = 'j', long)]
     /// The number of cores to use
     num_cpus: Option<usize>,
-
     /// The compression windows
-    #[clap(default_value_t = 7)]
+    #[clap(short = 'w', long, default_value_t = 7)]
     compression_window: usize,
     /// The minimum interval length
-    #[clap(default_value_t = 4)]
+    #[clap(short = 'l', long, default_value_t = 4)]
     min_interval_length: usize,
     /// The maximum recursion depth for references
-    #[clap(default_value_t = 3)]
+    #[clap(short = 'c', long, default_value_t = 3)]
     max_ref_count: usize,
 
     #[arg(value_enum)]
-    #[clap(default_value = "gamma")]
+    #[clap(short, long, default_value = "gamma")]
     /// The code to use for the outdegree
     outdegrees_code: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(default_value = "unary")]
+    #[clap(short, long, default_value = "unary")]
     /// The code to use for the reference offsets
     references_code: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(default_value = "gamma")]
+    #[clap(short, long, default_value = "gamma")]
     /// The code to use for the blocks
     blocks_code: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(default_value = "gamma")]
+    #[clap(short, long, default_value = "gamma")]
     /// The code to use for the intervals
     intervals_code: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(default_value = "zeta3")]
+    #[clap(short = 'e', long, default_value = "zeta3")]
     /// The code to use for the residuals
     residuals_code: PrivCode,
 }
