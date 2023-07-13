@@ -77,7 +77,7 @@ impl<T: SortPairsPayload> SortPairs<T> {
         self.batch.par_sort_unstable_by_key(|(x, y, _)| (*x, *y));
         // create a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
-        let file = std::io::BufWriter::new(std::fs::File::create(&batch_name)?);
+        let file = std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(&batch_name)?);
         // createa bitstream to write to the file
         let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
         // Dump the triples to the bitstream
