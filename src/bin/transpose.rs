@@ -96,7 +96,7 @@ pub fn main() -> Result<()> {
         max_ref_count: args.max_ref_count,
     };
 
-    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
 
     rayon::ThreadPoolBuilder::new()
         .num_threads(args.num_cpus.unwrap_or(rayon::max_num_threads()))

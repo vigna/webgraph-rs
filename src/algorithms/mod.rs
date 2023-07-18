@@ -12,6 +12,3 @@ pub use transpose::*;
 
 mod compose_orders;
 pub use compose_orders::compose_orders;
-
-mod apply_order;
-pub use apply_order::apply_order;

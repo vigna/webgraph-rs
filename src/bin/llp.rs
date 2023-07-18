@@ -54,7 +54,7 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     // load the graph
-    let graph = webgraph::bvgraph::load(&args.basename)?;
+    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
 
     let mut perm = vec![0; graph.num_nodes()];
     // compute the LLP

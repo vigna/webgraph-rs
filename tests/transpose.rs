@@ -16,7 +16,7 @@ fn test_transpose() -> Result<()> {
     let compression_flags = CompFlags::default();
 
     // load cnr-2000
-    let graph = webgraph::bvgraph::load("tests/data/cnr-2000")?;
+    let graph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
@@ -27,7 +27,7 @@ fn test_transpose() -> Result<()> {
         compression_flags,
     )?;
     // check it
-    let transposed_graph = webgraph::bvgraph::load_seq(TRANSPOSED_PATH)?;
+    let transposed_graph = webgraph::graph::bvgraph::load_seq(TRANSPOSED_PATH)?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the transposed graph is correct...");
@@ -45,7 +45,7 @@ fn test_transpose() -> Result<()> {
         compression_flags,
     )?;
     // check it
-    let retransposed_graph = webgraph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
+    let retransposed_graph = webgraph::graph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the re-transposed graph is as the original one...");

@@ -28,8 +28,8 @@ pub use coo_to_graph::*;
 mod coo_to_labelled_graph;
 pub use coo_to_labelled_graph::*;
 
-mod permuted_graph;
-pub use permuted_graph::*;
+mod circular_buffer;
+pub(crate) use circular_buffer::*;
 
 //mod sorted_graph;
 //pub use sorted_graph::*;

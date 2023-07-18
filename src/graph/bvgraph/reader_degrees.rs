@@ -6,7 +6,7 @@ use dsi_bitstream::prelude::*;
 /// the offsets.
 /// This has limited uses, but is very fast. Most notably, this can be used to
 /// build the offsets of a graph.
-pub struct WebgraphDegreesIter<CR: WebGraphCodesReader + WebGraphCodesSkipper> {
+pub struct WebgraphDegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
     codes_reader: CR,
     backrefs: Vec<usize>,
     node_id: usize,
@@ -15,16 +15,14 @@ pub struct WebgraphDegreesIter<CR: WebGraphCodesReader + WebGraphCodesSkipper> {
     number_of_nodes: usize,
 }
 
-impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> WebgraphDegreesIter<CR> {
+impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> WebgraphDegreesIter<CR> {
     /// Get the current bit-offset in the bitstream
     pub fn get_pos(&self) -> usize {
         self.codes_reader.get_pos()
     }
 }
 
-impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> Iterator
-    for WebgraphDegreesIter<CR>
-{
+impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> Iterator for WebgraphDegreesIter<CR> {
     type Item = (usize, usize, usize);
     fn next(&mut self) -> Option<(usize, usize, usize)> {
         if self.node_id >= self.number_of_nodes {
@@ -35,7 +33,7 @@ impl<CR: WebGraphCodesReader + WebGraphCodesSkipper + BitSeek> Iterator
     }
 }
 
-impl<CR: WebGraphCodesReader + WebGraphCodesSkipper> WebgraphDegreesIter<CR> {
+impl<CR: BVGraphCodesReader + BVGraphCodesSkipper> WebgraphDegreesIter<CR> {
     /// Create a new iterator over the degrees of the graph.
     pub fn new(
         codes_reader: CR,

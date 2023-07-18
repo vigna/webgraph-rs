@@ -47,10 +47,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.check {
         // Create a sequential reader
-        let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+        let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
         let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
         // create a random access reader;
-        let random_reader = webgraph::bvgraph::load(&args.basename)?;
+        let random_reader = webgraph::graph::bvgraph::load(&args.basename)?;
 
         // Check that sequential and random-access interfaces return the same result
         let mut seq_iter = seq_graph.iter_nodes();
@@ -67,7 +67,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut c = 0;
-            let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+            let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
             for (_, succ) in &seq_graph {
                 c += succ.count();
@@ -82,7 +82,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if args.degrees_only {
         // Sequential speed test
         for _ in 0..args.repeats {
-            let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+            let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
             let seq_graph =
                 seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
             let mut deg_reader = seq_graph.iter_degrees();
@@ -100,7 +100,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
     } else {
-        let graph = webgraph::bvgraph::load(&args.basename)?;
+        let graph = webgraph::graph::bvgraph::load(&args.basename)?;
 
         // Random-access speed test
         for _ in 0..args.repeats {

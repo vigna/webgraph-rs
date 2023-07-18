@@ -142,6 +142,7 @@ impl<'a, L: Clone, I: Iterator<Item = (usize, usize, L)>> LabelledIterator
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_coo_labelled_iter() -> anyhow::Result<()> {
+    use crate::graph::vec_graph::VecGraph;
     let arcs = vec![
         (0, 1, Some(1.0)),
         (0, 2, None),
@@ -151,9 +152,9 @@ fn test_coo_labelled_iter() -> anyhow::Result<()> {
         (2, 4, Some(f64::INFINITY)),
         (3, 4, Some(f64::NEG_INFINITY)),
     ];
-    let g = crate::VecGraph::from_arc_and_label_list(&arcs);
+    let g = VecGraph::from_arc_and_label_list(&arcs);
     let coo = COOIterToLabelledGraph::new(g.num_nodes(), arcs.clone().into_iter());
-    let g2 = crate::VecGraph::from_labelled_node_iter(coo.iter_nodes());
+    let g2 = VecGraph::from_labelled_node_iter(coo.iter_nodes());
     assert_eq!(g, g2);
     Ok(())
 }

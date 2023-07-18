@@ -2,9 +2,9 @@ use anyhow::Result;
 
 /// An object that can create code readers, this is done so that the builder can
 /// own the data, and the readers can be created and thrown away freely
-pub trait WebGraphCodesReaderBuilder {
+pub trait BVGraphCodesReaderBuilder {
     /// The type of the reader that we are building
-    type Reader<'a>: WebGraphCodesReader + 'a
+    type Reader<'a>: BVGraphCodesReader + 'a
     where
         Self: 'a;
 
@@ -13,7 +13,7 @@ pub trait WebGraphCodesReaderBuilder {
 }
 
 /// The generic interface we need to skip codes
-pub trait WebGraphCodesSkipper {
+pub trait BVGraphCodesSkipper {
     /// skip a outdegree code
     fn skip_outdegree(&mut self);
 
@@ -39,7 +39,7 @@ pub trait WebGraphCodesSkipper {
 }
 
 /// The generic interface we need to read codes to decode a [`BVGraph`]
-pub trait WebGraphCodesReader {
+pub trait BVGraphCodesReader {
     /// read a outdegree code
     fn read_outdegree(&mut self) -> u64;
 
@@ -66,10 +66,10 @@ pub trait WebGraphCodesReader {
 
 /// The generic interface we need to write codes to write a [`BVGraph`] to
 /// a bitstream
-pub trait WebGraphCodesWriter {
+pub trait BVGraphCodesWriter {
     /// A mock writer that does not write anything but returns how many bits
     /// this writer with this configuration would have written
-    type MockWriter: WebGraphCodesWriter;
+    type MockWriter: BVGraphCodesWriter;
     /// Returns a mock writer that does not write anything.
     fn mock(&self) -> Self::MockWriter;
 

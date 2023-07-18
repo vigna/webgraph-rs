@@ -32,14 +32,11 @@ use sux::prelude::*;
 extern crate alloc;
 
 pub mod algorithms;
-pub mod bvgraph;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
+pub mod graph;
 pub mod traits;
 pub mod utils;
-
-mod vec_graph;
-pub use vec_graph::*;
 
 /// The default veinarsion of EliasFano we use for the CLI
 pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactArray<Memory>>;
@@ -47,7 +44,7 @@ pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactA
 /// Prelude module to import everything from this crate
 pub mod prelude {
     pub use crate::algorithms::*;
-    pub use crate::bvgraph::*;
+    pub use crate::graph::prelude::*;
     pub use crate::traits::*;
     pub use crate::utils::*;
 }

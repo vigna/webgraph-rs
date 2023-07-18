@@ -27,7 +27,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 }
 
 #[repr(transparent)]
-/// An implementation of [`WebGraphCodesReader`]  with compile-time defined codes
+/// An implementation of [`BVGraphCodesReader`]  with compile-time defined codes
 #[derive(Clone)]
 pub struct ConstCodesReader<
     E: Endianness,
@@ -141,7 +141,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > WebGraphCodesReader
+    > BVGraphCodesReader
     for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
@@ -195,7 +195,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > WebGraphCodesSkipper
+    > BVGraphCodesSkipper
     for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
@@ -241,7 +241,7 @@ impl<
 }
 
 #[repr(transparent)]
-/// An implementation of [`WebGraphCodesWriter`] with compile time defined codes
+/// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
 #[derive(Clone)]
 pub struct ConstCodesWriter<
     E: Endianness,
@@ -320,7 +320,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > WebGraphCodesWriter
+    > BVGraphCodesWriter
     for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type MockWriter = ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
@@ -375,7 +375,7 @@ impl<
 }
 
 #[repr(transparent)]
-/// An implementation of [`WebGraphCodesWriter`] that doesn't write but just
+/// An implementation of [`BVGraphCodesWriter`] that doesn't write but just
 /// returns the number of bits that would be written.
 #[derive(Clone, Default)]
 pub struct ConstCodesMockWriter<
@@ -421,7 +421,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > WebGraphCodesWriter
+    > BVGraphCodesWriter
     for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type MockWriter = Self;

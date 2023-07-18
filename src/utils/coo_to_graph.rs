@@ -104,10 +104,11 @@ impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedSequentialPermut
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_coo_iter() -> anyhow::Result<()> {
+    use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = crate::VecGraph::from_arc_list(&arcs);
+    let g = VecGraph::from_arc_list(&arcs);
     let coo = COOIterToGraph::new(g.num_nodes(), arcs.clone().into_iter());
-    let g2 = crate::VecGraph::from_node_iter(coo.iter_nodes());
+    let g2 = VecGraph::from_node_iter(coo.iter_nodes());
     assert_eq!(g, g2);
     Ok(())
 }

@@ -5,7 +5,7 @@ use crate::utils::nat2int;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<CRB: WebGraphCodesReaderBuilder, OFF: IndexedDict<Value = u64>> {
+pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Value = u64>> {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     codes_reader_builder: CRB,
@@ -24,7 +24,7 @@ pub struct BVGraph<CRB: WebGraphCodesReaderBuilder, OFF: IndexedDict<Value = u64
 
 impl<CRB, OFF> BVGraph<CRB, OFF>
 where
-    CRB: WebGraphCodesReaderBuilder,
+    CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,
 {
     /// Create a new BVGraph from the given parameters.
@@ -65,7 +65,7 @@ where
     pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraph<CRB2, OFF>
     where
         F: FnOnce(CRB) -> CRB2,
-        CRB2: WebGraphCodesReaderBuilder,
+        CRB2: BVGraphCodesReaderBuilder,
     {
         BVGraph {
             codes_reader_builder: map_func(self.codes_reader_builder),
@@ -103,7 +103,7 @@ where
 
 impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
 where
-    CRB: WebGraphCodesReaderBuilder,
+    CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,
 {
     type NodesIter<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
@@ -137,7 +137,7 @@ where
 
 impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
 where
-    CRB: WebGraphCodesReaderBuilder,
+    CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,
 {
     type RandomSuccessorIter<'b> = RandomSuccessorIter<CRB::Reader<'b>>
@@ -271,7 +271,7 @@ where
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct RandomSuccessorIter<CR: WebGraphCodesReader> {
+pub struct RandomSuccessorIter<CR: BVGraphCodesReader> {
     reader: CR,
     /// The number of values left
     size: usize,
@@ -293,16 +293,16 @@ pub struct RandomSuccessorIter<CR: WebGraphCodesReader> {
     next_interval_node: usize,
 }
 
-impl<CR: WebGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
+impl<CR: BVGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<CR: WebGraphCodesReader> SortedIterator for RandomSuccessorIter<CR> {}
+unsafe impl<CR: BVGraphCodesReader> SortedIterator for RandomSuccessorIter<CR> {}
 
-impl<CR: WebGraphCodesReader> RandomSuccessorIter<CR> {
+impl<CR: BVGraphCodesReader> RandomSuccessorIter<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
@@ -319,7 +319,7 @@ impl<CR: WebGraphCodesReader> RandomSuccessorIter<CR> {
     }
 }
 
-impl<CR: WebGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
+impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -376,7 +376,7 @@ impl<CR: WebGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
 /// Allow to do `for (node, succ_iter) in &graph`
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where
-    CRB: WebGraphCodesReaderBuilder,
+    CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Value = u64>,
 {
     type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;

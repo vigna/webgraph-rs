@@ -1,12 +1,12 @@
 use core::cmp::Ordering;
 
-use super::{CircularBuffer, CircularBufferVec};
-use crate::traits::*;
+use super::*;
 use crate::utils::int2nat;
+use crate::utils::{CircularBuffer, CircularBufferVec};
 use anyhow::Result;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
-pub struct BVComp<WGCW: WebGraphCodesWriter> {
+pub struct BVComp<WGCW: BVGraphCodesWriter> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
     backrefs: CircularBufferVec,
@@ -81,7 +81,7 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<WGCW: WebGraphCodesWriter>(
+    fn write<WGCW: BVGraphCodesWriter>(
         &self,
         writer: &mut WGCW,
         curr_node: usize,
@@ -293,7 +293,7 @@ impl Compressor {
     }
 }
 
-impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
+impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
@@ -438,7 +438,6 @@ impl<WGCW: WebGraphCodesWriter> BVComp<WGCW> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::*;
     use dsi_bitstream::prelude::*;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
@@ -548,7 +547,7 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = crate::bvgraph::load_seq("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
         let file_path = std::env::temp_dir().join("cnr-2000.bvcomp");
@@ -602,7 +601,7 @@ mod test {
     }
 
     fn test_compression(compression_window: usize, min_interval_length: usize) -> Result<()> {
-        let seq_graph = crate::bvgraph::load_seq("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();

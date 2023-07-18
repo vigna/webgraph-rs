@@ -91,14 +91,14 @@ pub fn main() -> Result<()> {
         max_ref_count: args.max_ref_count,
     };
 
-    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
 
     ThreadPoolBuilder::new()
         .num_threads(args.num_cpus.unwrap_or(rayon::max_num_threads()))
         .build()
         .unwrap()
         .install(|| {
-            webgraph::bvgraph::parallel_compress_sequential_iter(
+            webgraph::graph::bvgraph::parallel_compress_sequential_iter(
                 args.new_basename,
                 seq_graph.iter_nodes(),
                 seq_graph.num_nodes(),

@@ -71,14 +71,15 @@ where
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition() -> anyhow::Result<()> {
+    use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = crate::VecGraph::from_arc_list(&arcs);
+    let g = VecGraph::from_arc_list(&arcs);
 
     let trans = transpose(&g, 3)?;
-    let g2 = crate::VecGraph::from_node_iter(trans.iter_nodes());
+    let g2 = VecGraph::from_node_iter(trans.iter_nodes());
 
     let trans = transpose(&g2, 3)?;
-    let g3 = crate::VecGraph::from_node_iter(trans.iter_nodes());
+    let g3 = VecGraph::from_node_iter(trans.iter_nodes());
 
     assert_eq!(g, g3);
     Ok(())
@@ -87,6 +88,7 @@ fn test_transposition() -> anyhow::Result<()> {
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition_labelled() -> anyhow::Result<()> {
+    use crate::graph::vec_graph::VecGraph;
     use dsi_bitstream::prelude::*;
 
     #[derive(Clone, Copy, PartialEq, Debug)]
@@ -123,24 +125,24 @@ fn test_transposition_labelled() -> anyhow::Result<()> {
     ];
 
     // test transposition without labels
-    let g = crate::VecGraph::from_arc_and_label_list(&arcs);
+    let g = VecGraph::from_arc_and_label_list(&arcs);
 
     let trans = transpose(&g, 3)?;
-    let g2 = crate::VecGraph::from_node_iter(trans.iter_nodes());
+    let g2 = VecGraph::from_node_iter(trans.iter_nodes());
 
     let trans = transpose(&g2, 3)?;
-    let g3 = crate::VecGraph::from_node_iter(trans.iter_nodes());
+    let g3 = VecGraph::from_node_iter(trans.iter_nodes());
 
-    let g4 = crate::VecGraph::from_node_iter(g.iter_nodes());
+    let g4 = VecGraph::from_node_iter(g.iter_nodes());
 
     assert_eq!(g3, g4);
 
     //// test transposition with labels
     //let trans = transpose_labelled(&g, 3)?;
-    //let g5 = crate::VecGraph::from_labelled_node_iter(trans.iter_nodes());
+    //let g5 = VecGraph::from_labelled_node_iter(trans.iter_nodes());
     //
     //let trans = transpose_labelled(&g5, 3)?;
-    //let g6 = crate::VecGraph::from_labelled_node_iter(trans.iter_nodes());
+    //let g6 = VecGraph::from_labelled_node_iter(trans.iter_nodes());
     //
     //assert_eq!(g, g6);
     Ok(())

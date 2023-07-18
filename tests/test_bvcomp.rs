@@ -15,7 +15,9 @@ use dsi_bitstream::{
 use dsi_progress_logger::ProgressLogger;
 use mmap_rs::MmapOptions;
 use webgraph::{
-    bvgraph::{BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter},
+    graph::bvgraph::{
+        BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter,
+    },
     prelude::*,
     utils::MmapBackend,
 };
@@ -51,7 +53,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     };
 
                                     let seq_graph =
-                                        webgraph::bvgraph::load_seq("tests/data/cnr-2000")?;
+                                        webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
                                     let writer = <DynamicCodesWriter<BE, _>>::new(
                                         <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(

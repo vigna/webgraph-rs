@@ -2,7 +2,7 @@ use super::*;
 use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 
-/// An implementation of [`WebGraphCodesReader`] with the most commonly used codes
+/// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
 pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) code_reader: CR,
@@ -81,7 +81,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReader<E
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesReader for DynamicCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -124,7 +124,7 @@ impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReader
     }
 }
 
-/// An implementation of [`WebGraphCodesReader`] with the most commonly used codes
+/// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
 pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) code_reader: CR,
@@ -255,7 +255,7 @@ impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReaderSk
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesReader for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -298,7 +298,7 @@ impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesReader for DynamicCodesReader
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesSkipper for DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesSkipper for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn skip_outdegree(&mut self) {
         (self.skip_outdegrees)(&mut self.code_reader)
@@ -341,7 +341,7 @@ impl<E: Endianness, CR: ReadCodes<E>> WebGraphCodesSkipper for DynamicCodesReade
     }
 }
 
-/// An implementation of [`WebGraphCodesWriter`] with the most commonly used codes
+/// An implementation of [`BVGraphCodesWriter`] with the most commonly used codes
 pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E>> {
     code_writer: CW,
     write_outdegree: fn(&mut CW, u64) -> Result<usize>,
@@ -397,7 +397,7 @@ impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCode
     }
 }
 
-impl<E: Endianness, CW: WriteCodes<E>> WebGraphCodesWriter for DynamicCodesWriter<E, CW> {
+impl<E: Endianness, CW: WriteCodes<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW> {
     type MockWriter = DynamicCodesMockWriter;
     fn mock(&self) -> Self::MockWriter {
         macro_rules! reconstruct_code {
@@ -475,7 +475,7 @@ impl<E: Endianness, CW: WriteCodes<E>> WebGraphCodesWriter for DynamicCodesWrite
     }
 }
 
-/// An implementation of [`WebGraphCodesWriter`] that doesn't write anything
+/// An implementation of [`BVGraphCodesWriter`] that doesn't write anything
 /// but just returns the length of the bytes that would have been written.
 #[derive(Clone)]
 pub struct DynamicCodesMockWriter {
@@ -521,7 +521,7 @@ impl DynamicCodesMockWriter {
     }
 }
 
-impl WebGraphCodesWriter for DynamicCodesMockWriter {
+impl BVGraphCodesWriter for DynamicCodesMockWriter {
     type MockWriter = Self;
     fn mock(&self) -> Self::MockWriter {
         self.clone()

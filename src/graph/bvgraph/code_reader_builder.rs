@@ -91,7 +91,7 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
 {
@@ -275,7 +275,7 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> WebGraphCodesReaderBuilder
+impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder
     for DynamicCodesReaderSkipperBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
@@ -401,7 +401,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > WebGraphCodesReaderBuilder
+    > BVGraphCodesReaderBuilder
     for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,

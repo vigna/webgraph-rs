@@ -21,7 +21,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let graph = webgraph::bvgraph::load(&args.basename)?;
+    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
     let mut visited = bitvec![u64, Lsb0; 0; num_nodes];
     let mut queue = VecDeque::new();

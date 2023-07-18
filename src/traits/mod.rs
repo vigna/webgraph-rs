@@ -3,8 +3,8 @@
 //! They are collected into a module so you can do `use webgraph::traits::*;`
 //! for ease of use.
 
-mod webgraph_codes;
-pub use webgraph_codes::*;
+mod bvgraph_codes;
+pub use bvgraph_codes::*;
 
 pub(crate) mod graph;
 pub use graph::*;

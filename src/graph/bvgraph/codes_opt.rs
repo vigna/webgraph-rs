@@ -26,14 +26,14 @@ pub struct BVGraphCodesStats {
 }
 
 /// A wrapper that keeps track of how much bits each piece would take using
-/// different codes for compressions for a [`WebGraphCodesReaderBuilder`]
+/// different codes for compressions for a [`BVGraphCodesReaderBuilder`]
 /// implementation and returns the stats.
 ///
 /// The statistics can be updated in a concurrent way using atomic operations.
 /// So this struct can be used in a parallel compression scenario but
 /// you might want to have finished reading the graph before looking at the
 /// statistics.
-pub struct CodesReaderStatsBuilder<WGCRB: WebGraphCodesReaderBuilder> {
+pub struct CodesReaderStatsBuilder<WGCRB: BVGraphCodesReaderBuilder> {
     codes_reader_builder: WGCRB,
     /// The statistics for the codes
     pub stats: BVGraphCodesStats,
@@ -41,7 +41,7 @@ pub struct CodesReaderStatsBuilder<WGCRB: WebGraphCodesReaderBuilder> {
 
 impl<WGCRB> CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: WebGraphCodesReaderBuilder,
+    WGCRB: BVGraphCodesReaderBuilder,
 {
     /// Create a new builder
     pub fn new(codes_reader_builder: WGCRB) -> Self {
@@ -60,7 +60,7 @@ where
 
 impl<WGCRB> From<WGCRB> for CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: WebGraphCodesReaderBuilder,
+    WGCRB: BVGraphCodesReaderBuilder,
 {
     #[inline(always)]
     fn from(value: WGCRB) -> Self {
@@ -68,9 +68,9 @@ where
     }
 }
 
-impl<WGCRB> WebGraphCodesReaderBuilder for CodesReaderStatsBuilder<WGCRB>
+impl<WGCRB> BVGraphCodesReaderBuilder for CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: WebGraphCodesReaderBuilder,
+    WGCRB: BVGraphCodesReaderBuilder,
 {
     type Reader<'a> = CodesReaderStats<'a, WGCRB::Reader<'a>>
     where
@@ -85,14 +85,14 @@ where
     }
 }
 
-/// A wrapper over a generic [`WebGraphCodesReader`] that keeps track of how much
+/// A wrapper over a generic [`BVGraphCodesReader`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
-pub struct CodesReaderStats<'a, WGCR: WebGraphCodesReader> {
+pub struct CodesReaderStats<'a, WGCR: BVGraphCodesReader> {
     codes_reader: WGCR,
     stats: &'a BVGraphCodesStats,
 }
 
-impl<'a, WGCR: WebGraphCodesReader> CodesReaderStats<'a, WGCR> {
+impl<'a, WGCR: BVGraphCodesReader> CodesReaderStats<'a, WGCR> {
     /// Wrap a reader
     #[inline(always)]
     pub fn new(codes_reader: WGCR, stats: &'a BVGraphCodesStats) -> Self {
@@ -109,7 +109,7 @@ impl<'a, WGCR: WebGraphCodesReader> CodesReaderStats<'a, WGCR> {
     }
 }
 
-impl<'a, WGCR: WebGraphCodesReader> WebGraphCodesReader for CodesReaderStats<'a, WGCR> {
+impl<'a, WGCR: BVGraphCodesReader> BVGraphCodesReader for CodesReaderStats<'a, WGCR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats
@@ -168,7 +168,7 @@ impl<'a, WGCR: WebGraphCodesReader> WebGraphCodesReader for CodesReaderStats<'a,
     }
 }
 
-impl<'a, WGCR: WebGraphCodesReader + WebGraphCodesSkipper> WebGraphCodesSkipper
+impl<'a, WGCR: BVGraphCodesReader + BVGraphCodesSkipper> BVGraphCodesSkipper
     for CodesReaderStats<'a, WGCR>
 {
     #[inline(always)]

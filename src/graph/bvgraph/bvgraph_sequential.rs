@@ -1,12 +1,13 @@
 use super::*;
 use crate::utils::nat2int;
+use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmaped file.
-pub struct BVGraphSequential<CRB: WebGraphCodesReaderBuilder> {
+pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
     codes_reader_builder: CRB,
     number_of_nodes: usize,
     number_of_arcs: Option<usize>,
@@ -14,7 +15,7 @@ pub struct BVGraphSequential<CRB: WebGraphCodesReaderBuilder> {
     min_interval_length: usize,
 }
 
-impl<CRB: WebGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
+impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
     type NodesIter<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
         Self: 'a;
@@ -45,7 +46,7 @@ impl<CRB: WebGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB>
     }
 }
 
-impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB> {
+impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB> {
     /// Create a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
@@ -69,7 +70,7 @@ impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB> {
     pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraphSequential<CRB2>
     where
         F: FnOnce(CRB) -> CRB2,
-        CRB2: WebGraphCodesReaderBuilder,
+        CRB2: BVGraphCodesReaderBuilder,
     {
         BVGraphSequential {
             codes_reader_builder: map_func(self.codes_reader_builder),
@@ -87,9 +88,9 @@ impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB> {
     }
 }
 
-impl<CRB: WebGraphCodesReaderBuilder> BVGraphSequential<CRB>
+impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB>
 where
-    for<'a> CRB::Reader<'a>: WebGraphCodesSkipper,
+    for<'a> CRB::Reader<'a>: BVGraphCodesSkipper,
 {
     #[inline(always)]
     /// Create an iterator specialized in the degrees of the nodes.
@@ -108,7 +109,7 @@ where
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Clone)]
-pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
+pub struct WebgraphSequentialIter<CR: BVGraphCodesReader> {
     codes_reader: CR,
     backrefs: CircularBufferVec,
     compression_window: usize,
@@ -117,7 +118,7 @@ pub struct WebgraphSequentialIter<CR: WebGraphCodesReader> {
     current_node: usize,
 }
 
-impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
+impl<CR: BVGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
@@ -126,7 +127,7 @@ impl<CR: WebGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
+impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     /// Create a new iterator from a codes reader
     pub fn new(
         codes_reader: CR,
@@ -250,7 +251,7 @@ impl<CR: WebGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
+impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     type Item = (usize, std::vec::IntoIter<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -280,14 +281,14 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     }
 }
 
-unsafe impl<CR: WebGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
+unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
 unsafe impl SortedIterator for std::vec::IntoIter<usize> {}
 
-impl<CR: WebGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
+impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 
 impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
 where
-    CRB: WebGraphCodesReaderBuilder,
+    CRB: BVGraphCodesReaderBuilder,
 {
     type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;

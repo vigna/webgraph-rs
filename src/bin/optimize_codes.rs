@@ -20,7 +20,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let seq_graph = webgraph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(CodesReaderStatsBuilder::new);
 
     let mut pr = ProgressLogger::default().display_memory();

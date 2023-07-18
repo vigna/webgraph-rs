@@ -7,7 +7,7 @@ use webgraph::prelude::*;
 #[test]
 fn test_offsets() -> Result<()> {
     // load the graph
-    let graph = webgraph::bvgraph::load("tests/data/cnr-2000")?;
+    let graph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
 
     // Read the offsets gammas
     let mut offsets_file = std::fs::File::open("tests/data/cnr-2000.offsets")?;

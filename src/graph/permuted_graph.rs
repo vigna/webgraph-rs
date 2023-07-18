@@ -86,8 +86,8 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
 #[cfg(test)]
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
+    use crate::graph::vec_graph::VecGraph;
     use crate::traits::graph::RandomAccessGraph;
-    use crate::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
         graph: &g,

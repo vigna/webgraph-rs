@@ -1,6 +1,4 @@
 use crate::traits::*;
-mod circular_buffer;
-pub(crate) use circular_buffer::*;
 
 mod reader_degrees;
 pub use reader_degrees::*;
