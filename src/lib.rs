@@ -38,6 +38,9 @@ pub mod fuzz;
 pub mod traits;
 pub mod utils;
 
+mod vec_graph;
+pub use vec_graph::*;
+
 /// The default veinarsion of EliasFano we use for the CLI
 pub type EF<Memory> = EliasFano<SparseIndex<BitMap<Memory>, Memory, 8>, CompactArray<Memory>>;
 

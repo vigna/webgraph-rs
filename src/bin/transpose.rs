@@ -103,10 +103,13 @@ pub fn main() -> Result<()> {
         .build()
         .unwrap()
         .install(|| {
-            webgraph::algorithms::transpose(
-                &seq_graph,
-                args.batch_size,
+            // transpose the graph
+            let sorted = webgraph::algorithms::transpose(&seq_graph, args.batch_size).unwrap();
+            // compress the transposed graph
+            parallel_compress_sequential_iter(
                 args.basename,
+                sorted.iter_nodes(),
+                seq_graph.num_nodes(),
                 compression_flags,
             )
             .unwrap();

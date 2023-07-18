@@ -135,13 +135,6 @@ where
     }
 }
 
-impl<CRB, OFF> SortedNodes for BVGraph<CRB, OFF>
-where
-    CRB: WebGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = u64>,
-{
-}
-
 impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
 where
     CRB: WebGraphCodesReaderBuilder,
@@ -276,13 +269,6 @@ where
     }
 }
 
-impl<CRB, OFF> SortedSuccessors for BVGraph<CRB, OFF>
-where
-    CRB: WebGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = u64>,
-{
-}
-
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
 pub struct RandomSuccessorIter<CR: WebGraphCodesReader> {
@@ -313,6 +299,8 @@ impl<CR: WebGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
         self.size
     }
 }
+
+unsafe impl<CR: WebGraphCodesReader> SortedIterator for RandomSuccessorIter<CR> {}
 
 impl<CR: WebGraphCodesReader> RandomSuccessorIter<CR> {
     /// Create an empty iterator

@@ -12,12 +12,16 @@ where
 {
     type Item = (usize, G::RandomSuccessorIter<'a>);
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))
     }
 }
+
+/// We iter on the node ids in a range so it is sorted
+unsafe impl<'a, G: RandomAccessGraph> SortedIterator for SequentialGraphImplIter<'a, G> {}
 
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
@@ -76,70 +80,118 @@ pub trait RandomAccessGraph: SequentialGraph {
     }
 }
 
-/// A graph where each node has a label
+/// A graph where each arc has a label
 pub trait Labelled {
-    /// The type of the label
-    type LabelType;
+    /// The type of the label on the arcs
+    type Label;
 }
 
 /// A trait to allow to ask for the label of the current node on a successors
 /// iterator
-pub trait LabelledIterator: Labelled {
-    /// Get the label of the current node, if it has one
-    fn label() -> Option<Self::LabelType>;
+pub trait LabelledIterator: Labelled + Iterator<Item = usize> {
+    /// Get the label of the current node, this panics if called before the first
+    fn label(&self) -> Self::Label;
+
+    /// Wrap the `Self` into a [`LabelledIteratorWrapper`] to be able to iter
+    /// on `(successor, label)` easily
+    #[inline(always)]
+    fn labelled(self) -> LabelledIteratorWrapper<Self>
+    where
+        Self: Sized,
+    {
+        LabelledIteratorWrapper(self)
+    }
 }
 
 /// A trait to constraint the successors iterator to implement [`LabelledIterator`]
 pub trait LabelledSequentialGraph: SequentialGraph + Labelled
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
-impl<G: SequentialGraph + Labelled + SortedNodes + SortedSuccessors> LabelledSequentialGraph for G where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>
+impl<G: SequentialGraph + Labelled> LabelledSequentialGraph for G where
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>
 {
 }
 
 /// A trait to constraint the successors iterator to implement [`LabelledIterator`]
 pub trait LabelledRandomAccessGraph: RandomAccessGraph + Labelled
 where
-    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
-impl<G: RandomAccessGraph + Labelled + SortedNodes + SortedSuccessors> LabelledRandomAccessGraph
-    for G
-where
-    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+impl<G: RandomAccessGraph + Labelled> LabelledRandomAccessGraph for G where
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<Label = Self::Label>
 {
 }
 
-/// Marker trait for sequential graphs that enumerate nodes in increasing order
-pub trait SortedNodes {}
-
-/// Marker trait for graphs that enumerate nodes in increasing order
-pub trait SortedSuccessors {}
+/// Marker trait iterators that return sorted values
+pub unsafe trait SortedIterator {}
 
 /// A graph that can be accessed both sequentially and randomly,
 /// and which enumerates nodes and successors in increasing order.
-pub trait Graph: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors {}
-/// Blanket implementation
-impl<G: SequentialGraph + RandomAccessGraph + SortedNodes + SortedSuccessors> Graph for G {}
-
-/// The same as [`Graph`], but with a label on each node.
-pub trait LabelledGraph:
-    LabelledSequentialGraph + LabelledRandomAccessGraph + SortedNodes + SortedSuccessors
+pub trait Graph: SequentialGraph + RandomAccessGraph
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
-    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+    for<'a> Self::SequentialSuccessorIter<'a>: SortedIterator,
+    for<'a> Self::RandomSuccessorIter<'a>: SortedIterator,
+    for<'a> Self::NodesIter<'a>: SortedIterator,
 {
 }
 /// Blanket implementation
-impl<G: LabelledSequentialGraph + LabelledRandomAccessGraph + SortedNodes + SortedSuccessors>
-    LabelledGraph for G
+impl<G: SequentialGraph + RandomAccessGraph> Graph for G
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
-    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<LabelType = Self::LabelType>,
+    for<'a> Self::SequentialSuccessorIter<'a>: SortedIterator,
+    for<'a> Self::RandomSuccessorIter<'a>: SortedIterator,
+    for<'a> Self::NodesIter<'a>: SortedIterator,
+{
+}
+
+/// The same as [`Graph`], but with a label on each node.
+pub trait LabelledGraph: LabelledSequentialGraph + LabelledRandomAccessGraph
+where
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+{
+}
+/// Blanket implementation
+impl<G: LabelledSequentialGraph + LabelledRandomAccessGraph> LabelledGraph for G
+where
+    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+{
+}
+
+#[repr(transparent)]
+/// A wrapper around a [`LabelledIterator`] to make it implement [`Iterator`]
+/// with a tuple of `(successor, label)`
+pub struct LabelledIteratorWrapper<I: LabelledIterator + Iterator<Item = usize>>(I);
+
+impl<I: LabelledIterator + Iterator<Item = usize>> Iterator for LabelledIteratorWrapper<I> {
+    type Item = (usize, I::Label);
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|successor| (successor, self.0.label()))
+    }
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl<I: LabelledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSizeIterator
+    for LabelledIteratorWrapper<I>
+{
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+/// We are transparent regarding the sortedness of the underlying iterator
+unsafe impl<I: LabelledIterator + Iterator<Item = usize> + SortedIterator> SortedIterator
+    for LabelledIteratorWrapper<I>
 {
 }

@@ -19,7 +19,13 @@ fn test_transpose() -> Result<()> {
     let graph = webgraph::bvgraph::load("tests/data/cnr-2000")?;
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
-    webgraph::algorithms::transpose(&graph, BATCH_SIZE, TRANSPOSED_PATH, compression_flags)?;
+    let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
+    parallel_compress_sequential_iter(
+        TRANSPOSED_PATH,
+        transposed.iter_nodes(),
+        num_nodes,
+        compression_flags,
+    )?;
     // check it
     let transposed_graph = webgraph::bvgraph::load_seq(TRANSPOSED_PATH)?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
@@ -31,10 +37,11 @@ fn test_transpose() -> Result<()> {
         }
     }
     // re-transpose and par-compress
-    webgraph::algorithms::transpose(
-        &transposed_graph,
-        BATCH_SIZE,
+    let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
+    parallel_compress_sequential_iter(
         RE_TRANSPOSED_PATH,
+        retransposed.iter_nodes(),
+        num_nodes,
         compression_flags,
     )?;
     // check it

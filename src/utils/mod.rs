@@ -25,6 +25,9 @@ pub const fn nat2int(x: u64) -> i64 {
 mod coo_to_graph;
 pub use coo_to_graph::*;
 
+mod coo_to_labelled_graph;
+pub use coo_to_labelled_graph::*;
+
 mod permuted_graph;
 pub use permuted_graph::*;
 

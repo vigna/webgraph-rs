@@ -8,7 +8,7 @@ mod simplify;
 pub use simplify::simplify;
 
 mod transpose;
-pub use transpose::transpose;
+pub use transpose::*;
 
 mod compose_orders;
 pub use compose_orders::compose_orders;

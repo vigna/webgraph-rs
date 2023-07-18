@@ -1,4 +1,4 @@
-use crate::utils::KAryHeap;
+use crate::{traits::SortedIterator, utils::KAryHeap};
 use anyhow::{Context, Result};
 use core::marker::PhantomData;
 use dsi_bitstream::prelude::*;
@@ -167,6 +167,8 @@ impl<T: SortPairsPayload> BatchIterator<T> {
 
 impl<T: SortPairsPayload> Clone for BatchIterator<T> {
     fn clone(&self) -> Self {
+        // we can't directly clone the stream, so we need to reopen the file
+        // and seek to the same position
         let file = std::io::BufReader::new(std::fs::File::open(&self.file_path).unwrap());
         let mut stream = <BufferedBitStreamRead<LE, u64, _>>::new(FileBackend::new(file));
         stream.set_pos(self.stream.get_pos()).unwrap();
@@ -182,6 +184,8 @@ impl<T: SortPairsPayload> Clone for BatchIterator<T> {
         }
     }
 }
+
+unsafe impl<T: SortPairsPayload> SortedIterator for BatchIterator<T> {}
 
 impl<T: SortPairsPayload> Iterator for BatchIterator<T> {
     type Item = (usize, usize, T);
@@ -206,29 +210,32 @@ impl<T: SortPairsPayload> Iterator for BatchIterator<T> {
 #[derive(Clone, Debug)]
 /// Private struct that can be used to sort triples based only on the nodes and
 /// ignoring the payload
-struct HeadTail<T: Copy, I: Iterator<Item = (usize, usize, T)>> {
+struct HeadTail<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> {
     head: (usize, usize),
     payload: T,
     tail: I,
 }
 
-impl<T: Copy, I: Iterator<Item = (usize, usize, T)>> PartialEq for HeadTail<T, I> {
+impl<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> PartialEq for HeadTail<T, I> {
     fn eq(&self, other: &Self) -> bool {
         self.head == other.head
     }
 }
-impl<T: Copy, I: Iterator<Item = (usize, usize, T)>> PartialOrd for HeadTail<T, I> {
+impl<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> PartialOrd
+    for HeadTail<T, I>
+{
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.head.cmp(&other.head))
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct KMergeIters<T: Copy, I: Iterator<Item = (usize, usize, T)>> {
+/// Merge K different sorted iterators
+pub struct KMergeIters<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> {
     heap: KAryHeap<HeadTail<T, I>>,
 }
 
-impl<T: Copy, I: Iterator<Item = (usize, usize, T)>> KMergeIters<T, I> {
+impl<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> KMergeIters<T, I> {
     pub fn new(iters: impl Iterator<Item = I>) -> Self {
         let mut heap = KAryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
@@ -247,7 +254,9 @@ impl<T: Copy, I: Iterator<Item = (usize, usize, T)>> KMergeIters<T, I> {
     }
 }
 
-impl<T: Copy, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<T, I> {
+impl<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> Iterator
+    for KMergeIters<T, I>
+{
     type Item = (usize, usize, T);
 
     fn next(&mut self) -> Option<Self::Item> {

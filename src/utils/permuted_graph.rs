@@ -15,14 +15,17 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
         SequentialPermutedIterator<'b, G::SequentialSuccessorIter<'b>>
 		where Self: 'b;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.graph.num_nodes()
     }
 
+    #[inline(always)]
     fn num_arcs_hint(&self) -> Option<usize> {
         self.graph.num_arcs_hint()
     }
 
+    #[inline(always)]
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         NodePermutedIterator {
             iter: self.graph.iter_nodes(),
@@ -42,6 +45,7 @@ impl<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
     for NodePermutedIterator<'a, I, J>
 {
     type Item = (usize, SequentialPermutedIterator<'a, J>);
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(node, iter)| {
             (
@@ -64,6 +68,7 @@ pub struct SequentialPermutedIterator<'a, I: Iterator<Item = usize>> {
 
 impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
     type Item = usize;
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| self.perm[x])
     }
@@ -72,6 +77,7 @@ impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, 
 impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
     for SequentialPermutedIterator<'a, I>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -80,8 +86,8 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
 #[cfg(test)]
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
-    use crate::bvgraph::VecGraph;
     use crate::traits::graph::RandomAccessGraph;
+    use crate::VecGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
         graph: &g,

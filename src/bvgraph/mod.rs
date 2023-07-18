@@ -17,9 +17,6 @@ pub use bvgraph_writer::*;
 mod bvgraph_writer_par;
 pub use bvgraph_writer_par::*;
 
-mod vec_graph;
-pub use vec_graph::*;
-
 mod code_readers;
 pub use code_readers::*;
 

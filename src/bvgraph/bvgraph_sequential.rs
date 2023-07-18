@@ -280,6 +280,9 @@ impl<CR: WebGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     }
 }
 
+unsafe impl<CR: WebGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
+unsafe impl SortedIterator for std::vec::IntoIter<usize> {}
+
 impl<CR: WebGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 
 impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
