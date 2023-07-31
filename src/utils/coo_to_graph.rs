@@ -96,7 +96,7 @@ impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedSequentialPermut
             // store the triple and return the previous successor
             // storing the label since it should be one step behind the successor
             let (_src, dst) = core::mem::replace(&mut node_iter.next_pair, pair);
-            return Some(dst);
+            Some(dst)
         }
     }
 }

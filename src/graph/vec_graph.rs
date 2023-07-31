@@ -190,7 +190,10 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
     fn successors(&self, node: usize) -> Self::RandomSuccessorIter<'_> {
         VecGraphIter {
             iter: self.succ[node].iter(),
-            label: unsafe { core::mem::MaybeUninit::uninit().assume_init() },
+            label: unsafe {
+                #[allow(clippy::uninit_assumed_init)]
+                core::mem::MaybeUninit::uninit().assume_init()
+            },
         }
     }
 }

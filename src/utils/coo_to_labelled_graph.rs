@@ -40,9 +40,13 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
             num_nodes: self.num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
             next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX, unsafe {
+                #[allow(clippy::uninit_assumed_init)]
                 MaybeUninit::uninit().assume_init()
             })),
-            label: unsafe { MaybeUninit::uninit().assume_init() },
+            label: unsafe {
+                #[allow(clippy::uninit_assumed_init)]
+                MaybeUninit::uninit().assume_init()
+            },
             iter,
             _marker: PhantomData,
         }
@@ -72,6 +76,7 @@ impl<'a, L, I: Iterator<Item = (usize, usize, L)>> Iterator
         // This happens if the user doesn't use the successors iter
         while self.next_pair.0 < self.curr_node {
             self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX, unsafe {
+                #[allow(clippy::uninit_assumed_init)]
                 MaybeUninit::uninit().assume_init()
             }));
         }
@@ -109,13 +114,14 @@ impl<'a, L, I: Iterator<Item = (usize, usize, L)>> Iterator
                 .iter
                 .next()
                 .unwrap_or((usize::MAX, usize::MAX, unsafe {
+                    #[allow(clippy::uninit_assumed_init)]
                     MaybeUninit::uninit().assume_init()
                 }));
             // store the triple and return the previous successor
             // storing the label since it should be one step behind the successor
             let (_src, dst, label) = core::mem::replace(&mut node_iter.next_pair, pair);
             node_iter.label = label;
-            return Some(dst);
+            Some(dst)
         }
     }
 }

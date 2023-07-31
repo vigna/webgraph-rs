@@ -44,6 +44,16 @@ pub trait SequentialGraph {
 
     /// Get an iterator over the nodes of the graph
     fn iter_nodes(&self) -> Self::NodesIter<'_>;
+
+    /// Get an iterator over the nodes of the graph starting at `start_node`
+    /// (included)
+    fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
+        let mut iter = self.iter_nodes();
+        for _ in 0..start_node {
+            iter.next();
+        }
+        iter
+    }
 }
 
 /// A graph that can be accessed randomly
@@ -128,6 +138,10 @@ impl<G: RandomAccessGraph + Labelled> LabelledRandomAccessGraph for G where
 }
 
 /// Marker trait iterators that return sorted values
+///
+/// # Safety
+/// The values returned by the iterator must be sorted, putting this iterator on
+/// a not sorted iterator will result in undefined behavior
 pub unsafe trait SortedIterator {}
 
 /// A graph that can be accessed both sequentially and randomly,

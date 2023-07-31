@@ -5,6 +5,7 @@ use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 
 /// Create transpose the graph and return a sequential graph view of it
+#[allow(clippy::type_complexity)]
 pub fn transpose<G: SequentialGraph>(
     graph: &G,
     batch_size: usize,
@@ -39,6 +40,7 @@ pub fn transpose<G: SequentialGraph>(
 }
 
 /// Create transpose the graph and return a sequential graph view of it
+#[allow(clippy::type_complexity)]
 pub fn transpose_labelled<G: LabelledSequentialGraph>(
     graph: &G,
     batch_size: usize,

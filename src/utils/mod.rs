@@ -40,12 +40,6 @@ pub use kary_heap::*;
 mod sort_pairs;
 pub use sort_pairs::*;
 
-mod order;
-pub use order::*;
-
-pub mod mph;
-pub mod spooky;
-
 /// Treat an mmap as a slice.
 /// Mmap only implements [`AsRef<[u8]>`] but we need also other types
 /// to be able to read bigger words.
