@@ -5,7 +5,7 @@ mod bfs_order;
 pub use bfs_order::bfs_order;
 
 mod simplify;
-pub use simplify::simplify;
+pub use simplify::*;
 
 mod transpose;
 pub use transpose::*;
