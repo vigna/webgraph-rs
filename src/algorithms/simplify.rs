@@ -70,12 +70,12 @@ where
         pl.light_update();
     }
 
-    let _iter = sorted.iter()?;
-    todo!("How do we break ties of different labels?");
+    // TODO!: how do we break ties on labels?
+    let iter = sorted.iter()?;
 
     // merge the batches
-    //let sorted = COOIterToLabelledGraph::new(graph.num_nodes(), iter);
-    //pl.done();
+    let sorted = COOIterToLabelledGraph::new(graph.num_nodes(), iter);
+    pl.done();
 
-    //Ok(sorted)
+    Ok(sorted)
 }
