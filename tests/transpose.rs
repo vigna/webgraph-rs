@@ -5,7 +5,7 @@ use webgraph::prelude::*;
 fn test_transpose() -> Result<()> {
     const TRANSPOSED_PATH: &str = "tests/data/cnr-2000-transposed";
     const RE_TRANSPOSED_PATH: &str = "tests/data/cnr-2000-transposed-transposed";
-    const BATCH_SIZE: usize = 10_000;
+    const BATCH_SIZE: usize = 100_000;
 
     stderrlog::new()
         .verbosity(2)
