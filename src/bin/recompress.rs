@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::Parser;
 use clap::ValueEnum;
 use dsi_bitstream::prelude::*;
-use rayon::ThreadPoolBuilder;
 use webgraph::prelude::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -93,19 +92,13 @@ pub fn main() -> Result<()> {
 
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
 
-    ThreadPoolBuilder::new()
-        .num_threads(args.num_cpus.unwrap_or(rayon::max_num_threads()))
-        .build()
-        .unwrap()
-        .install(|| {
-            webgraph::graph::bvgraph::parallel_compress_sequential_iter(
-                args.new_basename,
-                seq_graph.iter_nodes(),
-                seq_graph.num_nodes(),
-                compression_flags,
-            )
-            .unwrap();
-        });
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter(
+        args.new_basename,
+        seq_graph.iter_nodes(),
+        seq_graph.num_nodes(),
+        compression_flags,
+        args.num_cpus.unwrap_or(rayon::max_num_threads()),
+    )?;
 
     Ok(())
 }

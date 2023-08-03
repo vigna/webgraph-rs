@@ -18,10 +18,10 @@ pub fn parallel_compress_sequential_iter<
     mut iter: I,
     num_nodes: usize,
     compression_flags: CompFlags,
+    num_threads: usize,
 ) -> Result<usize> {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
-    let num_threads = rayon::current_num_threads();
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();

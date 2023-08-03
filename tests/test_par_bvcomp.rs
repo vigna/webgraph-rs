@@ -19,20 +19,15 @@ fn test_par_bvcomp() -> Result<()> {
         // create a threadpool and make the compression use it, this way
         // we can test with different number of threads
         let start = std::time::Instant::now();
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(thread_num)
-            .build()
-            .unwrap()
-            .install(|| {
-                // recompress the graph in parallel
-                webgraph::graph::bvgraph::parallel_compress_sequential_iter(
-                    tmp_basename,
-                    graph.iter_nodes(),
-                    graph.num_nodes(),
-                    comp_flags.clone(),
-                )
-                .unwrap();
-            });
+        // recompress the graph in parallel
+        webgraph::graph::bvgraph::parallel_compress_sequential_iter(
+            tmp_basename,
+            graph.iter_nodes(),
+            graph.num_nodes(),
+            comp_flags.clone(),
+            thread_num,
+        )
+        .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
         let comp_graph = webgraph::graph::bvgraph::load_seq(tmp_basename)?;

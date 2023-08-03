@@ -98,22 +98,17 @@ pub fn main() -> Result<()> {
 
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
 
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_cpus.unwrap_or(rayon::max_num_threads()))
-        .build()
-        .unwrap()
-        .install(|| {
-            // transpose the graph
-            let sorted = webgraph::algorithms::transpose(&seq_graph, args.batch_size).unwrap();
-            // compress the transposed graph
-            parallel_compress_sequential_iter(
-                args.basename,
-                sorted.iter_nodes(),
-                seq_graph.num_nodes(),
-                compression_flags,
-            )
-            .unwrap();
-        });
+    // transpose the graph
+    let sorted = webgraph::algorithms::transpose(&seq_graph, args.batch_size).unwrap();
+    // compress the transposed graph
+    parallel_compress_sequential_iter(
+        args.basename,
+        sorted.iter_nodes(),
+        seq_graph.num_nodes(),
+        compression_flags,
+        args.num_cpus.unwrap_or(rayon::current_num_threads()),
+    )
+    .unwrap();
 
     Ok(())
 }

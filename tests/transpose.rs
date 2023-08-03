@@ -25,6 +25,7 @@ fn test_transpose() -> Result<()> {
         transposed.iter_nodes(),
         num_nodes,
         compression_flags,
+        rayon::current_num_threads(),
     )?;
     // check it
     let transposed_graph = webgraph::graph::bvgraph::load_seq(TRANSPOSED_PATH)?;
@@ -43,6 +44,7 @@ fn test_transpose() -> Result<()> {
         retransposed.iter_nodes(),
         num_nodes,
         compression_flags,
+        rayon::current_num_threads(),
     )?;
     // check it
     let retransposed_graph = webgraph::graph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
