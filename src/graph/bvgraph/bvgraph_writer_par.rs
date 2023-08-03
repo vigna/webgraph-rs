@@ -75,6 +75,7 @@ pub fn parallel_compress_sequential_iter<
                 // Spawn the thread
                 let thread_iter = iter.clone().take(nodes_per_thread);
                 s.spawn(move || {
+                    log::info!("Thread {} started", thread_id,);
                     let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
                         BufWriter::new(File::create(&file_path).unwrap()),
                     ));
@@ -99,6 +100,7 @@ pub fn parallel_compress_sequential_iter<
                     num_arcs_ref.fetch_add(bvcomp.arcs, Ordering::Release);
                     semaphore.store(written_bits, Ordering::Release);
                 });
+                log::info!("Skipping {} nodes from the iterator", nodes_per_thread);
 
                 // skip the next nodes_per_thread nodes
                 for _ in 0..nodes_per_thread {
