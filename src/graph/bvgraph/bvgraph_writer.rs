@@ -550,7 +550,7 @@ mod test {
         let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
-        let file_path = std::env::temp_dir().join("cnr-2000.bvcomp");
+        let file_path = "tests/data/cnr-2000.bvcomp";
         let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
             File::create(&file_path)?,
         )));
@@ -596,6 +596,8 @@ mod test {
             let seq_succ = seq_succ.collect::<Vec<_>>();
             assert_eq!(true_succ, seq_succ, "node_id: {}", i);
         }
+
+        std::fs::remove_file(file_path).unwrap();
 
         Ok(())
     }
