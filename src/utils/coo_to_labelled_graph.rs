@@ -17,7 +17,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> COOIterT
     }
 }
 
-impl<'a, L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Labelled
+impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Labelled
     for COOIterToLabelledGraph<I>
 {
     type Label = L;

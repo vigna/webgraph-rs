@@ -31,6 +31,7 @@ pub fn parallel_compress_sequential_iter<
     std::thread::scope(|s| {
         // collect the handles in vec, otherwise the handles will be dropped
         // in-place calling a join and making the algorithm sequential.
+        #[allow(clippy::type_complexity)]
         let mut handles: Vec<Mutex<Option<ScopedJoinHandle<(usize, usize)>>>> = vec![];
         handles.resize_with(num_threads, || Mutex::new(None));
         let handles = Arc::new(handles);
@@ -110,7 +111,7 @@ pub fn parallel_compress_sequential_iter<
             let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
             // complete the last chunk
             let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
-                File::create(&last_file_path).unwrap(),
+                File::create(last_file_path).unwrap(),
             )));
             let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, &compression_flags);
             let mut bvcomp = BVComp::new(
