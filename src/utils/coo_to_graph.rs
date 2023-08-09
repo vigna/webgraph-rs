@@ -77,6 +77,14 @@ impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedNodePermutedIter
     }
 }
 
+impl<'a, I: Iterator<Item = (usize, usize)>> ExactSizeIterator
+    for SortedNodePermutedIterator<'a, I>
+{
+    fn len(&self) -> usize {
+        self.num_nodes
+    }
+}
+
 #[derive(Debug, Clone)]
 /// Iter until we found a triple with src different than curr_node
 pub struct SortedSequentialPermutedIterator<'a, I: Iterator<Item = (usize, usize)>> {

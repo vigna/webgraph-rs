@@ -95,7 +95,6 @@ pub fn main() -> Result<()> {
     webgraph::graph::bvgraph::parallel_compress_sequential_iter(
         args.new_basename,
         seq_graph.iter_nodes(),
-        seq_graph.num_nodes(),
         compression_flags,
         args.num_cpus.unwrap_or(rayon::max_num_threads()),
     )?;

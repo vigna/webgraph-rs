@@ -104,7 +104,6 @@ pub fn main() -> Result<()> {
     parallel_compress_sequential_iter(
         args.basename,
         sorted.iter_nodes(),
-        seq_graph.num_nodes(),
         compression_flags,
         args.num_cpus.unwrap_or(rayon::current_num_threads()),
     )

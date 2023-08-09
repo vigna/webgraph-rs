@@ -12,17 +12,17 @@ use tempfile::tempdir;
 /// lenght in bits of the produced file
 pub fn parallel_compress_sequential_iter<
     P: AsRef<Path> + Send + Sync,
-    I: Iterator<Item = (usize, J)> + Clone + Send,
+    I: ExactSizeIterator<Item = (usize, J)> + Clone + Send,
     J: Iterator<Item = usize>,
 >(
     basename: P,
     mut iter: I,
-    num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
 ) -> Result<usize> {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
+    let num_nodes = iter.len();
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();
