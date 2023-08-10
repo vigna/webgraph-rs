@@ -1,67 +1,45 @@
 use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::thread::ScopedJoinHandle;
 use tempfile::tempdir;
 
-/// Compress an iterator of nodes and successors in parllel and return the
-/// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<
-    P: AsRef<Path> + Send + Sync,
-    I: ExactSizeIterator<Item = (usize, J)> + Clone + Send,
-    J: Iterator<Item = usize>,
->(
-    basename: P,
-    mut iter: I,
-    compression_flags: CompFlags,
-    num_threads: usize,
-) -> Result<usize> {
-    let basename = basename.as_ref();
+macro_rules! parallel_compress_iter {
+    (
+        $basename: expr,
+        $num_nodes: expr,
+        $chunks: expr,
+        $compression_flags: expr,
+        $num_threads: expr
+    ) => {{
+    let basename = $basename.as_ref();
+    let num_nodes = $num_nodes;
+    let num_threads = $num_threads;
+    let compression_flags = $compression_flags;
     let graph_path = format!("{}.graph", basename.to_string_lossy());
-    let num_nodes = iter.len();
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();
     let tmp_dir = dir.clone();
 
-    std::thread::scope(|s| {
-        // collect the handles in vec, otherwise the handles will be dropped
-        // in-place calling a join and making the algorithm sequential.
-        #[allow(clippy::type_complexity)]
-        let mut handles: Vec<Mutex<Option<ScopedJoinHandle<(usize, usize)>>>> = vec![];
-        handles.resize_with(num_threads, || Mutex::new(None));
-        let handles = Arc::new(handles);
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+        .unwrap();
 
+    pool.install(|| {
         let cp_flags = &compression_flags;
 
-        // spawn a the thread for the last chunk that will spawn all the previous ones
-        // this will be the longest running thread
-        let last_thread_id = num_threads - 1;
-        // handle the case when this is the only available thread
-        let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
+        let thread_results: Vec<(_, usize, _)> = $chunks
+            .map(|(thread_id, thread_iter)| {
 
-        log::info!(
-            "Spawning the main compression thread {} writing on {} writing from node_id {} to {}",
-            last_thread_id,
-            last_file_path.to_string_lossy(),
-            last_thread_id * nodes_per_thread,
-            num_nodes,
-        );
-        let sub_handles = handles.clone();
-        let handle = s.spawn(move || {
-            // for the first N - 1 threads, clone the iter and skip to the next
-            // splitting point, then start a new compression thread
-            for thread_id in 0..num_threads.saturating_sub(1) {
-                // the first thread can directly write to the result bitstream
                 let file_path = tmp_dir
                     .clone()
                     .join(format!("{:016x}.bitstream", thread_id));
 
-                // spawn the thread
                 log::info!(
                     "Spawning compression thread {} writing on {} form node id {} to {}",
                     thread_id,
@@ -69,10 +47,7 @@ pub fn parallel_compress_sequential_iter<
                     nodes_per_thread * thread_id,
                     nodes_per_thread * (thread_id + 1),
                 );
-                // Spawn the thread
-                let thread_iter = iter.clone().take(nodes_per_thread);
-                let handle = s.spawn(move || {
-                    log::info!("Thread {} started", thread_id,);
+
                     let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
                         BufWriter::new(File::create(&file_path).unwrap()),
                     ));
@@ -84,7 +59,8 @@ pub fn parallel_compress_sequential_iter<
                         cp_flags.max_ref_count,
                         nodes_per_thread * thread_id,
                     );
-                    let written_bits = bvcomp.extend(thread_iter).unwrap();
+
+                    let written_bits = bvcomp.extend(thread_iter.into_iter()).unwrap();
 
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
@@ -93,48 +69,10 @@ pub fn parallel_compress_sequential_iter<
                         nodes_per_thread * thread_id,
                         nodes_per_thread * (thread_id + 1),
                     );
+                    (thread_id, written_bits, bvcomp.arcs)
+            })
+            .collect();
 
-                    (written_bits, bvcomp.arcs)
-                });
-                {
-                    *(sub_handles[thread_id]).lock().unwrap() = Some(handle);
-                }
-                log::info!("Skipping {} nodes from the iterator", nodes_per_thread);
-
-                // skip the next nodes_per_thread nodes
-                for _ in 0..nodes_per_thread {
-                    iter.next();
-                }
-            }
-
-            // handle the case when this is the only available thread
-            let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
-            // complete the last chunk
-            let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
-                File::create(last_file_path).unwrap(),
-            )));
-            let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, &compression_flags);
-            let mut bvcomp = BVComp::new(
-                codes_writer,
-                compression_flags.compression_window,
-                compression_flags.min_interval_length,
-                compression_flags.max_ref_count,
-                last_thread_id * nodes_per_thread,
-            );
-            let written_bits = bvcomp.extend(iter).unwrap();
-
-            log::info!(
-                "Finished Compression thread {} and wrote {} bits [{}, {})",
-                last_thread_id,
-                written_bits,
-                last_thread_id * nodes_per_thread,
-                num_nodes,
-            );
-            (written_bits, bvcomp.arcs)
-        });
-        {
-            *(handles[last_thread_id]).lock().unwrap() = Some(handle);
-        }
         // setup the final bitstream from the end, because the first thread
         // already wrote the first chunk
         let file = File::create(graph_path)?;
@@ -147,19 +85,7 @@ pub fn parallel_compress_sequential_iter<
         let mut total_arcs = 0;
         // glue toghether the bitstreams as they finish, this allows us to do
         // task pipelining for better performance
-        for thread_id in 0..num_threads {
-            log::info!("Waiting for thread {}", thread_id);
-            // wait for the thread to finish
-            let (mut bits_to_copy, n_arcs) = loop {
-                {
-                    let mut maybe_handle = handles[thread_id].lock().unwrap();
-                    if maybe_handle.is_some() {
-                        break maybe_handle.take().unwrap().join().unwrap();
-                    }
-                }
-                std::thread::yield_now();
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            };
+        for (thread_id, mut bits_to_copy, n_arcs) in thread_results {
             total_arcs += n_arcs;
             // compute the path of the bitstream created by this thread
             let file_path = dir.clone().join(format!("{:016x}.bitstream", thread_id));
@@ -206,4 +132,52 @@ pub fn parallel_compress_sequential_iter<
         std::fs::remove_dir_all(dir)?;
         Ok(result_len)
     })
+    }}
+}
+
+/// Compress an iterator of nodes and successors in parallel and return the
+/// lenght in bits of the produced file
+pub fn parallel_compress_sequential_iter<
+    P: AsRef<Path> + Send + Sync,
+    I: ExactSizeIterator<Item = (usize, J)> + Send,
+    J: Iterator<Item = usize>,
+>(
+    basename: P,
+    iter: I,
+    compression_flags: CompFlags,
+    num_threads: usize,
+) -> Result<usize> {
+    use itertools::Itertools;
+    let num_nodes = iter.len();
+    let nodes_per_thread = num_nodes / num_threads;
+    parallel_compress_iter!(
+        basename,
+        num_nodes,
+        iter.chunks(nodes_per_thread).into_iter().enumerate(),
+        compression_flags,
+        num_threads
+    )
+}
+
+/// Compress an iterator of nodes and successors in parallel and return the
+/// lenght in bits of the produced file
+pub fn parallel_compress_parallel_iter<
+    P: AsRef<Path> + Send + Sync,
+    I: IndexedParallelIterator<Item = (usize, J)>,
+    J: Iterator<Item = usize>,
+>(
+    basename: P,
+    iter: I,
+    compression_flags: CompFlags,
+    num_threads: usize,
+) -> Result<usize> {
+    let num_nodes = iter.len();
+    let nodes_per_thread = num_nodes / num_threads;
+    parallel_compress_iter!(
+        basename,
+        num_nodes,
+        iter.chunks(nodes_per_thread).enumerate(),
+        compression_flags,
+        num_threads
+    )
 }
