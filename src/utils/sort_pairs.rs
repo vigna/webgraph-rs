@@ -284,6 +284,11 @@ impl<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> Iterator
     }
 }
 
+unsafe impl<T: Copy, I: Iterator<Item = (usize, usize, T)> + SortedIterator> SortedIterator
+    for KMergeIters<T, I>
+{
+}
+
 #[cfg(test)]
 #[test]
 pub fn test_push() -> Result<()> {
