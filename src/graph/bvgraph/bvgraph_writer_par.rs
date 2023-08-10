@@ -42,28 +42,28 @@ macro_rules! parallel_compress_iter {
                     nodes_per_chunk * (chunk_id + 1),
                 );
 
-                    let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
-                        BufWriter::new(File::create(&file_path).unwrap()),
-                    ));
-                    let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, cp_flags);
-                    let mut bvcomp = BVComp::new(
-                        codes_writer,
-                        cp_flags.compression_window,
-                        cp_flags.min_interval_length,
-                        cp_flags.max_ref_count,
-                        nodes_per_chunk * chunk_id,
-                    );
+                let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
+                    BufWriter::new(File::create(&file_path).unwrap()),
+                ));
+                let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, cp_flags);
+                let mut bvcomp = BVComp::new(
+                    codes_writer,
+                    cp_flags.compression_window,
+                    cp_flags.min_interval_length,
+                    cp_flags.max_ref_count,
+                    nodes_per_chunk * chunk_id,
+                );
 
-                    let written_bits = bvcomp.extend(chunk_iter.into_iter()).unwrap();
+                let written_bits = bvcomp.extend(chunk_iter.into_iter()).unwrap();
 
-                    log::info!(
-                        "Finished Compression chunk {} and wrote {} bits bits [{}, {})",
-                        chunk_id,
-                        written_bits,
-                        nodes_per_chunk * chunk_id,
-                        nodes_per_chunk * (chunk_id + 1),
-                    );
-                    (chunk_id, written_bits, bvcomp.arcs)
+                log::info!(
+                    "Finished Compression chunk {} and wrote {} bits bits [{}, {})",
+                    chunk_id,
+                    written_bits,
+                    nodes_per_chunk * chunk_id,
+                    nodes_per_chunk * (chunk_id + 1),
+                );
+                (chunk_id, written_bits, bvcomp.arcs)
             })
             .collect();
 
