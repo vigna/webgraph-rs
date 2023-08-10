@@ -14,17 +14,17 @@ fn test_par_bvcomp() -> Result<()> {
 
     // load the graph
     let graph = webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
-    for thread_num in 1..10 {
-        log::info!("Testing with {} threads", thread_num);
+    for chunk_num in 1..10 {
+        log::info!("Testing with {} chunks", chunk_num);
         // create a threadpool and make the compression use it, this way
-        // we can test with different number of threads
+        // we can test with different number of chunks
         let start = std::time::Instant::now();
         // recompress the graph in parallel
         webgraph::graph::bvgraph::parallel_compress_sequential_iter(
             tmp_basename,
             graph.iter_nodes(),
             comp_flags.clone(),
-            thread_num,
+            chunk_num,
         )
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());

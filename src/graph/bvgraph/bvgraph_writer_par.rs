@@ -13,39 +13,33 @@ macro_rules! parallel_compress_iter {
         $num_nodes: expr,
         $chunks: expr,
         $compression_flags: expr,
-        $num_threads: expr
+        $num_chunks: expr
     ) => {{
-    let basename = $basename.as_ref();
-    let num_nodes = $num_nodes;
-    let num_threads = $num_threads;
-    let compression_flags = $compression_flags;
-    let graph_path = format!("{}.graph", basename.to_string_lossy());
-    assert_ne!(num_threads, 0);
-    let nodes_per_thread = num_nodes / num_threads;
-    let dir = tempdir()?.into_path();
-    let tmp_dir = dir.clone();
+        let basename = $basename.as_ref();
+        let num_nodes = $num_nodes;
+        let num_chunks = $num_chunks;
+        let compression_flags = $compression_flags;
+        let graph_path = format!("{}.graph", basename.to_string_lossy());
+        assert_ne!(num_chunks, 0);
+        let nodes_per_chunk = num_nodes / num_chunks;
+        let dir = tempdir()?.into_path();
+        let tmp_dir = dir.clone();
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .unwrap();
-
-    pool.install(|| {
         let cp_flags = &compression_flags;
 
-        let thread_results: Vec<(_, usize, _)> = $chunks
-            .map(|(thread_id, thread_iter)| {
+        let chunk_results: Vec<(_, usize, _)> = $chunks
+            .map(|(chunk_id, chunk_iter)| {
 
                 let file_path = tmp_dir
                     .clone()
-                    .join(format!("{:016x}.bitstream", thread_id));
+                    .join(format!("{:016x}.bitstream", chunk_id));
 
                 log::info!(
-                    "Spawning compression thread {} writing on {} form node id {} to {}",
-                    thread_id,
+                    "Spawning compression chunk {} writing on {} form node id {} to {}",
+                    chunk_id,
                     file_path.to_string_lossy(),
-                    nodes_per_thread * thread_id,
-                    nodes_per_thread * (thread_id + 1),
+                    nodes_per_chunk * chunk_id,
+                    nodes_per_chunk * (chunk_id + 1),
                 );
 
                     let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
@@ -57,23 +51,23 @@ macro_rules! parallel_compress_iter {
                         cp_flags.compression_window,
                         cp_flags.min_interval_length,
                         cp_flags.max_ref_count,
-                        nodes_per_thread * thread_id,
+                        nodes_per_chunk * chunk_id,
                     );
 
-                    let written_bits = bvcomp.extend(thread_iter.into_iter()).unwrap();
+                    let written_bits = bvcomp.extend(chunk_iter.into_iter()).unwrap();
 
                     log::info!(
-                        "Finished Compression thread {} and wrote {} bits bits [{}, {})",
-                        thread_id,
+                        "Finished Compression chunk {} and wrote {} bits bits [{}, {})",
+                        chunk_id,
                         written_bits,
-                        nodes_per_thread * thread_id,
-                        nodes_per_thread * (thread_id + 1),
+                        nodes_per_chunk * chunk_id,
+                        nodes_per_chunk * (chunk_id + 1),
                     );
-                    (thread_id, written_bits, bvcomp.arcs)
+                    (chunk_id, written_bits, bvcomp.arcs)
             })
             .collect();
 
-        // setup the final bitstream from the end, because the first thread
+        // setup the final bitstream from the end, because the first chunk
         // already wrote the first chunk
         let file = File::create(graph_path)?;
 
@@ -85,10 +79,10 @@ macro_rules! parallel_compress_iter {
         let mut total_arcs = 0;
         // glue toghether the bitstreams as they finish, this allows us to do
         // task pipelining for better performance
-        for (thread_id, mut bits_to_copy, n_arcs) in thread_results {
+        for (chunk_id, mut bits_to_copy, n_arcs) in chunk_results {
             total_arcs += n_arcs;
-            // compute the path of the bitstream created by this thread
-            let file_path = dir.clone().join(format!("{:016x}.bitstream", thread_id));
+            // compute the path of the bitstream created by this chunk
+            let file_path = dir.clone().join(format!("{:016x}.bitstream", chunk_id));
             log::info!(
                 "Copying {} [{}, {}) bits from {} to {}",
                 bits_to_copy,
@@ -131,7 +125,6 @@ macro_rules! parallel_compress_iter {
         // cleanup the temp files
         std::fs::remove_dir_all(dir)?;
         Ok(result_len)
-    })
     }}
 }
 
@@ -145,17 +138,17 @@ pub fn parallel_compress_sequential_iter<
     basename: P,
     iter: I,
     compression_flags: CompFlags,
-    num_threads: usize,
+    num_chunks: usize,
 ) -> Result<usize> {
     use itertools::Itertools;
     let num_nodes = iter.len();
-    let nodes_per_thread = num_nodes / num_threads;
+    let nodes_per_chunk = num_nodes / num_chunks;
     parallel_compress_iter!(
         basename,
         num_nodes,
-        iter.chunks(nodes_per_thread).into_iter().enumerate(),
+        iter.chunks(nodes_per_chunk).into_iter().enumerate(),
         compression_flags,
-        num_threads
+        num_chunks
     )
 }
 
@@ -169,15 +162,15 @@ pub fn parallel_compress_parallel_iter<
     basename: P,
     iter: I,
     compression_flags: CompFlags,
-    num_threads: usize,
+    num_chunks: usize,
 ) -> Result<usize> {
     let num_nodes = iter.len();
-    let nodes_per_thread = num_nodes / num_threads;
+    let nodes_per_chunk = num_nodes / num_chunks;
     parallel_compress_iter!(
         basename,
         num_nodes,
-        iter.chunks(nodes_per_thread).enumerate(),
+        iter.chunks(nodes_per_chunk).enumerate(),
         compression_flags,
-        num_threads
+        num_chunks
     )
 }
