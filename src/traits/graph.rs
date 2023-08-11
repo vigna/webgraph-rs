@@ -20,13 +20,23 @@ where
     }
 }
 
+impl<'a, G> ExactSizeIterator for SequentialGraphImplIter<'a, G>
+where
+    G: RandomAccessGraph
+        + SequentialGraph<SequentialSuccessorIter<'a> = G::RandomSuccessorIter<'a>>,
+{
+    fn len(&self) -> usize {
+        self.graph.num_nodes()
+    }
+}
+
 /// We iter on the node ids in a range so it is sorted
 unsafe impl<'a, G: RandomAccessGraph> SortedIterator for SequentialGraphImplIter<'a, G> {}
 
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
     /// Iterator over the nodes of the graph
-    type NodesIter<'a>: Iterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
+    type NodesIter<'a>: ExactSizeIterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
     where
         Self: 'a;
     /// Iterator over the successors of a node

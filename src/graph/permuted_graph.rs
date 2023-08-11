@@ -36,12 +36,16 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
 
 #[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
-pub struct NodePermutedIterator<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> {
+pub struct NodePermutedIterator<
+    'a,
+    I: ExactSizeIterator<Item = (usize, J)>,
+    J: Iterator<Item = usize>,
+> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
+impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
     for NodePermutedIterator<'a, I, J>
 {
     type Item = (usize, SequentialPermutedIterator<'a, J>);
@@ -56,6 +60,14 @@ impl<'a, I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
                 },
             )
         })
+    }
+}
+
+impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> ExactSizeIterator
+    for NodePermutedIterator<'a, I, J>
+{
+    fn len(&self) -> usize {
+        self.iter.len()
     }
 }
 
