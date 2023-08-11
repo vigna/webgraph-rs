@@ -1,5 +1,5 @@
 use crate::{traits::SortedIterator, utils::KAryHeap};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use core::marker::PhantomData;
 use dsi_bitstream::prelude::*;
 use rayon::prelude::*;
@@ -48,14 +48,24 @@ impl<T: SortPairsPayload> core::ops::Drop for SortPairs<T> {
 
 impl<T: SortPairsPayload> SortPairs<T> {
     /// Create a new `SortPairs` with a given batch size
+    ///
+    /// The `dir` must be empty, and in particular it **must not** be shared
+    /// with other `SortPairs` instances.
     pub fn new<P: AsRef<Path>>(batch_size: usize, dir: P) -> Result<Self> {
-        Ok(SortPairs {
-            batch_size,
-            last_batch_len: 0,
-            batch: Vec::with_capacity(batch_size),
-            dir: dir.as_ref().to_owned(),
-            num_batches: 0,
-        })
+        let dir = dir.as_ref();
+        let mut dir_entries =
+            std::fs::read_dir(dir).with_context(|| format!("Could not list {}", dir.display()))?;
+        if dir_entries.next().is_some() {
+            Err(anyhow!("{} is not empty", dir.display()))
+        } else {
+            Ok(SortPairs {
+                batch_size,
+                last_batch_len: 0,
+                batch: Vec::with_capacity(batch_size),
+                dir: dir.to_owned(),
+                num_batches: 0,
+            })
+        }
     }
 
     /// Add a triple to the graph.
