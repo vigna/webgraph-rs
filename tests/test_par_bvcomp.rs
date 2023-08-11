@@ -23,7 +23,6 @@ fn test_par_bvcomp() -> Result<()> {
         webgraph::graph::bvgraph::parallel_compress_sequential_iter(
             tmp_basename,
             graph.iter_nodes(),
-            graph.num_nodes(),
             comp_flags.clone(),
             thread_num,
         )

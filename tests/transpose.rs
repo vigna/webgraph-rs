@@ -23,11 +23,11 @@ fn test_transpose() -> Result<()> {
     parallel_compress_sequential_iter(
         TRANSPOSED_PATH,
         transposed.iter_nodes(),
-        num_nodes,
         compression_flags,
         rayon::current_num_threads(),
     )?;
     // check it
+    assert_eq!(transposed.iter_nodes().len(), num_nodes);
     let transposed_graph = webgraph::graph::bvgraph::load_seq(TRANSPOSED_PATH)?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
 
@@ -42,11 +42,11 @@ fn test_transpose() -> Result<()> {
     parallel_compress_sequential_iter(
         RE_TRANSPOSED_PATH,
         retransposed.iter_nodes(),
-        num_nodes,
         compression_flags,
         rayon::current_num_threads(),
     )?;
     // check it
+    assert_eq!(retransposed.iter_nodes().len(), num_nodes);
     let retransposed_graph = webgraph::graph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);
 
