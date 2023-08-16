@@ -1,6 +1,6 @@
 unsafe fn invert_permutation_inner<O: ExactSizeIterator<Item = usize>>(
     order: O,
-    permutation: &mut Vec<usize>,
+    permutation: &mut [usize],
     check_duplicates: bool,
 ) -> Result<(), usize> {
     let num_items = order.len();
@@ -37,7 +37,7 @@ pub fn invert_permutation<O: ExactSizeIterator<Item = usize>>(
     order: O,
 ) -> Result<Vec<usize>, usize> {
     let mut permutation = vec![usize::MAX; order.len()];
-    unsafe { invert_permutation_inner(order, &mut permutation, true) }?;
+    unsafe { invert_permutation_inner(order, &mut permutation[..], true) }?;
     Ok(permutation)
 }
 
@@ -53,6 +53,21 @@ pub unsafe fn invert_permutation_unchecked<O: ExactSizeIterator<Item = usize>>(
 ) -> Vec<usize> {
     let mut permutation = Vec::with_capacity(order.len());
     unsafe { permutation.set_len(order.len()) };
-    unsafe { invert_permutation_inner(order, &mut permutation, false) }.unwrap();
+    unsafe { invert_permutation_into_unchecked(order, &mut permutation[..]) };
     permutation
+}
+
+/// Same as [`invert_permutation_unchecked`], but writes to a slice instead of
+/// returning a vector.
+///
+/// # Panics
+///
+/// If [`ExactSizeIterator::len`] does not return the number of elements in `order`,
+/// some elements are missing, or the `order` and `permutation` don't have the same length
+pub unsafe fn invert_permutation_into_unchecked<O: ExactSizeIterator<Item = usize>>(
+    order: O,
+    permutation: &mut [usize],
+) {
+    assert_eq!(order.len(), permutation.len());
+    unsafe { invert_permutation_inner(order, permutation, false) }.unwrap();
 }

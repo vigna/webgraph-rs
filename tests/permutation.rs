@@ -1,15 +1,22 @@
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use webgraph::algorithms::{invert_permutation, invert_permutation_unchecked};
+use webgraph::algorithms::{
+    invert_permutation, invert_permutation_into_unchecked, invert_permutation_unchecked,
+};
 
 macro_rules! test_permut {
     ($order:expr, $permut:expr) => {
+        // Test invert_permutation and invert_permutation_unchecked
         assert_eq!(invert_permutation($order.into_iter()), Ok($permut));
         assert_eq!(
             unsafe { invert_permutation_unchecked($order.into_iter()) },
             $permut
         );
+
+        let mut dest = vec![0; $order.len()];
+        unsafe { invert_permutation_into_unchecked($order.into_iter(), &mut dest[..]) };
+        assert_eq!(dest, $permut);
 
         // Check it is its own inverse
         assert_eq!(invert_permutation($permut.into_iter()), Ok($order));
@@ -17,12 +24,16 @@ macro_rules! test_permut {
             unsafe { invert_permutation_unchecked($permut.into_iter()) },
             $order
         );
+
+        let mut dest = vec![0; $permut.len()];
+        unsafe { invert_permutation_into_unchecked($permut.into_iter(), &mut dest[..]) };
+        assert_eq!(dest, $order);
     };
 }
 
 #[test]
 fn test_permutation_trivial() {
-    test_permut!(vec![], vec![]);
+    test_permut!(Vec::<usize>::new(), Vec::<usize>::new());
 
     test_permut!(vec![0], vec![0]);
 
