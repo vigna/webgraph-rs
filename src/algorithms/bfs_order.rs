@@ -64,3 +64,9 @@ impl<'a, G: RandomAccessGraph> Iterator for BfsOrder<'a, G> {
         Some(current_node)
     }
 }
+
+impl<'a, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, G> {
+    fn len(&self) -> usize {
+        self.graph.num_nodes()
+    }
+}
