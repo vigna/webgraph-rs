@@ -12,3 +12,6 @@ pub use transpose::*;
 
 mod compose_orders;
 pub use compose_orders::compose_orders;
+
+mod permutation;
+pub use permutation::*;
