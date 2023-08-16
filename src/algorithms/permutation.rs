@@ -8,6 +8,8 @@ unsafe fn invert_permutation_inner<O: ExactSizeIterator<Item = usize>>(
     for (position, node) in order.into_iter().enumerate() {
         assert!(node < num_items);
         assert!(position < num_items);
+
+        // Safe because of the assertion above.
         if check_duplicates && unsafe { permutation.get_unchecked(node) } != &usize::MAX {
             return Err(node);
         }
@@ -44,30 +46,48 @@ pub fn invert_permutation<O: ExactSizeIterator<Item = usize>>(
 /// Same as [`invert_permutation`] but returns initizalized memory if the
 /// order contains duplicated elements.
 ///
+/// # Safety
+///
+/// Returns uninitialized memory if any id is duplicated.
+///
 /// # Panics
 ///
 /// If [`ExactSizeIterator::len`] does not return the number of elements in `order`,
 /// or if some elements are missing
+#[allow(clippy::uninit_vec)]
 pub unsafe fn invert_permutation_unchecked<O: ExactSizeIterator<Item = usize>>(
     order: O,
 ) -> Vec<usize> {
     let mut permutation = Vec::with_capacity(order.len());
     unsafe { permutation.set_len(order.len()) };
-    unsafe { invert_permutation_into_unchecked(order, &mut permutation[..]) };
+
+    // .unwrap() because it is unchecked so it can't return Err
+    invert_permutation_into_unchecked(order, &mut permutation[..]).unwrap();
+
     permutation
 }
 
 /// Same as [`invert_permutation_unchecked`], but writes to a slice instead of
 /// returning a vector.
 ///
+/// Returns `Err(id)` if any id is duplicated.
+///
+/// # Safety
+///
+/// This function is technically safe as it does not leave uninitialized memory
+/// uninitialized.
+///
+/// However, if it it called with uninitialized memory, it leaves it uninitialized
+/// if any id is duplicated.
+///
 /// # Panics
 ///
 /// If [`ExactSizeIterator::len`] does not return the number of elements in `order`,
 /// some elements are missing, or the `order` and `permutation` don't have the same length
-pub unsafe fn invert_permutation_into_unchecked<O: ExactSizeIterator<Item = usize>>(
+pub fn invert_permutation_into_unchecked<O: ExactSizeIterator<Item = usize>>(
     order: O,
     permutation: &mut [usize],
-) {
+) -> Result<(), usize> {
     assert_eq!(order.len(), permutation.len());
-    unsafe { invert_permutation_inner(order, permutation, false) }.unwrap();
+    unsafe { invert_permutation_inner(order, permutation, false) }
 }

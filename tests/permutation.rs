@@ -15,7 +15,7 @@ macro_rules! test_permut {
         );
 
         let mut dest = vec![0; $order.len()];
-        unsafe { invert_permutation_into_unchecked($order.into_iter(), &mut dest[..]) };
+        invert_permutation_into_unchecked($order.into_iter(), &mut dest[..]).unwrap();
         assert_eq!(dest, $permut);
 
         // Check it is its own inverse
@@ -26,7 +26,7 @@ macro_rules! test_permut {
         );
 
         let mut dest = vec![0; $permut.len()];
-        unsafe { invert_permutation_into_unchecked($permut.into_iter(), &mut dest[..]) };
+        invert_permutation_into_unchecked($permut.into_iter(), &mut dest[..]).unwrap();
         assert_eq!(dest, $order);
     };
 }
