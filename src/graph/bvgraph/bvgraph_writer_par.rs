@@ -39,10 +39,11 @@ pub fn compress_sequential_iter<
         compression_flags.max_ref_count,
         0,
     );
+    let num_nodes = iter.len();
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.item_name = "node";
-    pr.expected_updates = Some(iter.len());
+    pr.expected_updates = Some(num_nodes);
     pr.start("Compressing successors...");
     let mut result = 0;
     for (_node_id, successors) in iter {
@@ -50,6 +51,14 @@ pub fn compress_sequential_iter<
         pr.update();
     }
     pr.done();
+
+    log::info!("Writing the .properties file");
+    let properties = compression_flags.to_properties(num_nodes, bvcomp.arcs);
+    std::fs::write(
+        format!("{}.properties", basename.to_string_lossy()),
+        properties,
+    )?;
+
     bvcomp.flush()?;
     Ok(result)
 }
