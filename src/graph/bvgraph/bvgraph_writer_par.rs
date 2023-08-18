@@ -10,8 +10,8 @@ use std::thread::ScopedJoinHandle;
 use tempfile::tempdir;
 
 pub fn compress_sequential_iter<
-    P: AsRef<Path> + Send + Sync,
-    I: ExactSizeIterator<Item = (usize, J)> + Clone + Send,
+    P: AsRef<Path>,
+    I: ExactSizeIterator<Item = (usize, J)>,
     J: Iterator<Item = usize>,
 >(
     basename: P,
