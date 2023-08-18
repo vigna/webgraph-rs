@@ -32,14 +32,7 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
 
     #[inline(always)]
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        let mut iter = self.iter.clone();
-        SortedNodePermutedIterator {
-            num_nodes: self.num_nodes,
-            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
-            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
-            iter,
-            _marker: PhantomData,
-        }
+        SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
     }
 }
 
@@ -50,6 +43,18 @@ pub struct SortedNodePermutedIterator<'a, I: Iterator<Item = (usize, usize)>> {
     next_pair: (usize, usize),
     iter: I,
     _marker: std::marker::PhantomData<&'a ()>,
+}
+
+impl<'a, I: Iterator<Item = (usize, usize)>> SortedNodePermutedIterator<'a, I> {
+    pub fn new(num_nodes: usize, mut iter: I) -> Self {
+        SortedNodePermutedIterator {
+            num_nodes,
+            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
+            iter,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedNodePermutedIterator<'a, I> {
