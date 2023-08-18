@@ -47,7 +47,7 @@ pub fn compress_sequential_iter<
     let mut result = 0;
     for (_node_id, successors) in iter {
         result += bvcomp.push(successors)?;
-        pr.light_update();
+        pr.update();
     }
     pr.done();
     bvcomp.flush()?;
