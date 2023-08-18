@@ -41,9 +41,9 @@ pub fn compress_sequential_iter<
     );
 
     let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "edge";
+    pr.item_name = "node";
     pr.expected_updates = Some(iter.len());
-    pr.start("Compressing edges...");
+    pr.start("Compressing successors...");
     let mut result = 0;
     for (_node_id, successors) in iter {
         result += bvcomp.push(successors)?;
