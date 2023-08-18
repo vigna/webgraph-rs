@@ -1,12 +1,58 @@
 use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use dsi_progress_logger::ProgressLogger;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread::ScopedJoinHandle;
 use tempfile::tempdir;
+
+pub fn compress_sequential_iter<
+    P: AsRef<Path> + Send + Sync,
+    I: ExactSizeIterator<Item = (usize, J)> + Clone + Send,
+    J: Iterator<Item = usize>,
+>(
+    basename: P,
+    iter: I,
+    compression_flags: CompFlags,
+) -> Result<usize> {
+    let basename = basename.as_ref();
+    let graph_path = format!("{}.graph", basename.to_string_lossy());
+
+    // Compress the graph
+    let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
+        File::create(&graph_path)?,
+    )));
+
+    let comp_flags = CompFlags {
+        ..Default::default()
+    };
+
+    let codes_writer = DynamicCodesWriter::new(bit_write, &comp_flags);
+
+    let mut bvcomp = BVComp::new(
+        codes_writer,
+        compression_flags.compression_window,
+        compression_flags.min_interval_length,
+        compression_flags.max_ref_count,
+        0,
+    );
+
+    let mut pr = ProgressLogger::default().display_memory();
+    pr.item_name = "edge";
+    pr.expected_updates = Some(iter.len());
+    pr.start("Compressing edges...");
+    let mut result = 0;
+    for (_node_id, successors) in iter {
+        result += bvcomp.push(successors)?;
+        pr.light_update();
+    }
+    pr.done();
+    bvcomp.flush()?;
+    Ok(result)
+}
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
