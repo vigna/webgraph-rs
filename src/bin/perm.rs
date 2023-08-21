@@ -1,10 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
-//use dsi_bitstream::prelude::*;
-//use dsi_progress_logger::ProgressLogger;
-//use std::io::prelude::*;
-//use std::io::BufWriter;
-//use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
+use dsi_progress_logger::ProgressLogger;
+use std::io::prelude::*;
+use std::io::BufWriter;
+use tempfile::tempdir;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -15,11 +16,19 @@ struct Args {
     dest: String,
     /// The permutation.
     perm: String,
+
+    /// How many triples to sort at once and dump on a file.
+    #[arg(short, long, default_value_t = 1_000_000_000)]
+    batch_size: usize,
+
+    /// The directory where to put the temporary files needed to sort the paris
+    /// this defaults to the system temporary directory as specified by the
+    /// enviroment variable TMPDIR
+    #[arg(short, long)]
+    tmp_dir: Option<String>,
 }
 
 pub fn main() -> Result<()> {
-    todo!();
-    /*
     let args = Args::parse();
 
     stderrlog::new()
@@ -27,7 +36,11 @@ pub fn main() -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()
         .unwrap();
-    let graph = webgraph::bvgraph::load(&args.source)?;
+
+    // TODO!: check that batchsize fits in memory, and that print the maximum
+    // batch_size usable
+
+    let graph = webgraph::graph::bvgraph::load(&args.source)?;
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "node";
@@ -47,7 +60,14 @@ pub fn main() -> Result<()> {
         },
     );
 
-    let mut sort_pairs = Sorted::new(num_nodes, 1_000_000_000).unwrap();
+    let tmpdir = tempdir().unwrap();
+    let mut sort_pairs = SortPairs::new(
+        args.batch_size,
+        args.tmp_dir
+            .unwrap_or_else(|| tmpdir.path().to_str().unwrap().to_string()),
+    )
+    .unwrap();
+
     PermutedGraph {
         graph: &graph,
         perm: &perm,
@@ -55,17 +75,19 @@ pub fn main() -> Result<()> {
     .iter_nodes()
     .for_each(|(x, succ)| {
         succ.for_each(|s| {
-            sort_pairs.push(x, s).unwrap();
+            sort_pairs.push(x, s, ()).unwrap();
         })
     });
+
+    let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
+    let g = COOIterToGraph::new(num_nodes, edges);
 
     let mut bvcomp = BVComp::new(codes_writer, 1, 4, 3, 0);
     glob_pr.expected_updates = Some(num_nodes);
     glob_pr.item_name = "node";
     glob_pr.start("Writing...");
-    bvcomp.extend(sort_pairs.build()?.iter_nodes())?;
+    bvcomp.extend(g.iter_nodes())?;
     bvcomp.flush()?;
     glob_pr.done();
     Ok(())
-    */
 }
