@@ -39,6 +39,7 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
+            0,
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
@@ -131,6 +132,7 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     /// Create a new iterator from a codes reader
     pub fn new(
         codes_reader: CR,
+        current_node: usize,
         compression_window: usize,
         min_interval_length: usize,
         number_of_nodes: usize,
@@ -141,7 +143,7 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
             compression_window,
             min_interval_length,
             number_of_nodes,
-            current_node: 0,
+            current_node,
         }
     }
 

@@ -581,6 +581,7 @@ mod test {
 
         let mut seq_iter = WebgraphSequentialIter::new(
             codes_reader,
+            0,
             compression_window,
             min_interval_length,
             seq_graph.num_nodes(),
@@ -634,6 +635,7 @@ mod test {
 
         let mut seq_iter = WebgraphSequentialIter::new(
             codes_reader,
+            0,
             compression_window,
             min_interval_length,
             seq_graph.num_nodes(),

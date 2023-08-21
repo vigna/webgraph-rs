@@ -104,6 +104,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     )?;
                                     let seq_reader1 = WebgraphSequentialIter::new(
                                         code_reader,
+                                        0,
                                         compression_flags.compression_window,
                                         compression_flags.min_interval_length,
                                         NODES,

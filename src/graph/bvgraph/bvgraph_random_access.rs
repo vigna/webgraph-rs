@@ -128,6 +128,19 @@ where
         WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),
+            0,
+            self.compression_window,
+            self.min_interval_length,
+            self.number_of_nodes,
+        )
+    }
+
+    fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
+        WebgraphSequentialIter::new(
+            self.codes_reader_builder
+                .get_reader(self.offsets.get(start_node) as _)
+                .unwrap(),
+            start_node,
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
