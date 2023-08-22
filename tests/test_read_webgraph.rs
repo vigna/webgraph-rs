@@ -11,8 +11,7 @@ type BufferType = u64;
 const NODES: usize = 325557;
 const ARCS: usize = 3216152;
 
-#[test]
-fn test_sequential_reading() -> Result<()> {
+fn get_bvgraph() -> Result<impl RandomAccessGraph> {
     // Read the offsets
     let mut data = std::fs::read("tests/data/cnr-2000.offsets").unwrap();
     // pad with zeros so we can read with ReadType words
@@ -56,19 +55,49 @@ fn test_sequential_reading() -> Result<()> {
     let min_interval_length = cf.min_interval_length;
 
     // create a random access reader
-    let bvgraph = BVGraph::new(
+    Ok(BVGraph::new(
         <DynamicCodesReaderBuilder<BE, _>>::new(data, cf).unwrap(),
         sux::prelude::encase_mem(builder.build()),
         min_interval_length,
         compression_window,
         NODES,
         ARCS,
-    );
+    ))
+}
+
+#[test]
+fn test_iter_nodes() -> Result<()> {
+    let bvgraph = get_bvgraph()?;
+
+    let mut seen_node_ids = Vec::new();
 
     // Check that they read the same
     for (node_id, seq_succ) in bvgraph.iter_nodes() {
+        seen_node_ids.push(node_id);
         let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
+    }
+
+    assert_eq!(seen_node_ids, (0..bvgraph.num_nodes()).collect::<Vec<_>>());
+
+    Ok(())
+}
+
+#[test]
+fn test_iter_nodes_from() -> Result<()> {
+    let bvgraph = get_bvgraph()?;
+
+    for i in [0, 1, 2, 5, 10, 100] {
+        let mut seen_node_ids = Vec::new();
+
+        // Check that they read the same
+        for (node_id, seq_succ) in bvgraph.iter_nodes_from(i) {
+            seen_node_ids.push(node_id);
+            let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
+            assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
+        }
+
+        assert_eq!(seen_node_ids, (i..bvgraph.num_nodes()).collect::<Vec<_>>());
     }
 
     Ok(())
