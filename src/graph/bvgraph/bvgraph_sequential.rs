@@ -39,7 +39,6 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
-            0,
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
@@ -111,12 +110,12 @@ where
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Clone)]
 pub struct WebgraphSequentialIter<CR: BVGraphCodesReader> {
-    codes_reader: CR,
-    backrefs: CircularBufferVec,
-    compression_window: usize,
-    min_interval_length: usize,
-    number_of_nodes: usize,
-    current_node: usize,
+    pub(crate) codes_reader: CR,
+    pub(crate) backrefs: CircularBufferVec,
+    pub(crate) compression_window: usize,
+    pub(crate) min_interval_length: usize,
+    pub(crate) number_of_nodes: usize,
+    pub(crate) current_node: usize,
 }
 
 impl<CR: BVGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
@@ -132,7 +131,6 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     /// Create a new iterator from a codes reader
     pub fn new(
         codes_reader: CR,
-        current_node: usize,
         compression_window: usize,
         min_interval_length: usize,
         number_of_nodes: usize,
@@ -143,7 +141,7 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
             compression_window,
             min_interval_length,
             number_of_nodes,
-            current_node,
+            current_node: 0,
         }
     }
 

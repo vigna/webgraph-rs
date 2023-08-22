@@ -2,6 +2,7 @@ use sux::traits::{IndexedDict, MemCase};
 
 use super::*;
 use crate::utils::nat2int;
+use crate::utils::CircularBufferVec;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
@@ -128,7 +129,6 @@ where
         WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),
-            0,
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
@@ -136,15 +136,27 @@ where
     }
 
     fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
-        WebgraphSequentialIter::new(
-            self.codes_reader_builder
-                .get_reader(self.offsets.get(start_node) as _)
-                .unwrap(),
-            start_node,
-            self.compression_window,
-            self.min_interval_length,
-            self.number_of_nodes,
-        )
+        let codes_reader = self
+            .codes_reader_builder
+            .get_reader(self.offsets.get(start_node) as _)
+            .unwrap();
+        // we have to pre-fill the buffer
+        let mut backrefs = CircularBufferVec::new(self.compression_window + 1);
+
+        // TODO!: this can be optimized, but usually the chunk on which we iter is
+        // much bigger than the compression window so it's not urgent
+        for node_id in start_node.saturating_sub(self.compression_window)..start_node {
+            backrefs.push(node_id, self.successors(node_id).collect());
+        }
+
+        WebgraphSequentialIter {
+            codes_reader,
+            backrefs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
+            number_of_nodes: self.number_of_nodes,
+            current_node: start_node,
+        }
     }
 }
 

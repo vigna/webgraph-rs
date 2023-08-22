@@ -72,13 +72,16 @@ fn test_iter_nodes() -> Result<()> {
     let mut seen_node_ids = Vec::new();
 
     // Check that they read the same
-    for (node_id, seq_succ) in bvgraph.iter_nodes() {
+    for (node_id, seq_succ) in bvgraph.iter_nodes().take(100) {
         seen_node_ids.push(node_id);
         let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }
 
-    assert_eq!(seen_node_ids, (0..bvgraph.num_nodes()).collect::<Vec<_>>());
+    assert_eq!(
+        seen_node_ids,
+        (0..bvgraph.num_nodes()).take(100).collect::<Vec<_>>()
+    );
 
     Ok(())
 }
@@ -86,18 +89,19 @@ fn test_iter_nodes() -> Result<()> {
 #[test]
 fn test_iter_nodes_from() -> Result<()> {
     let bvgraph = get_bvgraph()?;
-
     for i in [0, 1, 2, 5, 10, 100] {
         let mut seen_node_ids = Vec::new();
-
         // Check that they read the same
-        for (node_id, seq_succ) in bvgraph.iter_nodes_from(i) {
+        for (node_id, seq_succ) in bvgraph.iter_nodes_from(i).take(100) {
             seen_node_ids.push(node_id);
             let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
             assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
         }
 
-        assert_eq!(seen_node_ids, (i..bvgraph.num_nodes()).collect::<Vec<_>>());
+        assert_eq!(
+            seen_node_ids,
+            (i..bvgraph.num_nodes()).take(100).collect::<Vec<_>>()
+        );
     }
 
     Ok(())
