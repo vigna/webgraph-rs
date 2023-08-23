@@ -8,6 +8,7 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
+use std::mem::MaybeUninit;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use std::sync::Mutex;
@@ -32,6 +33,38 @@ pub fn layered_label_propagation<G>(
 where
     G: RandomAccessGraph + Sync,
 {
+    let (labels, _perm) = layered_label_propagation_uninit(
+        graph,
+        // TODO: Use https://doc.rust-lang.org/std/mem/trait.BikeshedIntrinsicFrom.html
+        // instead of transmute when it becomes stable
+        unsafe { std::mem::transmute::<&mut [usize], &mut [MaybeUninit<usize>]>(perm) },
+        gamma,
+        num_cpus,
+        max_iters,
+        chunk_size,
+        granularity,
+        seed,
+    )?;
+    Ok(labels)
+}
+
+/// Same as [`layered_label_propagation`] but allows the permutation to be uninitialized,
+/// and returns it
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
+pub fn layered_label_propagation_uninit<'a, G>(
+    graph: &G,
+    perm: &'a mut [MaybeUninit<usize>],
+    gamma: f64,
+    num_cpus: Option<usize>,
+    max_iters: usize,
+    chunk_size: usize,
+    granularity: usize,
+    seed: u64,
+) -> Result<(Box<[usize]>, &'a mut [usize])>
+where
+    G: RandomAccessGraph + Sync,
+{
     let num_cpus = num_cpus.unwrap_or_else(num_cpus::get);
     let num_nodes = graph.num_nodes();
 
@@ -43,7 +76,12 @@ where
         );
     }
     // init the permutation with the indices
-    perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
+    perm.iter_mut().enumerate().for_each(|(i, x)| {
+        x.write(i);
+    });
+
+    // Safe because we just checked we initialized every value in the slice.
+    let perm = unsafe { std::mem::transmute::<&mut [MaybeUninit<usize>], &mut [usize]>(perm) };
 
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
@@ -189,7 +227,7 @@ where
     let labels =
         unsafe { std::mem::transmute::<Box<[AtomicUsize]>, Box<[usize]>>(label_store.labels) };
 
-    Ok(labels)
+    Ok((labels, perm))
 }
 
 struct LabelStore {

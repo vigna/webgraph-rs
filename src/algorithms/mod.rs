@@ -1,5 +1,5 @@
 mod llp;
-pub use llp::layered_label_propagation;
+pub use llp::{layered_label_propagation, layered_label_propagation_uninit};
 
 mod bfs_order;
 pub use bfs_order::bfs_order;

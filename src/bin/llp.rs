@@ -56,11 +56,11 @@ pub fn main() -> Result<()> {
     // load the graph
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
 
-    let mut perm = vec![0; graph.num_nodes()];
+    let mut perm = Vec::with_capacity(graph.num_nodes());
     // compute the LLP
-    let labels = layered_label_propagation(
+    let (labels, perm) = layered_label_propagation_uninit(
         &graph,
-        &mut perm,
+        perm.spare_capacity_mut(),
         args.gamma,
         args.num_cpus,
         args.max_iters,
