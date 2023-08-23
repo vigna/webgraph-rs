@@ -30,8 +30,7 @@ pub fn layered_label_propagation<G>(
     seed: u64,
 ) -> Result<Box<[usize]>>
 where
-    G: RandomAccessGraph,
-    for<'a> &'a G: Send + Sync,
+    G: RandomAccessGraph + Sync,
 {
     let num_cpus = num_cpus.unwrap_or_else(num_cpus::get);
     let num_nodes = graph.num_nodes();
