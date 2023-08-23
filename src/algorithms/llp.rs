@@ -101,12 +101,12 @@ where
                         let chunk = &perm[next_pos..end_pos];
 
                         for &node in chunk {
-                            // if the node can't change we can skip it
-                            if !can_change[node].load(Ordering::Relaxed) {
+                            // if the node can't change we can skip it; if it can then
+                            // we mark it as un-changeable for now and we'll unset later
+                            // it if it can
+                            if !can_change[node].fetch_and(false, Ordering::Relaxed) {
                                 continue;
                             }
-                            // set that the node can't change by default and we'll unset later it if it can
-                            can_change[node].store(false, Ordering::Relaxed);
 
                             let successors = graph.successors(node);
                             if successors.len() == 0 {
