@@ -83,30 +83,9 @@ impl<T: SortPairsPayload> SortPairs<T> {
         if self.batch.is_empty() {
             return Ok(());
         }
-        // sort ignoring the payload
-        self.batch.par_sort_unstable_by_key(|(x, y, _)| (*x, *y));
         // create a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
-        let file = std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(&batch_name)?);
-        // createa bitstream to write to the file
-        let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
-        // Dump the triples to the bitstream
-        let (mut prev_src, mut prev_dst) = (0, 0);
-        for &(src, dst, payload) in &self.batch {
-            // write the src gap as gamma
-            stream.write_gamma((src - prev_src) as _)?;
-            if src != prev_src {
-                // Reset prev_y
-                prev_dst = 0;
-            }
-            // write the dst gap as gamma
-            stream.write_gamma((dst - prev_dst) as _)?;
-            // write the payload
-            payload.to_bitstream(&mut stream)?;
-            (prev_src, prev_dst) = (src, dst);
-        }
-        // flush the stream and reset the buffer
-        stream.flush()?;
+        BatchIterator::new_from_vec(batch_name, &mut self.batch)?;
         self.last_batch_len = self.batch.len();
         self.batch.clear();
         self.num_batches += 1;
@@ -156,6 +135,49 @@ pub struct BatchIterator<T: SortPairsPayload> {
 }
 
 impl<T: SortPairsPayload> BatchIterator<T> {
+    /// Sort the given triples in memory, dump them in `file_path` and return an iterator
+    /// over them
+    pub fn new_from_vec<P: AsRef<Path>>(
+        file_path: P,
+        batch: &mut [(usize, usize, T)],
+    ) -> Result<Self> {
+        batch.par_sort_unstable_by_key(|(src, dst, _)| (*src, *dst));
+        unsafe { Self::new_from_vec_sorted(file_path, batch) }
+    }
+
+    /// Dump the given triples in `file_path` and return an iterator
+    /// over them, assuming they are already sorted
+    pub unsafe fn new_from_vec_sorted<P: AsRef<Path>>(
+        file_path: P,
+        batch: &[(usize, usize, T)],
+    ) -> Result<Self> {
+        // create a batch file where to dump
+        let file =
+            std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(file_path.as_ref())?);
+        // createa bitstream to write to the file
+        let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
+        // Dump the triples to the bitstream
+        let (mut prev_src, mut prev_dst) = (0, 0);
+        for &(src, dst, payload) in batch {
+            // write the src gap as gamma
+            stream.write_gamma((src - prev_src) as _)?;
+            if src != prev_src {
+                // Reset prev_y
+                prev_dst = 0;
+            }
+            // write the dst gap as gamma
+            stream.write_gamma((dst - prev_dst) as _)?;
+            // write the payload
+            payload.to_bitstream(&mut stream)?;
+            (prev_src, prev_dst) = (src, dst);
+        }
+        // flush the stream and reset the buffer
+        stream.flush()?;
+
+        Self::new(file_path.as_ref(), batch.len())
+    }
+
+    /// Create a new iterator over the triples previously serialized in `file_path`
     pub fn new<P: AsRef<std::path::Path>>(file_path: P, len: usize) -> Result<Self> {
         let file_path = file_path.as_ref();
         let file = std::io::BufReader::new(
