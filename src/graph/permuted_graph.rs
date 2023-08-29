@@ -32,6 +32,14 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
             perm: self.perm,
         }
     }
+
+    #[inline(always)]
+    fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
+        NodePermutedIterator {
+            iter: self.graph.iter_nodes_from(start_node),
+            perm: self.perm,
+        }
+    }
 }
 
 #[derive(Clone)]

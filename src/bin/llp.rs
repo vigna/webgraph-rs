@@ -13,7 +13,7 @@ struct Args {
     /// The maximum number of LLP iterations
     max_iters: usize,
 
-    #[arg(short, long, default_value_t = 1000)]
+    #[arg(short = 'r', long, default_value_t = 1000)]
     /// The size of the chunks each thread processes for the LLP
     granularity: usize,
 
@@ -74,26 +74,50 @@ pub fn main() -> Result<()> {
     let labels = unsafe { std::mem::transmute::<Box<[usize]>, Box<[u8]>>(labels) };
     std::fs::File::create(format!("{}-{}.labels", args.basename, 0))?.write_all(&labels)?;
 
-    // dump the permutation
-    let cost = PermutedGraph {
+    let pgraph = PermutedGraph {
         graph: &graph,
         perm: &perm,
-    }
-    .iter_nodes()
-    .map(|(x, succ)| {
-        let mut cost = 0;
-        if !succ.len() != 0 {
-            let mut sorted: Vec<_> = succ.collect();
-            sorted.sort();
-            cost += ceil_log2((x as isize - sorted[0] as isize).unsigned_abs());
-            cost += sorted
-                .windows(2)
-                .map(|w| ceil_log2(w[1] - w[0]))
-                .sum::<usize>();
+    };
+    let pgraph_ref = &pgraph;
+    // dump the permutation
+    let num_cpus = args
+        .num_cpus
+        .unwrap_or_else(|| std::thread::available_parallelism().unwrap().get())
+        .min(graph.num_nodes());
+    let nodes_per_thread = graph.num_nodes() / num_cpus;
+    let cost = std::thread::scope(|s| {
+        let mut handles = Vec::with_capacity(num_cpus);
+
+        for i in 0..num_cpus {
+            let start_node = i * nodes_per_thread;
+            let handle = s.spawn(move || {
+                pgraph_ref
+                    .iter_nodes_from(start_node)
+                    .take(nodes_per_thread)
+                    .map(|(x, succ)| {
+                        let mut cost = 0;
+                        let mut sorted: Vec<_> = succ.collect();
+                        if !sorted.is_empty() {
+                            sorted.sort();
+                            cost += ceil_log2((x as isize - sorted[0] as isize).unsigned_abs());
+                            cost += sorted
+                                .windows(2)
+                                .map(|w| ceil_log2(w[1] - w[0]))
+                                .sum::<usize>();
+                        }
+                        cost
+                    })
+                    .sum::<usize>()
+            });
+            handles.push(handle);
         }
-        cost
-    })
-    .sum::<usize>();
+
+        let mut res = 0;
+        for handle in handles {
+            res += handle.join().unwrap();
+        }
+        res
+    });
     log::info!("The final cost is: {}", cost);
 
     Ok(())
