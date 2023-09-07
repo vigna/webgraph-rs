@@ -1,7 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
-use std::io::prelude::*;
-use webgraph::prelude::*;
+use rayon::prelude::*;
+use std::{io::prelude::*, vec};
+use webgraph::{invert_in_place, prelude::*};
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -30,7 +31,7 @@ struct Args {
     /// The number of cores to use
     num_cpus: Option<usize>,
 
-    #[arg(short, long, default_value_t = 0x6135062444a930d0)]
+    #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the prng
     seed: u64,
 }
@@ -49,7 +50,7 @@ pub fn main() -> Result<()> {
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
 
     // compute the LLP
-    let llp_perm = layered_label_propagation(
+    let labels = layered_label_propagation(
         &graph,
         args.gammas,
         args.num_cpus,
@@ -58,6 +59,18 @@ pub fn main() -> Result<()> {
         args.granularity,
         0,
     )?;
+
+    let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
+    llp_perm.par_sort_unstable_by(|&a, &b| labels[a].cmp(&labels[b]));
+    invert_in_place(llp_perm.as_mut_slice());
+
+    let mut seen = vec![false; graph.num_nodes()];
+    for &node in llp_perm.iter() {
+        if seen[node] {
+            panic!("");
+        }
+        seen[node] = true;
+    }
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     // dump the labels

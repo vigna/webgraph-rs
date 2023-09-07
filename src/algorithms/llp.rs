@@ -96,7 +96,7 @@ where
                         }
 
                         // get the label of this node
-                        let curr_label = label_store.label(node as _);
+                        let curr_label = label_store.label(node);
                         // get the count of how many times a
                         // label appears in the successors
                         map.clear();
@@ -106,7 +106,7 @@ where
                                 .or_insert(1_usize);
                         }
                         // add the current label to the map
-                        map.entry(label_store.label(node)).or_insert(0_usize);
+                        map.entry(curr_label).or_insert(0_usize);
 
                         let mut max = f64::NEG_INFINITY;
                         let mut old = 0.0;
@@ -139,19 +139,19 @@ where
                             for succ in graph.successors(node) {
                                 can_change[succ].store(true, Ordering::Relaxed);
                             }
-                            label_store.set(node as _, next_label);
+                            label_store.set(node, next_label);
                         }
                         local_obj_func += max - old;
                     }
                     local_obj_func
                 },
-                |delta0, delta1| delta0 + delta1,
+                |local_obj_func_0, local_obj_func_1| local_obj_func_0 + local_obj_func_1,
                 &thread_pool,
                 granularity,
                 Some(&mut graph_pr),
             );
 
-            let gain = 1.0 - (prev_obj_func / obj_func);
+            let gain = 1.0 - (prev_obj_func / (prev_obj_func + obj_func));
             info!(
                 "Modified: {} Gain: {} PObjFunc: {} ObjFunc: {}",
                 modified.load(Ordering::Relaxed),
@@ -159,8 +159,8 @@ where
                 prev_obj_func,
                 obj_func,
             );
-            prev_obj_func = obj_func;
-            graph_pr.done_with_count(num_nodes as _);
+            prev_obj_func += obj_func;
+            graph_pr.done_with_count(num_nodes);
             iter_pr.update_and_display();
 
             if modified.load(Ordering::Relaxed) == 0 {
@@ -215,11 +215,7 @@ where
         combine(&mut result_labels, *best_labels, &mut temp_perm)?;
     }
 
-    // re-init the permutation
-    temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
-    temp_perm.par_sort_unstable_by(|&a, &b| result_labels[a].cmp(&result_labels[b]));
-
-    Ok(temp_perm.into_boxed_slice())
+    Ok(result_labels.into_boxed_slice())
 }
 
 /// combine the labels from two permutations into a single one
