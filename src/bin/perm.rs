@@ -49,7 +49,7 @@ pub fn main() -> Result<()> {
     std::fs::File::open(args.perm)?
         .read_exact(unsafe { std::mem::transmute::<&mut [usize], &mut [u8]>(&mut perm) })?;
 
-    let bit_write = <BufferedBitStreamWrite<LE, _>>::new(<FileBackend<u64, _>>::new(
+    let bit_write = <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(
         BufWriter::new(std::fs::File::create(args.dest)?),
     ));
 
