@@ -59,7 +59,7 @@ where
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
-    for gamma in &gammas {
+    for (gamma_index, gamma) in gammas.iter().enumerate() {
         let mut prev_obj_func = 0.0;
         for _ in 0..max_iters {
             thread_pool.install(|| {
@@ -190,7 +190,7 @@ where
         costs.push(cost);
 
         // storing the perms
-        let mut file = std::fs::File::create(format!("labels_{}.bin", gamma))?;
+        let mut file = std::fs::File::create(format!("labels_{}.bin", gamma_index))?;
         labels.to_vec().serialize(&mut file)?; // TODO!: REMOVE to_vec
     }
 
@@ -200,16 +200,18 @@ where
     indices.sort_by(|a, b| costs[*b].total_cmp(&costs[*a]));
 
     // the best gamma is the last because it has the min cost
-    let best_gamma = gammas[*indices.last().unwrap()];
+    let best_gamma_index = *indices.last().unwrap();
+    let best_gamma = gammas[best_gamma_index];
     info!("Best gamma: {}", best_gamma);
     // reuse the update_perm to store the final permutation
     let mut temp_perm = update_perm;
 
-    let mut result_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma))?.to_vec();
+    let mut result_labels =
+        load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?.to_vec();
     for index in indices {
-        let labels = load::<Vec<usize>>(format!("labels_{}.bin", gammas[index]))?;
+        let labels = load::<Vec<usize>>(format!("labels_{}.bin", index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
-        let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma))?;
+        let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
         combine(&mut result_labels, *best_labels, &mut temp_perm)?;
     }
 

@@ -22,9 +22,9 @@ struct Args {
     /// at the start of each iteration
     chunk_size: usize,
 
-    #[arg(short, long, default_value_t = 1.0)]
+    #[arg(short, long)]
     /// The gamma to use in LLP
-    gamma: f64,
+    gammas: Vec<f64>,
 
     #[arg(short = 'j', long)]
     /// The number of cores to use
@@ -51,7 +51,7 @@ pub fn main() -> Result<()> {
     // compute the LLP
     let llp_perm = layered_label_propagation(
         &graph,
-        vec![0.0, 0.0, 0.0], // TODO!: remove
+        args.gammas,
         args.num_cpus,
         args.max_iters,
         args.chunk_size,
