@@ -38,15 +38,15 @@ macro_rules! impl_loads {
 
             let graph = MmapBackend::new(unsafe {
                 mmap_rs::MmapOptions::new(file_len as _)?
-                    .with_flags((sux::prelude::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
+                    .with_flags((epserde::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
                     .with_file(file, 0)
                     .map()?
             });
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets = sux::prelude::map::<_, crate::EF<&[u64]>>(
+            let offsets = epserde::map::<crate::EF<Vec<u64>>>(
                 &ef_path,
-                &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
+                epserde::Flags::TRANSPARENT_HUGE_PAGES,
             )
             .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
@@ -92,7 +92,7 @@ macro_rules! impl_loads {
 
             let graph = MmapBackend::new(unsafe {
                 mmap_rs::MmapOptions::new(file_len as _)?
-                    .with_flags((sux::prelude::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
+                    .with_flags((epserde::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
                     .with_file(file, 0)
                     .map()?
             });

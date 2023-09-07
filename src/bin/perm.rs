@@ -21,6 +21,10 @@ struct Args {
     #[arg(short, long, default_value_t = 1_000_000_000)]
     batch_size: usize,
 
+    #[arg(short = 'j', long)]
+    /// The number of cores to use
+    num_cpus: Option<usize>,
+
     /// The directory where to put the temporary files needed to sort the paris
     /// this defaults to the system temporary directory as specified by the
     /// enviroment variable TMPDIR
@@ -41,26 +45,22 @@ pub fn main() -> Result<()> {
     // batch_size usable
 
     let graph = webgraph::graph::bvgraph::load(&args.source)?;
+
     let num_nodes = graph.num_nodes();
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "node";
 
-    let mut perm = (0..num_nodes).collect::<Vec<_>>();
-    std::fs::File::open(args.perm)?
-        .read_exact(unsafe { std::mem::transmute::<&mut [usize], &mut [u8]>(&mut perm) })?;
-
-    let bit_write = <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(
-        BufWriter::new(std::fs::File::create(args.dest)?),
-    ));
-
-    let codes_writer = DynamicCodesWriter::new(
-        bit_write,
-        &CompFlags {
-            ..Default::default()
-        },
-    );
+    // read the permutation
+    let mut perm = vec![0; num_nodes];
+    let file = BufReader::new(std::fs::File::open(args.perm)?);
+    let mut buffer = [0_u8; core::mem::size_of::<usize>()];
+    for i in 0..num_nodes {
+        file.read(&mut buffer)?;
+        perm[i] = usize::from_be_bytes(buffer);
+    }
 
     let tmpdir = tempdir().unwrap();
+    // create a stream where to dump the sorted pairs
     let mut sort_pairs = SortPairs::new(
         args.batch_size,
         args.tmp_dir
@@ -68,6 +68,7 @@ pub fn main() -> Result<()> {
     )
     .unwrap();
 
+    // dump the paris
     PermutedGraph {
         graph: &graph,
         perm: &perm,
@@ -78,16 +79,15 @@ pub fn main() -> Result<()> {
             sort_pairs.push(x, s, ()).unwrap();
         })
     });
-
+    // get a graph on the sorted data
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
     let g = COOIterToGraph::new(num_nodes, edges);
-
-    let mut bvcomp = BVComp::new(codes_writer, 1, 4, 3, 0);
-    glob_pr.expected_updates = Some(num_nodes);
-    glob_pr.item_name = "node";
-    glob_pr.start("Writing...");
-    bvcomp.extend(g.iter_nodes())?;
-    bvcomp.flush()?;
-    glob_pr.done();
+    // compress it
+    parallel_compress_sequential_iter(
+        args.dest,
+        g.iter_nodes(),
+        CompFlags::default(),
+        args.num_cpus.unwrap_or(num_cpus::get()),
+    )?;
     Ok(())
 }

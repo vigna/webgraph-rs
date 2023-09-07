@@ -1,4 +1,5 @@
-use sux::traits::{IndexedDict, MemCase};
+use epserde::MemCase;
+use sux::traits::IndexedDict;
 
 use super::*;
 use crate::utils::nat2int;
