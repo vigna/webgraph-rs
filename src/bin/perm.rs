@@ -8,7 +8,7 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
 struct Args {
-    /// The basename of the sourge graph.
+    /// The basename of the source graph.
     source: String,
     /// The basename of the destination graph.
     dest: String,
