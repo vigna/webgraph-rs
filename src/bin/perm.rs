@@ -1,9 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use std::io::prelude::*;
-use std::io::BufWriter;
+use std::io::{prelude::*, BufReader};
 use tempfile::tempdir;
 use webgraph::prelude::*;
 
@@ -52,7 +50,7 @@ pub fn main() -> Result<()> {
 
     // read the permutation
     let mut perm = vec![0; num_nodes];
-    let file = BufReader::new(std::fs::File::open(args.perm)?);
+    let mut file = BufReader::new(std::fs::File::open(args.perm)?);
     let mut buffer = [0_u8; core::mem::size_of::<usize>()];
     for i in 0..num_nodes {
         file.read(&mut buffer)?;

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use std::io::prelude::*;
-use sux::prelude::*;
+use sux::traits::Select;
 use webgraph::prelude::*;
 
 #[test]
@@ -25,9 +25,9 @@ fn test_offsets() -> Result<()> {
     println!("{:?}", offsets.len());
 
     // Load Elias-fano
-    let ef_offsets = sux::prelude::map::<_, webgraph::EF<&[u64]>>(
+    let ef_offsets = epserde::map::<webgraph::EF<Vec<u64>>>(
         "tests/data/cnr-2000.ef",
-        &sux::prelude::Flags::TRANSPARENT_HUGE_PAGES,
+        epserde::Flags::TRANSPARENT_HUGE_PAGES,
     )?;
 
     for i in 0..graph.num_nodes() {

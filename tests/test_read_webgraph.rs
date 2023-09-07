@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use sux::ranksel::elias_fano;
+use sux::{ranksel::elias_fano, traits::ConvertTo};
 use webgraph::prelude::*;
 
 type ReadType = u32;
@@ -54,10 +54,13 @@ fn get_bvgraph() -> Result<impl RandomAccessGraph> {
     let compression_window = cf.compression_window;
     let min_interval_length = cf.min_interval_length;
 
+    let ef = builder.build();
+    let ef: webgraph::EF<Vec<u64>> = ef.convert_to().unwrap();
+
     // create a random access reader
     Ok(BVGraph::new(
         <DynamicCodesReaderBuilder<BE, _>>::new(data, cf).unwrap(),
-        sux::prelude::encase_mem(builder.build()),
+        epserde::encase(ef),
         min_interval_length,
         compression_window,
         NODES,
