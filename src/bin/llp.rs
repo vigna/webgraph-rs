@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use rayon::prelude::*;
 use std::{io::prelude::*, vec};
@@ -23,9 +23,11 @@ struct Args {
     /// at the start of each iteration
     chunk_size: usize,
 
-    #[arg(short, long)]
-    /// The gamma to use in LLP
-    gammas: Vec<f64>,
+    #[arg(short, long, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string(), "0-0".to_string()])]
+    /// The gammas to use in LLP, separated by commas. The format is given by a integer
+    /// numerator (if missing, assumed to be one),
+    /// a dash, and then a power-of-two exponent for the denominator. For example, -2 is 1/4, and 0-0 is 0.
+    gammas: Vec<String>,
 
     #[arg(short = 'j', long)]
     /// The number of cores to use
@@ -49,10 +51,26 @@ pub fn main() -> Result<()> {
     // load the graph
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
 
+    // parse the gamma format
+    let mut gammas = vec![];
+    for gamma in args.gammas {
+        let t: Vec<_> = gamma.split("-").collect();
+        if t.len() != 2 {
+            bail!("Invalid gamma: {}", gamma);
+        }
+        gammas.push(
+            if t[0].len() == 0 {
+                1.0
+            } else {
+                t[0].parse::<usize>()? as f64
+            } * (0.5_f64).powf(t[1].parse::<usize>()? as f64),
+        );
+    }
+
     // compute the LLP
     let labels = layered_label_propagation(
         &graph,
-        args.gammas,
+        gammas,
         args.num_cpus,
         args.max_iters,
         args.chunk_size,
