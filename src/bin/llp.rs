@@ -82,14 +82,6 @@ pub fn main() -> Result<()> {
     llp_perm.par_sort_unstable_by(|&a, &b| labels[a].cmp(&labels[b]));
     invert_in_place(llp_perm.as_mut_slice());
 
-    let mut seen = vec![false; graph.num_nodes()];
-    for &node in llp_perm.iter() {
-        if seen[node] {
-            panic!("");
-        }
-        seen[node] = true;
-    }
-
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     // dump the labels
     // TODO!: This can be done better maybe

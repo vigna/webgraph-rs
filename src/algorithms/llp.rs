@@ -47,15 +47,21 @@ where
         .num_threads(num_cpus)
         .build()?;
 
-    // init the progress logger
+    // init the gamma progress logger
+    let mut gamma_pr = ProgressLogger::default().display_memory();
+    gamma_pr.item_name = "gamma";
+    gamma_pr.start("");
+
+    // init the iteration progress logger
     let mut iter_pr = ProgressLogger::default().display_memory();
     iter_pr.item_name = "update";
     iter_pr.start("Starting updates...");
 
-    let mut graph_pr = ProgressLogger::default();
-    graph_pr.item_name = "node";
-    graph_pr.local_speed = true;
-    graph_pr.expected_updates = Some(num_nodes);
+    // init the update progress logger
+    let mut update_pr = ProgressLogger::default();
+    update_pr.item_name = "node";
+    update_pr.local_speed = true;
+    update_pr.expected_updates = Some(num_nodes);
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
@@ -71,7 +77,7 @@ where
                 });
             });
 
-            graph_pr.start("Updating...");
+            update_pr.start("Updating...");
 
             // If this iteration modified anything (early stop)
             let modified = AtomicUsize::new(0);
@@ -148,7 +154,7 @@ where
                 |local_obj_func_0, local_obj_func_1| local_obj_func_0 + local_obj_func_1,
                 &thread_pool,
                 granularity,
-                Some(&mut graph_pr),
+                Some(&mut update_pr),
             );
 
             let gain = 1.0 - (prev_obj_func / (prev_obj_func + obj_func));
@@ -160,7 +166,7 @@ where
                 obj_func,
             );
             prev_obj_func += obj_func;
-            graph_pr.done_with_count(num_nodes);
+            update_pr.done_with_count(num_nodes);
             iter_pr.update_and_display();
 
             if modified.load(Ordering::Relaxed) == 0 {
@@ -192,7 +198,11 @@ where
         // storing the perms
         let mut file = std::fs::File::create(format!("labels_{}.bin", gamma_index))?;
         labels.to_vec().serialize(&mut file)?; // TODO!: REMOVE to_vec
+
+        gamma_pr.update_and_display();
     }
+
+    gamma_pr.done();
 
     // compute the indices that sorts the gammas by cost
     let mut indices = (0..costs.len()).collect::<Vec<_>>();
