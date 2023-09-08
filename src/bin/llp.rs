@@ -67,6 +67,8 @@ pub fn main() -> Result<()> {
         );
     }
 
+    gammas.sort_by(|a, b| a.total_cmp(b));
+
     // compute the LLP
     let labels = layered_label_propagation(
         &graph,

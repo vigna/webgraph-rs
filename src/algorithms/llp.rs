@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 pub fn layered_label_propagation<G>(
     graph: &G,
     gammas: Vec<f64>,
-    num_cpus: Option<usize>,
+    num_threads: Option<usize>,
     max_iters: usize,
     chunk_size: usize,
     granularity: usize,
@@ -42,9 +42,9 @@ where
     let label_store = LabelStore::new(num_nodes as _);
 
     // build a thread_pool so we avoid having to re-create the threads
-    let num_cpus = num_cpus.unwrap_or_else(num_cpus::get);
+    let num_threads = num_threads.unwrap_or_else(num_cpus::get);
     let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus)
+        .num_threads(num_threads)
         .build()?;
 
     // init the gamma progress logger
@@ -65,21 +65,27 @@ where
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
 
-    gamma_pr.start("");
+    gamma_pr.start(format!("Running {} threads", num_threads));
 
     for (gamma_index, gamma) in gammas.iter().enumerate() {
-        let mut obj_func = 0.0;
+        // Reset mutable state for the next gamma
         iter_pr.start(format!(
             "Starting iterations with gamma={} ({}/{})...",
             gamma,
             gamma_index + 1,
             gammas.len(),
         ));
+        let mut obj_func = 0.0;
+        label_store.init();
+        can_change
+            .iter()
+            .for_each(|x| x.store(true, Ordering::Relaxed));
+
         for i in 0..max_iters {
             update_pr.start(format!("Starting update {}...", i));
 
             thread_pool.install(|| {
-                // parallel shuffle using the num_cpus
+                // parallel shuffle
                 update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
                     let seed = seed.fetch_add(1, Ordering::Relaxed);
                     let mut rand = SmallRng::seed_from_u64(seed);
@@ -255,7 +261,7 @@ where
     gamma_pr.start("Combining...");
     for index in gamma_indices {
         let labels = load::<Vec<usize>>(format!("labels_{}.bin", index))?;
-        combine(&mut result_labels, *labels, &mut temp_perm)?;
+        let number_of_labels = combine(&mut result_labels, *labels, &mut temp_perm)?;
         let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
@@ -299,14 +305,20 @@ struct LabelStore {
 impl LabelStore {
     fn new(n: usize) -> Self {
         let mut labels = Vec::with_capacity(n);
+        labels.extend((0..n).map(|_| AtomicUsize::new(0)));
         let mut volumes = Vec::with_capacity(n);
-        for l in 0..n {
-            labels.push(AtomicUsize::new(l));
-            volumes.push(AtomicUsize::new(1));
-        }
+        volumes.extend((0..n).map(|_| AtomicUsize::new(0)));
+
         Self {
             labels: labels.into_boxed_slice(),
             volumes: volumes.into_boxed_slice(),
+        }
+    }
+
+    fn init(&self) {
+        for l in 0..self.labels.len() {
+            self.labels[l].store(l, Ordering::Relaxed);
+            self.volumes[l].store(1, Ordering::Relaxed);
         }
     }
 
@@ -331,6 +343,13 @@ impl LabelStore {
 unsafe impl Send for LabelStore {}
 unsafe impl Sync for LabelStore {}
 
+fn ceil_log2(x: usize) -> usize {
+    if x <= 2 {
+        return x - 1;
+    }
+    (x - 1).ilog2() as usize + 1
+}
+
 fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     thread_pool: &rayon::ThreadPool,
     graph: &G,
@@ -348,10 +367,10 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     if !sorted.is_empty() {
                         sorted.sort();
                         cost +=
-                            ((x as isize - sorted[0] as isize).unsigned_abs() + 1).ilog2() as usize;
+                            ceil_log2((x as isize - sorted[0] as isize).unsigned_abs() + 1)
                         cost += sorted
                             .windows(2)
-                            .map(|w| (w[1] - w[0]).ilog2() as usize)
+                            .map(|w| ceil_log2(w[1] - w[0]))
                             .sum::<usize>();
                     }
                     cost
