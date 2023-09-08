@@ -11,11 +11,11 @@ struct Args {
     basename: String,
 
     #[arg(short, long, default_value_t = 100)]
-    /// The maximum number of LLP iterations
-    max_iters: usize,
+    /// The maximum number of updates for a given ɣ.
+    max_updates: usize,
 
     #[arg(short = 'r', long, default_value_t = 1000)]
-    /// The size of the chunks each thread processes for the LLP
+    /// The size of the chunks each thread processes for the LLP.
     granularity: usize,
 
     #[arg(short, long, default_value_t = 100000)]
@@ -29,9 +29,9 @@ struct Args {
     /// a dash, and then a power-of-two exponent for the denominator. For example, -2 is 1/4, and 0-0 is 0.
     gammas: Vec<String>,
 
-    #[arg(short = 'j', long)]
-    /// The number of cores to use
-    num_cpus: Option<usize>,
+    #[arg(short = 't', long)]
+    /// The number of threads.
+    num_threads: Option<usize>,
 
     #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the prng
@@ -71,8 +71,8 @@ pub fn main() -> Result<()> {
     let labels = layered_label_propagation(
         &graph,
         gammas,
-        args.num_cpus,
-        args.max_iters,
+        args.num_threads,
+        args.max_updates,
         args.chunk_size,
         args.granularity,
         0,

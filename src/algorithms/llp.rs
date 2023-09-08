@@ -9,7 +9,7 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use rayon::slice::ParallelSliceMut;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 
@@ -50,12 +50,11 @@ where
     // init the gamma progress logger
     let mut gamma_pr = ProgressLogger::default().display_memory();
     gamma_pr.item_name = "gamma";
-    gamma_pr.start("");
+    gamma_pr.expected_updates = Some(gammas.len());
 
     // init the iteration progress logger
-    let mut iter_pr = ProgressLogger::default().display_memory();
+    let mut iter_pr = ProgressLogger::default();
     iter_pr.item_name = "update";
-    iter_pr.start("Starting updates...");
 
     // init the update progress logger
     let mut update_pr = ProgressLogger::default();
@@ -65,9 +64,20 @@ where
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
+
+    gamma_pr.start("");
+
     for (gamma_index, gamma) in gammas.iter().enumerate() {
-        let mut prev_obj_func = 0.0;
-        for _ in 0..max_iters {
+        let mut obj_func = 0.0;
+        iter_pr.start(format!(
+            "Starting iterations with gamma={} ({}/{})...",
+            gamma,
+            gamma_index + 1,
+            gammas.len(),
+        ));
+        for i in 0..max_iters {
+            update_pr.start(format!("Starting update {}...", i));
+
             thread_pool.install(|| {
                 // parallel shuffle using the num_cpus
                 update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
@@ -77,12 +87,10 @@ where
                 });
             });
 
-            update_pr.start("Updating...");
-
             // If this iteration modified anything (early stop)
             let modified = AtomicUsize::new(0);
 
-            let obj_func = crate::graph::par_graph_apply(
+            let delta_obj_func = crate::graph::par_graph_apply(
                 graph,
                 |range| {
                     let mut map = HashMap::with_capacity(1024);
@@ -119,7 +127,10 @@ where
                         let mut majorities = vec![];
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
-                            let volume = label_store.volume(label);
+                            let mut volume = label_store.volume(label);
+                            if label == curr_label {
+                                volume -= 1;
+                            }
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
@@ -151,21 +162,34 @@ where
                     }
                     local_obj_func
                 },
-                |local_obj_func_0, local_obj_func_1| local_obj_func_0 + local_obj_func_1,
+                |delta_obj_func_0, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
                 &thread_pool,
                 granularity,
                 Some(&mut update_pr),
             );
 
-            let gain = 1.0 - (prev_obj_func / (prev_obj_func + obj_func));
+            obj_func += delta_obj_func;
+            let gain = delta_obj_func / obj_func;
+
             info!(
                 "Modified: {} Gain: {} PObjFunc: {} ObjFunc: {}",
                 modified.load(Ordering::Relaxed),
                 gain,
-                prev_obj_func,
                 obj_func,
+                delta_obj_func,
             );
-            prev_obj_func += obj_func;
+
+            info!(
+                "Number of labels: {}",
+                label_store
+                    .labels
+                    .iter()
+                    .map(|a| a.load(Ordering::Relaxed))
+                    .collect::<HashSet<_>>()
+                    .len()
+            );
+
+            obj_func += delta_obj_func;
             update_pr.done_with_count(num_nodes);
             iter_pr.update_and_display();
 
@@ -205,26 +229,39 @@ where
     gamma_pr.done();
 
     // compute the indices that sorts the gammas by cost
-    let mut indices = (0..costs.len()).collect::<Vec<_>>();
+    let mut gamma_indices = (0..costs.len()).collect::<Vec<_>>();
     // sort in descending order
-    indices.sort_by(|a, b| costs[*b].total_cmp(&costs[*a]));
+    gamma_indices.sort_by(|a, b| costs[*b].total_cmp(&costs[*a]));
 
     // the best gamma is the last because it has the min cost
-    let best_gamma_index = *indices.last().unwrap();
+    let best_gamma_index = *gamma_indices.last().unwrap();
+    let worst_gamma_index = gamma_indices[0];
     let best_gamma = gammas[best_gamma_index];
-    info!("Best gamma: {}", best_gamma);
+    let worst_gamma = gammas[worst_gamma_index];
+    info!(
+        "Best gamma: {}\twith log-gap cost {}",
+        best_gamma, costs[best_gamma_index]
+    );
+    info!(
+        "Worst gamma: {}\twith log-gap cost {}",
+        worst_gamma, costs[worst_gamma_index]
+    );
     // reuse the update_perm to store the final permutation
     let mut temp_perm = update_perm;
 
     let mut result_labels =
-        load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?.to_vec();
-    for index in indices {
+        map::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index), Flags::empty())?.to_vec();
+
+    gamma_pr.start("Combining...");
+    for index in gamma_indices {
         let labels = load::<Vec<usize>>(format!("labels_{}.bin", index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
         let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
-        combine(&mut result_labels, *best_labels, &mut temp_perm)?;
+        let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
+        info!("Number of labels: {}", number_of_labels);
+        gamma_pr.update_and_display();
     }
-
+    gamma_pr.done();
     Ok(result_labels.into_boxed_slice())
 }
 
