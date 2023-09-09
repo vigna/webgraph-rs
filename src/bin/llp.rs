@@ -10,6 +10,9 @@ struct Args {
     /// The basename of the graph.
     basename: String,
 
+    /// A filename for the LLP permutation.
+    perm: String,
+
     #[arg(short, long, default_value_t = 100)]
     /// The maximum number of updates for a given ɣ.
     max_updates: usize,
@@ -87,7 +90,7 @@ pub fn main() -> Result<()> {
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     // dump the labels
     // TODO!: This can be done better maybe
-    let mut file = std::fs::File::create(format!("{}.llp.order", args.basename))?;
+    let mut file = std::fs::File::create(args.perm)?;
     for word in llp_perm.into_iter() {
         file.write_all(&word.to_be_bytes())?;
     }
