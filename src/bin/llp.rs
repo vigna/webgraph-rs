@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use clap::Parser;
 use rayon::prelude::*;
-use std::{io::prelude::*, vec};
+use std::{collections::HashSet, io::prelude::*, vec};
 use webgraph::{invert_in_place, prelude::*};
 
 #[derive(Parser, Debug)]

@@ -1,5 +1,5 @@
 use crate::prelude::PermutedGraph;
-use crate::traits::*;
+use crate::{invert_in_place, traits::*};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use epserde::*;
@@ -9,7 +9,7 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use rayon::slice::ParallelSliceMut;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 
@@ -84,6 +84,7 @@ where
         for i in 0..max_iters {
             update_pr.start(format!("Starting update {}...", i));
 
+            update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
             thread_pool.install(|| {
                 // parallel shuffle
                 update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
@@ -133,10 +134,7 @@ where
                         let mut majorities = vec![];
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
-                            let mut volume = label_store.volume(label);
-                            if label == curr_label {
-                                volume -= 1;
-                            }
+                            let volume = label_store.volume(label);
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
@@ -174,45 +172,28 @@ where
                 Some(&mut update_pr),
             );
 
-            obj_func += delta_obj_func;
-            let gain = delta_obj_func / obj_func;
-
-            info!(
-                "Modified: {} Gain: {} PObjFunc: {} ObjFunc: {}",
-                modified.load(Ordering::Relaxed),
-                gain,
-                obj_func,
-                delta_obj_func,
-            );
-
-            info!(
-                "Number of labels: {}",
-                label_store
-                    .labels
-                    .iter()
-                    .map(|a| a.load(Ordering::Relaxed))
-                    .collect::<HashSet<_>>()
-                    .len()
-            );
-
-            obj_func += delta_obj_func;
             update_pr.done_with_count(num_nodes);
             iter_pr.update_and_display();
 
-            if modified.load(Ordering::Relaxed) == 0 {
-                break;
-            }
-            if gain < 0.001 {
+            obj_func += delta_obj_func;
+            let gain = delta_obj_func / obj_func;
+
+            info!("Gain: {}", gain);
+            info!("Modified: {}", modified.load(Ordering::Relaxed),);
+
+            if gain < 0.001 || modified.load(Ordering::Relaxed) == 0 {
                 break;
             }
         }
 
         iter_pr.done();
 
+        update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
         // create sorted clusters by contiguous labels
         update_perm.par_sort_unstable_by(|&a, &b| {
             label_store.label(a as _).cmp(&label_store.label(b as _))
         });
+        invert_in_place(&mut update_perm);
 
         let labels =
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
@@ -222,7 +203,7 @@ where
             perm: &update_perm,
         };
         let cost = compute_log_gap_cost(&thread_pool, &pgraph, None);
-        info!("Gamma: {} Log gap cost: {}", gamma, cost);
+        info!("Log-gap cost: {}", cost);
         costs.push(cost);
 
         // storing the perms
@@ -258,16 +239,16 @@ where
     let mut result_labels =
         map::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index), Flags::empty())?.to_vec();
 
-    gamma_pr.start("Combining...");
-    for index in gamma_indices {
-        let labels = load::<Vec<usize>>(format!("labels_{}.bin", index))?;
+    for i in 0..gamma_indices.len() - 1 {
+        info!("Starting step {}...", i);
+        let labels = load::<Vec<usize>>(format!("labels_{}.bin", gamma_indices[i]))?;
         let number_of_labels = combine(&mut result_labels, *labels, &mut temp_perm)?;
-        let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
-        let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
+        //  let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
+        //  let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
-        gamma_pr.update_and_display();
+        info!("Finished step {}.", i);
     }
-    gamma_pr.done();
+
     Ok(result_labels.into_boxed_slice())
 }
 
@@ -343,22 +324,15 @@ impl LabelStore {
 unsafe impl Send for LabelStore {}
 unsafe impl Sync for LabelStore {}
 
-fn ceil_log2(x: usize) -> usize {
-    if x <= 2 {
-        return x - 1;
-    }
-    (x - 1).ilog2() as usize + 1
-}
-
 fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     thread_pool: &rayon::ThreadPool,
     graph: &G,
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
-    let cost = crate::graph::par_graph_apply(
+    crate::graph::par_graph_apply(
         graph,
         |range| {
-            let res = graph
+            graph
                 .iter_nodes_from(range.start)
                 .take(range.len())
                 .map(|(x, succ)| {
@@ -366,21 +340,20 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     let mut sorted: Vec<_> = succ.collect();
                     if !sorted.is_empty() {
                         sorted.sort();
-                        cost += ceil_log2((x as isize - sorted[0] as isize).unsigned_abs() + 1);
+                        cost +=
+                            ((x as isize - sorted[0] as isize).unsigned_abs() + 1).ilog2() as usize;
                         cost += sorted
                             .windows(2)
-                            .map(|w| ceil_log2(w[1] - w[0]))
+                            .map(|w| (w[1] - w[0]).ilog2() as usize)
                             .sum::<usize>();
                     }
                     cost
                 })
-                .sum::<usize>() as f64;
-            res
+                .sum::<usize>() as f64
         },
         |a, b| a + b,
         thread_pool,
         1_000,
         pr,
-    );
-    cost
+    )
 }
