@@ -366,8 +366,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     let mut sorted: Vec<_> = succ.collect();
                     if !sorted.is_empty() {
                         sorted.sort();
-                        cost +=
-                            ceil_log2((x as isize - sorted[0] as isize).unsigned_abs() + 1)
+                        cost += ceil_log2((x as isize - sorted[0] as isize).unsigned_abs() + 1);
                         cost += sorted
                             .windows(2)
                             .map(|w| ceil_log2(w[1] - w[0]))
