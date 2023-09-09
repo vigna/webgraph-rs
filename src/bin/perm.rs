@@ -52,9 +52,9 @@ pub fn main() -> Result<()> {
     let mut perm = vec![0; num_nodes];
     let mut file = BufReader::new(std::fs::File::open(args.perm)?);
     let mut buffer = [0_u8; core::mem::size_of::<usize>()];
-    for i in 0..num_nodes {
-        file.read(&mut buffer)?;
-        perm[i] = usize::from_be_bytes(buffer);
+    for p in &mut perm {
+        file.read_exact(&mut buffer)?;
+        *p = usize::from_be_bytes(buffer);
     }
 
     let tmpdir = tempdir().unwrap();

@@ -30,7 +30,7 @@ where
     R: Fn(T, T) -> T + Send + Sync,
     T: Send + Default,
 {
-    let pr_lock = pr.map(|pr| Mutex::new(pr));
+    let pr_lock = pr.map(Mutex::new);
     let num_nodes = graph.num_nodes();
     let num_cpus = thread_pool
         .current_num_threads()

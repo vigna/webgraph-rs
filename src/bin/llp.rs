@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use clap::Parser;
 use rayon::prelude::*;
-use std::{collections::HashSet, io::prelude::*, vec};
+use std::{io::prelude::*, vec};
 use webgraph::{invert_in_place, prelude::*};
 
 #[derive(Parser, Debug)]
@@ -54,12 +54,12 @@ pub fn main() -> Result<()> {
     // parse the gamma format
     let mut gammas = vec![];
     for gamma in args.gammas {
-        let t: Vec<_> = gamma.split("-").collect();
+        let t: Vec<_> = gamma.split('-').collect();
         if t.len() != 2 {
             bail!("Invalid gamma: {}", gamma);
         }
         gammas.push(
-            if t[0].len() == 0 {
+            if t[0].is_empty() {
                 1.0
             } else {
                 t[0].parse::<usize>()? as f64
@@ -89,7 +89,7 @@ pub fn main() -> Result<()> {
     // TODO!: This can be done better maybe
     let mut file = std::fs::File::create(format!("{}.llp.order", args.basename))?;
     for word in llp_perm.into_iter() {
-        file.write(&word.to_be_bytes())?;
+        file.write_all(&word.to_be_bytes())?;
     }
     Ok(())
 }

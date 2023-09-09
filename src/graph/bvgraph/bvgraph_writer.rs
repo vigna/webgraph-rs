@@ -552,7 +552,7 @@ mod test {
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
         let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
-            File::create(&file_path)?,
+            File::create(file_path)?,
         )));
 
         let comp_flags = CompFlags {
@@ -573,7 +573,7 @@ mod test {
         // Read it back
 
         let bit_read = <BufferedBitStreamRead<BE, u64, _>>::new(<FileBackend<u32, _>>::new(
-            BufReader::new(File::open(&file_path)?),
+            BufReader::new(File::open(file_path)?),
         ));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;

@@ -12,7 +12,7 @@ fn test_offsets() -> Result<()> {
     // Read the offsets gammas
     let mut offsets_file = std::fs::File::open("tests/data/cnr-2000.offsets")?;
     let mut offsets_data = vec![0; offsets_file.metadata()?.len() as usize];
-    offsets_file.read(&mut offsets_data)?;
+    offsets_file.read_exact(&mut offsets_data)?;
 
     let mut offsets = Vec::with_capacity(graph.num_nodes());
     let mut reader =
@@ -30,8 +30,8 @@ fn test_offsets() -> Result<()> {
         epserde::Flags::TRANSPARENT_HUGE_PAGES,
     )?;
 
-    for i in 0..graph.num_nodes() {
-        assert_eq!(offsets[i], ef_offsets.select(i).unwrap() as _);
+    for (i, offset) in offsets.iter().enumerate() {
+        assert_eq!(*offset, ef_offsets.select(i).unwrap() as _);
     }
 
     // Check that they read the same

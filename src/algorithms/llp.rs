@@ -199,7 +199,7 @@ where
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
 
         let pgraph = PermutedGraph {
-            graph: graph,
+            graph,
             perm: &update_perm,
         };
         let cost = compute_log_gap_cost(&thread_pool, &pgraph, None);
@@ -239,9 +239,13 @@ where
     let mut result_labels =
         map::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index), Flags::empty())?.to_vec();
 
-    for i in 0..gamma_indices.len() - 1 {
+    for (i, gamma_index) in gamma_indices
+        .iter()
+        .enumerate()
+        .take(gamma_indices.len() - 1)
+    {
         info!("Starting step {}...", i);
-        let labels = load::<Vec<usize>>(format!("labels_{}.bin", gamma_indices[i]))?;
+        let labels = load::<Vec<usize>>(format!("labels_{}.bin", gamma_index))?;
         let number_of_labels = combine(&mut result_labels, *labels, &mut temp_perm)?;
         //  let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
         //  let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;

@@ -142,12 +142,12 @@ impl<T: SortPairsPayload> BatchIterator<T> {
         batch: &mut [(usize, usize, T)],
     ) -> Result<Self> {
         batch.par_sort_unstable_by_key(|(src, dst, _)| (*src, *dst));
-        unsafe { Self::new_from_vec_sorted(file_path, batch) }
+        Self::new_from_vec_sorted(file_path, batch)
     }
 
     /// Dump the given triples in `file_path` and return an iterator
     /// over them, assuming they are already sorted
-    pub unsafe fn new_from_vec_sorted<P: AsRef<Path>>(
+    pub fn new_from_vec_sorted<P: AsRef<Path>>(
         file_path: P,
         batch: &[(usize, usize, T)],
     ) -> Result<Self> {

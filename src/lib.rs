@@ -76,7 +76,7 @@ pub fn invert_in_place(perm: &mut [usize]) {
 #[test]
 fn test_invert_in_place() {
     use rand::prelude::SliceRandom;
-    let mut v = (0..1000).into_iter().collect::<Vec<_>>();
+    let mut v = (0..1000).collect::<Vec<_>>();
     v.shuffle(&mut rand::thread_rng());
     let mut w = v.clone();
     invert_in_place(&mut w);
