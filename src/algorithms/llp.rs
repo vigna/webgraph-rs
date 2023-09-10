@@ -246,9 +246,13 @@ where
     {
         info!("Starting step {}...", i);
         let labels = load::<Vec<usize>>(format!("labels_{}.bin", gamma_index))?;
-        let number_of_labels = combine(&mut result_labels, *labels, &mut temp_perm)?;
-        //  let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
-        //  let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
+        combine(&mut result_labels, *labels, &mut temp_perm)?;
+        // This recombination with the best labels does not appear in the paper, but
+        // it is not harmful and fixes a few corner cases in which experimentally
+        // LLP does not perform well. It was introduced by Marco Rosa in the Java
+        // LAW code.
+        let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
+        let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);
     }
