@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
 use clap::Parser;
+use epserde::Serialize;
 use rayon::prelude::*;
 use std::{io::prelude::*, vec};
 use webgraph::{invert_in_place, prelude::*};
@@ -88,11 +89,7 @@ pub fn main() -> Result<()> {
     invert_in_place(llp_perm.as_mut_slice());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
-    // dump the labels
-    // TODO!: This can be done better maybe
-    let mut file = std::fs::File::create(args.perm)?;
-    for word in llp_perm.into_iter() {
-        file.write_all(&word.to_be_bytes())?;
-    }
+    llp_perm.store(args.perm)?;
+
     Ok(())
 }

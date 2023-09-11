@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
@@ -25,7 +25,12 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let f = File::open(format!("{}.properties", args.basename))?;
+    let f = File::open(format!("{}.properties", args.basename)).with_context(|| {
+        format!(
+            "Could not load properties file: {}.properties",
+            args.basename
+        )
+    })?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
 
@@ -88,7 +93,10 @@ pub fn main() -> Result<()> {
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.start("Writing to disk...");
-    ef.serialize(&mut ef_file)?;
+    // serialize and dump the schema to disk
+    let schema = ef.serialize_with_schema(&mut ef_file)?;
+    std::fs::write(format!("{}.ef.schema", args.basename), schema.to_csv())?;
+
     pr.done();
     Ok(())
 }
