@@ -2,6 +2,7 @@ use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
+use epserde::Deserialize;
 use java_properties;
 use std::fs::*;
 use std::io::*;
@@ -44,11 +45,9 @@ macro_rules! impl_loads {
             });
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets = epserde::map::<crate::EF<Vec<u64>>>(
-                &ef_path,
-                epserde::Flags::TRANSPARENT_HUGE_PAGES,
-            )
-            .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
+            let offsets =
+                <crate::EF<Vec<u64>>>::mmap(&ef_path, epserde::Flags::TRANSPARENT_HUGE_PAGES)
+                    .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
             let comp_flags = CompFlags::from_properties(&map)?;
             let code_reader_builder = <$builder<BE, MmapBackend<u32>>>::new(graph, comp_flags)?;

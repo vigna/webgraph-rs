@@ -1,5 +1,6 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use epserde::Deserialize;
 use std::io::prelude::*;
 use sux::traits::Select;
 use webgraph::prelude::*;
@@ -25,7 +26,7 @@ fn test_offsets() -> Result<()> {
     println!("{:?}", offsets.len());
 
     // Load Elias-fano
-    let ef_offsets = epserde::map::<webgraph::EF<Vec<u64>>>(
+    let ef_offsets = <webgraph::EF<Vec<u64>>>::mmap(
         "tests/data/cnr-2000.ef",
         epserde::Flags::TRANSPARENT_HUGE_PAGES,
     )?;

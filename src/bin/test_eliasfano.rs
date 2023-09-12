@@ -2,10 +2,11 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
+use epserde::Deserialize;
 use log::info;
 use std::fs::File;
 use std::io::BufReader;
-use sux::prelude::*;
+use sux::traits::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -37,10 +38,8 @@ pub fn main() -> Result<()> {
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
-    let ef = epserde::map::<webgraph::EF<Vec<u64>>>(
-        format!("{}.ef", args.basename),
-        epserde::Flags::default(),
-    )?;
+    let ef =
+        <webgraph::EF<Vec<u64>>>::mmap(format!("{}.ef", args.basename), epserde::Flags::default())?;
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.expected_updates = Some(num_nodes as _);
