@@ -4,12 +4,12 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use log::info;
 use std::fs::File;
-use std::io::{BufReader, Seek};
+use std::io::BufReader;
 use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(about = "Thest that the '.ef' file for a graph is correct", long_about = None)]
+#[command(about = "Thest that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,

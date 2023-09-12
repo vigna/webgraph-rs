@@ -2,7 +2,6 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use epserde::Serialize;
 use rayon::prelude::*;
-use std::{io::prelude::*, vec};
 use webgraph::{invert_in_place, prelude::*};
 
 #[derive(Parser, Debug)]
