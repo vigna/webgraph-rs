@@ -208,7 +208,7 @@ where
 
         // storing the perms
         let mut file = std::fs::File::create(format!("labels_{}.bin", gamma_index))?;
-        labels.to_vec().serialize(&mut file)?; // TODO!: REMOVE to_vec
+        labels.serialize(&mut file)?;
 
         gamma_pr.update_and_display();
     }
