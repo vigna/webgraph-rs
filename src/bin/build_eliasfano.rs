@@ -75,12 +75,14 @@ pub fn main() -> Result<()> {
         // progress bar
         pr.start("Building EliasFano...");
         // read the graph a write the offsets
-        for (new_offset, _node_id, _degree) in seq_graph.iter_degrees() {
+        let mut iter = seq_graph.iter_degrees();
+        while let Some((new_offset, _node_id, _degree)) = iter.next() {
             // write where
             efb.push(new_offset as _)?;
             // decode the next nodes so we know where the next node_id starts
             pr.light_update();
         }
+        efb.push(iter.get_pos() as _)?;
     }
     pr.done();
 

@@ -2,7 +2,7 @@ use crate::prelude::PermutedGraph;
 use crate::{invert_in_place, traits::*};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-use epserde::*;
+use epserde::Serialize;
 use log::info;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
@@ -237,7 +237,7 @@ where
     let mut temp_perm = update_perm;
 
     let mut result_labels =
-        map::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index), Flags::empty())?.to_vec();
+        epserde::load_mem::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?.to_vec();
 
     for (i, gamma_index) in gamma_indices
         .iter()
@@ -245,13 +245,14 @@ where
         .take(gamma_indices.len() - 1)
     {
         info!("Starting step {}...", i);
-        let labels = load::<Vec<usize>>(format!("labels_{}.bin", gamma_index))?;
+        let labels = epserde::load_mem::<Vec<usize>>(format!("labels_{}.bin", gamma_index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = load::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
+        let best_labels =
+            epserde::load_mem::<Vec<usize>>(format!("labels_{}.bin", best_gamma_index))?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);

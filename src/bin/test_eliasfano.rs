@@ -33,9 +33,6 @@ pub fn main() -> Result<()> {
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
 
-    let mut file = File::open(format!("{}.graph", args.basename))?;
-    let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
-
     // Create the offsets file
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
