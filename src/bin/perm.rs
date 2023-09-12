@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
-use std::io::{prelude::*, BufReader};
+use epserde::Deserialize;
 use tempfile::tempdir;
 use webgraph::prelude::*;
 
@@ -49,13 +49,7 @@ pub fn main() -> Result<()> {
     glob_pr.item_name = "node";
 
     // read the permutation
-    let mut perm = vec![0; num_nodes];
-    let mut file = BufReader::new(std::fs::File::open(args.perm)?);
-    let mut buffer = [0_u8; core::mem::size_of::<usize>()];
-    for p in &mut perm {
-        file.read_exact(&mut buffer)?;
-        *p = usize::from_be_bytes(buffer);
-    }
+    let perm = <Vec<usize>>::mmap(args.perm, epserde::Flags::default())?;
 
     let tmpdir = tempdir().unwrap();
     // create a stream where to dump the sorted pairs
