@@ -37,7 +37,7 @@ pub fn main() -> Result<()> {
     let mut file = File::open(format!("{}.graph", args.basename))?;
     let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
 
-    let mut efb = EliasFanoBuilder::new(file_len, num_nodes + 1);
+    let mut efb = EliasFanoBuilder::new(file_len as usize, num_nodes as usize + 1);
 
     let mut ef_file = BufWriter::new(File::create(format!("{}.ef", args.basename))?);
 
