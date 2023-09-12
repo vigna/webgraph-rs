@@ -242,7 +242,7 @@ where
     for (i, gamma_index) in gamma_indices
         .iter()
         .enumerate()
-        .take(gamma_indices.len() - 1)
+        .take(gamma_indices.len())
     {
         info!("Starting step {}...", i);
         let labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", gamma_index))?;
