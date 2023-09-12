@@ -39,8 +39,10 @@ pub mod traits;
 pub mod utils;
 
 /// The default version of EliasFano we use for the CLI
-pub type EF<Memory> =
-    EliasFano<SparseIndex<CountingBitmap<Memory, usize>, Memory, 8>, CompactArray<Memory>>;
+pub type EF<Memory> = EliasFano<
+    SparseIndex<sux::bits::bitmap::CountingBitmap<Memory, usize>, Memory, 8>,
+    sux::bits::compact_array::CompactArray<Memory>,
+>;
 
 /// Prelude module to import everything from this crate
 pub mod prelude {
