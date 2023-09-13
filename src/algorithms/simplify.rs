@@ -1,22 +1,12 @@
 use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, SortPairsPayload};
 use crate::traits::{LabelledIterator, LabelledSequentialGraph, SequentialGraph};
-use crate::utils::{BatchIterator, KMergeIters, SortPairs};
+use crate::utils::{DedupSortedIter, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
-pub fn simplify<G: SequentialGraph>(
-    graph: G,
-    batch_size: usize,
-) -> Result<
-    COOIterToGraph<
-        std::iter::Map<
-            KMergeIters<(), BatchIterator<()>>,
-            fn((usize, usize, ())) -> (usize, usize),
-        >,
-    >,
-> {
+pub fn simplify<G: SequentialGraph>(graph: G, batch_size: usize) -> Result<impl SequentialGraph> {
     let dir = tempfile::tempdir()?;
     let mut sorted = <SortPairs<()>>::new(batch_size, dir.into_path())?;
 
@@ -36,20 +26,21 @@ pub fn simplify<G: SequentialGraph>(
     }
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
-    let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
+    let iter = DedupSortedIter::new(sorted.iter()?.map(map).filter(|(src, dst)| src != dst));
+    let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
     pl.done();
 
     Ok(sorted)
 }
 
-/// Create transpose the graph and return a sequential graph view of it
+/// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
 pub fn simplify_labelled<G: LabelledSequentialGraph>(
     graph: &G,
     batch_size: usize,
-) -> Result<COOIterToLabelledGraph<KMergeIters<G::Label, BatchIterator<G::Label>>>>
+) -> Result<impl SequentialGraph>
 where
-    G::Label: SortPairsPayload + 'static,
+    G::Label: SortPairsPayload + 'static + PartialEq,
     for<'a> G::SequentialSuccessorIter<'a>: LabelledIterator<Label = G::Label>,
 {
     let dir = tempfile::tempdir()?;
@@ -71,7 +62,7 @@ where
     }
 
     // TODO!: how do we break ties on labels?
-    let iter = sorted.iter()?;
+    let iter = DedupSortedIter::new(sorted.iter()?);
 
     // merge the batches
     let sorted = COOIterToLabelledGraph::new(graph.num_nodes(), iter);
