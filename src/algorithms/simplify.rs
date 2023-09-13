@@ -6,7 +6,10 @@ use dsi_progress_logger::ProgressLogger;
 
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
-pub fn simplify<G: SequentialGraph>(graph: G, batch_size: usize) -> Result<impl SequentialGraph> {
+pub fn simplify<G: SequentialGraph>(
+    graph: G,
+    batch_size: usize,
+) -> Result<impl SequentialGraph + Clone + Send> {
     let dir = tempfile::tempdir()?;
     let mut sorted = <SortPairs<()>>::new(batch_size, dir.into_path())?;
 
