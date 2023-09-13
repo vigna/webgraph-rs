@@ -76,7 +76,7 @@ pub fn main() -> Result<()> {
         pr.start("Building EliasFano...");
         // read the graph a write the offsets
         let mut iter = seq_graph.iter_degrees();
-        while let Some((new_offset, _node_id, _degree)) = iter.next() {
+        for (new_offset, _node_id, _degree) in iter.by_ref() {
             // write where
             efb.push(new_offset as _)?;
             // decode the next nodes so we know where the next node_id starts

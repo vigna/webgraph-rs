@@ -27,7 +27,7 @@ fn test_offsets() -> Result<()> {
 
     // Load Elias-fano
     let ef_offsets =
-        <webgraph::EF<Vec<u64>>>::mmap("tests/data/cnr-2000.ef", Flags::TRANSPARENT_HUGE_PAGES)?;
+        <webgraph::EF<Vec<usize>>>::mmap("tests/data/cnr-2000.ef", Flags::TRANSPARENT_HUGE_PAGES)?;
 
     for (i, offset) in offsets.iter().enumerate() {
         assert_eq!(*offset, ef_offsets.select(i).unwrap() as _);

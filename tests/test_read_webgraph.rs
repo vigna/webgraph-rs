@@ -56,7 +56,7 @@ fn get_bvgraph() -> Result<impl RandomAccessGraph> {
     let min_interval_length = cf.min_interval_length;
 
     let ef = builder.build();
-    let ef: webgraph::EF<Vec<u64>> = ef.convert_to().unwrap();
+    let ef: webgraph::EF<Vec<usize>> = ef.convert_to().unwrap();
 
     // create a random access reader
     Ok(BVGraph::new(
