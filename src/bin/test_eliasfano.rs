@@ -32,13 +32,13 @@ pub fn main() -> Result<()> {
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Create the offsets file
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
-    let ef = <webgraph::EF<Vec<u64>>>::mmap(format!("{}.ef", args.basename), Flags::default())?;
+    let ef = <webgraph::EF<Vec<usize>>>::mmap(format!("{}.ef", args.basename), Flags::default())?;
 
     let mut pr = ProgressLogger::default().display_memory();
     pr.expected_updates = Some(num_nodes as _);

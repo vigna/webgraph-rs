@@ -40,7 +40,7 @@ pub mod utils;
 
 /// The default version of EliasFano we use for the CLI
 pub type EF<Memory> = EliasFano<
-    SparseIndex<sux::bits::bit_vec::CountBitVec<Memory>, Memory, 8>,
+    QuantumIndex<sux::bits::bit_vec::CountBitVec<Memory>, Memory, 8>,
     sux::bits::compact_array::CompactArray<Memory>,
 >;
 

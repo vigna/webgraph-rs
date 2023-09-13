@@ -13,7 +13,7 @@ macro_rules! impl_loads {
         /// Load a BVGraph for random access
         pub fn $load_name<P: AsRef<std::path::Path>>(
             basename: P,
-        ) -> Result<BVGraph<$builder<BE, MmapBackend<u32>>, crate::EF<&'static [u64]>>> {
+        ) -> Result<BVGraph<$builder<BE, MmapBackend<u32>>, crate::EF<&'static [usize]>>> {
             let basename = basename.as_ref();
             let properties_path = format!("{}.properties", basename.to_string_lossy());
             let f = File::open(&properties_path)
@@ -45,7 +45,7 @@ macro_rules! impl_loads {
             });
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets = <crate::EF<Vec<u64>>>::mmap(&ef_path, Flags::TRANSPARENT_HUGE_PAGES)
+            let offsets = <crate::EF<Vec<usize>>>::mmap(&ef_path, Flags::TRANSPARENT_HUGE_PAGES)
                 .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
             let comp_flags = CompFlags::from_properties(&map)?;
