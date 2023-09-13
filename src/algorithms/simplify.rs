@@ -1,6 +1,6 @@
 use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, SortPairsPayload};
 use crate::traits::{LabelledIterator, LabelledSequentialGraph, SequentialGraph};
-use crate::utils::{DedupSortedIter, SortPairs};
+use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 
@@ -9,7 +9,19 @@ use dsi_progress_logger::ProgressLogger;
 pub fn simplify<G: SequentialGraph>(
     graph: G,
     batch_size: usize,
-) -> Result<impl SequentialGraph + Clone + Send> {
+) -> Result<
+    COOIterToGraph<
+        DedupSortedIter<
+            core::iter::Filter<
+                core::iter::Map<
+                    KMergeIters<(), BatchIterator<()>>,
+                    fn((usize, usize, ())) -> (usize, usize),
+                >,
+                fn(&(usize, usize)) -> bool,
+            >,
+        >,
+    >,
+> {
     let dir = tempfile::tempdir()?;
     let mut sorted = <SortPairs<()>>::new(batch_size, dir.into_path())?;
 
@@ -29,7 +41,8 @@ pub fn simplify<G: SequentialGraph>(
     }
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
-    let iter = DedupSortedIter::new(sorted.iter()?.map(map).filter(|(src, dst)| src != dst));
+    let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
+    let iter = DedupSortedIter::new(sorted.iter()?.map(map).filter(filter));
     let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
     pl.done();
 
