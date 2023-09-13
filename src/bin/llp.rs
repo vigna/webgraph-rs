@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use epserde::prelude::*;
 use rayon::prelude::*;
+use std::io::{BufWriter, Write};
 use webgraph::{invert_in_place, prelude::*};
 
 #[derive(Parser, Debug)]
@@ -39,6 +40,10 @@ struct Args {
     #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the prng
     seed: u64,
+
+    #[arg(short = 'e', long)]
+    /// Save the permutation in ε-serde format.
+    epserde: bool,
 }
 
 pub fn main() -> Result<()> {
@@ -88,7 +93,17 @@ pub fn main() -> Result<()> {
     invert_in_place(llp_perm.as_mut_slice());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
-    llp_perm.store(args.perm)?;
+    log::info!("Saving permutation...");
 
+    if args.epserde {
+        llp_perm.store(args.perm)?;
+    } else {
+        let mut file = std::fs::File::create(args.perm)?;
+        let mut buf = BufWriter::new(&mut file);
+        for word in llp_perm.into_iter() {
+            buf.write_all(&word.to_be_bytes())?;
+        }
+    }
+    log::info!("Completed..");
     Ok(())
 }
