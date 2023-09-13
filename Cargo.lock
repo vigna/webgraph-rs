@@ -1319,7 +1319,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sux"
 version = "0.1.0"
-source = "git+https://github.com/vigna/sux-rs#bcc9724083c514d0199728bfabcd5fea81a67622"
+source = "git+https://github.com/vigna/sux-rs#2ccdd97c6eb22d57e80fab5719c36d7b8f0576d5"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
