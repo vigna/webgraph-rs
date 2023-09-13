@@ -116,8 +116,8 @@ pub fn harness(data: FuzzCase) {
 
     // test sequential graphs and build the offsets
     let mut efb = EliasFanoBuilder::new(
-        (data_be.len() * 8 * core::mem::size_of::<u32>()) as u64,
-        (graph.num_nodes() + 1) as u64,
+        (graph.num_nodes() + 1),
+        (data_be.len() * 8 * core::mem::size_of::<u32>()),
     );
     let mut offsets = Vec::with_capacity(graph.num_nodes() + 1);
     offsets.push(0);

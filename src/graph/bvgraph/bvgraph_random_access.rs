@@ -1,5 +1,5 @@
 use epserde::prelude::*;
-use sux::traits::IndexedDict;
+use sux::prelude::*;
 
 use super::*;
 use crate::utils::nat2int;

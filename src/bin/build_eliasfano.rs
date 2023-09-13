@@ -32,12 +32,12 @@ pub fn main() -> Result<()> {
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
-    let num_nodes = map.get("nodes").unwrap().parse::<u64>()?;
+    let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     let mut file = File::open(format!("{}.graph", args.basename))?;
     let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
 
-    let mut efb = EliasFanoBuilder::new(file_len as usize, num_nodes as usize + 1);
+    let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
 
     let mut ef_file = BufWriter::new(File::create(format!("{}.ef", args.basename))?);
 
@@ -46,7 +46,7 @@ pub fn main() -> Result<()> {
     let of_file_path = std::path::Path::new(&of_file_str);
 
     let mut pr = ProgressLogger::default().display_memory();
-    pr.expected_updates = Some(num_nodes as _);
+    pr.expected_updates = Some(num_nodes);
     pr.item_name = "offset";
 
     // if the offset files exists, read it to build elias-fano

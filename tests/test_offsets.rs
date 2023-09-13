@@ -2,7 +2,7 @@ use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use std::io::prelude::*;
-use sux::traits::Select;
+use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[test]
@@ -30,7 +30,7 @@ fn test_offsets() -> Result<()> {
         <webgraph::EF<Vec<usize>>>::mmap("tests/data/cnr-2000.ef", Flags::TRANSPARENT_HUGE_PAGES)?;
 
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(*offset, ef_offsets.select(i).unwrap() as _);
+        assert_eq!(*offset, ef_offsets.get(i) as _);
     }
 
     // Check that they read the same

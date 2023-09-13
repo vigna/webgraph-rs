@@ -6,7 +6,7 @@ use epserde::prelude::*;
 use log::info;
 use std::fs::File;
 use std::io::BufReader;
-use sux::traits::*;
+use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -59,7 +59,7 @@ pub fn main() -> Result<()> {
             // write where
             offset += reader.read_gamma()?;
             // read ef
-            let ef_res = ef.select(node_id as _).unwrap();
+            let ef_res = ef.get(node_id as _);
             assert_eq!(offset, ef_res as _, "node_id: {}", node_id);
             // decode the next nodes so we know where the next node_id starts
             pr.light_update();
@@ -80,7 +80,7 @@ pub fn main() -> Result<()> {
     for (new_offset, node_id, _degree) in seq_graph.iter_degrees() {
         // decode the next nodes so we know where the next node_id starts
         // read ef
-        let ef_res = ef.select(node_id as _).unwrap();
+        let ef_res = ef.get(node_id as _);
         assert_eq!(new_offset, ef_res as _, "node_id: {}", node_id);
         pr.light_update();
     }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::MemCase;
-use sux::{dict::elias_fano, traits::ConvertTo};
+use sux::prelude::*;
 use webgraph::prelude::*;
 
 type ReadType = u32;
@@ -35,7 +35,7 @@ fn get_bvgraph() -> Result<impl RandomAccessGraph> {
         offsets.push(offset);
     }
 
-    let mut builder = elias_fano::EliasFanoBuilder::new(offset + 1, offsets.len());
+    let mut builder = EliasFanoBuilder::new(offsets.len(), offset + 1);
     for o in offsets {
         builder.push(o)?;
     }
