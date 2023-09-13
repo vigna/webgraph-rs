@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use epserde::Serialize;
+use epserde::prelude::*;
 use log::info;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
-use epserde::Deserialize;
+use epserde::prelude::*;
 use tempfile::tempdir;
 use webgraph::prelude::*;
 
@@ -49,7 +49,7 @@ pub fn main() -> Result<()> {
     glob_pr.item_name = "node";
 
     // read the permutation
-    let perm = <Vec<usize>>::mmap(args.perm, epserde::Flags::default())?;
+    let perm = <Vec<usize>>::mmap(args.perm, Flags::default())?;
 
     let tmpdir = tempdir().unwrap();
     // create a stream where to dump the sorted pairs

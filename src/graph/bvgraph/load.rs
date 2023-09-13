@@ -2,7 +2,7 @@ use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
-use epserde::Deserialize;
+use epserde::prelude::*;
 use java_properties;
 use std::fs::*;
 use std::io::*;
@@ -39,15 +39,14 @@ macro_rules! impl_loads {
 
             let graph = MmapBackend::new(unsafe {
                 mmap_rs::MmapOptions::new(file_len as _)?
-                    .with_flags((epserde::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
+                    .with_flags((Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
                     .with_file(file, 0)
                     .map()?
             });
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets =
-                <crate::EF<Vec<u64>>>::mmap(&ef_path, epserde::Flags::TRANSPARENT_HUGE_PAGES)
-                    .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
+            let offsets = <crate::EF<Vec<u64>>>::mmap(&ef_path, Flags::TRANSPARENT_HUGE_PAGES)
+                .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
             let comp_flags = CompFlags::from_properties(&map)?;
             let code_reader_builder = <$builder<BE, MmapBackend<u32>>>::new(graph, comp_flags)?;
@@ -91,7 +90,7 @@ macro_rules! impl_loads {
 
             let graph = MmapBackend::new(unsafe {
                 mmap_rs::MmapOptions::new(file_len as _)?
-                    .with_flags((epserde::Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
+                    .with_flags((Flags::TRANSPARENT_HUGE_PAGES).mmap_flags())
                     .with_file(file, 0)
                     .map()?
             });

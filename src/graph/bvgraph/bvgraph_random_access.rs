@@ -1,4 +1,4 @@
-use epserde::MemCase;
+use epserde::prelude::*;
 use sux::traits::IndexedDict;
 
 use super::*;

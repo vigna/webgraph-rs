@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use clap::Parser;
-use epserde::Serialize;
+use epserde::prelude::*;
 use rayon::prelude::*;
 use webgraph::{invert_in_place, prelude::*};
 

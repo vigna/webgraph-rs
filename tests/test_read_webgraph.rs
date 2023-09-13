@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use sux::{ranksel::elias_fano, traits::ConvertTo};
+use epserde::prelude::MemCase;
+use sux::{dict::elias_fano, traits::ConvertTo};
 use webgraph::prelude::*;
 
 type ReadType = u32;
@@ -31,10 +32,10 @@ fn get_bvgraph() -> Result<impl RandomAccessGraph> {
     let mut offset = 0;
     for _ in 0..NODES {
         offset += reader.read_gamma().unwrap() as usize;
-        offsets.push(offset as u64);
+        offsets.push(offset);
     }
 
-    let mut builder = elias_fano::EliasFanoBuilder::new(offset as u64 + 1, offsets.len() as u64);
+    let mut builder = elias_fano::EliasFanoBuilder::new(offset + 1, offsets.len());
     for o in offsets {
         builder.push(o)?;
     }
@@ -60,7 +61,7 @@ fn get_bvgraph() -> Result<impl RandomAccessGraph> {
     // create a random access reader
     Ok(BVGraph::new(
         <DynamicCodesReaderBuilder<BE, _>>::new(data, cf).unwrap(),
-        epserde::encase(ef),
+        MemCase::encase(ef),
         min_interval_length,
         compression_window,
         NODES,
