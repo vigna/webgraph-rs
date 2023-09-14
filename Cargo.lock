@@ -509,7 +509,7 @@ dependencies = [
 [[package]]
 name = "dsi-bitstream"
 version = "0.1.0"
-source = "git+https://github.com/vigna/dsi-bitstream-rs#27f6ebfaa858a27ce143bab193a6f7a505c1a7e3"
+source = "git+https://github.com/vigna/dsi-bitstream-rs#f0a3e6de510f81ff6f4d0c319a65f1831b105e58"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -614,7 +614,7 @@ dependencies = [
 [[package]]
 name = "epserde"
 version = "0.1.0"
-source = "git+https://github.com/vigna/epserde-rs#bc8e53beaf1fe8dcbcaa407de97378264ef2ed52"
+source = "git+https://github.com/vigna/epserde-rs#edd3a76e1121de2b2ecf70010c93287a9f58aa05"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
@@ -627,7 +627,7 @@ dependencies = [
 [[package]]
 name = "epserde-derive"
 version = "0.1.0"
-source = "git+https://github.com/vigna/epserde-rs#bc8e53beaf1fe8dcbcaa407de97378264ef2ed52"
+source = "git+https://github.com/vigna/epserde-rs#edd3a76e1121de2b2ecf70010c93287a9f58aa05"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1319,7 +1319,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sux"
 version = "0.1.0"
-source = "git+https://github.com/vigna/sux-rs#2ccdd97c6eb22d57e80fab5719c36d7b8f0576d5"
+source = "git+https://github.com/vigna/sux-rs#2a43961108b16a5ce4999c103242ea88c89b929b"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
