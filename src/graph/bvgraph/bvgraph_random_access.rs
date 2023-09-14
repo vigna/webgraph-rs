@@ -7,7 +7,10 @@ use crate::utils::CircularBufferVec;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Value = usize>> {
+pub struct BVGraph<
+    CRB: BVGraphCodesReaderBuilder,
+    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
+> {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     codes_reader_builder: CRB,
@@ -27,7 +30,7 @@ pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Value = usiz
 impl<CRB, OFF> BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = usize>,
+    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
     /// Create a new BVGraph from the given parameters.
     ///
@@ -84,7 +87,7 @@ where
     pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
     where
         F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
-        OFF2: IndexedDict<Value = usize>,
+        OFF2: IndexedDict<InputValue = usize, OutputValue = usize>,
     {
         BVGraph {
             codes_reader_builder: self.codes_reader_builder,
@@ -106,7 +109,7 @@ where
 impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = usize>,
+    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
     type NodesIter<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
         where Self: 'b, CRB: 'b,
@@ -164,7 +167,7 @@ where
 impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = usize>,
+    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
     type RandomSuccessorIter<'b> = RandomSuccessorIter<CRB::Reader<'b>>
         where Self: 'b,
@@ -403,7 +406,7 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Value = usize>,
+    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
     type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
