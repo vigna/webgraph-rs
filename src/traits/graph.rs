@@ -25,8 +25,9 @@ where
     G: RandomAccessGraph
         + SequentialGraph<SequentialSuccessorIter<'a> = G::RandomSuccessorIter<'a>>,
 {
+    #[inline(always)]
     fn len(&self) -> usize {
-        self.graph.num_nodes()
+        self.nodes.len()
     }
 }
 
