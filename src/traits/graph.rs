@@ -11,6 +11,14 @@ Basic traits to access graphs, both sequentially and randomly.
 
 */
 
+use core::{
+    ops::Range,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+use std::sync::Mutex;
+
+use dsi_progress_logger::ProgressLogger;
+
 /// A struct used to implement the [`SequentialGraph`] trait for a struct that
 /// implements [`RandomAccessGraph`].
 pub struct SequentialGraphImplIter<'a, G: RandomAccessGraph> {

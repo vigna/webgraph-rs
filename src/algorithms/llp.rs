@@ -97,8 +97,7 @@ where
             // If this iteration modified anything (early stop)
             let modified = AtomicUsize::new(0);
 
-            let delta_obj_func = crate::graph::par_graph_apply(
-                graph,
+            let delta_obj_func = graph.par_graph_apply(
                 |range| {
                     let mut map = HashMap::with_capacity(1024);
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
@@ -333,8 +332,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
-    crate::graph::par_graph_apply(
-        graph,
+    graph.par_graph_apply(
         |range| {
             graph
                 .iter_nodes_from(range.start)
