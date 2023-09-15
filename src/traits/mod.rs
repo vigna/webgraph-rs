@@ -12,6 +12,13 @@ This modules contains the traits that are used throughout the crate.
 
 */
 
+/*!
+
+
+This modules contains the traits that are used throughout the crate.
+
+*/
+
 pub(crate) mod graph;
 pub use graph::*;
 

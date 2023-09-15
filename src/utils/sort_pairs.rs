@@ -12,7 +12,6 @@ use crate::{
 use anyhow::{anyhow, Context, Result};
 use core::marker::PhantomData;
 use dsi_bitstream::prelude::*;
-use epserde::prelude::Deserialize;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
