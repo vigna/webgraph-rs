@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
 use webgraph::prelude::*;
@@ -25,6 +26,10 @@ struct Args {
     /// enviroment variable TMPDIR
     #[arg(short, long)]
     tmp_dir: Option<String>,
+
+    #[arg(short = 'e', long)]
+    /// Load the permutation from ε-serde format.
+    epserde: bool,
 }
 
 fn main() -> Result<()> {
@@ -36,15 +41,19 @@ fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let graph = webgraph::graph::bvgraph::load(&args.source)?;
+    let graph = webgraph::graph::bvgraph::load_seq(&args.source)?;
 
     let mut rng = rand::thread_rng();
     let mut perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     perm.shuffle(&mut rng);
 
-    let mut file = std::io::BufWriter::new(std::fs::File::create(args.perm)?);
-    for perm in perm {
-        file.write_all(&perm.to_be_bytes())?;
+    if args.epserde {
+        perm.store(&args.perm)?;
+    } else {
+        let mut file = std::io::BufWriter::new(std::fs::File::create(args.perm)?);
+        for perm in perm {
+            file.write_all(&perm.to_be_bytes())?;
+        }
     }
 
     Ok(())
