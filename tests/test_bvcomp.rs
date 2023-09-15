@@ -13,7 +13,6 @@ use dsi_bitstream::{
     traits::BE,
 };
 use dsi_progress_logger::ProgressLogger;
-use mmap_rs::MmapOptions;
 use webgraph::{
     graph::bvgraph::{
         BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter,
@@ -82,23 +81,12 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.done();
                                     bvcomp.flush()?;
 
-                                    let path = std::path::Path::new(tmp_path);
-                                    let file_len = path.metadata()?.len();
-                                    let file = std::fs::File::open(path)?;
-
-                                    let data = unsafe {
-                                        MmapOptions::new(file_len as _)
-                                            .unwrap()
-                                            .with_file(file, 0)
-                                            .map()
-                                            .unwrap()
-                                    };
-
                                     let code_reader = DynamicCodesReader::new(
                                         BufferedBitStreamRead::<BE, u64, _>::new(
-                                            MemWordReadInfinite::<u32, _>::new(MmapBackend::new(
-                                                data,
-                                            )),
+                                            MemWordReadInfinite::<u32, _>::new(MmapBackend::load(
+                                                tmp_path,
+                                                mmap_rs::MmapFlags::empty(),
+                                            )?),
                                         ),
                                         &compression_flags,
                                     )?;

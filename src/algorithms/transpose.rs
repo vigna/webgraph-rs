@@ -1,5 +1,5 @@
-use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, Label};
-use crate::traits::{LabelledIterator, LabelledSequentialGraph, SequentialGraph};
+use crate::prelude::COOIterToGraph;
+use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
@@ -11,14 +11,11 @@ pub fn transpose<G: SequentialGraph>(
     batch_size: usize,
 ) -> Result<
     COOIterToGraph<
-        std::iter::Map<
-            KMergeIters<(), BatchIterator<()>>,
-            fn((usize, usize, ())) -> (usize, usize),
-        >,
+        std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
     >,
 > {
     let dir = tempfile::tempdir()?;
-    let mut sorted = <SortPairs<()>>::new(batch_size, dir.into_path())?;
+    let mut sorted = SortPairs::new(batch_size, dir.into_path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name = "node";
@@ -27,44 +24,13 @@ pub fn transpose<G: SequentialGraph>(
     // create batches of sorted edges
     for (src, succ) in graph.iter_nodes() {
         for dst in succ {
-            sorted.push(dst, src, ())?;
+            sorted.push(dst, src)?;
         }
         pl.light_update();
     }
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
     let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
-    pl.done();
-
-    Ok(sorted)
-}
-
-/// Create transpose the graph and return a sequential graph view of it
-#[allow(clippy::type_complexity)]
-pub fn transpose_labelled<G: LabelledSequentialGraph>(
-    graph: &G,
-    batch_size: usize,
-) -> Result<COOIterToLabelledGraph<KMergeIters<G::Label, BatchIterator<G::Label>>>>
-where
-    G::Label: Label + 'static,
-    for<'a> G::SequentialSuccessorIter<'a>: LabelledIterator<Label = G::Label>,
-{
-    let dir = tempfile::tempdir()?;
-    let mut sorted = <SortPairs<G::Label>>::new(batch_size, dir.into_path())?;
-
-    let mut pl = ProgressLogger::default();
-    pl.item_name = "node";
-    pl.expected_updates = Some(graph.num_nodes());
-    pl.start("Creating batches...");
-    // create batches of sorted edges
-    for (src, succ) in graph.iter_nodes() {
-        for (dst, label) in succ.labelled() {
-            sorted.push(dst, src, label)?;
-        }
-        pl.light_update();
-    }
-    // merge the batches
-    let sorted = COOIterToLabelledGraph::new(graph.num_nodes(), sorted.iter()?);
     pl.done();
 
     Ok(sorted)
@@ -87,6 +53,7 @@ fn test_transposition() -> anyhow::Result<()> {
     Ok(())
 }
 
+/*
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition_labelled() -> anyhow::Result<()> {
@@ -149,3 +116,4 @@ fn test_transposition_labelled() -> anyhow::Result<()> {
     //assert_eq!(g, g6);
     Ok(())
 }
+*/

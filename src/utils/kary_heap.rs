@@ -16,7 +16,7 @@ pub fn unchecked_swap<T: Copy>(vec: &mut [T], a: usize, b: usize) {
 /// A k-ary heap implementation
 #[derive(Clone, Debug)]
 pub struct KAryHeap<T: PartialOrd, const ARITY: usize = 4> {
-    values: Vec<T>,
+    values: Vec<Option<T>>,
     heap: Vec<usize>,
 }
 
@@ -67,7 +67,7 @@ impl<const ARITY: usize, T: PartialOrd> KAryHeap<T, ARITY> {
     pub fn push(&mut self, value: T) {
         // Insert the value and get its index
         let mut idx = self.values.len();
-        self.values.push(value);
+        self.values.push(Some(value));
         self.heap.push(idx);
         let value = &self.values[idx];
 
@@ -92,29 +92,31 @@ impl<const ARITY: usize, T: PartialOrd> KAryHeap<T, ARITY> {
 
     #[inline]
     pub fn peek(&self) -> &T {
-        &self.values[self.heap[0]]
+        self.values[self.heap[0]].as_ref().unwrap()
     }
 
     #[inline]
     pub fn peek_mut(&mut self) -> &mut T {
-        &mut self.values[self.heap[0]]
+        self.values[self.heap[0]].as_mut().unwrap()
     }
 
     /// remove and return the smallest value
     #[inline]
-    pub fn pop(&mut self) {
+    pub fn pop(&mut self) -> Option<T> {
         // if the queue is empty we can early-stop.
         if self.values.is_empty() {
-            return;
+            return None;
         }
 
         // remove the minimum from the tree and put the last value as the head
-        self.heap.swap_remove(0);
+        let idx = self.heap.swap_remove(0);
 
         // if there are values left, bubble down the new head to fix the heap
         if !self.heap.is_empty() {
             self.bubble_down(0);
         }
+
+        Some(self.values[idx].take().unwrap())
     }
 
     #[inline(always)]

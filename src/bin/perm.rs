@@ -30,9 +30,13 @@ struct Args {
     #[arg(short, long)]
     tmp_dir: Option<String>,
 
-    #[arg(short = 'e', long)]
+    #[arg(short = 'e', long, default_value_t = false)]
     /// Load the permutation from ε-serde format.
     epserde: bool,
+
+    #[arg(short = 'o', long, default_value_t = false)]
+    /// Build the offsets while compressing the graph .
+    build_offsets: bool,
 }
 
 fn permute(
@@ -41,9 +45,6 @@ fn permute(
     perm: &[usize],
     num_nodes: usize,
 ) -> Result<()> {
-    let mut glob_pr = ProgressLogger::default().display_memory();
-    glob_pr.item_name = "node";
-
     let tmpdir = tempdir().unwrap();
     // create a stream where to dump the sorted pairs
     let mut sort_pairs = SortPairs::new(
@@ -61,7 +62,7 @@ fn permute(
     .iter_nodes()
     .for_each(|(x, succ)| {
         succ.for_each(|s| {
-            sort_pairs.push(x, s, ()).unwrap();
+            sort_pairs.push(x, s).unwrap();
         })
     });
     // get a graph on the sorted data
@@ -86,6 +87,9 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
+    let mut glob_pr = ProgressLogger::default().display_memory();
+    glob_pr.item_name = "node";
+    glob_pr.start("Permuting the graph...");
     // TODO!: check that batchsize fits in memory, and that print the maximum
     // batch_size usable
 
@@ -96,7 +100,7 @@ pub fn main() -> Result<()> {
 
     if args.epserde {
         let perm = <Vec<usize>>::mmap(&args.perm, Flags::default())?;
-        permute(args, &graph, perm.as_ref(), num_nodes)
+        permute(args, &graph, perm.as_ref(), num_nodes)?;
     } else {
         let mut file = BufReader::new(std::fs::File::open(&args.perm)?);
         let mut perm = Vec::with_capacity(num_nodes);
@@ -111,6 +115,8 @@ pub fn main() -> Result<()> {
             perm_pr.light_update();
         }
         perm_pr.done();
-        permute(args, &graph, perm.as_ref(), num_nodes)
+        permute(args, &graph, perm.as_ref(), num_nodes)?;
     }
+    glob_pr.done();
+    Ok(())
 }

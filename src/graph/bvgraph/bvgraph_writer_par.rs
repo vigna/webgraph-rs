@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::ScopedJoinHandle;
 use tempfile::tempdir;
 
+/// Build a BVGraph by compressing an iterator of nodes and successors and
+/// return the lenght of the produced bitstream (in bits).
 pub fn compress_sequential_iter<
     P: AsRef<Path>,
     I: ExactSizeIterator<Item = (usize, J)>,
@@ -17,6 +19,7 @@ pub fn compress_sequential_iter<
     basename: P,
     iter: I,
     compression_flags: CompFlags,
+    build_offsets: bool,
 ) -> Result<usize> {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
@@ -46,9 +49,26 @@ pub fn compress_sequential_iter<
     pr.expected_updates = Some(num_nodes);
     pr.start("Compressing successors...");
     let mut result = 0;
-    for (_node_id, successors) in iter {
-        result += bvcomp.push(successors)?;
-        pr.update();
+
+    if build_offsets {
+        let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
+        // create a bit writer on the file
+        let mut writer = <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(
+            BufWriter::with_capacity(1 << 20, file),
+        ));
+
+        writer.write_gamma(0)?;
+        for (_node_id, successors) in iter {
+            let delta = bvcomp.push(successors)?;
+            result += delta;
+            writer.write_gamma(delta as u64)?;
+            pr.update();
+        }
+    } else {
+        for (_node_id, successors) in iter {
+            result += bvcomp.push(successors)?;
+            pr.update();
+        }
     }
     pr.done();
 
