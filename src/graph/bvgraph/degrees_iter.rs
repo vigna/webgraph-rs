@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
@@ -6,7 +13,7 @@ use dsi_bitstream::prelude::*;
 /// the offsets.
 /// This has limited uses, but is very fast. Most notably, this can be used to
 /// build the offsets of a graph.
-pub struct WebgraphDegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
+pub struct DegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
     codes_reader: CR,
     backrefs: Vec<usize>,
     node_id: usize,
@@ -15,14 +22,14 @@ pub struct WebgraphDegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
     number_of_nodes: usize,
 }
 
-impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> WebgraphDegreesIter<CR> {
+impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> DegreesIter<CR> {
     /// Get the current bit-offset in the bitstream
     pub fn get_pos(&self) -> usize {
         self.codes_reader.get_pos()
     }
 }
 
-impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> Iterator for WebgraphDegreesIter<CR> {
+impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> Iterator for DegreesIter<CR> {
     type Item = (usize, usize, usize);
     fn next(&mut self) -> Option<(usize, usize, usize)> {
         if self.node_id >= self.number_of_nodes {
@@ -33,7 +40,7 @@ impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> Iterator for Webgra
     }
 }
 
-impl<CR: BVGraphCodesReader + BVGraphCodesSkipper> WebgraphDegreesIter<CR> {
+impl<CR: BVGraphCodesReader + BVGraphCodesSkipper> DegreesIter<CR> {
     /// Create a new iterator over the degrees of the graph.
     pub fn new(
         codes_reader: CR,

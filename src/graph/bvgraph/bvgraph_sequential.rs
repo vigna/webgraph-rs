@@ -96,8 +96,8 @@ where
     /// Create an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
-    pub fn iter_degrees(&self) -> WebgraphDegreesIter<CRB::Reader<'_>> {
-        WebgraphDegreesIter::new(
+    pub fn iter_degrees(&self) -> DegreesIter<CRB::Reader<'_>> {
+        DegreesIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.min_interval_length,
             self.compression_window,

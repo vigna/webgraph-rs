@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 //! Collection of common functions we use throughout the codebase
 use dsi_bitstream::prelude::*;
 use mmap_rs::*;

@@ -12,9 +12,6 @@ This modules contains the traits that are used throughout the crate.
 
 */
 
-mod bvgraph_codes;
-pub use bvgraph_codes::*;
-
 pub(crate) mod graph;
 pub use graph::*;
 

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 /// A circular buffer which is used to keep the backreferences both in
 /// sequential reads and for compressing during writes.
 /// For efficency reasons, we re-use the allocated buffers to avoid pressure
