@@ -114,6 +114,9 @@ where
     type NodesIter<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
         where Self: 'b, CRB: 'b,
         OFF: 'b;
+    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
+        where
+            Self: 'b;
     type SequentialSuccessorIter<'b> = std::vec::IntoIter<usize>
         where Self: 'b, CRB: 'b,
         OFF: 'b;
@@ -137,6 +140,11 @@ where
             self.min_interval_length,
             self.number_of_nodes,
         )
+    }
+
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
+        streaming_iterator::convert(self.iter_nodes())
     }
 
     fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {

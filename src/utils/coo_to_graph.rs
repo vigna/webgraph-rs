@@ -26,6 +26,10 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
     type NodesIter<'b> = SortedNodePermutedIterator<'b, I> where Self: 'b;
     type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator<'b, I> where Self: 'b;
 
+    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
+        where
+            Self: 'b;
+
     #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.num_nodes
@@ -39,6 +43,10 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
     #[inline(always)]
     fn iter_nodes(&self) -> Self::NodesIter<'_> {
         SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
+    }
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
+        streaming_iterator::convert(self.iter_nodes())
     }
 }
 

@@ -61,6 +61,11 @@ pub trait SequentialGraph {
     type NodesIter<'a>: ExactSizeIterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
     where
         Self: 'a;
+    /// Iterator over the nodes of the graph
+    type NodesStream<'a>: streaming_iterator::StreamingIteratorMut<Item = (usize, Self::SequentialSuccessorIter<'a>)>
+        + 'a
+    where
+        Self: 'a;
     /// Iterator over the successors of a node
     type SequentialSuccessorIter<'a>: Iterator<Item = usize> + 'a
     where
@@ -76,6 +81,9 @@ pub trait SequentialGraph {
 
     /// Get an iterator over the nodes of the graph
     fn iter_nodes(&self) -> Self::NodesIter<'_>;
+
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_>;
 
     /// Get an iterator over the nodes of the graph starting at `start_node`
     /// (included)

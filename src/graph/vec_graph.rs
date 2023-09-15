@@ -209,6 +209,9 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
     type NodesIter<'a> = SequentialGraphImplIter<'a, Self>
         where
             Self: 'a;
+    type NodesStream<'a> = streaming_iterator::Convert<Self::NodesIter<'a>>
+        where
+            Self: 'a;
 
     type SequentialSuccessorIter<'a> = VecGraphIter<'a, L>
         where
@@ -222,6 +225,11 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
     #[inline(always)]
     fn num_arcs_hint(&self) -> Option<usize> {
         Some(self.num_arcs())
+    }
+
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
+        streaming_iterator::convert(self.iter_nodes())
     }
 
     #[inline(always)]

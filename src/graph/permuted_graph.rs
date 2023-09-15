@@ -18,6 +18,9 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     type NodesIter<'b> =
         NodePermutedIterator<'b, G::NodesIter<'b>, G::SequentialSuccessorIter<'b>>
 		where Self: 'b;
+    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
+            where
+                Self: 'b;
     type SequentialSuccessorIter<'b> =
         SequentialPermutedIterator<'b, G::SequentialSuccessorIter<'b>>
 		where Self: 'b;
@@ -38,6 +41,11 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
             iter: self.graph.iter_nodes(),
             perm: self.perm,
         }
+    }
+
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
+        streaming_iterator::convert(self.iter_nodes())
     }
 
     #[inline(always)]

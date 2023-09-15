@@ -19,7 +19,9 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     type NodesIter<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
         Self: 'a;
-
+    type NodesStream<'b> = Self::NodesIter<'b>
+        where
+            Self: 'b;
     type SequentialSuccessorIter<'a> = std::vec::IntoIter<usize>
     where
         Self: 'a;
@@ -43,6 +45,11 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
             self.min_interval_length,
             self.number_of_nodes,
         )
+    }
+
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
+        self.iter_nodes()
     }
 }
 
@@ -248,6 +255,26 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
 
         results.sort();
         Ok(())
+    }
+}
+
+impl<CR: BVGraphCodesReader> streaming_iterator::StreamingIterator for WebgraphSequentialIter<CR> {
+    type Item<'a> = (usize, &'a [usize]);
+
+    fn advance(&mut self) {
+        todo!();
+    }
+
+    fn get(&self) -> Option<&Self::Item> {
+        todo!();
+    }
+}
+
+impl<CR: BVGraphCodesReader> streaming_iterator::StreamingIteratorMut
+    for WebgraphSequentialIter<CR>
+{
+    fn get_mut(&mut self) -> Option<&mut Self::Item> {
+        todo!();
     }
 }
 

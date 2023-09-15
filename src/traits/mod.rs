@@ -24,3 +24,6 @@ pub use graph::*;
 
 mod serde;
 pub use serde::*;
+
+mod streaming_iterator;
+pub use streaming_iterator::*;
