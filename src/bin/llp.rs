@@ -11,8 +11,8 @@ struct Args {
     /// The basename of the graph.
     basename: String,
 
-    /// A filename for the LLP permutation.
-    perm: String,
+    /// A filename for the LLP permutation. It defaults to "{basename}.llp"
+    perm: Option<String>,
 
     #[arg(short, long, default_value_t = 100)]
     /// The maximum number of updates for a given ɣ.
@@ -49,6 +49,10 @@ struct Args {
 pub fn main() -> Result<()> {
     let start = std::time::Instant::now();
     let args = Args::parse();
+
+    let perm = args
+        .perm
+        .unwrap_or_else(|| format!("{}.llp", args.basename));
 
     stderrlog::new()
         .verbosity(2)
@@ -96,9 +100,9 @@ pub fn main() -> Result<()> {
     log::info!("Saving permutation...");
 
     if args.epserde {
-        llp_perm.store(args.perm)?;
+        llp_perm.store(perm)?;
     } else {
-        let mut file = std::fs::File::create(args.perm)?;
+        let mut file = std::fs::File::create(perm)?;
         let mut buf = BufWriter::new(&mut file);
         for word in llp_perm.into_iter() {
             buf.write_all(&word.to_be_bytes())?;

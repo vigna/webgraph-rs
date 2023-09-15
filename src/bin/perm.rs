@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
+use std::io::{BufReader, Read};
 use tempfile::tempdir;
 use webgraph::prelude::*;
 
@@ -28,28 +29,20 @@ struct Args {
     /// enviroment variable TMPDIR
     #[arg(short, long)]
     tmp_dir: Option<String>,
+
+    #[arg(short = 'e', long)]
+    /// Load the permutation from ε-serde format.
+    epserde: bool,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    // TODO!: check that batchsize fits in memory, and that print the maximum
-    // batch_size usable
-
-    let graph = webgraph::graph::bvgraph::load(&args.source)?;
-
-    let num_nodes = graph.num_nodes();
+fn permute(
+    args: Args,
+    graph: &impl SequentialGraph,
+    perm: &[usize],
+    num_nodes: usize,
+) -> Result<()> {
     let mut glob_pr = ProgressLogger::default().display_memory();
     glob_pr.item_name = "node";
-
-    // read the permutation
-    let perm = <Vec<usize>>::mmap(args.perm, Flags::default())?;
 
     let tmpdir = tempdir().unwrap();
     // create a stream where to dump the sorted pairs
@@ -62,7 +55,7 @@ pub fn main() -> Result<()> {
 
     // dump the paris
     PermutedGraph {
-        graph: &graph,
+        graph: graph,
         perm: &perm,
     }
     .iter_nodes()
@@ -82,4 +75,42 @@ pub fn main() -> Result<()> {
         args.num_cpus.unwrap_or(num_cpus::get()),
     )?;
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
+
+    // TODO!: check that batchsize fits in memory, and that print the maximum
+    // batch_size usable
+
+    let graph = webgraph::graph::bvgraph::load_seq(&args.source)?;
+
+    let num_nodes = graph.num_nodes();
+    // read the permutation
+
+    if args.epserde {
+        let perm = <Vec<usize>>::mmap(&args.perm, Flags::default())?;
+        permute(args, &graph, perm.as_ref(), num_nodes)
+    } else {
+        let mut file = BufReader::new(std::fs::File::open(&args.perm)?);
+        let mut perm = Vec::with_capacity(num_nodes);
+        let mut buf = [0; core::mem::size_of::<usize>()];
+
+        let mut perm_pr = ProgressLogger::default().display_memory();
+        perm_pr.item_name = "node";
+
+        for _ in 0..num_nodes {
+            file.read_exact(&mut buf)?;
+            perm.push(usize::from_be_bytes(buf));
+            perm_pr.light_update();
+        }
+        perm_pr.done();
+        permute(args, &graph, perm.as_ref(), num_nodes)
+    }
 }
