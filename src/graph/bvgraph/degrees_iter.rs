@@ -9,10 +9,13 @@ use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
-/// Fast iterator over the degrees of each node in the graph without having
-/// the offsets.
-/// This has limited uses, but is very fast. Most notably, this can be used to
-/// build the offsets of a graph.
+/// Iterator over the degrees of each node in the graph which does not
+/// need the offsets.
+///
+/// This iterator is usually a bit faster than
+/// scanning the graph. In particular, it can be used to
+/// build the offsets of a graph or to enumerate the graph
+/// degrees when the offsets are not available.
 pub struct DegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
     codes_reader: CR,
     backrefs: Vec<usize>,
