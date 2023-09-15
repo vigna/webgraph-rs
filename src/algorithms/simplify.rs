@@ -1,4 +1,4 @@
-use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, SortPairsPayload};
+use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, Label};
 use crate::traits::{LabelledIterator, LabelledSequentialGraph, SequentialGraph};
 use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
@@ -56,7 +56,7 @@ pub fn simplify_labelled<G: LabelledSequentialGraph>(
     batch_size: usize,
 ) -> Result<impl SequentialGraph>
 where
-    G::Label: SortPairsPayload + 'static + PartialEq,
+    G::Label: Label + 'static + PartialEq,
     for<'a> G::SequentialSuccessorIter<'a>: LabelledIterator<Label = G::Label>,
 {
     let dir = tempfile::tempdir()?;

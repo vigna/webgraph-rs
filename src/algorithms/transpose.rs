@@ -1,4 +1,4 @@
-use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, SortPairsPayload};
+use crate::prelude::{COOIterToGraph, COOIterToLabelledGraph, Label};
 use crate::traits::{LabelledIterator, LabelledSequentialGraph, SequentialGraph};
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
@@ -46,7 +46,7 @@ pub fn transpose_labelled<G: LabelledSequentialGraph>(
     batch_size: usize,
 ) -> Result<COOIterToLabelledGraph<KMergeIters<G::Label, BatchIterator<G::Label>>>>
 where
-    G::Label: SortPairsPayload + 'static,
+    G::Label: Label + 'static,
     for<'a> G::SequentialSuccessorIter<'a>: LabelledIterator<Label = G::Label>,
 {
     let dir = tempfile::tempdir()?;
@@ -96,7 +96,7 @@ fn test_transposition_labelled() -> anyhow::Result<()> {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct Payload(f64);
 
-    impl SortPairsPayload for Payload {
+    impl Label for Payload {
         fn from_bitstream<E: Endianness, B: ReadCodes<E>>(bitstream: &mut B) -> Result<Self> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;

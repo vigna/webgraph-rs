@@ -1,3 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/*!
+
+Basic traits to access graphs, both sequentially and randomly.
+
+*/
+
 /// A struct used to implement the [`SequentialGraph`] trait for a struct that
 /// implements [`RandomAccessGraph`].
 pub struct SequentialGraphImplIter<'a, G: RandomAccessGraph> {
