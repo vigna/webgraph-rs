@@ -422,11 +422,14 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// empty iterator).
     ///
     /// This most commonly is called with `graph.iter_nodes()` as input.
-    pub fn extend<I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>>(
-        &mut self,
-        iter_nodes: I,
-    ) -> Result<usize> {
-        iter_nodes.map(|(_, succ)| self.push(succ)).sum()
+    pub fn extend<I, J>(&mut self, iter_nodes: I) -> Result<usize>
+    where
+        for<'a> I: StreamingIterator<StreamItem<'a> = (usize, J)>,
+        J: Iterator<Item = usize>,
+    {
+        iter_nodes
+            .for_each_stream(|(_, succ)| self.push(succ));
+            .sum()
     }
 
     /// Consume the compressor and flush the inner writer.
@@ -567,7 +570,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend(seq_graph.stream_nodes()).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -587,13 +590,12 @@ mod test {
         );
 
         // Check that the graph is the same
-        for (i, (true_node_id, true_succ)) in (&seq_graph).into_iter().enumerate() {
+        let mut iter = (&seq_graph).stream_nodes().enumerate_stream();
+        while let Some((i, (true_node_id, true_succ))) = iter.next_stream() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
-            let true_succ = true_succ.collect::<Vec<_>>();
-            let seq_succ = seq_succ.collect::<Vec<_>>();
             assert_eq!(true_succ, seq_succ, "node_id: {}", i);
         }
 
@@ -621,7 +623,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend(seq_graph.stream_nodes()).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -640,13 +642,12 @@ mod test {
         );
 
         // Check that the graph is the same
-        for (i, (true_node_id, true_succ)) in (&seq_graph).into_iter().enumerate() {
+        let mut iter = (&seq_graph).stream_nodes().enumerate_stream();
+        for (i, (true_node_id, true_succ)) in iter.next_stream() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
-            let true_succ = true_succ.collect::<Vec<_>>();
-            let seq_succ = seq_succ.collect::<Vec<_>>();
             assert_eq!(true_succ, seq_succ, "node_id: {}", i);
         }
 

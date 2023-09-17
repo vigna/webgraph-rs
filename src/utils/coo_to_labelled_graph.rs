@@ -32,12 +32,8 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Labelled
 impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> SequentialGraph
     for COOIterToLabelledGraph<I>
 {
-    type NodesIter<'b> = SortedLabelledNodePermutedIterator<'b, L, I> where Self: 'b;
-    type SequentialSuccessorIter<'b> = SortedLabelledSequentialPermutedIterator<'b, L, I> where Self: 'b;
-
-    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
-        where
-            Self: 'b;
+    type NodesStream<'b> = SortedLabelledNodePermutedIterator<'b, L, I> where Self: 'b;
+    type SuccessorStream<'b> = SortedLabelledSequentialPermutedIterator<'b, L, I> where Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -50,7 +46,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
     }
 
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
         let mut iter = self.iter.clone();
         SortedLabelledNodePermutedIterator {
             num_nodes: self.num_nodes,
@@ -66,10 +62,6 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
             iter,
             _marker: PhantomData,
         }
-    }
-    /// Get an iterator over the nodes of the graph
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        streaming_iterator::convert(self.iter_nodes())
     }
 }
 

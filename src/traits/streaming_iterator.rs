@@ -58,21 +58,6 @@ pub trait StreamingIterator {
     }
 }
 
-/// Blanket implementation for all the iterators which items do not contain
-/// references to themselves. This is valid as owned objects have lifetime
-/// can have for sure lifetime bigger than self.
-impl<T> StreamingIterator for T
-where
-    T: Iterator,
-{
-    type StreamItem<'b> = T::Item where T: 'b;
-
-    #[inline(always)]
-    fn next_stream(&mut self) -> Option<Self::StreamItem<'_>> {
-        self.next()
-    }
-}
-
 #[derive(Clone)]
 pub struct Enumerate<I> {
     iter: I,
@@ -159,6 +144,7 @@ where
     }
 }
 
+/*
 #[cfg(test)]
 mod test_stream_iter {
     use super::*;
@@ -178,3 +164,4 @@ mod test_stream_iter {
             });
     }
 }
+ */

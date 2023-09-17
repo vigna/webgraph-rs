@@ -5,7 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::SequentialGraph;
+use core::marker::PhantomData;
+
+use crate::traits::{SequentialGraph, StreamingIterator};
 
 #[derive(Clone)]
 /// A Graph wrapper that applies on the fly a permutation of the nodes
@@ -15,14 +17,11 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
 }
 
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
-    type NodesIter<'b> =
-        NodePermutedIterator<'b, G::NodesIter<'b>, G::SequentialSuccessorIter<'b>>
-		where Self: 'b;
-    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
-            where
-                Self: 'b;
-    type SequentialSuccessorIter<'b> =
-        SequentialPermutedIterator<'b, G::SequentialSuccessorIter<'b>>
+    type NodesStream<'b> = NodePermutedIterator<'b, G::NodesStream<'b>>
+        where
+            Self: 'b;
+    type SuccessorStream<'b> =
+        SequentialPermutedIterator<'b, <G::SuccessorStream<'b> as IntoIterator>::IntoIter>
 		where Self: 'b;
 
     #[inline(always)]
@@ -36,49 +35,44 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
         NodePermutedIterator {
             iter: self.graph.iter_nodes(),
             perm: self.perm,
         }
     }
 
-    /// Get an iterator over the nodes of the graph
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        streaming_iterator::convert(self.iter_nodes())
-    }
-
-    #[inline(always)]
+    /*#[inline(always)]
     fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
         NodePermutedIterator {
             iter: self.graph.iter_nodes_from(start_node),
             perm: self.perm,
         }
-    }
+    }*/
 }
 
-#[derive(Clone)]
+//#[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
-pub struct NodePermutedIterator<
-    'a,
-    I: ExactSizeIterator<Item = (usize, J)>,
-    J: Iterator<Item = usize>,
-> {
+pub struct NodePermutedIterator<'a, I: StreamingIterator> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
-    for NodePermutedIterator<'a, I, J>
+impl<'a, I: for<'b> StreamingIterator> StreamingIterator for NodePermutedIterator<'a, I>
+where
+    for<'b> I: 'b,
 {
-    type Item = (usize, SequentialPermutedIterator<'a, J>);
+    type StreamItem<'c> = (usize, SequentialPermutedIterator<'c, J::IntoIter>)
+    where
+        Self: 'c;
+
     #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(node, iter)| {
+    fn next_stream(&mut self) -> Option<Self::StreamItem<'_>> {
+        self.iter.next_stream().map(|(node, succ)| {
             (
                 self.perm[node],
                 SequentialPermutedIterator {
-                    iter,
+                    iter: succ.into_iter(),
                     perm: self.perm,
                 },
             )
@@ -86,13 +80,14 @@ impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> Ite
     }
 }
 
+/*
 impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> ExactSizeIterator
     for NodePermutedIterator<'a, I, J>
 {
     fn len(&self) -> usize {
         self.iter.len()
     }
-}
+} */
 
 #[derive(Clone)]
 /// An iterator over the successors of a node of a graph that applies on the fly a permutation of the nodes

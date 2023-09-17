@@ -206,14 +206,10 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
 }
 
 impl<L: Clone> SequentialGraph for VecGraph<L> {
-    type NodesIter<'a> = SequentialGraphImplIter<'a, Self>
+    type NodesStream<'a> = SequentialGraphImplIter<'a, Self>
         where
-            Self: 'a;
-    type NodesStream<'a> = streaming_iterator::Convert<Self::NodesIter<'a>>
-        where
-            Self: 'a;
-
-    type SequentialSuccessorIter<'a> = VecGraphIter<'a, L>
+            Self: 'a ;
+    type SuccessorStream<'a> = VecGraphIter<'a, L>
         where
             Self: 'a;
 
@@ -227,13 +223,8 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
         Some(self.num_arcs())
     }
 
-    /// Get an iterator over the nodes of the graph
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        streaming_iterator::convert(self.iter_nodes())
-    }
-
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
         SequentialGraphImplIter {
             graph: self,
             nodes: (0..self.num_nodes()),

@@ -23,12 +23,10 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
 }
 
 impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGraph<I> {
-    type NodesIter<'b> = SortedNodePermutedIterator<'b, I> where Self: 'b;
-    type SequentialSuccessorIter<'b> = SortedSequentialPermutedIterator<'b, I> where Self: 'b;
-
-    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
+    type NodesStream<'b> =  SortedNodePermutedIterator<'b, I>
         where
             Self: 'b;
+    type SuccessorStream<'b> = SortedSequentialPermutedIterator<'b, I> where Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -40,13 +38,9 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
         None
     }
 
-    #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
-    }
     /// Get an iterator over the nodes of the graph
     fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        streaming_iterator::convert(self.iter_nodes())
+        SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
     }
 }
 
@@ -71,9 +65,15 @@ impl<'a, I: Iterator<Item = (usize, usize)>> SortedNodePermutedIterator<'a, I> {
     }
 }
 
-impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedNodePermutedIterator<'a, I> {
-    type Item = (usize, SortedSequentialPermutedIterator<'a, I>);
-    fn next(&mut self) -> Option<Self::Item> {
+impl<'a, I: Iterator<Item = (usize, usize)>> StreamingIterator
+    for SortedNodePermutedIterator<'a, I>
+{
+    type StreamItem<'b> = (usize, SortedSequentialPermutedIterator<'b, I>)
+    where
+        Self: 'b
+    ;
+
+    fn next_stream(&mut self) -> Option<Self::StreamItem<'_>> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
             return None;
@@ -96,13 +96,22 @@ impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedNodePermutedIter
     }
 }
 
+impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedNodePermutedIterator<'a, I> {
+    type Item = (usize, Vec<usize>);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_stream()
+            .map(|(node_id, succ)| (node_id, succ.collect::<Vec<_>>()))
+    }
+}
+
+/*
 impl<'a, I: Iterator<Item = (usize, usize)>> ExactSizeIterator
     for SortedNodePermutedIterator<'a, I>
 {
     fn len(&self) -> usize {
-        self.num_nodes
+        self.num_nodes - self.curr_node - 1
     }
-}
+}*/
 
 #[derive(Debug, Clone)]
 /// Iter until we found a triple with src different than curr_node

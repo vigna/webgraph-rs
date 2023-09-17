@@ -11,6 +11,7 @@ Basic traits to access graphs, both sequentially and randomly.
 
 */
 
+use crate::traits::StreamingIterator;
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
@@ -28,8 +29,7 @@ pub struct SequentialGraphImplIter<'a, G: RandomAccessGraph> {
 
 impl<'a, G> Iterator for SequentialGraphImplIter<'a, G>
 where
-    G: RandomAccessGraph
-        + SequentialGraph<SequentialSuccessorIter<'a> = G::RandomSuccessorIter<'a>>,
+    G: RandomAccessGraph + SequentialGraph<SuccessorStream<'a> = G::RandomSuccessorIter<'a>>,
 {
     type Item = (usize, G::RandomSuccessorIter<'a>);
 
@@ -43,8 +43,7 @@ where
 
 impl<'a, G> ExactSizeIterator for SequentialGraphImplIter<'a, G>
 where
-    G: RandomAccessGraph
-        + SequentialGraph<SequentialSuccessorIter<'a> = G::RandomSuccessorIter<'a>>,
+    G: RandomAccessGraph + SequentialGraph<SuccessorStream<'a> = G::RandomSuccessorIter<'a>>,
 {
     #[inline(always)]
     fn len(&self) -> usize {
@@ -58,18 +57,27 @@ unsafe impl<'a, G: RandomAccessGraph> SortedIterator for SequentialGraphImplIter
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
     /// Iterator over the nodes of the graph
-    type NodesIter<'a>: ExactSizeIterator<Item = (usize, Self::SequentialSuccessorIter<'a>)> + 'a
-    where
-        Self: 'a;
-    /// Iterator over the nodes of the graph
-    type NodesStream<'a>: streaming_iterator::StreamingIteratorMut<Item = (usize, Self::SequentialSuccessorIter<'a>)>
+    type NodesStream<'a>: for<'b> StreamingIterator<StreamItem<'b> = (usize, Self::SuccessorStream<'b>)>
         + 'a
     where
         Self: 'a;
     /// Iterator over the successors of a node
-    type SequentialSuccessorIter<'a>: Iterator<Item = usize> + 'a
+    type SuccessorStream<'a>: IntoIterator<Item = usize> + 'a
     where
         Self: 'a;
+
+    /// Get an iterator over the nodes of the graph
+    fn stream_nodes(&self) -> Self::NodesStream<'_>;
+
+    /// Get an iterator over the nodes of the graph starting at `start_node`
+    /// (included)
+    fn stream_nodes_from(&self, start_node: usize) -> Self::NodesStream<'_> {
+        let mut iter = self.stream_nodes();
+        for _ in 0..start_node {
+            iter.next_stream();
+        }
+        iter
+    }
 
     /// Get the number of nodes in the graph
     fn num_nodes(&self) -> usize;
@@ -77,22 +85,6 @@ pub trait SequentialGraph {
     /// Get the number of arcs in the graph if available
     fn num_arcs_hint(&self) -> Option<usize> {
         None
-    }
-
-    /// Get an iterator over the nodes of the graph
-    fn iter_nodes(&self) -> Self::NodesIter<'_>;
-
-    /// Get an iterator over the nodes of the graph
-    fn stream_nodes(&self) -> Self::NodesStream<'_>;
-
-    /// Get an iterator over the nodes of the graph starting at `start_node`
-    /// (included)
-    fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
-        let mut iter = self.iter_nodes();
-        for _ in 0..start_node {
-            iter.next();
-        }
-        iter
     }
 
     /// Given a graph, apply `func` to each chunk of nodes of size `granularity`
@@ -225,12 +217,12 @@ pub trait LabelledIterator: Labelled + Iterator<Item = usize> {
 /// A trait to constraint the successors iterator to implement [`LabelledIterator`]
 pub trait LabelledSequentialGraph: SequentialGraph + Labelled
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> Self::SuccessorStream<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: SequentialGraph + Labelled> LabelledSequentialGraph for G where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>
+    for<'a> Self::SuccessorStream<'a>: LabelledIterator<Label = Self::Label>
 {
 }
 
@@ -257,31 +249,31 @@ pub unsafe trait SortedIterator {}
 /// and which enumerates nodes and successors in increasing order.
 pub trait Graph: SequentialGraph + RandomAccessGraph
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: SortedIterator,
+    for<'a> Self::SuccessorStream<'a>: SortedIterator,
     for<'a> Self::RandomSuccessorIter<'a>: SortedIterator,
-    for<'a> Self::NodesIter<'a>: SortedIterator,
+    for<'a> Self::NodesStream<'a>: SortedIterator,
 {
 }
 /// Blanket implementation
 impl<G: SequentialGraph + RandomAccessGraph> Graph for G
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: SortedIterator,
+    for<'a> Self::SuccessorStream<'a>: SortedIterator,
     for<'a> Self::RandomSuccessorIter<'a>: SortedIterator,
-    for<'a> Self::NodesIter<'a>: SortedIterator,
+    for<'a> Self::NodesStream<'a>: SortedIterator,
 {
 }
 
 /// The same as [`Graph`], but with a label on each node.
 pub trait LabelledGraph: LabelledSequentialGraph + LabelledRandomAccessGraph
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> Self::SuccessorStream<'a>: LabelledIterator<Label = Self::Label>,
     for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: LabelledSequentialGraph + LabelledRandomAccessGraph> LabelledGraph for G
 where
-    for<'a> Self::SequentialSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> Self::SuccessorStream<'a>: LabelledIterator<Label = Self::Label>,
     for<'a> Self::RandomSuccessorIter<'a>: LabelledIterator<Label = Self::Label>,
 {
 }

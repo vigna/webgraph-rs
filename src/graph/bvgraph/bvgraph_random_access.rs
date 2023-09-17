@@ -111,15 +111,11 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
-    type NodesIter<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
-        where Self: 'b, CRB: 'b,
-        OFF: 'b;
-    type NodesStream<'b> = streaming_iterator::Convert<Self::NodesIter<'b>>
-        where
-            Self: 'b;
-    type SequentialSuccessorIter<'b> = std::vec::IntoIter<usize>
-        where Self: 'b, CRB: 'b,
-        OFF: 'b;
+    type NodesStream<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
+    where Self: 'b, CRB: 'b,
+    OFF: 'b;
+    type SuccessorStream<'a> = &'a [usize]
+        where Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -132,7 +128,7 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes(&self) -> WebgraphSequentialIter<CRB::Reader<'_>> {
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
         WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),
@@ -142,11 +138,7 @@ where
         )
     }
 
-    /// Get an iterator over the nodes of the graph
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        streaming_iterator::convert(self.iter_nodes())
-    }
-
+    /*
     fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
         let codes_reader = self
             .codes_reader_builder
@@ -169,7 +161,7 @@ where
             number_of_nodes: self.number_of_nodes,
             current_node: start_node,
         }
-    }
+    } */
 }
 
 impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
@@ -410,6 +402,7 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     }
 }
 
+/*
 /// Allow to do `for (node, succ_iter) in &graph`
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where
@@ -420,6 +413,7 @@ where
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter_nodes()
+        self.stream_nodes()
     }
 }
+ */

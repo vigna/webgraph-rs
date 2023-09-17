@@ -16,13 +16,10 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
 }
 
 impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
-    type NodesIter<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
+    type NodesStream<'a> =  WebgraphSequentialIter<CRB::Reader<'a>>
     where
         Self: 'a;
-    type NodesStream<'b> = Self::NodesIter<'b>
-        where
-            Self: 'b;
-    type SequentialSuccessorIter<'a> = std::vec::IntoIter<usize>
+    type SuccessorStream<'a> = &'a [usize]
     where
         Self: 'a;
 
@@ -38,18 +35,13 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
+    fn stream_nodes(&self) -> Self::NodesStream<'_> {
         WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
         )
-    }
-
-    /// Get an iterator over the nodes of the graph
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        self.iter_nodes()
     }
 }
 
@@ -258,30 +250,12 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: BVGraphCodesReader> streaming_iterator::StreamingIterator for WebgraphSequentialIter<CR> {
-    type Item<'a> = (usize, &'a [usize]);
+impl<CR: BVGraphCodesReader> StreamingIterator for WebgraphSequentialIter<CR> {
+    type StreamItem<'a> = (usize, &'a [usize])
+    where
+        Self: 'a;
 
-    fn advance(&mut self) {
-        todo!();
-    }
-
-    fn get(&self) -> Option<&Self::Item> {
-        todo!();
-    }
-}
-
-impl<CR: BVGraphCodesReader> streaming_iterator::StreamingIteratorMut
-    for WebgraphSequentialIter<CR>
-{
-    fn get_mut(&mut self) -> Option<&mut Self::Item> {
-        todo!();
-    }
-}
-
-impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
-    type Item = (usize, std::vec::IntoIter<usize>);
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_stream(&mut self) -> Option<Self::StreamItem<'_>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
@@ -289,17 +263,19 @@ impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
         self.get_successors_iter_priv(self.current_node, &mut res)
             .unwrap();
 
-        // this clippy suggestion is wrong, we cannot return a reference to a
-        // local variable
-        #[allow(clippy::unnecessary_to_owned)]
-        let res = self
-            .backrefs
-            .push(self.current_node, res)
-            .to_vec()
-            .into_iter();
+        let res = self.backrefs.push(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
         Some((node_id, res))
+    }
+}
+
+impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
+    type Item = (usize, Vec<usize>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_stream()
+            .map(|(node_id, successors)| (node_id, successors.to_vec()))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -313,6 +289,7 @@ unsafe impl SortedIterator for std::vec::IntoIter<usize> {}
 
 impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 
+/*
 impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
 where
     CRB: BVGraphCodesReaderBuilder,
@@ -324,3 +301,4 @@ where
         self.iter_nodes()
     }
 }
+*/
