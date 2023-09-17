@@ -190,9 +190,7 @@ where
 
         update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
         // create sorted clusters by contiguous labels
-        update_perm.par_sort_by(|&a, &b| {
-            label_store.label(a as _).cmp(&label_store.label(b as _))
-        });
+        update_perm.par_sort_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
         invert_in_place(&mut update_perm);
 
         let labels =

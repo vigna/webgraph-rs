@@ -54,16 +54,13 @@ fn permute(
     .unwrap();
 
     // dump the paris
-    PermutedGraph {
-        graph: graph,
-        perm: &perm,
-    }
-    .iter_nodes()
-    .for_each(|(x, succ)| {
-        succ.for_each(|s| {
-            sort_pairs.push(x, s, ()).unwrap();
-        })
-    });
+    PermutedGraph { graph, perm }
+        .iter_nodes()
+        .for_each(|(x, succ)| {
+            succ.for_each(|s| {
+                sort_pairs.push(x, s, ()).unwrap();
+            })
+        });
     // get a graph on the sorted data
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
     let g = COOIterToGraph::new(num_nodes, edges);
