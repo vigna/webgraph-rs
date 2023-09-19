@@ -34,6 +34,8 @@ where
 {
     let num_nodes = graph.num_nodes();
 
+    let dir = tempfile::tempdir()?;
+
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
 
@@ -205,7 +207,8 @@ where
         costs.push(cost);
 
         // storing the perms
-        let mut file = std::fs::File::create(format!("labels_{}.bin", gamma_index))?;
+        let mut file =
+            std::fs::File::create(dir.path().join(format!("labels_{}.bin", gamma_index)))?;
         labels.serialize(&mut file)?;
 
         gamma_pr.update_and_display();
@@ -235,17 +238,20 @@ where
     let mut temp_perm = update_perm;
 
     let mut result_labels =
-        <Vec<usize>>::load_mem(format!("labels_{}.bin", best_gamma_index))?.to_vec();
+        <Vec<usize>>::load_mem(dir.path().join(format!("labels_{}.bin", best_gamma_index)))?
+            .to_vec();
 
     for (i, gamma_index) in gamma_indices.iter().enumerate().take(gamma_indices.len()) {
         info!("Starting step {}...", i);
-        let labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", gamma_index))?;
+        let labels =
+            <Vec<usize>>::load_mem(dir.path().join(format!("labels_{}.bin", gamma_index)))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", best_gamma_index))?;
+        let best_labels =
+            <Vec<usize>>::load_mem(dir.path().join(format!("labels_{}.bin", best_gamma_index)))?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);
