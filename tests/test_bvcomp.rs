@@ -22,14 +22,14 @@ use webgraph::{
     utils::MmapBackend,
 };
 
+fn logger_init() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+}
+
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_bvcomp_slow() -> Result<()> {
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    logger_init();
 
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
