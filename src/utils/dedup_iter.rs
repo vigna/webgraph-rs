@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// A simple iterator that deduplicates sorted items.
+/// A simple iterator that deduplicates sorted iterators.
 #[derive(Clone)]
 pub struct DedupSortedIter<I: Iterator> {
     iter: I,

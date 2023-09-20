@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use crate::prelude::COOIterToGraph;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
@@ -6,8 +12,8 @@ use dsi_progress_logger::ProgressLogger;
 
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
-pub fn simplify<G: SequentialGraph>(
-    graph: G,
+pub fn simplify(
+    graph: impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
     COOIterToGraph<

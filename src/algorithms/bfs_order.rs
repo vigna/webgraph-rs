@@ -1,13 +1,19 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use crate::traits::RandomAccessGraph;
-use bitvec::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;
+use sux::prelude::BitVec;
 
 /// Visit the graph in BFS order and return a vector with the order in which the
-/// nodes were visited
+/// nodes were visited.
 pub fn bfs_order<G: RandomAccessGraph>(graph: &G) -> Vec<usize> {
     let num_nodes = graph.num_nodes();
-    let mut visited = bitvec![u64, Lsb0; 0; num_nodes];
+    let mut visited = BitVec::new(num_nodes);
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default().display_memory();

@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use crate::prelude::PermutedGraph;
 use crate::{invert_in_place, traits::*};
 use anyhow::Result;
@@ -21,17 +28,14 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<G>(
-    graph: &G,
+    graph: &(impl RandomAccessGraph + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     max_iters: usize,
     chunk_size: usize,
     granularity: usize,
     seed: u64,
-) -> Result<Box<[usize]>>
-where
-    G: RandomAccessGraph + Sync,
-{
+) -> Result<Box<[usize]>> {
     let num_nodes = graph.num_nodes();
 
     // init the permutation with the indices

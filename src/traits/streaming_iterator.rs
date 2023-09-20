@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 /// A trait for an iterator on which the returned object can contain a reference
 /// to the iterator itself. This implies that this kind of iterators cannot
 /// be collected or used in parallel.

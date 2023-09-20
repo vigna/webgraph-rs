@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
@@ -7,7 +14,7 @@ use tempfile::tempdir;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(about = "Performs an LLP round", long_about = None)]
+#[command(about = "Permutes a graph", long_about = None)]
 struct Args {
     /// The basename of the source graph.
     source: String,

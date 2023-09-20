@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
@@ -12,8 +19,8 @@ use std::path::Path;
 macro_rules! impl_loads {
     ($builder:ident, $reader:ident, $load_name:ident, $load_seq_name:ident) => {
         /// Load a BVGraph for random access
-        pub fn $load_name<P: AsRef<Path>>(
-            basename: P,
+        pub fn $load_name(
+            basename: impl AsRef<Path>,
         ) -> Result<BVGraph<$builder<BE, MmapBackend<u32>>, crate::EF<&'static [usize]>>> {
             let basename = basename.as_ref();
             let properties_path = format!("{}.properties", basename.to_string_lossy());

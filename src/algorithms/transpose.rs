@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use crate::prelude::COOIterToGraph;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
@@ -6,8 +12,8 @@ use dsi_progress_logger::ProgressLogger;
 
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
-pub fn transpose<G: SequentialGraph>(
-    graph: &G,
+pub fn transpose(
+    graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
     COOIterToGraph<
