@@ -14,7 +14,7 @@ use sux::traits::prelude::*;
 /// Wrapper for the permutation in the Java format.
 ///
 /// To allow interoperability of the Java end the epserde formats, functions
-/// should be implemented over a generic type that implements [`VSlice`] as
+/// should be implemented over a generic type that implements [`BitFieldSlice`] as
 /// both [`JavaPermutation<Mmap>`], [`JavaPermutation<MmapMut>`], and the deserialized
 /// values from [`epserde`] implement it.
 ///
@@ -48,7 +48,7 @@ impl JavaPermutation {
     }
 }
 
-impl VSliceCore for JavaPermutation {
+impl BitFieldSliceCore for JavaPermutation {
     fn bit_width(&self) -> usize {
         64
     }
@@ -58,7 +58,7 @@ impl VSliceCore for JavaPermutation {
     }
 }
 
-impl VSliceCore for JavaPermutation<MmapMut> {
+impl BitFieldSliceCore for JavaPermutation<MmapMut> {
     fn bit_width(&self) -> usize {
         64
     }
@@ -68,21 +68,21 @@ impl VSliceCore for JavaPermutation<MmapMut> {
     }
 }
 
-impl VSlice for JavaPermutation {
+impl BitFieldSlice for JavaPermutation {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> usize {
         u64::from_be_bytes(self.perm.as_ref().get_unchecked(index).to_ne_bytes()) as usize
     }
 }
 
-impl VSlice for JavaPermutation<MmapMut> {
+impl BitFieldSlice for JavaPermutation<MmapMut> {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> usize {
         u64::from_be_bytes(self.perm.as_ref().get_unchecked(index).to_ne_bytes()) as usize
     }
 }
 
-impl VSliceMut for JavaPermutation<MmapMut> {
+impl BitFieldSliceMut for JavaPermutation<MmapMut> {
     #[inline(always)]
     unsafe fn set_unchecked(&mut self, index: usize, value: usize) {
         *self.perm.as_mut().get_unchecked_mut(index) = value as u64;

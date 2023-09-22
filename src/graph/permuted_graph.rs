@@ -21,7 +21,7 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
         where
             Self: 'b;
     type SuccessorStream<'b> =
-        SequentialPermutedIterator<'b, <G::SuccessorStream<'b> as IntoIterator>::IntoIter>
+        PermSeqSuccIterator<'b, <G::SuccessorStream<'b> as IntoIterator>::IntoIter>
 		where Self: 'b;
 
     #[inline(always)]
@@ -37,7 +37,7 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     #[inline(always)]
     fn stream_nodes(&self) -> Self::NodesStream<'_> {
         NodePermutedIterator {
-            iter: self.graph.iter_nodes(),
+            iter: self.graph.stream_nodes(),
             perm: self.perm,
         }
     }
@@ -60,10 +60,11 @@ pub struct NodePermutedIterator<'a, I: StreamingIterator> {
 
 impl<'a, I: for<'b> StreamingIterator> StreamingIterator for NodePermutedIterator<'a, I>
 where
+    <I as StreamingIterator>::StreamItem<'a>: Iterator<Item = usize>,
     for<'b> I: 'b,
 {
-    type StreamItem<'c> = (usize, SequentialPermutedIterator<'c, J::IntoIter>)
-    where
+    type StreamItem<'c> = (usize, PermSeqSuccIterator<'c, I::StreamItem<'a>>)
+        where <I as StreamingIterator>::StreamItem<'a>: Iterator<Item = usize>,
         Self: 'c;
 
     #[inline(always)]
@@ -71,7 +72,7 @@ where
         self.iter.next_stream().map(|(node, succ)| {
             (
                 self.perm[node],
-                SequentialPermutedIterator {
+                PermSeqSuccIterator {
                     iter: succ.into_iter(),
                     perm: self.perm,
                 },
@@ -91,12 +92,12 @@ impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> Exa
 
 #[derive(Clone)]
 /// An iterator over the successors of a node of a graph that applies on the fly a permutation of the nodes
-pub struct SequentialPermutedIterator<'a, I: Iterator<Item = usize>> {
+pub struct PermSeqSuccIterator<'a, I: Iterator<Item = usize>> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
+impl<'a, I: Iterator<Item = usize>> Iterator for PermSeqSuccIterator<'a, I> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -104,9 +105,7 @@ impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, 
     }
 }
 
-impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
-    for SequentialPermutedIterator<'a, I>
-{
+impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermSeqSuccIterator<'a, I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
