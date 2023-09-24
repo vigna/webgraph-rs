@@ -142,8 +142,8 @@ where
         );
 
         // TODO real from
-        for i in 0..from {
-            iter.next();
+        for _ in 0..from {
+            iter.next_inner();
         }
 
         iter

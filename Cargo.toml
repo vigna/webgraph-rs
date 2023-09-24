@@ -44,6 +44,7 @@ arbitrary = { version = "1", features = ["derive"], optional = true }
 zip = {version="0.6.6", optional=true}
 libc = "0.2.147"
 itertools = "0.11.0"
+nougat = "0.2.4"
 gat-lending-iterator = "0.1.1"
 
 [build-dependencies]

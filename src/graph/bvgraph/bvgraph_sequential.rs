@@ -48,8 +48,8 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
         );
 
         // TODO
-        for i in 0..from {
-            iter.next();
+        for _ in 0..from {
+            iter.next_inner();
         }
 
         iter
@@ -288,24 +288,19 @@ impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
         Some((node_id, ValueIterator(res.iter())))
     }
 }
+/* TODO
+impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
+    type Successors<'a> = ValueIterator<'a>
+    where Self: 'a;
 
-impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
-    type Item = (usize, Vec<usize>);
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
         self.next()
-            .map(|(node_id, successors)| (node_id, successors.to_vec()))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.number_of_nodes - self.current_node;
-        (len, Some(len))
     }
 }
-
+*/
 unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
 
-impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
+// TODO impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 
 /*
 impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>

@@ -66,7 +66,7 @@ impl<'a, I: Iterator<Item = (usize, usize)>> SortedNodePermutedIterator<'a, I> {
 }
 
 impl<'a, I: Iterator<Item = (usize, usize)>> GraphIterator for SortedNodePermutedIterator<'a, I> {
-    type Successors<'b> = SortedSequentialPermutedIterator<'b, I>
+    type Successors<'b> = Successors<'b, I>
     where
         Self: 'b
     ;
@@ -82,23 +82,7 @@ impl<'a, I: Iterator<Item = (usize, usize)>> GraphIterator for SortedNodePermute
             self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX));
         }
 
-        Some((
-            self.curr_node,
-            SortedSequentialPermutedIterator {
-                node_iter_ptr: {
-                    let self_ptr: *mut Self = self;
-                    self_ptr
-                },
-            },
-        ))
-    }
-}
-
-impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedNodePermutedIterator<'a, I> {
-    type Item = (usize, Vec<usize>);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next()
-            .map(|(node_id, succ)| (node_id, succ.into_iter().collect::<Vec<_>>()))
+        Some((self.curr_node, Successors { node_iter: self }))
     }
 }
 
@@ -111,25 +95,27 @@ impl<'a, I: Iterator<Item = (usize, usize)>> ExactSizeIterator
     }
 }*/
 
-#[derive(Debug, Clone)]
 /// Iter until we found a triple with src different than curr_node
-pub struct SortedSequentialPermutedIterator<'a, I: Iterator<Item = (usize, usize)>> {
-    node_iter_ptr: *mut SortedNodePermutedIterator<'a, I>,
+pub struct Successors<'a, I: Iterator<Item = (usize, usize)>> {
+    node_iter: &'a mut SortedNodePermutedIterator<'a, I>,
 }
 
-impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for SortedSequentialPermutedIterator<'a, I> {
+impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for Successors<'a, I> {
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
-        let node_iter = unsafe { &mut *self.node_iter_ptr };
         // if we reached a new node, the successors of curr_node are finished
-        if node_iter.next_pair.0 != node_iter.curr_node {
+        if self.node_iter.next_pair.0 != self.node_iter.curr_node {
             None
         } else {
             // get the next triple
-            let pair = node_iter.iter.next().unwrap_or((usize::MAX, usize::MAX));
+            let pair = self
+                .node_iter
+                .iter
+                .next()
+                .unwrap_or((usize::MAX, usize::MAX));
             // store the triple and return the previous successor
             // storing the label since it should be one step behind the successor
-            let (_src, dst) = core::mem::replace(&mut node_iter.next_pair, pair);
+            let (_src, dst) = core::mem::replace(&mut self.node_iter.next_pair, pair);
             Some(dst)
         }
     }

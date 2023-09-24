@@ -11,6 +11,7 @@ use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
 use gat_lending_iterator::LendingIterator;
+
 use log::info;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;

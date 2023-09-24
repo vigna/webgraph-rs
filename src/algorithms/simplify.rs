@@ -10,6 +10,7 @@ use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use gat_lending_iterator::LendingIterator;
+
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
 pub fn simplify(
