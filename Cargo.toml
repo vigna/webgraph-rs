@@ -29,7 +29,7 @@ bitvec = { version = "1.0.1", features = ["atomic"] }
 num_cpus = "1.15.0"
 epserde = {git = "https://github.com/vigna/epserde-rs", branch="align_of"}
 sux = {git = "https://github.com/vigna/sux-rs", branch="havoc"}
-dsi-bitstream = {git = "https://github.com/vigna/dsi-bitstream-rs"}
+dsi-bitstream = {git = "https://github.com/vigna/dsi-bitstream-rs", branch="traits"}
 # Bin dependancies
 clap = { version = "4.1.6", features = ["derive"] }
 dsi-progress-logger = "0.1.0"
@@ -44,6 +44,7 @@ arbitrary = { version = "1", features = ["derive"], optional = true }
 zip = {version="0.6.6", optional=true}
 libc = "0.2.147"
 itertools = "0.11.0"
+gat-lending-iterator = "0.1.1"
 
 [build-dependencies]
 cc = "1.0.79"

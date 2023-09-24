@@ -72,8 +72,7 @@ pub fn harness(data: FuzzCase) {
     // Compress in big endian
     let mut codes_data_be = Vec::new();
     {
-        let bit_writer =
-            <BufferedBitStreamWrite<BE, _>>::new(MemWordWriteVec::new(&mut codes_data_be));
+        let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriter::new(&mut codes_data_be));
         let codes_writer = <DynamicCodesWriter<BE, _>>::new(bit_writer, &comp_flags);
         let mut bvcomp = BVComp::new(
             codes_writer,
@@ -87,8 +86,7 @@ pub fn harness(data: FuzzCase) {
     // Compress in little endian
     let mut codes_data_le = Vec::new();
     {
-        let bit_writer =
-            <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut codes_data_le));
+        let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriter::new(&mut codes_data_le));
         let codes_writer = <DynamicCodesWriter<LE, _>>::new(bit_writer, &comp_flags);
         let mut bvcomp = BVComp::new(
             codes_writer,

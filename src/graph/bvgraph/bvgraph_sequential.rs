@@ -23,12 +23,9 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
 }
 
 impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
-    type NodesStream<'a> =  WebgraphSequentialIter<CRB::Reader<'a>>
-    where
-        Self: 'a;
-    type SuccessorStream<'a> = &'a [usize]
-    where
-        Self: 'a;
+    type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
+    where CRB: 'a,
+    Self: 'a;
 
     #[inline(always)]
     /// Return the number of nodes in the graph
@@ -42,13 +39,20 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 
     #[inline(always)]
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        WebgraphSequentialIter::new(
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+        let mut iter = WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
-        )
+        );
+
+        // TODO
+        for i in 0..from {
+            iter.next();
+        }
+
+        iter
     }
 }
 
@@ -128,8 +132,8 @@ impl<CR: BVGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
-    pub fn get_pos(&self) -> usize {
-        self.codes_reader.get_pos()
+    pub fn get_bit_pos(&self) -> usize {
+        self.codes_reader.get_bit_pos()
     }
 }
 
@@ -257,12 +261,20 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: BVGraphCodesReader> StreamingIterator for WebgraphSequentialIter<CR> {
-    type StreamItem<'a> = (usize, &'a [usize])
-    where
-        Self: 'a;
+pub struct ValueIterator<'a>(std::slice::Iter<'a, usize>);
 
-    fn next_stream(&mut self) -> Option<Self::StreamItem<'_>> {
+impl Iterator for ValueIterator<'_> {
+    type Item = usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().copied()
+    }
+}
+
+impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
+    type Successors<'a> = ValueIterator<'a>
+    where Self: 'a;
+
+    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
@@ -273,7 +285,7 @@ impl<CR: BVGraphCodesReader> StreamingIterator for WebgraphSequentialIter<CR> {
         let res = self.backrefs.push(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
-        Some((node_id, res))
+        Some((node_id, ValueIterator(res.iter())))
     }
 }
 
@@ -281,7 +293,7 @@ impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
     type Item = (usize, Vec<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_stream()
+        self.next()
             .map(|(node_id, successors)| (node_id, successors.to_vec()))
     }
 
@@ -292,7 +304,6 @@ impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
 }
 
 unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
-unsafe impl SortedIterator for std::vec::IntoIter<usize> {}
 
 impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 

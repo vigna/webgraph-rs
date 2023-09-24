@@ -64,12 +64,12 @@ impl<
         const K: u64,
     > BitSeek for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_reader.set_pos(bit_index)
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_reader.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_reader.get_bit_pos()
     }
 }
 
@@ -275,12 +275,12 @@ impl<
         const K: u64,
     > BitSeek for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_writer.set_pos(bit_index)
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_writer.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_writer.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_writer.get_bit_pos()
     }
 }
 

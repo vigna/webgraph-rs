@@ -79,12 +79,12 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
 }
 
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReader<E, CR> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_reader.set_pos(bit_index)
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_reader.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_reader.get_bit_pos()
     }
 }
 
@@ -253,12 +253,12 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
 }
 
 impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReaderSkipper<E, CR> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_reader.set_pos(bit_index)
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_reader.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_reader.get_bit_pos()
     }
 }
 
@@ -395,12 +395,12 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
 }
 
 impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_writer.set_pos(bit_index)
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_writer.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_writer.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_writer.get_bit_pos()
     }
 }
 

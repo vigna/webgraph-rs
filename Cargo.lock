@@ -499,10 +499,11 @@ dependencies = [
 [[package]]
 name = "dsi-bitstream"
 version = "0.1.0"
-source = "git+https://github.com/vigna/dsi-bitstream-rs#f0a3e6de510f81ff6f4d0c319a65f1831b105e58"
+source = "git+https://github.com/vigna/dsi-bitstream-rs?branch=traits#7a1524768bc8e6c06cec5c7dab15b08dd4031a51"
 dependencies = [
  "anyhow",
  "arbitrary",
+ "common_traits",
  "rand",
  "zip",
 ]
@@ -689,6 +690,12 @@ name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+
+[[package]]
+name = "gat-lending-iterator"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "041f1d3d2d7632b344abdf0aff82267efcc95215f117046e98888f1eccb5e784"
 
 [[package]]
 name = "generic-array"
@@ -1582,6 +1589,7 @@ dependencies = [
  "dsi-bitstream",
  "dsi-progress-logger",
  "epserde 0.1.0 (git+https://github.com/vigna/epserde-rs?branch=align_of)",
+ "gat-lending-iterator",
  "itertools",
  "java-properties",
  "libc",

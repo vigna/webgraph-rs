@@ -28,7 +28,7 @@ pub struct DegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
 impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> DegreesIter<CR> {
     /// Get the current bit-offset in the bitstream
     pub fn get_pos(&self) -> usize {
-        self.codes_reader.get_pos()
+        self.codes_reader.get_bit_pos()
     }
 }
 

@@ -8,6 +8,7 @@ use crate::traits::*;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
+/* TODO
 /// A Sequential graph built on an iterator of pairs of nodes and their labels
 #[derive(Debug, Clone)]
 pub struct COOIterToLabelledGraph<I: Clone> {
@@ -32,8 +33,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Labelled
 impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> SequentialGraph
     for COOIterToLabelledGraph<I>
 {
-    type NodesStream<'b> = SortedLabelledNodePermutedIterator<'b, L, I> where Self: 'b;
-    type SuccessorStream<'b> = SortedLabelledSequentialPermutedIterator<'b, L, I> where Self: 'b;
+    type Iterator<'b> = SortedLabelledNodePermutedIterator<'b, L, I> where Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -46,9 +46,9 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
     }
 
     #[inline(always)]
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = self.iter.clone();
-        SortedLabelledNodePermutedIterator {
+        let mut iter = SortedLabelledNodePermutedIterator {
             num_nodes: self.num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
             next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX, unsafe {
@@ -61,10 +61,15 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
             },
             iter,
             _marker: PhantomData,
+        };
+
+        for i in 0..from {
+            iter.next();
         }
+
+        iter
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct SortedLabelledNodePermutedIterator<'a, L, I: Iterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
@@ -184,3 +189,4 @@ fn test_coo_labelled_iter() -> anyhow::Result<()> {
     assert_eq!(g, g2);
     Ok(())
 }
+*/

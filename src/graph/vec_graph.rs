@@ -5,8 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::traits::graph::GraphIteratorImpl;
 use crate::traits::*;
 use alloc::collections::BTreeSet;
+use gat_lending_iterator::LendingIterator;
 
 /// Vector-based mutable [`Graph`] implementation.
 /// Successors are represented using a [`BTreeSet`].
@@ -56,7 +58,7 @@ impl<L: Clone> VecGraph<L> {
         }
         self
     }
-
+    /* TODO
     /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
     pub fn from_labelled_node_iter<S, I>(iterator: I) -> Self
     where
@@ -82,7 +84,7 @@ impl<L: Clone> VecGraph<L> {
         }
         self
     }
-
+    */
     /// Add an arc to the graph and return if it was a new one or not.
     /// `true` => already exist, `false` => new arc.
     pub fn add_arc_with_label(&mut self, u: usize, v: usize, l: L) -> bool {
@@ -128,30 +130,47 @@ impl VecGraph<()> {
         }
         self
     }
-
-    /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
-    pub fn from_node_iter<S: Iterator<Item = usize>, I: Iterator<Item = (usize, S)>>(
-        iterator: I,
-    ) -> Self {
-        let mut g = Self::new();
-        g.add_node_iter(iterator);
-        g
-    }
-
-    /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-    pub fn add_node_iter(
-        &mut self,
-        iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
-    ) -> &mut Self {
-        for (node, succ) in iterator {
-            self.add_node(node);
-            for v in succ {
-                self.add_arc(node, v);
-            }
+    /* TODO
+        /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
+        pub fn from_graph_iter<I: GraphIterator>(iterator: I) -> Self {
+            let mut g = Self::new();
+            g.add_graph_iter(iterator);
+            g
         }
-        self
-    }
 
+        /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
+        pub fn add_graph_iter(
+            &mut self,
+            iterator: impl LendingIterator<Item<'a> = (usize, impl Iterator<Item = usize> + 'a)>,
+        ) -> &mut Self {
+            for (node, succ) in iterator {
+                self.add_node(node);
+                for v in succ {
+                    self.add_arc(node, v);
+                }
+            }
+            self
+        }
+    */
+    /* TODO
+        /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
+        pub fn from_node_iter<I: GraphIterator>(iterator: I) -> Self {
+            let mut g = Self::new();
+            g.add_node_iter(iterator);
+            g
+        }
+
+        /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
+        pub fn add_node_iter(&mut self, iterator: GraphIterator) -> &mut Self {
+            for (node, succ) in iterator {
+                self.add_node(node);
+                for v in succ {
+                    self.add_arc(node, v);
+                }
+            }
+            self
+        }
+    */
     /// Add an arc to the graph and return if it was a new one or not.
     /// `true` => already exist, `false` => new arc.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
@@ -181,7 +200,7 @@ impl<L: Clone> Labelled for VecGraph<L> {
 }
 
 impl<L: Clone> RandomAccessGraph for VecGraph<L> {
-    type RandomSuccessorIter<'a> = VecGraphIter<'a, L> where Self: 'a;
+    type Successors<'a> = VecGraphIter<'a, L> where Self: 'a;
 
     #[inline(always)]
     fn num_arcs(&self) -> usize {
@@ -194,7 +213,7 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn successors(&self, node: usize) -> Self::RandomSuccessorIter<'_> {
+    fn successors(&self, node: usize) -> Self::Successors<'_> {
         VecGraphIter {
             iter: self.succ[node].iter(),
             label: unsafe {
@@ -206,12 +225,9 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
 }
 
 impl<L: Clone> SequentialGraph for VecGraph<L> {
-    type NodesStream<'a> = SequentialGraphImplIter<'a, Self>
+    type Iterator<'a> = GraphIteratorImpl<'a, Self>
         where
             Self: 'a ;
-    type SuccessorStream<'a> = VecGraphIter<'a, L>
-        where
-            Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -224,10 +240,10 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        SequentialGraphImplIter {
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+        GraphIteratorImpl {
             graph: self,
-            nodes: (0..self.num_nodes()),
+            nodes: (from..self.num_nodes()),
         }
     }
 }
@@ -250,14 +266,14 @@ impl<'a, T: Clone> Iterator for VecGraphIter<'a, T> {
 impl<'a, L: Clone> Labelled for VecGraphIter<'a, L> {
     type Label = L;
 }
-
+/* TODO
 impl<'a, T: Clone> LabelledIterator for VecGraphIter<'a, T> {
     fn label(&self) -> Self::Label {
         self.label.clone()
     }
 }
-
-unsafe impl<'a, T: Clone> SortedIterator for VecGraphIter<'a, T> {}
+*/
+unsafe impl<'a, T: Clone> SortedSuccessors for VecGraphIter<'a, T> {}
 
 impl<'a, T: Clone> ExactSizeIterator for VecGraphIter<'a, T> {
     #[inline(always)]

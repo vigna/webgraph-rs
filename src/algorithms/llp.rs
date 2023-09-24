@@ -10,6 +10,7 @@ use crate::{invert_in_place, traits::*};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
+use gat_lending_iterator::LendingIterator;
 use log::info;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
@@ -19,7 +20,6 @@ use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
-
 /// Write the permutation computed by the LLP algorithm inside `perm`,
 /// and return the labels of said permutation.
 ///
@@ -115,7 +115,11 @@ pub fn layered_label_propagation<G>(
                         can_change[node].store(false, Ordering::Relaxed);
 
                         let successors = graph.successors(node);
-                        if successors.len() == 0 {
+                        // TODO
+                        /*if successors.len() == 0 {
+                            continue;
+                        }*/
+                        if graph.outdegree(node) == 0 {
                             continue;
                         }
 
@@ -242,7 +246,7 @@ pub fn layered_label_propagation<G>(
     let mut result_labels =
         <Vec<usize>>::load_mem(format!("labels_{}.bin", best_gamma_index))?.to_vec();
 
-    for (i, gamma_index) in gamma_indices.iter().enumerate().take(gamma_indices.len()) {
+    for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
         let labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", gamma_index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
@@ -338,6 +342,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
 ) -> f64 {
     graph.par_graph_apply(
         |range| {
+            /* TODO
             graph
                 .iter_nodes_from(range.start)
                 .take(range.len())
@@ -356,6 +361,8 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     cost
                 })
                 .sum::<usize>() as f64
+                */
+            0.0
         },
         |a, b| a + b,
         thread_pool,

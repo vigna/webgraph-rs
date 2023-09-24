@@ -32,9 +32,8 @@ pub fn compress_sequential_iter<
     let graph_path = format!("{}.graph", basename.to_string_lossy());
 
     // Compress the graph
-    let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
-        File::create(&graph_path)?,
-    )));
+    let bit_write =
+        <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(File::create(&graph_path)?)));
 
     let comp_flags = CompFlags {
         ..Default::default()
@@ -60,7 +59,7 @@ pub fn compress_sequential_iter<
     if build_offsets {
         let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
         // create a bit writer on the file
-        let mut writer = <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(
+        let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
             BufWriter::with_capacity(1 << 20, file),
         ));
 
@@ -155,9 +154,9 @@ pub fn parallel_compress_sequential_iter<
                 let thread_iter = iter.clone().take(nodes_per_thread);
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
-                    let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
-                        BufWriter::new(File::create(&file_path).unwrap()),
-                    ));
+                    let writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(
+                        File::create(&file_path).unwrap(),
+                    )));
                     let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, cp_flags);
                     let mut bvcomp = BVComp::new(
                         codes_writer,
@@ -166,7 +165,12 @@ pub fn parallel_compress_sequential_iter<
                         cp_flags.max_ref_count,
                         nodes_per_thread * thread_id,
                     );
-                    let written_bits = bvcomp.extend(thread_iter).unwrap();
+                    // TODO
+                    // let written_bits = bvcomp.extend(thread_iter).unwrap();
+                    let mut written_bits = 0;
+                    for (_node_id, successors) in thread_iter {
+                        written_bits += bvcomp.push(successors).unwrap();
+                    }
 
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
@@ -192,7 +196,7 @@ pub fn parallel_compress_sequential_iter<
             // handle the case when this is the only available thread
             let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
             // complete the last chunk
-            let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
+            let writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(
                 File::create(last_file_path).unwrap(),
             )));
             let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, &compression_flags);
@@ -203,7 +207,12 @@ pub fn parallel_compress_sequential_iter<
                 compression_flags.max_ref_count,
                 last_thread_id * nodes_per_thread,
             );
-            let written_bits = bvcomp.extend(iter).unwrap();
+            // TODO
+            // let written_bits = bvcomp.extend(iter).unwrap();
+            let mut written_bits = 0;
+            for (_node_id, successors) in iter {
+                written_bits += bvcomp.push(successors).unwrap();
+            }
 
             log::info!(
                 "Finished Compression thread {} and wrote {} bits [{}, {})",
@@ -222,8 +231,7 @@ pub fn parallel_compress_sequential_iter<
         let file = File::create(graph_path)?;
 
         // create hte buffered writer
-        let mut result_writer =
-            <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(file)));
+        let mut result_writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(file)));
 
         let mut result_len = 0;
         let mut total_arcs = 0;
@@ -255,7 +263,7 @@ pub fn parallel_compress_sequential_iter<
             );
             result_len += bits_to_copy;
 
-            let mut reader = <BufferedBitStreamRead<BE, u64, _>>::new(<FileBackend<u32, _>>::new(
+            let mut reader = <BufBitReader<BE, u64, _>>::new(<WordAdapter<u32, _>>::new(
                 BufReader::new(File::open(&file_path).unwrap()),
             ));
             // copy all the data

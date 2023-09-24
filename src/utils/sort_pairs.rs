@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::traits::SortedIterator;
 use crate::utils::MmapBackend;
 use crate::{
-    traits::{BitDeserializer, BitSerializer, DummyBitSerDes, SortedIterator},
+    traits::{BitDeserializer, BitSerializer, DummyBitSerDes},
     utils::KAryHeap,
 };
 use anyhow::{anyhow, Context, Result};
@@ -151,7 +152,7 @@ impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
 /// iterate over the triples
 #[derive(Debug)]
 pub struct BatchIterator<D: BitDeserializer = DummyBitSerDes> {
-    stream: BufferedBitStreamRead<LE, u64, MemWordReadInfinite<u32, MmapBackend<u32>>>,
+    stream: BufBitReader<LE, u64, MemWordReaderInf<u32, MmapBackend<u32>>>,
     len: usize,
     current: usize,
     prev_src: usize,
@@ -222,7 +223,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
         let file =
             std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(file_path.as_ref())?);
         // createa bitstream to write to the file
-        let mut stream = <BufferedBitStreamWrite<LE, _>>::new(FileBackend::new(file));
+        let mut stream = <BufBitWriter<LE, _>>::new(WordAdapter::new(file));
         // Dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
         for (src, dst, payload) in batch.iter() {
@@ -250,9 +251,10 @@ impl<D: BitDeserializer> BatchIterator<D> {
         len: usize,
         deserializer: D,
     ) -> Result<Self> {
-        let stream = <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(
-            MmapBackend::load(file_path, MmapFlags::TRANSPARENT_HUGE_PAGES)?,
-        ));
+        let stream = <BufBitReader<LE, u64, _>>::new(MemWordReaderInf::new(MmapBackend::load(
+            file_path,
+            MmapFlags::TRANSPARENT_HUGE_PAGES,
+        )?));
         Ok(BatchIterator {
             stream,
             len,
@@ -277,7 +279,7 @@ impl<D: BitDeserializer> Clone for BatchIterator<D> {
     }
 }
 
-unsafe impl<D: BitDeserializer> SortedIterator for BatchIterator<D> {}
+//unsafe impl<D: BitDeserializer> SortedIterator for BatchIterator<D> {}
 
 impl<D: BitDeserializer> Iterator for BatchIterator<D> {
     type Item = (usize, usize, D::DeserType);
@@ -302,18 +304,18 @@ impl<D: BitDeserializer> Iterator for BatchIterator<D> {
 #[derive(Clone, Debug)]
 /// Private struct that can be used to sort triples based only on the nodes and
 /// ignoring the payload
-struct HeadTail<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> {
+struct HeadTail<T, I: Iterator<Item = (usize, usize, T)>> {
     head: (usize, usize),
     payload: T,
     tail: I,
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> PartialEq for HeadTail<T, I> {
+impl<T, I: Iterator<Item = (usize, usize, T)>> PartialEq for HeadTail<T, I> {
     fn eq(&self, other: &Self) -> bool {
         self.head == other.head
     }
 }
-impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> PartialOrd for HeadTail<T, I> {
+impl<T, I: Iterator<Item = (usize, usize, T)>> PartialOrd for HeadTail<T, I> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.head.cmp(&other.head))
     }
@@ -321,11 +323,11 @@ impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> PartialOrd for H
 
 #[derive(Clone, Debug)]
 /// Merge K different sorted iterators
-pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)> + SortedIterator, T = ()> {
+pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)>, T = ()> {
     heap: KAryHeap<HeadTail<T, I>>,
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> KMergeIters<I, T> {
+impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
     pub fn new(iters: impl Iterator<Item = I>) -> Self {
         let mut heap = KAryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
@@ -344,7 +346,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> KMergeIters<I, T
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> Iterator for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
     type Item = (usize, usize, T);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -382,10 +384,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> Iterator for KMe
     }
 }
 
-unsafe impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> SortedIterator
-    for KMergeIters<I, T>
-{
-}
+// unsafe impl<T, I> SortedIterator for KMergeIters<I, T> {}
 
 #[cfg(test)]
 #[test]

@@ -10,7 +10,6 @@ use sux::prelude::*;
 
 use super::*;
 use crate::utils::nat2int;
-use crate::utils::CircularBufferVec;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
@@ -118,11 +117,9 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
-    type NodesStream<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
+    type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
     where Self: 'b, CRB: 'b,
     OFF: 'b;
-    type SuccessorStream<'a> = &'a [usize]
-        where Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -135,14 +132,21 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn stream_nodes(&self) -> Self::NodesStream<'_> {
-        WebgraphSequentialIter::new(
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+        let mut iter = WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
-        )
+        );
+
+        // TODO real from
+        for i in 0..from {
+            iter.next();
+        }
+
+        iter
     }
 
     /*
@@ -176,10 +180,8 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
-    type RandomSuccessorIter<'b> = RandomSuccessorIter<CRB::Reader<'b>>
-        where Self: 'b,
-        CRB: 'b,
-        OFF: 'b;
+    type Successors<'a> = RandomSuccessorIter<CRB::Reader<'a>>
+    where Self: 'a, CRB: 'a;
 
     fn num_arcs(&self) -> usize {
         self.number_of_arcs
@@ -336,7 +338,7 @@ impl<CR: BVGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
     }
 }
 
-unsafe impl<CR: BVGraphCodesReader> SortedIterator for RandomSuccessorIter<CR> {}
+unsafe impl<CR: BVGraphCodesReader> SortedSuccessors for RandomSuccessorIter<CR> {}
 
 impl<CR: BVGraphCodesReader> RandomSuccessorIter<CR> {
     /// Create an empty iterator

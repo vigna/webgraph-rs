@@ -9,7 +9,7 @@ use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-
+use gat_lending_iterator::LendingIterator;
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
 pub fn simplify(
@@ -36,7 +36,9 @@ pub fn simplify(
     pl.expected_updates = Some(graph.num_nodes());
     pl.start("Creating batches...");
     // create batches of sorted edges
-    for (src, succ) in graph.iter_nodes() {
+    // TODO
+    let mut iter = graph.iter_nodes();
+    while let Some((src, succ)) = iter.next() {
         for dst in succ {
             if src != dst {
                 sorted.push(src, dst)?;
