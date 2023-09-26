@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
@@ -12,7 +13,6 @@ use epserde::prelude::*;
 use std::io::{BufReader, Read};
 use tempfile::tempdir;
 use webgraph::prelude::*;
-
 #[derive(Parser, Debug)]
 #[command(about = "Permutes a graph", long_about = None)]
 struct Args {
@@ -78,7 +78,8 @@ fn permute(
     // compress it
     parallel_compress_sequential_iter(
         args.dest,
-        g.iter_nodes(),
+        &mut g.iter_nodes(),
+        g.num_nodes(),
         CompFlags::default(),
         args.num_cpus.unwrap_or(num_cpus::get()),
     )?;

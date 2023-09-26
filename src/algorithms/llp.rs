@@ -5,12 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::PermutedGraph;
+use crate::prelude::*;
 use crate::{invert_in_place, traits::*};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
-use gat_lending_iterator::LendingIterator;
 
 use log::info;
 use rand::rngs::SmallRng;
@@ -28,7 +27,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 /// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation<G>(
+pub fn layered_label_propagation(
     graph: &(impl RandomAccessGraph + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,

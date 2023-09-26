@@ -6,6 +6,7 @@
  */
 
 use super::*;
+use crate::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
@@ -91,19 +92,20 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<
-    P: AsRef<Path> + Send + Sync,
-    I: ExactSizeIterator<Item = (usize, J)> + Clone + Send,
-    J: Iterator<Item = usize>,
->(
+pub fn parallel_compress_sequential_iter<P: AsRef<Path> + Send + Sync, L>(
     basename: P,
-    mut iter: I,
+    iter: &mut L,
+    num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
-) -> Result<usize> {
+) -> Result<usize>
+where
+    L: LendingIterator + Clone + Send,
+    for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
+    for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: Iterator<Item = usize>,
+{
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
-    let num_nodes = iter.len();
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();
@@ -151,7 +153,8 @@ pub fn parallel_compress_sequential_iter<
                     nodes_per_thread * (thread_id + 1),
                 );
                 // Spawn the thread
-                let thread_iter = iter.clone().take(nodes_per_thread);
+                // TODO
+                let thread_iter = iter.clone();
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
                     let writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(
@@ -168,9 +171,10 @@ pub fn parallel_compress_sequential_iter<
                     // TODO
                     // let written_bits = bvcomp.extend(thread_iter).unwrap();
                     let mut written_bits = 0;
-                    for (_node_id, successors) in thread_iter {
-                        written_bits += bvcomp.push(successors).unwrap();
-                    }
+                    // TODO
+                    //while let Some((_node_id, successors)) = thread_iter.next() {
+                    //    written_bits += bvcomp.push(successors).unwrap();
+                    //}
 
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
@@ -210,9 +214,10 @@ pub fn parallel_compress_sequential_iter<
             // TODO
             // let written_bits = bvcomp.extend(iter).unwrap();
             let mut written_bits = 0;
-            for (_node_id, successors) in iter {
-                written_bits += bvcomp.push(successors).unwrap();
-            }
+            // TODO
+            //while let Some((_node_id, successors)) = iter.next() {
+            //    written_bits += bvcomp.push(successors).unwrap();
+            //}
 
             log::info!(
                 "Finished Compression thread {} and wrote {} bits [{}, {})",

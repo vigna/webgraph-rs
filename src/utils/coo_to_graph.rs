@@ -81,8 +81,8 @@ impl<'a, I: Iterator<Item = (usize, usize)>> GraphIterator for SortedNodePermute
         while self.next_pair.0 < self.curr_node {
             self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX));
         }
-
-        Some((self.curr_node, Successors { node_iter: self }))
+        None
+        // TODO Some((self.curr_node, Successors { node_iter: self }))
     }
 }
 

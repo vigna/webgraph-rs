@@ -28,7 +28,24 @@ pub trait GraphIterator {
     fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)>;
 }
 
-struct Adapter<I: GraphIterator>(I);
+pub trait Tuple2 {
+    type _0;
+    type _1;
+
+    fn is_tuple(self) -> (Self::_0, Self::_1);
+}
+
+impl<T, U> Tuple2 for (T, U) {
+    type _0 = T;
+    type _1 = U;
+
+    fn is_tuple(self) -> (Self::_0, Self::_1) {
+        self
+    }
+}
+
+#[derive(Clone)]
+pub struct Adapter<I: GraphIterator>(I);
 
 impl<I: GraphIterator> LendingIterator for Adapter<I> {
     type Item<'a> = (usize, <I as GraphIterator>::Successors<'a>)
@@ -55,14 +72,14 @@ pub trait SequentialGraph {
     }
 
     /// Get an iterator over the nodes of the graph
-    fn iter_nodes(&self) -> Self::Iterator<'_> {
+    fn iter_nodes(&self) -> Adapter<Self::Iterator<'_>> {
         self.iter_nodes_from(0)
     }
 
     /// Get an iterator over the nodes of the graph starting at `start_node`
     /// (included)
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
-        self.iter_nodes_from_inner(from)
+    fn iter_nodes_from(&self, from: usize) -> Adapter<Self::Iterator<'_>> {
+        Adapter(self.iter_nodes_from_inner(from))
     }
 
     /// Get an iterator over the nodes of the graph starting at `start_node`

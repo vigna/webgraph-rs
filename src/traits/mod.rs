@@ -19,7 +19,7 @@ This modules contains the traits that are used throughout the crate.
 
 */
 
-pub(crate) mod graph;
+pub mod graph;
 pub use graph::*;
 
 mod serde;

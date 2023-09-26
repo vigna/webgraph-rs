@@ -5,13 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::cmp::Ordering;
-
 use super::*;
+use crate::prelude::*;
+use crate::traits::graph::Tuple2;
 use crate::utils::int2nat;
 use crate::utils::{CircularBuffer, CircularBufferVec};
 use anyhow::Result;
-use gat_lending_iterator::LendingIterator;
+use core::cmp::Ordering;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
@@ -431,12 +431,14 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     ///
     /// This most commonly is called with `graph.iter_nodes()` as input.
 
-    pub fn extend<'a, S: Iterator<Item = usize> + 'a, I: GraphIterator<Successors<'a> = S> + 'a>(
-        &mut self,
-        mut iter_nodes: I,
-    ) -> Result<usize> {
+    pub fn extend<L>(&mut self, iter_nodes: &mut L) -> Result<usize>
+    where
+        L: LendingIterator,
+        for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
+        for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: Iterator<Item = usize>,
+    {
         let mut count = 0;
-        while let Some((_, succ)) = iter_nodes.next_inner() {
+        while let Some((_, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
             self.push(succ);
             count += 1;
         }

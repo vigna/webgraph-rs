@@ -7,6 +7,8 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
+use webgraph::prelude::*;
+use webgraph::traits::SequentialGraph;
 
 #[derive(Parser, Debug)]
 #[command(about = "Dumps a graph as an COO arc list", long_about = None)]
@@ -29,7 +31,8 @@ pub fn main() -> Result<()> {
     pr.item_name = "offset";
     pr.start("Computing offsets...");
 
-    for (node_id, successors) in &seq_graph {
+    let mut iter = seq_graph.iter_nodes();
+    while let Some((node_id, successors)) = iter.next() {
         println!(
             "{}\t{}",
             node_id,

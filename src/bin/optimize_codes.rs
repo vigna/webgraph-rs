@@ -7,9 +7,9 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
+use gat_lending_iterator::LendingIterator;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
-
 #[derive(Parser, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 struct Args {
@@ -34,7 +34,8 @@ pub fn main() -> Result<()> {
     pr.start("Reading nodes...");
     pr.expected_updates = Some(seq_graph.num_nodes());
 
-    for _ in &seq_graph {
+    let mut iter = seq_graph.iter_nodes();
+    while let Some(_) = iter.next() {
         pr.light_update();
     }
 

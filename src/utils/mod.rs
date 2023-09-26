@@ -35,7 +35,7 @@ mod coo_to_graph;
 pub use coo_to_graph::*;
 
 mod coo_to_labelled_graph;
-pub use coo_to_labelled_graph::*;
+//pub use coo_to_labelled_graph::*;
 
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
