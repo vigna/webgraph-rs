@@ -5,11 +5,11 @@
  */
 
 use crate::prelude::COOIterToGraph;
+use crate::traits::GraphIterator;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-use gat_lending_iterator::LendingIterator;
 
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
@@ -30,7 +30,7 @@ pub fn transpose(
     pl.start("Creating batches...");
     // create batches of sorted edges
     let mut iter = graph.iter_nodes();
-    while let Some((src, succ)) = iter.next() {
+    while let Some((src, succ)) = iter.next_inner() {
         for dst in succ {
             sorted.push(dst, src)?;
         }

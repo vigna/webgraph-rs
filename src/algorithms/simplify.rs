@@ -5,7 +5,7 @@
  */
 
 use crate::prelude::COOIterToGraph;
-use crate::traits::SequentialGraph;
+use crate::traits::{GraphIterator, SequentialGraph};
 use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
@@ -39,7 +39,7 @@ pub fn simplify(
     // create batches of sorted edges
     // TODO
     let mut iter = graph.iter_nodes();
-    while let Some((src, succ)) = iter.next() {
+    while let Some((src, succ)) = iter.next_inner() {
         for dst in succ {
             if src != dst {
                 sorted.push(src, dst)?;

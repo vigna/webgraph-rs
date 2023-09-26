@@ -13,12 +13,6 @@ use crate::utils::{CircularBuffer, CircularBufferVec};
 use anyhow::Result;
 use gat_lending_iterator::LendingIterator;
 
-fn test_iter<'a, I: Iterator<Item = usize>, L: for<'b> LendingIterator<Item<'b> = (usize, I)>>(
-    mut iter: L,
-) {
-    while let Some((_x, _y)) = iter.next() {}
-}
-
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
     /// The ring-buffer that stores the neighbours of the last
@@ -437,20 +431,10 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     ///
     /// This most commonly is called with `graph.iter_nodes()` as input.
 
-    fn test_iter<
-        'a,
-        I: Iterator<Item = usize>,
-        L: for<'b> LendingIterator<Item<'b> = (usize, I)>,
-    >(
-        mut iter: L,
-    ) {
-        while let Some((_x, _y)) = iter.next() {}
-    }
-
-    pub fn extend<I: GraphIterator>(&mut self, iter_nodes: &mut I) -> Result<usize>
-    where
-        for<'a> <I as GraphIterator>::Successors<'a>: Iterator<Item = usize>,
-    {
+    pub fn extend<'a, S: Iterator<Item = usize> + 'a, I: GraphIterator<Successors<'a> = S> + 'a>(
+        &mut self,
+        mut iter_nodes: I,
+    ) -> Result<usize> {
         let mut count = 0;
         while let Some((_, succ)) = iter_nodes.next_inner() {
             self.push(succ);
@@ -598,7 +582,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes_from_inner(0)).unwrap();
+        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
         bvcomp.flush()?;
 
         // Read it back
