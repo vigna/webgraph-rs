@@ -55,14 +55,14 @@ pub trait SequentialGraph {
     }
 
     /// Get an iterator over the nodes of the graph
-    fn iter_nodes(&self) -> Adapter<Self::Iterator<'_>> {
+    fn iter_nodes(&self) -> Self::Iterator<'_> {
         self.iter_nodes_from(0)
     }
 
     /// Get an iterator over the nodes of the graph starting at `start_node`
     /// (included)
-    fn iter_nodes_from(&self, from: usize) -> Adapter<Self::Iterator<'_>> {
-        Adapter(self.iter_nodes_from_inner(from))
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
+        self.iter_nodes_from_inner(from)
     }
 
     /// Get an iterator over the nodes of the graph starting at `start_node`

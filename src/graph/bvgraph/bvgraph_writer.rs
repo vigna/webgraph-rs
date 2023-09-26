@@ -447,12 +447,12 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         while let Some((_x, _y)) = iter.next() {}
     }
 
-    pub fn extend<'a, 'b, I: Iterator<Item = usize>, L: LendingIterator<Item<'b> = (usize, I)>>(
-        &mut self,
-        iter_nodes: &'b mut L,
-    ) -> Result<usize> {
+    pub fn extend<I: GraphIterator>(&mut self, iter_nodes: &mut I) -> Result<usize>
+    where
+        for<'a> <I as GraphIterator>::Successors<'a>: Iterator<Item = usize>,
+    {
         let mut count = 0;
-        while let Some((_, succ)) = iter_nodes.next() {
+        while let Some((_, succ)) = iter_nodes.next_inner() {
             self.push(succ);
             count += 1;
         }
@@ -598,7 +598,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend(seq_graph.iter_nodes_from_inner(0)).unwrap();
         bvcomp.flush()?;
 
         // Read it back
