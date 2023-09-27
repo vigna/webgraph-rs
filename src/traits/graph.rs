@@ -20,13 +20,13 @@ use std::sync::Mutex;
 use dsi_progress_logger::ProgressLogger;
 use gat_lending_iterator::LendingIterator;
 
-pub trait GraphIterator {
+/*pub trait GraphIterator {
     type Successors<'a>: IntoIterator<Item = usize> + 'a
     where
         Self: 'a;
 
     fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)>;
-}
+}*/
 
 pub trait Tuple2 {
     type _0;
@@ -43,7 +43,7 @@ impl<T, U> Tuple2 for (T, U) {
         self
     }
 }
-
+/*
 #[derive(Clone)]
 pub struct Adapter<I: GraphIterator>(I);
 
@@ -55,11 +55,14 @@ impl<I: GraphIterator> LendingIterator for Adapter<I> {
         self.0.next_inner()
     }
 }
-
+*/
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
+    type Successors<'a>: IntoIterator<Item = usize> + 'a
+    where
+        Self: 'a;
     /// Iterator over the nodes of the graph
-    type Iterator<'a>: GraphIterator
+    type Iterator<'a>: LendingIterator<Item<'a> = (usize, Self::Successors<'a>)>
     where
         Self: 'a;
 
@@ -72,14 +75,14 @@ pub trait SequentialGraph {
     }
 
     /// Get an iterator over the nodes of the graph
-    fn iter_nodes(&self) -> Adapter<Self::Iterator<'_>> {
+    fn iter_nodes(&self) -> Self::Iterator<'_> {
         self.iter_nodes_from(0)
     }
 
     /// Get an iterator over the nodes of the graph starting at `start_node`
     /// (included)
-    fn iter_nodes_from(&self, from: usize) -> Adapter<Self::Iterator<'_>> {
-        Adapter(self.iter_nodes_from_inner(from))
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
+        self.iter_nodes_from_inner(from)
     }
 
     /// Get an iterator over the nodes of the graph starting at `start_node`
@@ -161,7 +164,7 @@ pub trait SequentialGraph {
 ///
 /// # Safety
 /// The first element of the pairs returned  by the iterator must be sorted.
-pub unsafe trait SortedIterator: GraphIterator {}
+// TODO pub unsafe trait SortedIterator: GraphIterator {}
 
 /// Marker trait for for [graphs](Graph) whose successor iterators
 /// are in stored order.
@@ -181,7 +184,7 @@ pub trait RandomAccessGraph: SequentialGraph {
     fn num_arcs(&self) -> usize;
 
     /// Get a sorted iterator over the neighbours node_id
-    fn successors(&self, node_id: usize) -> Self::Successors<'_>;
+    fn successors(&self, node_id: usize) -> <Self as RandomAccessGraph>::Successors<'_>;
 
     /// Get the number of outgoing edges of a node
     fn outdegree(&self, node_id: usize) -> usize {
@@ -212,12 +215,11 @@ pub struct GraphIteratorImpl<'a, G: RandomAccessGraph> {
     pub nodes: core::ops::Range<usize>,
 }
 
-impl<'a, G: RandomAccessGraph> GraphIterator for GraphIteratorImpl<'a, G> {
-    type Successors<'b> = G::Successors<'b>
+impl<'a, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'a, G> {
+    type Item<'b> = (usize, <G as RandomAccessGraph>::Successors<'b>)
     where Self: 'b;
-
     #[inline(always)]
-    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
+    fn next(&mut self) -> Option<Self::Item<'_>> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))
@@ -225,7 +227,7 @@ impl<'a, G: RandomAccessGraph> GraphIterator for GraphIteratorImpl<'a, G> {
 }
 
 /// We iter on the node ids in a range so it is sorted
-unsafe impl<'a, G: RandomAccessGraph> SortedIterator for GraphIteratorImpl<'a, G> {}
+// TODO unsafe impl<'a, G: RandomAccessGraph> SortedIterator for GraphIteratorImpl<'a, G> {}
 
 /// A graph where each arc has a label
 pub trait Labelled {

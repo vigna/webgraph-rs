@@ -8,7 +8,7 @@
 use epserde::prelude::*;
 use sux::prelude::*;
 
-use super::*;
+use crate::prelude::*;
 use crate::utils::nat2int;
 
 /// BVGraph is an highly compressed graph format that can be traversed
@@ -117,7 +117,7 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
-    type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
+    type Successors<'b> = std::iter::Copied<std::slice::Iter<'b, usize>>
     where Self: 'b, CRB: 'b,
     OFF: 'b;
 
@@ -132,7 +132,12 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from_inner<'b>(&self, from: usize) -> WebgraphSequentialIter<CRB::Reader<'b>>
+    where
+        Self: 'b,
+        CRB: 'b,
+        OFF: 'b,
+    {
         let mut iter = WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),
@@ -143,7 +148,7 @@ where
 
         // TODO real from
         for _ in 0..from {
-            iter.next_inner();
+            iter.next();
         }
 
         iter

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::SortedIterator;
+//use crate::traits::SortedIterator;
 use crate::utils::MmapBackend;
 use crate::{
     traits::{BitDeserializer, BitSerializer, DummyBitSerDes},

@@ -5,8 +5,6 @@
  */
 
 use crate::prelude::COOIterToGraph;
-use crate::traits::graph::Adapter;
-use crate::traits::GraphIterator;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;

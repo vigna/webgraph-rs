@@ -5,7 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::{GraphIterator, SequentialGraph};
+use crate::prelude::*;
+
+use crate::traits::SequentialGraph;
 
 #[derive(Clone)]
 /// A Graph wrapper that applies on the fly a permutation of the nodes
@@ -13,11 +15,13 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub graph: &'a G,
     pub perm: &'a [usize],
 }
-
+/*
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
         where
             Self: 'b;
+    type Successors<'b> = PermutedSuccessors<'b, G::Successors<'b>>
+        where Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -40,18 +44,24 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
 
 //#[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
-pub struct PermutedGraphIterator<'a, I: GraphIterator> {
+pub struct PermutedGraphIterator<'a, I: LendingIterator> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: GraphIterator> GraphIterator for PermutedGraphIterator<'a, I> {
-    type Successors<'c> = PermutedSuccessors<'c, I::Successors<'c>>
+impl<'a, L> LendingIterator for PermutedGraphIterator<'a, L>
+where
+    L: LendingIterator,
+    for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
+    for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
+    type Item<'c> = (usize, PermutedSuccessors<'c, <<L as LendingIterator>::Item<'c> as Tuple2>::_1>)
     where
         Self: 'c;
     #[inline(always)]
-    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
-        self.iter.next_inner().map(|(node, succ)| {
+    fn next(&mut self) -> Option<Self::Item<'_>> {
+        self.iter.next().map(|x| {
+            let (node, succ) = x.is_tuple();
             (
                 self.perm[node],
                 PermutedSuccessors {
@@ -79,30 +89,15 @@ pub struct PermutedSuccessors<'a, I: IntoIterator<Item = usize>> {
     perm: &'a [usize],
 }
 
-pub struct PermutedSucessorsIntoIter<'a, I: Iterator<Item = usize>> {
-    iter: I,
-    perm: &'a [usize],
-}
-
-impl<'a, I: Iterator<Item = usize>> Iterator for PermutedSucessorsIntoIter<'a, I> {
-    type Item = usize;
-    #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|succ| self.perm[succ])
-    }
-}
-
 impl<'a, I: IntoIterator<Item = usize>> IntoIterator for PermutedSuccessors<'a, I> {
-    type Item = <I as IntoIterator>::Item;
-    type IntoIter = PermutedSucessorsIntoIter<'a, I::IntoIter>;
+    type Item = usize;
+    type IntoIter = I::IntoIter;
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        PermutedSucessorsIntoIter {
-            iter: self.into_iter.into_iter(),
-            perm: self.perm,
-        }
+        self.into_iter.into_iter() //. TODO map(|succ| self.perm[succ])
     }
 }
+*/
 /*TODO
 impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSuccessors<'a, I> {
     #[inline(always)]

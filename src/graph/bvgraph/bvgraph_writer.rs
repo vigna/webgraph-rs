@@ -7,7 +7,6 @@
 
 use super::*;
 use crate::prelude::*;
-use crate::traits::graph::Tuple2;
 use crate::utils::int2nat;
 use crate::utils::{CircularBuffer, CircularBufferVec};
 use anyhow::Result;
@@ -435,11 +434,11 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     where
         L: LendingIterator,
         for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
-        for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: Iterator<Item = usize>,
+        for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut count = 0;
         while let Some((_, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
-            self.push(succ);
+            self.push(succ.into_iter());
             count += 1;
         }
         // TODO
@@ -584,7 +583,8 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        let mut iter = seq_graph.iter_nodes();
+        bvcomp.extend(&mut iter).unwrap();
         bvcomp.flush()?;
 
         // Read it back

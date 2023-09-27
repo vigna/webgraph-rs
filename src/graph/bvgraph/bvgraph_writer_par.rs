@@ -102,7 +102,7 @@ pub fn parallel_compress_sequential_iter<P: AsRef<Path> + Send + Sync, L>(
 where
     L: LendingIterator + Clone + Send,
     for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
-    for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: Iterator<Item = usize>,
+    for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());

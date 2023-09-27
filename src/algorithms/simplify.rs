@@ -5,8 +5,8 @@
  */
 
 use crate::prelude::COOIterToGraph;
-use crate::traits::graph::Adapter;
-use crate::traits::{GraphIterator, SequentialGraph};
+//use crate::traits::graph::Adapter;
+use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;

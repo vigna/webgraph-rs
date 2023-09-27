@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use gat_lending_iterator::LendingIterator;
+
 use crate::traits::*;
 use core::marker::PhantomData;
 
@@ -23,7 +25,7 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
 }
 
 impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGraph<I> {
-    type Iterator<'b> =  SortedNodePermutedIterator<'b, I>
+    type Successors<'b> = Successors<'b, I>
         where
             Self: 'b;
 
@@ -38,9 +40,8 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
     }
 
     /// Get an iterator over the nodes of the graph
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
-        todo!();
-        // TODO SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
+    fn iter_nodes_from_inner(&self, from: usize) -> SortedNodePermutedIterator<'_, I> {
+        SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
     }
 }
 
@@ -65,13 +66,11 @@ impl<'a, I: Iterator<Item = (usize, usize)>> SortedNodePermutedIterator<'a, I> {
     }
 }
 
-impl<'a, I: Iterator<Item = (usize, usize)>> GraphIterator for SortedNodePermutedIterator<'a, I> {
-    type Successors<'b> = Successors<'b, I>
-    where
-        Self: 'b
-    ;
-
-    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
+impl<'a, I: Iterator<Item = (usize, usize)>> LendingIterator for SortedNodePermutedIterator<'a, I> {
+    type Item<'b> = (usize, Successors<'b, I>)
+    where Self: 'b,
+    I: 'b;
+    fn next(&mut self) -> Option<Self::Item<'_>> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
             return None;
@@ -81,8 +80,8 @@ impl<'a, I: Iterator<Item = (usize, usize)>> GraphIterator for SortedNodePermute
         while self.next_pair.0 < self.curr_node {
             self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX));
         }
-        None
-        // TODO Some((self.curr_node, Successors { node_iter: self }))
+
+        Some((self.curr_node, Successors { node_iter: self }))
     }
 }
 

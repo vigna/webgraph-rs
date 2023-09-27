@@ -10,6 +10,7 @@ use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use gat_lending_iterator::LendingIterator;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
@@ -23,9 +24,8 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
 }
 
 impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
-    type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
-    where CRB: 'a,
-    Self: 'a;
+    type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>
+    where Self: 'a;
 
     #[inline(always)]
     /// Return the number of nodes in the graph
@@ -39,7 +39,11 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from_inner<'a>(&self, from: usize) -> WebgraphSequentialIter<CRB::Reader<'a>>
+    where
+        CRB: 'a,
+        Self: 'a,
+    {
         let mut iter = WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
@@ -49,7 +53,7 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
 
         // TODO
         for _ in 0..from {
-            iter.next_inner();
+            iter.next();
         }
 
         iter
@@ -261,20 +265,11 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-pub struct ValueIterator<'a>(std::slice::Iter<'a, usize>);
-
-impl Iterator for ValueIterator<'_> {
-    type Item = usize;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().copied()
-    }
-}
-
-impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
-    type Successors<'a> = ValueIterator<'a>
+impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
+    type Item<'a> = (usize, std::iter::Copied<std::slice::Iter<'a, usize>>)
     where Self: 'a;
 
-    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
+    fn next(&mut self) -> Option<Self::Item<'_>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
@@ -285,7 +280,7 @@ impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
         let res = self.backrefs.push(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
-        Some((node_id, ValueIterator(res.iter())))
+        Some((node_id, res.iter().copied()))
     }
 }
 /* TODO
@@ -298,7 +293,7 @@ impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
     }
 }
 */
-unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
+// TODO unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
 
 // TODO impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
 

@@ -213,7 +213,7 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn successors(&self, node: usize) -> Self::Successors<'_> {
+    fn successors(&self, node: usize) -> <Self as RandomAccessGraph>::Successors<'_> {
         VecGraphIter {
             iter: self.succ[node].iter(),
             label: unsafe {
@@ -225,9 +225,8 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
 }
 
 impl<L: Clone> SequentialGraph for VecGraph<L> {
-    type Iterator<'a> = GraphIteratorImpl<'a, Self>
-        where
-            Self: 'a ;
+    type Successors<'a> = VecGraphIter<'a, L>
+    where L: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -240,7 +239,12 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from_inner<T>(&self, from: usize) -> T
+    where
+        T: LendingIterator,
+        for<'c> <T as LendingIterator>::Item<'c>: Tuple2<_0 = usize>,
+        for<'c> <<T as LendingIterator>::Item<'c> as Tuple2>::_1: Iterator<Item = usize>,
+    {
         GraphIteratorImpl {
             graph: self,
             nodes: (from..self.num_nodes()),
