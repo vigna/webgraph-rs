@@ -5,13 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
 use std::io::{BufReader, Read};
 use tempfile::tempdir;
+use webgraph::prelude::*;
 use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(about = "Permutes a graph", long_about = None)]
@@ -62,7 +62,7 @@ fn permute(
     .unwrap();
 
     // dump the paris
-    PermutedGraph {
+    /* TODO PermutedGraph {
         graph: graph,
         perm: &perm,
     }
@@ -71,18 +71,19 @@ fn permute(
         succ.for_each(|s| {
             sort_pairs.push(x, s).unwrap();
         })
-    });
+    });*/
     // get a graph on the sorted data
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
-    let g = COOIterToGraph::new(num_nodes, edges);
+    // TODO let g = COOIterToGraph::new(num_nodes, edges);
     // compress it
-    parallel_compress_sequential_iter(
+    /* TODO parallel_compress_sequential_iter(
         args.dest,
         &mut g.iter_nodes(),
         g.num_nodes(),
         CompFlags::default(),
         args.num_cpus.unwrap_or(num_cpus::get()),
     )?;
+    */
     Ok(())
 }
 

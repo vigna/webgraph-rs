@@ -10,7 +10,6 @@ use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use gat_lending_iterator::LendingIterator;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
@@ -24,8 +23,11 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
 }
 
 impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
-    type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>
-    where Self: 'a;
+    type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
+    where
+        CRB: 'a,
+        Self: 'a;
+    type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>;
 
     #[inline(always)]
     /// Return the number of nodes in the graph
@@ -39,11 +41,7 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner<'a>(&self, from: usize) -> WebgraphSequentialIter<CRB::Reader<'a>>
-    where
-        CRB: 'a,
-        Self: 'a,
-    {
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
@@ -265,11 +263,12 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
-    type Item<'a> = (usize, std::iter::Copied<std::slice::Iter<'a, usize>>)
-    where Self: 'a;
+impl<'succ, CR: BVGraphCodesReader> LendingIteratorItem<'succ> for WebgraphSequentialIter<CR> {
+    type T = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+}
 
-    fn next(&mut self) -> Option<Self::Item<'_>> {
+impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
+    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }

@@ -669,12 +669,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
-name = "gat-lending-iterator"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "041f1d3d2d7632b344abdf0aff82267efcc95215f117046e98888f1eccb5e784"
-
-[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1609,7 +1603,6 @@ dependencies = [
  "dsi-bitstream",
  "dsi-progress-logger",
  "epserde",
- "gat-lending-iterator",
  "itertools",
  "java-properties",
  "libc",

@@ -7,7 +7,6 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
-use gat_lending_iterator::LendingIterator;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
 #[derive(Parser, Debug)]

@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use gat_lending_iterator::LendingIterator;
-
 use crate::traits::*;
 use core::marker::PhantomData;
 
@@ -15,7 +13,7 @@ pub struct COOIterToGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
-
+/*TODO
 impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
     /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
@@ -25,9 +23,10 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
 }
 
 impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGraph<I> {
-    type Successors<'b> = Successors<'b, I>
+    type Successors<'b> = Successors<'b, I>;
+    type Iterator<'a> = SortedNodePermutedIterator<'a, I>
         where
-            Self: 'b;
+            Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -66,11 +65,17 @@ impl<'a, I: Iterator<Item = (usize, usize)>> SortedNodePermutedIterator<'a, I> {
     }
 }
 
-impl<'a, I: Iterator<Item = (usize, usize)>> LendingIterator for SortedNodePermutedIterator<'a, I> {
-    type Item<'b> = (usize, Successors<'b, I>)
-    where Self: 'b,
-    I: 'b;
-    fn next(&mut self) -> Option<Self::Item<'_>> {
+impl<'node, 'succ, I> LendingIteratorItem<'succ> for SortedNodePermutedIterator<'node, I>
+where
+    I: Iterator<Item = (usize, usize)>,
+{
+    type T = (usize, Successors<'succ, I>);
+}
+
+impl<'node, I: Iterator<Item = (usize, usize)>> LendingIterator
+    for SortedNodePermutedIterator<'node, I>
+{
+    fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
             return None;
@@ -119,6 +124,7 @@ impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for Successors<'a, I> {
         }
     }
 }
+*/
 /* TODO
 #[cfg(test)]
 #[cfg_attr(test, test)]

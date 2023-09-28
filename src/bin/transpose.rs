@@ -107,7 +107,7 @@ pub fn main() -> Result<()> {
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.batch_size).unwrap();
     // compress the transposed graph
-    parallel_compress_sequential_iter(
+    /* TODO parallel_compress_sequential_iter(
         args.basename,
         sorted.iter_nodes(),
         sorted.num_nodes(),
@@ -115,6 +115,6 @@ pub fn main() -> Result<()> {
         args.num_cpus.unwrap_or(rayon::current_num_threads()),
     )
     .unwrap();
-
+    */
     Ok(())
 }

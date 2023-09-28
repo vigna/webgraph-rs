@@ -8,7 +8,6 @@
 use crate::traits::graph::GraphIteratorImpl;
 use crate::traits::*;
 use alloc::collections::BTreeSet;
-use gat_lending_iterator::LendingIterator;
 
 /// Vector-based mutable [`Graph`] implementation.
 /// Successors are represented using a [`BTreeSet`].
@@ -199,7 +198,8 @@ impl<L: Clone> Labelled for VecGraph<L> {
     type Label = L;
 }
 
-impl<L: Clone> RandomAccessGraph for VecGraph<L> {
+// TODO
+impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
     type Successors<'a> = VecGraphIter<'a, L> where Self: 'a;
 
     #[inline(always)]
@@ -224,8 +224,10 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
     }
 }
 
-impl<L: Clone> SequentialGraph for VecGraph<L> {
-    type Successors<'a> = VecGraphIter<'a, L>
+// TODO
+impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
+    type Successors<'a> = VecGraphIter<'a, L>;
+    type Iterator<'a> = GraphIteratorImpl<'a, Self>
     where L: 'a;
 
     #[inline(always)]
@@ -239,12 +241,7 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner<T>(&self, from: usize) -> T
-    where
-        T: LendingIterator,
-        for<'c> <T as LendingIterator>::Item<'c>: Tuple2<_0 = usize>,
-        for<'c> <<T as LendingIterator>::Item<'c> as Tuple2>::_1: Iterator<Item = usize>,
-    {
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
         GraphIteratorImpl {
             graph: self,
             nodes: (from..self.num_nodes()),

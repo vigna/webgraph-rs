@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::COOIterToGraph;
+use crate::prelude::*;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-use gat_lending_iterator::LendingIterator;
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
 pub fn transpose(
@@ -37,10 +36,11 @@ pub fn transpose(
     }
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
-    let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
+    // TODO : let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
-    Ok(sorted)
+    // TODO Ok(sorted)
+    todo!();
 }
 /* TODO
 #[cfg(test)]

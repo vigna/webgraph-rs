@@ -92,7 +92,10 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<P: AsRef<Path> + Send + Sync, L>(
+pub fn parallel_compress_sequential_iter<
+    P: AsRef<Path> + Send + Sync,
+    L: LendingIterator + Clone + Send,
+>(
     basename: P,
     iter: &mut L,
     num_nodes: usize,
@@ -100,9 +103,9 @@ pub fn parallel_compress_sequential_iter<P: AsRef<Path> + Send + Sync, L>(
     num_threads: usize,
 ) -> Result<usize>
 where
-    L: LendingIterator + Clone + Send,
-    for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
-    for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L: LendingIterator,
+    for<'next> Item<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());

@@ -22,5 +22,8 @@ This modules contains the traits that are used throughout the crate.
 pub mod graph;
 pub use graph::*;
 
+pub mod iter;
+pub use iter::*;
+
 mod serde;
 pub use serde::*;

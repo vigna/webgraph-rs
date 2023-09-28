@@ -433,12 +433,12 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     pub fn extend<L>(&mut self, iter_nodes: &mut L) -> Result<usize>
     where
         L: LendingIterator,
-        for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
-        for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: IntoIterator<Item = usize>,
+        for<'next> Item<'next, L>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut count = 0;
         while let Some((_, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
-            self.push(succ.into_iter());
+            self.push(succ.into_iter())?;
             count += 1;
         }
         // TODO
@@ -584,7 +584,9 @@ mod test {
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         let mut iter = seq_graph.iter_nodes();
-        bvcomp.extend(&mut iter).unwrap();
+        bvcomp
+            .extend::<<BVGraphSequential<DynamicCodesReaderBuilder<BE,MmapBackend<u32>>> as SequentialGraph>::Iterator<'_>>(&mut iter)
+            .unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -637,7 +639,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend::<<BVGraphSequential<DynamicCodesReaderBuilder<BE,MmapBackend<u32>>> as SequentialGraph>::Iterator<'_>>(&mut seq_graph.iter_nodes()).unwrap();
         bvcomp.flush()?;
 
         // Read it back

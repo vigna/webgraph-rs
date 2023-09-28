@@ -117,9 +117,12 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
 {
-    type Successors<'b> = std::iter::Copied<std::slice::Iter<'b, usize>>
-    where Self: 'b, CRB: 'b,
-    OFF: 'b;
+    type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
+    where
+        Self: 'b,
+        CRB: 'b,
+        OFF: 'b;
+    type Successors<'b> = std::iter::Copied<std::slice::Iter<'b, usize>>;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -132,12 +135,7 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes_from_inner<'b>(&self, from: usize) -> WebgraphSequentialIter<CRB::Reader<'b>>
-    where
-        Self: 'b,
-        CRB: 'b,
-        OFF: 'b,
-    {
+    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),

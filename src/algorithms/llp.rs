@@ -209,7 +209,7 @@ pub fn layered_label_propagation(
             graph,
             perm: &update_perm,
         };
-        let cost = compute_log_gap_cost(&thread_pool, &pgraph, None);
+        let cost = compute_log_gap_cost(&thread_pool, graph, None);
         info!("Log-gap cost: {}", cost);
         costs.push(cost);
 

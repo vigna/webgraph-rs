@@ -4,13 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::COOIterToGraph;
+use crate::prelude::*;
 //use crate::traits::graph::Adapter;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-use gat_lending_iterator::LendingIterator;
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
 pub fn simplify(
@@ -52,8 +51,9 @@ pub fn simplify(
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
     let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
     let iter = DedupSortedIter::new(sorted.iter()?.map(map).filter(filter));
-    let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
+    //TODO let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
     pl.done();
 
-    Ok(sorted)
+    todo!();
+    // TODO Ok(sorted)
 }

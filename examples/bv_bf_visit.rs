@@ -6,11 +6,11 @@
  */
 
 use anyhow::Result;
+use bitvec::{vec::BitVec, *};
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;
 use webgraph::prelude::*;
-
 #[derive(Parser, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct Args {
@@ -29,7 +29,7 @@ pub fn main() -> Result<()> {
 
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
-    let mut visited = BitVec::new(num_nodes);
+    let mut visited = bitvec![0; num_nodes];
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default().display_memory();

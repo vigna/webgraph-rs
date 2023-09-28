@@ -56,9 +56,9 @@ pub mod prelude {
     pub use crate::algorithms::*;
     pub use crate::graph::prelude::*;
     pub use crate::traits::graph::*;
+    pub use crate::traits::iter::*;
     pub use crate::traits::*;
     pub use crate::utils::*;
-    pub use gat_lending_iterator::LendingIterator;
 }
 
 /// Invert the given permutation in place.

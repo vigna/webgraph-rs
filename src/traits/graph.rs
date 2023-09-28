@@ -11,14 +11,13 @@ Basic traits to access graphs, both sequentially and randomly.
 
 */
 
+use crate::prelude::*;
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use std::sync::Mutex;
-
 use dsi_progress_logger::ProgressLogger;
-use gat_lending_iterator::LendingIterator;
+use std::sync::Mutex;
 
 /*pub trait GraphIterator {
     type Successors<'a>: IntoIterator<Item = usize> + 'a
@@ -28,21 +27,6 @@ use gat_lending_iterator::LendingIterator;
     fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)>;
 }*/
 
-pub trait Tuple2 {
-    type _0;
-    type _1;
-
-    fn is_tuple(self) -> (Self::_0, Self::_1);
-}
-
-impl<T, U> Tuple2 for (T, U) {
-    type _0 = T;
-    type _1 = U;
-
-    fn is_tuple(self) -> (Self::_0, Self::_1) {
-        self
-    }
-}
 /*
 #[derive(Clone)]
 pub struct Adapter<I: GraphIterator>(I);
@@ -58,13 +42,12 @@ impl<I: GraphIterator> LendingIterator for Adapter<I> {
 */
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
-    type Successors<'a>: IntoIterator<Item = usize> + 'a
-    where
-        Self: 'a;
+    type Successors<'succ>: IntoIterator<Item = usize>;
     /// Iterator over the nodes of the graph
-    type Iterator<'a>: LendingIterator<Item<'a> = (usize, Self::Successors<'a>)>
+    type Iterator<'node>: LendingIterator
+        + for<'succ> LendingIteratorItem<'succ, T = (usize, Self::Successors<'succ>)>
     where
-        Self: 'a;
+        Self: 'node;
 
     /// Get the number of nodes in the graph
     fn num_nodes(&self) -> usize;
@@ -176,9 +159,9 @@ pub unsafe trait SortedSuccessors: Iterator<Item = usize> {}
 /// A graph providing random access.
 pub trait RandomAccessGraph: SequentialGraph {
     /// Iterator over the successors of a node
-    type Successors<'a>: IntoIterator<Item = usize> + 'a
+    type Successors<'succ>: IntoIterator<Item = usize> + 'succ
     where
-        Self: 'a;
+        Self: 'succ;
 
     /// Get the number of arcs in the graph
     fn num_arcs(&self) -> usize;
@@ -210,16 +193,20 @@ pub trait RandomAccessGraph: SequentialGraph {
 
 /// A struct used to implement [`GraphIterator`] trait for a struct that
 /// implements [`RandomAccessGraph`].
-pub struct GraphIteratorImpl<'a, G: RandomAccessGraph> {
-    pub graph: &'a G,
+pub struct GraphIteratorImpl<'node, G: RandomAccessGraph> {
+    pub graph: &'node G,
     pub nodes: core::ops::Range<usize>,
 }
 
-impl<'a, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'a, G> {
-    type Item<'b> = (usize, <G as RandomAccessGraph>::Successors<'b>)
-    where Self: 'b;
+impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ>
+    for GraphIteratorImpl<'node, G>
+{
+    type T = (usize, <G as RandomAccessGraph>::Successors<'succ>);
+}
+
+impl<'node, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'node, G> {
     #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item<'_>> {
+    fn next(&mut self) -> Option<(usize, <G as RandomAccessGraph>::Successors<'_>)> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))
