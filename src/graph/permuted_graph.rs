@@ -112,7 +112,7 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSucce
     }
 }
 */
-/* TODO
+
 #[cfg(test)]
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
@@ -125,7 +125,9 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v = VecGraph::from_node_iter(p.iter_nodes());
+    let v = VecGraph::from_node_iter::<
+        PermutedGraphIterator<'_, GraphIteratorImpl<'_, VecGraph<()>>>,
+    >(p.iter_nodes());
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0), 1);
@@ -137,4 +139,3 @@ fn test_permuted_graph() -> anyhow::Result<()> {
 
     Ok(())
 }
-*/

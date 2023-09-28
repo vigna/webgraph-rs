@@ -6,6 +6,10 @@
  */
 
 use anyhow::Result;
+use dsi_bitstream::{
+    prelude::{BufBitReader, MemWordReaderInf},
+    traits::BigEndian,
+};
 use dsi_progress_logger::ProgressLogger;
 use webgraph::prelude::*;
 
@@ -27,9 +31,18 @@ fn test_par_bvcomp() -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graph::bvgraph::parallel_compress_sequential_iter(
+        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<
+            _,
+            WebgraphSequentialIter<
+                DynamicCodesReader<
+                    BigEndian,
+                    BufBitReader<BigEndian, u64, MemWordReaderInf<u32, &[u32]>>,
+                >,
+            >,
+        >(
             tmp_basename,
-            graph.iter_nodes(),
+            &mut graph.iter_nodes(),
+            graph.num_nodes(),
             comp_flags,
             thread_num,
         )
@@ -44,7 +57,7 @@ fn test_par_bvcomp() -> Result<()> {
         pr.start("Checking that the newly compressed graph is equivalent to the original one...");
         pr.expected_updates = Some(graph.num_nodes());
 
-        for (node, succ_iter) in graph.iter_nodes() {
+        while let Some((node, succ_iter)) = graph.iter_nodes().next() {
             let (new_node, new_succ_iter) = iter.next().unwrap();
             assert_eq!(node, new_node);
             let succ = succ_iter.collect::<Vec<_>>();

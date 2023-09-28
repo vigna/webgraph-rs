@@ -5,8 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use webgraph::prelude::PermutedGraph;
-use webgraph::traits::SequentialGraph;
+use webgraph::prelude::*;
 
 #[test]
 fn test_permuted() {
@@ -36,7 +35,8 @@ fn test_permuted() {
     assert_eq!(
         permuted_graph
             .iter_nodes()
-            .map(|(node, successors)| (node, successors.collect()))
+            .map(|(node, successors)| (node, successors.into_iter().collect()))
+            .into_iter()
             .collect::<Vec<_>>(),
         vec![
             (1, vec![3, 4]),

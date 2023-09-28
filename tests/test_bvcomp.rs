@@ -13,9 +13,9 @@ const NODES: usize = 325557;
 use anyhow::Result;
 use dsi_bitstream::{
     prelude::{
-        BufferedBitStreamRead, BufferedBitStreamWrite,
+        BufBitReader, BufBitWriter,
         Code::{Delta, Gamma, Unary, Zeta},
-        FileBackend, MemWordReadInfinite,
+        MemWordReaderInf, WordAdapter,
     },
     traits::BE,
 };
@@ -62,7 +62,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
                                     let writer = <DynamicCodesWriter<BE, _>>::new(
-                                        <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
+                                        <BufBitWriter<BE, _>>::new(WordAdapter::new(
                                             BufWriter::new(File::create(tmp_path)?),
                                         )),
                                         &compression_flags,
@@ -80,7 +80,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.start("Compressing...");
                                     pl.expected_updates = Some(NODES);
 
-                                    for (_, iter) in &seq_graph {
+                                    while let Some((_, iter)) = seq_graph.iter_nodes().next() {
                                         bvcomp.push(iter)?;
                                         pl.light_update();
                                     }
@@ -89,15 +89,15 @@ fn test_bvcomp_slow() -> Result<()> {
                                     bvcomp.flush()?;
 
                                     let code_reader = DynamicCodesReader::new(
-                                        BufferedBitStreamRead::<BE, u64, _>::new(
-                                            MemWordReadInfinite::<u32, _>::new(MmapBackend::load(
+                                        BufBitReader::<BE, u64, _>::new(
+                                            MemWordReaderInf::<u32, _>::new(MmapBackend::load(
                                                 tmp_path,
                                                 mmap_rs::MmapFlags::empty(),
                                             )?),
                                         ),
                                         &compression_flags,
                                     )?;
-                                    let seq_reader1 = WebgraphSequentialIter::new(
+                                    let mut seq_reader1 = WebgraphSequentialIter::new(
                                         code_reader,
                                         compression_flags.compression_window,
                                         compression_flags.min_interval_length,
@@ -105,9 +105,11 @@ fn test_bvcomp_slow() -> Result<()> {
                                     );
 
                                     pl.start("Checking equality...");
-                                    for ((_, iter0), (_, iter1)) in
-                                        seq_graph.iter_nodes().zip(seq_reader1)
-                                    {
+                                    let mut iter_nodes = seq_graph.iter_nodes();
+                                    for _ in 0..seq_graph.num_nodes() {
+                                        let (node0, iter0) = iter_nodes.next().unwrap();
+                                        let (node1, iter1) = seq_reader1.next().unwrap();
+                                        assert_eq!(node0, node1);
                                         assert_eq!(
                                             iter0.collect::<Vec<_>>(),
                                             iter1.collect::<Vec<_>>()

@@ -73,6 +73,14 @@ pub trait LendingIterator: for<'b> LendingIteratorItem<'b> {
     {
         self.fold((), |(), item| f(item))
     }
+
+    fn into_iter<Item>(self: Self) -> IntoIter<Self>
+    where
+        Self: for<'any> LendingIteratorItem<'any, T = Item>,
+        Self: Sized,
+    {
+        IntoIter(self)
+    }
 }
 
 pub struct Take<I: LendingIterator> {
@@ -118,5 +126,18 @@ where
 {
     fn next(&mut self) -> Option<Item<'_, Self>> {
         self.iter.next().map(|item| (self.map)(item))
+    }
+}
+
+pub struct IntoIter<I: ?Sized + LendingIterator>(pub I);
+
+impl<Item, I: ?Sized + LendingIterator> Iterator for IntoIter<I>
+where
+    for<'any> I: LendingIteratorItem<'any, T = Item>,
+{
+    type Item = Item;
+
+    fn next(self: &'_ mut IntoIter<I>) -> Option<Item> {
+        self.0.next()
     }
 }

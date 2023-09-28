@@ -23,8 +23,7 @@ fn test_offsets() -> Result<()> {
     offsets_file.read_exact(&mut offsets_data)?;
 
     let mut offsets = Vec::with_capacity(graph.num_nodes());
-    let mut reader =
-        BufferedBitStreamRead::<BE, u64, _>::new(MemWordReadInfinite::new(&offsets_data));
+    let mut reader = BufBitReader::<BE, u64, _>::new(MemWordReaderInf::new(&offsets_data));
     let mut offset = 0;
     for _ in 0..graph.num_nodes() + 1 {
         offset += reader.read_gamma().unwrap() as usize;
@@ -41,7 +40,7 @@ fn test_offsets() -> Result<()> {
     }
 
     // Check that they read the same
-    for (node_id, seq_succ) in graph.iter_nodes() {
+    while let Some((node_id, seq_succ)) = graph.iter_nodes().next() {
         let rand_succ = graph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }

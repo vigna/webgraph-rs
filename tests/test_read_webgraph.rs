@@ -34,8 +34,7 @@ fn get_bvgraph() -> Result<impl RandomAccessGraph> {
 
     // Read the offsets gammas
     let mut offsets = Vec::with_capacity(NODES);
-    let mut reader =
-        BufferedBitStreamRead::<BE, BufferType, _>::new(MemWordReadInfinite::new(&data));
+    let mut reader = BufBitReader::<BE, BufferType, _>::new(MemWordReaderInf::new(&data));
     let mut offset = 0;
     for _ in 0..NODES {
         offset += reader.read_gamma().unwrap() as usize;
@@ -83,10 +82,10 @@ fn test_iter_nodes() -> Result<()> {
     let mut seen_node_ids = Vec::new();
 
     // Check that they read the same
-    for (node_id, seq_succ) in bvgraph.iter_nodes().take(100) {
+    while let Some((node_id, seq_succ)) = bvgraph.iter_nodes().take(100).next() {
         seen_node_ids.push(node_id);
-        let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
-        assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
+        let rand_succ = bvgraph.successors(node_id).into_iter().collect::<Vec<_>>();
+        assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());
     }
 
     assert_eq!(
@@ -103,10 +102,10 @@ fn test_iter_nodes_from() -> Result<()> {
     for i in [0, 1, 2, 5, 10, 100] {
         let mut seen_node_ids = Vec::new();
         // Check that they read the same
-        for (node_id, seq_succ) in bvgraph.iter_nodes_from(i).take(100) {
+        while let Some((node_id, seq_succ)) = bvgraph.iter_nodes_from(i).take(100).next() {
             seen_node_ids.push(node_id);
-            let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
-            assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
+            let rand_succ = bvgraph.successors(node_id).into_iter().collect::<Vec<_>>();
+            assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());
         }
 
         assert_eq!(

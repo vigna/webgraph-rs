@@ -282,30 +282,7 @@ impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
         Some((node_id, res.iter().copied()))
     }
 }
-/* TODO
-impl<CR: BVGraphCodesReader> GraphIterator for WebgraphSequentialIter<CR> {
-    type Successors<'a> = ValueIterator<'a>
-    where Self: 'a;
 
-    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)> {
-        self.next()
-    }
-}
-*/
 // TODO unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
 
 // TODO impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
-
-/*
-impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
-where
-    CRB: BVGraphCodesReaderBuilder,
-{
-    type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
-    type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_nodes()
-    }
-}
-*/

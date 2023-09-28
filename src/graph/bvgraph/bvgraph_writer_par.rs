@@ -156,7 +156,6 @@ where
                     nodes_per_thread * (thread_id + 1),
                 );
                 // Spawn the thread
-                // TODO
                 let mut thread_iter = iter.clone();
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
@@ -171,15 +170,7 @@ where
                         cp_flags.max_ref_count,
                         nodes_per_thread * thread_id,
                     );
-                    // TODO
                     let written_bits = bvcomp.extend::<L>(&mut thread_iter).unwrap();
-                    let mut written_bits = 0;
-                    while let Some((_node_id, successors)) =
-                        thread_iter.next().map(|it| it.is_tuple())
-                    {
-                        written_bits += bvcomp.push(successors.into_iter()).unwrap();
-                    }
-
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
                         thread_id,
