@@ -179,7 +179,7 @@ impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ>
 
 impl<'node, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'node, G> {
     #[inline(always)]
-    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
+    fn next(&mut self) -> Option<Item<'_, Self>> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))

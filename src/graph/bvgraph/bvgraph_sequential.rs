@@ -268,7 +268,7 @@ impl<'succ, CR: BVGraphCodesReader> LendingIteratorItem<'succ> for WebgraphSeque
 }
 
 impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
-    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
+    fn next(&mut self) -> Option<Item<'_, Self>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }

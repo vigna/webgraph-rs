@@ -333,7 +333,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -438,8 +438,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     {
         let mut count = 0;
         while let Some((_, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
-            self.push(succ.into_iter())?;
-            count += 1;
+            count += self.push(succ.into_iter())?;
         }
         // WAS
         // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()

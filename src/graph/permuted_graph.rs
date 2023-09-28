@@ -65,7 +65,7 @@ where
     for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     #[inline(always)]
-    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
+    fn next(&mut self) -> Option<Item<'_, Self>> {
         self.iter.next().map(|x| {
             let (node, succ) = x.is_tuple();
             (
@@ -100,7 +100,7 @@ impl<'a, I: IntoIterator<Item = usize>> IntoIterator for PermutedSuccessors<'a, 
     type IntoIter = I::IntoIter;
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        self.into_iter.into_iter() //. TODO map(|succ| self.perm[succ])
+        self.into_iter.into_iter() // TODO .map(|succ| self.perm[succ])
     }
 }
 

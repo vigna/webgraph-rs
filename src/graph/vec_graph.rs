@@ -186,7 +186,6 @@ impl<L: Clone> Labelled for VecGraph<L> {
     type Label = L;
 }
 
-// TODO
 impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
     type Successors<'a> = VecGraphIter<'a, L> where Self: 'a;
 
@@ -212,7 +211,6 @@ impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
     }
 }
 
-// TODO
 impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
     type Successors<'a> = VecGraphIter<'a, L>;
     type Iterator<'a> = GraphIteratorImpl<'a, Self>

@@ -135,25 +135,7 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
-        let mut iter = WebgraphSequentialIter::new(
-            // a reader at offset 0 should always be buildable
-            self.codes_reader_builder.get_reader(0).unwrap(),
-            self.compression_window,
-            self.min_interval_length,
-            self.number_of_nodes,
-        );
-
-        // TODO real from
-        for _ in 0..from {
-            iter.next();
-        }
-
-        iter
-    }
-
-    /*
-    fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
+    fn iter_nodes_from(&self, start_node: usize) -> Self::Iterator<'_> {
         let codes_reader = self
             .codes_reader_builder
             .get_reader(self.offsets.get(start_node) as _)
@@ -175,7 +157,7 @@ where
             number_of_nodes: self.number_of_nodes,
             current_node: start_node,
         }
-    } */
+    }
 }
 
 impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>

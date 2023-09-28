@@ -342,13 +342,12 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
 ) -> f64 {
     graph.par_graph_apply(
         |range| {
-            /* TODO
             graph
                 .iter_nodes_from(range.start)
                 .take(range.len())
                 .map(|(x, succ)| {
                     let mut cost = 0;
-                    let mut sorted: Vec<_> = succ.collect();
+                    let mut sorted: Vec<_> = succ.into_iter().collect();
                     if !sorted.is_empty() {
                         sorted.sort();
                         cost +=
@@ -360,9 +359,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     }
                     cost
                 })
-                .sum::<usize>() as f64
-                */
-            0.0
+                .fold(0, |a, x| a + x) as f64 // TODO: use sum() when it will be stable
         },
         |a, b| a + b,
         thread_pool,

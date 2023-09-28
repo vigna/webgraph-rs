@@ -32,7 +32,7 @@ impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIterator
     for COOIterToGraph<I>
 {
     #[inline(always)]
-    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
+    fn next(&mut self) -> Option<Item<'_, Self>> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))
