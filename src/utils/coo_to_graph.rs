@@ -51,7 +51,7 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
     }
 
     /// Get an iterator over the nodes of the graph
-    fn iter_nodes_from_inner(&self, from: usize) -> SortedNodePermutedIterator<'_, I> {
+    fn iter_nodes_from(&self, from: usize) -> SortedNodePermutedIterator<'_, I> {
         SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
     }
     type Successors<'succ>: IntoIterator<Item = usize>;

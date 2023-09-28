@@ -229,7 +229,7 @@ impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
         GraphIteratorImpl {
             graph: self,
             nodes: (from..self.num_nodes()),

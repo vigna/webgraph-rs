@@ -43,13 +43,7 @@ pub trait SequentialGraph {
 
     /// Get an iterator over the nodes of the graph starting at `start_node`
     /// (included)
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
-        self.iter_nodes_from_inner(from)
-    }
-
-    /// Get an iterator over the nodes of the graph starting at `start_node`
-    /// (included)
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_>;
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_>;
 
     /// Given a graph, apply `func` to each chunk of nodes of size `granularity`
     /// in parallel, and reduce the results using `reduce`.

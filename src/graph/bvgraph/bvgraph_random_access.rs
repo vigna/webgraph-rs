@@ -135,7 +135,7 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = WebgraphSequentialIter::new(
             // a reader at offset 0 should always be buildable
             self.codes_reader_builder.get_reader(0).unwrap(),

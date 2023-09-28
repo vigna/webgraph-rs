@@ -46,7 +46,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = self.iter.clone();
         let mut iter = SortedLabelledNodePermutedIterator {
             num_nodes: self.num_nodes,

@@ -31,9 +31,9 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 
     #[inline(always)]
-    fn iter_nodes_from_inner(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
         PermutedGraphIterator {
-            iter: self.graph.iter_nodes_from_inner(from),
+            iter: self.graph.iter_nodes_from(from),
             perm: self.perm,
         }
     }
