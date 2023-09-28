@@ -57,7 +57,8 @@ fn test_par_bvcomp() -> Result<()> {
         pr.start("Checking that the newly compressed graph is equivalent to the original one...");
         pr.expected_updates = Some(graph.num_nodes());
 
-        while let Some((node, succ_iter)) = graph.iter_nodes().next() {
+        let mut iter_nodes = graph.iter_nodes();
+        while let Some((node, succ_iter)) = iter_nodes.next() {
             let (new_node, new_succ_iter) = iter.next().unwrap();
             assert_eq!(node, new_node);
             let succ = succ_iter.collect::<Vec<_>>();

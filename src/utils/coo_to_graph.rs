@@ -9,37 +9,42 @@ use core::marker::PhantomData;
 
 /// A Sequential graph built on an iterator of pairs of nodes
 #[derive(Debug, Clone)]
-pub struct COOIterToGraph<I: Clone> {
+pub struct COOIterToGraph<'node, I: Clone> {
     num_nodes: usize,
-    iter: I,
+    iter: &'node I,
 }
-/*
-impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
+/* TODO
+impl<'node, I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<'node, I> {
     /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
-    pub fn new(num_nodes: usize, iter: I) -> Self {
+    pub fn new(num_nodes: usize, iter: &mut I) -> Self {
         Self { num_nodes, iter }
     }
 }
 
 impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
-    for COOIterToGraph<I>
+    for COOIterToGraph<'node, I>
 {
     type T = (usize, SortedNodePermutedIterator<'succ, I>);
 }
 
 impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIterator
-    for COOIterToGraph<I>
+    for COOIterToGraph<'node, I>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Item<'_, Self>> {
-        self.nodes
-            .next()
-            .map(|node_id| (node_id, self.graph.successors(node_id)))
+        self.next()
+            .map(|node_id| (node_id, self.successors(node_id)))
     }
 }
 
-impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGraph<I> {
+impl<'node, I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph
+    for COOIterToGraph<'node, I>
+{
+    type Successors<'succ> = Successors<'succ, I>;
+    /// Iterator over the nodes of the graph
+    type Iterator<'node> = SortedNodePermutedIterator<'node, I>;
+
     #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.num_nodes
@@ -54,12 +59,6 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
     fn iter_nodes_from(&self, from: usize) -> SortedNodePermutedIterator<'_, I> {
         SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
     }
-    type Successors<'succ>: IntoIterator<Item = usize>;
-    /// Iterator over the nodes of the graph
-    type Iterator<'node>: LendingIterator
-        + for<'succ> LendingIteratorItem<'succ, T = (usize, Self::Successors<'succ>)>
-    where
-        Self: 'node;
 }
 
 #[derive(Debug, Clone)]
@@ -142,18 +141,16 @@ impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for Successors<'a, I> {
         }
     }
 }
-*/
-/* TODO
+
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_coo_iter() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
-    let coo = COOIterToGraph::new(g.num_nodes(), arcs.clone().into_iter());
+    let coo = COOIterToGraph::new(g.num_nodes(), &mut arcs.clone().into_iter());
     let g2 = VecGraph::from_node_iter(coo.iter_nodes());
     assert_eq!(g, g2);
     Ok(())
 }
-
 */

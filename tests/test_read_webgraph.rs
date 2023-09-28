@@ -82,7 +82,8 @@ fn test_iter_nodes() -> Result<()> {
     let mut seen_node_ids = Vec::new();
 
     // Check that they read the same
-    while let Some((node_id, seq_succ)) = bvgraph.iter_nodes().take(100).next() {
+    let mut iter_nodes = bvgraph.iter_nodes().take(100);
+    while let Some((node_id, seq_succ)) = iter_nodes.next() {
         seen_node_ids.push(node_id);
         let rand_succ = bvgraph.successors(node_id).into_iter().collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());
@@ -102,7 +103,8 @@ fn test_iter_nodes_from() -> Result<()> {
     for i in [0, 1, 2, 5, 10, 100] {
         let mut seen_node_ids = Vec::new();
         // Check that they read the same
-        while let Some((node_id, seq_succ)) = bvgraph.iter_nodes_from(i).take(100).next() {
+        let mut iter_nodes = bvgraph.iter_nodes_from(i).take(100);
+        while let Some((node_id, seq_succ)) = iter_nodes.next() {
             seen_node_ids.push(node_id);
             let rand_succ = bvgraph.successors(node_id).into_iter().collect::<Vec<_>>();
             assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());

@@ -40,7 +40,8 @@ fn test_offsets() -> Result<()> {
     }
 
     // Check that they read the same
-    while let Some((node_id, seq_succ)) = graph.iter_nodes().next() {
+    let mut iter_nodes = graph.iter_nodes();
+    while let Some((node_id, seq_succ)) = iter_nodes.next() {
         let rand_succ = graph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }

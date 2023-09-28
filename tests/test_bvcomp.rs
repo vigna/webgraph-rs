@@ -80,7 +80,8 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.start("Compressing...");
                                     pl.expected_updates = Some(NODES);
 
-                                    while let Some((_, iter)) = seq_graph.iter_nodes().next() {
+                                    let mut iter_nodes = seq_graph.iter_nodes();
+                                    while let Some((_, iter)) = iter_nodes.next() {
                                         bvcomp.push(iter)?;
                                         pl.light_update();
                                     }
