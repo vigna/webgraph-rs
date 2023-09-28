@@ -7,21 +7,18 @@
 
 use crate::prelude::*;
 
-use crate::traits::SequentialGraph;
-
 #[derive(Clone)]
 /// A Graph wrapper that applies on the fly a permutation of the nodes
 pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub graph: &'a G,
     pub perm: &'a [usize],
 }
-/*
+
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
         where
             Self: 'b;
-    type Successors<'b> = PermutedSuccessors<'b, G::Successors<'b>>
-        where Self: 'b;
+    type Successors<'b> = PermutedSuccessors<'b, G::Successors<'b>>;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -44,22 +41,31 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
 
 //#[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
-pub struct PermutedGraphIterator<'a, I: LendingIterator> {
+pub struct PermutedGraphIterator<'node, I> {
     iter: I,
-    perm: &'a [usize],
+    perm: &'node [usize],
+}
+
+impl<'node, 'succ, I> LendingIteratorItem<'succ> for PermutedGraphIterator<'node, I>
+where
+    I: LendingIterator,
+    for<'next> Item<'next, I>: Tuple2<_0 = usize>,
+    for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
+    type T = (
+        usize,
+        PermutedSuccessors<'succ, <Item<'succ, I> as Tuple2>::_1>,
+    );
 }
 
 impl<'a, L> LendingIterator for PermutedGraphIterator<'a, L>
 where
     L: LendingIterator,
-    for<'c> <L as LendingIterator>::Item<'c>: crate::traits::graph::Tuple2<_0 = usize>,
-    for<'c> <<L as LendingIterator>::Item<'c> as Tuple2>::_1: IntoIterator<Item = usize>,
+    for<'next> Item<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
-    type Item<'c> = (usize, PermutedSuccessors<'c, <<L as LendingIterator>::Item<'c> as Tuple2>::_1>)
-    where
-        Self: 'c;
     #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item<'_>> {
+    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
         self.iter.next().map(|x| {
             let (node, succ) = x.is_tuple();
             (
@@ -97,7 +103,7 @@ impl<'a, I: IntoIterator<Item = usize>> IntoIterator for PermutedSuccessors<'a, 
         self.into_iter.into_iter() //. TODO map(|succ| self.perm[succ])
     }
 }
-*/
+
 /*TODO
 impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSuccessors<'a, I> {
     #[inline(always)]

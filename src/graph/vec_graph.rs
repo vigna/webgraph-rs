@@ -129,47 +129,35 @@ impl VecGraph<()> {
         }
         self
     }
-    /* TODO
-        /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
-        pub fn from_graph_iter<I: GraphIterator>(iterator: I) -> Self {
-            let mut g = Self::new();
-            g.add_graph_iter(iterator);
-            g
-        }
 
-        /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-        pub fn add_graph_iter(
-            &mut self,
-            iterator: impl LendingIterator<Item<'a> = (usize, impl Iterator<Item = usize> + 'a)>,
-        ) -> &mut Self {
-            for (node, succ) in iterator {
-                self.add_node(node);
-                for v in succ {
-                    self.add_arc(node, v);
-                }
-            }
-            self
-        }
-    */
-    /* TODO
-        /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
-        pub fn from_node_iter<I: GraphIterator>(iterator: I) -> Self {
-            let mut g = Self::new();
-            g.add_node_iter(iterator);
-            g
-        }
+    /// Convert an iterator on nodes and successors in a [`VecGraph`].
+    pub fn from_node_iter<L>(iter_nodes: L) -> Self
+    where
+        L: LendingIterator,
+        for<'next> Item<'next, L>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+    {
+        let mut g = Self::new();
+        g.add_node_iter(iter_nodes);
+        g
+    }
 
-        /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-        pub fn add_node_iter(&mut self, iterator: GraphIterator) -> &mut Self {
-            for (node, succ) in iterator {
-                self.add_node(node);
-                for v in succ {
-                    self.add_arc(node, v);
-                }
+    /// Add the nodes and successors from an iterator to a [`VecGraph`].
+    pub fn add_node_iter<L>(&mut self, mut iter_nodes: L) -> &mut Self
+    where
+        L: LendingIterator,
+        for<'next> Item<'next, L>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+    {
+        while let Some((node, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
+            self.add_node(node);
+            for v in succ {
+                self.add_arc(node, v);
             }
-            self
         }
-    */
+        self
+    }
+
     /// Add an arc to the graph and return if it was a new one or not.
     /// `true` => already exist, `false` => new arc.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {

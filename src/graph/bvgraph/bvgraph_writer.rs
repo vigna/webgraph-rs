@@ -441,7 +441,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
             self.push(succ.into_iter())?;
             count += 1;
         }
-        // TODO
+        // WAS
         // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
         Ok(count)
     }
@@ -583,9 +583,8 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        let mut iter = seq_graph.iter_nodes();
         bvcomp
-            .extend::<<BVGraphSequential<DynamicCodesReaderBuilder<BE,MmapBackend<u32>>> as SequentialGraph>::Iterator<'_>>(&mut iter)
+            .extend::<<BVGraphSequential<DynamicCodesReaderBuilder<BE,MmapBackend<u32>>> as SequentialGraph>::Iterator<'_>>(&mut seq_graph.iter_nodes())
             .unwrap();
         bvcomp.flush()?;
 

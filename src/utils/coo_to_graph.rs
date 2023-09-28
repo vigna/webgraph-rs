@@ -13,7 +13,7 @@ pub struct COOIterToGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
-/*TODO
+/*
 impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
     /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
@@ -22,12 +22,24 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<I> {
     }
 }
 
-impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGraph<I> {
-    type Successors<'b> = Successors<'b, I>;
-    type Iterator<'a> = SortedNodePermutedIterator<'a, I>
-        where
-            Self: 'a;
+impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
+    for COOIterToGraph<I>
+{
+    type T = (usize, SortedNodePermutedIterator<'succ, I>);
+}
 
+impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIterator
+    for COOIterToGraph<I>
+{
+    #[inline(always)]
+    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
+        self.nodes
+            .next()
+            .map(|node_id| (node_id, self.graph.successors(node_id)))
+    }
+}
+
+impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGraph<I> {
     #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.num_nodes
@@ -42,6 +54,12 @@ impl<I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph for COOIterToGr
     fn iter_nodes_from_inner(&self, from: usize) -> SortedNodePermutedIterator<'_, I> {
         SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
     }
+    type Successors<'succ>: IntoIterator<Item = usize>;
+    /// Iterator over the nodes of the graph
+    type Iterator<'node>: LendingIterator
+        + for<'succ> LendingIteratorItem<'succ, T = (usize, Self::Successors<'succ>)>
+    where
+        Self: 'node;
 }
 
 #[derive(Debug, Clone)]

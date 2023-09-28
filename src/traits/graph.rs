@@ -19,27 +19,6 @@ use core::{
 use dsi_progress_logger::ProgressLogger;
 use std::sync::Mutex;
 
-/*pub trait GraphIterator {
-    type Successors<'a>: IntoIterator<Item = usize> + 'a
-    where
-        Self: 'a;
-
-    fn next_inner(&mut self) -> Option<(usize, Self::Successors<'_>)>;
-}*/
-
-/*
-#[derive(Clone)]
-pub struct Adapter<I: GraphIterator>(I);
-
-impl<I: GraphIterator> LendingIterator for Adapter<I> {
-    type Item<'a> = (usize, <I as GraphIterator>::Successors<'a>)
-    where Self: 'a;
-
-    fn next(&mut self) -> Option<Self::Item<'_>> {
-        self.0.next_inner()
-    }
-}
-*/
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
     type Successors<'succ>: IntoIterator<Item = usize>;
@@ -206,7 +185,7 @@ impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ>
 
 impl<'node, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'node, G> {
     #[inline(always)]
-    fn next(&mut self) -> Option<(usize, <G as RandomAccessGraph>::Successors<'_>)> {
+    fn next(&mut self) -> Option<<Self as LendingIteratorItem>::T> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))

@@ -97,10 +97,10 @@ pub fn main() -> Result<()> {
     };
 
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-    /* TODO
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter(
+    /*  TODO
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter::<_, WebgraphSequentialIter<DynamicCodesReaderBuilder<BE, MmapBackend<u32>>>>(
         args.new_basename,
-        seq_graph.iter_nodes(),
+        &mut seq_graph.iter_nodes()
         seq_graph.num_nodes(),
         compression_flags,
         args.num_cpus.unwrap_or(rayon::max_num_threads()),
