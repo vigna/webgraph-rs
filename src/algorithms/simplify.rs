@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graph::pairs_graph;
+use crate::graph::arc_list_graph;
 use crate::prelude::*;
 //use crate::traits::graph::Adapter;
 use crate::traits::SequentialGraph;
@@ -18,7 +18,7 @@ pub fn simplify(
     graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
-    pairs_graph::PairsGraph<
+    arc_list_graph::ArcListGraph<
         Dedup<
             core::iter::Filter<
                 core::iter::Map<
@@ -52,7 +52,7 @@ pub fn simplify(
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
     let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
     let iter = Itertools::dedup(sorted.iter()?.map(map).filter(filter));
-    let sorted = pairs_graph::PairsGraph::new(graph.num_nodes(), iter);
+    let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), iter);
     pl.done();
 
     Ok(sorted)

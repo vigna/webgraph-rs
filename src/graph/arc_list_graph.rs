@@ -8,12 +8,12 @@ use crate::traits::*;
 
 /// A Sequential graph built on an iterator of pairs of nodes
 #[derive(Debug, Clone)]
-pub struct PairsGraph<I: Clone> {
+pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> PairsGraph<I> {
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> ArcListGraph<I> {
     /// Create a new graph from an iterator of pairs of nodes
     pub fn new(num_nodes: usize, iter: I) -> Self {
         Self { num_nodes, iter }
@@ -61,7 +61,7 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIterator f
     }
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for PairsGraph<I> {
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for ArcListGraph<I> {
     type Successors<'succ> = Successors<'succ, I>;
     type Iterator<'node> = NodeIterator<I> where Self: 'node;
 
@@ -128,7 +128,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
-    let coo = PairsGraph::new(g.num_nodes(), arcs);
+    let coo = ArcListGraph::new(g.num_nodes(), arcs);
     let g2 = VecGraph::from_graph(&coo);
     assert_eq!(g, g2);
     Ok(())

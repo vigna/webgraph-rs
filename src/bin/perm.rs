@@ -11,7 +11,7 @@ use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
 use std::io::{BufReader, Read};
 use tempfile::tempdir;
-use webgraph::graph::pairs_graph;
+use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -72,10 +72,10 @@ fn permute(
         });
     // get a graph on the sorted data
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
-    let g = pairs_graph::PairsGraph::new(num_nodes, edges);
+    let g = arc_list_graph::ArcListGraph::new(num_nodes, edges);
     // compress it
     parallel_compress_sequential_iter::<
-        pairs_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
+        arc_list_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
     >(
         args.dest,
         &mut g.iter_nodes(),

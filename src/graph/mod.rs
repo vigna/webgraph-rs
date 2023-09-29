@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+pub mod arc_list_graph;
 pub mod bvgraph;
-pub mod labeled_pairs_graph;
-pub mod pairs_graph;
+pub mod labeled_arc_list_graph;
 pub mod permuted_graph;
 pub mod vec_graph;
 

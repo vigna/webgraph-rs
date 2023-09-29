@@ -9,13 +9,13 @@ use core::mem::MaybeUninit;
 
 /// A Sequential graph built on an iterator of pairs of nodes and their labels
 #[derive(Debug, Clone)]
-pub struct LabeledPairsGraph<I: Clone> {
+pub struct LabeledArcListGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    LabeledPairsGraph<I>
+    LabeledArcListGraph<I>
 {
     /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
@@ -25,7 +25,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Labeled
-    for LabeledPairsGraph<I>
+    for LabeledArcListGraph<I>
 {
     type Label = L;
 }
@@ -91,7 +91,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    SequentialGraph for LabeledPairsGraph<I>
+    SequentialGraph for LabeledArcListGraph<I>
 {
     type Successors<'succ> = Successors<'succ, L, I>;
     type Iterator<'node> = NodeIterator<L, I> where Self: 'node;
@@ -183,8 +183,8 @@ fn test_coo_labeled_iter() -> anyhow::Result<()> {
         (3, 4, Some(f64::NEG_INFINITY)),
     ];
     let g = VecGraph::from_arc_and_label_list(&arcs);
-    let coo = LabeledPairsGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_labeled_graph::<LabeledPairsGraph<_>>(&coo);
+    let coo = LabeledArcListGraph::new(g.num_nodes(), arcs);
+    let g2 = VecGraph::from_labeled_graph::<LabeledArcListGraph<_>>(&coo);
     assert_eq!(g, g2);
     Ok(())
 }
