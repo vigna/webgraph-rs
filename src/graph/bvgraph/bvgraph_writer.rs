@@ -445,6 +445,11 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         Ok(count)
     }
 
+    pub fn extend_with_graph(&mut self, graph: &impl SequentialGraph) -> Result<usize> {
+        let mut iter = graph.iter_nodes();
+        self.extend(&mut iter)
+    }
+
     /// Consume the compressor and flush the inner writer.
     pub fn flush(self) -> Result<()> {
         self.bit_write.flush()

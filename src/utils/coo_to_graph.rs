@@ -9,88 +9,26 @@ use core::marker::PhantomData;
 
 /// A Sequential graph built on an iterator of pairs of nodes
 #[derive(Debug, Clone)]
-pub struct COOIterToGraph<'node, I: Clone> {
+pub struct COOIterToGraph<'a, I: Clone> {
     num_nodes: usize,
-    iter: &'node I,
+    iter: &'a I,
 }
-/* TODO
-impl<'node, I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<'node, I> {
+
+impl<'a, I: Iterator<Item = (usize, usize)> + Clone> COOIterToGraph<'a, I> {
     /// Create a new graph from an iterator of pairs of nodes
-    #[inline(always)]
     pub fn new(num_nodes: usize, iter: &mut I) -> Self {
         Self { num_nodes, iter }
     }
 }
 
 impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
-    for COOIterToGraph<'node, I>
-{
-    type T = (usize, SortedNodePermutedIterator<'succ, I>);
-}
-
-impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIterator
-    for COOIterToGraph<'node, I>
-{
-    #[inline(always)]
-    fn next(&mut self) -> Option<Item<'_, Self>> {
-        self.next()
-            .map(|node_id| (node_id, self.successors(node_id)))
-    }
-}
-
-impl<'node, I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph
-    for COOIterToGraph<'node, I>
-{
-    type Successors<'succ> = Successors<'succ, I>;
-    /// Iterator over the nodes of the graph
-    type Iterator<'node> = SortedNodePermutedIterator<'node, I>;
-
-    #[inline(always)]
-    fn num_nodes(&self) -> usize {
-        self.num_nodes
-    }
-
-    #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<usize> {
-        None
-    }
-
-    /// Get an iterator over the nodes of the graph
-    fn iter_nodes_from(&self, from: usize) -> SortedNodePermutedIterator<'_, I> {
-        SortedNodePermutedIterator::new(self.num_nodes, self.iter.clone())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SortedNodePermutedIterator<'a, I: Iterator<Item = (usize, usize)>> {
-    num_nodes: usize,
-    curr_node: usize,
-    next_pair: (usize, usize),
-    iter: I,
-    _marker: std::marker::PhantomData<&'a ()>,
-}
-
-impl<'a, I: Iterator<Item = (usize, usize)>> SortedNodePermutedIterator<'a, I> {
-    pub fn new(num_nodes: usize, mut iter: I) -> Self {
-        SortedNodePermutedIterator {
-            num_nodes,
-            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
-            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
-            iter,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'node, 'succ, I> LendingIteratorItem<'succ> for SortedNodePermutedIterator<'node, I>
-where
-    I: Iterator<Item = (usize, usize)>,
+    for NodeIterator<'node, I>
 {
     type T = (usize, Successors<'succ, I>);
 }
 
-impl<'node, I: Iterator<Item = (usize, usize)>> LendingIterator
-    for SortedNodePermutedIterator<'node, I>
+impl<'node, 'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIterator
+    for NodeIterator<'node, I>
 {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
@@ -107,6 +45,51 @@ impl<'node, I: Iterator<Item = (usize, usize)>> LendingIterator
     }
 }
 
+impl<'node, I: Iterator<Item = (usize, usize)> + Clone> SequentialGraph
+    for COOIterToGraph<'node, I>
+{
+    type Successors<'succ> = Successors<'succ, I>;
+    /// Iterator over the nodes of the graph
+    type Iterator<'a> = NodeIterator<'a, I>
+    where Self: 'a;
+
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.num_nodes
+    }
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<usize> {
+        None
+    }
+
+    /// Get an iterator over the nodes of the graph
+    fn iter_nodes_from(&self, from: usize) -> NodeIterator<'_, I> {
+        NodeIterator::new(self.num_nodes, self.iter.clone())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NodeIterator<'a, I: Iterator<Item = (usize, usize)>> {
+    num_nodes: usize,
+    curr_node: usize,
+    next_pair: (usize, usize),
+    iter: I,
+    _marker: std::marker::PhantomData<&'a ()>,
+}
+
+impl<'a, I: Iterator<Item = (usize, usize)>> NodeIterator<'a, I> {
+    pub fn new(num_nodes: usize, mut iter: I) -> Self {
+        NodeIterator {
+            num_nodes,
+            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
+            iter,
+            _marker: PhantomData,
+        }
+    }
+}
+
 /*
 impl<'a, I: Iterator<Item = (usize, usize)>> ExactSizeIterator
     for SortedNodePermutedIterator<'a, I>
@@ -118,7 +101,7 @@ impl<'a, I: Iterator<Item = (usize, usize)>> ExactSizeIterator
 
 /// Iter until we found a triple with src different than curr_node
 pub struct Successors<'a, I: Iterator<Item = (usize, usize)>> {
-    node_iter: &'a mut SortedNodePermutedIterator<'a, I>,
+    node_iter: &'a mut NodeIterator<'a, I>,
 }
 
 impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for Successors<'a, I> {
@@ -153,4 +136,3 @@ fn test_coo_iter() -> anyhow::Result<()> {
     assert_eq!(g, g2);
     Ok(())
 }
-*/

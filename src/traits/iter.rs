@@ -141,3 +141,63 @@ where
         self.0.next()
     }
 }
+
+struct GroupByFirst<I: Iterator<Item = (usize, usize)>> {
+    iter: std::iter::Peekable<I>,
+}
+
+impl<I: Iterator<Item = (usize, usize)>> GroupByFirst<I> {
+    fn new(iter: I) -> Self {
+        Self {
+            iter: iter.peekable(),
+        }
+    }
+}
+
+struct Group<'a, I: Iterator<Item = (usize, usize)>> {
+    iter: &'a mut std::iter::Peekable<I>,
+    first: usize,
+}
+
+impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for Group<'a, I> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next_if(|&(first, _)| first == self.first)
+            .map(|(_, second)| second)
+    }
+}
+
+impl<'succ, I: Iterator<Item = (usize, usize)>> LendingIteratorItem<'succ> for GroupByFirst<I> {
+    type T = (usize, Group<'succ, I>);
+}
+
+impl<I: Iterator<Item = (usize, usize)>> LendingIterator for GroupByFirst<I> {
+    fn next(&mut self) -> Option<Item<'_, Self>> {
+        let &(first, _) = self.iter.peek()?;
+        Some((
+            first,
+            Group {
+                iter: &mut self.iter,
+                first,
+            },
+        ))
+    }
+}
+
+#[test]
+fn test_group_by() {
+    let iter = [0, 0, 1, 1, 2, 2].into_iter().zip(0..6);
+    let mut groupby = GroupByFirst::new(iter);
+    if let Some((first, mut group)) = groupby.next() {
+        assert_eq!(first, 0);
+        assert_eq!(group.next(), Some(0));
+        assert_eq!(group.next(), Some(1));
+    }
+    if let Some((first, mut group)) = groupby.next() {
+        assert_eq!(first, 1);
+        assert_eq!(group.next(), Some(2));
+        assert_eq!(group.next(), Some(3));
+    }
+}
