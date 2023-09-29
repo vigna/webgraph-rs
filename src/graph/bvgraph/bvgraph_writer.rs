@@ -634,7 +634,7 @@ mod test {
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();
-        let bit_write = <BufBitWriter<LE, _>>::new(MemWordWriter::new(&mut buffer));
+        let bit_write = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut buffer));
 
         let comp_flags = CompFlags {
             ..Default::default()
