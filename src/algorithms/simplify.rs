@@ -12,8 +12,8 @@ use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
-pub fn simplify(
-    graph: impl SequentialGraph,
+pub fn simplify<'a>(
+    graph: &'a impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
     COOIterToGraph<

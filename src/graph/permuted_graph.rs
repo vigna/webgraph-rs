@@ -19,6 +19,7 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
         where
             Self: 'b;
     type Successors<'b> = PermutedSuccessors<'b, <G::Successors<'b> as IntoIterator>::IntoIter>;
+
     #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.graph.num_nodes()
