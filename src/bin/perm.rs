@@ -12,7 +12,7 @@ use epserde::prelude::*;
 use std::io::{BufReader, Read};
 use tempfile::tempdir;
 use webgraph::prelude::*;
-use webgraph::prelude::*;
+
 #[derive(Parser, Debug)]
 #[command(about = "Permutes a graph", long_about = None)]
 struct Args {

@@ -49,7 +49,6 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
             self.number_of_nodes,
         );
 
-        // TODO
         for _ in 0..from {
             iter.next();
         }

@@ -132,7 +132,7 @@ pub unsafe trait SortedSuccessors: Iterator<Item = usize> {}
 /// A graph providing random access.
 pub trait RandomAccessGraph: SequentialGraph {
     /// Iterator over the successors of a node
-    type Successors<'succ>: IntoIterator<Item = usize> + 'succ
+    type Successors<'succ>: IntoIterator<Item = usize>
     where
         Self: 'succ;
 

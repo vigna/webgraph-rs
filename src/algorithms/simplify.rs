@@ -36,7 +36,6 @@ pub fn simplify<'a>(
     pl.expected_updates = Some(graph.num_nodes());
     pl.start("Creating batches...");
     // create batches of sorted edges
-    // TODO
     let mut iter = graph.iter_nodes();
     while let Some((src, succ)) = iter.next() {
         for dst in succ {
@@ -51,9 +50,8 @@ pub fn simplify<'a>(
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
     let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
     let iter = DedupSortedIter::new(sorted.iter()?.map(map).filter(filter));
-    //TODO let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
+    let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
     pl.done();
 
-    todo!();
-    // TODO Ok(sorted)
+    Ok(sorted)
 }

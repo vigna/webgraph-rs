@@ -142,6 +142,13 @@ impl VecGraph<()> {
         g
     }
 
+    /// Copies a given graph in a [`VecGraph`].
+    pub fn from_graph<S: SequentialGraph>(graph: &S) -> Self {
+        let mut g = Self::new();
+        g.add_graph(graph);
+        g
+    }
+
     /// Add the nodes and successors from an iterator to a [`VecGraph`].
     pub fn add_node_iter<L>(&mut self, mut iter_nodes: L) -> &mut Self
     where
@@ -156,6 +163,11 @@ impl VecGraph<()> {
             }
         }
         self
+    }
+
+    /// Add the nodes and arcs in a graph to a [`VecGraph`].
+    pub fn add_graph<S: SequentialGraph>(&mut self, graph: &S) -> &mut Self {
+        self.add_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter_nodes())
     }
 
     /// Add an arc to the graph and return if it was a new one or not.

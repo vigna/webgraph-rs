@@ -205,11 +205,14 @@ pub fn layered_label_propagation(
         let labels =
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
 
-        let pgraph = PermutedGraph {
-            graph,
-            perm: &update_perm,
-        };
-        let cost = compute_log_gap_cost(&thread_pool, graph, None);
+        let cost = compute_log_gap_cost(
+            &thread_pool,
+            &PermutedGraph {
+                graph,
+                perm: &update_perm,
+            },
+            None,
+        );
         info!("Log-gap cost: {}", cost);
         costs.push(cost);
 

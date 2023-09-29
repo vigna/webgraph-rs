@@ -5,6 +5,7 @@
  */
 
 use clap::Parser;
+use itertools::Itertools;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -62,12 +63,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut seq_iter = seq_graph.iter_nodes();
         let mut deg_reader = seq_graph.iter_degrees();
         for node_id in 0..seq_graph.num_nodes() {
-            let seq = seq_iter.next();
+            let seq = seq_iter.next().unwrap();
             let random = random_reader.successors(node_id).collect::<Vec<_>>();
 
-            // TODO
-            //assert_eq!(deg_reader.next_degree()?, seq.len(), "{}", node_id);
-            //assert_eq!(seq, random, "{}", node_id);
+            assert_eq!(deg_reader.next_degree()?, seq.1.len(), "{}", node_id);
+            assert_eq!(seq.1.collect_vec(), random, "{}", node_id);
         }
     } else if args.sequential {
         // Sequential speed test

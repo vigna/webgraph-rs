@@ -6,7 +6,7 @@
  */
 
 use anyhow::Result;
-use bitvec::{vec::BitVec, *};
+use bitvec::*;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;

@@ -6,7 +6,6 @@
  */
 
 use super::*;
-use crate::prelude::*;
 use crate::utils::int2nat;
 use crate::utils::{CircularBuffer, CircularBufferVec};
 use anyhow::Result;
@@ -429,7 +428,10 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// empty iterator).
     ///
     /// This most commonly is called with `graph.iter_nodes()` as input.
-
+    ///
+    /// WARNING: presently type inference does not work very well with this method:
+    /// you have to specify the type of `L` explicitly, sometimes just
+    /// partially---your mileage may vary.
     pub fn extend<L>(&mut self, iter_nodes: &mut L) -> Result<usize>
     where
         L: LendingIterator,
@@ -445,10 +447,11 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         Ok(count)
     }
 
-    /*pub fn extend_with_graph(&mut self, graph: &impl SequentialGraph) -> Result<usize> {
+    /// Calls [`BVComp::extend`] with argument `graph.iter_nodes()`.
+    pub fn extend_graph<S: SequentialGraph>(&mut self, graph: &S) -> Result<usize> {
         let mut iter = graph.iter_nodes();
-        self.extend(&mut iter)
-    }*/
+        self.extend::<<S as SequentialGraph>::Iterator<'_>>(&mut iter)
+    }
 
     /// Consume the compressor and flush the inner writer.
     pub fn flush(self) -> Result<()> {
@@ -458,8 +461,11 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
 
 #[cfg(test)]
 mod test {
+    use crate::prelude::MmapBackend;
+
     use super::*;
     use dsi_bitstream::prelude::*;
+    use itertools::Itertools;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
 
@@ -587,9 +593,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp
-            .extend::<<BVGraphSequential<DynamicCodesReaderBuilder<BE,MmapBackend<u32>>> as SequentialGraph>::Iterator<'_>>(&mut seq_graph.iter_nodes())
-            .unwrap();
+        bvcomp.extend_graph(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -607,17 +611,20 @@ mod test {
             min_interval_length,
             seq_graph.num_nodes(),
         );
-        /* TODO
         // Check that the graph is the same
         let mut iter = (&seq_graph).iter_nodes().enumerate();
-        while let Some((i, (true_node_id, true_succ))) = iter.next_stream() {
+        while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(true_succ, seq_succ, "node_id: {}", i);
+            assert_eq!(
+                true_succ.collect_vec(),
+                seq_succ.into_iter().collect_vec(),
+                "node_id: {}",
+                i
+            );
         }
-        */
         std::fs::remove_file(file_path).unwrap();
 
         Ok(())
@@ -642,7 +649,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend::<<BVGraphSequential<DynamicCodesReaderBuilder<BE,MmapBackend<u32>>> as SequentialGraph>::Iterator<'_>>(&mut seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend_graph(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -658,17 +665,21 @@ mod test {
             min_interval_length,
             seq_graph.num_nodes(),
         );
-        /* TODO
         // Check that the graph is the same
-        let mut iter = (&seq_graph).iter_nodes().enumerate_stream();
-        for (i, (true_node_id, true_succ)) in iter.next_stream() {
+        let mut iter = (&seq_graph).iter_nodes().enumerate();
+        while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(true_succ, seq_succ, "node_id: {}", i);
+            assert_eq!(
+                true_succ.collect_vec(),
+                seq_succ.collect_vec(),
+                "node_id: {}",
+                i
+            );
         }
-        */
+
         Ok(())
     }
 }

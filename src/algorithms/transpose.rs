@@ -36,13 +36,12 @@ pub fn transpose(
     }
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
-    // TODO : let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
+    let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
-    // TODO Ok(sorted)
-    todo!();
+    Ok(sorted)
 }
-/* TODO
+
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition() -> anyhow::Result<()> {
@@ -51,15 +50,14 @@ fn test_transposition() -> anyhow::Result<()> {
     let g = VecGraph::from_arc_list(&arcs);
 
     let trans = transpose(&g, 3)?;
-    let g2 = VecGraph::from_node_iter(trans.iter_nodes());
+    let g2 = VecGraph::from_graph(&trans);
 
     let trans = transpose(&g2, 3)?;
-    let g3 = VecGraph::from_node_iter(trans.iter_nodes());
+    let g3 = VecGraph::from_graph(&trans);
 
     assert_eq!(g, g3);
     Ok(())
 }
- */
 /*
 #[cfg(test)]
 #[cfg_attr(test, test)]

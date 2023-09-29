@@ -203,13 +203,7 @@ where
                 compression_flags.max_ref_count,
                 last_thread_id * nodes_per_thread,
             );
-            // TODO
-            // let written_bits = bvcomp.extend(iter).unwrap();
-            let mut written_bits = 0;
-            // TODO
-            //while let Some((_node_id, successors)) = iter.next() {
-            //    written_bits += bvcomp.push(successors).unwrap();
-            //}
+            let written_bits = bvcomp.extend(iter).unwrap();
 
             log::info!(
                 "Finished Compression thread {} and wrote {} bits [{}, {})",
