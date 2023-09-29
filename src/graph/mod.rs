@@ -6,6 +6,8 @@
  */
 
 pub mod bvgraph;
+pub mod labeled_pairs_graph;
+pub mod pairs_graph;
 pub mod permuted_graph;
 pub mod vec_graph;
 

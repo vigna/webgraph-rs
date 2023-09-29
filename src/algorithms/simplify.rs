@@ -4,20 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::graph::pairs_graph;
 use crate::prelude::*;
 //use crate::traits::graph::Adapter;
 use crate::traits::SequentialGraph;
-use crate::utils::{BatchIterator, DedupSortedIter, KMergeIters, SortPairs};
+use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
+use itertools::{Dedup, Itertools};
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
-pub fn simplify<'a>(
-    graph: &'a impl SequentialGraph,
+pub fn simplify(
+    graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
-    COOIterToGraph<
-        DedupSortedIter<
+    pairs_graph::PairsGraph<
+        Dedup<
             core::iter::Filter<
                 core::iter::Map<
                     KMergeIters<BatchIterator>,
@@ -49,8 +51,8 @@ pub fn simplify<'a>(
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
     let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
-    let iter = DedupSortedIter::new(sorted.iter()?.map(map).filter(filter));
-    let sorted = COOIterToGraph::new(graph.num_nodes(), iter);
+    let iter = Itertools::dedup(sorted.iter()?.map(map).filter(filter));
+    let sorted = pairs_graph::PairsGraph::new(graph.num_nodes(), iter);
     pl.done();
 
     Ok(sorted)

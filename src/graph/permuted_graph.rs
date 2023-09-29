@@ -67,7 +67,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Item<'_, Self>> {
         self.iter.next().map(|x| {
-            let (node, succ) = x.is_tuple();
+            let (node, succ) = x.into_tuple();
             (
                 self.perm[node],
                 PermutedSuccessors {
@@ -103,14 +103,12 @@ impl<'a, I: Iterator<Item = usize>> Iterator for PermutedSuccessors<'a, I> {
     }
 }
 
-/*TODO
 impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSuccessors<'a, I> {
     #[inline(always)]
     fn len(&self) -> usize {
-        self.len()
+        self.iter.len()
     }
 }
-*/
 
 #[cfg(test)]
 #[test]
@@ -124,9 +122,9 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v = VecGraph::from_node_iter::<
-        PermutedGraphIterator<'_, GraphIteratorImpl<'_, VecGraph<()>>>,
-    >(p.iter_nodes());
+    let v = VecGraph::from_node_iter::<PermutedGraphIterator<'_, IteratorImpl<'_, VecGraph<()>>>>(
+        p.iter_nodes(),
+    );
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0), 1);

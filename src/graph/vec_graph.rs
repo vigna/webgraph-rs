@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::graph::GraphIteratorImpl;
+use crate::traits::graph::IteratorImpl;
 use crate::traits::*;
 use alloc::collections::BTreeSet;
 
@@ -91,7 +91,7 @@ impl<L: Clone> VecGraph<L> {
     where
         I: LendingIterator,
         for<'next> Item<'next, I>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize> + LabeledIterator,
+        for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize> + LabeledSuccessors,
         for<'next> <Item<'next, I> as Tuple2>::_1: Labeled<Label = L>,
     {
         let mut g = Self::new();
@@ -102,7 +102,7 @@ impl<L: Clone> VecGraph<L> {
     /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
     pub fn from_labeled_graph<S: LabeledSequentialGraph<Label = L>>(graph: &S) -> Self
     where
-        for<'next> <S as SequentialGraph>::Successors<'next>: LabeledIterator<Label = L>,
+        for<'next> <S as SequentialGraph>::Successors<'next>: LabeledSuccessors<Label = L>,
     {
         let mut g = Self::new();
         g.add_labeled_graph(graph);
@@ -114,10 +114,10 @@ impl<L: Clone> VecGraph<L> {
     where
         I: LendingIterator,
         for<'next> Item<'next, I>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize> + LabeledIterator,
-        for<'next> <Item<'next, I> as Tuple2>::_1: LabeledIterator<Label = L>,
+        for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize> + LabeledSuccessors,
+        for<'next> <Item<'next, I> as Tuple2>::_1: LabeledSuccessors<Label = L>,
     {
-        while let Some((node, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
+        while let Some((node, succ)) = iter_nodes.next().map(|it| it.into_tuple()) {
             self.add_node(node);
             for (v, l) in succ.labeled() {
                 self.add_arc_with_label(node, v, l);
@@ -132,7 +132,7 @@ impl<L: Clone> VecGraph<L> {
         graph: &S,
     ) -> &mut Self
     where
-        for<'next> <S as SequentialGraph>::Successors<'next>: LabeledIterator<Label = L>,
+        for<'next> <S as SequentialGraph>::Successors<'next>: LabeledSuccessors<Label = L>,
     {
         self.add_labeled_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter_nodes())
     }
@@ -181,7 +181,7 @@ impl VecGraph<()> {
         for<'next> Item<'next, L>: Tuple2<_0 = usize>,
         for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
-        while let Some((node, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
+        while let Some((node, succ)) = iter_nodes.next().map(|it| it.into_tuple()) {
             self.add_node(node);
             for v in succ {
                 self.add_arc(node, v);
@@ -250,7 +250,7 @@ impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
 
 impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
     type Successors<'a> = VecGraphIter<'a, L>;
-    type Iterator<'a> = GraphIteratorImpl<'a, Self>
+    type Iterator<'a> = IteratorImpl<'a, Self>
     where L: 'a;
 
     #[inline(always)]
@@ -265,7 +265,7 @@ impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
 
     #[inline(always)]
     fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
-        GraphIteratorImpl {
+        IteratorImpl {
             graph: self,
             nodes: (from..self.num_nodes()),
         }
@@ -290,13 +290,13 @@ impl<'a, T: Clone> Iterator for VecGraphIter<'a, T> {
 impl<'a, L: Clone> Labeled for VecGraphIter<'a, L> {
     type Label = L;
 }
-/* TODO
-impl<'a, T: Clone> LabeledIterator for VecGraphIter<'a, T> {
+
+impl<'a, T: Clone> LabeledSuccessors for VecGraphIter<'a, T> {
     fn label(&self) -> Self::Label {
         self.label.clone()
     }
 }
-*/
+
 unsafe impl<'a, T: Clone> SortedSuccessors for VecGraphIter<'a, T> {}
 
 impl<'a, T: Clone> ExactSizeIterator for VecGraphIter<'a, T> {
@@ -321,7 +321,7 @@ impl<L> Eq for DstWithLabel<L> {}
 impl<L> PartialOrd for DstWithLabel<L> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
+        Some(self.cmp(other))
     }
 }
 

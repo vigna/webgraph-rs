@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::graph::pairs_graph;
 use crate::prelude::*;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
@@ -15,7 +16,7 @@ pub fn transpose(
     graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
-    COOIterToGraph<
+    pairs_graph::PairsGraph<
         std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
     >,
 > {
@@ -36,7 +37,7 @@ pub fn transpose(
     }
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
-    let sorted = COOIterToGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
+    let sorted = pairs_graph::PairsGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
     Ok(sorted)

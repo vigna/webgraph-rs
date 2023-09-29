@@ -8,12 +8,12 @@ use crate::traits::*;
 
 /// A Sequential graph built on an iterator of pairs of nodes
 #[derive(Debug, Clone)]
-pub struct COOIterToGraph<I: Clone> {
+pub struct PairsGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
 
-impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> COOIterToGraph<I> {
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> PairsGraph<I> {
     /// Create a new graph from an iterator of pairs of nodes
     pub fn new(num_nodes: usize, iter: I) -> Self {
         Self { num_nodes, iter }
@@ -28,7 +28,7 @@ pub struct NodeIterator<I: IntoIterator<Item = (usize, usize)>> {
     iter: I::IntoIter,
 }
 
-impl<'a, I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {
+impl<I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {
     pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
         NodeIterator {
             num_nodes,
@@ -45,9 +45,7 @@ impl<'succ, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIte
     type T = (usize, Successors<'succ, I>);
 }
 
-impl<'node, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIterator
-    for NodeIterator<I>
-{
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIterator for NodeIterator<I> {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
@@ -63,9 +61,7 @@ impl<'node, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIte
     }
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph
-    for COOIterToGraph<I>
-{
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for PairsGraph<I> {
     type Successors<'succ> = Successors<'succ, I>;
     type Iterator<'node> = NodeIterator<I> where Self: 'node;
 
@@ -132,7 +128,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
-    let coo = COOIterToGraph::new(g.num_nodes(), arcs);
+    let coo = PairsGraph::new(g.num_nodes(), arcs);
     let g2 = VecGraph::from_graph(&coo);
     assert_eq!(g, g2);
     Ok(())

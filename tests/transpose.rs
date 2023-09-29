@@ -6,8 +6,8 @@
  */
 
 use anyhow::Result;
+use webgraph::graph::pairs_graph;
 use webgraph::prelude::*;
-
 #[test]
 fn test_transpose() -> Result<()> {
     const TRANSPOSED_PATH: &str = "tests/data/cnr-2000-transposed";
@@ -29,7 +29,7 @@ fn test_transpose() -> Result<()> {
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<
-        NodeIterator<
+        pairs_graph::NodeIterator<
             std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
         >,
     >(
@@ -55,7 +55,7 @@ fn test_transpose() -> Result<()> {
     let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<
-        NodeIterator<
+        pairs_graph::NodeIterator<
             std::iter::Map<
                 KMergeIters<BatchIterator<DummyBitSerDes>, ()>,
                 fn((usize, usize, ())) -> (usize, usize),

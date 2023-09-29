@@ -7,7 +7,7 @@
 
 /*!
 
-Iterator traits.
+Traits for lending iterators.
 
 The design of [LendingIterator] was proposed by
 [Daniel Henry Mantilla](https://github.com/danielhenrymantilla/lending-iterator.rs/issues/13);
@@ -23,7 +23,7 @@ pub trait LendingIterator {
 ```
 However, the previous design proved to be too restrictive, and would have made it impossible to
 write types such as [PermutedGraph](crate::graph::permuted_graph::PermutedGraph)
-or [COOIterToGraph](crate::utils::coo_to_graph::COOIterToGraph).
+or [PairsGraph](crate::graph::pairs_graph::PairsGraph).
 
 */
 
@@ -31,14 +31,14 @@ pub trait Tuple2 {
     type _0;
     type _1;
 
-    fn is_tuple(self) -> (Self::_0, Self::_1);
+    fn into_tuple(self) -> (Self::_0, Self::_1);
 }
 
 impl<T, U> Tuple2 for (T, U) {
     type _0 = T;
     type _1 = U;
 
-    fn is_tuple(self) -> (Self::_0, Self::_1) {
+    fn into_tuple(self) -> (Self::_0, Self::_1) {
         self
     }
 }
@@ -82,14 +82,14 @@ pub trait LendingIterator: for<'b> LendingIteratorItem<'b> {
         accum
     }
 
-    fn for_each(self: Self, mut f: impl FnMut(Item<'_, Self>))
+    fn for_each(self, mut f: impl FnMut(Item<'_, Self>))
     where
         Self: Sized,
     {
         self.fold((), |(), item| f(item))
     }
 
-    fn into_iter<Item>(self: Self) -> IntoIter<Self>
+    fn into_iter<Item>(self) -> IntoIter<Self>
     where
         Self: for<'any> LendingIteratorItem<'any, T = Item>,
         Self: Sized,
@@ -115,7 +115,7 @@ impl<'succ, I: LendingIterator> LendingIteratorItem<'succ> for Take<I> {
 }
 
 impl<I: LendingIterator> LendingIterator for Take<I> {
-    fn next(self: &'_ mut Self) -> Option<Item<'_, I>> {
+    fn next(&'_ mut self) -> Option<Item<'_, I>> {
         if self.remaining > 0 {
             self.remaining -= 1;
             self.iter.next()
@@ -164,50 +164,6 @@ where
     }
 }
 
-struct GroupByFirst<I: Iterator<Item = (usize, usize)>> {
-    iter: std::iter::Peekable<I>,
-}
-
-impl<I: Iterator<Item = (usize, usize)>> GroupByFirst<I> {
-    fn new(iter: I) -> Self {
-        Self {
-            iter: iter.peekable(),
-        }
-    }
-}
-
-struct Group<'a, I: Iterator<Item = (usize, usize)>> {
-    iter: &'a mut std::iter::Peekable<I>,
-    first: usize,
-}
-
-impl<'a, I: Iterator<Item = (usize, usize)>> Iterator for Group<'a, I> {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter
-            .next_if(|&(first, _)| first == self.first)
-            .map(|(_, second)| second)
-    }
-}
-
-impl<'succ, I: Iterator<Item = (usize, usize)>> LendingIteratorItem<'succ> for GroupByFirst<I> {
-    type T = (usize, Group<'succ, I>);
-}
-
-impl<I: Iterator<Item = (usize, usize)>> LendingIterator for GroupByFirst<I> {
-    fn next(&mut self) -> Option<Item<'_, Self>> {
-        let &(first, _) = self.iter.peek()?;
-        Some((
-            first,
-            Group {
-                iter: &mut self.iter,
-                first,
-            },
-        ))
-    }
-}
-
 pub struct Enumerate<I> {
     iter: I,
     count: usize,
@@ -228,21 +184,5 @@ impl<I: LendingIterator> LendingIterator for Enumerate<I> {
         let i = self.count;
         self.count += 1;
         Some((i, a))
-    }
-}
-
-#[test]
-fn test_group_by() {
-    let iter = [0, 0, 1, 1, 2, 2].into_iter().zip(0..6);
-    let mut groupby = GroupByFirst::new(iter);
-    if let Some((first, mut group)) = groupby.next() {
-        assert_eq!(first, 0);
-        assert_eq!(group.next(), Some(0));
-        assert_eq!(group.next(), Some(1));
-    }
-    if let Some((first, mut group)) = groupby.next() {
-        assert_eq!(first, 1);
-        assert_eq!(group.next(), Some(2));
-        assert_eq!(group.next(), Some(3));
     }
 }

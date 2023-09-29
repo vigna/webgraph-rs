@@ -22,27 +22,35 @@ use std::sync::Mutex;
 /// A graph that can be accessed sequentially
 pub trait SequentialGraph {
     type Successors<'succ>: IntoIterator<Item = usize>;
-    /// Iterator over the nodes of the graph
+    /// The type of the iterator over the successors of a node
+    /// returned by [the iterator on the graph](SequentialGraph::Iterator).
     type Iterator<'node>: LendingIterator
         + for<'succ> LendingIteratorItem<'succ, T = (usize, Self::Successors<'succ>)>
     where
         Self: 'node;
 
-    /// Get the number of nodes in the graph
+    /// Return the number of nodes in the graph.
     fn num_nodes(&self) -> usize;
 
-    /// Get the number of arcs in the graph if available
+    /// Return the number of arcs in the graph, if available.
     fn num_arcs_hint(&self) -> Option<usize> {
         None
     }
 
-    /// Get an iterator over the nodes of the graph
+    /// Return an iterator over the graph.
+    ///
+    /// Iterators over the graph return pairs given by a node of the graph
+    /// and an [IntoIterator] over its successors.
     fn iter_nodes(&self) -> Self::Iterator<'_> {
         self.iter_nodes_from(0)
     }
 
-    /// Get an iterator over the nodes of the graph starting at `start_node`
-    /// (included)
+    /// Return an iterator over the nodes of the graph starting at `from`
+    /// (included).
+    ///
+    /// Note that if the graph iterator [is not sorted](SortedIterator),
+    /// `from` is not the node id of the first node returned by the iterator,
+    /// but just the starting point of the iteration.
     fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_>;
 
     /// Given a graph, apply `func` to each chunk of nodes of size `granularity`
@@ -115,40 +123,42 @@ pub trait SequentialGraph {
     }
 }
 
-/// Marker trait for [graphs](Graph) whose [graph iterators](GraphIterator) returns
-/// their nodes in sorted order.
+/// Marker trait for [sequential graphs](SequentialGraph) whose [iterator](SequentialGraph::Iterator)
+/// returns nodes in ascending order.
 ///
 /// # Safety
-/// The first element of the pairs returned  by the iterator must be sorted.
-// TODO pub unsafe trait SortedIterator: GraphIterator {}
+/// The first element of the pairs returned by the iterator must go from
+/// zero to the [number of nodes](SequentialGraph::num_nodes) of the graph, excluded.
+pub unsafe trait SortedIterator: LendingIterator {}
 
-/// Marker trait for for [graphs](Graph) whose successor iterators
-/// are in stored order.
+/// Marker trait for [sequential graphs](SequentialGraph) whose [successors](SequentialGraph::Successors)
+/// are returned in ascending order.
 ///
 /// # Safety
-/// The iterator on successors must be sorted.
-pub unsafe trait SortedSuccessors: Iterator<Item = usize> {}
+/// The successors returned by the iterator must be in ascending order.
+pub unsafe trait SortedSuccessors: IntoIterator {}
 
-/// A graph providing random access.
+/// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
 pub trait RandomAccessGraph: SequentialGraph {
-    /// Iterator over the successors of a node
+    /// The type of the iterator over the successors of a node
+    /// returned by [successors](RandomAccessGraph::successors).
     type Successors<'succ>: IntoIterator<Item = usize>
     where
         Self: 'succ;
 
-    /// Get the number of arcs in the graph
+    /// Return the number of arcs in the graph.
     fn num_arcs(&self) -> usize;
 
-    /// Get a sorted iterator over the neighbours node_id
+    /// Return an [`IntoIterator`] over the successors of a node.
     fn successors(&self, node_id: usize) -> <Self as RandomAccessGraph>::Successors<'_>;
 
-    /// Get the number of outgoing edges of a node
-    fn outdegree(&self, node_id: usize) -> usize {
+    /// Return the number of successors of a node.
+    fn outdegree(&self, _node_id: usize) -> usize {
         todo!();
         // self.successors(node_id).count()
     }
 
-    /// Return if the given edge `src_node_id -> dst_node_id` exists or not
+    /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
     fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
         for neighbour_id in self.successors(src_node_id) {
             // found
@@ -164,20 +174,18 @@ pub trait RandomAccessGraph: SequentialGraph {
     }
 }
 
-/// A struct used to implement [`GraphIterator`] trait for a struct that
+/// A struct used to implement [a graph iterator](LendingIterator) for a struct that
 /// implements [`RandomAccessGraph`].
-pub struct GraphIteratorImpl<'node, G: RandomAccessGraph> {
+pub struct IteratorImpl<'node, G: RandomAccessGraph> {
     pub graph: &'node G,
     pub nodes: core::ops::Range<usize>,
 }
 
-impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ>
-    for GraphIteratorImpl<'node, G>
-{
+impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ> for IteratorImpl<'node, G> {
     type T = (usize, <G as RandomAccessGraph>::Successors<'succ>);
 }
 
-impl<'node, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'node, G> {
+impl<'node, G: RandomAccessGraph> LendingIterator for IteratorImpl<'node, G> {
     #[inline(always)]
     fn next(&mut self) -> Option<Item<'_, Self>> {
         self.nodes
@@ -187,7 +195,7 @@ impl<'node, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'node, G
 }
 
 /// We iter on the node ids in a range so it is sorted
-// TODO unsafe impl<'a, G: RandomAccessGraph> SortedIterator for GraphIteratorImpl<'a, G> {}
+unsafe impl<'a, G: RandomAccessGraph> SortedIterator for IteratorImpl<'a, G> {}
 
 /// A graph where each arc has a label
 pub trait Labeled {
@@ -197,42 +205,42 @@ pub trait Labeled {
 
 /// A trait to allow to ask for the label of the current node on a successors
 /// iterator
-pub trait LabeledIterator: Labeled + Iterator<Item = usize> {
+pub trait LabeledSuccessors: Labeled + Iterator<Item = usize> {
     /// Get the label of the current node, this panics if called before the first
     fn label(&self) -> Self::Label;
 
-    /// Wrap the `Self` into a [`LabeledIteratorWrapper`] to be able to iter
+    /// Wrap the `Self` into a [`LabeledSuccessorsWrapper`] to be able to iter
     /// on `(successor, label)` easily
     #[inline(always)]
-    fn labeled(self) -> LabeledIteratorWrapper<Self>
+    fn labeled(self) -> LabeledSuccessorsWrapper<Self>
     where
         Self: Sized,
     {
-        LabeledIteratorWrapper(self)
+        LabeledSuccessorsWrapper(self)
     }
 }
 
-/// A trait to constraint the successors iterator to implement [`LabeledIterator`]
+/// A trait to constraint the successors iterator to implement [`LabeledSuccessors`]
 pub trait LabeledSequentialGraph: SequentialGraph + Labeled
 where
-    for<'a> Self::Successors<'a>: LabeledIterator<Label = Self::Label>,
+    for<'a> Self::Successors<'a>: LabeledSuccessors<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: SequentialGraph + Labeled> LabeledSequentialGraph for G where
-    for<'a> Self::Successors<'a>: LabeledIterator<Label = Self::Label>
+    for<'a> Self::Successors<'a>: LabeledSuccessors<Label = Self::Label>
 {
 }
 
-/// A trait to constraint the successors iterator to implement [`LabeledIterator`]
+/// A trait to constraint the successors iterator to implement [`LabeledSuccessors`]
 pub trait LabeledRandomAccessGraph: RandomAccessGraph + Labeled
 where
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledSuccessors<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: RandomAccessGraph + Labeled> LabeledRandomAccessGraph for G where
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledSuccessors<Label = Self::Label>
 {
 }
 
@@ -245,24 +253,24 @@ impl<G: SequentialGraph + RandomAccessGraph> Graph for G {}
 /// The same as [`Graph`], but with a label on each node.
 pub trait LabeledGraph: LabeledSequentialGraph + LabeledRandomAccessGraph
 where
-    for<'a> <Self as SequentialGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
+    for<'a> <Self as SequentialGraph>::Successors<'a>: LabeledSuccessors<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledSuccessors<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: LabeledSequentialGraph + LabeledRandomAccessGraph> LabeledGraph for G
 where
-    for<'a> <Self as SequentialGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
+    for<'a> <Self as SequentialGraph>::Successors<'a>: LabeledSuccessors<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledSuccessors<Label = Self::Label>,
 {
 }
 
 #[repr(transparent)]
-/// A wrapper around a [`LabeledIterator`] to make it implement [`Iterator`]
+/// A wrapper around a [`LabeledSuccessors`] to make it implement [`Iterator`]
 /// with a tuple of `(successor, label)`
-pub struct LabeledIteratorWrapper<I: LabeledIterator + Iterator<Item = usize>>(I);
+pub struct LabeledSuccessorsWrapper<I: LabeledSuccessors + Iterator<Item = usize>>(I);
 
-impl<I: LabeledIterator + Iterator<Item = usize>> Iterator for LabeledIteratorWrapper<I> {
+impl<I: LabeledSuccessors + Iterator<Item = usize>> Iterator for LabeledSuccessorsWrapper<I> {
     type Item = (usize, I::Label);
 
     #[inline(always)]
@@ -275,8 +283,8 @@ impl<I: LabeledIterator + Iterator<Item = usize>> Iterator for LabeledIteratorWr
     }
 }
 
-impl<I: LabeledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSizeIterator
-    for LabeledIteratorWrapper<I>
+impl<I: LabeledSuccessors + Iterator<Item = usize> + ExactSizeIterator> ExactSizeIterator
+    for LabeledSuccessorsWrapper<I>
 {
     #[inline(always)]
     fn len(&self) -> usize {
@@ -284,10 +292,8 @@ impl<I: LabeledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSizeI
     }
 }
 
-/*
 /// We are transparent regarding the sortedness of the underlying iterator
-unsafe impl<I: LabeledIterator + Iterator<Item = usize> + SortedIterator> SortedIterator
-    for LabeledIteratorWrapper<I>
+unsafe impl<I: LabeledSuccessors + Iterator<Item = usize> + SortedSuccessors> SortedSuccessors
+    for LabeledSuccessorsWrapper<I>
 {
 }
-*/

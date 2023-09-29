@@ -31,12 +31,6 @@ pub const fn nat2int(x: u64) -> i64 {
     ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
 }
 
-mod coo_to_graph;
-pub use coo_to_graph::*;
-
-mod coo_to_labeled_graph;
-pub use coo_to_labeled_graph::*;
-
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 

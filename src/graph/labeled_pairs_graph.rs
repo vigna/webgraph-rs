@@ -9,13 +9,13 @@ use core::mem::MaybeUninit;
 
 /// A Sequential graph built on an iterator of pairs of nodes and their labels
 #[derive(Debug, Clone)]
-pub struct COOIterToLabeledGraph<I: Clone> {
+pub struct LabeledPairsGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    COOIterToLabeledGraph<I>
+    LabeledPairsGraph<I>
 {
     /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
@@ -25,7 +25,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Labeled
-    for COOIterToLabeledGraph<I>
+    for LabeledPairsGraph<I>
 {
     type Label = L;
 }
@@ -39,7 +39,7 @@ pub struct NodeIterator<L, I: IntoIterator<Item = (usize, usize, L)>> {
     iter: I::IntoIter,
 }
 
-impl<'a, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator<L, I> {
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator<L, I> {
     pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
         NodeIterator {
             num_nodes,
@@ -64,7 +64,7 @@ impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
     type T = (usize, Successors<'succ, L, I>);
 }
 
-impl<'a, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     LendingIterator for NodeIterator<L, I>
 {
     fn next(&mut self) -> Option<Item<'_, Self>> {
@@ -91,7 +91,7 @@ impl<'a, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone +
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    SequentialGraph for COOIterToLabeledGraph<I>
+    SequentialGraph for LabeledPairsGraph<I>
 {
     type Successors<'succ> = Successors<'succ, L, I>;
     type Iterator<'node> = NodeIterator<L, I> where Self: 'node;
@@ -157,7 +157,7 @@ impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Labeled for Successors<'a
     type Label = L;
 }
 
-impl<'a, L: Clone, I: IntoIterator<Item = (usize, usize, L)>> LabeledIterator
+impl<'a, L: Clone, I: IntoIterator<Item = (usize, usize, L)>> LabeledSuccessors
     for Successors<'a, L, I>
 {
     #[inline(always)]
@@ -183,8 +183,8 @@ fn test_coo_labeled_iter() -> anyhow::Result<()> {
         (3, 4, Some(f64::NEG_INFINITY)),
     ];
     let g = VecGraph::from_arc_and_label_list(&arcs);
-    let coo = COOIterToLabeledGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_labeled_graph::<COOIterToLabeledGraph<_>>(&coo);
+    let coo = LabeledPairsGraph::new(g.num_nodes(), arcs);
+    let g2 = VecGraph::from_labeled_graph::<LabeledPairsGraph<_>>(&coo);
     assert_eq!(g, g2);
     Ok(())
 }

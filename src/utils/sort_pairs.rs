@@ -236,7 +236,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
             // write the dst gap as gamma
             stream.write_gamma((dst - prev_dst) as _)?;
             // write the payload
-            serializer.serialize(&payload, &mut stream)?;
+            serializer.serialize(payload, &mut stream)?;
             (prev_src, prev_dst) = (*src, *dst);
         }
         // flush the stream and reset the buffer

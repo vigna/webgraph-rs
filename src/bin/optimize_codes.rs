@@ -34,7 +34,7 @@ pub fn main() -> Result<()> {
     pr.expected_updates = Some(seq_graph.num_nodes());
 
     let mut iter = seq_graph.iter_nodes();
-    while let Some(_) = iter.next() {
+    while iter.next().is_some() {
         pr.light_update();
     }
 

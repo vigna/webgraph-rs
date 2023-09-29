@@ -439,7 +439,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut count = 0;
-        while let Some((_, succ)) = iter_nodes.next().map(|it| it.is_tuple()) {
+        while let Some((_, succ)) = iter_nodes.next().map(|it| it.into_tuple()) {
             count += self.push(succ.into_iter())?;
         }
         // WAS
@@ -461,7 +461,6 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
 
 #[cfg(test)]
 mod test {
-    use crate::prelude::MmapBackend;
 
     use super::*;
     use dsi_bitstream::prelude::*;
@@ -612,7 +611,7 @@ mod test {
             seq_graph.num_nodes(),
         );
         // Check that the graph is the same
-        let mut iter = (&seq_graph).iter_nodes().enumerate();
+        let mut iter = seq_graph.iter_nodes().enumerate();
         while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
@@ -666,7 +665,7 @@ mod test {
             seq_graph.num_nodes(),
         );
         // Check that the graph is the same
-        let mut iter = (&seq_graph).iter_nodes().enumerate();
+        let mut iter = seq_graph.iter_nodes().enumerate();
         while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 

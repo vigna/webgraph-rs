@@ -8,8 +8,8 @@ use anyhow::Result;
 use clap::Parser;
 use clap::ValueEnum;
 use dsi_bitstream::codes::Code;
+use webgraph::graph::pairs_graph;
 use webgraph::prelude::*;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum PrivCode {
     Unary,
@@ -107,7 +107,9 @@ pub fn main() -> Result<()> {
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.batch_size).unwrap();
     // compress the transposed graph
-    parallel_compress_sequential_iter::<NodeIterator<std::iter::Map<KMergeIters<_>, _>>>(
+    parallel_compress_sequential_iter::<
+        pairs_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
+    >(
         args.basename,
         &mut sorted.iter_nodes(),
         sorted.num_nodes(),

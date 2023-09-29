@@ -282,6 +282,6 @@ impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
     }
 }
 
-// TODO unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
+unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
 
 // TODO impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
