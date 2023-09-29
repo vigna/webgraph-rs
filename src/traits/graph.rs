@@ -194,7 +194,7 @@ pub trait Labelled {
     /// The type of the label on the arcs
     type Label;
 }
-/* TODO
+
 /// A trait to allow to ask for the label of the current node on a successors
 /// iterator
 pub trait LabelledIterator: Labelled + Iterator<Item = usize> {
@@ -227,12 +227,12 @@ impl<G: SequentialGraph + Labelled> LabelledSequentialGraph for G where
 /// A trait to constraint the successors iterator to implement [`LabelledIterator`]
 pub trait LabelledRandomAccessGraph: RandomAccessGraph + Labelled
 where
-    for<'a> Self::Successors<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: RandomAccessGraph + Labelled> LabelledRandomAccessGraph for G where
-    for<'a> Self::Successors<'a>: LabelledIterator<Label = Self::Label>
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>
 {
 }
 
@@ -246,14 +246,14 @@ impl<G: SequentialGraph + RandomAccessGraph> Graph for G {}
 pub trait LabelledGraph: LabelledSequentialGraph + LabelledRandomAccessGraph
 where
     for<'a> Self::Iterator<'a>: LabelledIterator<Label = Self::Label>,
-    for<'a> Self::Successors<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
 impl<G: LabelledSequentialGraph + LabelledRandomAccessGraph> LabelledGraph for G
 where
     for<'a> Self::Iterator<'a>: LabelledIterator<Label = Self::Label>,
-    for<'a> Self::Successors<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>,
 {
 }
 
@@ -284,7 +284,6 @@ impl<I: LabelledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSize
     }
 }
 
-*/
 /*
 /// We are transparent regarding the sortedness of the underlying iterator
 unsafe impl<I: LabelledIterator + Iterator<Item = usize> + SortedIterator> SortedIterator

@@ -8,15 +8,16 @@ use crate::traits::*;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
-/* TODO
 /// A Sequential graph built on an iterator of pairs of nodes and their labels
 #[derive(Debug, Clone)]
 pub struct COOIterToLabelledGraph<I: Clone> {
     num_nodes: usize,
     iter: I,
 }
-
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> COOIterToLabelledGraph<I> {
+/*
+impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone + 'static>
+    COOIterToLabelledGraph<I>
+{
     /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
     pub fn new(num_nodes: usize, iter: I) -> Self {
@@ -24,7 +25,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> COOIterT
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Labelled
+impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone + 'static> Labelled
     for COOIterToLabelledGraph<I>
 {
     type Label = L;
