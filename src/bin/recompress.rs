@@ -99,7 +99,6 @@ pub fn main() -> Result<()> {
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
     let mut iter = seq_graph.iter_nodes();
     webgraph::graph::bvgraph::parallel_compress_sequential_iter::<
-        _,
         WebgraphSequentialIter<
             DynamicCodesReader<
                 BigEndian,

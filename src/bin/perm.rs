@@ -71,16 +71,16 @@ fn permute(
         });
     // get a graph on the sorted data
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
-    // TODO let g = COOIterToGraph::new(num_nodes, edges);
+    let g = COOIterToGraph::new(num_nodes, edges);
     // compress it
-    /* TODO parallel_compress_sequential_iter(
+    parallel_compress_sequential_iter::<NodeIterator<std::iter::Map<KMergeIters<_>, _>>>(
         args.dest,
         &mut g.iter_nodes(),
         g.num_nodes(),
         CompFlags::default(),
         args.num_cpus.unwrap_or(num_cpus::get()),
     )?;
-    */
+
     Ok(())
 }
 

@@ -92,11 +92,8 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<
-    P: AsRef<Path> + Send + Sync,
-    L: LendingIterator + Clone + Send,
->(
-    basename: P,
+pub fn parallel_compress_sequential_iter<L: LendingIterator + Clone + Send>(
+    basename: impl AsRef<Path> + Send + Sync,
     iter: &mut L,
     num_nodes: usize,
     compression_flags: CompFlags,

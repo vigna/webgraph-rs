@@ -32,7 +32,6 @@ fn test_par_bvcomp() -> Result<()> {
         let start = std::time::Instant::now();
         // recompress the graph in parallel
         webgraph::graph::bvgraph::parallel_compress_sequential_iter::<
-            _,
             WebgraphSequentialIter<
                 DynamicCodesReader<
                     BigEndian,

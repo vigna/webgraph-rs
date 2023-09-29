@@ -64,7 +64,11 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph
 
     /// Get an iterator over the nodes of the graph
     fn iter_nodes_from(&self, from: usize) -> NodeIterator<I> {
-        NodeIterator::new(self.num_nodes, self.iter.clone().into_iter())
+        let mut res = NodeIterator::new(self.num_nodes, self.iter.clone().into_iter());
+        for _ in 0..from {
+            res.next();
+        }
+        res
     }
 }
 

@@ -27,33 +27,49 @@ fn test_transpose() -> Result<()> {
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
-    parallel_compress_sequential_iter(
+
+    parallel_compress_sequential_iter::<
+        NodeIterator<
+            std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
+        >,
+    >(
         TRANSPOSED_PATH,
-        transposed.iter_nodes(),
+        &mut transposed.iter_nodes(),
+        transposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
     )?;
     // check it
-    assert_eq!(transposed.iter_nodes().len(), num_nodes);
+    // TODO assert_eq!(transposed.iter_nodes().len(), num_nodes);
     let transposed_graph = webgraph::graph::bvgraph::load_seq(TRANSPOSED_PATH)?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the transposed graph is correct...");
-    for (node, succ) in transposed_graph.iter_nodes() {
+    let mut iter = transposed_graph.iter_nodes();
+    while let Some((node, succ)) = iter.next() {
         for succ_node in succ {
             assert!(graph.has_arc(succ_node, node));
         }
     }
     // re-transpose and par-compress
     let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
-    parallel_compress_sequential_iter(
+
+    parallel_compress_sequential_iter::<
+        NodeIterator<
+            std::iter::Map<
+                KMergeIters<BatchIterator<DummyBitSerDes>, ()>,
+                fn((usize, usize, ())) -> (usize, usize),
+            >,
+        >,
+    >(
         RE_TRANSPOSED_PATH,
-        retransposed.iter_nodes(),
+        &mut retransposed.iter_nodes(),
+        retransposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
     )?;
     // check it
-    assert_eq!(retransposed.iter_nodes().len(), num_nodes);
+    // TODO assert_eq!(retransposed.iter_nodes().len(), num_nodes);
     let retransposed_graph = webgraph::graph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);
 
