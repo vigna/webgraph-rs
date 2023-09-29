@@ -40,10 +40,10 @@ pub trait BitDeserializer: Clone {
 }
 
 /// A dummy serializer and deserializer that does not write anything and
-/// has [`()`] as [`SerType`](`BitSerializer::SerType`) and [`DeserType`](`BitDeserializer::DeserType`).
+/// has `()` as [`SerType`](`BitSerializer::SerType`) and [`DeserType`](`BitDeserializer::DeserType`).
 ///
-/// This is useful when implmenting an algorithm over a labelled graph but
-/// but we want to be able to use it also on unlabelled graphs.
+/// This is useful when implmenting an algorithm over a labeled graph but
+/// but we want to be able to use it also on unlabeled graphs.
 #[derive(Clone, Copy, Debug)]
 pub struct DummyBitSerDes;
 

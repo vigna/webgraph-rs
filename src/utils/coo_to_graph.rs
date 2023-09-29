@@ -20,8 +20,27 @@ impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> COOIterToGrap
     }
 }
 
-impl<'node, 'succ, I: IntoIterator<Item = (usize, usize)> + Clone + 'static>
-    LendingIteratorItem<'succ> for NodeIterator<I>
+#[derive(Debug, Clone)]
+pub struct NodeIterator<I: IntoIterator<Item = (usize, usize)>> {
+    num_nodes: usize,
+    curr_node: usize,
+    next_pair: (usize, usize),
+    iter: I::IntoIter,
+}
+
+impl<'a, I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {
+    pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
+        NodeIterator {
+            num_nodes,
+            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
+            iter,
+        }
+    }
+}
+
+impl<'succ, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIteratorItem<'succ>
+    for NodeIterator<I>
 {
     type T = (usize, Successors<'succ, I>);
 }
@@ -48,9 +67,7 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph
     for COOIterToGraph<I>
 {
     type Successors<'succ> = Successors<'succ, I>;
-    /// Iterator over the nodes of the graph
-    type Iterator<'a> = NodeIterator<I>
-    where Self: 'a;
+    type Iterator<'node> = NodeIterator<I> where Self: 'node;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -64,30 +81,11 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph
 
     /// Get an iterator over the nodes of the graph
     fn iter_nodes_from(&self, from: usize) -> NodeIterator<I> {
-        let mut res = NodeIterator::new(self.num_nodes, self.iter.clone().into_iter());
+        let mut iter = NodeIterator::new(self.num_nodes, self.iter.clone().into_iter());
         for _ in 0..from {
-            res.next();
+            iter.next();
         }
-        res
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct NodeIterator<I: IntoIterator<Item = (usize, usize)>> {
-    num_nodes: usize,
-    curr_node: usize,
-    next_pair: (usize, usize),
-    iter: I::IntoIter,
-}
-
-impl<'a, I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {
-    pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
-        NodeIterator {
-            num_nodes,
-            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
-            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
-            iter,
-        }
+        iter
     }
 }
 
@@ -135,8 +133,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
     let coo = COOIterToGraph::new(g.num_nodes(), arcs);
-    let iter = coo.iter_nodes();
-    let g2 = VecGraph::from_node_iter::<NodeIterator<Vec<(usize, usize)>>>(iter);
+    let g2 = VecGraph::from_graph(&coo);
     assert_eq!(g, g2);
     Ok(())
 }

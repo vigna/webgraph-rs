@@ -190,49 +190,49 @@ impl<'node, G: RandomAccessGraph> LendingIterator for GraphIteratorImpl<'node, G
 // TODO unsafe impl<'a, G: RandomAccessGraph> SortedIterator for GraphIteratorImpl<'a, G> {}
 
 /// A graph where each arc has a label
-pub trait Labelled {
+pub trait Labeled {
     /// The type of the label on the arcs
     type Label;
 }
 
 /// A trait to allow to ask for the label of the current node on a successors
 /// iterator
-pub trait LabelledIterator: Labelled + Iterator<Item = usize> {
+pub trait LabeledIterator: Labeled + Iterator<Item = usize> {
     /// Get the label of the current node, this panics if called before the first
     fn label(&self) -> Self::Label;
 
-    /// Wrap the `Self` into a [`LabelledIteratorWrapper`] to be able to iter
+    /// Wrap the `Self` into a [`LabeledIteratorWrapper`] to be able to iter
     /// on `(successor, label)` easily
     #[inline(always)]
-    fn labelled(self) -> LabelledIteratorWrapper<Self>
+    fn labeled(self) -> LabeledIteratorWrapper<Self>
     where
         Self: Sized,
     {
-        LabelledIteratorWrapper(self)
+        LabeledIteratorWrapper(self)
     }
 }
 
-/// A trait to constraint the successors iterator to implement [`LabelledIterator`]
-pub trait LabelledSequentialGraph: SequentialGraph + Labelled
+/// A trait to constraint the successors iterator to implement [`LabeledIterator`]
+pub trait LabeledSequentialGraph: SequentialGraph + Labeled
 where
-    for<'a> Self::Iterator<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> Self::Successors<'a>: LabeledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
-impl<G: SequentialGraph + Labelled> LabelledSequentialGraph for G where
-    for<'a> Self::Iterator<'a>: LabelledIterator<Label = Self::Label>
+impl<G: SequentialGraph + Labeled> LabeledSequentialGraph for G where
+    for<'a> Self::Successors<'a>: LabeledIterator<Label = Self::Label>
 {
 }
 
-/// A trait to constraint the successors iterator to implement [`LabelledIterator`]
-pub trait LabelledRandomAccessGraph: RandomAccessGraph + Labelled
+/// A trait to constraint the successors iterator to implement [`LabeledIterator`]
+pub trait LabeledRandomAccessGraph: RandomAccessGraph + Labeled
 where
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
-impl<G: RandomAccessGraph + Labelled> LabelledRandomAccessGraph for G where
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>
+impl<G: RandomAccessGraph + Labeled> LabeledRandomAccessGraph for G where
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>
 {
 }
 
@@ -243,26 +243,26 @@ pub trait Graph: SequentialGraph + RandomAccessGraph {}
 impl<G: SequentialGraph + RandomAccessGraph> Graph for G {}
 
 /// The same as [`Graph`], but with a label on each node.
-pub trait LabelledGraph: LabelledSequentialGraph + LabelledRandomAccessGraph
+pub trait LabeledGraph: LabeledSequentialGraph + LabeledRandomAccessGraph
 where
-    for<'a> Self::Iterator<'a>: LabelledIterator<Label = Self::Label>,
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> <Self as SequentialGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
 {
 }
 /// Blanket implementation
-impl<G: LabelledSequentialGraph + LabelledRandomAccessGraph> LabelledGraph for G
+impl<G: LabeledSequentialGraph + LabeledRandomAccessGraph> LabeledGraph for G
 where
-    for<'a> Self::Iterator<'a>: LabelledIterator<Label = Self::Label>,
-    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabelledIterator<Label = Self::Label>,
+    for<'a> <Self as SequentialGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
+    for<'a> <Self as RandomAccessGraph>::Successors<'a>: LabeledIterator<Label = Self::Label>,
 {
 }
 
 #[repr(transparent)]
-/// A wrapper around a [`LabelledIterator`] to make it implement [`Iterator`]
+/// A wrapper around a [`LabeledIterator`] to make it implement [`Iterator`]
 /// with a tuple of `(successor, label)`
-pub struct LabelledIteratorWrapper<I: LabelledIterator + Iterator<Item = usize>>(I);
+pub struct LabeledIteratorWrapper<I: LabeledIterator + Iterator<Item = usize>>(I);
 
-impl<I: LabelledIterator + Iterator<Item = usize>> Iterator for LabelledIteratorWrapper<I> {
+impl<I: LabeledIterator + Iterator<Item = usize>> Iterator for LabeledIteratorWrapper<I> {
     type Item = (usize, I::Label);
 
     #[inline(always)]
@@ -275,8 +275,8 @@ impl<I: LabelledIterator + Iterator<Item = usize>> Iterator for LabelledIterator
     }
 }
 
-impl<I: LabelledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSizeIterator
-    for LabelledIteratorWrapper<I>
+impl<I: LabeledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSizeIterator
+    for LabeledIteratorWrapper<I>
 {
     #[inline(always)]
     fn len(&self) -> usize {
@@ -286,8 +286,8 @@ impl<I: LabelledIterator + Iterator<Item = usize> + ExactSizeIterator> ExactSize
 
 /*
 /// We are transparent regarding the sortedness of the underlying iterator
-unsafe impl<I: LabelledIterator + Iterator<Item = usize> + SortedIterator> SortedIterator
-    for LabelledIteratorWrapper<I>
+unsafe impl<I: LabeledIterator + Iterator<Item = usize> + SortedIterator> SortedIterator
+    for LabeledIteratorWrapper<I>
 {
 }
 */

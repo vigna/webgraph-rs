@@ -61,7 +61,7 @@ fn test_transposition() -> anyhow::Result<()> {
 /*
 #[cfg(test)]
 #[cfg_attr(test, test)]
-fn test_transposition_labelled() -> anyhow::Result<()> {
+fn test_transposition_labeled() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
     use dsi_bitstream::prelude::*;
 
@@ -112,11 +112,11 @@ fn test_transposition_labelled() -> anyhow::Result<()> {
     assert_eq!(g3, g4);
 
     //// test transposition with labels
-    //let trans = transpose_labelled(&g, 3)?;
-    //let g5 = VecGraph::from_labelled_node_iter(trans.iter_nodes());
+    //let trans = transpose_labeled(&g, 3)?;
+    //let g5 = VecGraph::from_labeled_node_iter(trans.iter_nodes());
     //
-    //let trans = transpose_labelled(&g5, 3)?;
-    //let g6 = VecGraph::from_labelled_node_iter(trans.iter_nodes());
+    //let trans = transpose_labeled(&g5, 3)?;
+    //let g6 = VecGraph::from_labeled_node_iter(trans.iter_nodes());
     //
     //assert_eq!(g, g6);
     Ok(())
