@@ -168,18 +168,14 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     #[inline(always)]
     /// Inner method called by `next_successors` and the iterator `next` method
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
-        eprintln!("***");
-
         let degree = self.codes_reader.read_outdegree() as usize;
         // no edges, we are done!
-        dbg!(degree);
         if degree == 0 {
             return Ok(());
         }
 
         // ensure that we have enough capacity in the vector for not reallocating
         results.reserve(degree.saturating_sub(results.capacity()));
-        eprintln!("***");
         // read the reference offset
         let ref_delta = if self.compression_window != 0 {
             self.codes_reader.read_reference_offset() as usize
@@ -197,7 +193,6 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
             let number_of_blocks = self.codes_reader.read_block_count() as usize;
             // no blocks, we copy everything
             if number_of_blocks == 0 {
-                results.extend_from_slice(neighbours);
             } else {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero
@@ -218,8 +213,6 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
                 }
             }
         };
-
-        eprintln!("***");
 
         // if we still have to read nodes
         let nodes_left_to_decode = degree - results.len();
@@ -248,7 +241,6 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
             }
         }
 
-        eprintln!("***");
         // decode the extra nodes if needed
         let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
@@ -263,7 +255,6 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
             }
         }
 
-        eprintln!("***");
         results.sort();
         Ok(())
     }
@@ -275,21 +266,16 @@ impl<'succ, CR: BVGraphCodesReader> LendingIteratorItem<'succ> for WebgraphSeque
 
 impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
     fn next(&mut self) -> Option<Item<'_, Self>> {
-        dbg!(self.current_node);
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
-        eprintln!("next");
         let mut res = self.backrefs.take(self.current_node);
-        eprintln!("next");
         self.get_successors_iter_priv(self.current_node, &mut res)
             .unwrap();
 
-        eprintln!("next");
         let res = self.backrefs.push(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
-        dbg!(node_id);
         Some((node_id, res.iter().copied()))
     }
 }
