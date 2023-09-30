@@ -499,7 +499,7 @@ dependencies = [
 [[package]]
 name = "dsi-bitstream"
 version = "0.1.0"
-source = "git+https://github.com/vigna/dsi-bitstream-rs?branch=traits#04981e2d08c2855028417e0c3ea81c93f5ed1737"
+source = "git+https://github.com/vigna/dsi-bitstream-rs?branch=traits#07ed036834b52e74f7e257fc3afb6cc603fb4a87"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -604,8 +604,9 @@ dependencies = [
 
 [[package]]
 name = "epserde"
-version = "0.1.0"
-source = "git+https://github.com/vigna/epserde-rs?branch=align_of#6c0f75203cf91aa2e3fc444cc5709bf764e578f2"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ce08e1e4532f0c0e3bdbfc1ae8be9d939a13203d675ad8df9da23d9b7907863"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
@@ -617,8 +618,9 @@ dependencies = [
 
 [[package]]
 name = "epserde-derive"
-version = "0.1.0"
-source = "git+https://github.com/vigna/epserde-rs?branch=align_of#6c0f75203cf91aa2e3fc444cc5709bf764e578f2"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7de4f41918ad43756b6e58e20acfce47717b9677572d1035a86e5a70e2b0490"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1351,7 +1353,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "sux"
 version = "0.1.0"
-source = "git+https://github.com/vigna/sux-rs?branch=havoc#7cb7257cb010e708bf803602b8900c5746212eeb"
+source = "git+https://github.com/vigna/sux-rs?branch=havoc#c239d5f4ad5cd6c3f2cf895dec6a09c7098faadf"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",

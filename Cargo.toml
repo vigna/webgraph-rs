@@ -27,7 +27,7 @@ java-properties = "1.4.1"
 mmap-rs = "0.5.0"
 bitvec = { version = "1.0.1", features = ["atomic"] }
 num_cpus = "1.15.0"
-epserde = {git = "https://github.com/vigna/epserde-rs", branch="align_of"}
+epserde = "0.1.1"
 sux = {git = "https://github.com/vigna/sux-rs", branch="havoc"}
 dsi-bitstream = {git = "https://github.com/vigna/dsi-bitstream-rs", branch="traits"}
 # Bin dependancies

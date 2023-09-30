@@ -6,9 +6,7 @@
 
 use crate::traits::*;
 
-/// An adapter exhibiting a list of arcs as a [sequential graph](SequentialGraph).
-///
-/// If the arcs are sorted by source, the iterator of the graph will be sorted.
+/// An adapter exhibiting a list of arcs sorted by source as a [sequential graph](SequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
@@ -34,6 +32,11 @@ pub struct NodeIterator<I: IntoIterator<Item = (usize, usize)>> {
     curr_node: usize,
     next_pair: (usize, usize),
     iter: I::IntoIter,
+}
+
+unsafe impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SortedIterator
+    for NodeIterator<I>
+{
 }
 
 impl<I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {

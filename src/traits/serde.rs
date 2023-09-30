@@ -18,7 +18,7 @@ pub trait BitSerializer {
     type SerType: Send;
     /// Write the given value to a bitstream of given endianness and providing
     /// support to write codes.
-    fn serialize<E: Endianness, B: WriteCodes<E>>(
+    fn serialize<E: Endianness, B: CodeWrite<E>>(
         &self,
         value: &Self::SerType,
         bitstream: &mut B,
@@ -33,7 +33,7 @@ pub trait BitDeserializer: Clone {
     type DeserType;
     /// Reads a value from a bitstream of given endianness and providing
     /// support to read codes.
-    fn deserialize<E: Endianness, B: ReadCodes<E>>(
+    fn deserialize<E: Endianness, B: CodeRead<E>>(
         &self,
         bitstream: &mut B,
     ) -> Result<Self::DeserType>;
@@ -50,7 +50,7 @@ pub struct DummyBitSerDes;
 impl BitSerializer for DummyBitSerDes {
     type SerType = ();
     #[inline(always)]
-    fn serialize<E: Endianness, B: WriteCodes<E>>(
+    fn serialize<E: Endianness, B: CodeWrite<E>>(
         &self,
         _value: &Self::SerType,
         _bitstream: &mut B,
@@ -62,7 +62,7 @@ impl BitSerializer for DummyBitSerDes {
 impl BitDeserializer for DummyBitSerDes {
     type DeserType = ();
     #[inline(always)]
-    fn deserialize<E: Endianness, B: ReadCodes<E>>(
+    fn deserialize<E: Endianness, B: CodeRead<E>>(
         &self,
         _bitstream: &mut B,
     ) -> Result<Self::DeserType> {

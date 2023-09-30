@@ -394,7 +394,7 @@ pub fn test_push() -> Result<()> {
 
     impl BitDeserializer for MyDessert {
         type DeserType = usize;
-        fn deserialize<E: Endianness, B: ReadCodes<E>>(
+        fn deserialize<E: Endianness, B: CodeRead<E>>(
             &self,
             bitstream: &mut B,
         ) -> Result<Self::DeserType> {
@@ -404,7 +404,7 @@ pub fn test_push() -> Result<()> {
 
     impl BitSerializer for MyDessert {
         type SerType = usize;
-        fn serialize<E: Endianness, B: WriteCodes<E>>(
+        fn serialize<E: Endianness, B: CodeWrite<E>>(
             &self,
             value: &Self::SerType,
             bitstream: &mut B,

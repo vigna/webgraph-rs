@@ -70,14 +70,14 @@ fn test_transposition_labeled() -> anyhow::Result<()> {
     struct Payload(f64);
 
     impl Label for Payload {
-        fn from_bitstream<E: Endianness, B: ReadCodes<E>>(bitstream: &mut B) -> Result<Self> {
+        fn from_bitstream<E: Endianness, B: CodeRead<E>>(bitstream: &mut B) -> Result<Self> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;
             let result = f64::from_bits((exponent << 53) | mantissa);
             Ok(Payload(result))
         }
 
-        fn to_bitstream<E: Endianness, B: WriteCodes<E>>(
+        fn to_bitstream<E: Endianness, B: CodeWrite<E>>(
             &self,
             bitstream: &mut B,
         ) -> Result<usize> {

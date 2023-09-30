@@ -38,7 +38,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 #[derive(Clone)]
 pub struct ConstCodesReader<
     E: Endianness,
-    CR: ReadCodes<E>,
+    CR: CodeRead<E>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
     const BLOCKS: usize = { const_codes::GAMMA },
@@ -55,7 +55,7 @@ pub struct ConstCodesReader<
 
 impl<
         E: Endianness,
-        CR: ReadCodes<E> + BitSeek,
+        CR: CodeRead<E> + BitSeek,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -75,7 +75,7 @@ impl<
 
 impl<
         E: Endianness,
-        CR: ReadCodes<E>,
+        CR: CodeRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -84,7 +84,7 @@ impl<
         const K: u64,
     > ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Create a new [`ConstCodesReader`] from a [`ReadCodes`] implementation
+    /// Create a new [`ConstCodesReader`] from a [`CodeRead`] implementation
     /// and a [`CompFlags`] struct
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
@@ -141,7 +141,7 @@ macro_rules! select_code_skip {
 
 impl<
         E: Endianness,
-        CR: ReadCodes<E>,
+        CR: CodeRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -195,7 +195,7 @@ impl<
 
 impl<
         E: Endianness,
-        CR: ReadCodes<E>,
+        CR: CodeRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -252,7 +252,7 @@ impl<
 #[derive(Clone)]
 pub struct ConstCodesWriter<
     E: Endianness,
-    CW: WriteCodes<E>,
+    CW: CodeWrite<E>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
     const BLOCKS: usize = { const_codes::GAMMA },
@@ -266,7 +266,7 @@ pub struct ConstCodesWriter<
 
 impl<
         E: Endianness,
-        CW: WriteCodes<E> + BitSeek,
+        CW: CodeWrite<E> + BitSeek,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -286,7 +286,7 @@ impl<
 
 impl<
         E: Endianness,
-        CW: WriteCodes<E>,
+        CW: CodeWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -295,7 +295,7 @@ impl<
         const K: u64,
     > ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Creates a new [`ConstCodesWriter`] with the given [`WriteCodes`] implementation
+    /// Creates a new [`ConstCodesWriter`] with the given [`CodeWrite`] implementation
     pub fn new(code_writer: CW) -> Self {
         Self {
             code_writer,
@@ -320,7 +320,7 @@ macro_rules! select_code_write {
 
 impl<
         E: Endianness,
-        CW: WriteCodes<E>,
+        CW: CodeWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,

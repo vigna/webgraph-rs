@@ -8,9 +8,7 @@ use crate::traits::*;
 use core::mem::MaybeUninit;
 
 /// An adapter exhibiting a list of labeled
-/// arcs as a [labeled sequential graph](LabeledSequentialGraph).
-///
-/// If the arcs are sorted by source, the iterator of the graph will be sorted.
+/// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
@@ -45,6 +43,11 @@ pub struct NodeIterator<L, I: IntoIterator<Item = (usize, usize, L)>> {
     next_pair: (usize, usize, L),
     label: L,
     iter: I::IntoIter,
+}
+
+unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+    SortedIterator for NodeIterator<L, I>
+{
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator<L, I> {

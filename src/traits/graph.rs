@@ -161,8 +161,8 @@ pub trait SequentialGraph {
     }
 }
 
-/// Marker trait for [sequential graphs](SequentialGraph) whose [iterator](SequentialGraph::Iterator)
-/// returns nodes in ascending order.
+/// Marker trait for [iterators](SequentialGraph::Iterator) of [sequential graphs](SequentialGraph)
+/// that returns nodes in ascending order.
 ///
 /// # Safety
 /// The first element of the pairs returned by the iterator must go from

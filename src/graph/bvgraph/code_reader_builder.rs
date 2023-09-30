@@ -36,7 +36,7 @@ pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
 
 impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -100,7 +100,7 @@ where
 
 impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
         DynamicCodesReader<E, BitReader<'a, E>>
@@ -170,7 +170,7 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
 
 impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -285,7 +285,7 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder
     for DynamicCodesReaderSkipperBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
         DynamicCodesReaderSkipper<E, BitReader<'a, E>>
@@ -325,7 +325,7 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderBuilder<E, B>>
     for DynamicCodesReaderSkipperBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderBuilder<E, B>) -> Self {
@@ -336,7 +336,7 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderSkipperBuilder<E, B>>
     for DynamicCodesReaderBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderSkipperBuilder<E, B>) -> Self {
@@ -411,7 +411,7 @@ impl<
     > BVGraphCodesReaderBuilder
     for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
         ConstCodesReader<E, BitReader<'a, E>>
