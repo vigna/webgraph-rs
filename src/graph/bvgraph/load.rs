@@ -39,6 +39,13 @@ macro_rules! impl_loads {
                 .with_context(|| "Missing arcs property")?
                 .parse::<u64>()
                 .with_context(|| "Cannot parse arcs as u64")?;
+            if let Some(endianness) = map.get("endianness") {
+                anyhow::ensure!(
+                    endianness == "big",
+                    "Unsupported endianness: {}",
+                    endianness
+                );
+            }
 
             let graph = MmapBackend::load(
                 format!("{}.graph", basename.to_string_lossy()),
@@ -83,6 +90,13 @@ macro_rules! impl_loads {
                 .with_context(|| "Missing arcs property")?
                 .parse::<u64>()
                 .with_context(|| "Cannot parse arcs as u64")?;
+            if let Some(endianness) = map.get("endianness") {
+                anyhow::ensure!(
+                    endianness == "big",
+                    "Unsupported endianness: {}",
+                    endianness
+                );
+            }
 
             let graph = MmapBackend::load(
                 format!("{}.graph", basename.to_string_lossy()),
