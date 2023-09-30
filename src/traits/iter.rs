@@ -18,7 +18,7 @@ Note that the design is significantly more complex than
 ```rust
 pub trait LendingIterator {
     type Item<'b> where Self: 'b;
-    fn next(&mut self) -> Option<Item<'_, Self>>;
+    fn next(&mut self) -> Option<Self::Item<'_>>;
 }
 ```
 However, the previous design proved to be too restrictive, and would have made it impossible to
@@ -36,7 +36,7 @@ pub trait LendingIteratorItem<'b, WhereSelfOutlivesB = &'b Self> {
 }
 
 /// A readable shorthand for the type of the items of a [LendingIterator] `I`.
-pub type Item<'b, I> = <I as LendingIteratorItem<'b>>::T;
+pub type Item<'a, I> = <I as LendingIteratorItem<'a>>::T;
 
 /// The main trait: an iterator that borrows its items mutably from
 /// `self`, which implies that you cannot own at the same time two returned
@@ -44,7 +44,7 @@ pub type Item<'b, I> = <I as LendingIteratorItem<'b>>::T;
 ///
 /// The trait depends on the trait [LendingIteratorItem], via
 /// higher-kind trait bounds.
-pub trait LendingIterator: for<'b> LendingIteratorItem<'b> {
+pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
     fn next(&mut self) -> Option<Item<'_, Self>>;
 
     fn take(self, n: usize) -> Take<Self>
