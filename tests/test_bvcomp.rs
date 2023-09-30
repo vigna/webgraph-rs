@@ -80,7 +80,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.start("Compressing...");
                                     pl.expected_updates = Some(NODES);
 
-                                    let mut iter_nodes = seq_graph.iter_nodes();
+                                    let mut iter_nodes = seq_graph.iter();
                                     while let Some((_, iter)) = iter_nodes.next() {
                                         bvcomp.push(iter)?;
                                         pl.light_update();
@@ -106,7 +106,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     );
 
                                     pl.start("Checking equality...");
-                                    let mut iter_nodes = seq_graph.iter_nodes();
+                                    let mut iter_nodes = seq_graph.iter();
                                     for _ in 0..seq_graph.num_nodes() {
                                         let (node0, iter0) = iter_nodes.next().unwrap();
                                         let (node1, iter1) = seq_reader1.next().unwrap();

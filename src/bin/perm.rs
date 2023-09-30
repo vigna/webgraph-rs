@@ -63,13 +63,11 @@ fn permute(
     .unwrap();
 
     // dump the paris
-    PermutedGraph { graph, perm }
-        .iter_nodes()
-        .for_each(|(x, succ)| {
-            succ.into_iter().for_each(|s| {
-                sort_pairs.push(x, s).unwrap();
-            })
-        });
+    PermutedGraph { graph, perm }.iter().for_each(|(x, succ)| {
+        succ.into_iter().for_each(|s| {
+            sort_pairs.push(x, s).unwrap();
+        })
+    });
     // get a graph on the sorted data
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
     let g = arc_list_graph::ArcListGraph::new(num_nodes, edges);
@@ -78,7 +76,7 @@ fn permute(
         arc_list_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
     >(
         args.dest,
-        &mut g.iter_nodes(),
+        &mut g.iter(),
         g.num_nodes(),
         CompFlags::default(),
         args.num_cpus.unwrap_or(num_cpus::get()),

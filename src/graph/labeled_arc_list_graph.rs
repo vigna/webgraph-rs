@@ -115,7 +115,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 
     #[inline(always)]
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = NodeIterator::new(self.num_nodes, self.into_iter.clone().into_iter());
         for _ in 0..from {
             iter.next();

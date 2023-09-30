@@ -449,7 +449,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
 
     /// Calls [`BVComp::extend`] with argument `graph.iter_nodes()`.
     pub fn extend_graph<S: SequentialGraph>(&mut self, graph: &S) -> Result<usize> {
-        let mut iter = graph.iter_nodes();
+        let mut iter = graph.iter();
         self.extend::<<S as SequentialGraph>::Iterator<'_>>(&mut iter)
     }
 
@@ -611,7 +611,7 @@ mod test {
             seq_graph.num_nodes(),
         );
         // Check that the graph is the same
-        let mut iter = seq_graph.iter_nodes().enumerate();
+        let mut iter = seq_graph.iter().enumerate();
         while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
@@ -665,7 +665,7 @@ mod test {
             seq_graph.num_nodes(),
         );
         // Check that the graph is the same
-        let mut iter = seq_graph.iter_nodes().enumerate();
+        let mut iter = seq_graph.iter().enumerate();
         while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 

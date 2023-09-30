@@ -31,7 +31,7 @@ pub fn main() -> Result<()> {
     pr.item_name = "offset";
     pr.start("Computing offsets...");
 
-    let mut iter = seq_graph.iter_nodes();
+    let mut iter = seq_graph.iter();
     while let Some((node_id, successors)) = iter.next() {
         println!(
             "{}\t{}",

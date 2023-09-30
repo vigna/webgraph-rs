@@ -28,7 +28,7 @@ pub fn transpose(
     pl.expected_updates = Some(graph.num_nodes());
     pl.start("Creating batches...");
     // create batches of sorted edges
-    let mut iter = graph.iter_nodes();
+    let mut iter = graph.iter();
     while let Some((src, succ)) = iter.next() {
         for dst in succ {
             sorted.push(dst, src)?;

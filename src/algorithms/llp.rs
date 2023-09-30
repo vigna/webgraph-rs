@@ -346,7 +346,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph.par_graph_apply(
         |range| {
             graph
-                .iter_nodes_from(range.start)
+                .iter_from(range.start)
                 .take(range.len())
                 .map(|(x, succ)| {
                     let mut cost = 0;

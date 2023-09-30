@@ -135,7 +135,7 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_nodes_from(&self, start_node: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
         let codes_reader = self
             .codes_reader_builder
             .get_reader(self.offsets.get(start_node) as _)

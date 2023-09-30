@@ -60,7 +60,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let random_reader = webgraph::graph::bvgraph::load(&args.basename)?;
 
         // Check that sequential and random-access interfaces return the same result
-        let mut seq_iter = seq_graph.iter_nodes();
+        let mut seq_iter = seq_graph.iter();
         let mut deg_reader = seq_graph.iter_degrees();
         for node_id in 0..seq_graph.num_nodes() {
             let seq = seq_iter.next().unwrap();
@@ -76,7 +76,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut c = 0;
             let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
-            let mut iter = seq_graph.iter_nodes();
+            let mut iter = seq_graph.iter();
             while let Some((_, succ)) = iter.next() {
                 c += succ.count();
             }

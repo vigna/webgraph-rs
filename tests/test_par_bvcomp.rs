@@ -40,7 +40,7 @@ fn test_par_bvcomp() -> Result<()> {
             >,
         >(
             tmp_basename,
-            &mut graph.iter_nodes(),
+            &mut graph.iter(),
             graph.num_nodes(),
             comp_flags,
             thread_num,
@@ -49,14 +49,14 @@ fn test_par_bvcomp() -> Result<()> {
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
         let comp_graph = webgraph::graph::bvgraph::load_seq(tmp_basename)?;
-        let mut iter = comp_graph.iter_nodes();
+        let mut iter = comp_graph.iter();
 
         let mut pr = ProgressLogger::default().display_memory();
         pr.item_name = "node";
         pr.start("Checking that the newly compressed graph is equivalent to the original one...");
         pr.expected_updates = Some(graph.num_nodes());
 
-        let mut iter_nodes = graph.iter_nodes();
+        let mut iter_nodes = graph.iter();
         while let Some((node, succ_iter)) = iter_nodes.next() {
             let (new_node, new_succ_iter) = iter.next().unwrap();
             assert_eq!(node, new_node);

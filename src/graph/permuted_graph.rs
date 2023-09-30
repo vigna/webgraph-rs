@@ -34,9 +34,9 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 
     #[inline(always)]
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
         PermutedGraphIterator {
-            iter: self.graph.iter_nodes_from(from),
+            iter: self.graph.iter_from(from),
             perm: self.perm,
         }
     }
@@ -116,7 +116,7 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
     let v = VecGraph::from_node_iter::<PermutedGraphIterator<'_, IteratorImpl<'_, VecGraph<()>>>>(
-        p.iter_nodes(),
+        p.iter(),
     );
 
     assert_eq!(v.num_nodes(), 3);

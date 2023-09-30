@@ -27,12 +27,23 @@ or [PairsGraph](crate::graph::pairs_graph::PairsGraph).
 
 */
 
+/// A trait specifying the type of the items of a [LendingIterator].
+///
+/// Note that the trait specifies that `Self` must outlive `'b`
+/// in a way that is inherited by implementations.
 pub trait LendingIteratorItem<'b, WhereSelfOutlivesB = &'b Self> {
     type T;
 }
 
+/// A readable shorthand for the type of the items of a [LendingIterator] `I`.
 pub type Item<'b, I> = <I as LendingIteratorItem<'b>>::T;
 
+/// The main trait: an iterator that borrows its items mutably from
+/// `self`, which implies that you cannot own at the same time two returned
+/// items.
+///
+/// The trait depends on the trait [LendingIteratorItem], via
+/// higher-kind trait bounds.
 pub trait LendingIterator: for<'b> LendingIteratorItem<'b> {
     fn next(&mut self) -> Option<Item<'_, Self>>;
 

@@ -137,7 +137,7 @@ impl<L: Clone> VecGraph<L> {
     where
         for<'next> <S as SequentialGraph>::Successors<'next>: LabeledSuccessors<Label = L>,
     {
-        self.add_labeled_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter_nodes())
+        self.add_labeled_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter())
     }
 }
 
@@ -195,7 +195,7 @@ impl VecGraph<()> {
 
     /// Add the nodes and arcs in a graph to a [`VecGraph`].
     pub fn add_graph<S: SequentialGraph>(&mut self, graph: &S) -> &mut Self {
-        self.add_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter_nodes())
+        self.add_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter())
     }
 
     /// Add an arc to the graph and return if it was a new one or not.
@@ -267,7 +267,7 @@ impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
         IteratorImpl {
             graph: self,
             nodes: (from..self.num_nodes()),

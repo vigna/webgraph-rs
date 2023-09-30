@@ -53,6 +53,11 @@ impl<T, U> Tuple2 for (T, U) {
 /// ascending order, or the successors of a node will be returned in ascending order.
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
+///
+/// The iterator returned by [iter](SequentialGraph::iter) is [lending](LendingIterator):
+/// to access the next pair, you must have finished to use the previous one. You
+/// can invoke [`LendingIterator::into_iter`] to get a standard iterator, in general
+/// at the cost of some allocation and copying.
 pub trait SequentialGraph {
     type Successors<'succ>: IntoIterator<Item = usize>;
     /// The type of the iterator over the successors of a node
@@ -74,8 +79,8 @@ pub trait SequentialGraph {
     ///
     /// Iterators over the graph return pairs given by a node of the graph
     /// and an [IntoIterator] over its successors.
-    fn iter_nodes(&self) -> Self::Iterator<'_> {
-        self.iter_nodes_from(0)
+    fn iter(&self) -> Self::Iterator<'_> {
+        self.iter_from(0)
     }
 
     /// Return an iterator over the nodes of the graph starting at `from`
@@ -84,7 +89,7 @@ pub trait SequentialGraph {
     /// Note that if the graph iterator [is not sorted](SortedIterator),
     /// `from` is not the node id of the first node returned by the iterator,
     /// but just the starting point of the iteration.
-    fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_>;
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
 
     /// Given a graph, apply `func` to each chunk of nodes of size `granularity`
     /// in parallel, and reduce the results using `reduce`.

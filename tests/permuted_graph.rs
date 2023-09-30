@@ -34,7 +34,7 @@ fn test_permuted() {
 
     assert_eq!(
         permuted_graph
-            .iter_nodes()
+            .iter()
             .map(|(node, successors)| (node, successors.into_iter().collect()))
             .into_iter()
             .collect::<Vec<_>>(),

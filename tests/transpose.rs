@@ -34,7 +34,7 @@ fn test_transpose() -> Result<()> {
         >,
     >(
         TRANSPOSED_PATH,
-        &mut transposed.iter_nodes(),
+        &mut transposed.iter(),
         transposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
@@ -45,7 +45,7 @@ fn test_transpose() -> Result<()> {
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the transposed graph is correct...");
-    let mut iter = transposed_graph.iter_nodes();
+    let mut iter = transposed_graph.iter();
     while let Some((node, succ)) = iter.next() {
         for succ_node in succ {
             assert!(graph.has_arc(succ_node, node));
@@ -63,7 +63,7 @@ fn test_transpose() -> Result<()> {
         >,
     >(
         RE_TRANSPOSED_PATH,
-        &mut retransposed.iter_nodes(),
+        &mut retransposed.iter(),
         retransposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
@@ -74,8 +74,8 @@ fn test_transpose() -> Result<()> {
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the re-transposed graph is as the original one...");
-    let mut true_iter = graph.iter_nodes();
-    let mut retransposed_iter = retransposed_graph.iter_nodes();
+    let mut true_iter = graph.iter();
+    let mut retransposed_iter = retransposed_graph.iter();
     for i in 0..num_nodes {
         let (node, true_succ) = true_iter.next().unwrap();
         let (retransposed_node, retransposed_succ) = retransposed_iter.next().unwrap();
