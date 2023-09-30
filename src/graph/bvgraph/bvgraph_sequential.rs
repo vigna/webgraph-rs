@@ -193,6 +193,7 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
             let number_of_blocks = self.codes_reader.read_block_count() as usize;
             // no blocks, we copy everything
             if number_of_blocks == 0 {
+                results.extend_from_slice(neighbours);
             } else {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero

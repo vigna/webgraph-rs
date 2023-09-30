@@ -50,12 +50,12 @@ impl<W: Debug> Debug for MmapBackend<W, MmapMut> {
 impl<W> MmapBackend<W> {
     /// Create a new MmapBackend
     pub fn load<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
-        let file_len = path.as_ref().metadata()?.len();
+        let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
-
+        let capacity = file_len + 7 / 8;
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)?
+            mmap_rs::MmapOptions::new(capacity * 8)?
                 .with_flags(flags)
                 .with_file(file, 0)
                 .map()?
