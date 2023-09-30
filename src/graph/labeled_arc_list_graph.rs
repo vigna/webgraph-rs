@@ -7,20 +7,28 @@
 use crate::traits::*;
 use core::mem::MaybeUninit;
 
-/// A Sequential graph built on an iterator of pairs of nodes and their labels
+/// An adapter exhibiting a list of labeled
+/// arcs as a [labeled sequential graph](LabeledSequentialGraph).
+///
+/// If the arcs are sorted by source, the iterator of the graph will be sorted.
+///
+/// If for every source the arcs are sorted by destination, the
+/// successors of the graph will be sorted.
 #[derive(Debug, Clone)]
 pub struct LabeledArcListGraph<I: Clone> {
     num_nodes: usize,
-    iter: I,
+    into_iter: I,
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     LabeledArcListGraph<I>
 {
-    /// Create a new graph from an iterator of pairs of nodes
     #[inline(always)]
     pub fn new(num_nodes: usize, iter: I) -> Self {
-        Self { num_nodes, iter }
+        Self {
+            num_nodes,
+            into_iter: iter,
+        }
     }
 }
 
@@ -108,7 +116,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 
     #[inline(always)]
     fn iter_nodes_from(&self, from: usize) -> Self::Iterator<'_> {
-        let mut iter = NodeIterator::new(self.num_nodes, self.iter.clone().into_iter());
+        let mut iter = NodeIterator::new(self.num_nodes, self.into_iter.clone().into_iter());
         for _ in 0..from {
             iter.next();
         }

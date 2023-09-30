@@ -9,8 +9,11 @@ use crate::traits::graph::IteratorImpl;
 use crate::traits::*;
 use alloc::collections::BTreeSet;
 
-/// Vector-based mutable [`Graph`] implementation.
-/// Successors are represented using a [`BTreeSet`].
+/// A vector-based mutable [`Graph`]/[`LabeledGraph`] implementation.
+///
+/// Successors are represented using a [`BTreeSet`]. Choosing `()`
+/// as the label type will result in a [`Graph`] implementation.
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VecGraph<L: Clone> {
     /// The number of arcs in the graph.
@@ -224,7 +227,7 @@ impl<L: Clone> Labeled for VecGraph<L> {
 }
 
 impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
-    type Successors<'a> = VecGraphIter<'a, L> where Self: 'a;
+    type Successors<'a> = Successors<'a, L> where Self: 'a;
 
     #[inline(always)]
     fn num_arcs(&self) -> usize {
@@ -238,7 +241,7 @@ impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
 
     #[inline(always)]
     fn successors(&self, node: usize) -> <Self as RandomAccessGraph>::Successors<'_> {
-        VecGraphIter {
+        Successors {
             iter: self.succ[node].iter(),
             label: unsafe {
                 #[allow(clippy::uninit_assumed_init)]
@@ -249,7 +252,7 @@ impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
 }
 
 impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
-    type Successors<'a> = VecGraphIter<'a, L>;
+    type Successors<'a> = Successors<'a, L>;
     type Iterator<'a> = IteratorImpl<'a, Self>
     where L: 'a;
 
@@ -272,12 +275,12 @@ impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
     }
 }
 
-pub struct VecGraphIter<'a, L: Clone> {
+pub struct Successors<'a, L: Clone> {
     label: L,
     iter: std::collections::btree_set::Iter<'a, DstWithLabel<L>>,
 }
 
-impl<'a, T: Clone> Iterator for VecGraphIter<'a, T> {
+impl<'a, T: Clone> Iterator for Successors<'a, T> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -287,19 +290,19 @@ impl<'a, T: Clone> Iterator for VecGraphIter<'a, T> {
     }
 }
 
-impl<'a, L: Clone> Labeled for VecGraphIter<'a, L> {
+impl<'a, L: Clone> Labeled for Successors<'a, L> {
     type Label = L;
 }
 
-impl<'a, T: Clone> LabeledSuccessors for VecGraphIter<'a, T> {
+impl<'a, T: Clone> LabeledSuccessors for Successors<'a, T> {
     fn label(&self) -> Self::Label {
         self.label.clone()
     }
 }
 
-unsafe impl<'a, T: Clone> SortedSuccessors for VecGraphIter<'a, T> {}
+unsafe impl<'a, T: Clone> SortedSuccessors for Successors<'a, T> {}
 
-impl<'a, T: Clone> ExactSizeIterator for VecGraphIter<'a, T> {
+impl<'a, T: Clone> ExactSizeIterator for Successors<'a, T> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()

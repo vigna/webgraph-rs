@@ -8,7 +8,10 @@
 use crate::prelude::*;
 
 #[derive(Clone)]
-/// A Graph wrapper that applies on the fly a permutation of the nodes
+/// A wrapper applying a permutation to the iterators of an underlying graph.
+///
+/// Note that nodes are simply remapped: thus, neither the iterator on the graph
+/// nor the successors are sorted.
 pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub graph: &'a G,
     pub perm: &'a [usize],
@@ -79,17 +82,7 @@ where
     }
 }
 
-/*
-impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> ExactSizeIterator
-    for PermutedGraphIterator<'a, I, J>
-{
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-} */
-
 #[derive(Clone)]
-/// An iterator over the successors of a node of a graph that applies on the fly a permutation of the nodes
 pub struct PermutedSuccessors<'a, I: Iterator<Item = usize>> {
     iter: I,
     perm: &'a [usize],

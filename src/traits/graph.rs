@@ -7,7 +7,8 @@
 
 /*!
 
-Basic traits to access graphs, both sequentially and randomly.
+Basic traits to access graphs, both sequentially and
+in random-access fashion.
 
 */
 
@@ -19,7 +20,39 @@ use core::{
 use dsi_progress_logger::ProgressLogger;
 use std::sync::Mutex;
 
-/// A graph that can be accessed sequentially
+/// A support trait that make it possible to specify separate conditions
+/// on the two components of the pairs returned by a
+/// [graph iterator](SequentialGraph::Iterator).
+///
+/// The user should rarely, if ever, interact with this trait. A good
+/// example of its use is in
+/// [`VecGraph::from_node_iter`](crate::graph::vec_graph::VecGraph::from_node_iter).
+///
+/// The main purpose of [Tuple2] is to make it possible to write methods
+/// accepting a generic [lending iterator](LendingIterator) returning pairs
+/// of nodes and successors, and to iterate over such iterators.
+pub trait Tuple2 {
+    type _0;
+    type _1;
+
+    fn into_tuple(self) -> (Self::_0, Self::_1);
+}
+
+impl<T, U> Tuple2 for (T, U) {
+    type _0 = T;
+    type _1 = U;
+
+    fn into_tuple(self) -> (Self::_0, Self::_1) {
+        self
+    }
+}
+
+/// A graph that can be accessed sequentially.
+///
+/// Note that there is no guarantee that the iterator will return nodes in
+/// ascending order, or the successors of a node will be returned in ascending order.
+/// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
+/// force these properties.
 pub trait SequentialGraph {
     type Successors<'succ>: IntoIterator<Item = usize>;
     /// The type of the iterator over the successors of a node
@@ -174,8 +207,8 @@ pub trait RandomAccessGraph: SequentialGraph {
     }
 }
 
-/// A struct used to implement [a graph iterator](LendingIterator) for a struct that
-/// implements [`RandomAccessGraph`].
+/// A struct used to make it easy to implement [a graph iterator](LendingIterator)
+/// for a type that implements [`RandomAccessGraph`].
 pub struct IteratorImpl<'node, G: RandomAccessGraph> {
     pub graph: &'node G,
     pub nodes: core::ops::Range<usize>,

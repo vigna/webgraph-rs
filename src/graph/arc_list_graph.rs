@@ -6,17 +6,25 @@
 
 use crate::traits::*;
 
-/// A Sequential graph built on an iterator of pairs of nodes
+/// An adapter exhibiting a list of arcs as a [sequential graph](SequentialGraph).
+///
+/// If the arcs are sorted by source, the iterator of the graph will be sorted.
+///
+/// If for every source the arcs are sorted by destination, the
+/// successors of the graph will be sorted.
 #[derive(Debug, Clone)]
 pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
-    iter: I,
+    into_iter: I,
 }
 
 impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> ArcListGraph<I> {
     /// Create a new graph from an iterator of pairs of nodes
     pub fn new(num_nodes: usize, iter: I) -> Self {
-        Self { num_nodes, iter }
+        Self {
+            num_nodes,
+            into_iter: iter,
+        }
     }
 }
 
@@ -77,7 +85,7 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph f
 
     /// Get an iterator over the nodes of the graph
     fn iter_nodes_from(&self, from: usize) -> NodeIterator<I> {
-        let mut iter = NodeIterator::new(self.num_nodes, self.iter.clone().into_iter());
+        let mut iter = NodeIterator::new(self.num_nodes, self.into_iter.clone().into_iter());
         for _ in 0..from {
             iter.next();
         }
@@ -85,16 +93,6 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph f
     }
 }
 
-/*
-impl<'a, I: IntoIterator<Item = (usize, usize)>> ExactSizeIterator
-    for SortedNodePermutedIterator<'a, I>
-{
-    fn len(&self) -> usize {
-        self.num_nodes - self.curr_node - 1
-    }
-}*/
-
-/// Iter until we found a triple with src different than curr_node
 pub struct Successors<'succ, I: IntoIterator<Item = (usize, usize)>> {
     node_iter: &'succ mut NodeIterator<I>,
 }

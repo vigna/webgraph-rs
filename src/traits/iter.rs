@@ -27,22 +27,6 @@ or [PairsGraph](crate::graph::pairs_graph::PairsGraph).
 
 */
 
-pub trait Tuple2 {
-    type _0;
-    type _1;
-
-    fn into_tuple(self) -> (Self::_0, Self::_1);
-}
-
-impl<T, U> Tuple2 for (T, U) {
-    type _0 = T;
-    type _1 = U;
-
-    fn into_tuple(self) -> (Self::_0, Self::_1) {
-        self
-    }
-}
-
 pub trait LendingIteratorItem<'b, WhereSelfOutlivesB = &'b Self> {
     type T;
 }
