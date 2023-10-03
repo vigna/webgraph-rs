@@ -57,6 +57,14 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         }
     }
 
+    fn inspect<F>(self, f: F) -> Inspect<Self, F>
+    where
+        Self: Sized,
+        for<'any> F: FnMut(&'_ Item<'_, Self>),
+    {
+        Inspect { iter: self, f }
+    }
+
     fn map<NewItemType, F>(self, map: F) -> Map<Self, F, NewItemType>
     where
         Self: Sized,
@@ -117,6 +125,34 @@ impl<I: LendingIterator> LendingIterator for Take<I> {
         } else {
             None
         }
+    }
+}
+
+pub struct Inspect<I: LendingIterator, F>
+where
+    for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T),
+{
+    pub(crate) iter: I,
+    pub(crate) f: F,
+}
+
+impl<'succ, I: LendingIterator, F> LendingIteratorItem<'succ> for Inspect<I, F>
+where
+    for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T),
+{
+    type T = <I as LendingIteratorItem<'succ>>::T;
+}
+
+impl<I, F> LendingIterator for Inspect<I, F>
+where
+    I: LendingIterator,
+    for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T),
+{
+    fn next(&mut self) -> Option<Item<'_, Self>> {
+        self.iter.next().map(|item| {
+            (self.f)(&item);
+            item
+        })
     }
 }
 
