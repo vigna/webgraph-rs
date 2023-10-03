@@ -47,6 +47,8 @@ pub type Item<'a, I> = <I as LendingIteratorItem<'a>>::T;
 pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
     fn next(&mut self) -> Option<Item<'_, Self>>;
 
+    /// Like [`Iterator::take`], creates an iterator that yields the first n elements,
+    /// or fewer if the underlying iterator ends sooner.
     fn take(self, n: usize) -> Take<Self>
     where
         Self: Sized,
@@ -57,6 +59,8 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         }
     }
 
+    /// Like [`Iterator::inspect`], does something with each element of an iterator,
+    /// passing the value on.
     fn inspect<F>(self, f: F) -> Inspect<Self, F>
     where
         Self: Sized,
@@ -65,6 +69,8 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         Inspect { iter: self, f }
     }
 
+    /// Like [`Iterator::map`], takes a closure and creates an iterator which calls
+    /// that closure on each element.
     fn map<NewItemType, F>(self, map: F) -> Map<Self, F, NewItemType>
     where
         Self: Sized,
@@ -73,6 +79,8 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         Map { iter: self, map }
     }
 
+    /// Like [`Iterator::fold`], folds every element into an accumulator by applying
+    /// an operation, returning the final result.
     fn fold<B, F>(mut self, init: B, mut f: F) -> B
     where
         Self: Sized,
@@ -85,6 +93,7 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         accum
     }
 
+    /// Like [`Iterator::for_each`], calls a closure on each element of an iterator.
     fn for_each(self, mut f: impl FnMut(Item<'_, Self>))
     where
         Self: Sized,
@@ -92,6 +101,7 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         self.fold((), |(), item| f(item))
     }
 
+    /// Turns this `LendingIterator` into a regular [`Iterator`]
     fn into_iter<Item>(self) -> IntoIter<Self>
     where
         Self: for<'any> LendingIteratorItem<'any, T = Item>,
@@ -100,6 +110,8 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         IntoIter(self)
     }
 
+    /// Like [`Iterator::enumerate`], creates an iterator which gives the current
+    /// iteration count as well as the next value.
     fn enumerate(self) -> Enumerate<Self>
     where
         Self: Sized,
@@ -108,6 +120,7 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
     }
 }
 
+/// This struct is returned by [`LendingIterator::take`]
 pub struct Take<I: LendingIterator> {
     pub(crate) iter: I,
     pub(crate) remaining: usize,
@@ -128,6 +141,7 @@ impl<I: LendingIterator> LendingIterator for Take<I> {
     }
 }
 
+/// This struct is returned by [`LendingIterator::inspect`]
 pub struct Inspect<I: LendingIterator, F>
 where
     for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T),
@@ -156,6 +170,7 @@ where
     }
 }
 
+/// This struct is returned by [`LendingIterator::map`]
 pub struct Map<I: LendingIterator, F, NewItemType>
 where
     for<'any> F: FnMut(<I as LendingIteratorItem>::T) -> NewItemType,
@@ -182,6 +197,7 @@ where
     }
 }
 
+/// This struct is returned by [`LendingIterator::into_iter`]
 pub struct IntoIter<I: ?Sized + LendingIterator>(pub I);
 
 impl<Item, I: ?Sized + LendingIterator> Iterator for IntoIter<I>
@@ -195,6 +211,7 @@ where
     }
 }
 
+/// This struct is returned by [`LendingIterator::enumerate`]
 pub struct Enumerate<I> {
     iter: I,
     count: usize,
