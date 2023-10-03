@@ -15,7 +15,7 @@ use crate::utils::nat2int;
 /// sequentially or randomly without having to decode the whole graph.
 pub struct BVGraph<
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
 > {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
@@ -36,7 +36,7 @@ pub struct BVGraph<
 impl<CRB, OFF> BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     /// Create a new BVGraph from the given parameters.
     ///
@@ -93,7 +93,7 @@ where
     pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
     where
         F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
-        OFF2: IndexedDict<InputValue = usize, OutputValue = usize>,
+        OFF2: IndexedDict<Input = usize, Output = usize>,
     {
         BVGraph {
             codes_reader_builder: self.codes_reader_builder,
@@ -115,7 +115,7 @@ where
 impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
     where
@@ -163,7 +163,7 @@ where
 impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     type Successors<'a> = RandomSuccessorIter<CRB::Reader<'a>>
     where Self: 'a, CRB: 'a;
@@ -401,7 +401,7 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<InputValue = usize, OutputValue = usize>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
