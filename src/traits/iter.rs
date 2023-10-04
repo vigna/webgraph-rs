@@ -121,6 +121,7 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
 }
 
 /// This struct is returned by [`LendingIterator::take`]
+#[derive(Clone, Debug)]
 pub struct Take<I: LendingIterator> {
     pub(crate) iter: I,
     pub(crate) remaining: usize,
@@ -142,6 +143,7 @@ impl<I: LendingIterator> LendingIterator for Take<I> {
 }
 
 /// This struct is returned by [`LendingIterator::inspect`]
+#[derive(Clone, Debug)]
 pub struct Inspect<I: LendingIterator, F>
 where
     for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T),
@@ -171,6 +173,7 @@ where
 }
 
 /// This struct is returned by [`LendingIterator::map`]
+#[derive(Clone, Debug)]
 pub struct Map<I: LendingIterator, F, NewItemType>
 where
     for<'any> F: FnMut(<I as LendingIteratorItem>::T) -> NewItemType,
@@ -198,6 +201,7 @@ where
 }
 
 /// This struct is returned by [`LendingIterator::into_iter`]
+#[derive(Clone, Debug)]
 pub struct IntoIter<I: ?Sized + LendingIterator>(pub I);
 
 impl<Item, I: ?Sized + LendingIterator> Iterator for IntoIter<I>
@@ -212,6 +216,7 @@ where
 }
 
 /// This struct is returned by [`LendingIterator::enumerate`]
+#[derive(Clone, Debug)]
 pub struct Enumerate<I> {
     iter: I,
     count: usize,
