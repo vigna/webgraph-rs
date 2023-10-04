@@ -16,7 +16,7 @@ pub struct ArcListGraph<I: Clone> {
     into_iter: I,
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> ArcListGraph<I> {
+impl<I: IntoIterator<Item = (usize, usize)> + Clone> ArcListGraph<I> {
     /// Create a new graph from an iterator of pairs of nodes
     pub fn new(num_nodes: usize, iter: I) -> Self {
         Self {
@@ -27,20 +27,20 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> ArcListGraph<I> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NodeIterator<I: IntoIterator<Item = (usize, usize)>> {
+pub struct NodeIterator<I: Iterator<Item = (usize, usize)>> {
     num_nodes: usize,
     curr_node: usize,
     next_pair: (usize, usize),
-    iter: I::IntoIter,
+    iter: I,
 }
 
-unsafe impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SortedIterator
+unsafe impl<I: Iterator<Item = (usize, usize)> + Clone> SortedIterator
     for NodeIterator<I>
 {
 }
 
-impl<I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {
-    pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
+impl<I: Iterator<Item = (usize, usize)>> NodeIterator<I> {
+    pub fn new(num_nodes: usize, mut iter: I) -> Self {
         NodeIterator {
             num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
@@ -50,13 +50,13 @@ impl<I: IntoIterator<Item = (usize, usize)>> NodeIterator<I> {
     }
 }
 
-impl<'succ, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIteratorItem<'succ>
+impl<'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
     for NodeIterator<I>
 {
     type T = (usize, Successors<'succ, I>);
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIterator for NodeIterator<I> {
+impl<I: Iterator<Item = (usize, usize)> + Clone> LendingIterator for NodeIterator<I> {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
@@ -72,9 +72,14 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> LendingIterator f
     }
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for ArcListGraph<I> {
-    type Successors<'succ> = Successors<'succ, I>;
-    type Iterator<'node> = NodeIterator<I> where Self: 'node;
+impl<I: Iterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for ArcListGraph<I> {
+    type Successors<'succ> = Successors<'succ, I>
+    where
+        Self: 'succ,
+        I: 'succ;
+    type Iterator<'node> = NodeIterator<I> 
+    where Self: 'node,
+        I: 'node;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -96,11 +101,11 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph f
     }
 }
 
-pub struct Successors<'succ, I: IntoIterator<Item = (usize, usize)>> {
+pub struct Successors<'succ, I: Iterator<Item = (usize, usize)>> {
     node_iter: &'succ mut NodeIterator<I>,
 }
 
-impl<'succ, 'node: 'succ, I: IntoIterator<Item = (usize, usize)>> Iterator
+impl<'succ, I: Iterator<Item = (usize, usize)>> Iterator
     for Successors<'succ, I>
 {
     type Item = usize;
@@ -130,7 +135,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
     let coo = ArcListGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_graph(&coo);
+    let g2 = VecGraph::from_node_iter(coo.iter_nodes());
     assert_eq!(g, g2);
     Ok(())
 }
