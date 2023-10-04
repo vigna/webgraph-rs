@@ -59,6 +59,16 @@ pub trait LendingIterator: for<'a> LendingIteratorItem<'a> {
         }
     }
 
+    /// Like [`Iterator::take_while`], creates an iterator that yields elements based
+    /// on a predicate.
+    fn take_while<P>(self, predicate: P) -> TakeWhile<Self, P>
+    where
+        Self: Sized,
+        P: FnMut(&'_ Item<'_, Self>) -> bool,
+    {
+        TakeWhile { iter: self, predicate, ended: false }
+    }
+
     /// Like [`Iterator::inspect`], does something with each element of an iterator,
     /// passing the value on.
     fn inspect<F>(self, f: F) -> Inspect<Self, F>
@@ -138,6 +148,45 @@ impl<I: LendingIterator> LendingIterator for Take<I> {
             self.iter.next()
         } else {
             None
+        }
+    }
+}
+
+/// This struct is returned by [`LendingIterator::map`]
+#[derive(Clone, Debug)]
+pub struct TakeWhile<I: LendingIterator, F>
+where
+    for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T) -> bool,
+{
+    pub(crate) iter: I,
+    pub(crate) predicate: F,
+    pub(crate) ended: bool,
+}
+
+impl<'succ, I: LendingIterator, F> LendingIteratorItem<'succ>
+    for TakeWhile<I, F>
+where
+    for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T) -> bool,
+{
+    type T = <I as LendingIteratorItem<'succ>>::T;
+}
+
+impl<I, F> LendingIterator for TakeWhile<I, F>
+where
+    I: LendingIterator,
+    for<'any> F: FnMut(&'_ <I as LendingIteratorItem>::T) -> bool,
+{
+    fn next(&mut self) -> Option<Item<'_, Self>> {
+        if self.ended {
+            None
+        } else {
+            let next_item = self.iter.next()?;
+            if (self.predicate)(&next_item) {
+                Some(next_item)
+            } else {
+                self.ended = true;
+                None
+            }
         }
     }
 }
