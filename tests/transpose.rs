@@ -57,7 +57,7 @@ fn test_transpose() -> Result<()> {
     parallel_compress_sequential_iter::<
         arc_list_graph::NodeIterator<
             std::iter::Map<
-                KMergeIters<BatchIterator<DummyBitSerDes>, ()>,
+                KMergeIters<BatchIterator<()>, ()>,
                 fn((usize, usize, ())) -> (usize, usize),
             >,
         >,
