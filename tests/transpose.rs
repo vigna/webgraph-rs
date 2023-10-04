@@ -34,7 +34,7 @@ fn test_transpose() -> Result<()> {
         >,
     >(
         TRANSPOSED_PATH,
-        &mut transposed.iter(),
+        transposed.iter(),
         transposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
@@ -63,7 +63,7 @@ fn test_transpose() -> Result<()> {
         >,
     >(
         RE_TRANSPOSED_PATH,
-        &mut retransposed.iter(),
+        retransposed.iter(),
         retransposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),

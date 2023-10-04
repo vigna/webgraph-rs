@@ -111,7 +111,7 @@ pub fn main() -> Result<()> {
         arc_list_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
     >(
         args.basename,
-        &mut sorted.iter(),
+        sorted.iter(),
         sorted.num_nodes(),
         compression_flags,
         args.num_cpus.unwrap_or(rayon::current_num_threads()),

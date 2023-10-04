@@ -94,7 +94,7 @@ pub fn compress_sequential_iter<
 /// lenght in bits of the produced file
 pub fn parallel_compress_sequential_iter<L: LendingIterator + Clone + Send>(
     basename: impl AsRef<Path> + Send + Sync,
-    iter: &mut L,
+    mut iter: L,
     num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
@@ -153,7 +153,7 @@ where
                     nodes_per_thread * (thread_id + 1),
                 );
                 // Spawn the thread
-                let mut thread_iter = iter.clone();
+                let thread_iter = iter.clone();
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
                     let writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(
@@ -167,7 +167,7 @@ where
                         cp_flags.max_ref_count,
                         nodes_per_thread * thread_id,
                     );
-                    let written_bits = bvcomp.extend::<L>(&mut thread_iter).unwrap();
+                    let written_bits = bvcomp.extend::<L>(thread_iter).unwrap();
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
                         thread_id,

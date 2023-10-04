@@ -76,7 +76,7 @@ fn permute(
         arc_list_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
     >(
         args.dest,
-        &mut g.iter(),
+        g.iter(),
         g.num_nodes(),
         CompFlags::default(),
         args.num_cpus.unwrap_or(num_cpus::get()),

@@ -40,7 +40,7 @@ fn test_par_bvcomp() -> Result<()> {
             >,
         >(
             tmp_basename,
-            &mut graph.iter(),
+            graph.iter(),
             graph.num_nodes(),
             comp_flags,
             thread_num,

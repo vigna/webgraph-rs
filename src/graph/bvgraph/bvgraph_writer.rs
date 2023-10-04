@@ -432,7 +432,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// WARNING: presently type inference does not work very well with this method:
     /// you have to specify the type of `L` explicitly, sometimes just
     /// partially---your mileage may vary.
-    pub fn extend<L>(&mut self, iter_nodes: &mut L) -> Result<usize>
+    pub fn extend<L>(&mut self, mut iter_nodes: L) -> Result<usize>
     where
         L: LendingIterator,
         for<'next> Item<'next, L>: Tuple2<_0 = usize>,
@@ -449,8 +449,8 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
 
     /// Calls [`BVComp::extend`] with argument `graph.iter_nodes()`.
     pub fn extend_graph<S: SequentialGraph>(&mut self, graph: &S) -> Result<usize> {
-        let mut iter = graph.iter();
-        self.extend::<<S as SequentialGraph>::Iterator<'_>>(&mut iter)
+        let iter = graph.iter();
+        self.extend::<<S as SequentialGraph>::Iterator<'_>>(iter)
     }
 
     /// Consume the compressor and flush the inner writer.
