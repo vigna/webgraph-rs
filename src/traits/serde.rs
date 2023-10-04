@@ -39,15 +39,7 @@ pub trait BitDeserializer: Clone {
     ) -> Result<Self::DeserType>;
 }
 
-/// A dummy serializer and deserializer that does not write anything and
-/// has `()` as [`SerType`](`BitSerializer::SerType`) and [`DeserType`](`BitDeserializer::DeserType`).
-///
-/// This is useful when implmenting an algorithm over a labeled graph but
-/// but we want to be able to use it also on unlabeled graphs.
-#[derive(Clone, Copy, Debug)]
-pub struct DummyBitSerDes;
-
-impl BitSerializer for DummyBitSerDes {
+impl BitSerializer for () {
     type SerType = ();
     #[inline(always)]
     fn serialize<E: Endianness, B: CodeWrite<E>>(
@@ -59,7 +51,7 @@ impl BitSerializer for DummyBitSerDes {
     }
 }
 
-impl BitDeserializer for DummyBitSerDes {
+impl BitDeserializer for () {
     type DeserType = ();
     #[inline(always)]
     fn deserialize<E: Endianness, B: CodeRead<E>>(
