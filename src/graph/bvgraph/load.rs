@@ -23,9 +23,10 @@ macro_rules! impl_loads {
             basename: impl AsRef<Path>,
         ) -> Result<BVGraph<$builder<BE, MmapBackend<u32>>, crate::EF<&'static [usize]>>> {
             let basename = basename.as_ref();
-            let properties_path = format!("{}.properties", basename.to_string_lossy());
-            let f = File::open(&properties_path)
-                .with_context(|| format!("Cannot open property file {}", properties_path))?;
+            let properties_path = suffix_path(basename, ".properties");
+            let f = File::open(&properties_path).with_context(|| {
+                format!("Cannot open property file {}", properties_path.display())
+            })?;
             let map = java_properties::read(BufReader::new(f))
                 .with_context(|| "cannot parse the .properties file as a java properties file")?;
 
@@ -48,13 +49,15 @@ macro_rules! impl_loads {
             }
 
             let graph = MmapBackend::load(
-                format!("{}.graph", basename.to_string_lossy()),
+                suffix_path(basename, ".graph"),
                 MmapFlags::TRANSPARENT_HUGE_PAGES,
             )?;
 
-            let ef_path = format!("{}.ef", basename.to_string_lossy());
+            let ef_path = suffix_path(basename, ".ef");
             let offsets = <crate::EF<Vec<usize>>>::mmap(&ef_path, Flags::TRANSPARENT_HUGE_PAGES)
-                .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
+                .with_context(|| {
+                    format!("Cannot open the elias-fano file {}", ef_path.display())
+                })?;
 
             let comp_flags = CompFlags::from_properties(&map)?;
             let code_reader_builder = <$builder<BE, MmapBackend<u32>>>::new(graph, comp_flags)?;
@@ -74,9 +77,10 @@ macro_rules! impl_loads {
             basename: P,
         ) -> Result<BVGraphSequential<$builder<BE, MmapBackend<u32>>>> {
             let basename = basename.as_ref();
-            let properties_path = format!("{}.properties", basename.to_string_lossy());
-            let f = File::open(&properties_path)
-                .with_context(|| format!("Cannot open property file {}", properties_path))?;
+            let properties_path = suffix_path(basename, ".properties");
+            let f = File::open(&properties_path).with_context(|| {
+                format!("Cannot open property file {}", properties_path.display())
+            })?;
             let map = java_properties::read(BufReader::new(f))
                 .with_context(|| "cannot parse the .properties file as a java properties file")?;
 
@@ -99,7 +103,7 @@ macro_rules! impl_loads {
             }
 
             let graph = MmapBackend::load(
-                format!("{}.graph", basename.to_string_lossy()),
+                suffix_path(basename, ".graph"),
                 MmapFlags::TRANSPARENT_HUGE_PAGES,
             )?;
 

@@ -6,6 +6,7 @@
  */
 
 use super::*;
+use crate::utils::suffix_path;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
@@ -30,7 +31,7 @@ pub fn compress_sequential_iter<
     build_offsets: bool,
 ) -> Result<usize> {
     let basename = basename.as_ref();
-    let graph_path = format!("{}.graph", basename.to_string_lossy());
+    let graph_path = suffix_path(basename, ".graph");
 
     // Compress the graph
     let bit_write =
@@ -58,7 +59,7 @@ pub fn compress_sequential_iter<
     let mut result = 0;
 
     if build_offsets {
-        let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
+        let file = std::fs::File::create(suffix_path(basename, ".offsets"))?;
         // create a bit writer on the file
         let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
             BufWriter::with_capacity(1 << 20, file),
@@ -81,10 +82,7 @@ pub fn compress_sequential_iter<
 
     log::info!("Writing the .properties file");
     let properties = compression_flags.to_properties(num_nodes, bvcomp.arcs);
-    std::fs::write(
-        format!("{}.properties", basename.to_string_lossy()),
-        properties,
-    )?;
+    std::fs::write(suffix_path(basename, ".properties"), properties)?;
 
     bvcomp.flush()?;
     Ok(result)
@@ -105,7 +103,7 @@ where
     for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let basename = basename.as_ref();
-    let graph_path = format!("{}.graph", basename.to_string_lossy());
+    let graph_path = suffix_path(basename, ".graph");
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();
@@ -130,7 +128,7 @@ where
         log::info!(
             "Spawning the main compression thread {} writing on {} writing from node_id {} to {}",
             last_thread_id,
-            last_file_path.to_string_lossy(),
+            last_file_path.display(),
             last_thread_id * nodes_per_thread,
             num_nodes,
         );
@@ -148,7 +146,7 @@ where
                 log::info!(
                     "Spawning compression thread {} writing on {} form node id {} to {}",
                     thread_id,
-                    file_path.to_string_lossy(),
+                    file_path.display(),
                     nodes_per_thread * thread_id,
                     nodes_per_thread * (thread_id + 1),
                 );
@@ -249,8 +247,8 @@ where
                 bits_to_copy,
                 result_len,
                 result_len + bits_to_copy,
-                file_path.to_string_lossy(),
-                basename.to_string_lossy()
+                file_path.display(),
+                basename.display()
             );
             result_len += bits_to_copy;
 
@@ -271,10 +269,7 @@ where
 
         log::info!("Writing the .properties file");
         let properties = compression_flags.to_properties(num_nodes, total_arcs);
-        std::fs::write(
-            format!("{}.properties", basename.to_string_lossy()),
-            properties,
-        )?;
+        std::fs::write(suffix_path(basename, ".properties"), properties)?;
 
         log::info!(
             "Compressed {} arcs into {} bits for {:.4} bits/arc",

@@ -5,6 +5,9 @@
  */
 
 //! Collection of common functions we use throughout the codebase
+
+use std::path::{Path, PathBuf};
+
 mod dbg_codes;
 pub use dbg_codes::*;
 
@@ -26,6 +29,24 @@ pub const fn int2nat(x: i64) -> u64 {
 /// ```
 pub const fn nat2int(x: u64) -> i64 {
     ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
+}
+
+/// Appends a string to a path
+///
+/// ```
+/// # use std::path::{Path, PathBuf};
+/// # use webgraph::prelude::suffix_path;
+///
+/// assert_eq!(
+///     suffix_path(Path::new("/tmp/graph"), "-transposed"),
+///     Path::new("/tmp/graph-transposed").to_owned()
+/// );
+/// ```
+#[inline(always)]
+pub fn suffix_path<P: AsRef<Path>, S: AsRef<std::ffi::OsStr>>(path: P, suffix: S) -> PathBuf {
+    let mut path = path.as_ref().as_os_str().to_owned();
+    path.push(suffix);
+    path.into()
 }
 
 mod circular_buffer;
