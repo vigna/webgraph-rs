@@ -50,15 +50,27 @@ impl<W: Debug> Debug for MmapBackend<W, MmapMut> {
 impl<W> MmapBackend<W> {
     /// Create a new MmapBackend
     pub fn load<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
-        let file_len = path.as_ref().metadata()?.len() as usize;
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
+            .len() as usize;
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
         let capacity = file_len + 7 / 8;
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(capacity * 8)?
+            mmap_rs::MmapOptions::new(capacity * 8)
+                .with_context(|| format!("Cannot initialize mmap of size {}", capacity * 8))?
                 .with_flags(flags)
                 .with_file(file, 0)
-                .map()?
+                .map()
+                .with_context(|| {
+                    format!(
+                        "Cannot mmap {} (size {})",
+                        path.as_ref().display(),
+                        capacity * 8
+                    )
+                })?
         };
 
         Ok(Self {
@@ -72,18 +84,35 @@ impl<W> MmapBackend<W> {
 impl<W> MmapBackend<W, MmapMut> {
     /// Create a new mutable MmapBackend
     pub fn load_mut<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
-        let file_len = path.as_ref().metadata()?.len();
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
+            .len();
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
             .open(path.as_ref())
-            .with_context(|| "Cannot open file for mutable MmapBackend")?;
+            .with_context(|| {
+                format!(
+                    "Cannot open {} for mutable MmapBackend",
+                    path.as_ref().display()
+                )
+            })?;
 
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)?
+            mmap_rs::MmapOptions::new(file_len as _)
+                .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
                 .with_file(file, 0)
-                .map_mut()?
+                .map_mut()
+                .with_context(|| {
+                    format!(
+                        "Cannot mutably mmap {} (size {})",
+                        path.as_ref().display(),
+                        file_len
+                    )
+                })?
         };
 
         Ok(Self {
@@ -95,19 +124,30 @@ impl<W> MmapBackend<W, MmapMut> {
 
     /// Create a new mutable MmapBackend
     pub fn new<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
-        let file_len = path.as_ref().metadata()?.len();
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
+            .len();
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .open(path.as_ref())
-            .with_context(|| "Cannot create file for mutable MmapBackend")?;
+            .with_context(|| {
+                format!(
+                    "Cannot create {} for mutable MmapBackend",
+                    path.as_ref().display()
+                )
+            })?;
 
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)?
+            mmap_rs::MmapOptions::new(file_len as _)
+                .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
                 .with_file(file, 0)
-                .map_mut()?
+                .map_mut()
+                .with_context(|| format!("Cannot mutably mmap {}", path.as_ref().display()))?
         };
 
         Ok(Self {

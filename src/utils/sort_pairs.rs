@@ -228,19 +228,25 @@ impl<D: BitDeserializer> BatchIterator<D> {
         let (mut prev_src, mut prev_dst) = (0, 0);
         for (src, dst, payload) in batch.iter() {
             // write the src gap as gamma
-            stream.write_gamma((src - prev_src) as _)?;
+            stream
+                .write_gamma((src - prev_src) as _)
+                .with_context(|| format!("Could not write {} after {}", src, prev_src))?;
             if *src != prev_src {
                 // Reset prev_y
                 prev_dst = 0;
             }
             // write the dst gap as gamma
-            stream.write_gamma((dst - prev_dst) as _)?;
+            stream
+                .write_gamma((dst - prev_dst) as _)
+                .with_context(|| format!("Could not write {} after {}", dst, prev_dst))?;
             // write the payload
-            serializer.serialize(payload, &mut stream)?;
+            serializer
+                .serialize(payload, &mut stream)
+                .context("Could not serialize payload")?;
             (prev_src, prev_dst) = (*src, *dst);
         }
         // flush the stream and reset the buffer
-        stream.flush()?;
+        stream.flush().context("Could not flush stream")?;
 
         Self::new_labeled(file_path.as_ref(), batch.len(), deserializer)
     }
@@ -251,10 +257,10 @@ impl<D: BitDeserializer> BatchIterator<D> {
         len: usize,
         deserializer: D,
     ) -> Result<Self> {
-        let stream = <BufBitReader<LE, u64, _>>::new(MemWordReaderInf::new(MmapBackend::load(
-            file_path,
-            MmapFlags::TRANSPARENT_HUGE_PAGES,
-        )?));
+        let stream = <BufBitReader<LE, u64, _>>::new(MemWordReaderInf::new(
+            MmapBackend::load(file_path.as_ref(), MmapFlags::TRANSPARENT_HUGE_PAGES)
+                .with_context(|| format!("Could not mmap {}", file_path.as_ref().display()))?,
+        ));
         Ok(BatchIterator {
             stream,
             len,
