@@ -8,6 +8,7 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
+use hrtb_lending_iterator::*;
 use std::io::prelude::*;
 use sux::prelude::*;
 use webgraph::prelude::*;

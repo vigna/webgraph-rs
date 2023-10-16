@@ -10,6 +10,7 @@ use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
+use hrtb_lending_iterator::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;

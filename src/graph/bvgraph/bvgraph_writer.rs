@@ -10,6 +10,7 @@ use crate::utils::int2nat;
 use crate::utils::{CircularBuffer, CircularBufferVec};
 use anyhow::Result;
 use core::cmp::Ordering;
+use hrtb_lending_iterator::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {

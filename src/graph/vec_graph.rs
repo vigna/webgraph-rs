@@ -8,6 +8,7 @@
 use crate::traits::graph::IteratorImpl;
 use crate::traits::*;
 use alloc::collections::BTreeSet;
+use hrtb_lending_iterator::{Item, LendingIterator};
 
 /// A vector-based mutable [`Graph`]/[`LabeledGraph`] implementation.
 ///

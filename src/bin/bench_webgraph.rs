@@ -5,6 +5,7 @@
  */
 
 use clap::Parser;
+use hrtb_lending_iterator::*;
 use itertools::Itertools;
 use rand::rngs::SmallRng;
 use rand::Rng;

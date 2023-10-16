@@ -6,8 +6,10 @@
  */
 
 use anyhow::Result;
+use hrtb_lending_iterator::*;
 use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
+
 #[test]
 fn test_transpose() -> Result<()> {
     const TRANSPOSED_PATH: &str = "tests/data/cnr-2000-transposed";
@@ -29,7 +31,7 @@ fn test_transpose() -> Result<()> {
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<
-        arc_list_graph::NodeIterator<
+        arc_list_graph::Iterator<
             std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
         >,
     >(
@@ -55,7 +57,7 @@ fn test_transpose() -> Result<()> {
     let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<
-        arc_list_graph::NodeIterator<
+        arc_list_graph::Iterator<
             std::iter::Map<
                 KMergeIters<BatchIterator<()>, ()>,
                 fn((usize, usize, ())) -> (usize, usize),

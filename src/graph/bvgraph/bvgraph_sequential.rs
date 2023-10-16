@@ -10,6 +10,7 @@ use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use hrtb_lending_iterator::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators

@@ -753,6 +753,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hrtb-lending-iterator"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92102a0f9fcfb19a9725f842d0caae8ed02ee6b643c96a53d1590e6e6f7173e3"
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1611,6 +1617,7 @@ dependencies = [
  "dsi-bitstream",
  "dsi-progress-logger",
  "epserde",
+ "hrtb-lending-iterator",
  "itertools",
  "java-properties",
  "libc",

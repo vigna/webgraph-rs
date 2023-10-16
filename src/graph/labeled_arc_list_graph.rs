@@ -6,6 +6,7 @@
 
 use crate::traits::*;
 use core::mem::MaybeUninit;
+use hrtb_lending_iterator::*;
 
 /// An adapter exhibiting a list of labeled
 /// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).

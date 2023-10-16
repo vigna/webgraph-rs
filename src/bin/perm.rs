@@ -9,6 +9,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
+use hrtb_lending_iterator::*;
 use std::io::{BufReader, Read};
 use tempfile::tempdir;
 use webgraph::graph::arc_list_graph;
@@ -72,9 +73,7 @@ fn permute(
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
     let g = arc_list_graph::ArcListGraph::new(num_nodes, edges);
     // compress it
-    parallel_compress_sequential_iter::<
-        arc_list_graph::NodeIterator<std::iter::Map<KMergeIters<_>, _>>,
-    >(
+    parallel_compress_sequential_iter::<arc_list_graph::Iterator<std::iter::Map<KMergeIters<_>, _>>>(
         args.dest,
         &mut g.iter(),
         g.num_nodes(),

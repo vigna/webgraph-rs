@@ -12,12 +12,12 @@ in random-access fashion.
 
 */
 
-use crate::prelude::*;
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dsi_progress_logger::ProgressLogger;
+use hrtb_lending_iterator::*;
 use std::sync::Mutex;
 
 /// A support trait that make it possible to specify separate conditions

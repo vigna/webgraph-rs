@@ -5,11 +5,14 @@
  */
 
 use crate::traits::*;
+use hrtb_lending_iterator::*;
 
 /// An adapter exhibiting a list of arcs sorted by source as a [sequential graph](SequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
+///
+/// Note that due to the way lifetimes are organized, it is possible to build an
 #[derive(Debug, Clone)]
 pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
@@ -27,21 +30,18 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone> ArcListGraph<I> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NodeIterator<I: Iterator<Item = (usize, usize)>> {
+pub struct Iterator<I: std::iter::Iterator<Item = (usize, usize)>> {
     num_nodes: usize,
     curr_node: usize,
     next_pair: (usize, usize),
     iter: I,
 }
 
-unsafe impl<I: Iterator<Item = (usize, usize)> + Clone> SortedIterator
-    for NodeIterator<I>
-{
-}
+unsafe impl<I: std::iter::Iterator<Item = (usize, usize)> + Clone> SortedIterator for Iterator<I> {}
 
-impl<I: Iterator<Item = (usize, usize)>> NodeIterator<I> {
+impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     pub fn new(num_nodes: usize, mut iter: I) -> Self {
-        NodeIterator {
+        Iterator {
             num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
             next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX)),
@@ -50,13 +50,13 @@ impl<I: Iterator<Item = (usize, usize)>> NodeIterator<I> {
     }
 }
 
-impl<'succ, I: Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
-    for NodeIterator<I>
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
+    for Iterator<I>
 {
     type T = (usize, Successors<'succ, I>);
 }
 
-impl<I: Iterator<Item = (usize, usize)> + Clone> LendingIterator for NodeIterator<I> {
+impl<I: std::iter::Iterator<Item = (usize, usize)> + Clone> LendingIterator for Iterator<I> {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
@@ -76,13 +76,9 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph f
 where
     I::IntoIter: Clone,
 {
-    type Successors<'succ> = Successors<'succ, I::IntoIter>
-    where
-        Self: 'succ,
-        I: 'succ;
-    type Iterator<'node> = NodeIterator<I::IntoIter>
-    where Self: 'node,
-        I: 'node;
+    type Successors<'succ> = Successors<'succ, I::IntoIter>;
+    type Iterator<'node> = Iterator<I::IntoIter>
+    where Self: 'node;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -95,8 +91,8 @@ where
     }
 
     /// Get an iterator over the nodes of the graph
-    fn iter_from(&self, from: usize) -> NodeIterator<I::IntoIter> {
-        let mut iter = NodeIterator::new(self.num_nodes, self.into_iter.clone().into_iter());
+    fn iter_from(&self, from: usize) -> Iterator<I::IntoIter> {
+        let mut iter = Iterator::new(self.num_nodes, self.into_iter.clone().into_iter());
         for _ in 0..from {
             iter.next();
         }
@@ -104,11 +100,13 @@ where
     }
 }
 
-pub struct Successors<'succ, I: Iterator<Item = (usize, usize)>> {
-    node_iter: &'succ mut NodeIterator<I>,
+pub struct Successors<'succ, I: std::iter::Iterator<Item = (usize, usize)>> {
+    node_iter: &'succ mut Iterator<I>,
 }
 
-impl<'succ, I: Iterator<Item = (usize, usize)>> Iterator for Successors<'succ, I> {
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> std::iter::Iterator
+    for Successors<'succ, I>
+{
     type Item = usize;
     fn next(&mut self) -> Option<Self::Item> {
         // if we reached a new node, the successors of curr_node are finished
@@ -136,7 +134,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
     let coo = ArcListGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_node_iter::<NodeIterator<_>>(coo.iter());
+    let g2 = VecGraph::from_node_iter::<Iterator<_>>(coo.iter());
     assert_eq!(g, g2);
     Ok(())
 }

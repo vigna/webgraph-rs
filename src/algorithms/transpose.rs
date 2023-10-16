@@ -10,6 +10,7 @@ use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
+use hrtb_lending_iterator::*;
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
 pub fn transpose(
