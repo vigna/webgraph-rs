@@ -412,7 +412,7 @@ impl<
 macro_rules! select_code_mock_write {
     ( $code:expr, $k: expr, $value:expr) => {
         Ok(match $code {
-            const_codes::UNARY => len_unary($value),
+            const_codes::UNARY => $value as usize + 1,
             const_codes::GAMMA => len_gamma($value),
             const_codes::DELTA => len_delta($value),
             const_codes::ZETA => len_zeta($value, K),

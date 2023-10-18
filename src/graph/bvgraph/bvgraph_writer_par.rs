@@ -34,8 +34,9 @@ pub fn compress_sequential_iter<
     let graph_path = format!("{}.graph", basename.to_string_lossy());
 
     // Compress the graph
-    let bit_write =
-        <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(File::create(&graph_path)?)));
+    let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+        File::create(&graph_path)?,
+    )));
 
     let comp_flags = CompFlags {
         ..Default::default()
@@ -157,9 +158,9 @@ where
                 let mut thread_iter = iter.clone();
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
-                    let writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(
-                        File::create(&file_path).unwrap(),
-                    )));
+                    let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
+                        BufWriter::new(File::create(&file_path).unwrap()),
+                    ));
                     let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, cp_flags);
                     let mut bvcomp = BVComp::new(
                         codes_writer,
@@ -193,7 +194,7 @@ where
             // handle the case when this is the only available thread
             let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
             // complete the last chunk
-            let writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(
+            let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
                 File::create(last_file_path).unwrap(),
             )));
             let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, &compression_flags);
@@ -223,7 +224,8 @@ where
         let file = File::create(graph_path)?;
 
         // create hte buffered writer
-        let mut result_writer = <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(file)));
+        let mut result_writer =
+            <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
         let mut result_len = 0;
         let mut total_arcs = 0;
@@ -255,7 +257,7 @@ where
             );
             result_len += bits_to_copy;
 
-            let mut reader = <BufBitReader<BE, u64, _>>::new(<WordAdapter<u32, _>>::new(
+            let mut reader = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(
                 BufReader::new(File::open(&file_path).unwrap()),
             ));
             // copy all the data

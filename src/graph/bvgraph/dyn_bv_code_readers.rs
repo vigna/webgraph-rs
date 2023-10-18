@@ -404,6 +404,10 @@ impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynamicCodes
     }
 }
 
+fn len_unary(value: u64) -> usize {
+    value as usize + 1
+}
+
 impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW> {
     type MockWriter = DynamicCodesMockWriter;
     fn mock(&self) -> Self::MockWriter {

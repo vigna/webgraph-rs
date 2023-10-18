@@ -16,7 +16,7 @@ use dsi_bitstream::{
     prelude::{
         BufBitReader, BufBitWriter,
         Code::{Delta, Gamma, Unary, Zeta},
-        MemWordReaderInf, WordAdapter,
+        MemWordReader, WordAdapter,
     },
     traits::BE,
 };
@@ -63,7 +63,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
                                     let writer = <DynamicCodesWriter<BE, _>>::new(
-                                        <BufBitWriter<BE, _>>::new(WordAdapter::new(
+                                        <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
                                             BufWriter::new(File::create(tmp_path)?),
                                         )),
                                         &compression_flags,
@@ -91,12 +91,12 @@ fn test_bvcomp_slow() -> Result<()> {
                                     bvcomp.flush()?;
 
                                     let code_reader = DynamicCodesReader::new(
-                                        BufBitReader::<BE, u64, _>::new(
-                                            MemWordReaderInf::<u32, _>::new(MmapBackend::load(
+                                        BufBitReader::<BE, _>::new(MemWordReader::<u32, _>::new(
+                                            MmapBackend::load(
                                                 tmp_path,
                                                 mmap_rs::MmapFlags::empty(),
-                                            )?),
-                                        ),
+                                            )?,
+                                        )),
                                         &compression_flags,
                                     )?;
                                     let mut seq_reader1 = WebgraphSequentialIter::new(

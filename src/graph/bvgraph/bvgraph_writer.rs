@@ -578,8 +578,9 @@ mod test {
 
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
-        let bit_write =
-            <BufBitWriter<BE, _>>::new(WordAdapter::new(BufWriter::new(File::create(file_path)?)));
+        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+            File::create(file_path)?,
+        )));
 
         let comp_flags = CompFlags {
             ..Default::default()
@@ -598,7 +599,7 @@ mod test {
 
         // Read it back
 
-        let bit_read = <BufBitReader<BE, u64, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
+        let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
             File::open(file_path)?,
         )));
 
@@ -654,7 +655,7 @@ mod test {
 
         // Read it back
         let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-        let bit_read = <BufBitReader<LE, u64, _>>::new(MemWordReaderInf::new(buffer_32));
+        let bit_read = <BufBitReader<LE, _>>::new(MemWordReader::new(buffer_32));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags)?;

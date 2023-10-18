@@ -24,7 +24,7 @@ fn test_offsets() -> Result<()> {
     offsets_file.read_exact(&mut offsets_data)?;
 
     let mut offsets = Vec::with_capacity(graph.num_nodes());
-    let mut reader = BufBitReader::<BE, u64, _>::new(MemWordReaderInf::new(&offsets_data));
+    let mut reader = BufBitReader::<BE, _>::new(MemWordReader::new(&offsets_data));
     let mut offset = 0;
     for _ in 0..graph.num_nodes() + 1 {
         offset += reader.read_gamma().unwrap() as usize;

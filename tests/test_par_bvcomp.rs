@@ -7,8 +7,8 @@
 
 use anyhow::Result;
 use dsi_bitstream::{
-    prelude::{BufBitReader, MemWordReaderInf},
-    traits::BigEndian,
+    prelude::{BufBitReader, MemWordReader},
+    traits::BE,
 };
 use dsi_progress_logger::ProgressLogger;
 use hrtb_lending_iterator::*;
@@ -33,12 +33,7 @@ fn test_par_bvcomp() -> Result<()> {
         let start = std::time::Instant::now();
         // recompress the graph in parallel
         webgraph::graph::bvgraph::parallel_compress_sequential_iter::<
-            WebgraphSequentialIter<
-                DynamicCodesReader<
-                    BigEndian,
-                    BufBitReader<BigEndian, u64, MemWordReaderInf<u32, &[u32]>>,
-                >,
-            >,
+            WebgraphSequentialIter<DynamicCodesReader<BE, BufBitReader<_, MemWordReader<_, _>>>>,
         >(
             tmp_basename,
             &mut graph.iter(),

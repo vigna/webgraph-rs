@@ -10,6 +10,7 @@ use dsi_progress_logger::ProgressLogger;
 use hrtb_lending_iterator::*;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
+
 #[derive(Parser, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 struct Args {

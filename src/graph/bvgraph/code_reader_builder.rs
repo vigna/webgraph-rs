@@ -9,7 +9,7 @@ use super::*;
 use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 
-type BitReader<'a, E> = BufBitReader<E, u64, MemWordReaderInf<u32, &'a [u32]>>;
+type BitReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 
 /// A builder for the [`DynamicCodesReader`] that stores the data and gives
 /// references to the [`DynamicCodesReader`]. This does single-static-dispatching
@@ -109,7 +109,7 @@ where
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReaderInf::new(self.data.as_ref()));
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
 
         Ok(DynamicCodesReader {
@@ -295,7 +295,7 @@ where
     #[inline(always)]
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReaderInf::new(self.data.as_ref()));
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
         Ok(DynamicCodesReaderSkipper {
             code_reader,
@@ -420,7 +420,7 @@ where
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReaderInf::new(self.data.as_ref()));
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
 
         Ok(ConstCodesReader {
