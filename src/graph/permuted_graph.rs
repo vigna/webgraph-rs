@@ -44,6 +44,19 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 }
 
+impl<'a, 'b, G: SequentialGraph> IntoLendingIterator for &'b PermutedGraph<'a, G> {
+    type Item<'c> = (
+        usize,
+        <PermutedGraph<'a, G> as SequentialGraph>::Successors<'c>,
+    );
+    type IntoIter = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
+
+    #[inline(always)]
+    fn into_lend_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 //#[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
 pub struct PermutedGraphIterator<'node, I> {

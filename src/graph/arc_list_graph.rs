@@ -37,7 +37,7 @@ pub struct Iterator<I: std::iter::Iterator<Item = (usize, usize)>> {
     iter: I,
 }
 
-unsafe impl<I: std::iter::Iterator<Item = (usize, usize)> + Clone> SortedIterator for Iterator<I> {}
+unsafe impl<I: std::iter::Iterator<Item = (usize, usize)>> SortedIterator for Iterator<I> {}
 
 impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     pub fn new(num_nodes: usize, mut iter: I) -> Self {
@@ -50,13 +50,13 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     }
 }
 
-impl<'succ, I: std::iter::Iterator<Item = (usize, usize)> + Clone> LendingIteratorItem<'succ>
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> LendingIteratorItem<'succ>
     for Iterator<I>
 {
     type T = (usize, Successors<'succ, I>);
 }
 
-impl<I: std::iter::Iterator<Item = (usize, usize)> + Clone> LendingIterator for Iterator<I> {
+impl<I: std::iter::Iterator<Item = (usize, usize)>> LendingIterator for Iterator<I> {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
@@ -72,10 +72,19 @@ impl<I: std::iter::Iterator<Item = (usize, usize)> + Clone> LendingIterator for 
     }
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for ArcListGraph<I>
-where
-    I::IntoIter: Clone,
+impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLendingIterator
+    for &'a ArcListGraph<I>
 {
+    type Item<'b> = (usize, <ArcListGraph<I> as SequentialGraph>::Successors<'b>);
+    type IntoIter = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
+
+    #[inline(always)]
+    fn into_lend_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for ArcListGraph<I> {
     type Successors<'succ> = Successors<'succ, I::IntoIter>;
     type Iterator<'node> = Iterator<I::IntoIter>
     where Self: 'node;

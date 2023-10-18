@@ -8,7 +8,7 @@
 use crate::traits::graph::IteratorImpl;
 use crate::traits::*;
 use alloc::collections::BTreeSet;
-use hrtb_lending_iterator::{Item, LendingIterator};
+use hrtb_lending_iterator::{IntoLendingIterator, Item, LendingIterator};
 
 /// A vector-based mutable [`Graph`]/[`LabeledGraph`] implementation.
 ///
@@ -220,6 +220,16 @@ impl VecGraph<()> {
         let result = self.succ[u].remove(&DstWithLabel(v, ()));
         self.number_of_arcs -= result as usize;
         Some(result)
+    }
+}
+
+impl<'a> IntoLendingIterator for &'a VecGraph<()> {
+    type Item<'b> = (usize, <VecGraph<()> as SequentialGraph>::Successors<'b>);
+    type IntoIter = <VecGraph<()> as SequentialGraph>::Iterator<'a>;
+
+    #[inline(always)]
+    fn into_lend_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

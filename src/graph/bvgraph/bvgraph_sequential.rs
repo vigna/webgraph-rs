@@ -58,6 +58,19 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 }
 
+impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLendingIterator for &'a BVGraphSequential<CRB> {
+    type Item<'b> = (
+        usize,
+        <BVGraphSequential<CRB> as SequentialGraph>::Successors<'b>,
+    );
+    type IntoIter = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
+
+    #[inline(always)]
+    fn into_lend_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB> {
     /// Create a new sequential graph from a codes reader builder
     /// and the number of nodes.
