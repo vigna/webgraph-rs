@@ -347,6 +347,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
     }
 }
 
+#[allow(clippy::uninit_assumed_init)]
 impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
     type Item = (usize, usize, T);
 
@@ -359,7 +360,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
         let (src, dst) = head_tail.head;
         // get the payload without requiring clone or copy
         // this leaves head_tail.payload uninitalized
-        // but we will wither replace it or drop it
+        // but we will either replace it or drop it
         let res = Some((src, dst, unsafe {
             core::ptr::replace(
                 addr_of_mut!(head_tail.payload),
