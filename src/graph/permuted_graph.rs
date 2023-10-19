@@ -45,10 +45,6 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
 }
 
 impl<'a, 'b, G: SequentialGraph> IntoLendingIterator for &'b PermutedGraph<'a, G> {
-    type Item<'c> = (
-        usize,
-        <PermutedGraph<'a, G> as SequentialGraph>::Successors<'c>,
-    );
     type IntoIter = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
 
     #[inline(always)]

@@ -59,10 +59,6 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
 }
 
 impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLendingIterator for &'a BVGraphSequential<CRB> {
-    type Item<'b> = (
-        usize,
-        <BVGraphSequential<CRB> as SequentialGraph>::Successors<'b>,
-    );
     type IntoIter = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]

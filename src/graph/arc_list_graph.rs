@@ -75,7 +75,6 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> LendingIterator for Iterator
 impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLendingIterator
     for &'a ArcListGraph<I>
 {
-    type Item<'b> = (usize, <ArcListGraph<I> as SequentialGraph>::Successors<'b>);
     type IntoIter = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]

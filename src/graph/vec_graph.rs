@@ -224,7 +224,6 @@ impl VecGraph<()> {
 }
 
 impl<'a> IntoLendingIterator for &'a VecGraph<()> {
-    type Item<'b> = (usize, <VecGraph<()> as SequentialGraph>::Successors<'b>);
     type IntoIter = <VecGraph<()> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]

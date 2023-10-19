@@ -757,7 +757,7 @@ dependencies = [
 [[package]]
 name = "hrtb-lending-iterator"
 version = "0.1.0"
-source = "git+https://github.com/vigna/hrtb-lending-iterator-rs#2ba5659abb37bd181f63dbdf0b7dbc0b03d61377"
+source = "git+https://github.com/vigna/hrtb-lending-iterator-rs#564d2de5615a5b776b42a9b93807fdb9a4bb273a"
 
 [[package]]
 name = "iana-time-zone"
@@ -1258,9 +1258,9 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustix"
-version = "0.38.19"
+version = "0.38.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "745ecfa778e66b2b63c88a61cb36e0eea109e803b0b86bf9879fbc77c70e86ed"
+checksum = "67ce50cb2e16c2903e30d1cbccfd8387a74b9d4c938b6a4c5ec6cc7556f7a8a0"
 dependencies = [
  "bitflags 2.4.1",
  "errno",
