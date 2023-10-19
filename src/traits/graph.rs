@@ -20,33 +20,6 @@ use dsi_progress_logger::ProgressLogger;
 use hrtb_lending_iterator::*;
 use std::sync::Mutex;
 
-/// A support trait that make it possible to specify separate conditions
-/// on the two components of the pairs returned by a
-/// [graph iterator](SequentialGraph::Iterator).
-///
-/// The user should rarely, if ever, interact with this trait. A good
-/// example of its use is in
-/// [`VecGraph::from_node_iter`](crate::graph::vec_graph::VecGraph::from_node_iter).
-///
-/// The main purpose of [Tuple2] is to make it possible to write methods
-/// accepting a generic [lending iterator](LendingIterator) returning pairs
-/// of nodes and successors, and to iterate over such iterators.
-pub trait Tuple2 {
-    type _0;
-    type _1;
-
-    fn into_tuple(self) -> (Self::_0, Self::_1);
-}
-
-impl<T, U> Tuple2 for (T, U) {
-    type _0 = T;
-    type _1 = U;
-
-    fn into_tuple(self) -> (Self::_0, Self::_1) {
-        self
-    }
-}
-
 /// A graph that can be accessed sequentially.
 ///
 /// Note that there is no guarantee that the iterator will return nodes in

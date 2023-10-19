@@ -38,6 +38,33 @@ use sux::prelude::*;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+/// A support trait that make it possible to specify separate conditions
+/// on the two components of the pairs returned by a
+/// [graph iterator](SequentialGraph::Iterator).
+///
+/// The user should rarely, if ever, interact with this trait. A good
+/// example of its use is in
+/// [`VecGraph::from_node_iter`](crate::graph::vec_graph::VecGraph::from_node_iter).
+///
+/// The main purpose of [Tuple2] is to make it possible to write methods
+/// accepting a generic [lending iterator](LendingIterator) returning pairs
+/// of nodes and successors, and to iterate over such iterators.
+pub trait Tuple2 {
+    type _0;
+    type _1;
+
+    fn into_tuple(self) -> (Self::_0, Self::_1);
+}
+
+impl<T, U> Tuple2 for (T, U) {
+    type _0 = T;
+    type _1 = U;
+
+    fn into_tuple(self) -> (Self::_0, Self::_1) {
+        self
+    }
+}
+
 pub mod algorithms;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
@@ -58,6 +85,59 @@ pub mod prelude {
     pub use crate::traits::graph::*;
     pub use crate::traits::*;
     pub use crate::utils::*;
+    pub use crate::Tuple2;
+}
+
+/**
+
+A macro to iterate easily over lending iterators returning pairs of nodes
+and associated successors.
+
+Iterating over a graph is fairly easy using the `while let` syntax. If however
+you have a method receiving a generic [`LendingIterator`](hrtb_lending_iterator::LendingIterator) or
+[`IntoLendingIterator`](hrtb_lending_iterator::IntoLendingIterator) returning pairs of nodes and successors,
+such as, for example, [`VecGraph::add_node_iter`](crate::graph::vec_graph::VecGraph::add_node_iter), due
+to traitification of 2-tuples using the [`Tuple2`] trait the syntax
+is rather cumbersome.
+
+This macro takes care of extracting the iterator and iterating over
+it using the `while let` syntax, turning items into pairs.
+The syntax makes it possible to write loops such as
+```ignore
+for_iter!{(x, succ) in iter =>
+    println!("{}", x);
+    for s in succ {
+       println!("{}", s);
+    }
+}
+```
+*/
+#[macro_export]
+macro_rules! for_iter {
+    (($node:ident, $succ:ident) in $iter:expr => $($tt:tt)*) => {
+        let mut iter = $iter.into_lend_iter();
+        while let Some(($node, $succ)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+            $($tt)*
+        }
+    };
+    ((_, $succ:ident) in $iter:expr => $($tt:tt)*) => {
+        let mut iter = $iter.into_lend_iter();
+        while let Some((_, $succ)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+            $($tt)*
+        }
+    };
+    (($node:ident, _) in $iter:expr => $($tt:tt)*) => {
+        let mut iter = $iter.into_lend_iter();
+        while let Some(($node, _)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+            $($tt)*
+        }
+    };
+    ((_, _) in $iter:expr => $($tt:tt)*) => {
+        let mut iter = $iter.into_lend_iter();
+        while let Some((_, _)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+            $($tt)*
+        }
+    };
 }
 
 /// Invert the given permutation in place.

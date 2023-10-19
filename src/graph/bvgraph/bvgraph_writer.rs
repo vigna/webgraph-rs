@@ -5,9 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::*;
-use crate::utils::int2nat;
-use crate::utils::{CircularBuffer, CircularBufferVec};
+use crate::{for_iter, prelude::*};
 use anyhow::Result;
 use core::cmp::Ordering;
 use hrtb_lending_iterator::*;
@@ -433,25 +431,19 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// WARNING: presently type inference does not work very well with this method:
     /// you have to specify the type of `L` explicitly, sometimes just
     /// partially---your mileage may vary.
-    pub fn extend<L>(&mut self, iter_nodes: &mut L) -> Result<usize>
+    pub fn extend<L>(&mut self, iter_nodes: L) -> Result<usize>
     where
-        L: LendingIterator,
-        for<'next> Item<'next, L>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLendingIterator,
+        for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut count = 0;
-        while let Some((_, succ)) = iter_nodes.next().map(|it| it.into_tuple()) {
+        for_iter! { (_, succ) in iter_nodes =>
             count += self.push(succ.into_iter())?;
         }
         // WAS
         // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
         Ok(count)
-    }
-
-    /// Calls [`BVComp::extend`] with argument `graph.iter_nodes()`.
-    pub fn extend_graph<S: SequentialGraph>(&mut self, graph: &S) -> Result<usize> {
-        let mut iter = graph.iter();
-        self.extend::<<S as SequentialGraph>::Iterator<'_>>(&mut iter)
     }
 
     /// Consume the compressor and flush the inner writer.
@@ -594,7 +586,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend_graph(&seq_graph).unwrap();
+        bvcomp.extend::<&BVGraphSequential<_>>(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -650,7 +642,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend_graph(&seq_graph).unwrap();
+        bvcomp.extend::<&BVGraphSequential<_>>(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back

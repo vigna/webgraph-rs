@@ -31,12 +31,12 @@ fn test_transpose() -> Result<()> {
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<
-        arc_list_graph::Iterator<
+        &arc_list_graph::ArcListGraph<
             std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
         >,
     >(
         TRANSPOSED_PATH,
-        &mut transposed.iter(),
+        &transposed,
         transposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
@@ -57,7 +57,7 @@ fn test_transpose() -> Result<()> {
     let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<
-        arc_list_graph::Iterator<
+        &arc_list_graph::ArcListGraph<
             std::iter::Map<
                 KMergeIters<BatchIterator<()>, ()>,
                 fn((usize, usize, ())) -> (usize, usize),
@@ -65,7 +65,7 @@ fn test_transpose() -> Result<()> {
         >,
     >(
         RE_TRANSPOSED_PATH,
-        &mut retransposed.iter(),
+        &retransposed,
         retransposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),

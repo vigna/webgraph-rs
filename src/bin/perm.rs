@@ -73,9 +73,11 @@ fn permute(
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
     let g = arc_list_graph::ArcListGraph::new(num_nodes, edges);
     // compress it
-    parallel_compress_sequential_iter::<arc_list_graph::Iterator<std::iter::Map<KMergeIters<_>, _>>>(
+    parallel_compress_sequential_iter::<
+        &arc_list_graph::ArcListGraph<std::iter::Map<KMergeIters<_>, _>>,
+    >(
         args.dest,
-        &mut g.iter(),
+        &g,
         g.num_nodes(),
         CompFlags::default(),
         args.num_cpus.unwrap_or(num_cpus::get()),

@@ -6,10 +6,6 @@
  */
 
 use anyhow::Result;
-use dsi_bitstream::{
-    prelude::{BufBitReader, MemWordReader},
-    traits::BE,
-};
 use dsi_progress_logger::ProgressLogger;
 use hrtb_lending_iterator::*;
 use webgraph::prelude::*;
@@ -32,11 +28,9 @@ fn test_par_bvcomp() -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<
-            WebgraphSequentialIter<DynamicCodesReader<BE, BufBitReader<_, MemWordReader<_, _>>>>,
-        >(
+        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>>(
             tmp_basename,
-            &mut graph.iter(),
+            &graph,
             graph.num_nodes(),
             comp_flags,
             thread_num,

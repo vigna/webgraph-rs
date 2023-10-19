@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::for_iter;
 use crate::graph::arc_list_graph;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
@@ -28,8 +29,7 @@ pub fn transpose(
     pl.expected_updates = Some(graph.num_nodes());
     pl.start("Creating batches...");
     // create batches of sorted edges
-    let mut iter = graph.iter();
-    while let Some((src, succ)) = iter.next() {
+    for_iter! { (src, succ) in graph.iter() =>
         for dst in succ {
             sorted.push(dst, src)?;
         }
@@ -46,15 +46,15 @@ pub fn transpose(
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition() -> anyhow::Result<()> {
-    use crate::graph::vec_graph::VecGraph;
+    use crate::graph::{arc_list_graph::ArcListGraph, vec_graph::VecGraph};
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
 
     let trans = transpose(&g, 3)?;
-    let g2 = VecGraph::from_graph(&trans);
+    let g2 = VecGraph::from_node_iter::<&ArcListGraph<_>>(&trans);
 
     let trans = transpose(&g2, 3)?;
-    let g3 = VecGraph::from_graph(&trans);
+    let g3 = VecGraph::from_node_iter::<&ArcListGraph<_>>(&trans);
 
     assert_eq!(g, g3);
     Ok(())

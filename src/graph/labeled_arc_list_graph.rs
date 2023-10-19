@@ -103,6 +103,16 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+    IntoLendingIterator for &LabeledArcListGraph<I>
+{
+    type IntoIter = NodeIterator<L, I>;
+
+    fn into_lend_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     SequentialGraph for LabeledArcListGraph<I>
 {
     type Successors<'succ> = Successors<'succ, L, I>;
@@ -196,7 +206,7 @@ fn test_coo_labeled_iter() -> anyhow::Result<()> {
     ];
     let g = VecGraph::from_arc_and_label_list(&arcs);
     let coo = LabeledArcListGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_labeled_graph::<LabeledArcListGraph<_>>(&coo);
+    let g2 = VecGraph::from_labeled_node_iter::<&LabeledArcListGraph<_>>(&coo);
     assert_eq!(g, g2);
     Ok(())
 }

@@ -5,8 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::graph::IteratorImpl;
-use crate::traits::*;
+use crate::{for_iter, prelude::*};
 use alloc::collections::BTreeSet;
 use hrtb_lending_iterator::{IntoLendingIterator, Item, LendingIterator};
 
@@ -93,35 +92,27 @@ impl<L: Clone> VecGraph<L> {
     /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
     pub fn from_labeled_node_iter<I>(iter_nodes: I) -> Self
     where
-        I: LendingIterator,
-        for<'next> Item<'next, I>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize> + LabeledSuccessors,
-        for<'next> <Item<'next, I> as Tuple2>::_1: Labeled<Label = L>,
+        I: IntoLendingIterator,
+        for<'next> Item<'next, I::IntoIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1:
+            IntoIterator<Item = usize> + LabeledSuccessors,
+        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1: Labeled<Label = L>,
     {
         let mut g = Self::new();
         g.add_labeled_node_iter(iter_nodes);
         g
     }
 
-    /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
-    pub fn from_labeled_graph<S: LabeledSequentialGraph<Label = L>>(graph: &S) -> Self
-    where
-        for<'next> <S as SequentialGraph>::Successors<'next>: LabeledSuccessors<Label = L>,
-    {
-        let mut g = Self::new();
-        g.add_labeled_graph(graph);
-        g
-    }
-
     /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-    pub fn add_labeled_node_iter<I>(&mut self, mut iter_nodes: I) -> &mut Self
+    pub fn add_labeled_node_iter<I>(&mut self, iter_nodes: I) -> &mut Self
     where
-        I: LendingIterator,
-        for<'next> Item<'next, I>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize> + LabeledSuccessors,
-        for<'next> <Item<'next, I> as Tuple2>::_1: LabeledSuccessors<Label = L>,
+        I: IntoLendingIterator,
+        for<'next> Item<'next, I::IntoIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1:
+            IntoIterator<Item = usize> + LabeledSuccessors,
+        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1: LabeledSuccessors<Label = L>,
     {
-        while let Some((node, succ)) = iter_nodes.next().map(|it| it.into_tuple()) {
+        for_iter! { (node, succ) in iter_nodes =>
             self.add_node(node);
             for (v, l) in succ.labeled() {
                 self.add_arc_with_label(node, v, l);
@@ -162,41 +153,29 @@ impl VecGraph<()> {
     /// Convert an iterator on nodes and successors in a [`VecGraph`].
     pub fn from_node_iter<L>(iter_nodes: L) -> Self
     where
-        L: LendingIterator,
-        for<'next> Item<'next, L>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLendingIterator,
+        for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut g = Self::new();
-        g.add_node_iter(iter_nodes);
-        g
-    }
-
-    /// Copies a given graph in a [`VecGraph`].
-    pub fn from_graph<S: SequentialGraph>(graph: &S) -> Self {
-        let mut g = Self::new();
-        g.add_graph(graph);
+        g.add_node_iter(iter_nodes.into_lend_iter());
         g
     }
 
     /// Add the nodes and successors from an iterator to a [`VecGraph`].
-    pub fn add_node_iter<L>(&mut self, mut iter_nodes: L) -> &mut Self
+    pub fn add_node_iter<L>(&mut self, iter_nodes: L) -> &mut Self
     where
-        L: LendingIterator,
-        for<'next> Item<'next, L>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLendingIterator,
+        for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
-        while let Some((node, succ)) = iter_nodes.next().map(|it| it.into_tuple()) {
+        for_iter! { (node, succ) in iter_nodes =>
             self.add_node(node);
             for v in succ {
                 self.add_arc(node, v);
             }
         }
         self
-    }
-
-    /// Add the nodes and arcs in a graph to a [`VecGraph`].
-    pub fn add_graph<S: SequentialGraph>(&mut self, graph: &S) -> &mut Self {
-        self.add_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter())
     }
 
     /// Add an arc to the graph and return if it was a new one or not.

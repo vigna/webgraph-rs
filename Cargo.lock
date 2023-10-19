@@ -757,7 +757,7 @@ dependencies = [
 [[package]]
 name = "hrtb-lending-iterator"
 version = "0.1.0"
-source = "git+https://github.com/vigna/hrtb-lending-iterator-rs#564d2de5615a5b776b42a9b93807fdb9a4bb273a"
+source = "git+https://github.com/vigna/hrtb-lending-iterator-rs#f2f2e80cf98dad26b9e23ccbdb486dbbf564e518"
 
 [[package]]
 name = "iana-time-zone"

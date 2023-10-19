@@ -5,8 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::*;
-
+use crate::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
@@ -94,19 +93,20 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<L: LendingIterator + Clone + Send>(
+pub fn parallel_compress_sequential_iter<L: IntoLendingIterator>(
     basename: impl AsRef<Path> + Send + Sync,
-    iter: &mut L,
+    into_lend_iter: L,
     num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
 ) -> Result<usize>
 where
-    L: LendingIterator,
-    for<'next> Item<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L::IntoIter: Clone + Send,
+    for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
+    for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let basename = basename.as_ref();
+    let mut iter = into_lend_iter.into_lend_iter();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
@@ -155,7 +155,7 @@ where
                     nodes_per_thread * (thread_id + 1),
                 );
                 // Spawn the thread
-                let mut thread_iter = iter.clone();
+                let thread_iter = iter.clone();
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
                     let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
@@ -169,7 +169,7 @@ where
                         cp_flags.max_ref_count,
                         nodes_per_thread * thread_id,
                     );
-                    let written_bits = bvcomp.extend::<L>(&mut thread_iter).unwrap();
+                    let written_bits = bvcomp.extend(thread_iter).unwrap();
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
                         thread_id,
