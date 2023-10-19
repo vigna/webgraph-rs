@@ -38,21 +38,34 @@ use sux::prelude::*;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-/// A support trait that make it possible to specify separate conditions
-/// on the two components of the pairs returned by a
-/// [graph iterator](SequentialGraph::Iterator).
-///
-/// The user should rarely, if ever, interact with this trait. A good
-/// example of its use is in
-/// [`VecGraph::from_node_iter`](crate::graph::vec_graph::VecGraph::from_node_iter).
-///
-/// The main purpose of [Tuple2] is to make it possible to write methods
-/// accepting a generic [lending iterator](LendingIterator) returning pairs
-/// of nodes and successors, and to iterate over such iterators.
-pub trait Tuple2 {
-    type _0;
-    type _1;
+/**
 
+A support trait that makes it possible to treat a pair (2-tuple) as a trait.
+
+This approach ("traitification") was suggested by
+[David Henry Mantilla](https://github.com/danielhenrymantilla/lending-iterator.rs/issues/13#issuecomment-1735475634)
+as a solution to the problem of specifying that a [`LendingIterator`](hrbt_lending_iterator::LendingIterator)
+should return pairs of nodes and successors, and to impose conditions on the two components
+of the pairs. This is not possible directly, as a pair is a type, not a trait.
+
+For example, [`VecGraph::from_node_iter`](crate::graph::vec_graph::VecGraph::from_node_iter) accepts
+an [`IntoLendingIterator`](hrbt_lending_iterator::IntoLendingIterator), but only if it returns
+pairs whose first component is a `usize` and the second component is an [`IntoIterator`](std::iter::IntoIterator).
+To specify these constraints we have to resort to traitification using the [`Tuple2`] trait. Note in particular
+that the first contraint is an equality constraint, whereas the second constraint is a trait bound.
+
+The user should rarely, if ever, interact with this trait. Iterating over an iterator whose output
+has been traitified using [`Tuple2`] is a bit cumbersome, as the output of the iterator is a [`Tuple2`]
+and must be turned into a pair using the [`into_tuple`](Tuple2::into_tuple) method, but the
+[`for_iter!`] macro takes care of all these details for you.
+
+*/
+pub trait Tuple2 {
+    /// The type of the first component of the [`Tuple2`].
+    type _0;
+    /// The type of the second component of the [`Tuple2`].
+    type _1;
+    /// Turn this [`Tuple2`] into a pair.
     fn into_tuple(self) -> (Self::_0, Self::_1);
 }
 

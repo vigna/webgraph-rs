@@ -756,8 +756,9 @@ dependencies = [
 
 [[package]]
 name = "hrtb-lending-iterator"
-version = "0.1.0"
-source = "git+https://github.com/vigna/hrtb-lending-iterator-rs#f2f2e80cf98dad26b9e23ccbdb486dbbf564e518"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c08cc865ce8fadac240d403ce60e773574140b97e97ab1eca52288decc15957"
 
 [[package]]
 name = "iana-time-zone"

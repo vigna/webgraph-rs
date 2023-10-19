@@ -93,10 +93,10 @@ impl<L: Clone> VecGraph<L> {
     pub fn from_labeled_node_iter<I>(iter_nodes: I) -> Self
     where
         I: IntoLendingIterator,
-        for<'next> Item<'next, I::IntoIter>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1:
+        for<'next> Item<'next, I::IntoLendIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, I::IntoLendIter> as Tuple2>::_1:
             IntoIterator<Item = usize> + LabeledSuccessors,
-        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1: Labeled<Label = L>,
+        for<'next> <Item<'next, I::IntoLendIter> as Tuple2>::_1: Labeled<Label = L>,
     {
         let mut g = Self::new();
         g.add_labeled_node_iter(iter_nodes);
@@ -107,10 +107,10 @@ impl<L: Clone> VecGraph<L> {
     pub fn add_labeled_node_iter<I>(&mut self, iter_nodes: I) -> &mut Self
     where
         I: IntoLendingIterator,
-        for<'next> Item<'next, I::IntoIter>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1:
+        for<'next> Item<'next, I::IntoLendIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, I::IntoLendIter> as Tuple2>::_1:
             IntoIterator<Item = usize> + LabeledSuccessors,
-        for<'next> <Item<'next, I::IntoIter> as Tuple2>::_1: LabeledSuccessors<Label = L>,
+        for<'next> <Item<'next, I::IntoLendIter> as Tuple2>::_1: LabeledSuccessors<Label = L>,
     {
         for_iter! { (node, succ) in iter_nodes =>
             self.add_node(node);
@@ -154,8 +154,8 @@ impl VecGraph<()> {
     pub fn from_node_iter<L>(iter_nodes: L) -> Self
     where
         L: IntoLendingIterator,
-        for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
+        for<'next> Item<'next, L::IntoLendIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L::IntoLendIter> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut g = Self::new();
         g.add_node_iter(iter_nodes.into_lend_iter());
@@ -166,8 +166,8 @@ impl VecGraph<()> {
     pub fn add_node_iter<L>(&mut self, iter_nodes: L) -> &mut Self
     where
         L: IntoLendingIterator,
-        for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
+        for<'next> Item<'next, L::IntoLendIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L::IntoLendIter> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         for_iter! { (node, succ) in iter_nodes =>
             self.add_node(node);
@@ -203,10 +203,10 @@ impl VecGraph<()> {
 }
 
 impl<'a> IntoLendingIterator for &'a VecGraph<()> {
-    type IntoIter = <VecGraph<()> as SequentialGraph>::Iterator<'a>;
+    type IntoLendIter = <VecGraph<()> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoIter {
+    fn into_lend_iter(self) -> Self::IntoLendIter {
         self.iter()
     }
 }

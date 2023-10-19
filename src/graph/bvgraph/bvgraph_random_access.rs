@@ -13,10 +13,8 @@ use crate::utils::nat2int;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<
-    CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
-> {
+pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Input = usize, Output = usize>>
+{
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     codes_reader_builder: CRB,
@@ -403,10 +401,10 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
 {
-    type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
+    type IntoLendIter = WebgraphSequentialIter<CRB::Reader<'a>>;
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
 
-    fn into_iter(self) -> Self::IntoIter {
+    fn into_iter(self) -> Self::IntoLendIter {
         self.stream_nodes()
     }
 }

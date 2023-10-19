@@ -18,7 +18,7 @@ use std::thread::ScopedJoinHandle;
 use tempfile::tempdir;
 
 /// Build a BVGraph by compressing an iterator of nodes and successors and
-/// return the lenght of the produced bitstream (in bits).
+/// return the length of the produced bitstream (in bits).
 pub fn compress_sequential_iter<
     P: AsRef<Path>,
     I: ExactSizeIterator<Item = (usize, J)>,
@@ -101,9 +101,9 @@ pub fn parallel_compress_sequential_iter<L: IntoLendingIterator>(
     num_threads: usize,
 ) -> Result<usize>
 where
-    L::IntoIter: Clone + Send,
-    for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
-    for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L::IntoLendIter: Clone + Send,
+    for<'next> Item<'next, L::IntoLendIter>: Tuple2<_0 = usize>,
+    for<'next> <Item<'next, L::IntoLendIter> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let basename = basename.as_ref();
     let mut iter = into_lend_iter.into_lend_iter();

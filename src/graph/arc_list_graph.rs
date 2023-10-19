@@ -53,7 +53,7 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
 impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> LendingIteratorItem<'succ>
     for Iterator<I>
 {
-    type T = (usize, Successors<'succ, I>);
+    type Type = (usize, Successors<'succ, I>);
 }
 
 impl<I: std::iter::Iterator<Item = (usize, usize)>> LendingIterator for Iterator<I> {
@@ -75,10 +75,10 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> LendingIterator for Iterator
 impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLendingIterator
     for &'a ArcListGraph<I>
 {
-    type IntoIter = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
+    type IntoLendIter = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoIter {
+    fn into_lend_iter(self) -> Self::IntoLendIter {
         self.iter()
     }
 }

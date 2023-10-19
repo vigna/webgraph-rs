@@ -59,10 +59,10 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
 }
 
 impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLendingIterator for &'a BVGraphSequential<CRB> {
-    type IntoIter = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
+    type IntoLendIter = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoIter {
+    fn into_lend_iter(self) -> Self::IntoLendIter {
         self.iter()
     }
 }
@@ -272,7 +272,7 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
 }
 
 impl<'succ, CR: BVGraphCodesReader> LendingIteratorItem<'succ> for WebgraphSequentialIter<CR> {
-    type T = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+    type Type = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
 }
 
 impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {

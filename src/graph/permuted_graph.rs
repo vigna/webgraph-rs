@@ -45,10 +45,10 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
 }
 
 impl<'a, 'b, G: SequentialGraph> IntoLendingIterator for &'b PermutedGraph<'a, G> {
-    type IntoIter = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
+    type IntoLendIter = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoIter {
+    fn into_lend_iter(self) -> Self::IntoLendIter {
         self.iter()
     }
 }
@@ -66,7 +66,7 @@ where
     for<'next> Item<'next, I>: Tuple2<_0 = usize>,
     for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
-    type T = (
+    type Type = (
         usize,
         PermutedSuccessors<'succ, <<Item<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>,
     );

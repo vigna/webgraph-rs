@@ -73,7 +73,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     LendingIteratorItem<'succ> for NodeIterator<L, I>
 {
-    type T = (usize, Successors<'succ, L, I>);
+    type Type = (usize, Successors<'succ, L, I>);
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
@@ -105,9 +105,9 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     IntoLendingIterator for &LabeledArcListGraph<I>
 {
-    type IntoIter = NodeIterator<L, I>;
+    type IntoLendIter = NodeIterator<L, I>;
 
-    fn into_lend_iter(self) -> Self::IntoIter {
+    fn into_lend_iter(self) -> Self::IntoLendIter {
         self.iter()
     }
 }

@@ -36,7 +36,7 @@ pub trait SequentialGraph {
     /// The type of the iterator over the successors of a node
     /// returned by [the iterator on the graph](SequentialGraph::Iterator).
     type Iterator<'node>: LendingIterator
-        + for<'succ> LendingIteratorItem<'succ, T = (usize, Self::Successors<'succ>)>
+        + for<'succ> LendingIteratorItem<'succ, Type = (usize, Self::Successors<'succ>)>
     where
         Self: 'node;
 
@@ -193,7 +193,7 @@ pub struct IteratorImpl<'node, G: RandomAccessGraph> {
 }
 
 impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ> for IteratorImpl<'node, G> {
-    type T = (usize, <G as RandomAccessGraph>::Successors<'succ>);
+    type Type = (usize, <G as RandomAccessGraph>::Successors<'succ>);
 }
 
 impl<'node, G: RandomAccessGraph> LendingIterator for IteratorImpl<'node, G> {

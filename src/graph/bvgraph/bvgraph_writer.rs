@@ -434,8 +434,8 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     pub fn extend<L>(&mut self, iter_nodes: L) -> Result<usize>
     where
         L: IntoLendingIterator,
-        for<'next> Item<'next, L::IntoIter>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L::IntoIter> as Tuple2>::_1: IntoIterator<Item = usize>,
+        for<'next> Item<'next, L::IntoLendIter>: Tuple2<_0 = usize>,
+        for<'next> <Item<'next, L::IntoLendIter> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut count = 0;
         for_iter! { (_, succ) in iter_nodes =>
