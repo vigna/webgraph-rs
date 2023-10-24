@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
-use hrtb_lending_iterator::*;
+use lender::*;
 use std::io::{BufReader, Read};
 use tempfile::tempdir;
 use webgraph::graph::arc_list_graph;

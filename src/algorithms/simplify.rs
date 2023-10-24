@@ -9,8 +9,8 @@ use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-use hrtb_lending_iterator::*;
 use itertools::{Dedup, Itertools};
+use lender::*;
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
 pub fn simplify(

@@ -6,7 +6,7 @@
  */
 
 use anyhow::Result;
-use hrtb_lending_iterator::*;
+use lender::*;
 use webgraph::prelude::*;
 
 #[test]

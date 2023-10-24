@@ -7,7 +7,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
-use hrtb_lending_iterator::*;
+use lender::*;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
 

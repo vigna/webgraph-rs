@@ -11,7 +11,7 @@ use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
 
-use hrtb_lending_iterator::*;
+use lender::*;
 use log::info;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
@@ -349,7 +349,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
             graph
                 .iter_from(range.start)
                 .take(range.len())
-                .map(|(x, succ)| {
+                .map_into_iter(|(x, succ)| {
                     let mut cost = 0;
                     let mut sorted: Vec<_> = succ.into_iter().collect();
                     if !sorted.is_empty() {

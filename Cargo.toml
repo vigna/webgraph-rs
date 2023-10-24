@@ -45,7 +45,8 @@ zip = {version="0.6.6", optional=true}
 libc = "0.2.147"
 itertools = "0.11.0"
 nougat = "0.2.4"
-hrtb-lending-iterator = "0.2.0"
+#lender = "0.1.7"
+lender = {git = "https://github.com/WanderLanz/Lender"}
 [build-dependencies]
 cc = "1.0.79"
 bindgen = "0.65.1"

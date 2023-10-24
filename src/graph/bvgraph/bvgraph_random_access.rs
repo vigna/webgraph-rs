@@ -404,7 +404,7 @@ where
     type IntoLendIter = WebgraphSequentialIter<CRB::Reader<'a>>;
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
 
-    fn into_iter(self) -> Self::IntoLendIter {
+    fn into_iter(self) -> Self::Lender {
         self.stream_nodes()
     }
 }

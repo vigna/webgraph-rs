@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use hrtb_lending_iterator::*;
+use lender::*;
 
 use crate::prelude::*;
 
@@ -44,11 +44,18 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 }
 
-impl<'a, 'b, G: SequentialGraph> IntoLendingIterator for &'b PermutedGraph<'a, G> {
-    type IntoLendIter = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
+/*impl<'lend, 'a, 'b, G: SequentialGraph> Lending<'lend> for &'b PermutedGraph<'a, G> {
+    type Lend = (
+        usize,
+        PermutedSuccessors<'lend, <G::Successors<'lend> as IntoIterator>::IntoIter>,
+    );
+}
+*/
+impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
+    type Lender = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoLendIter {
+    fn into_lender(self) -> Self::Lender {
         self.iter()
     }
 }
@@ -60,26 +67,26 @@ pub struct PermutedGraphIterator<'node, I> {
     perm: &'node [usize],
 }
 
-impl<'node, 'succ, I> LendingIteratorItem<'succ> for PermutedGraphIterator<'node, I>
+impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>
 where
-    I: LendingIterator,
-    for<'next> Item<'next, I>: Tuple2<_0 = usize>,
-    for<'next> <Item<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
+    I: Lender,
+    for<'next> Lend<'next, I>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
-    type Type = (
+    type Lend = (
         usize,
-        PermutedSuccessors<'succ, <<Item<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>,
+        PermutedSuccessors<'succ, <<Lend<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>,
     );
 }
 
-impl<'a, L> LendingIterator for PermutedGraphIterator<'a, L>
+impl<'a, L> Lender for PermutedGraphIterator<'a, L>
 where
-    L: LendingIterator,
-    for<'next> Item<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Item<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L: Lender,
+    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     #[inline(always)]
-    fn next(&mut self) -> Option<Item<'_, Self>> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
             let (node, succ) = x.into_tuple();
             (

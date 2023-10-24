@@ -8,7 +8,7 @@
 use crate::{for_iter, prelude::*};
 use anyhow::Result;
 use core::cmp::Ordering;
-use hrtb_lending_iterator::*;
+use lender::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
@@ -433,9 +433,9 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// partially---your mileage may vary.
     pub fn extend<L>(&mut self, iter_nodes: L) -> Result<usize>
     where
-        L: IntoLendingIterator,
-        for<'next> Item<'next, L::IntoLendIter>: Tuple2<_0 = usize>,
-        for<'next> <Item<'next, L::IntoLendIter> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLender,
+        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
         let mut count = 0;
         for_iter! { (_, succ) in iter_nodes =>

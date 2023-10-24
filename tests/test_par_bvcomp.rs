@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
-use hrtb_lending_iterator::*;
+use lender::*;
 use webgraph::prelude::*;
 
 #[test]

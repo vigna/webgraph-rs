@@ -10,7 +10,7 @@ use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use hrtb_lending_iterator::*;
+use lender::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
@@ -58,11 +58,15 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 }
 
-impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLendingIterator for &'a BVGraphSequential<CRB> {
-    type IntoLendIter = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
+/*impl<'lend, 'a, CRB: BVGraphCodesReaderBuilder> Lending<'lend> for &'a BVGraphSequential<CRB> {
+    type Lend = Lend<'lend, <Self as IntoLender>::Lender>;
+}
+*/
+impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CRB> {
+    type Lender = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoLendIter {
+    fn into_lender(self) -> Self::Lender {
         self.iter()
     }
 }
@@ -271,12 +275,12 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<'succ, CR: BVGraphCodesReader> LendingIteratorItem<'succ> for WebgraphSequentialIter<CR> {
-    type Type = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
+    type Lend = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
 }
 
-impl<CR: BVGraphCodesReader> LendingIterator for WebgraphSequentialIter<CR> {
-    fn next(&mut self) -> Option<Item<'_, Self>> {
+impl<CR: BVGraphCodesReader> Lender for WebgraphSequentialIter<CR> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }

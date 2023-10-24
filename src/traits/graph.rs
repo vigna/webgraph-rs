@@ -17,7 +17,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dsi_progress_logger::ProgressLogger;
-use hrtb_lending_iterator::*;
+use lender::*;
 use std::sync::Mutex;
 
 /// A graph that can be accessed sequentially.
@@ -27,16 +27,16 @@ use std::sync::Mutex;
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
 ///
-/// The iterator returned by [iter](SequentialGraph::iter) is [lending](LendingIterator):
+/// The iterator returned by [iter](SequentialGraph::iter) is [lending](Lender):
 /// to access the next pair, you must have finished to use the previous one. You
-/// can invoke [`LendingIterator::into_iter`] to get a standard iterator, in general
+/// can invoke [`Lender::into_iter`] to get a standard iterator, in general
 /// at the cost of some allocation and copying.
 pub trait SequentialGraph {
     type Successors<'succ>: IntoIterator<Item = usize>;
     /// The type of the iterator over the successors of a node
     /// returned by [the iterator on the graph](SequentialGraph::Iterator).
-    type Iterator<'node>: LendingIterator
-        + for<'succ> LendingIteratorItem<'succ, Type = (usize, Self::Successors<'succ>)>
+    type Iterator<'node>: Lender
+        + for<'succ> Lending<'succ, Lend = (usize, Self::Successors<'succ>)>
     where
         Self: 'node;
 
@@ -140,7 +140,7 @@ pub trait SequentialGraph {
 /// # Safety
 /// The first element of the pairs returned by the iterator must go from
 /// zero to the [number of nodes](SequentialGraph::num_nodes) of the graph, excluded.
-pub unsafe trait SortedIterator: LendingIterator {}
+pub unsafe trait SortedIterator: Lender {}
 
 /// Marker trait for [sequential graphs](SequentialGraph) whose [successors](SequentialGraph::Successors)
 /// are returned in ascending order.
@@ -185,20 +185,20 @@ pub trait RandomAccessGraph: SequentialGraph {
     }
 }
 
-/// A struct used to make it easy to implement [a graph iterator](LendingIterator)
+/// A struct used to make it easy to implement [a graph iterator](Lender)
 /// for a type that implements [`RandomAccessGraph`].
 pub struct IteratorImpl<'node, G: RandomAccessGraph> {
     pub graph: &'node G,
     pub nodes: core::ops::Range<usize>,
 }
 
-impl<'node, 'succ, G: RandomAccessGraph> LendingIteratorItem<'succ> for IteratorImpl<'node, G> {
-    type Type = (usize, <G as RandomAccessGraph>::Successors<'succ>);
+impl<'node, 'succ, G: RandomAccessGraph> Lending<'succ> for IteratorImpl<'node, G> {
+    type Lend = (usize, <G as RandomAccessGraph>::Successors<'succ>);
 }
 
-impl<'node, G: RandomAccessGraph> LendingIterator for IteratorImpl<'node, G> {
+impl<'node, G: RandomAccessGraph> Lender for IteratorImpl<'node, G> {
     #[inline(always)]
-    fn next(&mut self) -> Option<Item<'_, Self>> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.graph.successors(node_id)))

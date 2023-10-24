@@ -9,7 +9,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
-use hrtb_lending_iterator::*;
+use lender::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -93,20 +93,20 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<L: IntoLendingIterator>(
+pub fn parallel_compress_sequential_iter<L: IntoLender>(
     basename: impl AsRef<Path> + Send + Sync,
-    into_lend_iter: L,
+    into_lender: L,
     num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
 ) -> Result<usize>
 where
-    L::IntoLendIter: Clone + Send,
-    for<'next> Item<'next, L::IntoLendIter>: Tuple2<_0 = usize>,
-    for<'next> <Item<'next, L::IntoLendIter> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L::Lender: Clone + Send,
+    for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let basename = basename.as_ref();
-    let mut iter = into_lend_iter.into_lend_iter();
+    let mut iter = into_lender.into_lender();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;

@@ -5,7 +5,7 @@
  */
 
 use crate::traits::*;
-use hrtb_lending_iterator::*;
+use lender::*;
 
 /// An adapter exhibiting a list of arcs sorted by source as a [sequential graph](SequentialGraph).
 ///
@@ -50,13 +50,11 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     }
 }
 
-impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> LendingIteratorItem<'succ>
-    for Iterator<I>
-{
-    type Type = (usize, Successors<'succ, I>);
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> Lending<'succ> for Iterator<I> {
+    type Lend = (usize, Successors<'succ, I>);
 }
 
-impl<I: std::iter::Iterator<Item = (usize, usize)>> LendingIterator for Iterator<I> {
+impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
@@ -72,13 +70,19 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> LendingIterator for Iterator
     }
 }
 
-impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLendingIterator
+/*impl<'lend, 'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> Lending<'lend>
     for &'a ArcListGraph<I>
 {
-    type IntoLendIter = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
+    type Lend = (usize, Successors<'lend, I::IntoIter>);
+}*/
+
+impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
+    for &'a ArcListGraph<I>
+{
+    type Lender = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
 
     #[inline(always)]
-    fn into_lend_iter(self) -> Self::IntoLendIter {
+    fn into_lender(self) -> Self::Lender {
         self.iter()
     }
 }

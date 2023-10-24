@@ -6,7 +6,7 @@
 
 use crate::traits::*;
 use core::mem::MaybeUninit;
-use hrtb_lending_iterator::*;
+use lender::*;
 
 /// An adapter exhibiting a list of labeled
 /// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
@@ -71,15 +71,15 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
 }
 
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    LendingIteratorItem<'succ> for NodeIterator<L, I>
+    Lending<'succ> for NodeIterator<L, I>
 {
-    type Type = (usize, Successors<'succ, L, I>);
+    type Lend = (usize, Successors<'succ, L, I>);
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    LendingIterator for NodeIterator<L, I>
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Lender
+    for NodeIterator<L, I>
 {
-    fn next(&mut self) -> Option<Item<'_, Self>> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
             return None;
@@ -102,12 +102,18 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    IntoLendingIterator for &LabeledArcListGraph<I>
+/*impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+    Lending<'lend> for &LabeledArcListGraph<I>
 {
-    type IntoLendIter = NodeIterator<L, I>;
+    type Lend = (usize, Successors<'lend, L, I>);
+}*/
 
-    fn into_lend_iter(self) -> Self::IntoLendIter {
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> IntoLender
+    for &LabeledArcListGraph<I>
+{
+    type Lender = NodeIterator<L, I>;
+
+    fn into_lender(self) -> Self::Lender {
         self.iter()
     }
 }

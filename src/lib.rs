@@ -44,15 +44,15 @@ A support trait that makes it possible to treat a pair (2-tuple) as a trait.
 
 This approach ("traitification") was suggested by
 [David Henry Mantilla](https://github.com/danielhenrymantilla/lending-iterator.rs/issues/13#issuecomment-1735475634)
-as a solution to the problem of specifying that a [`LendingIterator`](hrbt_lending_iterator::LendingIterator)
+as a solution to the problem of specifying that a [`Lender`](hrbt_lending_iterator::Lender)
 should return pairs of nodes and successors, and to impose conditions on the two components
 of the pairs. This is not possible directly, as a pair is a type, not a trait.
 
 For example, [`VecGraph::from_node_iter`](crate::graph::vec_graph::VecGraph::from_node_iter) accepts
-an [`IntoLendingIterator`](hrbt_lending_iterator::IntoLendingIterator), but only if it returns
+an [`IntoLender`](hrbt_lending_iterator::IntoLender), but only if it returns
 pairs whose first component is a `usize` and the second component is an [`IntoIterator`](std::iter::IntoIterator).
 To specify these constraints we have to resort to traitification using the [`Tuple2`] trait. Note in particular
-that the first contraint is an equality constraint, whereas the second constraint is a trait bound.
+that the first constraint is an equality constraint, whereas the second constraint is a trait bound.
 
 The user should rarely, if ever, interact with this trait. Iterating over an iterator whose output
 has been traitified using [`Tuple2`] is a bit cumbersome, as the output of the iterator is a [`Tuple2`]
@@ -107,8 +107,8 @@ A macro to iterate easily over lending iterators returning pairs of nodes
 and associated successors.
 
 Iterating over a graph is fairly easy using the `while let` syntax. If however
-you have a method receiving a generic [`LendingIterator`](hrtb_lending_iterator::LendingIterator) or
-[`IntoLendingIterator`](hrtb_lending_iterator::IntoLendingIterator) returning pairs of nodes and successors,
+you have a method receiving a generic [`Lender`](hrtb_lending_iterator::Lender) or
+[`IntoLender`](hrtb_lending_iterator::IntoLender) returning pairs of nodes and successors,
 such as, for example, [`VecGraph::add_node_iter`](crate::graph::vec_graph::VecGraph::add_node_iter), due
 to traitification of 2-tuples using the [`Tuple2`] trait the syntax
 is rather cumbersome.
@@ -128,25 +128,25 @@ for_iter!{(x, succ) in iter =>
 #[macro_export]
 macro_rules! for_iter {
     (($node:ident, $succ:ident) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lend_iter();
+        let mut iter = $iter.into_lender();
         while let Some(($node, $succ)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
             $($tt)*
         }
     };
     ((_, $succ:ident) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lend_iter();
+        let mut iter = $iter.into_lender();
         while let Some((_, $succ)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
             $($tt)*
         }
     };
     (($node:ident, _) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lend_iter();
+        let mut iter = $iter.into_lender();
         while let Some(($node, _)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
             $($tt)*
         }
     };
     ((_, _) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lend_iter();
+        let mut iter = $iter.into_lender();
         while let Some((_, _)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
             $($tt)*
         }
