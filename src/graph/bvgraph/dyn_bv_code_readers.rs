@@ -1,10 +1,17 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use super::*;
 use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 
 /// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
-pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E>> {
+pub struct DynamicCodesReader<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
     pub(crate) read_reference_offset: fn(&mut CR) -> u64,
@@ -18,7 +25,7 @@ pub struct DynamicCodesReader<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReader<E, CR> {
     const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
     const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
@@ -30,7 +37,7 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
     const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
 
-    /// Create a new [`DynamicCodesReader`] from a [`ReadCodes`] implementation
+    /// Create a new [`DynamicCodesReader`] from a [`CodeRead`] implementation
     /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
     /// method
     pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
@@ -71,17 +78,17 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReader<E, CR> {
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReader<E, CR> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_reader.set_pos(bit_index)
+impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReader<E, CR> {
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_reader.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_reader.get_bit_pos()
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesReader for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesReader for DynamicCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -126,7 +133,7 @@ impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesReader for DynamicCodesReader<
 
 /// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
-pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E>> {
+pub struct DynamicCodesReaderSkipper<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
 
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
@@ -152,7 +159,7 @@ pub struct DynamicCodesReaderSkipper<E: Endianness, CR: ReadCodes<E>> {
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReaderSkipper<E, CR> {
     const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
     const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
@@ -175,7 +182,7 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
     const SKIP_ZETA7: fn(&mut CR) = |cr| cr.skip_zeta(7).unwrap();
     const SKIP_ZETA1: fn(&mut CR) = Self::SKIP_GAMMA;
 
-    /// Create a new [`DynamicCodesReader`] from a [`ReadCodes`] implementation
+    /// Create a new [`DynamicCodesReader`] from a [`CodeRead`] implementation
     /// This will be called by [`DynamicCodesReaderSkipperBuilder`] in the [`get_reader`]
     /// method
     pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
@@ -245,17 +252,17 @@ impl<E: Endianness, CR: ReadCodes<E>> DynamicCodesReaderSkipper<E, CR> {
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E> + BitSeek> BitSeek for DynamicCodesReaderSkipper<E, CR> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_reader.set_pos(bit_index)
+impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReaderSkipper<E, CR> {
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_reader.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_reader.get_bit_pos()
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesReader for DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesReader for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -298,7 +305,7 @@ impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesReader for DynamicCodesReaderS
     }
 }
 
-impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesSkipper for DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesSkipper for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn skip_outdegree(&mut self) {
         (self.skip_outdegrees)(&mut self.code_reader)
@@ -342,7 +349,7 @@ impl<E: Endianness, CR: ReadCodes<E>> BVGraphCodesSkipper for DynamicCodesReader
 }
 
 /// An implementation of [`BVGraphCodesWriter`] with the most commonly used codes
-pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E>> {
+pub struct DynamicCodesWriter<E: Endianness, CW: CodeWrite<E>> {
     code_writer: CW,
     write_outdegree: fn(&mut CW, u64) -> Result<usize>,
     write_reference_offset: fn(&mut CW, u64) -> Result<usize>,
@@ -356,7 +363,7 @@ pub struct DynamicCodesWriter<E: Endianness, CW: WriteCodes<E>> {
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
+impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
     fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize> {
         match code {
             Code::Unary => CW::write_unary,
@@ -367,7 +374,7 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
         }
     }
 
-    /// Create a new [`ConstCodesReaderBuilder`] from a [`ReadCodes`] implementation
+    /// Create a new [`ConstCodesReaderBuilder`] from a [`CodeRead`] implementation
     /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
     /// method
     pub fn new(code_writer: CW, cf: &CompFlags) -> Self {
@@ -387,17 +394,21 @@ impl<E: Endianness, CW: WriteCodes<E>> DynamicCodesWriter<E, CW> {
     }
 }
 
-impl<E: Endianness, CW: WriteCodes<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
-    fn set_pos(&mut self, bit_index: usize) -> Result<()> {
-        self.code_writer.set_pos(bit_index)
+impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
+    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+        self.code_writer.set_bit_pos(bit_index)
     }
 
-    fn get_pos(&self) -> usize {
-        self.code_writer.get_pos()
+    fn get_bit_pos(&self) -> usize {
+        self.code_writer.get_bit_pos()
     }
 }
 
-impl<E: Endianness, CW: WriteCodes<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW> {
+fn len_unary(value: u64) -> usize {
+    value as usize + 1
+}
+
+impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW> {
     type MockWriter = DynamicCodesMockWriter;
     fn mock(&self) -> Self::MockWriter {
         macro_rules! reconstruct_code {

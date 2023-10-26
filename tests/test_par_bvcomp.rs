@@ -1,5 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
+use lender::*;
 use webgraph::prelude::*;
 
 fn logger_init() {
@@ -20,9 +28,10 @@ fn test_par_bvcomp() -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graph::bvgraph::parallel_compress_sequential_iter(
+        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>>(
             tmp_basename,
-            graph.iter_nodes(),
+            &graph,
+            graph.num_nodes(),
             comp_flags,
             thread_num,
         )
@@ -30,14 +39,15 @@ fn test_par_bvcomp() -> Result<()> {
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
         let comp_graph = webgraph::graph::bvgraph::load_seq(tmp_basename)?;
-        let mut iter = comp_graph.iter_nodes();
+        let mut iter = comp_graph.iter();
 
         let mut pr = ProgressLogger::default().display_memory();
         pr.item_name = "node";
         pr.start("Checking that the newly compressed graph is equivalent to the original one...");
         pr.expected_updates = Some(graph.num_nodes());
 
-        for (node, succ_iter) in graph.iter_nodes() {
+        let mut iter_nodes = graph.iter();
+        while let Some((node, succ_iter)) = iter_nodes.next() {
             let (new_node, new_succ_iter) = iter.next().unwrap();
             assert_eq!(node, new_node);
             let succ = succ_iter.collect::<Vec<_>>();

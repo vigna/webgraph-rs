@@ -1,13 +1,19 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use crate::traits::RandomAccessGraph;
-use bitvec::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;
+use sux::prelude::BitVec;
 
 /// Iterator on all nodes of the graph in a BFS order
 pub struct BfsOrder<'a, G: RandomAccessGraph> {
     graph: &'a G,
     pl: ProgressLogger<'static>,
-    visited: BitVec<u64>,
+    visited: BitVec,
     queue: VecDeque<usize>,
     /// If the queue is empty, resume the BFS from that node.
     ///
@@ -27,7 +33,7 @@ impl<'a, G: RandomAccessGraph> BfsOrder<'a, G> {
         BfsOrder {
             graph,
             pl,
-            visited: bitvec![u64, Lsb0; 0; num_nodes],
+            visited: BitVec::new(num_nodes),
             queue: VecDeque::new(),
             start: 0,
         }

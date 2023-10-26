@@ -1,7 +1,15 @@
-use super::*;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use crate::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::ProgressLogger;
+use lender::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -9,6 +17,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::ScopedJoinHandle;
 use tempfile::tempdir;
 
+/// Build a BVGraph by compressing an iterator of nodes and successors and
+/// return the length of the produced bitstream (in bits).
 pub fn compress_sequential_iter<
     P: AsRef<Path>,
     I: ExactSizeIterator<Item = (usize, J)>,
@@ -17,12 +27,13 @@ pub fn compress_sequential_iter<
     basename: P,
     iter: I,
     compression_flags: CompFlags,
+    build_offsets: bool,
 ) -> Result<usize> {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
 
     // Compress the graph
-    let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
+    let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
         File::create(&graph_path)?,
     )));
 
@@ -46,9 +57,26 @@ pub fn compress_sequential_iter<
     pr.expected_updates = Some(num_nodes);
     pr.start("Compressing successors...");
     let mut result = 0;
-    for (_node_id, successors) in iter {
-        result += bvcomp.push(successors)?;
-        pr.update();
+
+    if build_offsets {
+        let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
+        // create a bit writer on the file
+        let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
+            BufWriter::with_capacity(1 << 20, file),
+        ));
+
+        writer.write_gamma(0)?;
+        for (_node_id, successors) in iter {
+            let delta = bvcomp.push(successors)?;
+            result += delta;
+            writer.write_gamma(delta as u64)?;
+            pr.update();
+        }
+    } else {
+        for (_node_id, successors) in iter {
+            result += bvcomp.push(successors)?;
+            pr.update();
+        }
     }
     pr.done();
 
@@ -65,19 +93,21 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<
-    P: AsRef<Path> + Send + Sync,
-    I: ExactSizeIterator<Item = (usize, J)> + Clone + Send,
-    J: Iterator<Item = usize>,
->(
-    basename: P,
-    mut iter: I,
+pub fn parallel_compress_sequential_iter<L: IntoLender>(
+    basename: impl AsRef<Path> + Send + Sync,
+    into_lender: L,
+    num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
-) -> Result<usize> {
+) -> Result<usize>
+where
+    L::Lender: Clone + Send,
+    for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
     let basename = basename.as_ref();
+    let mut iter = into_lender.into_lender();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
-    let num_nodes = iter.len();
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
     let dir = tempdir()?.into_path();
@@ -125,10 +155,10 @@ pub fn parallel_compress_sequential_iter<
                     nodes_per_thread * (thread_id + 1),
                 );
                 // Spawn the thread
-                let thread_iter = iter.clone().take(nodes_per_thread);
+                let thread_iter = iter.clone();
                 let handle = s.spawn(move || {
                     log::info!("Thread {} started", thread_id,);
-                    let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
+                    let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
                         BufWriter::new(File::create(&file_path).unwrap()),
                     ));
                     let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, cp_flags);
@@ -140,7 +170,6 @@ pub fn parallel_compress_sequential_iter<
                         nodes_per_thread * thread_id,
                     );
                     let written_bits = bvcomp.extend(thread_iter).unwrap();
-
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits bits [{}, {})",
                         thread_id,
@@ -165,7 +194,7 @@ pub fn parallel_compress_sequential_iter<
             // handle the case when this is the only available thread
             let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
             // complete the last chunk
-            let writer = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
+            let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
                 File::create(last_file_path).unwrap(),
             )));
             let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, &compression_flags);
@@ -196,7 +225,7 @@ pub fn parallel_compress_sequential_iter<
 
         // create hte buffered writer
         let mut result_writer =
-            <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(file)));
+            <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
         let mut result_len = 0;
         let mut total_arcs = 0;
@@ -228,7 +257,7 @@ pub fn parallel_compress_sequential_iter<
             );
             result_len += bits_to_copy;
 
-            let mut reader = <BufferedBitStreamRead<BE, u64, _>>::new(<FileBackend<u32, _>>::new(
+            let mut reader = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(
                 BufReader::new(File::open(&file_path).unwrap()),
             ));
             // copy all the data

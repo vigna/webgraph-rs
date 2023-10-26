@@ -1,8 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use super::*;
 use anyhow::{bail, Result};
 use dsi_bitstream::prelude::*;
 
-type BitReader<'a, E> = BufferedBitStreamRead<E, u64, MemWordReadInfinite<u32, &'a [u32]>>;
+type BitReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 
 /// A builder for the [`DynamicCodesReader`] that stores the data and gives
 /// references to the [`DynamicCodesReader`]. This does single-static-dispatching
@@ -29,7 +36,7 @@ pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
 
 impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -93,7 +100,7 @@ where
 
 impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
         DynamicCodesReader<E, BitReader<'a, E>>
@@ -102,8 +109,8 @@ where
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
-            BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
-        code_reader.set_pos(offset)?;
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        code_reader.set_bit_pos(offset)?;
 
         Ok(DynamicCodesReader {
             code_reader,
@@ -163,7 +170,7 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
 
 impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -278,7 +285,7 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder
     for DynamicCodesReaderSkipperBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
         DynamicCodesReaderSkipper<E, BitReader<'a, E>>
@@ -288,8 +295,8 @@ where
     #[inline(always)]
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
-            BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
-        code_reader.set_pos(offset)?;
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        code_reader.set_bit_pos(offset)?;
         Ok(DynamicCodesReaderSkipper {
             code_reader,
             read_outdegree: self.read_outdegree,
@@ -318,7 +325,7 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderBuilder<E, B>>
     for DynamicCodesReaderSkipperBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderBuilder<E, B>) -> Self {
@@ -329,7 +336,7 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderSkipperBuilder<E, B>>
     for DynamicCodesReaderBuilder<E, B>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderSkipperBuilder<E, B>) -> Self {
@@ -404,7 +411,7 @@ impl<
     > BVGraphCodesReaderBuilder
     for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
-    for<'a> BitReader<'a, E>: ReadCodes<E> + BitSeek,
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
         ConstCodesReader<E, BitReader<'a, E>>
@@ -413,8 +420,8 @@ where
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
-            BufferedBitStreamRead::new(MemWordReadInfinite::new(self.data.as_ref()));
-        code_reader.set_pos(offset)?;
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        code_reader.set_bit_pos(offset)?;
 
         Ok(ConstCodesReader {
             code_reader,

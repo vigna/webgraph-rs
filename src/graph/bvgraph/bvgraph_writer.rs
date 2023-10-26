@@ -1,9 +1,14 @@
-use core::cmp::Ordering;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 
-use super::*;
-use crate::utils::int2nat;
-use crate::utils::{CircularBuffer, CircularBufferVec};
+use crate::{for_iter, prelude::*};
 use anyhow::Result;
+use core::cmp::Ordering;
+use lender::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
@@ -326,7 +331,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: Iterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -422,11 +427,23 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// empty iterator).
     ///
     /// This most commonly is called with `graph.iter_nodes()` as input.
-    pub fn extend<I: Iterator<Item = (usize, J)>, J: Iterator<Item = usize>>(
-        &mut self,
-        iter_nodes: I,
-    ) -> Result<usize> {
-        iter_nodes.map(|(_, succ)| self.push(succ)).sum()
+    ///
+    /// WARNING: presently type inference does not work very well with this method:
+    /// you have to specify the type of `L` explicitly, sometimes just
+    /// partially---your mileage may vary.
+    pub fn extend<L>(&mut self, iter_nodes: L) -> Result<usize>
+    where
+        L: IntoLender,
+        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+    {
+        let mut count = 0;
+        for_iter! { (_, succ) in iter_nodes =>
+            count += self.push(succ.into_iter())?;
+        }
+        // WAS
+        // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
+        Ok(count)
     }
 
     /// Consume the compressor and flush the inner writer.
@@ -437,8 +454,10 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
 
 #[cfg(test)]
 mod test {
+
     use super::*;
     use dsi_bitstream::prelude::*;
+    use itertools::Itertools;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
 
@@ -551,7 +570,7 @@ mod test {
 
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
-        let bit_write = <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(BufWriter::new(
+        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
             File::create(file_path)?,
         )));
 
@@ -567,14 +586,14 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend::<&BVGraphSequential<_>>(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back
 
-        let bit_read = <BufferedBitStreamRead<BE, u64, _>>::new(<FileBackend<u32, _>>::new(
-            BufReader::new(File::open(file_path)?),
-        ));
+        let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
+            File::open(file_path)?,
+        )));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesReader<BE, _>>::new(bit_read, &comp_flags)?;
@@ -585,18 +604,20 @@ mod test {
             min_interval_length,
             seq_graph.num_nodes(),
         );
-
         // Check that the graph is the same
-        for (i, (true_node_id, true_succ)) in (&seq_graph).into_iter().enumerate() {
+        let mut iter = seq_graph.iter().enumerate();
+        while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
-            let true_succ = true_succ.collect::<Vec<_>>();
-            let seq_succ = seq_succ.collect::<Vec<_>>();
-            assert_eq!(true_succ, seq_succ, "node_id: {}", i);
+            assert_eq!(
+                true_succ.collect_vec(),
+                seq_succ.into_iter().collect_vec(),
+                "node_id: {}",
+                i
+            );
         }
-
         std::fs::remove_file(file_path).unwrap();
 
         Ok(())
@@ -607,7 +628,7 @@ mod test {
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();
-        let bit_write = <BufferedBitStreamWrite<LE, _>>::new(MemWordWriteVec::new(&mut buffer));
+        let bit_write = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut buffer));
 
         let comp_flags = CompFlags {
             ..Default::default()
@@ -621,13 +642,12 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend(seq_graph.iter_nodes()).unwrap();
+        bvcomp.extend::<&BVGraphSequential<_>>(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back
         let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-        let bit_read =
-            <BufferedBitStreamRead<LE, u64, _>>::new(MemWordReadInfinite::new(buffer_32));
+        let bit_read = <BufBitReader<LE, _>>::new(MemWordReader::new(buffer_32));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
@@ -638,16 +658,19 @@ mod test {
             min_interval_length,
             seq_graph.num_nodes(),
         );
-
         // Check that the graph is the same
-        for (i, (true_node_id, true_succ)) in (&seq_graph).into_iter().enumerate() {
+        let mut iter = seq_graph.iter().enumerate();
+        while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
 
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
-            let true_succ = true_succ.collect::<Vec<_>>();
-            let seq_succ = seq_succ.collect::<Vec<_>>();
-            assert_eq!(true_succ, seq_succ, "node_id: {}", i);
+            assert_eq!(
+                true_succ.collect_vec(),
+                seq_succ.collect_vec(),
+                "node_id: {}",
+                i
+            );
         }
 
         Ok(())

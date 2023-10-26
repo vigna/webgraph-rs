@@ -1,5 +1,12 @@
-use webgraph::prelude::PermutedGraph;
-use webgraph::traits::SequentialGraph;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use lender::*;
+use webgraph::prelude::*;
 
 #[test]
 fn test_permuted() {
@@ -28,8 +35,9 @@ fn test_permuted() {
 
     assert_eq!(
         permuted_graph
-            .iter_nodes()
-            .map(|(node, successors)| (node, successors.collect()))
+            .iter()
+            .map_into_iter(|(node, successors)| (node, successors.into_iter().collect()))
+            .into_iter()
             .collect::<Vec<_>>(),
         vec![
             (1, vec![3, 4]),

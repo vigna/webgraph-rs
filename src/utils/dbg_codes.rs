@@ -1,4 +1,10 @@
-use crate::traits::*;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use crate::prelude::*;
 
 #[repr(transparent)]
 /// A debug wrapper on a code read that prints the codes it reads

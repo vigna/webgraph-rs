@@ -1,6 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
+use lender::*;
+use webgraph::traits::SequentialGraph;
 
 #[derive(Parser, Debug)]
 #[command(about = "Dumps a graph as an COO arc list", long_about = None)]
@@ -23,7 +31,8 @@ pub fn main() -> Result<()> {
     pr.item_name = "offset";
     pr.start("Computing offsets...");
 
-    for (node_id, successors) in &seq_graph {
+    let mut iter = seq_graph.iter();
+    while let Some((node_id, successors)) = iter.next() {
         println!(
             "{}\t{}",
             node_id,

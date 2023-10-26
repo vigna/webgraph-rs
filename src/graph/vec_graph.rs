@@ -1,8 +1,19 @@
-use crate::traits::*;
-use alloc::collections::BTreeSet;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 
-/// Vector-based mutable [`Graph`] implementation.
-/// Successors are represented using a [`BTreeSet`].
+use crate::{for_iter, prelude::*};
+use alloc::collections::BTreeSet;
+use lender::*;
+
+/// A vector-based mutable [`Graph`]/[`LabeledGraph`] implementation.
+///
+/// Successors are represented using a [`BTreeSet`]. Choosing `()`
+/// as the label type will result in a [`Graph`] implementation.
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VecGraph<L: Clone> {
     /// The number of arcs in the graph.
@@ -50,32 +61,6 @@ impl<L: Clone> VecGraph<L> {
         self
     }
 
-    /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
-    pub fn from_labelled_node_iter<S, I>(iterator: I) -> Self
-    where
-        I: Iterator<Item = (usize, S)>,
-        S: Iterator<Item = usize> + LabelledIterator<Label = L>,
-    {
-        let mut g = Self::new();
-        g.add_labelled_node_iter(iterator);
-        g
-    }
-
-    /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-    pub fn add_labelled_node_iter<S, I>(&mut self, iterator: I) -> &mut Self
-    where
-        I: Iterator<Item = (usize, S)>,
-        S: Iterator<Item = usize> + LabelledIterator<Label = L>,
-    {
-        for (node, succ) in iterator {
-            self.add_node(node);
-            for (v, l) in succ.labelled() {
-                self.add_arc_with_label(node, v, l);
-            }
-        }
-        self
-    }
-
     /// Add an arc to the graph and return if it was a new one or not.
     /// `true` => already exist, `false` => new arc.
     pub fn add_arc_with_label(&mut self, u: usize, v: usize, l: L) -> bool {
@@ -87,7 +72,7 @@ impl<L: Clone> VecGraph<L> {
 
     /// Remove an arc from the graph and return if it was present or not.
     /// Return Nones if the either nodes (`u` or `v`) do not exist.
-    pub fn remove_labelled_arc(&mut self, u: usize, v: usize, l: L) -> Option<bool> {
+    pub fn remove_labeled_arc(&mut self, u: usize, v: usize, l: L) -> Option<bool> {
         if u >= self.succ.len() || v >= self.succ.len() {
             return None;
         }
@@ -102,6 +87,49 @@ impl<L: Clone> VecGraph<L> {
         let len = self.succ.len();
         self.succ.extend((len..=node).map(|_| BTreeSet::new()));
         len <= node
+    }
+
+    /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
+    pub fn from_labeled_node_iter<I>(iter_nodes: I) -> Self
+    where
+        I: IntoLender,
+        for<'next> Lend<'next, I::Lender>: Tuple2<_0 = usize>,
+        for<'next> <Lend<'next, I::Lender> as Tuple2>::_1:
+            IntoIterator<Item = usize> + LabeledSuccessors,
+        for<'next> <Lend<'next, I::Lender> as Tuple2>::_1: Labeled<Label = L>,
+    {
+        let mut g = Self::new();
+        g.add_labeled_node_iter(iter_nodes);
+        g
+    }
+
+    /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
+    pub fn add_labeled_node_iter<I>(&mut self, iter_nodes: I) -> &mut Self
+    where
+        I: IntoLender,
+        for<'next> Lend<'next, I::Lender>: Tuple2<_0 = usize>,
+        for<'next> <Lend<'next, I::Lender> as Tuple2>::_1:
+            IntoIterator<Item = usize> + LabeledSuccessors,
+        for<'next> <Lend<'next, I::Lender> as Tuple2>::_1: LabeledSuccessors<Label = L>,
+    {
+        for_iter! { (node, succ) in iter_nodes =>
+            self.add_node(node);
+            for (v, l) in succ.labeled() {
+                self.add_arc_with_label(node, v, l);
+            }
+        }
+        self
+    }
+
+    /// Add the nodes, arcs, and labels in a graph to a [`VecGraph`].
+    pub fn add_labeled_graph<S: LabeledSequentialGraph<Label = L>>(
+        &mut self,
+        graph: &S,
+    ) -> &mut Self
+    where
+        for<'next> <S as SequentialGraph>::Successors<'next>: LabeledSuccessors<Label = L>,
+    {
+        self.add_labeled_node_iter::<<S as SequentialGraph>::Iterator<'_>>(graph.iter())
     }
 }
 
@@ -122,21 +150,26 @@ impl VecGraph<()> {
         self
     }
 
-    /// Convert a the `iter_nodes` iterator of a graph into a [`VecGraph`].
-    pub fn from_node_iter<S: Iterator<Item = usize>, I: Iterator<Item = (usize, S)>>(
-        iterator: I,
-    ) -> Self {
+    /// Convert an iterator on nodes and successors in a [`VecGraph`].
+    pub fn from_node_iter<L>(iter_nodes: L) -> Self
+    where
+        L: IntoLender,
+        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+    {
         let mut g = Self::new();
-        g.add_node_iter(iterator);
+        g.add_node_iter(iter_nodes);
         g
     }
 
-    /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-    pub fn add_node_iter(
-        &mut self,
-        iterator: impl Iterator<Item = (usize, impl Iterator<Item = usize>)>,
-    ) -> &mut Self {
-        for (node, succ) in iterator {
+    /// Add the nodes and successors from an iterator to a [`VecGraph`].
+    pub fn add_node_iter<L>(&mut self, iter_nodes: L) -> &mut Self
+    where
+        L: IntoLender,
+        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+    {
+        for_iter! { (node, succ) in iter_nodes =>
             self.add_node(node);
             for v in succ {
                 self.add_arc(node, v);
@@ -169,12 +202,25 @@ impl VecGraph<()> {
     }
 }
 
-impl<L: Clone> Labelled for VecGraph<L> {
+/*impl<'lend, 'a> Lending<'lend> for &'a VecGraph<()> {
+    type Lend = (usize, Successors<'lend, ()>);
+}*/
+
+impl<'a> IntoLender for &'a VecGraph<()> {
+    type Lender = <VecGraph<()> as SequentialGraph>::Iterator<'a>;
+
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
+    }
+}
+
+impl<L: Clone> Labeled for VecGraph<L> {
     type Label = L;
 }
 
-impl<L: Clone> RandomAccessGraph for VecGraph<L> {
-    type RandomSuccessorIter<'a> = VecGraphIter<'a, L> where Self: 'a;
+impl<L: Clone + 'static> RandomAccessGraph for VecGraph<L> {
+    type Successors<'a> = Successors<'a, L> where Self: 'a;
 
     #[inline(always)]
     fn num_arcs(&self) -> usize {
@@ -187,8 +233,8 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn successors(&self, node: usize) -> Self::RandomSuccessorIter<'_> {
-        VecGraphIter {
+    fn successors(&self, node: usize) -> <Self as RandomAccessGraph>::Successors<'_> {
+        Successors {
             iter: self.succ[node].iter(),
             label: unsafe {
                 #[allow(clippy::uninit_assumed_init)]
@@ -198,14 +244,10 @@ impl<L: Clone> RandomAccessGraph for VecGraph<L> {
     }
 }
 
-impl<L: Clone> SequentialGraph for VecGraph<L> {
-    type NodesIter<'a> = SequentialGraphImplIter<'a, Self>
-        where
-            Self: 'a;
-
-    type SequentialSuccessorIter<'a> = VecGraphIter<'a, L>
-        where
-            Self: 'a;
+impl<L: Clone + 'static> SequentialGraph for VecGraph<L> {
+    type Successors<'a> = Successors<'a, L>;
+    type Iterator<'a> = IteratorImpl<'a, Self>
+    where L: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -218,20 +260,20 @@ impl<L: Clone> SequentialGraph for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        SequentialGraphImplIter {
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+        IteratorImpl {
             graph: self,
-            nodes: (0..self.num_nodes()),
+            nodes: (from..self.num_nodes()),
         }
     }
 }
 
-pub struct VecGraphIter<'a, L: Clone> {
+pub struct Successors<'a, L: Clone> {
     label: L,
     iter: std::collections::btree_set::Iter<'a, DstWithLabel<L>>,
 }
 
-impl<'a, T: Clone> Iterator for VecGraphIter<'a, T> {
+impl<'a, T: Clone> Iterator for Successors<'a, T> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -241,19 +283,19 @@ impl<'a, T: Clone> Iterator for VecGraphIter<'a, T> {
     }
 }
 
-impl<'a, L: Clone> Labelled for VecGraphIter<'a, L> {
+impl<'a, L: Clone> Labeled for Successors<'a, L> {
     type Label = L;
 }
 
-impl<'a, T: Clone> LabelledIterator for VecGraphIter<'a, T> {
+impl<'a, T: Clone> LabeledSuccessors for Successors<'a, T> {
     fn label(&self) -> Self::Label {
         self.label.clone()
     }
 }
 
-unsafe impl<'a, T: Clone> SortedIterator for VecGraphIter<'a, T> {}
+unsafe impl<'a, T: Clone> SortedSuccessors for Successors<'a, T> {}
 
-impl<'a, T: Clone> ExactSizeIterator for VecGraphIter<'a, T> {
+impl<'a, T: Clone> ExactSizeIterator for Successors<'a, T> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
@@ -275,7 +317,7 @@ impl<L> Eq for DstWithLabel<L> {}
 impl<L> PartialOrd for DstWithLabel<L> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
+        Some(self.cmp(other))
     }
 }
 

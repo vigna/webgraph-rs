@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use clap::Parser;
 use clap::ValueEnum;
@@ -91,10 +97,10 @@ pub fn main() -> Result<()> {
     };
 
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter(
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>>(
         args.new_basename,
-        seq_graph.iter_nodes(),
+        &seq_graph,
+        seq_graph.num_nodes(),
         compression_flags,
         args.num_cpus.unwrap_or(rayon::max_num_threads()),
     )?;

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -27,7 +33,7 @@ pub fn main() -> Result<()> {
     // Create the offsets file
     let file = std::fs::File::create(&format!("{}.offsets", args.basename))?;
     // create a bit writer on the file
-    let mut writer = <BufferedBitStreamWrite<BE, _>>::new(<FileBackend<u64, _>>::new(
+    let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
         BufWriter::with_capacity(1 << 20, file),
     ));
     // progress bar

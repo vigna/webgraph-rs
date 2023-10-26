@@ -1,8 +1,17 @@
-use crate::prelude::PermutedGraph;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use crate::prelude::*;
 use crate::{invert_in_place, traits::*};
 use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use epserde::prelude::*;
+
+use lender::*;
 use log::info;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
@@ -20,18 +29,15 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 /// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation<G>(
-    graph: &G,
+pub fn layered_label_propagation(
+    graph: &(impl RandomAccessGraph + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     max_iters: usize,
     chunk_size: usize,
     granularity: usize,
     seed: u64,
-) -> Result<Box<[usize]>>
-where
-    G: RandomAccessGraph + Sync,
-{
+) -> Result<Box<[usize]>> {
     let num_nodes = graph.num_nodes();
 
     // init the permutation with the indices
@@ -97,8 +103,7 @@ where
             // If this iteration modified anything (early stop)
             let modified = AtomicUsize::new(0);
 
-            let delta_obj_func = crate::graph::par_graph_apply(
-                graph,
+            let delta_obj_func = graph.par_graph_apply(
                 |range| {
                     let mut map = HashMap::with_capacity(1024);
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
@@ -112,7 +117,11 @@ where
                         can_change[node].store(false, Ordering::Relaxed);
 
                         let successors = graph.successors(node);
-                        if successors.len() == 0 {
+                        // TODO
+                        /*if successors.len() == 0 {
+                            continue;
+                        }*/
+                        if graph.outdegree(node) == 0 {
                             continue;
                         }
 
@@ -196,11 +205,14 @@ where
         let labels =
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
 
-        let pgraph = PermutedGraph {
-            graph,
-            perm: &update_perm,
-        };
-        let cost = compute_log_gap_cost(&thread_pool, &pgraph, None);
+        let cost = compute_log_gap_cost(
+            &thread_pool,
+            &PermutedGraph {
+                graph,
+                perm: &update_perm,
+            },
+            None,
+        );
         info!("Log-gap cost: {}", cost);
         costs.push(cost);
 
@@ -237,7 +249,7 @@ where
     let mut result_labels =
         <Vec<usize>>::load_mem(format!("labels_{}.bin", best_gamma_index))?.to_vec();
 
-    for (i, gamma_index) in gamma_indices.iter().enumerate().take(gamma_indices.len()) {
+    for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
         let labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", gamma_index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
@@ -331,15 +343,14 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
-    crate::graph::par_graph_apply(
-        graph,
+    graph.par_graph_apply(
         |range| {
             graph
-                .iter_nodes_from(range.start)
+                .iter_from(range.start)
                 .take(range.len())
-                .map(|(x, succ)| {
+                .map_into_iter(|(x, succ)| {
                     let mut cost = 0;
-                    let mut sorted: Vec<_> = succ.collect();
+                    let mut sorted: Vec<_> = succ.into_iter().collect();
                     if !sorted.is_empty() {
                         sorted.sort();
                         cost +=
@@ -351,7 +362,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     }
                     cost
                 })
-                .sum::<usize>() as f64
+                .fold(0, |a, x| a + x) as f64 // TODO: use sum() when it will be stable
         },
         |a, b| a + b,
         thread_pool,

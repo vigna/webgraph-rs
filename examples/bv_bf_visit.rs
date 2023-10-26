@@ -1,10 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
-use bitvec::prelude::*;
+use bitvec::*;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;
 use webgraph::prelude::*;
-
 #[derive(Parser, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct Args {
@@ -23,7 +29,7 @@ pub fn main() -> Result<()> {
 
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
-    let mut visited = bitvec![u64, Lsb0; 0; num_nodes];
+    let mut visited = bitvec![0; num_nodes];
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default().display_memory();

@@ -1,7 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use crate::traits::*;
 
-mod reader_degrees;
-pub use reader_degrees::*;
+mod degrees_iter;
+pub use degrees_iter::*;
 
 mod bvgraph_sequential;
 pub use bvgraph_sequential::*;
@@ -35,3 +42,6 @@ pub use load::*;
 
 mod comp_flags;
 pub use comp_flags::*;
+
+mod bvgraph_codes;
+pub use bvgraph_codes::*;

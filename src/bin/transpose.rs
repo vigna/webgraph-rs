@@ -1,9 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use clap::Parser;
 use clap::ValueEnum;
 use dsi_bitstream::codes::Code;
+use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum PrivCode {
     Unary,
@@ -101,9 +107,12 @@ pub fn main() -> Result<()> {
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.batch_size).unwrap();
     // compress the transposed graph
-    parallel_compress_sequential_iter(
+    parallel_compress_sequential_iter::<
+        &arc_list_graph::ArcListGraph<std::iter::Map<KMergeIters<_>, _>>,
+    >(
         args.basename,
-        sorted.iter_nodes(),
+        &sorted,
+        sorted.num_nodes(),
         compression_flags,
         args.num_cpus.unwrap_or(rayon::current_num_threads()),
     )

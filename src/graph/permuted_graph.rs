@@ -1,19 +1,29 @@
-use crate::traits::SequentialGraph;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use lender::*;
+
+use crate::prelude::*;
 
 #[derive(Clone)]
-/// A Graph wrapper that applies on the fly a permutation of the nodes
+/// A wrapper applying a permutation to the iterators of an underlying graph.
+///
+/// Note that nodes are simply remapped: thus, neither the iterator on the graph
+/// nor the successors are sorted.
 pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub graph: &'a G,
     pub perm: &'a [usize],
 }
 
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
-    type NodesIter<'b> =
-        NodePermutedIterator<'b, G::NodesIter<'b>, G::SequentialSuccessorIter<'b>>
-		where Self: 'b;
-    type SequentialSuccessorIter<'b> =
-        SequentialPermutedIterator<'b, G::SequentialSuccessorIter<'b>>
-		where Self: 'b;
+    type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
+        where
+            Self: 'b;
+    type Successors<'b> = PermutedSuccessors<'b, <G::Successors<'b> as IntoIterator>::IntoIter>;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -26,44 +36,63 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        NodePermutedIterator {
-            iter: self.graph.iter_nodes(),
-            perm: self.perm,
-        }
-    }
-
-    #[inline(always)]
-    fn iter_nodes_from(&self, start_node: usize) -> Self::NodesIter<'_> {
-        NodePermutedIterator {
-            iter: self.graph.iter_nodes_from(start_node),
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+        PermutedGraphIterator {
+            iter: self.graph.iter_from(from),
             perm: self.perm,
         }
     }
 }
 
-#[derive(Clone)]
+/*impl<'lend, 'a, 'b, G: SequentialGraph> Lending<'lend> for &'b PermutedGraph<'a, G> {
+    type Lend = (
+        usize,
+        PermutedSuccessors<'lend, <G::Successors<'lend> as IntoIterator>::IntoIter>,
+    );
+}
+*/
+impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
+    type Lender = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
+
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
+    }
+}
+
+//#[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
-pub struct NodePermutedIterator<
-    'a,
-    I: ExactSizeIterator<Item = (usize, J)>,
-    J: Iterator<Item = usize>,
-> {
+pub struct PermutedGraphIterator<'node, I> {
     iter: I,
-    perm: &'a [usize],
+    perm: &'node [usize],
 }
 
-impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> Iterator
-    for NodePermutedIterator<'a, I, J>
+impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>
+where
+    I: Lender,
+    for<'next> Lend<'next, I>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
-    type Item = (usize, SequentialPermutedIterator<'a, J>);
+    type Lend = (
+        usize,
+        PermutedSuccessors<'succ, <<Lend<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>,
+    );
+}
+
+impl<'a, L> Lender for PermutedGraphIterator<'a, L>
+where
+    L: Lender,
+    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
     #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(node, iter)| {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
+        self.iter.next().map(|x| {
+            let (node, succ) = x.into_tuple();
             (
                 self.perm[node],
-                SequentialPermutedIterator {
-                    iter,
+                PermutedSuccessors {
+                    iter: succ.into_iter(),
                     perm: self.perm,
                 },
             )
@@ -71,32 +100,21 @@ impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> Ite
     }
 }
 
-impl<'a, I: ExactSizeIterator<Item = (usize, J)>, J: Iterator<Item = usize>> ExactSizeIterator
-    for NodePermutedIterator<'a, I, J>
-{
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-}
-
 #[derive(Clone)]
-/// An iterator over the successors of a node of a graph that applies on the fly a permutation of the nodes
-pub struct SequentialPermutedIterator<'a, I: Iterator<Item = usize>> {
+pub struct PermutedSuccessors<'a, I: Iterator<Item = usize>> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = usize>> Iterator for SequentialPermutedIterator<'a, I> {
+impl<'a, I: Iterator<Item = usize>> Iterator for PermutedSuccessors<'a, I> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|x| self.perm[x])
+        self.iter.next().map(|succ| self.perm[succ])
     }
 }
 
-impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator
-    for SequentialPermutedIterator<'a, I>
-{
+impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSuccessors<'a, I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
@@ -115,7 +133,9 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v = VecGraph::from_node_iter(p.iter_nodes());
+    let v = VecGraph::from_node_iter::<PermutedGraphIterator<'_, IteratorImpl<'_, VecGraph<()>>>>(
+        p.iter(),
+    );
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0), 1);

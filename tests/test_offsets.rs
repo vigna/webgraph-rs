@@ -1,6 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
+use lender::*;
 use std::io::prelude::*;
 use sux::prelude::*;
 use webgraph::prelude::*;
@@ -16,8 +24,7 @@ fn test_offsets() -> Result<()> {
     offsets_file.read_exact(&mut offsets_data)?;
 
     let mut offsets = Vec::with_capacity(graph.num_nodes());
-    let mut reader =
-        BufferedBitStreamRead::<BE, u64, _>::new(MemWordReadInfinite::new(&offsets_data));
+    let mut reader = BufBitReader::<BE, _>::new(MemWordReader::new(&offsets_data));
     let mut offset = 0;
     for _ in 0..graph.num_nodes() + 1 {
         offset += reader.read_gamma().unwrap() as usize;
@@ -34,7 +41,8 @@ fn test_offsets() -> Result<()> {
     }
 
     // Check that they read the same
-    for (node_id, seq_succ) in graph.iter_nodes() {
+    let mut iter_nodes = graph.iter();
+    while let Some((node_id, seq_succ)) = iter_nodes.next() {
         let rand_succ = graph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }

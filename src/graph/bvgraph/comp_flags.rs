@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::{bail, Result};
 use dsi_bitstream::prelude::Code;
 use std::collections::HashMap;
@@ -135,9 +142,7 @@ impl CompFlags {
         if let Some(comp_flags) = map.get("compressionflags") {
             if !comp_flags.is_empty() {
                 for flag in comp_flags.split('|') {
-                    dbg!(&flag);
                     let s: Vec<_> = flag.split('_').collect();
-                    dbg!(&s);
                     // FIXME: this is a hack to avoid having to implement
                     // FromStr for Code
                     let code = CompFlags::code_from_str(s[1]).unwrap();

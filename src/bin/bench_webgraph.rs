@@ -1,4 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use clap::Parser;
+use itertools::Itertools;
+use lender::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -53,14 +61,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let random_reader = webgraph::graph::bvgraph::load(&args.basename)?;
 
         // Check that sequential and random-access interfaces return the same result
-        let mut seq_iter = seq_graph.iter_nodes();
+        let mut seq_iter = seq_graph.iter();
         let mut deg_reader = seq_graph.iter_degrees();
         for node_id in 0..seq_graph.num_nodes() {
-            let seq = seq_iter.next_successors()?;
+            let seq = seq_iter.next().unwrap();
             let random = random_reader.successors(node_id).collect::<Vec<_>>();
 
-            assert_eq!(deg_reader.next_degree()?, seq.len(), "{}", node_id);
-            assert_eq!(seq, random, "{}", node_id);
+            assert_eq!(deg_reader.next_degree()?, seq.1.len(), "{}", node_id);
+            assert_eq!(seq.1.collect_vec(), random, "{}", node_id);
         }
     } else if args.sequential {
         // Sequential speed test
@@ -69,7 +77,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut c = 0;
             let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
-            for (_, succ) in &seq_graph {
+            let mut iter = seq_graph.iter();
+            while let Some((_, succ)) = iter.next() {
                 c += succ.count();
             }
             println!(

@@ -1,3 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use lender::*;
 use std::{fs::File, io::BufWriter};
 use tempfile::NamedTempFile;
 
@@ -6,14 +14,13 @@ const NODES: usize = 325557;
 use anyhow::Result;
 use dsi_bitstream::{
     prelude::{
-        BufferedBitStreamRead, BufferedBitStreamWrite,
+        BufBitReader, BufBitWriter,
         Code::{Delta, Gamma, Unary, Zeta},
-        FileBackend, MemWordReadInfinite,
+        MemWordReader, WordAdapter,
     },
     traits::BE,
 };
 use dsi_progress_logger::ProgressLogger;
-use mmap_rs::MmapOptions;
 use webgraph::{
     graph::bvgraph::{
         BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter,
@@ -56,7 +63,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
                                     let writer = <DynamicCodesWriter<BE, _>>::new(
-                                        <BufferedBitStreamWrite<BE, _>>::new(FileBackend::new(
+                                        <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
                                             BufWriter::new(File::create(tmp_path)?),
                                         )),
                                         &compression_flags,
@@ -74,7 +81,8 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.start("Compressing...");
                                     pl.expected_updates = Some(NODES);
 
-                                    for (_, iter) in &seq_graph {
+                                    let mut iter_nodes = seq_graph.iter();
+                                    while let Some((_, iter)) = iter_nodes.next() {
                                         bvcomp.push(iter)?;
                                         pl.light_update();
                                     }
@@ -82,27 +90,16 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.done();
                                     bvcomp.flush()?;
 
-                                    let path = std::path::Path::new(tmp_path);
-                                    let file_len = path.metadata()?.len();
-                                    let file = std::fs::File::open(path)?;
-
-                                    let data = unsafe {
-                                        MmapOptions::new(file_len as _)
-                                            .unwrap()
-                                            .with_file(file, 0)
-                                            .map()
-                                            .unwrap()
-                                    };
-
                                     let code_reader = DynamicCodesReader::new(
-                                        BufferedBitStreamRead::<BE, u64, _>::new(
-                                            MemWordReadInfinite::<u32, _>::new(MmapBackend::new(
-                                                data,
-                                            )),
-                                        ),
+                                        BufBitReader::<BE, _>::new(MemWordReader::<u32, _>::new(
+                                            MmapBackend::load(
+                                                tmp_path,
+                                                mmap_rs::MmapFlags::empty(),
+                                            )?,
+                                        )),
                                         &compression_flags,
                                     )?;
-                                    let seq_reader1 = WebgraphSequentialIter::new(
+                                    let mut seq_reader1 = WebgraphSequentialIter::new(
                                         code_reader,
                                         compression_flags.compression_window,
                                         compression_flags.min_interval_length,
@@ -110,9 +107,11 @@ fn test_bvcomp_slow() -> Result<()> {
                                     );
 
                                     pl.start("Checking equality...");
-                                    for ((_, iter0), (_, iter1)) in
-                                        seq_graph.iter_nodes().zip(seq_reader1)
-                                    {
+                                    let mut iter_nodes = seq_graph.iter();
+                                    for _ in 0..seq_graph.num_nodes() {
+                                        let (node0, iter0) = iter_nodes.next().unwrap();
+                                        let (node1, iter1) = seq_reader1.next().unwrap();
+                                        assert_eq!(node0, node1);
                                         assert_eq!(
                                             iter0.collect::<Vec<_>>(),
                                             iter1.collect::<Vec<_>>()

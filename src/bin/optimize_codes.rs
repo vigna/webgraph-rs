@@ -1,6 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::ProgressLogger;
+use lender::*;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
 
@@ -28,7 +35,8 @@ pub fn main() -> Result<()> {
     pr.start("Reading nodes...");
     pr.expected_updates = Some(seq_graph.num_nodes());
 
-    for _ in &seq_graph {
+    let mut iter = seq_graph.iter();
+    while iter.next().is_some() {
         pr.light_update();
     }
 

@@ -1,8 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use super::*;
 use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use lender::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
@@ -16,13 +24,11 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
 }
 
 impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
-    type NodesIter<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
+    type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
+        CRB: 'a,
         Self: 'a;
-
-    type SequentialSuccessorIter<'a> = std::vec::IntoIter<usize>
-    where
-        Self: 'a;
+    type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>;
 
     #[inline(always)]
     /// Return the number of nodes in the graph
@@ -36,13 +42,32 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 
     #[inline(always)]
-    fn iter_nodes(&self) -> Self::NodesIter<'_> {
-        WebgraphSequentialIter::new(
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+        let mut iter = WebgraphSequentialIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
-        )
+        );
+
+        for _ in 0..from {
+            iter.next();
+        }
+
+        iter
+    }
+}
+
+/*impl<'lend, 'a, CRB: BVGraphCodesReaderBuilder> Lending<'lend> for &'a BVGraphSequential<CRB> {
+    type Lend = Lend<'lend, <Self as IntoLender>::Lender>;
+}
+*/
+impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CRB> {
+    type Lender = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
+
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
     }
 }
 
@@ -96,8 +121,8 @@ where
     /// Create an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
-    pub fn iter_degrees(&self) -> WebgraphDegreesIter<CRB::Reader<'_>> {
-        WebgraphDegreesIter::new(
+    pub fn iter_degrees(&self) -> DegreesIter<CRB::Reader<'_>> {
+        DegreesIter::new(
             self.codes_reader_builder.get_reader(0).unwrap(),
             self.min_interval_length,
             self.compression_window,
@@ -122,8 +147,8 @@ impl<CR: BVGraphCodesReader + BitSeek> WebgraphSequentialIter<CR> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
-    pub fn get_pos(&self) -> usize {
-        self.codes_reader.get_pos()
+    pub fn get_bit_pos(&self) -> usize {
+        self.codes_reader.get_bit_pos()
     }
 }
 
@@ -165,7 +190,6 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
 
         // ensure that we have enough capacity in the vector for not reallocating
         results.reserve(degree.saturating_sub(results.capacity()));
-
         // read the reference offset
         let ref_delta = if self.compression_window != 0 {
             self.codes_reader.read_reference_offset() as usize
@@ -251,10 +275,12 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
-    type Item = (usize, std::vec::IntoIter<usize>);
+impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
+    type Lend = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
+impl<CR: BVGraphCodesReader> Lender for WebgraphSequentialIter<CR> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
@@ -262,38 +288,13 @@ impl<CR: BVGraphCodesReader> Iterator for WebgraphSequentialIter<CR> {
         self.get_successors_iter_priv(self.current_node, &mut res)
             .unwrap();
 
-        // this clippy suggestion is wrong, we cannot return a reference to a
-        // local variable
-        #[allow(clippy::unnecessary_to_owned)]
-        let res = self
-            .backrefs
-            .push(self.current_node, res)
-            .to_vec()
-            .into_iter();
+        let res = self.backrefs.push(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
-        Some((node_id, res))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.number_of_nodes - self.current_node;
-        (len, Some(len))
+        Some((node_id, res.iter().copied()))
     }
 }
 
 unsafe impl<CR: BVGraphCodesReader> SortedIterator for WebgraphSequentialIter<CR> {}
-unsafe impl SortedIterator for std::vec::IntoIter<usize> {}
 
-impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}
-
-impl<'a, CRB> IntoIterator for &'a BVGraphSequential<CRB>
-where
-    CRB: BVGraphCodesReaderBuilder,
-{
-    type IntoIter = WebgraphSequentialIter<CRB::Reader<'a>>;
-    type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_nodes()
-    }
-}
+// TODO impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}

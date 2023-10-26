@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -49,8 +55,7 @@ pub fn main() -> Result<()> {
         info!("The offsets file exists, reading it to build Elias-Fano");
         let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
         // create a bit reader on the file
-        let mut reader =
-            BufferedBitStreamRead::<BE, u64, _>::new(<FileBackend<u32, _>>::new(of_file));
+        let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
         // progress bar
         pr.start("Translating offsets to EliasFano...");
         // read the graph a write the offsets
