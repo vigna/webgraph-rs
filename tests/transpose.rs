@@ -1,17 +1,17 @@
 use anyhow::Result;
 use webgraph::prelude::*;
 
+fn logger_init() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+}
+
 #[test]
 fn test_transpose() -> Result<()> {
     const TRANSPOSED_PATH: &str = "tests/data/cnr-2000-transposed";
     const RE_TRANSPOSED_PATH: &str = "tests/data/cnr-2000-transposed-transposed";
     const BATCH_SIZE: usize = 100_000;
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    logger_init();
 
     let compression_flags = CompFlags::default();
 

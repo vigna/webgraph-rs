@@ -2,13 +2,13 @@ use anyhow::Result;
 use dsi_progress_logger::ProgressLogger;
 use webgraph::prelude::*;
 
+fn logger_init() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+}
+
 #[test]
 fn test_par_bvcomp() -> Result<()> {
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    logger_init();
     let comp_flags = CompFlags::default();
     let tmp_basename = "tests/data/cnr-2000-par";
 
