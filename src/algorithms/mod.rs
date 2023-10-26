@@ -2,7 +2,7 @@ mod llp;
 pub use llp::layered_label_propagation;
 
 mod bfs_order;
-pub use bfs_order::bfs_order;
+pub use bfs_order::BfsOrder;
 
 mod simplify;
 pub use simplify::*;

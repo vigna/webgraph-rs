@@ -3,38 +3,70 @@ use bitvec::prelude::*;
 use dsi_progress_logger::ProgressLogger;
 use std::collections::VecDeque;
 
-/// Visit the graph in BFS order and return a vector with the order in which the
-/// nodes were visited
-pub fn bfs_order<G: RandomAccessGraph>(graph: &G) -> Vec<usize> {
-    let num_nodes = graph.num_nodes();
-    let mut visited = bitvec![u64, Lsb0; 0; num_nodes];
-    let mut queue = VecDeque::new();
+/// Iterator on all nodes of the graph in a BFS order
+pub struct BfsOrder<'a, G: RandomAccessGraph> {
+    graph: &'a G,
+    pl: ProgressLogger<'static>,
+    visited: BitVec<u64>,
+    queue: VecDeque<usize>,
+    /// If the queue is empty, resume the BFS from that node.
+    ///
+    /// This allows initializing the BFS from all orphan nodes without reading
+    /// the reverse graph.
+    start: usize,
+}
 
-    let mut pl = ProgressLogger::default().display_memory();
-    pl.item_name = "node";
-    pl.local_speed = true;
-    pl.expected_updates = Some(num_nodes);
-    pl.start("Visiting graph in BFS order...");
-
-    for start in 0..num_nodes {
-        pl.update();
-        if visited[start] {
-            continue;
-        }
-        queue.push_back(start as _);
-        visited.set(start, true);
-
-        while !queue.is_empty() {
-            let current_node = queue.pop_front().unwrap();
-            for succ in graph.successors(current_node) {
-                if !visited[succ] {
-                    queue.push_back(succ);
-                    visited.set(succ as _, true);
-                }
-            }
+impl<'a, G: RandomAccessGraph> BfsOrder<'a, G> {
+    pub fn new(graph: &G) -> BfsOrder<G> {
+        let num_nodes = graph.num_nodes();
+        let mut pl = ProgressLogger::default().display_memory();
+        pl.item_name = "node";
+        pl.local_speed = true;
+        pl.expected_updates = Some(num_nodes);
+        pl.start("Visiting graph in BFS order...");
+        BfsOrder {
+            graph,
+            pl,
+            visited: bitvec![u64, Lsb0; 0; num_nodes],
+            queue: VecDeque::new(),
+            start: 0,
         }
     }
+}
 
-    pl.done();
-    todo!("TODO: return the order in which the nodes were visited");
+impl<'a, G: RandomAccessGraph> Iterator for BfsOrder<'a, G> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        self.pl.light_update();
+        let current_node = match self.queue.pop_front() {
+            None => {
+                while self.visited[self.start] {
+                    self.start += 1;
+                    if self.start >= self.graph.num_nodes() {
+                        self.pl.done();
+                        return None;
+                    }
+                }
+                self.visited.set(self.start, true);
+                self.start
+            }
+            Some(node) => node,
+        };
+
+        for succ in self.graph.successors(current_node) {
+            if !self.visited[succ] {
+                self.queue.push_back(succ);
+                self.visited.set(succ as _, true);
+            }
+        }
+
+        Some(current_node)
+    }
+}
+
+impl<'a, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, G> {
+    fn len(&self) -> usize {
+        self.graph.num_nodes()
+    }
 }
