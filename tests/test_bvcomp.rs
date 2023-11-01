@@ -20,7 +20,7 @@ use dsi_bitstream::{
     },
     traits::BE,
 };
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use webgraph::{
     graph::bvgraph::{
         BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter,
@@ -76,10 +76,12 @@ fn test_bvcomp_slow() -> Result<()> {
                                         0,
                                     );
 
-                                    let mut pl = ProgressLogger::default().display_memory();
-                                    pl.item_name = "node";
+                                    let mut pl = ProgressLogger::default();
+                                    pl.display_memory(true)
+                                        .item_name("node")
+                                        .expected_updates(Some(NODES));
+
                                     pl.start("Compressing...");
-                                    pl.expected_updates = Some(NODES);
 
                                     let mut iter_nodes = seq_graph.iter();
                                     while let Some((_, iter)) = iter_nodes.next() {

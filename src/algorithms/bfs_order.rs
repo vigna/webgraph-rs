@@ -5,14 +5,14 @@
  */
 
 use crate::traits::RandomAccessGraph;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use std::collections::VecDeque;
 use sux::prelude::BitVec;
 
 /// Iterator on all nodes of the graph in a BFS order
 pub struct BfsOrder<'a, G: RandomAccessGraph> {
     graph: &'a G,
-    pl: ProgressLogger<'static>,
+    pl: ProgressLogger,
     visited: BitVec,
     queue: VecDeque<usize>,
     /// If the queue is empty, resume the BFS from that node.
@@ -25,10 +25,11 @@ pub struct BfsOrder<'a, G: RandomAccessGraph> {
 impl<'a, G: RandomAccessGraph> BfsOrder<'a, G> {
     pub fn new(graph: &G) -> BfsOrder<G> {
         let num_nodes = graph.num_nodes();
-        let mut pl = ProgressLogger::default().display_memory();
-        pl.item_name = "node";
-        pl.local_speed = true;
-        pl.expected_updates = Some(num_nodes);
+        let mut pl = ProgressLogger::default();
+        pl.display_memory(true)
+            .item_name("node")
+            .local_speed(true)
+            .expected_updates(Some(num_nodes));
         pl.start("Visiting graph in BFS order...");
         BfsOrder {
             graph,

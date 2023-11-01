@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::{BufReader, Read};
@@ -54,8 +54,8 @@ fn permute(
     perm: &[usize],
     num_nodes: usize,
 ) -> Result<()> {
-    let mut glob_pr = ProgressLogger::default().display_memory();
-    glob_pr.item_name = "node";
+    let mut glob_pl = ProgressLogger::default();
+    glob_pl.display_memory(true).item_name("node");
 
     let tmpdir = tempdir().unwrap();
     // create a stream where to dump the sorted pairs
@@ -98,9 +98,9 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let mut glob_pr = ProgressLogger::default().display_memory();
-    glob_pr.item_name = "node";
-    glob_pr.start("Permuting the graph...");
+    let mut glob_pl = ProgressLogger::default();
+    glob_pl.display_memory(true).item_name("node");
+    glob_pl.start("Permuting the graph...");
     // TODO!: check that batchsize fits in memory, and that print the maximum
     // batch_size usable
 
@@ -117,17 +117,17 @@ pub fn main() -> Result<()> {
         let mut perm = Vec::with_capacity(num_nodes);
         let mut buf = [0; core::mem::size_of::<usize>()];
 
-        let mut perm_pr = ProgressLogger::default().display_memory();
-        perm_pr.item_name = "node";
+        let mut perm_pl = ProgressLogger::default();
+        perm_pl.display_memory(true).item_name("node");
 
         for _ in 0..num_nodes {
             file.read_exact(&mut buf)?;
             perm.push(usize::from_be_bytes(buf));
-            perm_pr.light_update();
+            perm_pl.light_update();
         }
-        perm_pr.done();
+        perm_pl.done();
         permute(args, &graph, perm.as_ref(), num_nodes)?;
     }
-    glob_pr.done();
+    glob_pl.done();
     Ok(())
 }

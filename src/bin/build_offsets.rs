@@ -7,7 +7,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use std::io::BufWriter;
 use webgraph::prelude::*;
 
@@ -37,10 +37,11 @@ pub fn main() -> Result<()> {
         BufWriter::with_capacity(1 << 20, file),
     ));
     // progress bar
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "offset";
-    pr.expected_updates = Some(seq_graph.num_nodes());
-    pr.start("Computing offsets...");
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true)
+        .item_name("offset")
+        .expected_updates(Some(seq_graph.num_nodes()));
+    pl.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;
     let mut degs_iter = seq_graph.iter_degrees();
@@ -49,11 +50,11 @@ pub fn main() -> Result<()> {
         writer.write_gamma((new_offset - offset) as _)?;
         offset = new_offset;
         // decode the next nodes so we know where the next node_id starts
-        pr.light_update();
+        pl.light_update();
     }
     // write the last offset, this is done to avoid decoding the last node
     writer.write_gamma((degs_iter.get_pos() - offset) as _)?;
-    pr.light_update();
-    pr.done();
+    pl.light_update();
+    pl.done();
     Ok(())
 }

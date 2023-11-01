@@ -16,7 +16,7 @@ use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use lender::*;
 use std::sync::Mutex;
 
@@ -72,14 +72,14 @@ pub trait SequentialGraph {
         reduce: R,
         thread_pool: &rayon::ThreadPool,
         granularity: usize,
-        pr: Option<&mut ProgressLogger>,
+        pl: Option<&mut ProgressLogger>,
     ) -> T
     where
         F: Fn(Range<usize>) -> T + Send + Sync,
         R: Fn(T, T) -> T + Send + Sync,
         T: Send + Default,
     {
-        let pr_lock = pr.map(Mutex::new);
+        let pl_lock = pl.map(Mutex::new);
         let num_nodes = self.num_nodes();
         let num_cpus = thread_pool
             .current_num_threads()
@@ -95,7 +95,7 @@ pub trait SequentialGraph {
                 res.push(rx);
 
                 // create some references so that we can share them across threads
-                let pr_lock_ref = &pr_lock;
+                let pl_lock_ref = &pl_lock;
                 let next_node_ref = &next_node;
                 let func_ref = &func;
                 let reduce_ref = &reduce;
@@ -113,8 +113,8 @@ pub trait SequentialGraph {
                         // apply the function and reduce the result
                         result = reduce_ref(result, func_ref(start_pos..end_pos));
                         // update the progress logger if specified
-                        if let Some(pr_lock) = pr_lock_ref {
-                            pr_lock
+                        if let Some(pl_lock) = pl_lock_ref {
+                            pl_lock
                                 .lock()
                                 .unwrap()
                                 .update_with_count((start_pos..end_pos).len());

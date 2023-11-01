@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use lender::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -52,10 +52,11 @@ pub fn compress_sequential_iter<
     );
     let num_nodes = iter.len();
 
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "node";
-    pr.expected_updates = Some(num_nodes);
-    pr.start("Compressing successors...");
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true)
+        .item_name("node")
+        .expected_updates(Some(num_nodes));
+    pl.start("Compressing successors...");
     let mut result = 0;
 
     if build_offsets {
@@ -70,15 +71,15 @@ pub fn compress_sequential_iter<
             let delta = bvcomp.push(successors)?;
             result += delta;
             writer.write_gamma(delta as u64)?;
-            pr.update();
+            pl.update();
         }
     } else {
         for (_node_id, successors) in iter {
             result += bvcomp.push(successors)?;
-            pr.update();
+            pl.update();
         }
     }
-    pr.done();
+    pl.done();
 
     log::info!("Writing the .properties file");
     let properties = compression_flags.to_properties(num_nodes, bvcomp.arcs);

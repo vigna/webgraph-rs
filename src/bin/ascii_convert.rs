@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use lender::*;
 use webgraph::traits::SequentialGraph;
 
@@ -27,9 +27,9 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "offset";
-    pr.start("Computing offsets...");
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true).item_name("offset");
+    pl.start("Computing offsets...");
 
     let mut iter = seq_graph.iter();
     while let Some((node_id, successors)) = iter.next() {
@@ -43,7 +43,7 @@ pub fn main() -> Result<()> {
         );
     }
 
-    pr.done();
+    pl.done();
 
     Ok(())
 }

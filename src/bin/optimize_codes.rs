@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use lender::*;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
@@ -30,17 +30,18 @@ pub fn main() -> Result<()> {
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(CodesReaderStatsBuilder::new);
 
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.item_name = "node";
-    pr.start("Reading nodes...");
-    pr.expected_updates = Some(seq_graph.num_nodes());
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true)
+        .item_name("node")
+        .expected_updates(Some(seq_graph.num_nodes()));
+    pl.start("Reading nodes...");
 
     let mut iter = seq_graph.iter();
     while iter.next().is_some() {
-        pr.light_update();
+        pl.light_update();
     }
 
-    pr.done();
+    pl.done();
 
     let reader = seq_graph.unwrap_codes_reader_builder();
     let stats = reader.stats;

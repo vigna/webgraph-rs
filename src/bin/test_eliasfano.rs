@@ -7,7 +7,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use epserde::prelude::*;
 use log::info;
 use std::fs::File;
@@ -46,9 +46,10 @@ pub fn main() -> Result<()> {
 
     let ef = <webgraph::EF<Vec<usize>>>::mmap(format!("{}.ef", args.basename), Flags::default())?;
 
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.expected_updates = Some(num_nodes as _);
-    pr.item_name = "offset";
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true)
+        .item_name("offset")
+        .expected_updates(Some(num_nodes));
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
@@ -57,7 +58,7 @@ pub fn main() -> Result<()> {
         // create a bit reader on the file
         let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
         // progress bar
-        pr.start("Translating offsets to EliasFano...");
+        pl.start("Translating offsets to EliasFano...");
         // read the graph a write the offsets
         let mut offset = 0;
         for node_id in 0..num_nodes + 1 {
@@ -67,28 +68,29 @@ pub fn main() -> Result<()> {
             let ef_res = ef.get(node_id as _);
             assert_eq!(offset, ef_res as _, "node_id: {}", node_id);
             // decode the next nodes so we know where the next node_id starts
-            pr.light_update();
+            pl.light_update();
         }
     }
 
-    let mut pr = ProgressLogger::default().display_memory();
-    pr.expected_updates = Some(num_nodes as _);
-    pr.item_name = "offset";
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true)
+        .item_name("offset")
+        .expected_updates(Some(num_nodes));
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
     // otherwise directly read the graph
     // progress bar
-    pr.start("Building EliasFano...");
+    pl.start("Building EliasFano...");
     // read the graph a write the offsets
     for (new_offset, node_id, _degree) in seq_graph.iter_degrees() {
         // decode the next nodes so we know where the next node_id starts
         // read ef
         let ef_res = ef.get(node_id as _);
         assert_eq!(new_offset, ef_res as _, "node_id: {}", node_id);
-        pr.light_update();
+        pl.light_update();
     }
-    pr.done();
+    pl.done();
     Ok(())
 }

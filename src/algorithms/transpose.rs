@@ -9,7 +9,7 @@ use crate::graph::arc_list_graph;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use lender::*;
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
@@ -25,8 +25,8 @@ pub fn transpose(
     let mut sorted = SortPairs::new(batch_size, dir.into_path())?;
 
     let mut pl = ProgressLogger::default();
-    pl.item_name = "node";
-    pl.expected_updates = Some(graph.num_nodes());
+    pl.item_name("node")
+        .expected_updates(Some(graph.num_nodes()));
     pl.start("Creating batches...");
     // create batches of sorted edges
     for_iter! { (src, succ) in graph.iter() =>

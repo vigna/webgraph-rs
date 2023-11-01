@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use crate::{invert_in_place, traits::*};
 use anyhow::Result;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use epserde::prelude::*;
 
 use lender::*;
@@ -54,28 +54,31 @@ pub fn layered_label_propagation(
         .build()?;
 
     // init the gamma progress logger
-    let mut gamma_pr = ProgressLogger::default().display_memory();
-    gamma_pr.item_name = "gamma";
-    gamma_pr.expected_updates = Some(gammas.len());
+    let mut gamma_pl = ProgressLogger::default();
+    gamma_pl
+        .display_memory(true)
+        .item_name("gamma")
+        .expected_updates(Some(gammas.len()));
 
     // init the iteration progress logger
-    let mut iter_pr = ProgressLogger::default();
-    iter_pr.item_name = "update";
+    let mut iter_pl = ProgressLogger::default();
+    iter_pl.item_name("update");
 
     // init the update progress logger
-    let mut update_pr = ProgressLogger::default();
-    update_pr.item_name = "node";
-    update_pr.local_speed = true;
-    update_pr.expected_updates = Some(num_nodes);
+    let mut update_pl = ProgressLogger::default();
+    update_pl
+        .item_name("node")
+        .local_speed(true)
+        .expected_updates(Some(num_nodes));
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
 
-    gamma_pr.start(format!("Running {} threads", num_threads));
+    gamma_pl.start(format!("Running {} threads", num_threads));
 
     for (gamma_index, gamma) in gammas.iter().enumerate() {
         // Reset mutable state for the next gamma
-        iter_pr.start(format!(
+        iter_pl.start(format!(
             "Starting iterations with gamma={} ({}/{})...",
             gamma,
             gamma_index + 1,
@@ -88,7 +91,7 @@ pub fn layered_label_propagation(
             .for_each(|x| x.store(true, Ordering::Relaxed));
 
         for i in 0..max_iters {
-            update_pr.start(format!("Starting update {}...", i));
+            update_pl.start(format!("Starting update {}...", i));
 
             update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
             thread_pool.install(|| {
@@ -178,11 +181,11 @@ pub fn layered_label_propagation(
                 |delta_obj_func_0, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
                 &thread_pool,
                 granularity,
-                Some(&mut update_pr),
+                Some(&mut update_pl),
             );
 
-            update_pr.done_with_count(num_nodes);
-            iter_pr.update_and_display();
+            update_pl.done_with_count(num_nodes);
+            iter_pl.update_and_display();
 
             obj_func += delta_obj_func;
             let gain = delta_obj_func / obj_func;
@@ -195,7 +198,7 @@ pub fn layered_label_propagation(
             }
         }
 
-        iter_pr.done();
+        iter_pl.done();
 
         update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
         // create sorted clusters by contiguous labels
@@ -220,10 +223,10 @@ pub fn layered_label_propagation(
         let mut file = std::fs::File::create(format!("labels_{}.bin", gamma_index))?;
         labels.serialize(&mut file)?;
 
-        gamma_pr.update_and_display();
+        gamma_pl.update_and_display();
     }
 
-    gamma_pr.done();
+    gamma_pl.done();
 
     // compute the indices that sorts the gammas by cost
     let mut gamma_indices = (0..costs.len()).collect::<Vec<_>>();

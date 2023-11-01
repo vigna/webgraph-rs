@@ -6,7 +6,7 @@
  */
 
 use anyhow::Result;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use lender::*;
 use webgraph::prelude::*;
 
@@ -41,10 +41,11 @@ fn test_par_bvcomp() -> Result<()> {
         let comp_graph = webgraph::graph::bvgraph::load_seq(tmp_basename)?;
         let mut iter = comp_graph.iter();
 
-        let mut pr = ProgressLogger::default().display_memory();
-        pr.item_name = "node";
+        let mut pr = ProgressLogger::default();
+        pr.display_memory(true)
+            .item_name("node")
+            .expected_updates(Some(graph.num_nodes()));
         pr.start("Checking that the newly compressed graph is equivalent to the original one...");
-        pr.expected_updates = Some(graph.num_nodes());
 
         let mut iter_nodes = graph.iter();
         while let Some((node, succ_iter)) = iter_nodes.next() {

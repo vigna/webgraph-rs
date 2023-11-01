@@ -8,7 +8,7 @@
 use anyhow::Result;
 use bitvec::*;
 use clap::Parser;
-use dsi_progress_logger::ProgressLogger;
+use dsi_progress_logger::*;
 use std::collections::VecDeque;
 use webgraph::prelude::*;
 #[derive(Parser, Debug)]
@@ -32,10 +32,11 @@ pub fn main() -> Result<()> {
     let mut visited = bitvec![0; num_nodes];
     let mut queue = VecDeque::new();
 
-    let mut pl = ProgressLogger::default().display_memory();
-    pl.item_name = "node";
-    pl.local_speed = true;
-    pl.expected_updates = Some(num_nodes);
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true)
+        .item_name("node")
+        .local_speed(true)
+        .expected_updates(Some(num_nodes));
     pl.start("Visiting graph...");
 
     for start in 0..num_nodes {
