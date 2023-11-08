@@ -110,11 +110,12 @@ where
     }
 }
 
-impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
+impl<CRB, OFF> SequentialLabelling for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
 {
+    type Value = usize;
     type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
     where
         Self: 'b,
@@ -158,7 +159,14 @@ where
     }
 }
 
-impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
+impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
+where
+    CRB: BVGraphCodesReaderBuilder,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+{
+}
+
+impl<CRB, OFF> RandomAccessLabelling for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
@@ -288,6 +296,13 @@ where
 
         result
     }
+}
+
+impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
+where
+    CRB: BVGraphCodesReaderBuilder,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+{
 }
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a

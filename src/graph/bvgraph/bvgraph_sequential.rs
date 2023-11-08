@@ -23,7 +23,8 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
     min_interval_length: usize,
 }
 
-impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
+impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<CRB> {
+    type Value = usize;
     type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
         CRB: 'a,
@@ -58,12 +59,14 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 }
 
+impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {}
+
 /*impl<'lend, 'a, CRB: BVGraphCodesReaderBuilder> Lending<'lend> for &'a BVGraphSequential<CRB> {
     type Lend = Lend<'lend, <Self as IntoLender>::Lender>;
 }
 */
 impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CRB> {
-    type Lender = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
+    type Lender = <BVGraphSequential<CRB> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

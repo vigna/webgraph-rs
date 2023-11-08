@@ -7,7 +7,7 @@
 use crate::traits::*;
 use core::mem::MaybeUninit;
 use lender::*;
-
+/*
 /// An adapter exhibiting a list of labeled
 /// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
 ///
@@ -216,3 +216,4 @@ fn test_coo_labeled_iter() -> anyhow::Result<()> {
     assert_eq!(g, g2);
     Ok(())
 }
+*/

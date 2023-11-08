@@ -19,7 +19,8 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub perm: &'a [usize],
 }
 
-impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
+impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
+    type Value = usize;
     type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
         where
             Self: 'b;
@@ -44,6 +45,8 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
     }
 }
 
+impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {}
+
 /*impl<'lend, 'a, 'b, G: SequentialGraph> Lending<'lend> for &'b PermutedGraph<'a, G> {
     type Lend = (
         usize,
@@ -52,7 +55,7 @@ impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {
 }
 */
 impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
-    type Lender = <PermutedGraph<'a, G> as SequentialGraph>::Iterator<'b>;
+    type Lender = <PermutedGraph<'a, G> as SequentialLabelling>::Iterator<'b>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -125,7 +128,6 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSucce
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
-    use crate::traits::graph::RandomAccessGraph;
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
         graph: &g,
@@ -133,9 +135,8 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v = VecGraph::from_node_iter::<PermutedGraphIterator<'_, IteratorImpl<'_, VecGraph<()>>>>(
-        p.iter(),
-    );
+    let v =
+        VecGraph::from_node_iter::<PermutedGraphIterator<'_, IteratorImpl<'_, VecGraph>>>(p.iter());
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0), 1);

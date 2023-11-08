@@ -9,6 +9,7 @@ use clap::Parser;
 use dsi_progress_logger::*;
 use lender::*;
 use webgraph::traits::SequentialGraph;
+use webgraph::traits::SequentialLabelling;
 
 #[derive(Parser, Debug)]
 #[command(about = "Dumps a graph as an COO arc list", long_about = None)]
