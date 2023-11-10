@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{for_iter, prelude::*};
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
@@ -21,15 +21,18 @@ use tempfile::tempdir;
 /// return the length of the produced bitstream (in bits).
 pub fn compress_sequential_iter<
     P: AsRef<Path>,
-    I: Iterator<Item = (usize, J)>,
-    J: Iterator<Item = usize>,
+    L: IntoLender,
 >(
     basename: P,
-    iter: I,
+    iter: L,
     compression_flags: CompFlags,
     build_offsets: bool,
     num_nodes: Option<usize>,
-) -> Result<usize> {
+) -> Result<usize> 
+where
+    for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
 
@@ -68,7 +71,7 @@ pub fn compress_sequential_iter<
         ));
 
         writer.write_gamma(0)?;
-        for (_node_id, successors) in iter {
+        for_iter! { (_node_id, successors) in iter.into_lender() =>
             let delta = bvcomp.push(successors)?;
             result += delta;
             writer.write_gamma(delta as u64)?;
@@ -76,7 +79,7 @@ pub fn compress_sequential_iter<
             real_num_nodes += 1;
         }
     } else {
-        for (_node_id, successors) in iter {
+        for_iter! { (_node_id, successors) in iter.into_lender() =>
             result += bvcomp.push(successors)?;
             pl.update();
             real_num_nodes += 1;
