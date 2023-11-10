@@ -15,20 +15,16 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread::ScopedJoinHandle;
-use tempfile::tempdir;
 
 /// Build a BVGraph by compressing an iterator of nodes and successors and
 /// return the length of the produced bitstream (in bits).
-pub fn compress_sequential_iter<
-    P: AsRef<Path>,
-    L: IntoLender,
->(
+pub fn compress_sequential_iter<P: AsRef<Path>, L: IntoLender>(
     basename: P,
     iter: L,
     compression_flags: CompFlags,
     build_offsets: bool,
     num_nodes: Option<usize>,
-) -> Result<usize> 
+) -> Result<usize>
 where
     for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
     for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
@@ -89,7 +85,11 @@ where
 
     if let Some(num_nodes) = num_nodes {
         if num_nodes != real_num_nodes {
-            log::warn!("The expected number of nodes is {} but the actual number of nodes is {}", num_nodes, real_num_nodes);
+            log::warn!(
+                "The expected number of nodes is {} but the actual number of nodes is {}",
+                num_nodes,
+                real_num_nodes
+            );
         }
     }
 
@@ -106,25 +106,25 @@ where
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<L: IntoLender>(
+pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
     basename: impl AsRef<Path> + Send + Sync,
     into_lender: L,
     num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
+    tmp_dir: P,
 ) -> Result<usize>
 where
     L::Lender: Clone + Send,
     for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
     for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
+    let tmp_dir = tmp_dir.as_ref();
     let basename = basename.as_ref();
     let mut iter = into_lender.into_lender();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
-    let dir = tempdir()?.into_path();
-    let tmp_dir = dir.clone();
 
     std::thread::scope(|s| {
         // collect the handles in vec, otherwise the handles will be dropped
@@ -156,7 +156,6 @@ where
             for thread_id in 0..num_threads.saturating_sub(1) {
                 // the first thread can directly write to the result bitstream
                 let file_path = tmp_dir
-                    .clone()
                     .join(format!("{:016x}.bitstream", thread_id));
 
                 // spawn the thread
@@ -259,7 +258,7 @@ where
             };
             total_arcs += n_arcs;
             // compute the path of the bitstream created by this thread
-            let file_path = dir.clone().join(format!("{:016x}.bitstream", thread_id));
+            let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
             log::info!(
                 "Copying {} [{}, {}) bits from {} to {}",
                 bits_to_copy,
@@ -300,7 +299,7 @@ where
         );
 
         // cleanup the temp files
-        std::fs::remove_dir_all(dir)?;
+        std::fs::remove_dir_all(tmp_dir)?;
         Ok(result_len)
     })
 }
