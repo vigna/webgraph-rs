@@ -155,8 +155,7 @@ where
             // splitting point, then start a new compression thread
             for thread_id in 0..num_threads.saturating_sub(1) {
                 // the first thread can directly write to the result bitstream
-                let file_path = tmp_dir
-                    .join(format!("{:016x}.bitstream", thread_id));
+                let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
 
                 // spawn the thread
                 log::info!(

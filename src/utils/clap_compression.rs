@@ -24,14 +24,14 @@ pub fn temp_dir<P: AsRef<Path>>(base: P) -> String {
             random_str.push(ALPHABET[idx] as char);
         }
         base.push(&random_str);
-        
+
         if !base.exists() {
             std::fs::create_dir(&base).unwrap();
             return base.to_string_lossy().to_string();
-        } 
+        }
         base.pop();
     }
-} 
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Our own enum for the codes, this is used to implement ValueEnum here
@@ -104,7 +104,7 @@ pub struct PermutationArgs {
     pub batch_size: usize,
 
     /// Directory where of the **MANY LARGE** temporary files.
-    /// If not passed it creates a random folder inside either 
+    /// If not passed it creates a random folder inside either
     /// the env var `TMPDIR` or `/tmp` if the env var is not specified.
     #[arg(short = 't', long, default_value_t = std::env::temp_dir().to_string_lossy().to_string())]
     pub temp_dir: String,

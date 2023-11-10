@@ -43,7 +43,7 @@ pub fn main() -> Result<()> {
     // compress the transposed graph
     parallel_compress_sequential_iter::<
         &arc_list_graph::ArcListGraph<std::iter::Map<KMergeIters<_>, _>>,
-        _
+        _,
     >(
         args.basename,
         &sorted,
