@@ -90,7 +90,7 @@ pub struct CSVArgs {
 
 #[derive(Args, Debug)]
 pub struct NumCpusArg {
-    #[arg(short = 'j', long, default_value_t = rayon::max_num_threads().max(1))]
+    #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1))]
     /// The number of cores to use
     pub num_cpus: usize,
 }
