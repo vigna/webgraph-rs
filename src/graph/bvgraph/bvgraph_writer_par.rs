@@ -21,13 +21,14 @@ use tempfile::tempdir;
 /// return the length of the produced bitstream (in bits).
 pub fn compress_sequential_iter<
     P: AsRef<Path>,
-    I: ExactSizeIterator<Item = (usize, J)>,
+    I: Iterator<Item = (usize, J)>,
     J: Iterator<Item = usize>,
 >(
     basename: P,
     iter: I,
     compression_flags: CompFlags,
     build_offsets: bool,
+    num_nodes: Option<usize>,
 ) -> Result<usize> {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
@@ -50,15 +51,15 @@ pub fn compress_sequential_iter<
         compression_flags.max_ref_count,
         0,
     );
-    let num_nodes = iter.len();
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
-        .expected_updates(Some(num_nodes));
+        .expected_updates(num_nodes);
     pl.start("Compressing successors...");
     let mut result = 0;
 
+    let mut real_num_nodes = 0;
     if build_offsets {
         let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
         // create a bit writer on the file
@@ -72,17 +73,25 @@ pub fn compress_sequential_iter<
             result += delta;
             writer.write_gamma(delta as u64)?;
             pl.update();
+            real_num_nodes += 1;
         }
     } else {
         for (_node_id, successors) in iter {
             result += bvcomp.push(successors)?;
             pl.update();
+            real_num_nodes += 1;
         }
     }
     pl.done();
 
+    if let Some(num_nodes) = num_nodes {
+        if num_nodes != real_num_nodes {
+            log::warn!("The expected number of nodes is {} but the actual number of nodes is {}", num_nodes, real_num_nodes);
+        }
+    }
+
     log::info!("Writing the .properties file");
-    let properties = compression_flags.to_properties(num_nodes, bvcomp.arcs);
+    let properties = compression_flags.to_properties(real_num_nodes, bvcomp.arcs);
     std::fs::write(
         format!("{}.properties", basename.to_string_lossy()),
         properties,
