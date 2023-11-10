@@ -55,7 +55,6 @@ struct Args {
 pub fn main() -> Result<()> {
     let start = std::time::Instant::now();
     let args = Args::parse();
-
     let perm = args
         .perm
         .unwrap_or_else(|| format!("{}.llp", args.basename));

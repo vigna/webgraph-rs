@@ -14,8 +14,8 @@ use webgraph::prelude::*;
 struct Args {
     /// The basename of the graph.
     basename: String,
-    /// The basename of the transposed graph.
-    transpose: String,
+    /// The basename of the transposed graph. Defaults to `basename` + `.t`.
+    transposed: Option<String>,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -29,6 +29,7 @@ struct Args {
 
 pub fn main() -> Result<()> {
     let args = Args::parse();
+    let transposed = args.transposed.unwrap_or_else(|| args.basename.clone() + ".t");
 
     stderrlog::new()
         .verbosity(2)
@@ -42,10 +43,10 @@ pub fn main() -> Result<()> {
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.pa.batch_size).unwrap();
     // compress the transposed graph
     parallel_compress_sequential_iter::<
-        &arc_list_graph::ArcListGraph<std::iter::Map<KMergeIters<_>, _>>,
+        &arc_list_graph::ArcListGraph<_>,
         _,
     >(
-        args.basename,
+        transposed,
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
