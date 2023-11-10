@@ -104,7 +104,7 @@ fn main() {
 
     // conver the iter to a graph
     let g = ArcListGraph::new(
-        nodes.len(),
+        args.num_nodes,
         group_by.iter().unwrap().map(|(src, dst, _)| (src, dst)).dedup(),
     );
     // compress it
