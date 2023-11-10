@@ -5,6 +5,7 @@ use std::io::{BufRead, Write};
 use webgraph::graph::arc_list_graph::ArcListGraph;
 use webgraph::graph::bvgraph::parallel_compress_sequential_iter;
 use webgraph::prelude::*;
+use rayon::slice::ParallelSliceMut;
 use itertools::{Dedup, Itertools};
 
 #[derive(Parser, Debug)]
@@ -121,7 +122,10 @@ fn main() {
     if !args.csv_args.numeric {
         let mut file = std::fs::File::create(format!("{}.nodes", args.basename)).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
-        for (node, _) in nodes.into_iter() {
+        let mut nodes = nodes.into_iter().collect::<Vec<_>>();
+        // sort based on the idx
+        nodes.par_sort_by(|(_, a), (_, b)| a.cmp(b));
+        for (node, _) in nodes {
             buf.write_all(node.as_bytes()).unwrap();
             buf.write_all(b"\n").unwrap();
         }
