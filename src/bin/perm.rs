@@ -48,11 +48,8 @@ fn permute(
     perm: &[usize],
     num_nodes: usize,
 ) -> Result<()> {
-    let mut glob_pl = ProgressLogger::default();
-    glob_pl.display_memory(true).item_name("node");
-
     // create a stream where to dump the sorted pairs
-    let mut sort_pairs = SortPairs::new(args.pa.batch_size, &args.pa.temp_dir).unwrap();
+    let mut sort_pairs = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
 
     // dump the paris
     PermutedGraph { graph, perm }.iter().for_each(|(x, succ)| {
@@ -109,6 +106,7 @@ pub fn main() -> Result<()> {
 
         let mut perm_pl = ProgressLogger::default();
         perm_pl.display_memory(true).item_name("node");
+        perm_pl.start("Reading the permutation...");
 
         for _ in 0..num_nodes {
             file.read_exact(&mut buf)?;

@@ -101,6 +101,7 @@ fn main() {
         line_id += 1;
     }
     pl.done();
+    log::info!("Arcs read: {}", line_id);
 
     // conver the iter to a graph
     let g = ArcListGraph::new(
