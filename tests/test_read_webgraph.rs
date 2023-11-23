@@ -19,7 +19,7 @@ fn test_iter_nodes() -> Result<()> {
     let mut iter_nodes = bvgraph.iter();
     while let Some((node_id, seq_succ)) = iter_nodes.next() {
         seen_node_ids.push(node_id);
-        let rand_succ = bvgraph.successors(node_id).into_iter().collect::<Vec<_>>();
+        let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
         assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());
     }
 
@@ -37,7 +37,7 @@ fn test_iter_nodes_from() -> Result<()> {
         let mut iter_nodes = bvgraph.iter_from(i).take(100);
         while let Some((node_id, seq_succ)) = iter_nodes.next() {
             seen_node_ids.push(node_id);
-            let rand_succ = bvgraph.successors(node_id).into_iter().collect::<Vec<_>>();
+            let rand_succ = bvgraph.successors(node_id).collect::<Vec<_>>();
             assert_eq!(rand_succ, seq_succ.into_iter().collect::<Vec<_>>());
         }
 

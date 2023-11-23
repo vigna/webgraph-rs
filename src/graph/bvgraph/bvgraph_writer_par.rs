@@ -34,7 +34,7 @@ where
 
     // Compress the graph
     let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-        File::create(&graph_path)?,
+        File::create(graph_path)?,
     )));
 
     let comp_flags = CompFlags {
@@ -60,7 +60,7 @@ where
 
     let mut real_num_nodes = 0;
     if build_offsets {
-        let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
+        let file = std::fs::File::create(format!("{}.offsets", basename.to_string_lossy()))?;
         // create a bit writer on the file
         let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
             BufWriter::with_capacity(1 << 20, file),

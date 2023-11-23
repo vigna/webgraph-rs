@@ -27,7 +27,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::load_seq(args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(CodesReaderStatsBuilder::new);
 
     let mut pl = ProgressLogger::default();

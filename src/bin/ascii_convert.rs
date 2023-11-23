@@ -26,7 +26,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::load_seq(args.basename)?;
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("offset");
     pl.start("Computing offsets...");

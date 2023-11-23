@@ -37,7 +37,6 @@ fn test_permuted() {
         permuted_graph
             .iter()
             .map_into_iter(|(node, successors)| (node, successors.into_iter().collect()))
-            .into_iter()
             .collect::<Vec<_>>(),
         vec![
             (1, vec![3, 4]),

@@ -1,9 +1,9 @@
 use clap::Parser;
 use dsi_progress_logger::*;
-use webgraph::prelude::*;
-use webgraph::for_iter;
-use std::io::*;
 use lender::prelude::*;
+use std::io::*;
+use webgraph::for_iter;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Read a BVGraph and print the edge list `{src}\t{dst}` to stdout", long_about = None)]

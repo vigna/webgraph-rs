@@ -1,12 +1,12 @@
 use clap::Parser;
 use dsi_progress_logger::*;
+use itertools::{Dedup, Itertools};
+use rayon::slice::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use webgraph::graph::arc_list_graph::ArcListGraph;
 use webgraph::graph::bvgraph::parallel_compress_sequential_iter;
 use webgraph::prelude::*;
-use rayon::slice::ParallelSliceMut;
-use itertools::{Dedup, Itertools};
 
 #[derive(Parser, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
@@ -70,10 +70,7 @@ fn main() {
         }
         let line = line.unwrap();
         // skip comment
-        if (&line)
-            .trim()
-            .starts_with(args.csv_args.line_comment_simbol)
-        {
+        if line.trim().starts_with(args.csv_args.line_comment_simbol) {
             continue;
         }
 
@@ -106,7 +103,11 @@ fn main() {
     // conver the iter to a graph
     let g = ArcListGraph::new(
         args.num_nodes,
-        group_by.iter().unwrap().map(|(src, dst, _)| (src, dst)).dedup(),
+        group_by
+            .iter()
+            .unwrap()
+            .map(|(src, dst, _)| (src, dst))
+            .dedup(),
     );
     // compress it
     parallel_compress_sequential_iter::<&ArcListGraph<Dedup<std::iter::Map<KMergeIters<_>, _>>>, _>(

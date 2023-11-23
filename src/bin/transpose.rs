@@ -29,7 +29,9 @@ struct Args {
 
 pub fn main() -> Result<()> {
     let args = Args::parse();
-    let transposed = args.transposed.unwrap_or_else(|| args.basename.clone() + ".t");
+    let transposed = args
+        .transposed
+        .unwrap_or_else(|| args.basename.clone() + ".t");
 
     stderrlog::new()
         .verbosity(2)
@@ -42,10 +44,7 @@ pub fn main() -> Result<()> {
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.pa.batch_size).unwrap();
     // compress the transposed graph
-    parallel_compress_sequential_iter::<
-        &arc_list_graph::ArcListGraph<_>,
-        _,
-    >(
+    parallel_compress_sequential_iter::<&arc_list_graph::ArcListGraph<_>, _>(
         transposed,
         &sorted,
         sorted.num_nodes(),
