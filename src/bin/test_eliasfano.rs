@@ -44,7 +44,10 @@ pub fn main() -> Result<()> {
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
-    let ef = <webgraph::EF<Vec<usize>>>::mmap(format!("{}.ef", args.basename), Flags::default())?;
+    let ef = <webgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
+        format!("{}.ef", args.basename),
+        Flags::default(),
+    )?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)

@@ -97,7 +97,7 @@ pub fn main() -> Result<()> {
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: webgraph::EF<_> = ef.convert_to().unwrap();
+    let ef: webgraph::EF<_, _> = ef.convert_to().unwrap();
     pl.done();
 
     let mut pl = ProgressLogger::default();
