@@ -20,7 +20,10 @@ use dsi_progress_logger::*;
 use lender::*;
 use std::sync::Mutex;
 
-use crate::prelude::{IteratorImpl, RandomAccessLabelling, SequentialLabelling};
+use crate::{
+    prelude::{IteratorImpl, RandomAccessLabelling, SequentialLabelling},
+    Tuple2,
+};
 
 /// A graph that can be accessed sequentially.
 ///
@@ -70,3 +73,68 @@ pub trait RandomAccessGraph: RandomAccessLabelling<Value = usize> + SequentialGr
 
 /// We iter on the node ids in a range so it is sorted
 unsafe impl<'a, G: RandomAccessGraph> SortedIterator for IteratorImpl<'a, G> {}
+
+pub trait LabelledSequentialGraph<L>: SequentialLabelling<Value = (usize, L)> {}
+pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Value = (usize, L)> {}
+
+#[repr(transparent)]
+pub struct UnitLabelledSequentialGraph<G: SequentialGraph>(G);
+
+#[repr(transparent)]
+pub struct UnitIterator<L>(L);
+
+impl<'succ, L> Lending<'succ> for UnitIterator<L>
+where
+    L: Lender,
+    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
+{
+    type Lend = (
+        usize,
+        UnitSuccessors<<<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter>,
+    );
+}
+
+impl<'node, L: Lender> Lender for UnitIterator<L>
+where
+    L: Lender,
+    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
+{
+    #[inline(always)]
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
+        self.0.next().map(|x| {
+            let t = x.into_tuple();
+            (t.0, UnitSuccessors(t.1.into_iter()))
+        })
+    }
+}
+
+#[repr(transparent)]
+pub struct UnitSuccessors<I>(I);
+
+impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
+    type Item = (usize, ());
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some((self.0.next()?, ()))
+    }
+}
+
+impl<G: SequentialGraph> SequentialLabelling for UnitLabelledSequentialGraph<G> {
+    type Value = (usize, ());
+
+    type Successors<'succ> = UnitSuccessors<<G::Successors<'succ> as IntoIterator>::IntoIter>;
+
+    type Iterator<'node> = UnitIterator<G::Iterator<'node>>
+    where
+        Self: 'node;
+
+    fn num_nodes(&self) -> usize {
+        self.0.num_nodes()
+    }
+
+    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+        UnitIterator(self.0.iter_from(from))
+    }
+}

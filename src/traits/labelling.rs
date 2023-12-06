@@ -150,9 +150,9 @@ pub trait RandomAccessLabelling: SequentialLabelling {
     fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_>;
 
     /// Return the number of successors of a node.
-    fn outdegree(&self, _node_id: usize) -> usize {
+    fn outdegree(&self, node_id: usize) -> usize {
+        //self.successors(node_id).count()
         todo!();
-        // self.successors(node_id).count()
     }
 }
 
