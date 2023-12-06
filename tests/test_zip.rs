@@ -7,6 +7,7 @@
 
 use lender::*;
 use webgraph::graph::vec_graph::VecGraph;
+use webgraph::traits::RandomAccessLabelling;
 use webgraph::utils::Zip;
 
 #[test]
@@ -15,6 +16,8 @@ fn test_zip() {
     let z = Zip::new(v.clone(), v.clone());
     let mut lender = z.into_lender();
     while let Some((x, i)) = lender.next() {
-        println!("{:?} {:?}", x, i.collect::<Vec<_>>());
+        let s = i.collect::<Vec<_>>();
+        println!("{:?} {:?}", x, s);
+        assert_eq!(z.successors(x).collect::<Vec<_>>(), s);
     }
 }

@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::marker::PhantomData;
+use core::{marker::PhantomData, iter};
 
 use lender::{Lend, Lender, Lending, IntoLender};
 
-use crate::{prelude::SequentialLabelling, Tuple2};
+use crate::{prelude::{SequentialLabelling, RandomAccessLabelling}, Tuple2};
 
 /// Zips two labelling
 
@@ -99,5 +99,30 @@ impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip
             left: self.left.iter_from(from),
             right: self.right.iter_from(from),
         }
+    }
+}
+
+impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling for Zip<L, R>
+    where 
+        for <'succ> <L as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <L as SequentialLabelling>::Value>,  
+        for <'succ> <R as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <R as SequentialLabelling>::Value>,   {
+    type Successors<'succ> = std::iter::Zip<
+        <<L as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter, 
+        <<R as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
+    where
+        Self: 'succ;
+
+    fn num_arcs(&self) -> usize {
+        assert_eq!(self.left.num_arcs(), self.right.num_arcs());
+        self.left.num_arcs()
+    }
+
+    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
+        iter::zip(self.left.successors(node_id), self.right.successors(node_id))
+    }
+
+    fn outdegree(&self, _node_id: usize) -> usize {
+        debug_assert_eq!(self.left.outdegree(_node_id), self.right.outdegree(_node_id));
+        self.left.outdegree(_node_id)
     }
 }
