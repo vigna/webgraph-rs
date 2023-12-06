@@ -45,8 +45,14 @@ where
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        let left = self.0.next()?.into_tuple();
-        let right = self.1.next()?.into_tuple();
+        let left = self.0.next();
+        let right = self.1.next();
+        debug_assert_eq!(left.is_none(), right.is_none());
+        if left.is_none() {
+            return None;
+        }
+        let left = left.unwrap().into_tuple();
+        let right = right.unwrap().into_tuple();
         debug_assert_eq!(left.0, right.0);
         Some((
             left.0,

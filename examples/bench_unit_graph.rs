@@ -30,7 +30,7 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
-    let unit = UnitLabelledGraph(webgraph::graph::bvgraph::load(&args.basename)?);
+    let unit = UnitLabelGraph(webgraph::graph::bvgraph::load(&args.basename)?);
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
