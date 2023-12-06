@@ -10,20 +10,32 @@
 Basic traits to access graphs, both sequentially and
 in random-access fashion.
 
-*/
+A [sequential graph](SequentialGraph) is simply a
+[`SequentialLabelling`] whose `Value` is `usize`: labels are interpreted
+as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply a
+[`RandomAccessLabelling`] extending a [`SequentialLabelling`] whose `Value` is `usize`.
 
-use core::{
-    ops::Range,
-    sync::atomic::{AtomicUsize, Ordering},
-};
-use dsi_progress_logger::*;
-use lender::*;
-use std::sync::Mutex;
+In the same vein, a [sequential graph with labels](LabelledSequentialGraph) of type `L` is a
+[`SequentialLabelling`] whose `Value` is `(usize, L)`
+and a [random-access graph with labels](RandomAccessGraph) is a
+[`RandomAccessLabelling`] extending a [`SequentialLabelling`] whose `Value` is `(usize, L)`.
+
+Finally, the [zipping of a graph and a labelling](Zip) implements the
+labelled graph traits.
+
+Note that most utilities to manipulate graphs manipulate in fact
+labelled graph. To use the same utilities on an unlabeled graph
+you just have to wrap it in a [UnitLabelGraph], which
+is a zero-cost abstraction assigning to each successor the label `()`.
+Usually there is a convenience method doing the wrapping for you.
+
+*/
 
 use crate::{
     prelude::{IteratorImpl, RandomAccessLabelling, SequentialLabelling},
     Tuple2,
 };
+use lender::*;
 
 /// A graph that can be accessed sequentially.
 ///
@@ -32,10 +44,6 @@ use crate::{
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
 ///
-/// The iterator returned by [iter](SequentialGraph::iter) is [lending](Lender):
-/// to access the next pair, you must have finished to use the previous one. You
-/// can invoke [`Lender::into_iter`] to get a standard iterator, in general
-/// at the cost of some allocation and copying.
 pub trait SequentialGraph: SequentialLabelling<Value = usize> {}
 
 /// Marker trait for [iterators](SequentialGraph::Iterator) of [sequential graphs](SequentialGraph)
@@ -154,6 +162,10 @@ impl<G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
 
     fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
         UnitSuccessors(self.0.successors(node_id).into_iter())
+    }
+
+    fn outdegree(&self, node_id: usize) -> usize {
+        self.0.outdegree(node_id)
     }
 }
 

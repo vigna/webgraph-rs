@@ -7,8 +7,19 @@
 
 /*!
 
-Basic traits to access graphs, both sequentially and
+Traits for access labellings, both sequentially and
 in random-access fashion.
+
+A *labelling* is the basic storage unit for graph data. It associates to
+each node of a graph a list of labels. In the [sequential case](SequentialLabelling),
+one can obtain a [lender](lender::Lender) that lends pairs given by a node
+and an iterator on the associated labels. In the [random-access case](RandomAccessLabelling),
+instead, one can get [an iterator on the labels associated with a node](RandomAccessLabelling::successors).
+
+The number of nodes *n* of the graph is returned by [`SequentialLabelling::num_nodes`],
+and nodes identifier are in the interval [0 . . *n*).
+
+Labellings can be [zipped together](Zip), obtaning a new labelling whose labels are pairs.
 
 */
 
@@ -23,11 +34,14 @@ use std::sync::Mutex;
 /// A labelling that can be accessed sequentially.
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
-/// ascending order, or the successors of a node will be returned in ascending order.
+/// ascending order, or that the labels of the successors will be returned
+/// in any specified order.
+///
+/// TODO
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
 ///
-/// The iterator returned by [iter](SequentialGraph::iter) is [lending](Lender):
+/// The iterator returned by [iter](SequentialGraph::iter) is a [lender](Lender):
 /// to access the next pair, you must have finished to use the previous one. You
 /// can invoke [`Lender::into_iter`] to get a standard iterator, in general
 /// at the cost of some allocation and copying.
@@ -150,10 +164,7 @@ pub trait RandomAccessLabelling: SequentialLabelling {
     fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_>;
 
     /// Return the number of successors of a node.
-    fn outdegree(&self, node_id: usize) -> usize {
-        //self.successors(node_id).count()
-        todo!();
-    }
+    fn outdegree(&self, node_id: usize) -> usize;
 }
 
 /// A struct used to make it easy to implement [a graph iterator](Lender)
