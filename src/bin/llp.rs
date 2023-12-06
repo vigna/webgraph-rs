@@ -21,6 +21,12 @@ struct Args {
     /// A filename for the LLP permutation. It defaults to "{basename}.llp"
     perm: Option<String>,
 
+    #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string(), "0-0".to_string()])]
+    /// The gammas to use in LLP, separated by commas. The format is given by a integer
+    /// numerator (if missing, assumed to be one),
+    /// a dash, and then a power-of-two exponent for the denominator. For example, -2 is 1/4, and 0-0 is 0.
+    gammas: Vec<String>,
+
     #[arg(short, long, default_value_t = 100)]
     /// The maximum number of updates for a given ɣ.
     max_updates: usize,
@@ -34,15 +40,8 @@ struct Args {
     /// at the start of each iteration
     chunk_size: usize,
 
-    #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string(), "0-0".to_string()])]
-    /// The gammas to use in LLP, separated by commas. The format is given by a integer
-    /// numerator (if missing, assumed to be one),
-    /// a dash, and then a power-of-two exponent for the denominator. For example, -2 is 1/4, and 0-0 is 0.
-    gammas: Vec<String>,
-
-    #[arg(short = 't', long)]
-    /// The number of threads.
-    num_threads: Option<usize>,
+    #[clap(flatten)]
+    num_cpus: NumCpusArg,
 
     #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the prng
@@ -56,7 +55,6 @@ struct Args {
 pub fn main() -> Result<()> {
     let start = std::time::Instant::now();
     let args = Args::parse();
-
     let perm = args
         .perm
         .unwrap_or_else(|| format!("{}.llp", args.basename));
@@ -92,7 +90,7 @@ pub fn main() -> Result<()> {
     let labels = layered_label_propagation(
         &graph,
         gammas,
-        args.num_threads,
+        Some(args.num_cpus.num_cpus),
         args.max_updates,
         args.chunk_size,
         args.granularity,

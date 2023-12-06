@@ -365,7 +365,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     }
                     cost
                 })
-                .fold(0, |a, x| a + x) as f64 // TODO: use sum() when it will be stable
+                .sum::<usize>() as f64
         },
         |a, b| a + b,
         thread_pool,

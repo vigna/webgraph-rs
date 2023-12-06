@@ -34,12 +34,14 @@ fn test_transpose() -> Result<()> {
         &arc_list_graph::ArcListGraph<
             std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
         >,
+        _,
     >(
         TRANSPOSED_PATH,
         &transposed,
         transposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
+        temp_dir(std::env::temp_dir()),
     )?;
     // check it
     // TODO assert_eq!(transposed.iter_nodes().len(), num_nodes);
@@ -63,12 +65,14 @@ fn test_transpose() -> Result<()> {
                 fn((usize, usize, ())) -> (usize, usize),
             >,
         >,
+        _,
     >(
         RE_TRANSPOSED_PATH,
         &retransposed,
         retransposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
+        temp_dir(std::env::temp_dir()),
     )?;
     // check it
     // TODO assert_eq!(retransposed.iter_nodes().len(), num_nodes);

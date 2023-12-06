@@ -28,12 +28,13 @@ fn test_par_bvcomp() -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>>(
+        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
             tmp_basename,
             &graph,
             graph.num_nodes(),
             comp_flags,
             thread_num,
+            temp_dir(std::env::temp_dir()),
         )
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());

@@ -6,15 +6,16 @@
 
 use anyhow::Result;
 use clap::Parser;
+use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(about = "Recompress a BVGraph", long_about = None)]
+#[command(about = "Simplify a BVGraph, i.e. make it undirected and remove duplicates and selfloops", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
-    /// The basename for the newly compressed graph.
-    new_basename: String,
+    /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
+    simplified: Option<String>,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -28,6 +29,9 @@ struct Args {
 
 pub fn main() -> Result<()> {
     let args = Args::parse();
+    let simplified = args
+        .simplified
+        .unwrap_or_else(|| args.basename.clone() + ".simple");
 
     stderrlog::new()
         .verbosity(2)
@@ -36,14 +40,19 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
-        args.new_basename,
-        &seq_graph,
-        seq_graph.num_nodes(),
+
+    // transpose the graph
+    let sorted = webgraph::algorithms::simplify(&seq_graph, args.pa.batch_size).unwrap();
+    // compress the transposed graph
+    parallel_compress_sequential_iter::<&arc_list_graph::ArcListGraph<_>, _>(
+        simplified,
+        &sorted,
+        sorted.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
         temp_dir(args.pa.temp_dir),
-    )?;
+    )
+    .unwrap();
 
     Ok(())
 }

@@ -31,7 +31,7 @@ pub fn main() -> Result<()> {
     let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
     // Create the offsets file
-    let file = std::fs::File::create(&format!("{}.offsets", args.basename))?;
+    let file = std::fs::File::create(format!("{}.offsets", args.basename))?;
     // create a bit writer on the file
     let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
         BufWriter::with_capacity(1 << 20, file),

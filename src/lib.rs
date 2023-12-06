@@ -84,8 +84,8 @@ pub mod traits;
 pub mod utils;
 
 /// The default version of EliasFano we use for the CLI
-pub type EF<Memory> = sux::dict::EliasFano<
-    sux::rank_sel::SelectFixed1<sux::bits::CountBitVec<Memory>, Memory, 8>,
+pub type EF<Memory, Inventory> = sux::dict::EliasFano<
+    sux::rank_sel::SelectFixed2<sux::bits::CountBitVec<Memory>, Inventory, 8>,
     sux::bits::BitFieldVec<usize, Memory>,
 >;
 

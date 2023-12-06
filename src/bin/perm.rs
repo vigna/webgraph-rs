@@ -11,7 +11,6 @@ use dsi_progress_logger::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::{BufReader, Read};
-use tempfile::tempdir;
 use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
 
@@ -25,20 +24,6 @@ struct Args {
     /// The permutation.
     perm: String,
 
-    /// How many triples to sort at once and dump on a file.
-    #[arg(short, long, default_value_t = 1_000_000_000)]
-    batch_size: usize,
-
-    #[arg(short = 'j', long)]
-    /// The number of cores to use
-    num_cpus: Option<usize>,
-
-    /// The directory where to put the temporary files needed to sort the paris
-    /// this defaults to the system temporary directory as specified by the
-    /// enviroment variable TMPDIR
-    #[arg(short, long)]
-    tmp_dir: Option<String>,
-
     #[arg(short = 'e', long, default_value_t = false)]
     /// Load the permutation from ε-serde format.
     epserde: bool,
@@ -46,6 +31,15 @@ struct Args {
     #[arg(short = 'o', long, default_value_t = false)]
     /// Build the offsets while compressing the graph .
     build_offsets: bool,
+
+    #[clap(flatten)]
+    num_cpus: NumCpusArg,
+
+    #[clap(flatten)]
+    pa: PermutationArgs,
+
+    #[clap(flatten)]
+    ca: CompressArgs,
 }
 
 fn permute(
@@ -54,17 +48,8 @@ fn permute(
     perm: &[usize],
     num_nodes: usize,
 ) -> Result<()> {
-    let mut glob_pl = ProgressLogger::default();
-    glob_pl.display_memory(true).item_name("node");
-
-    let tmpdir = tempdir().unwrap();
     // create a stream where to dump the sorted pairs
-    let mut sort_pairs = SortPairs::new(
-        args.batch_size,
-        args.tmp_dir
-            .unwrap_or_else(|| tmpdir.path().to_str().unwrap().to_string()),
-    )
-    .unwrap();
+    let mut sort_pairs = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
 
     // dump the paris
     PermutedGraph { graph, perm }.iter().for_each(|(x, succ)| {
@@ -78,12 +63,14 @@ fn permute(
     // compress it
     parallel_compress_sequential_iter::<
         &arc_list_graph::ArcListGraph<std::iter::Map<KMergeIters<_>, _>>,
+        _,
     >(
         args.dest,
         &g,
         g.num_nodes(),
-        CompFlags::default(),
-        args.num_cpus.unwrap_or(num_cpus::get()),
+        args.ca.into(),
+        args.num_cpus.num_cpus,
+        temp_dir(args.pa.temp_dir),
     )?;
 
     Ok(())
@@ -119,6 +106,7 @@ pub fn main() -> Result<()> {
 
         let mut perm_pl = ProgressLogger::default();
         perm_pl.display_memory(true).item_name("node");
+        perm_pl.start("Reading the permutation...");
 
         for _ in 0..num_nodes {
             file.read_exact(&mut buf)?;

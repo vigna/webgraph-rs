@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{for_iter, prelude::*};
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
@@ -15,26 +15,26 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread::ScopedJoinHandle;
-use tempfile::tempdir;
 
 /// Build a BVGraph by compressing an iterator of nodes and successors and
 /// return the length of the produced bitstream (in bits).
-pub fn compress_sequential_iter<
-    P: AsRef<Path>,
-    I: ExactSizeIterator<Item = (usize, J)>,
-    J: Iterator<Item = usize>,
->(
+pub fn compress_sequential_iter<P: AsRef<Path>, L: IntoLender>(
     basename: P,
-    iter: I,
+    iter: L,
     compression_flags: CompFlags,
     build_offsets: bool,
-) -> Result<usize> {
+    num_nodes: Option<usize>,
+) -> Result<usize>
+where
+    for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
 
     // Compress the graph
     let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-        File::create(&graph_path)?,
+        File::create(graph_path)?,
     )));
 
     let comp_flags = CompFlags {
@@ -50,39 +50,51 @@ pub fn compress_sequential_iter<
         compression_flags.max_ref_count,
         0,
     );
-    let num_nodes = iter.len();
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
-        .expected_updates(Some(num_nodes));
+        .expected_updates(num_nodes);
     pl.start("Compressing successors...");
     let mut result = 0;
 
+    let mut real_num_nodes = 0;
     if build_offsets {
-        let file = std::fs::File::create(&format!("{}.offsets", basename.to_string_lossy()))?;
+        let file = std::fs::File::create(format!("{}.offsets", basename.to_string_lossy()))?;
         // create a bit writer on the file
         let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
             BufWriter::with_capacity(1 << 20, file),
         ));
 
         writer.write_gamma(0)?;
-        for (_node_id, successors) in iter {
+        for_iter! { (_node_id, successors) in iter.into_lender() =>
             let delta = bvcomp.push(successors)?;
             result += delta;
             writer.write_gamma(delta as u64)?;
             pl.update();
+            real_num_nodes += 1;
         }
     } else {
-        for (_node_id, successors) in iter {
+        for_iter! { (_node_id, successors) in iter.into_lender() =>
             result += bvcomp.push(successors)?;
             pl.update();
+            real_num_nodes += 1;
         }
     }
     pl.done();
 
+    if let Some(num_nodes) = num_nodes {
+        if num_nodes != real_num_nodes {
+            log::warn!(
+                "The expected number of nodes is {} but the actual number of nodes is {}",
+                num_nodes,
+                real_num_nodes
+            );
+        }
+    }
+
     log::info!("Writing the .properties file");
-    let properties = compression_flags.to_properties(num_nodes, bvcomp.arcs);
+    let properties = compression_flags.to_properties(real_num_nodes, bvcomp.arcs);
     std::fs::write(
         format!("{}.properties", basename.to_string_lossy()),
         properties,
@@ -94,25 +106,25 @@ pub fn compress_sequential_iter<
 
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<L: IntoLender>(
+pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
     basename: impl AsRef<Path> + Send + Sync,
     into_lender: L,
     num_nodes: usize,
     compression_flags: CompFlags,
     num_threads: usize,
+    tmp_dir: P,
 ) -> Result<usize>
 where
     L::Lender: Clone + Send,
     for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
     for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
+    let tmp_dir = tmp_dir.as_ref();
     let basename = basename.as_ref();
     let mut iter = into_lender.into_lender();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
     assert_ne!(num_threads, 0);
     let nodes_per_thread = num_nodes / num_threads;
-    let dir = tempdir()?.into_path();
-    let tmp_dir = dir.clone();
 
     std::thread::scope(|s| {
         // collect the handles in vec, otherwise the handles will be dropped
@@ -143,9 +155,7 @@ where
             // splitting point, then start a new compression thread
             for thread_id in 0..num_threads.saturating_sub(1) {
                 // the first thread can directly write to the result bitstream
-                let file_path = tmp_dir
-                    .clone()
-                    .join(format!("{:016x}.bitstream", thread_id));
+                let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
 
                 // spawn the thread
                 log::info!(
@@ -247,7 +257,7 @@ where
             };
             total_arcs += n_arcs;
             // compute the path of the bitstream created by this thread
-            let file_path = dir.clone().join(format!("{:016x}.bitstream", thread_id));
+            let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
             log::info!(
                 "Copying {} [{}, {}) bits from {} to {}",
                 bits_to_copy,
@@ -288,7 +298,7 @@ where
         );
 
         // cleanup the temp files
-        std::fs::remove_dir_all(dir)?;
+        std::fs::remove_dir_all(tmp_dir)?;
         Ok(result_len)
     })
 }
