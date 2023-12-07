@@ -27,7 +27,6 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<C
     type Value = usize;
     type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
-        CRB: 'a,
         Self: 'a;
     type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>;
 

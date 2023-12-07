@@ -80,6 +80,7 @@ pub mod algorithms;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
 pub mod graph;
+pub mod label;
 pub mod traits;
 pub mod utils;
 
