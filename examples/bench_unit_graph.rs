@@ -31,7 +31,10 @@ pub fn main() -> Result<()> {
 
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
     let unit = UnitLabelGraph(webgraph::graph::bvgraph::load(&args.basename)?);
-
+    let labelled = Zip(
+        webgraph::graph::bvgraph::load(&args.basename)?,
+        webgraph::graph::bvgraph::load(&args.basename)?,
+    );
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
         pl.start("Standard graph lender...");
@@ -68,6 +71,15 @@ pub fn main() -> Result<()> {
         for x in 0..unit.num_nodes() {
             black_box(x);
             for i in unit.successors(x) {
+                black_box(i);
+            }
+        }
+        pl.done_with_count(unit.num_nodes());
+
+        pl.start("Zipped-projected graph successors...");
+        for x in 0..unit.num_nodes() {
+            black_box(x);
+            for (i, _) in labelled.successors(x) {
                 black_box(i);
             }
         }

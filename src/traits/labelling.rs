@@ -19,7 +19,8 @@ instead, one can get [an iterator on the labels associated with a node](RandomAc
 The number of nodes *n* of the graph is returned by [`SequentialLabelling::num_nodes`],
 and nodes identifier are in the interval [0 . . *n*).
 
-Labellings can be [zipped together](Zip), obtaning a new labelling whose labels are pairs.
+Labellings can be [zipped together](crate::utils::Zip), obtaining a
+new labelling whose labels are pairs.
 
 */
 
