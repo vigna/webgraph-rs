@@ -117,9 +117,9 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for Labe
             return None;
         }
         let num_labels = self.reader.read_gamma().unwrap() as usize;
-        let mut v = Vec::with_capacity(num_labels);
-        v.extend((0..num_labels).map(|_| self.reader.read_bits(self.width).unwrap()));
-        Some(v)
+        Some(Vec::from_iter(
+            (0..num_labels).map(|_| self.reader.read_bits(self.width).unwrap()),
+        ))
     }
 }
 
