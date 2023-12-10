@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::{
-    prelude::{MmapBackend, SequentialLabelling, Successors},
+    prelude::{MmapBackend, SequentialLabelling},
     EF,
 };
 
@@ -43,7 +43,8 @@ pub struct MmapReaderBuilder {
 }
 
 impl ReaderBuilder for MmapReaderBuilder {
-    type Reader<'a> = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>;
+    type Reader<'a> = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+    where Self: 'a;
 
     fn get_reader(&self) -> Self::Reader<'_> {
         BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
@@ -126,7 +127,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for Labe
 impl SequentialLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
     type Value = Vec<u64>;
 
-    type Successors<'succ> = Labels<'succ, BufBitReader<BE, MemWordReader<u32, &'succ [u32]>>>;
+    type Successors<'succ> = Labels<'succ, <MmapReaderBuilder as ReaderBuilder>::Reader<'succ>>;
 
     type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, EF<&'node [usize], &'node[u64]>>
     where

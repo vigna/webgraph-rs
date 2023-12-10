@@ -409,7 +409,7 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     }
 }
 
-/*
+/* TODO
 /// Allow to do `for (node, succ_iter) in &graph`
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where
