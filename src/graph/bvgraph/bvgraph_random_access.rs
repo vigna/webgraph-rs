@@ -121,7 +121,6 @@ where
         Self: 'b,
         CRB: 'b,
         OFF: 'b;
-    type Successors<'b> = std::iter::Copied<std::slice::Iter<'b, usize>>;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {

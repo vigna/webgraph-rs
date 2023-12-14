@@ -8,7 +8,7 @@ use core::iter;
 
 use lender::{Lend, Lender, Lending, IntoLender};
 
-use crate::{prelude::{SequentialLabelling, RandomAccessLabelling, LabelledSequentialGraph, SequentialGraph, LabelledRandomAccessGraph, RandomAccessGraph}, Tuple2};
+use crate::{prelude::{SequentialLabelling, RandomAccessLabelling, LabelledSequentialGraph, SequentialGraph, LabelledRandomAccessGraph, RandomAccessGraph, TupleLending}, Tuple2};
 
 /**
 
@@ -84,6 +84,25 @@ where
     );
 }
 
+impl<'succ, L, R> TupleLending<'succ> for ZippedGraphIterator<L, R>
+where
+    L: Lender,
+    R: Lender,
+    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
+    for<'next> Lend<'next, R>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, R> as Tuple2>::_1: IntoIterator,
+{
+    type SingleValue = (<<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::Item,
+            <<Lend<'succ, R> as Tuple2>::_1 as IntoIterator>::Item);
+
+    type TupleLend = std::iter::Zip<
+            <<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter,
+            <<Lend<'succ, R> as Tuple2>::_1 as IntoIterator>::IntoIter,
+        >;
+
+}
+
 impl<'succ, L, R> Lender for ZippedGraphIterator<L, R>
 where
     L: Lender,
@@ -124,10 +143,6 @@ impl<'a, L: SequentialLabelling, R: SequentialLabelling> IntoLender for &'a Zip<
 impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip<L, R> {
     type Value = (L::Value, R::Value);
 
-    type Successors<'succ> = std::iter::Zip<
-        <L::Successors<'succ> as IntoIterator>::IntoIter,
-        <R::Successors<'succ> as IntoIterator>::IntoIter,
-    >;
 
     type Iterator<'node> = ZippedGraphIterator<L::Iterator<'node>, R::Iterator<'node>> 
        where

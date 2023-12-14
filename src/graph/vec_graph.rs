@@ -218,7 +218,6 @@ impl RandomAccessGraph for VecGraph {}
 
 impl SequentialLabelling for VecGraph {
     type Value = usize;
-    type Successors<'a> = Successors<'a>;
     type Iterator<'a> = IteratorImpl<'a, Self>;
 
     #[inline(always)]

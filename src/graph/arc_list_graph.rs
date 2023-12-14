@@ -54,6 +54,12 @@ impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> Lending<'succ> for It
     type Lend = (usize, Successors<'succ, I>);
 }
 
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> TupleLending<'succ> for Iterator<I> {
+    type SingleValue = usize;
+
+    type TupleLend = Successors<'succ, I>;
+}
+
 impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
     fn next(&mut self) -> Option<(usize, Successors<'_, I>)> {
         self.curr_node = self.curr_node.wrapping_add(1);
@@ -91,7 +97,6 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialLabelli
     for ArcListGraph<I>
 {
     type Value = usize;
-    type Successors<'succ> = Successors<'succ, I::IntoIter>;
     type Iterator<'node> = Iterator<I::IntoIter>
     where Self: 'node;
 

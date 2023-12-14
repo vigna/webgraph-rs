@@ -28,7 +28,6 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<C
     type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
         Self: 'a;
-    type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>;
 
     #[inline(always)]
     /// Return the number of nodes in the graph
@@ -279,6 +278,12 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
 
 impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
     type Lend = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+}
+
+impl<'succ, CR: BVGraphCodesReader> TupleLending<'succ> for WebgraphSequentialIter<CR> {
+    type SingleValue = usize;
+
+    type TupleLend = std::iter::Copied<std::slice::Iter<'succ, usize>>;
 }
 
 impl<CR: BVGraphCodesReader> Lender for WebgraphSequentialIter<CR> {

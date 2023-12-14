@@ -24,7 +24,6 @@ impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
     type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
         where
             Self: 'b;
-    type Successors<'b> = PermutedSuccessors<'b, <G::Successors<'b> as IntoIterator>::IntoIter>;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -80,6 +79,17 @@ where
         usize,
         PermutedSuccessors<'succ, <<Lend<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>,
     );
+}
+
+impl<'node, 'succ, I> TupleLending<'succ> for PermutedGraphIterator<'node, I>
+where
+    I: Lender,
+    for<'next> Lend<'next, I>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
+    type SingleValue = usize;
+    type TupleLend =
+        PermutedSuccessors<'succ, <<Lend<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>;
 }
 
 impl<'a, L> Lender for PermutedGraphIterator<'a, L>

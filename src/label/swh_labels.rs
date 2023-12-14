@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::{
-    prelude::{MmapBackend, SequentialLabelling},
+    prelude::{MmapBackend, SequentialLabelling, TupleLending},
     EF,
 };
 
@@ -85,6 +85,13 @@ impl<'a, 'succ, BR, O> Lending<'succ> for Iterator<'a, BR, O> {
     type Lend = (usize, Labels<'succ, BR>);
 }
 
+impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> TupleLending<'succ>
+    for Iterator<'a, BR, O>
+{
+    type SingleValue = Vec<u64>;
+    type TupleLend = Labels<'succ, BR>;
+}
+
 impl<'a, 'node, BR: BitRead<BE> + BitSeek, O: IndexedDict<Input = usize, Output = usize>> Lender
     for Iterator<'a, BR, O>
 {
@@ -126,8 +133,6 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for Labe
 
 impl SequentialLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
     type Value = Vec<u64>;
-
-    type Successors<'succ> = Labels<'succ, <MmapReaderBuilder as ReaderBuilder>::Reader<'succ>>;
 
     type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, EF<&'node [usize], &'node[u64]>>
     where

@@ -65,6 +65,13 @@ impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
     type Lend = (usize, Successors<'succ, L, I>);
 }
 
+impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+    TupleLending<'succ> for NodeIterator<L, I>
+{
+    type SingleValue = (usize, L);
+    type TupleLend = Successors<'succ, L, I>;
+}
+
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Lender
     for NodeIterator<L, I>
 {
@@ -111,7 +118,6 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     SequentialLabelling for LabeledArcListGraph<I>
 {
     type Value = (usize, L);
-    type Successors<'succ> = Successors<'succ, L, I>;
     type Iterator<'node> = NodeIterator<L, I> where Self: 'node;
 
     #[inline(always)]

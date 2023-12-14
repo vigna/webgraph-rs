@@ -30,7 +30,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let labels = SwhLabels::load_from_file(&args.basename)?;
+    let labels = SwhLabels::load_from_file(7, &args.basename)?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
@@ -42,7 +42,7 @@ pub fn main() -> Result<()> {
                 black_box(i);
             }
         }
-        pl.done_with_count(graph.num_nodes());
+        pl.done_with_count(labels.num_nodes());
     }
 
     Ok(())

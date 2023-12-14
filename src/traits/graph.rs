@@ -37,6 +37,8 @@ use crate::{
 };
 use lender::*;
 
+use super::labelling::TupleLending;
+
 /// A graph that can be accessed sequentially.
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
@@ -103,6 +105,16 @@ where
     );
 }
 
+impl<'succ, L> TupleLending<'succ> for UnitIterator<L>
+where
+    L: Lender,
+    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
+    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+{
+    type SingleValue = (usize, ());
+    type TupleLend = UnitSuccessors<<<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter>;
+}
+
 impl<'node, L: Lender> Lender for UnitIterator<L>
 where
     L: Lender,
@@ -131,8 +143,6 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
 
 impl<G: SequentialGraph> SequentialLabelling for UnitLabelGraph<G> {
     type Value = (usize, ());
-
-    type Successors<'succ> = UnitSuccessors<<G::Successors<'succ> as IntoIterator>::IntoIter>;
 
     type Iterator<'node> = UnitIterator<G::Iterator<'node>>
     where

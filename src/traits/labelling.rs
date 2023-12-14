@@ -32,6 +32,25 @@ use dsi_progress_logger::*;
 use lender::*;
 use std::sync::Mutex;
 
+pub trait TupleLending<'lend, __Seal: lender::Sealed = Seal<&'lend Self>>:
+    Lending<'lend, __Seal, Lend = (usize, <Self as TupleLending<'lend, __Seal>>::TupleLend)>
+{
+    type SingleValue;
+    type TupleLend: IntoIterator<Item = Self::SingleValue>;
+}
+
+pub trait TupleLender:
+    Lender + for<'all> TupleLending<'all, SingleValue = <Self as TupleLender>::Value>
+{
+    type Value;
+}
+
+impl<T: ?Sized + Lender + for<'all> TupleLending<'all, SingleValue = Value>, Value> TupleLender
+    for T
+{
+    type Value = Value;
+}
+
 /// A labelling that can be accessed sequentially.
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
@@ -48,11 +67,9 @@ use std::sync::Mutex;
 /// at the cost of some allocation and copying.
 pub trait SequentialLabelling {
     type Value;
-    type Successors<'succ>: IntoIterator<Item = Self::Value>;
     /// The type of the iterator over the successors of a node
     /// returned by [the iterator on the graph](SequentialGraph::Iterator).
-    type Iterator<'node>: Lender
-        + for<'succ> Lending<'succ, Lend = (usize, Self::Successors<'succ>)>
+    type Iterator<'node>: TupleLender<Value = Self::Value>
     where
         Self: 'node;
 
@@ -177,6 +194,11 @@ pub struct IteratorImpl<'node, G: RandomAccessLabelling> {
 
 impl<'node, 'succ, G: RandomAccessLabelling> Lending<'succ> for IteratorImpl<'node, G> {
     type Lend = (usize, <G as RandomAccessLabelling>::Successors<'succ>);
+}
+
+impl<'node, 'succ, G: RandomAccessLabelling> TupleLending<'succ> for IteratorImpl<'node, G> {
+    type SingleValue = G::Value;
+    type TupleLend = <G as RandomAccessLabelling>::Successors<'succ>;
 }
 
 impl<'node, G: RandomAccessLabelling> Lender for IteratorImpl<'node, G> {
