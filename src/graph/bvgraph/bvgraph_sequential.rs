@@ -24,7 +24,7 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
 }
 
 impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<CRB> {
-    type Value = usize;
+    type Label = usize;
     type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
         Self: 'a;
@@ -276,14 +276,13 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
-    type Lend = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+impl<'succ, CR: BVGraphCodesReader> NodeLabelsLending<'succ> for WebgraphSequentialIter<CR> {
+    type Item = usize;
+    type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Item>>;
 }
 
-impl<'succ, CR: BVGraphCodesReader> TupleLending<'succ> for WebgraphSequentialIter<CR> {
-    type SingleValue = usize;
-
-    type TupleLend = std::iter::Copied<std::slice::Iter<'succ, usize>>;
+impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<CR: BVGraphCodesReader> Lender for WebgraphSequentialIter<CR> {

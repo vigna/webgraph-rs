@@ -8,7 +8,7 @@ use core::iter;
 
 use lender::{Lend, Lender, Lending, IntoLender};
 
-use crate::{prelude::{SequentialLabelling, RandomAccessLabelling, LabelledSequentialGraph, SequentialGraph, LabelledRandomAccessGraph, RandomAccessGraph, TupleLending}, Tuple2};
+use crate::{prelude::{SequentialLabelling, RandomAccessLabelling, LabelledSequentialGraph, SequentialGraph, LabelledRandomAccessGraph, RandomAccessGraph, NodeLabelsLending, LendingItem, LendingIntoIterator, LendingIntoIter}, Tuple2};
 
 /**
 
@@ -64,53 +64,46 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
     }
 }
 
-pub struct ZippedGraphIterator<L, R>(L, R);
+pub struct ZippedGraphIterator<L, R> (L, R);
+
+macro_rules! impl_lending {
+     ($($a:tt)* NodeLabelsLending $($b:tt)* { $($c:tt)* }) => {
+        $($a:tt)* NodeLabelsLending $($b:tt)* { $($c:tt)* }
+
+        $($a:tt)* Lending $($b:tt)* {
+            type Lend = (
+                usize,
+                <Self as NodeLabelsLending<'succ>>::Labels
+            );
+        }
+     }
+}
+
+impl<'succ, L, R> NodeLabelsLending<'succ> for ZippedGraphIterator<L, R>
+where
+    L: Lender + for<'next> NodeLabelsLending<'next>,
+    R: Lender + for<'next> NodeLabelsLending<'next>,
+{
+    type Item = (LendingItem<'succ, L>, LendingItem<'succ, R>);
+    type IntoIterator = std::iter::Zip<LendingIntoIter<'succ, L>, LendingIntoIter<'succ, R>>;
+
+}
 
 impl<'succ, L, R> Lending<'succ> for ZippedGraphIterator<L, R>
 where
-    L: Lender,
-    R: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
-    for<'next> Lend<'next, R>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, R> as Tuple2>::_1: IntoIterator,
+    L: Lender + for<'next> NodeLabelsLending<'next>,
+    R: Lender + for<'next> NodeLabelsLending<'next>,
 {
     type Lend = (
         usize,
-        std::iter::Zip<
-            <<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter,
-            <<Lend<'succ, R> as Tuple2>::_1 as IntoIterator>::IntoIter,
-        >,
+        LendingIntoIterator<'succ, Self>
     );
-}
-
-impl<'succ, L, R> TupleLending<'succ> for ZippedGraphIterator<L, R>
-where
-    L: Lender,
-    R: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
-    for<'next> Lend<'next, R>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, R> as Tuple2>::_1: IntoIterator,
-{
-    type SingleValue = (<<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::Item,
-            <<Lend<'succ, R> as Tuple2>::_1 as IntoIterator>::Item);
-
-    type TupleLend = std::iter::Zip<
-            <<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter,
-            <<Lend<'succ, R> as Tuple2>::_1 as IntoIterator>::IntoIter,
-        >;
-
 }
 
 impl<'succ, L, R> Lender for ZippedGraphIterator<L, R>
 where
-    L: Lender,
-    R: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
-    for<'next> Lend<'next, R>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, R> as Tuple2>::_1: IntoIterator,
+    L: Lender + for<'next> NodeLabelsLending<'next>,
+    R: Lender + for<'next> NodeLabelsLending<'next>,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -141,7 +134,7 @@ impl<'a, L: SequentialLabelling, R: SequentialLabelling> IntoLender for &'a Zip<
 
 
 impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip<L, R> {
-    type Value = (L::Value, R::Value);
+    type Label = (L::Label, R::Label);
 
 
     type Iterator<'node> = ZippedGraphIterator<L::Iterator<'node>, R::Iterator<'node>> 
@@ -167,8 +160,8 @@ impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling f
         <<L as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter, 
         <<R as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
         where
-            <L as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <L as SequentialLabelling>::Value>,
-            <R as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <R as SequentialLabelling>::Value>,
+            <L as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <L as SequentialLabelling>::Label>,
+            <R as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <R as SequentialLabelling>::Label>,
         Self: 'succ;
 
     fn num_arcs(&self) -> usize {
@@ -186,6 +179,6 @@ impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling f
     }
 }
 
-impl<G: SequentialGraph, L: SequentialLabelling> LabelledSequentialGraph<L::Value> for Zip<G, L> {}
+impl<G: SequentialGraph, L: SequentialLabelling> LabelledSequentialGraph<L::Label> for Zip<G, L> {}
 
-impl<G: RandomAccessGraph, L: RandomAccessLabelling> LabelledRandomAccessGraph<L::Value> for Zip<G, L> {}
+impl<G: RandomAccessGraph, L: RandomAccessLabelling> LabelledRandomAccessGraph<L::Label> for Zip<G, L> {}

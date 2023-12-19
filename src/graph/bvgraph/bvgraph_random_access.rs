@@ -115,7 +115,7 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
 {
-    type Value = usize;
+    type Label = usize;
     type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
     where
         Self: 'b,

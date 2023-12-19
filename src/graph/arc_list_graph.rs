@@ -50,14 +50,15 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     }
 }
 
-impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> Lending<'succ> for Iterator<I> {
-    type Lend = (usize, Successors<'succ, I>);
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> NodeLabelsLending<'succ>
+    for Iterator<I>
+{
+    type Item = usize;
+    type IntoIterator = Successors<'succ, I>;
 }
 
-impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> TupleLending<'succ> for Iterator<I> {
-    type SingleValue = usize;
-
-    type TupleLend = Successors<'succ, I>;
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> Lending<'succ> for Iterator<I> {
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
@@ -96,7 +97,7 @@ impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
 impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialLabelling
     for ArcListGraph<I>
 {
-    type Value = usize;
+    type Label = usize;
     type Iterator<'node> = Iterator<I::IntoIter>
     where Self: 'node;
 

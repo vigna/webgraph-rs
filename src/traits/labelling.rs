@@ -32,24 +32,31 @@ use dsi_progress_logger::*;
 use lender::*;
 use std::sync::Mutex;
 
-pub trait TupleLending<'lend, __Seal: lender::Sealed = Seal<&'lend Self>>:
-    Lending<'lend, __Seal, Lend = (usize, <Self as TupleLending<'lend, __Seal>>::TupleLend)>
+use crate::Tuple2;
+
+pub trait NodeLabelsLending<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
+    Lending<
+    'lend,
+    __ImplBound,
+    Lend = (
+        usize,
+        <Self as NodeLabelsLending<'lend, __ImplBound>>::IntoIterator,
+    ),
+>
+where
+    <Self as Lending<'lend, __ImplBound>>::Lend: Tuple2,
 {
-    type SingleValue;
-    type TupleLend: IntoIterator<Item = Self::SingleValue>;
+    type Item;
+    type IntoIterator: IntoIterator<Item = Self::Item>;
 }
 
-pub trait TupleLender:
-    Lender + for<'all> TupleLending<'all, SingleValue = <Self as TupleLender>::Value>
-{
-    type Value;
-}
+pub type LendingItem<'lend, L> = <L as NodeLabelsLending<'lend>>::Item;
+pub type LendingIntoIterator<'lend, L> = <L as NodeLabelsLending<'lend>>::IntoIterator;
+pub type LendingIntoIter<'lend, L> =
+    <<L as NodeLabelsLending<'lend>>::IntoIterator as IntoIterator>::IntoIter;
 
-impl<T: ?Sized + Lender + for<'all> TupleLending<'all, SingleValue = Value>, Value> TupleLender
-    for T
-{
-    type Value = Value;
-}
+pub type Labels<'succ, 'node, S> =
+    <<S as SequentialLabelling>::Iterator<'node> as NodeLabelsLending<'succ>>::IntoIterator;
 
 /// A labelling that can be accessed sequentially.
 ///
@@ -66,10 +73,10 @@ impl<T: ?Sized + Lender + for<'all> TupleLending<'all, SingleValue = Value>, Val
 /// can invoke [`Lender::into_iter`] to get a standard iterator, in general
 /// at the cost of some allocation and copying.
 pub trait SequentialLabelling {
-    type Value;
+    type Label;
     /// The type of the iterator over the successors of a node
     /// returned by [the iterator on the graph](SequentialGraph::Iterator).
-    type Iterator<'node>: TupleLender<Value = Self::Value>
+    type Iterator<'node>: Lender + for<'all> NodeLabelsLending<'all, Item = Self::Label>
     where
         Self: 'node;
 
@@ -171,7 +178,7 @@ pub trait SequentialLabelling {
 pub trait RandomAccessLabelling: SequentialLabelling {
     /// The type of the iterator over the successors of a node
     /// returned by [successors](RandomAccessGraph::successors).
-    type Successors<'succ>: IntoIterator<Item = <Self as SequentialLabelling>::Value>
+    type Successors<'succ>: IntoIterator<Item = <Self as SequentialLabelling>::Label>
     where
         Self: 'succ;
 
@@ -196,9 +203,9 @@ impl<'node, 'succ, G: RandomAccessLabelling> Lending<'succ> for IteratorImpl<'no
     type Lend = (usize, <G as RandomAccessLabelling>::Successors<'succ>);
 }
 
-impl<'node, 'succ, G: RandomAccessLabelling> TupleLending<'succ> for IteratorImpl<'node, G> {
-    type SingleValue = G::Value;
-    type TupleLend = <G as RandomAccessLabelling>::Successors<'succ>;
+impl<'node, 'succ, G: RandomAccessLabelling> NodeLabelsLending<'succ> for IteratorImpl<'node, G> {
+    type Item = G::Label;
+    type IntoIterator = <G as RandomAccessLabelling>::Successors<'succ>;
 }
 
 impl<'node, G: RandomAccessLabelling> Lender for IteratorImpl<'node, G> {

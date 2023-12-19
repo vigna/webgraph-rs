@@ -20,7 +20,7 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
 }
 
 impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
-    type Value = usize;
+    type Label = usize;
     type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
         where
             Self: 'b;
@@ -69,34 +69,24 @@ pub struct PermutedGraphIterator<'node, I> {
     perm: &'node [usize],
 }
 
-impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>
+impl<'node, 'succ, I> NodeLabelsLending<'succ> for PermutedGraphIterator<'node, I>
 where
-    I: Lender,
-    for<'next> Lend<'next, I>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
+    I: Lender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
-    type Lend = (
-        usize,
-        PermutedSuccessors<'succ, <<Lend<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>,
-    );
+    type Item = usize;
+    type IntoIterator = PermutedSuccessors<'succ, LendingIntoIter<'succ, I>>;
 }
 
-impl<'node, 'succ, I> TupleLending<'succ> for PermutedGraphIterator<'node, I>
+impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>
 where
-    I: Lender,
-    for<'next> Lend<'next, I>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, I> as Tuple2>::_1: IntoIterator<Item = usize>,
+    I: Lender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
-    type SingleValue = usize;
-    type TupleLend =
-        PermutedSuccessors<'succ, <<Lend<'succ, I> as Tuple2>::_1 as IntoIterator>::IntoIter>;
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<'a, L> Lender for PermutedGraphIterator<'a, L>
 where
-    L: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L: Lender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {

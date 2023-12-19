@@ -18,7 +18,10 @@ use std::thread::ScopedJoinHandle;
 
 /// Build a BVGraph by compressing an iterator of nodes and successors and
 /// return the length of the produced bitstream (in bits).
-pub fn compress_sequential_iter<P: AsRef<Path>, L: IntoLender>(
+pub fn compress_sequential_iter<
+    P: AsRef<Path>,
+    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
+>(
     basename: P,
     iter: L,
     compression_flags: CompFlags,
@@ -115,7 +118,7 @@ pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
     tmp_dir: P,
 ) -> Result<usize>
 where
-    L::Lender: Clone + Send,
+    L::Lender: Clone + Send + for<'next> NodeLabelsLending<'next, Item = usize>,
     for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
     for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
 {

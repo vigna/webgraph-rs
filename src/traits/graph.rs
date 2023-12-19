@@ -37,7 +37,7 @@ use crate::{
 };
 use lender::*;
 
-use super::labelling::TupleLending;
+use super::labelling::{Labels, LendingIntoIter, NodeLabelsLending};
 
 /// A graph that can be accessed sequentially.
 ///
@@ -46,7 +46,9 @@ use super::labelling::TupleLending;
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
 ///
-pub trait SequentialGraph: SequentialLabelling<Value = usize> {}
+pub trait SequentialGraph: SequentialLabelling<Label = usize> {}
+
+pub type Successors<'succ, 'node, S> = Labels<'succ, 'node, S>;
 
 /// Marker trait for [iterators](SequentialGraph::Iterator) of [sequential graphs](SequentialGraph)
 /// that returns nodes in ascending order.
@@ -64,7 +66,7 @@ pub unsafe trait SortedIterator: Lender {}
 pub unsafe trait SortedSuccessors: IntoIterator {}
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
-pub trait RandomAccessGraph: RandomAccessLabelling<Value = usize> + SequentialGraph {
+pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGraph {
     /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
     fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
         for neighbour_id in self.successors(src_node_id) {
@@ -84,7 +86,7 @@ pub trait RandomAccessGraph: RandomAccessLabelling<Value = usize> + SequentialGr
 /// We iter on the node ids in a range so it is sorted
 unsafe impl<'a, G: RandomAccessGraph> SortedIterator for IteratorImpl<'a, G> {}
 
-pub trait LabelledSequentialGraph<L>: SequentialLabelling<Value = (usize, L)> {}
+pub trait LabelledSequentialGraph<L>: SequentialLabelling<Label = (usize, L)> {}
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
@@ -93,33 +95,24 @@ pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 #[repr(transparent)]
 pub struct UnitIterator<L>(L);
 
-impl<'succ, L> Lending<'succ> for UnitIterator<L>
+impl<'succ, L> NodeLabelsLending<'succ> for UnitIterator<L>
 where
-    L: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
+    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
-    type Lend = (
-        usize,
-        UnitSuccessors<<<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter>,
-    );
+    type Item = (usize, ());
+    type IntoIterator = UnitSuccessors<LendingIntoIter<'succ, L>>;
 }
 
-impl<'succ, L> TupleLending<'succ> for UnitIterator<L>
+impl<'succ, L> Lending<'succ> for UnitIterator<L>
 where
-    L: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
-    type SingleValue = (usize, ());
-    type TupleLend = UnitSuccessors<<<Lend<'succ, L> as Tuple2>::_1 as IntoIterator>::IntoIter>;
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<'node, L: Lender> Lender for UnitIterator<L>
 where
-    L: Lender,
-    for<'next> Lend<'next, L>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L> as Tuple2>::_1: IntoIterator,
+    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -142,7 +135,7 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
 }
 
 impl<G: SequentialGraph> SequentialLabelling for UnitLabelGraph<G> {
-    type Value = (usize, ());
+    type Label = (usize, ());
 
     type Iterator<'node> = UnitIterator<G::Iterator<'node>>
     where
@@ -159,7 +152,7 @@ impl<G: SequentialGraph> SequentialLabelling for UnitLabelGraph<G> {
 
 impl<G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {}
 
-pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Value = (usize, L)> {}
+pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {}
 
 impl<G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
     type Successors<'succ> =

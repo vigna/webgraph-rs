@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::{
-    prelude::{MmapBackend, SequentialLabelling, TupleLending},
+    prelude::{MmapBackend, NodeLabelsLending, SequentialLabelling},
     EF,
 };
 
@@ -81,19 +81,25 @@ pub struct Iterator<'a, BR, O> {
     next_node: usize,
 }
 
-impl<'a, 'succ, BR, O> Lending<'succ> for Iterator<'a, BR, O> {
-    type Lend = (usize, Labels<'succ, BR>);
-}
-
-impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> TupleLending<'succ>
+impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> NodeLabelsLending<'succ>
     for Iterator<'a, BR, O>
 {
-    type SingleValue = Vec<u64>;
-    type TupleLend = Labels<'succ, BR>;
+    type Item = Vec<u64>;
+    type IntoIterator = Labels<'succ, BR>;
 }
 
-impl<'a, 'node, BR: BitRead<BE> + BitSeek, O: IndexedDict<Input = usize, Output = usize>> Lender
+impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> Lending<'succ>
     for Iterator<'a, BR, O>
+{
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
+}
+
+impl<
+        'a,
+        'node,
+        BR: BitRead<BE> + BitSeek + GammaRead<BE>,
+        O: IndexedDict<Input = usize, Output = usize>,
+    > Lender for Iterator<'a, BR, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -132,7 +138,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for Labe
 }
 
 impl SequentialLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
-    type Value = Vec<u64>;
+    type Label = Vec<u64>;
 
     type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, EF<&'node [usize], &'node[u64]>>
     where

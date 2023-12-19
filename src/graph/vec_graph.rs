@@ -127,10 +127,12 @@ impl VecGraph {
     /// Convert an iterator on nodes and successors in a [`VecGraph`].
     pub fn from_node_iter<L>(iter_nodes: L) -> Self
     where
-        L: IntoLender,
+        L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
         for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
         for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
+        let x = iter_nodes.into_lender().next().unwrap();
+
         let mut g = Self::new();
         g.add_node_iter(iter_nodes);
         g
@@ -139,7 +141,7 @@ impl VecGraph {
     /// Add the nodes and successors from an iterator to a [`VecGraph`].
     pub fn add_node_iter<L>(&mut self, iter_nodes: L) -> &mut Self
     where
-        L: IntoLender,
+        L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
         for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
         for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
     {
@@ -217,7 +219,7 @@ impl RandomAccessLabelling for VecGraph {
 impl RandomAccessGraph for VecGraph {}
 
 impl SequentialLabelling for VecGraph {
-    type Value = usize;
+    type Label = usize;
     type Iterator<'a> = IteratorImpl<'a, Self>;
 
     #[inline(always)]

@@ -124,6 +124,7 @@ for_iter!{(x, succ) in iter =>
 }
 ```
 */
+
 #[macro_export]
 macro_rules! for_iter {
     (($node:ident, $succ:ident) in $iter:expr => $($tt:tt)*) => {
