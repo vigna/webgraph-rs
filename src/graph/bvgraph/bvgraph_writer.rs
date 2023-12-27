@@ -433,9 +433,8 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// partially---your mileage may vary.
     pub fn extend<L>(&mut self, iter_nodes: L) -> Result<usize>
     where
-        L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
-        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
-        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
     {
         let mut count = 0;
         for_iter! { (_, succ) in iter_nodes =>
@@ -586,7 +585,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend::<&BVGraphSequential<_>>(&seq_graph).unwrap();
+        bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back
@@ -642,7 +641,7 @@ mod test {
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
-        bvcomp.extend::<&BVGraphSequential<_>>(&seq_graph).unwrap();
+        bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
 
         // Read it back

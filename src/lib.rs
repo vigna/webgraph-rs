@@ -129,25 +129,25 @@ for_iter!{(x, succ) in iter =>
 macro_rules! for_iter {
     (($node:ident, $succ:ident) in $iter:expr => $($tt:tt)*) => {
         let mut iter = $iter.into_lender();
-        while let Some(($node, $succ)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+        while let Some(($node, $succ)) = iter.next() {
             $($tt)*
         }
     };
     ((_, $succ:ident) in $iter:expr => $($tt:tt)*) => {
         let mut iter = $iter.into_lender();
-        while let Some((_, $succ)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+        while let Some((_, $succ)) = iter.next() {
             $($tt)*
         }
     };
     (($node:ident, _) in $iter:expr => $($tt:tt)*) => {
         let mut iter = $iter.into_lender();
-        while let Some(($node, _)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+        while let Some(($node, _)) = iter.next() {
             $($tt)*
         }
     };
     ((_, _) in $iter:expr => $($tt:tt)*) => {
         let mut iter = $iter.into_lender();
-        while let Some((_, _)) = iter.next().map(|it| crate::Tuple2::into_tuple(it)) {
+        while let Some((_, _)) = iter.next() {
             $($tt)*
         }
     };

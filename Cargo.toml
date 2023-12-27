@@ -12,7 +12,7 @@ categories = ["compression", "data-structures"]
 
 [features]
 default = ["std"]
-std = ["alloc", "anyhow/std"]
+std = ["anyhow/std"]
 alloc = []
 slow_tests = []
 skips = []
@@ -42,9 +42,9 @@ zip = {version="0.6.6", optional=true}
 libc = "0.2.147"
 itertools = "0.11.0"
 nougat = "0.2.4"
-lender = { path = "../Lender" }
+lender = {git="https://github.com/WanderLanz/Lender"} #{ path = "../Lender" }
 common_traits = "0.10.0"
-webgraph-derive = { path = "../webgraph-derive" }
+#webgraph-derive = { path = "../webgraph-derive" }
 
 [build-dependencies]
 cc = "1.0.79"

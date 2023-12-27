@@ -97,7 +97,7 @@ pub struct UnitIterator<L>(L);
 
 impl<'succ, L> NodeLabelsLending<'succ> for UnitIterator<L>
 where
-    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
+    L: Lender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
     type Item = (usize, ());
     type IntoIterator = UnitSuccessors<LendingIntoIter<'succ, L>>;
@@ -105,12 +105,12 @@ where
 
 impl<'succ, L> Lending<'succ> for UnitIterator<L>
 where
-    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
+    L: Lender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {
     type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
-impl<'node, L: Lender> Lender for UnitIterator<L>
+impl<L: Lender> Lender for UnitIterator<L>
 where
     L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
 {

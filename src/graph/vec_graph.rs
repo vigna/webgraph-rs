@@ -6,8 +6,13 @@
  */
 
 use crate::{for_iter, prelude::*};
-use alloc::collections::BTreeSet;
+
 use lender::*;
+
+#[cfg(feature = "alloc")]
+use alloc::collections::BTreeSet;
+#[cfg(all(feature = "std", not(feature = "alloc")))]
+use std::collections::BTreeSet;
 
 /// A vector-based mutable [`Graph`]/[`LabeledGraph`] implementation.
 ///
@@ -127,12 +132,9 @@ impl VecGraph {
     /// Convert an iterator on nodes and successors in a [`VecGraph`].
     pub fn from_node_iter<L>(iter_nodes: L) -> Self
     where
-        L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
-        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
-        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
     {
-        let x = iter_nodes.into_lender().next().unwrap();
-
         let mut g = Self::new();
         g.add_node_iter(iter_nodes);
         g
@@ -141,9 +143,8 @@ impl VecGraph {
     /// Add the nodes and successors from an iterator to a [`VecGraph`].
     pub fn add_node_iter<L>(&mut self, iter_nodes: L) -> &mut Self
     where
-        L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
-        for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
-        for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
     {
         for_iter! { (node, succ) in iter_nodes =>
             self.add_node(node);
@@ -190,6 +191,7 @@ impl<'a> IntoLender for &'a VecGraph {
         self.iter()
     }
 }
+
 /*
 impl
  Labeled for VecGraph {

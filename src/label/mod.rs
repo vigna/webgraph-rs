@@ -6,4 +6,4 @@
  */
 
 pub mod swh_labels;
-use swh_labels::*;
+pub use swh_labels::*;

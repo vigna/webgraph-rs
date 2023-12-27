@@ -20,7 +20,7 @@ use std::thread::ScopedJoinHandle;
 /// return the length of the produced bitstream (in bits).
 pub fn compress_sequential_iter<
     P: AsRef<Path>,
-    L: IntoLender + for<'next> NodeLabelsLending<'next, Item = usize>,
+    L: IntoLender,
 >(
     basename: P,
     iter: L,
@@ -29,8 +29,8 @@ pub fn compress_sequential_iter<
     num_nodes: Option<usize>,
 ) -> Result<usize>
 where
-    for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
+    L: IntoLender,
+    L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
 {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
@@ -119,8 +119,6 @@ pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
 ) -> Result<usize>
 where
     L::Lender: Clone + Send + for<'next> NodeLabelsLending<'next, Item = usize>,
-    for<'next> Lend<'next, L::Lender>: Tuple2<_0 = usize>,
-    for<'next> <Lend<'next, L::Lender> as Tuple2>::_1: IntoIterator<Item = usize>,
 {
     let tmp_dir = tmp_dir.as_ref();
     let basename = basename.as_ref();

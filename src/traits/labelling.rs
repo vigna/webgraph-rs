@@ -30,22 +30,16 @@ use core::{
 };
 use dsi_progress_logger::*;
 use lender::*;
-use std::sync::Mutex;
-
-use crate::Tuple2;
 
 pub trait NodeLabelsLending<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
     Lending<
-    'lend,
-    __ImplBound,
-    Lend = (
-        usize,
-        <Self as NodeLabelsLending<'lend, __ImplBound>>::IntoIterator,
-    ),
->
-where
-    <Self as Lending<'lend, __ImplBound>>::Lend: Tuple2,
-{
+        'lend,
+        __ImplBound,
+        Lend = (
+            usize,
+            Self::IntoIterator,
+        ),
+    > + Lender {
     type Item;
     type IntoIterator: IntoIterator<Item = Self::Item>;
 }
@@ -76,7 +70,7 @@ pub trait SequentialLabelling {
     type Label;
     /// The type of the iterator over the successors of a node
     /// returned by [the iterator on the graph](SequentialGraph::Iterator).
-    type Iterator<'node>: Lender + for<'all> NodeLabelsLending<'all, Item = Self::Label>
+    type Iterator<'node>: for<'all> NodeLabelsLending<'all, Item = Self::Label>
     where
         Self: 'node;
 
@@ -119,7 +113,7 @@ pub trait SequentialLabelling {
         R: Fn(T, T) -> T + Send + Sync,
         T: Send + Default,
     {
-        let pl_lock = pl.map(Mutex::new);
+        let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_cpus = thread_pool
             .current_num_threads()

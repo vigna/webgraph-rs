@@ -66,6 +66,7 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
 
 pub struct ZippedGraphIterator<L, R> (L, R);
 
+/*
 macro_rules! impl_lending {
      ($($a:tt)* NodeLabelsLending $($b:tt)* { $($c:tt)* }) => {
         $($a:tt)* NodeLabelsLending $($b:tt)* { $($c:tt)* }
@@ -77,7 +78,7 @@ macro_rules! impl_lending {
             );
         }
      }
-}
+} */
 
 impl<'succ, L, R> NodeLabelsLending<'succ> for ZippedGraphIterator<L, R>
 where
@@ -100,7 +101,7 @@ where
     );
 }
 
-impl<'succ, L, R> Lender for ZippedGraphIterator<L, R>
+impl<L, R> Lender for ZippedGraphIterator<L, R>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
     R: Lender + for<'next> NodeLabelsLending<'next>,
@@ -110,15 +111,12 @@ where
         let left = self.0.next();
         let right = self.1.next();
         debug_assert_eq!(left.is_none(), right.is_none());
-        if left.is_none() {
-            return None;
-        }
-        let left = left.unwrap().into_tuple();
-        let right = right.unwrap().into_tuple();
+        let left = left?.into_tuple();
+        let right = right?.into_tuple();
         debug_assert_eq!(left.0, right.0);
         Some((
             left.0,
-            std::iter::zip(left.1.into_iter(), right.1.into_iter()),
+            std::iter::zip(left.1, right.1),
         ))
     }
 }

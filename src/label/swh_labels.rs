@@ -81,14 +81,14 @@ pub struct Iterator<'a, BR, O> {
     next_node: usize,
 }
 
-impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> NodeLabelsLending<'succ>
+impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O: IndexedDict<Input = usize, Output = usize>> NodeLabelsLending<'succ>
     for Iterator<'a, BR, O>
 {
     type Item = Vec<u64>;
     type IntoIterator = Labels<'succ, BR>;
 }
 
-impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> Lending<'succ>
+impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O: IndexedDict<Input = usize, Output = usize>> Lending<'succ>
     for Iterator<'a, BR, O>
 {
     type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
@@ -96,14 +96,13 @@ impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O> Lending<'succ>
 
 impl<
         'a,
-        'node,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
         O: IndexedDict<Input = usize, Output = usize>,
     > Lender for Iterator<'a, BR, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        self.reader.set_bit_pos(self.offsets.get(self.next_node));
+        self.reader.set_bit_pos(self.offsets.get(self.next_node)).unwrap();
         let res = (
             self.next_node,
             Labels {

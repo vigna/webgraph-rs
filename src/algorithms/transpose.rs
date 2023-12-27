@@ -46,19 +46,20 @@ pub fn transpose(
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition() -> anyhow::Result<()> {
-    use crate::graph::{arc_list_graph::ArcListGraph, vec_graph::VecGraph};
+    use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
 
     let trans = transpose(&g, 3)?;
-    let g2 = VecGraph::from_node_iter::<&ArcListGraph<_>>(&trans);
+    let g2 = VecGraph::from_node_iter(&trans);
 
     let trans = transpose(&g2, 3)?;
-    let g3 = VecGraph::from_node_iter::<&ArcListGraph<_>>(&trans);
+    let g3 = VecGraph::from_node_iter(&trans);
 
     assert_eq!(g, g3);
     Ok(())
 }
+
 /*
 #[cfg(test)]
 #[cfg_attr(test, test)]
