@@ -20,6 +20,10 @@ use webgraph::prelude::*;
 struct Args {
     /// The basename of the graph.
     basename: String,
+    /// The number of elements to be inserted in the Elias-Fano
+    /// starting from a label offset file. It is usually one more than
+    /// the number of nodes in the graph.
+    n: Option<usize>,
 }
 
 pub fn main() -> Result<()> {
@@ -31,6 +35,53 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
+    if let Some(num_nodes) = args.n {
+        // Horribly temporary duplicated code for the case of label offsets.
+        let of_file_str = format!("{}.labeloffsets", args.basename);
+        let of_file_path = std::path::Path::new(&of_file_str);
+        if of_file_path.exists() {
+            let mut file = File::open(format!("{}.labels", args.basename))?;
+            let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
+
+            let mut efb = EliasFanoBuilder::new(num_nodes, file_len as usize);
+
+            info!("The offsets file exists, reading it to build Elias-Fano");
+            let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
+            // create a bit reader on the file
+            let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
+            // progress bar
+            let mut pl = ProgressLogger::default();
+            pl.display_memory(true)
+                .item_name("offset")
+                .expected_updates(Some(num_nodes));
+            pl.start("Translating offsets to EliasFano...");
+            // read the graph a write the offsets
+            let mut offset = 0;
+            for _node_id in 0..num_nodes {
+                // write where
+                offset += reader.read_gamma()?;
+                efb.push(offset as _)?;
+                // decode the next nodes so we know where the next node_id starts
+                pl.light_update();
+            }
+            let ef = efb.build();
+
+            let mut pl = ProgressLogger::default();
+            pl.display_memory(true);
+            pl.start("Building the Index over the ones in the high-bits...");
+            let ef: webgraph::EF<_, _> = ef.convert_to().unwrap();
+            pl.done();
+
+            let mut pl = ProgressLogger::default();
+            pl.display_memory(true);
+            pl.start("Writing to disk...");
+            // serialize and dump the schema to disk
+            let mut ef_file = BufWriter::new(File::create(format!("{}.ef", args.basename))?);
+            ef.serialize(&mut ef_file)?;
+            pl.done();
+            return Ok(());
+        }
+    }
     let f = File::open(format!("{}.properties", args.basename)).with_context(|| {
         format!(
             "Could not load properties file: {}.properties",

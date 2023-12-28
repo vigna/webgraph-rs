@@ -6,7 +6,7 @@
  */
 
 use lender::*;
-use webgraph::prelude::*;
+use webgraph::{prelude::*, utils::proj::Left};
 
 #[test]
 fn test_permuted() {
@@ -29,7 +29,7 @@ fn test_permuted() {
     //       `-> 4
     // 2 -> 0
     let permuted_graph = PermutedGraph {
-        graph: &graph,
+        graph: &Left(graph),
         perm: &perm,
     };
 

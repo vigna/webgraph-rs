@@ -12,7 +12,7 @@ categories = ["compression", "data-structures"]
 
 [features]
 default = ["std"]
-std = ["alloc", "anyhow/std"]
+std = ["anyhow/std"]
 alloc = []
 slow_tests = []
 skips = []
@@ -42,12 +42,9 @@ zip = {version="0.6.6", optional=true}
 libc = "0.2.147"
 itertools = "0.11.0"
 nougat = "0.2.4"
-lender = "0.2.0"
+lender = "0.2.2"
 common_traits = "0.10.0"
-
-[build-dependencies]
-cc = "1.0.79"
-bindgen = "0.65.1"
+#webgraph-derive = { path = "../webgraph-derive" }
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }

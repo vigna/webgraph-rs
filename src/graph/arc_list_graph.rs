@@ -50,8 +50,15 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     }
 }
 
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> NodeLabelsLending<'succ>
+    for Iterator<I>
+{
+    type Item = usize;
+    type IntoIterator = Successors<'succ, I>;
+}
+
 impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> Lending<'succ> for Iterator<I> {
-    type Lend = (usize, Successors<'succ, I>);
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
@@ -70,16 +77,10 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
     }
 }
 
-/*impl<'lend, 'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> Lending<'lend>
-    for &'a ArcListGraph<I>
-{
-    type Lend = (usize, Successors<'lend, I::IntoIter>);
-}*/
-
 impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
     for &'a ArcListGraph<I>
 {
-    type Lender = <ArcListGraph<I> as SequentialGraph>::Iterator<'a>;
+    type Lender = <ArcListGraph<I> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -87,8 +88,10 @@ impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
     }
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialGraph for ArcListGraph<I> {
-    type Successors<'succ> = Successors<'succ, I::IntoIter>;
+impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialLabelling
+    for ArcListGraph<I>
+{
+    type Label = usize;
     type Iterator<'node> = Iterator<I::IntoIter>
     where Self: 'node;
 
@@ -146,7 +149,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
     let coo = ArcListGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_node_iter::<Iterator<_>>(coo.iter());
+    let g2 = VecGraph::from_lender(coo.iter());
     assert_eq!(g, g2);
     Ok(())
 }

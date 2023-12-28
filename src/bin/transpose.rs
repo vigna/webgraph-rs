@@ -6,7 +6,6 @@
 
 use anyhow::Result;
 use clap::Parser;
-use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -44,7 +43,7 @@ pub fn main() -> Result<()> {
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.pa.batch_size).unwrap();
     // compress the transposed graph
-    parallel_compress_sequential_iter::<&arc_list_graph::ArcListGraph<_>, _>(
+    parallel_compress_sequential_iter(
         transposed,
         &sorted,
         sorted.num_nodes(),

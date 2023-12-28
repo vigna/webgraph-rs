@@ -110,17 +110,17 @@ where
     }
 }
 
-impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
+impl<CRB, OFF> SequentialLabelling for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
 {
+    type Label = usize;
     type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
     where
         Self: 'b,
         CRB: 'b,
         OFF: 'b;
-    type Successors<'b> = std::iter::Copied<std::slice::Iter<'b, usize>>;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -158,7 +158,14 @@ where
     }
 }
 
-impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
+impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
+where
+    CRB: BVGraphCodesReaderBuilder,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+{
+}
+
+impl<CRB, OFF> RandomAccessLabelling for BVGraph<CRB, OFF>
 where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
@@ -290,6 +297,13 @@ where
     }
 }
 
+impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
+where
+    CRB: BVGraphCodesReaderBuilder,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+{
+}
+
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
 pub struct RandomSuccessorIter<CR: BVGraphCodesReader> {
@@ -394,7 +408,7 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     }
 }
 
-/*
+/* TODO
 /// Allow to do `for (node, succ_iter) in &graph`
 impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
 where

@@ -23,12 +23,11 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
     min_interval_length: usize,
 }
 
-impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {
+impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<CRB> {
+    type Label = usize;
     type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
-        CRB: 'a,
         Self: 'a;
-    type Successors<'a> = std::iter::Copied<std::slice::Iter<'a, usize>>;
 
     #[inline(always)]
     /// Return the number of nodes in the graph
@@ -58,12 +57,14 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> 
     }
 }
 
+impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {}
+
 /*impl<'lend, 'a, CRB: BVGraphCodesReaderBuilder> Lending<'lend> for &'a BVGraphSequential<CRB> {
     type Lend = Lend<'lend, <Self as IntoLender>::Lender>;
 }
 */
 impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CRB> {
-    type Lender = <BVGraphSequential<CRB> as SequentialGraph>::Iterator<'a>;
+    type Lender = <BVGraphSequential<CRB> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -275,8 +276,13 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
+impl<'succ, CR: BVGraphCodesReader> NodeLabelsLending<'succ> for WebgraphSequentialIter<CR> {
+    type Item = usize;
+    type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Item>>;
+}
+
 impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
-    type Lend = (usize, std::iter::Copied<std::slice::Iter<'succ, usize>>);
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<CR: BVGraphCodesReader> Lender for WebgraphSequentialIter<CR> {

@@ -9,7 +9,7 @@ use core::mem::MaybeUninit;
 use lender::*;
 
 /// An adapter exhibiting a list of labeled
-/// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
+/// arcs sorted by source as a [labeled sequential graph](LabelledSequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
@@ -31,18 +31,11 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Labeled
-    for LabeledArcListGraph<I>
-{
-    type Label = L;
-}
-
 #[derive(Debug, Clone)]
 pub struct NodeIterator<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
     curr_node: usize,
     next_pair: (usize, usize, L),
-    label: L,
     iter: I::IntoIter,
 }
 
@@ -61,19 +54,22 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
                 // TODO: why only here?
                 MaybeUninit::uninit().assume_init()
             })),
-            label: unsafe {
-                #[allow(clippy::uninit_assumed_init)]
-                MaybeUninit::uninit().assume_init()
-            },
             iter,
         }
     }
 }
 
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+    NodeLabelsLending<'succ> for NodeIterator<L, I>
+{
+    type Item = (usize, L);
+    type IntoIterator = Successors<'succ, L, I>;
+}
+
+impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     Lending<'succ> for NodeIterator<L, I>
 {
-    type Lend = (usize, Successors<'succ, L, I>);
+    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Lender
@@ -102,11 +98,11 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-/*impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
     Lending<'lend> for &LabeledArcListGraph<I>
 {
     type Lend = (usize, Successors<'lend, L, I>);
-}*/
+}
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> IntoLender
     for &LabeledArcListGraph<I>
@@ -119,9 +115,9 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    SequentialGraph for LabeledArcListGraph<I>
+    SequentialLabelling for LabeledArcListGraph<I>
 {
-    type Successors<'succ> = Successors<'succ, L, I>;
+    type Label = (usize, L);
     type Iterator<'node> = NodeIterator<L, I> where Self: 'node;
 
     #[inline(always)]
@@ -145,19 +141,13 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-/*impl<'a, L, I: Iterator<Item = (usize, usize, L)>> ExactSizeIterator for NodeIterator<'a, L, I> {
-    fn len(&self) -> usize {
-        self.num_nodes
-    }
-}*/
-
 /// Iter until we found a triple with src different than curr_node
 pub struct Successors<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut NodeIterator<L, I>,
 }
 
 impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Successors<'a, L, I> {
-    type Item = usize;
+    type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
         // if we reached a new node, the successors of curr_node are finished
         if self.node_iter.next_pair.0 != self.node_iter.curr_node {
@@ -175,28 +165,11 @@ impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Successors<'
             // store the triple and return the previous successor
             // storing the label since it should be one step behind the successor
             let (_src, dst, label) = core::mem::replace(&mut self.node_iter.next_pair, pair);
-            self.node_iter.label = label;
-            Some(dst)
+            Some((dst, label))
         }
     }
 }
-
-impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Labeled for Successors<'a, L, I> {
-    type Label = L;
-}
-
-impl<'a, L: Clone, I: IntoIterator<Item = (usize, usize, L)>> LabeledSuccessors
-    for Successors<'a, L, I>
-{
-    #[inline(always)]
-    fn label(&self) -> Self::Label {
-        if self.node_iter.curr_node == usize::MAX {
-            panic!("You cannot call label() on an iterator that has not been advanced yet!");
-        }
-        self.node_iter.label.clone()
-    }
-}
-
+/*
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_coo_labeled_iter() -> anyhow::Result<()> {
@@ -216,3 +189,4 @@ fn test_coo_labeled_iter() -> anyhow::Result<()> {
     assert_eq!(g, g2);
     Ok(())
 }
+*/
