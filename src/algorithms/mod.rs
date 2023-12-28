@@ -16,9 +16,3 @@ pub use simplify::*;
 
 mod transpose;
 pub use transpose::*;
-
-mod transpose2;
-pub use transpose2::*;
-
-mod compose_orders;
-pub use compose_orders::compose_orders;

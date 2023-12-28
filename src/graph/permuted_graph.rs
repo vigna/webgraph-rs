@@ -116,29 +116,26 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSucce
     }
 }
 
-/* TODO
 #[cfg(test)]
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
-    use crate::graph::vec_graph::VecGraph;
+    use crate::{graph::vec_graph::VecGraph, prelude::proj::Left};
     let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
-        graph: &g,
+        graph: &Left(g),
         perm: &[2, 0, 1],
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v =
-        VecGraph::from_node_iter::<PermutedGraphIterator<'_, IteratorImpl<'_, VecGraph>>>(p.iter());
+    let v = Left(VecGraph::from_lender(p.iter()));
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0), 1);
     assert_eq!(v.outdegree(1), 2);
     assert_eq!(v.outdegree(2), 1);
-    assert_eq!(v.successors(0).collect::<Vec<_>>(), vec![1]);
-    assert_eq!(v.successors(1).collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(v.successors(2).collect::<Vec<_>>(), vec![0]);
+    assert_eq!(v.successors(0).into_iter().collect::<Vec<_>>(), vec![1]);
+    assert_eq!(v.successors(1).into_iter().collect::<Vec<_>>(), vec![0, 2]);
+    assert_eq!(v.successors(2).into_iter().collect::<Vec<_>>(), vec![0]);
 
     Ok(())
 }
-*/

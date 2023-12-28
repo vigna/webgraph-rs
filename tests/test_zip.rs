@@ -8,7 +8,8 @@
 use lender::*;
 use webgraph::graph::vec_graph::VecGraph;
 use webgraph::traits::RandomAccessLabelling;
-use webgraph::utils::{LeftIntoIter, Zip};
+use webgraph::utils::proj::LeftIntoIter;
+use webgraph::utils::Zip;
 
 #[test]
 fn test_zip() {

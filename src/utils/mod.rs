@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -49,8 +50,7 @@ pub use kary_heap::*;
 mod sort_pairs;
 pub use sort_pairs::*;
 
-mod proj;
-pub use proj::*;
+pub mod proj;
 
 mod zip;
 pub use zip::*;

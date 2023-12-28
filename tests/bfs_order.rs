@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use webgraph::algorithms::BfsOrder;
+use webgraph::{algorithms::BfsOrder, utils::proj::Left};
 
 #[test]
 fn test_start() -> Result<()> {
@@ -19,7 +19,7 @@ fn test_start() -> Result<()> {
     graph.add_arc(0, 3);
     graph.add_arc(1, 5);
 
-    let order: Vec<_> = BfsOrder::new(&graph).collect();
+    let order: Vec<_> = BfsOrder::new(&Left(graph)).collect();
 
     assert_eq!(order, vec![0, 2, 3, 1, 5, 4]);
 
@@ -41,7 +41,7 @@ fn test_start_orphan() -> Result<()> {
     graph.add_arc(4, 3);
     graph.add_arc(1, 5);
 
-    let order: Vec<_> = BfsOrder::new(&graph).collect();
+    let order: Vec<_> = BfsOrder::new(&Left(graph)).collect();
 
     assert_eq!(order, vec![0, 4, 2, 3, 1, 5]);
 

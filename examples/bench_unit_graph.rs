@@ -6,11 +6,9 @@
  */
 
 use anyhow::Result;
-use bitvec::*;
 use clap::Parser;
 use dsi_progress_logger::*;
 use lender::*;
-use std::collections::VecDeque;
 use std::hint::black_box;
 use webgraph::prelude::*;
 #[derive(Parser, Debug)]
@@ -30,7 +28,7 @@ pub fn main() -> Result<()> {
         .unwrap();
 
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
-    let unit = UnitLabelGraph(webgraph::graph::bvgraph::load(&args.basename)?);
+    let unit = UnitLabelGraph(&graph);
     let labelled = Zip(
         webgraph::graph::bvgraph::load(&args.basename)?,
         webgraph::graph::bvgraph::load(&args.basename)?,

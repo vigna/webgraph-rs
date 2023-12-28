@@ -7,7 +7,6 @@
 
 use anyhow::Result;
 use lender::*;
-use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
 
 fn logger_init() {
@@ -30,12 +29,7 @@ fn test_transpose() -> Result<()> {
     // transpose and par compress]
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
 
-    parallel_compress_sequential_iter::<
-        &arc_list_graph::ArcListGraph<
-            std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
-        >,
-        _,
-    >(
+    parallel_compress_sequential_iter(
         TRANSPOSED_PATH,
         &transposed,
         transposed.num_nodes(),
@@ -58,15 +52,7 @@ fn test_transpose() -> Result<()> {
     // re-transpose and par-compress
     let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
 
-    parallel_compress_sequential_iter::<
-        &arc_list_graph::ArcListGraph<
-            std::iter::Map<
-                KMergeIters<BatchIterator<()>, ()>,
-                fn((usize, usize, ())) -> (usize, usize),
-            >,
-        >,
-        _,
-    >(
+    parallel_compress_sequential_iter(
         RE_TRANSPOSED_PATH,
         &retransposed,
         retransposed.num_nodes(),

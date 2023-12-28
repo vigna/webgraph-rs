@@ -15,25 +15,25 @@ use alloc::collections::BTreeSet;
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug)]
-pub struct LabelledSuccessor<L: Copy + 'static>(usize, L);
+struct Successor<L: Copy + 'static>(usize, L);
 
-impl<L: Copy + 'static> PartialEq for LabelledSuccessor<L> {
+impl<L: Copy + 'static> PartialEq for Successor<L> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<L: Copy + 'static> Eq for LabelledSuccessor<L> {}
+impl<L: Copy + 'static> Eq for Successor<L> {}
 
-impl<L: Copy + 'static> PartialOrd for LabelledSuccessor<L> {
+impl<L: Copy + 'static> PartialOrd for Successor<L> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
 
-impl<L: Copy + 'static> Ord for LabelledSuccessor<L> {
+impl<L: Copy + 'static> Ord for Successor<L> {
     #[inline(always)]
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.0.cmp(&other.0)
@@ -46,11 +46,11 @@ impl<L: Copy + 'static> Ord for LabelledSuccessor<L> {
 /// as the label type will result in a [`Graph`] implementation.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VecGraph<L: Copy + 'static> {
+pub struct VecGraph<L: Copy + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: usize,
     /// For each node, its list of successors.
-    succ: Vec<BTreeSet<LabelledSuccessor<L>>>,
+    succ: Vec<BTreeSet<Successor<L>>>,
 }
 
 impl<L: Copy + 'static> core::default::Default for VecGraph<L> {
@@ -76,17 +76,6 @@ impl<L: Copy + 'static> VecGraph<L> {
         }
     }
 
-    /// Remove an arc from the graph and return if it was present or not.
-    /// Return Nones if the either nodes (`u` or `v`) do not exist.
-    pub fn remove_labeled_arc(&mut self, u: usize, v: usize, l: L) -> Option<bool> {
-        if u >= self.succ.len() || v >= self.succ.len() {
-            return None;
-        }
-        let result = self.succ[u].remove(&LabelledSuccessor(v, l));
-        self.number_of_arcs -= result as usize;
-        Some(result)
-    }
-
     /// Add a node to the graph without successors and return if it was a new
     /// one or not.
     pub fn add_node(&mut self, node: usize) -> bool {
@@ -95,8 +84,31 @@ impl<L: Copy + 'static> VecGraph<L> {
         len <= node
     }
 
+    /// Add an arc to the graph and return if it was a new one or not.
+    /// `true` => already exist, `false` => new arc.
+    pub fn add_labelled_arc(&mut self, u: usize, v: usize, l: L) -> bool {
+        let max = u.max(v);
+        if max >= self.succ.len() {
+            self.succ.resize(max + 1, BTreeSet::new());
+        }
+        let result = self.succ[u].insert(Successor(v, l));
+        self.number_of_arcs += result as usize;
+        result
+    }
+
+    /// Remove an arc from the graph and return if it was present or not.
+    /// Return Nones if the either nodes (`u` or `v`) do not exist.
+    pub fn remove_labelled_arc(&mut self, u: usize, v: usize, l: L) -> Option<bool> {
+        if u >= self.succ.len() || v >= self.succ.len() {
+            return None;
+        }
+        let result = self.succ[u].remove(&Successor(v, l));
+        self.number_of_arcs -= result as usize;
+        Some(result)
+    }
+
     /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
-    pub fn add_labeled_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
+    pub fn add_labelled_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLending<'next, Item = (usize, L)>,
     {
@@ -110,12 +122,31 @@ impl<L: Copy + 'static> VecGraph<L> {
     }
 
     /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
-    pub fn from_labeled_lender<I: IntoLender>(iter_nodes: I) -> Self
+    pub fn from_labelled_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLending<'next, Item = (usize, L)>,
     {
         let mut g = Self::new();
-        g.add_labeled_lender(iter_nodes);
+        g.add_labelled_lender(iter_nodes);
+        g
+    }
+
+    /// Add an arc to the graph and return a reference to self to allow a
+    /// builder-like usage.
+    pub fn add_labelled_arc_list(
+        &mut self,
+        arcs: impl IntoIterator<Item = (usize, usize, L)>,
+    ) -> &mut Self {
+        for (u, v, l) in arcs {
+            self.add_labelled_arc(u, v, l);
+        }
+        self
+    }
+
+    /// Convert a COO arc list into a graph by sorting and deduplicating.
+    pub fn from_labelled_arc_list(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
+        let mut g = Self::new();
+        g.add_labelled_arc_list(arcs);
         g
     }
 }
@@ -128,7 +159,7 @@ impl VecGraph<()> {
         if max >= self.succ.len() {
             self.succ.resize(max + 1, BTreeSet::new());
         }
-        let result = self.succ[u].insert(LabelledSuccessor(v, ()));
+        let result = self.succ[u].insert(Successor(v, ()));
         self.number_of_arcs += result as usize;
         result
     }
@@ -139,7 +170,7 @@ impl VecGraph<()> {
         if u >= self.succ.len() || v >= self.succ.len() {
             return None;
         }
-        let result = self.succ[u].remove(&LabelledSuccessor(v, ()));
+        let result = self.succ[u].remove(&Successor(v, ()));
         self.number_of_arcs -= result as usize;
         Some(result)
     }
@@ -181,39 +212,6 @@ impl VecGraph<()> {
     pub fn from_arc_list(arcs: &[(usize, usize)]) -> Self {
         let mut g = Self::new();
         g.add_arc_list(arcs);
-        g
-    }
-}
-
-impl<L: Copy + 'static> VecGraph<L> {
-    /// Add an arc to the graph and return if it was a new one or not.
-    /// `true` => already exist, `false` => new arc.
-    pub fn add_labelled_arc(&mut self, u: usize, v: usize, l: L) -> bool {
-        let max = u.max(v);
-        if max >= self.succ.len() {
-            self.succ.resize(max + 1, BTreeSet::new());
-        }
-        let result = self.succ[u].insert(LabelledSuccessor(v, l));
-        self.number_of_arcs += result as usize;
-        result
-    }
-
-    /// Add an arc to the graph and return a reference to self to allow a
-    /// builder-like usage.
-    pub fn add_labelled_arc_list(
-        &mut self,
-        arcs: impl IntoIterator<Item = (usize, usize, L)>,
-    ) -> &mut Self {
-        for (u, v, l) in arcs {
-            self.add_labelled_arc(u, v, l);
-        }
-        self
-    }
-
-    /// Convert a COO arc list into a graph by sorting and deduplicating.
-    pub fn from_labelled_arc_list(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
-        let mut g = Self::new();
-        g.add_labelled_arc_list(arcs);
         g
     }
 }
@@ -273,9 +271,7 @@ impl<L: Copy + 'static> RandomAccessLabelling for VecGraph<L> {
 impl<L: Copy + 'static> LabelledRandomAccessGraph<L> for VecGraph<L> {}
 
 #[repr(transparent)]
-pub struct Successors<'a, L: Copy + 'static>(
-    std::collections::btree_set::Iter<'a, LabelledSuccessor<L>>,
-);
+pub struct Successors<'a, L: Copy + 'static>(std::collections::btree_set::Iter<'a, Successor<L>>);
 
 impl<'a, L: Copy + 'static> Iterator for Successors<'a, L> {
     type Item = (usize, L);

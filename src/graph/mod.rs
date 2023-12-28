@@ -9,7 +9,6 @@ pub mod arc_list_graph;
 pub mod bvgraph;
 pub mod labeled_arc_list_graph;
 pub mod permuted_graph;
-pub mod vec_labelling;
 
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub mod vec_graph;
