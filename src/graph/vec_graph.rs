@@ -29,7 +29,7 @@ impl<L: Copy + 'static> Eq for Successor<L> {}
 impl<L: Copy + 'static> PartialOrd for Successor<L> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
+        Some(self.0.cmp(&other.0))
     }
 }
 

@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::{
-    prelude::{MmapBackend, NodeLabelsLending, SequentialLabelling},
+    prelude::{MmapBackend, NodeLabelsLending, RandomAccessLabelling, SequentialLabelling},
     EF,
 };
 
@@ -64,12 +64,12 @@ impl SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
             width,
             reader_builder: MmapReaderBuilder {
                 backend: MmapBackend::<u32>::load(
-                    path.with_extension(".labels"),
+                    path.with_extension("labels"),
                     MmapFlags::empty(),
                 )?,
             },
 
-            offsets: EF::<Vec<usize>, Vec<u64>>::mmap(path.with_extension(".ef"), Flags::empty())?,
+            offsets: EF::<Vec<usize>, Vec<u64>>::mmap(path.with_extension("ef"), Flags::empty())?,
         })
     }
 }
@@ -81,15 +81,23 @@ pub struct Iterator<'a, BR, O> {
     next_node: usize,
 }
 
-impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O: IndexedDict<Input = usize, Output = usize>> NodeLabelsLending<'succ>
-    for Iterator<'a, BR, O>
+impl<
+        'a,
+        'succ,
+        BR: BitRead<BE> + BitSeek + GammaRead<BE>,
+        O: IndexedDict<Input = usize, Output = usize>,
+    > NodeLabelsLending<'succ> for Iterator<'a, BR, O>
 {
     type Item = Vec<u64>;
-    type IntoIterator = Labels<'succ, BR>;
+    type IntoIterator = SeqLabels<'succ, BR>;
 }
 
-impl<'a, 'succ, BR: BitRead<BE> + BitSeek + GammaRead<BE>, O: IndexedDict<Input = usize, Output = usize>> Lending<'succ>
-    for Iterator<'a, BR, O>
+impl<
+        'a,
+        'succ,
+        BR: BitRead<BE> + BitSeek + GammaRead<BE>,
+        O: IndexedDict<Input = usize, Output = usize>,
+    > Lending<'succ> for Iterator<'a, BR, O>
 {
     type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
@@ -102,10 +110,12 @@ impl<
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        self.reader.set_bit_pos(self.offsets.get(self.next_node)).unwrap();
+        self.reader
+            .set_bit_pos(self.offsets.get(self.next_node))
+            .unwrap();
         let res = (
             self.next_node,
-            Labels {
+            SeqLabels {
                 width: self.width,
                 reader: &mut self.reader,
                 end_pos: self.offsets.get(self.next_node + 1),
@@ -116,13 +126,13 @@ impl<
     }
 }
 
-pub struct Labels<'a, BR> {
+pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     width: usize,
     reader: &'a mut BR,
     end_pos: usize,
 }
 
-impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for Labels<'a, BR> {
+impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqLabels<'a, BR> {
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -157,26 +167,46 @@ impl SequentialLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> 
     }
 }
 
-/*
-pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Value = (usize, L)> {}
+// TODO: avoid duplicate implementation for labels
 
-impl<G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
-    type Successors<'succ> =
-        UnitSuccessors<<<G as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
-        where Self: 'succ;
+pub struct RanLabels<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
+    width: usize,
+    reader: BR,
+    end_pos: usize,
+}
 
-    fn num_arcs(&self) -> usize {
-        self.0.num_arcs()
-    }
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabels<BR> {
+    type Item = Vec<u64>;
 
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
-        UnitSuccessors(self.0.successors(node_id).into_iter())
-    }
-
-    fn outdegree(&self, node_id: usize) -> usize {
-        self.0.outdegree(node_id)
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.reader.get_bit_pos() >= self.end_pos {
+            return None;
+        }
+        let num_labels = self.reader.read_gamma().unwrap() as usize;
+        Some(Vec::from_iter(
+            (0..num_labels).map(|_| self.reader.read_bits(self.width).unwrap()),
+        ))
     }
 }
 
-impl<G: RandomAccessGraph> LabelledRandomAccessGraph<()> for UnitLabelGraph<G> {}
-*/
+impl RandomAccessLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
+    type Successors<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
+
+    fn num_arcs(&self) -> usize {
+        todo!();
+    }
+
+    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
+        let mut reader = self.reader_builder.get_reader();
+        reader.set_bit_pos(self.offsets.get(node_id)).unwrap();
+        RanLabels {
+            width: self.width,
+            reader,
+            end_pos: self.offsets.get(node_id + 1),
+        }
+    }
+
+    fn outdegree(&self, node_id: usize) -> usize {
+        self.successors(node_id).count()
+    }
+}
