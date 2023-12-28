@@ -46,13 +46,6 @@ impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
 
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {}
 
-/*impl<'lend, 'a, 'b, G: SequentialGraph> Lending<'lend> for &'b PermutedGraph<'a, G> {
-    type Lend = (
-        usize,
-        PermutedSuccessors<'lend, <G::Successors<'lend> as IntoIterator>::IntoIter>,
-    );
-}
-*/
 impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
     type Lender = <PermutedGraph<'a, G> as SequentialLabelling>::Iterator<'b>;
 
@@ -62,7 +55,6 @@ impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
     }
 }
 
-//#[derive(Clone)]
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
 pub struct PermutedGraphIterator<'node, I> {
     iter: I,

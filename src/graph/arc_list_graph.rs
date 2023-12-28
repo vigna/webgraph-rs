@@ -77,12 +77,6 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
     }
 }
 
-/*impl<'lend, 'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> Lending<'lend>
-    for &'a ArcListGraph<I>
-{
-    type Lend = (usize, Successors<'lend, I::IntoIter>);
-}*/
-
 impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
     for &'a ArcListGraph<I>
 {
@@ -155,7 +149,7 @@ fn test_coo_iter() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arc_list(&arcs);
     let coo = ArcListGraph::new(g.num_nodes(), arcs);
-    let g2 = VecGraph::from_node_iter::<Iterator<_>>(coo.iter());
+    let g2 = VecGraph::from_lender(coo.iter());
     assert_eq!(g, g2);
     Ok(())
 }

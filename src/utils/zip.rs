@@ -66,20 +66,6 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
 
 pub struct ZippedGraphIterator<L, R> (L, R);
 
-/*
-macro_rules! impl_lending {
-     ($($a:tt)* NodeLabelsLending $($b:tt)* { $($c:tt)* }) => {
-        $($a:tt)* NodeLabelsLending $($b:tt)* { $($c:tt)* }
-
-        $($a:tt)* Lending $($b:tt)* {
-            type Lend = (
-                usize,
-                <Self as NodeLabelsLending<'succ>>::Labels
-            );
-        }
-     }
-} */
-
 impl<'succ, L, R> NodeLabelsLending<'succ> for ZippedGraphIterator<L, R>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,

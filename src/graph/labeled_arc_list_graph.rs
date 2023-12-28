@@ -141,12 +141,6 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-/*impl<'a, L, I: Iterator<Item = (usize, usize, L)>> ExactSizeIterator for NodeIterator<'a, L, I> {
-    fn len(&self) -> usize {
-        self.num_nodes
-    }
-}*/
-
 /// Iter until we found a triple with src different than curr_node
 pub struct Successors<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut NodeIterator<L, I>,
