@@ -6,9 +6,16 @@
 
 use core::iter;
 
-use lender::{Lend, Lender, Lending, IntoLender};
+use lender::{IntoLender, Lend, Lender, Lending};
 
-use crate::{prelude::{SequentialLabelling, RandomAccessLabelling, LabelledSequentialGraph, SequentialGraph, LabelledRandomAccessGraph, RandomAccessGraph, NodeLabelsLending, LendingItem, LendingIntoIterator, LendingIntoIter}, Tuple2};
+use crate::{
+    prelude::{
+        LabelledRandomAccessGraph, LabelledSequentialGraph, LendingIntoIter, LendingIntoIterator,
+        LendingItem, NodeLabelsLending, RandomAccessGraph, RandomAccessLabelling, SequentialGraph,
+        SequentialLabelling,
+    },
+    Tuple2,
+};
 
 /**
 
@@ -17,7 +24,7 @@ Zips together two labellings.
 A wrapper tuple struct that zips together two labellings, and provides
 in return a labelling on pairs. It can be used simply to combine labellings
 over the same graph, but, more importantly, to attach a labelling to a graph,
-obtaining a labelled graph. Depending on the traits implemented by the two 
+obtaining a labelled graph. Depending on the traits implemented by the two
 component labellings, the resulting labelling will be [sequential](SequentialLabelling)
 or [random-access](RandomAccessLabelling).
 
@@ -51,13 +58,13 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
 
                     let mut i0 = i0.into_iter();
                     let mut i1 = i1.into_iter();
-                    loop{ 
+                    loop {
                         match (i0.next(), i1.next()) {
-                        (None, None) => break,
-                        (Some(_), Some(_)) => continue,
-                        _ => return false,
+                            (None, None) => break,
+                            (Some(_), Some(_)) => continue,
+                            _ => return false,
+                        }
                     }
-                }
                 }
                 _ => return false,
             }
@@ -66,7 +73,7 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
 }
 
 #[derive(Clone, Debug)]
-pub struct ZippedGraphIterator<L, R> (L, R);
+pub struct ZippedGraphIterator<L, R>(L, R);
 
 impl<'succ, L, R> NodeLabelsLending<'succ> for ZippedGraphIterator<L, R>
 where
@@ -75,7 +82,6 @@ where
 {
     type Item = (LendingItem<'succ, L>, LendingItem<'succ, R>);
     type IntoIterator = std::iter::Zip<LendingIntoIter<'succ, L>, LendingIntoIter<'succ, R>>;
-
 }
 
 impl<'succ, L, R> Lending<'succ> for ZippedGraphIterator<L, R>
@@ -83,10 +89,7 @@ where
     L: Lender + for<'next> NodeLabelsLending<'next>,
     R: Lender + for<'next> NodeLabelsLending<'next>,
 {
-    type Lend = (
-        usize,
-        LendingIntoIterator<'succ, Self>
-    );
+    type Lend = (usize, LendingIntoIterator<'succ, Self>);
 }
 
 impl<L, R> Lender for ZippedGraphIterator<L, R>
@@ -102,10 +105,7 @@ where
         let left = left?.into_tuple();
         let right = right?.into_tuple();
         debug_assert_eq!(left.0, right.0);
-        Some((
-            left.0,
-            std::iter::zip(left.1, right.1),
-        ))
+        Some((left.0, std::iter::zip(left.1, right.1)))
     }
 }
 
@@ -118,13 +118,11 @@ impl<'a, L: SequentialLabelling, R: SequentialLabelling> IntoLender for &'a Zip<
     }
 }
 
-
 impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip<L, R> {
     type Label = (L::Label, R::Label);
 
-
-    type Iterator<'node> = ZippedGraphIterator<L::Iterator<'node>, R::Iterator<'node>> 
-       where
+    type Iterator<'node> = ZippedGraphIterator<L::Iterator<'node>, R::Iterator<'node>>
+        where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
@@ -133,17 +131,13 @@ impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip
     }
 
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        ZippedGraphIterator (
-            self.0.iter_from(from),
-            self.1.iter_from(from),
-        )
+        ZippedGraphIterator(self.0.iter_from(from), self.1.iter_from(from))
     }
 }
 
-impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling for Zip<L, R>
-        {
+impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling for Zip<L, R> {
     type Successors<'succ> = std::iter::Zip<
-        <<L as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter, 
+        <<L as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter,
         <<R as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
         where
             <L as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <L as SequentialLabelling>::Label>,
@@ -167,4 +161,7 @@ impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling f
 
 impl<G: SequentialGraph, L: SequentialLabelling> LabelledSequentialGraph<L::Label> for Zip<G, L> {}
 
-impl<G: RandomAccessGraph, L: RandomAccessLabelling> LabelledRandomAccessGraph<L::Label> for Zip<G, L> {}
+impl<G: RandomAccessGraph, L: RandomAccessLabelling> LabelledRandomAccessGraph<L::Label>
+    for Zip<G, L>
+{
+}

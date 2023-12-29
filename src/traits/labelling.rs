@@ -32,14 +32,8 @@ use dsi_progress_logger::*;
 use lender::*;
 
 pub trait NodeLabelsLending<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
-    Lending<
-        'lend,
-        __ImplBound,
-        Lend = (
-            usize,
-            Self::IntoIterator,
-        ),
-    > + Lender {
+    Lending<'lend, __ImplBound, Lend = (usize, Self::IntoIterator)> + Lender
+{
     type Item;
     type IntoIterator: IntoIterator<Item = Self::Item>;
 }
