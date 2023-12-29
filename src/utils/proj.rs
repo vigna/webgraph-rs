@@ -25,12 +25,12 @@ use crate::{
 };
 
 // The projection onto the first component of a pair.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Left<S: SequentialLabelling>(pub S)
 where
     S::Label: Tuple2;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIterator<L>(pub L);
 
 impl<'succ, L> NodeLabelsLending<'succ> for LeftIterator<L>
@@ -50,12 +50,12 @@ where
     type Lend = (usize, LendingIntoIterator<'succ, Self>);
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIntoIterator<I: IntoIterator>(pub I)
 where
     I::Item: Tuple2;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIntoIter<I: Iterator>(pub I)
 where
     I::Item: Tuple2;
@@ -158,12 +158,12 @@ impl<S: SequentialLabelling> SequentialGraph for Left<S> where S::Label: Tuple2<
 impl<R: RandomAccessLabelling> RandomAccessGraph for Left<R> where R::Label: Tuple2<_0 = usize> {}
 
 // The projection onto the second component of a pair.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Right<S: SequentialLabelling>(pub S)
 where
     S::Label: Tuple2;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIterator<L>(pub L);
 
 impl<'succ, L> NodeLabelsLending<'succ> for RightIterator<L>
@@ -183,12 +183,12 @@ where
     type Lend = (usize, LendingIntoIterator<'succ, Self>);
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIntoIterator<I: IntoIterator>(pub I)
 where
     I::Item: Tuple2;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIntoIter<I: Iterator>(pub I)
 where
     I::Item: Tuple2;

@@ -58,22 +58,18 @@ pub fn transpose(
     )?))
 }
 
-/*
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition() -> anyhow::Result<()> {
-    use crate::{
-        graph::{arc_list_graph::ArcListGraph, vec_graph::VecGraph},
-        prelude::UnitLabelGraph,
-    };
+    use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = UnitLabelGraph(VecGraph::from_arc_list(&arcs));
+    let g = Left(VecGraph::from_arc_list(&arcs));
 
-    let trans = transpose(&g, 3, (), ())?;
-    let g2 = UnitLabelGraph(VecGraph::from_node_iter::<&ArcListGraph<_>>(&trans));
+    let trans = transpose(&g, 3)?;
+    let g2 = Left(VecGraph::from_lender(&trans));
 
-    let trans = transpose(&g2, 3, (), ())?;
-    let g3 = UnitLabelGraph(VecGraph::from_node_iter::<&ArcListGraph<_>>(&trans));
+    let trans = transpose(&g2, 3)?;
+    let g3 = Left(VecGraph::from_lender(&trans));
 
     assert_eq!(g, g3);
     Ok(())
@@ -83,24 +79,41 @@ fn test_transposition() -> anyhow::Result<()> {
 #[cfg_attr(test, test)]
 fn test_transposition_labeled() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
+    use crate::traits::SequentialLabelling;
     use dsi_bitstream::prelude::*;
 
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct Payload(f64);
 
-    impl Label for Payload {
-        fn from_bitstream<E: Endianness, B: CodeRead<E>>(bitstream: &mut B) -> Result<Self> {
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    struct BD {}
+
+    impl BitDeserializer for BD {
+        type DeserType = Payload;
+
+        fn deserialize<E: Endianness, B: CodeRead<E>>(
+            &self,
+            bitstream: &mut B,
+        ) -> Result<Self::DeserType> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;
             let result = f64::from_bits((exponent << 53) | mantissa);
             Ok(Payload(result))
         }
+    }
 
-        fn to_bitstream<E: Endianness, B: CodeWrite<E>>(
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    struct BS {}
+
+    impl BitSerializer for BS {
+        type SerType = Payload;
+
+        fn serialize<E: Endianness, B: CodeWrite<E>>(
             &self,
+            value: &Self::SerType,
             bitstream: &mut B,
         ) -> Result<usize> {
-            let value = self.0 as u64;
+            let value = value.0.to_bits();
             let mantissa = value & ((1 << 53) - 1);
             let exponent = value >> 53;
             let mut written_bits = 0;
@@ -118,27 +131,18 @@ fn test_transposition_labeled() -> anyhow::Result<()> {
         (3, 4, Payload(f64::NEG_INFINITY)),
     ];
 
-    // test transposition without labels
-    let g = VecGraph::from_arc_and_label_list(&arcs);
+    // TODO pass &arcs
+    let g = VecGraph::<Payload>::from_labelled_arc_list(arcs);
 
-    let trans = transpose(&g, 3)?;
-    let g2 = VecGraph::from_node_iter(trans.iter_nodes());
+    let trans = transpose_labelled(&g, 2, BS {}, BD {})?;
+    let g2 = VecGraph::<Payload>::from_labelled_lender(trans.iter());
 
-    let trans = transpose(&g2, 3)?;
-    let g3 = VecGraph::from_node_iter(trans.iter_nodes());
+    let trans = transpose_labelled(&g2, 2, BS {}, BD {})?;
+    let g3 = VecGraph::<Payload>::from_labelled_lender(trans.iter());
 
-    let g4 = VecGraph::from_node_iter(g.iter_nodes());
+    let g4 = VecGraph::from_labelled_lender(g.iter());
 
     assert_eq!(g3, g4);
 
-    //// test transposition with labels
-    //let trans = transpose_labeled(&g, 3)?;
-    //let g5 = VecGraph::from_labeled_node_iter(trans.iter_nodes());
-    //
-    //let trans = transpose_labeled(&g5, 3)?;
-    //let g6 = VecGraph::from_labeled_node_iter(trans.iter_nodes());
-    //
-    //assert_eq!(g, g6);
     Ok(())
 }
-*/

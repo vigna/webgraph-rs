@@ -36,7 +36,7 @@ which does not perform length checks. For extra safety, consider using
 
 */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Zip<L: SequentialLabelling, R: SequentialLabelling>(pub L, pub R);
 
 impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
@@ -72,7 +72,7 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct ZippedGraphIterator<L, R>(L, R);
 
 impl<'succ, L, R> NodeLabelsLending<'succ> for ZippedGraphIterator<L, R>
