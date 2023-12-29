@@ -5,11 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{for_iter, prelude::*};
+use crate::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
+use lender_derive::for_;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -67,19 +68,19 @@ where
         ));
 
         writer.write_gamma(0)?;
-        for_iter! { (_node_id, successors) in iter.into_lender() =>
+        for_! ( (_node_id, successors) in iter {
             let delta = bvcomp.push(successors)?;
             result += delta;
             writer.write_gamma(delta as u64)?;
             pl.update();
             real_num_nodes += 1;
-        }
+        });
     } else {
-        for_iter! { (_node_id, successors) in iter.into_lender() =>
+        for_! ( (_node_id, successors) in iter {
             result += bvcomp.push(successors)?;
             pl.update();
             real_num_nodes += 1;
-        }
+        });
     }
     pl.done();
 

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::for_iter;
 use crate::graph::labeled_arc_list_graph;
 use crate::prelude::proj::Left;
 use crate::prelude::{BitDeserializer, BitSerializer, LabelledSequentialGraph, SequentialGraph};
@@ -13,6 +12,7 @@ use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::*;
 use lender::*;
+use lender_derive::*;
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
 pub fn transpose_labelled<S: BitSerializer + Clone, D: BitDeserializer + Clone + 'static>(
@@ -32,12 +32,12 @@ where
         .expected_updates(Some(graph.num_nodes()));
     pl.start("Creating batches...");
     // create batches of sorted edges
-    for_iter! { (src, succ) in graph.iter() =>
+    for_!( (src, succ) in graph.iter() {
         for (dst, l) in succ {
             sorted.push_labeled(dst, src, l)?;
         }
         pl.light_update();
-    }
+    });
     // merge the batches
     let sorted =
         labeled_arc_list_graph::LabeledArcListGraph::new(graph.num_nodes(), sorted.iter()?);

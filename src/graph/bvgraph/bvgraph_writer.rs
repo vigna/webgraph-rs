@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{for_iter, prelude::*};
+use crate::prelude::*;
 use anyhow::Result;
 use core::cmp::Ordering;
 use lender::*;
+use lender_derive::for_;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
@@ -437,9 +438,9 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
     {
         let mut count = 0;
-        for_iter! { (_, succ) in iter_nodes =>
+        for_! ( (_, succ) in iter_nodes {
             count += self.push(succ.into_iter())?;
-        }
+        });
         // WAS
         // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
         Ok(count)

@@ -11,9 +11,10 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::*;
 use lender::*;
+use lender_derive::for_;
 use webgraph::graph::arc_list_graph;
 use webgraph::utils::proj::Left;
-use webgraph::{algorithms, for_iter, prelude::*};
+use webgraph::{algorithms, prelude::*};
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]
 struct Args {
@@ -37,12 +38,12 @@ pub fn transpose(
         .expected_updates(Some(graph.num_nodes()));
     pl.start("Creating batches...");
     // create batches of sorted edges
-    for_iter! { (src, succ) in graph.iter() =>
+    for_! ( (src, succ) in graph.iter() {
         for dst in succ {
             sorted.push(dst, src)?;
         }
         pl.light_update();
-    }
+    });
     // merge the batches
     let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));

@@ -5,12 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{for_iter, prelude::*};
-
-use lender::*;
+use crate::prelude::*;
 
 #[cfg(feature = "alloc")]
 use alloc::collections::BTreeSet;
+
+use lender::*;
+use lender_derive::*;
+
 #[cfg(all(feature = "std", not(feature = "alloc")))]
 use std::collections::BTreeSet;
 
@@ -112,12 +114,12 @@ impl<L: Copy + 'static> VecGraph<L> {
     where
         I::Lender: for<'next> NodeLabelsLending<'next, Item = (usize, L)>,
     {
-        for_iter! { (node, succ) in iter_nodes =>
+        for_!( (node, succ) in iter_nodes {
             self.add_node(node);
             for (v, l) in succ {
                 self.add_labelled_arc(node, v, l);
             }
-        }
+        });
         self
     }
 
@@ -180,12 +182,12 @@ impl VecGraph<()> {
     where
         I::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
     {
-        for_iter! { (node, succ) in iter_nodes =>
+        for_!( (node, succ) in iter_nodes {
             self.add_node(node);
             for v in succ {
                 self.add_arc(node, v);
             }
-        }
+        });
         self
     }
 

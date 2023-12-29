@@ -1,8 +1,7 @@
 use clap::Parser;
 use dsi_progress_logger::*;
-use lender::prelude::*;
-use std::io::*;
-use webgraph::for_iter;
+use lender_derive::for_;
+use std::io::Write;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -36,12 +35,12 @@ fn main() {
         .expected_updates(Some(num_nodes));
     pl.start("Reading BVGraph");
 
-    for_iter! { (src, succ) in graph.iter() =>
+    for_! ( (src, succ) in graph.iter() {
         for dst in succ {
             writeln!(stdout, "{}{}{}", src, args.csv_separator, dst).unwrap();
         }
         pl.light_update();
-    }
+    });
 
     pl.done();
 }

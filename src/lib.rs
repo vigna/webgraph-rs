@@ -100,59 +100,6 @@ pub mod prelude {
     pub use crate::Tuple2;
 }
 
-/**
-
-A macro to iterate easily over lending iterators returning pairs of nodes
-and associated successors.
-
-Iterating over a graph is fairly easy using the `while let` syntax. If however
-you have a method receiving a generic [`Lender`](hrtb_lending_iterator::Lender) or
-[`IntoLender`](hrtb_lending_iterator::IntoLender) returning pairs of nodes and successors,
-such as, for example, [`VecGraph::add_node_iter`](crate::graph::vec_graph::VecGraph::add_node_iter), due
-to traitification of 2-tuples using the [`Tuple2`] trait the syntax
-is rather cumbersome.
-
-This macro takes care of extracting the iterator and iterating over
-it using the `while let` syntax, turning items into pairs.
-The syntax makes it possible to write loops such as
-```ignore
-for_iter!{(x, succ) in iter =>
-    println!("{}", x);
-    for s in succ {
-       println!("{}", s);
-    }
-}
-```
-*/
-
-#[macro_export]
-macro_rules! for_iter {
-    (($node:ident, $succ:ident) in $into_lender:expr => $($tt:tt)*) => {
-        let mut lender = $into_lender.into_lender();
-        while let Some(($node, $succ)) = lender.next() {
-            $($tt)*
-        }
-    };
-    ((_, $succ:ident) in $into_lender:expr => $($tt:tt)*) => {
-        let mut lender = $into_lender.into_lender();
-        while let Some((_, $succ)) = lender.next() {
-            $($tt)*
-        }
-    };
-    (($node:ident, _) in $into_lender:expr => $($tt:tt)*) => {
-        let mut lender = $into_lender.into_lender();
-        while let Some(($node, _)) = lender.next() {
-            $($tt)*
-        }
-    };
-    ((_, _) in $into_lender:expr => $($tt:tt)*) => {
-        let mut lender = $into_lender.into_lender();
-        while let Some((_, _)) = lender.next() {
-            $($tt)*
-        }
-    };
-}
-
 /// Invert the given permutation in place.
 pub fn invert_in_place(perm: &mut [usize]) {
     for n in 0..perm.len() {
