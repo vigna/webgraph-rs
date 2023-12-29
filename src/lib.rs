@@ -127,27 +127,27 @@ for_iter!{(x, succ) in iter =>
 
 #[macro_export]
 macro_rules! for_iter {
-    (($node:ident, $succ:ident) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lender();
-        while let Some(($node, $succ)) = iter.next() {
+    (($node:ident, $succ:ident) in $into_lender:expr => $($tt:tt)*) => {
+        let mut lender = $into_lender.into_lender();
+        while let Some(($node, $succ)) = lender.next() {
             $($tt)*
         }
     };
-    ((_, $succ:ident) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lender();
-        while let Some((_, $succ)) = iter.next() {
+    ((_, $succ:ident) in $into_lender:expr => $($tt:tt)*) => {
+        let mut lender = $into_lender.into_lender();
+        while let Some((_, $succ)) = lender.next() {
             $($tt)*
         }
     };
-    (($node:ident, _) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lender();
-        while let Some(($node, _)) = iter.next() {
+    (($node:ident, _) in $into_lender:expr => $($tt:tt)*) => {
+        let mut lender = $into_lender.into_lender();
+        while let Some(($node, _)) = lender.next() {
             $($tt)*
         }
     };
-    ((_, _) in $iter:expr => $($tt:tt)*) => {
-        let mut iter = $iter.into_lender();
-        while let Some((_, _)) = iter.next() {
+    ((_, _) in $into_lender:expr => $($tt:tt)*) => {
+        let mut lender = $into_lender.into_lender();
+        while let Some((_, _)) = lender.next() {
             $($tt)*
         }
     };

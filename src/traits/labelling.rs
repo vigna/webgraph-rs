@@ -29,6 +29,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use dsi_progress_logger::*;
+use impl_tools::autoimpl;
 use lender::*;
 
 pub trait NodeLabelsLending<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
@@ -60,6 +61,8 @@ pub type Labels<'succ, 'node, S> =
 /// to access the next pair, you must have finished to use the previous one. You
 /// can invoke [`Lender::into_iter`] to get a standard iterator, in general
 /// at the cost of some allocation and copying.
+
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialLabelling {
     type Label;
     /// The type of the iterator over the successors of a node
@@ -163,6 +166,7 @@ pub trait SequentialLabelling {
 }
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessLabelling: SequentialLabelling {
     /// The type of the iterator over the successors of a node
     /// returned by [successors](RandomAccessGraph::successors).

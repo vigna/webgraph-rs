@@ -35,6 +35,7 @@ use crate::{
     prelude::{IteratorImpl, RandomAccessLabelling, SequentialLabelling},
     Tuple2,
 };
+use impl_tools::autoimpl;
 use lender::*;
 
 use super::labelling::{Labels, LendingIntoIter, NodeLabelsLending};
@@ -46,6 +47,7 @@ use super::labelling::{Labels, LendingIntoIter, NodeLabelsLending};
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
 ///
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialGraph: SequentialLabelling<Label = usize> {}
 
 pub type Successors<'succ, 'node, S> = Labels<'succ, 'node, S>;
@@ -66,6 +68,7 @@ pub unsafe trait SortedIterator: Lender {}
 pub unsafe trait SortedSuccessors: IntoIterator {}
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGraph {
     /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
     fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
@@ -90,7 +93,7 @@ pub trait LabelledSequentialGraph<L>: SequentialLabelling<Label = (usize, L)> {}
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct UnitLabelGraph<'a, G: SequentialGraph>(pub &'a G);
+pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 
 #[repr(transparent)]
 pub struct UnitIterator<L>(L);
@@ -134,7 +137,7 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
     }
 }
 
-impl<'a, G: SequentialGraph> SequentialLabelling for UnitLabelGraph<'a, G> {
+impl<'a, G: SequentialGraph> SequentialLabelling for UnitLabelGraph<G> {
     type Label = (usize, ());
 
     type Iterator<'node> = UnitIterator<G::Iterator<'node>>
@@ -150,11 +153,11 @@ impl<'a, G: SequentialGraph> SequentialLabelling for UnitLabelGraph<'a, G> {
     }
 }
 
-impl<'a, G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<'a, G> {}
+impl<'a, G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {}
 
 pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {}
 
-impl<'a, G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<'a, G> {
+impl<'a, G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
     type Successors<'succ> =
         UnitSuccessors<<<G as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
         where Self: 'succ;
@@ -172,4 +175,4 @@ impl<'a, G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<'a, G> {
     }
 }
 
-impl<'a, G: RandomAccessGraph> LabelledRandomAccessGraph<()> for UnitLabelGraph<'a, G> {}
+impl<'a, G: RandomAccessGraph> LabelledRandomAccessGraph<()> for UnitLabelGraph<G> {}

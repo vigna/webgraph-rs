@@ -14,7 +14,6 @@ projection of a graph whose labels are pairs. In particular,
 `Right(Zip(g,h))` is the same labelling as `h'.
 
 */
-use dsi_progress_logger::ProgressLog;
 use lender::{IntoLender, Lend, Lender, Lending};
 
 use crate::{
@@ -130,78 +129,6 @@ where
 
     fn num_arcs_hint(&self) -> Option<usize> {
         self.0.num_arcs_hint()
-    }
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        self.iter_from(0)
-    }
-
-    fn par_graph_apply<F, R, T>(
-        &self,
-        func: F,
-        reduce: R,
-        thread_pool: &rayon::ThreadPool,
-        granularity: usize,
-        pl: Option<&mut dsi_progress_logger::ProgressLogger>,
-    ) -> T
-    where
-        F: Fn(core::ops::Range<usize>) -> T + Send + Sync,
-        R: Fn(T, T) -> T + Send + Sync,
-        T: Send + Default,
-    {
-        let pl_lock = pl.map(std::sync::Mutex::new);
-        let num_nodes = self.num_nodes();
-        let num_cpus = thread_pool
-            .current_num_threads()
-            .min(num_nodes / granularity)
-            .max(1);
-        let next_node = core::sync::atomic::AtomicUsize::new(0);
-
-        thread_pool.scope(|scope| {
-            let mut res = Vec::with_capacity(num_cpus);
-            for _ in 0..num_cpus {
-                // create a channel to receive the result
-                let (tx, rx) = std::sync::mpsc::channel();
-                res.push(rx);
-
-                // create some references so that we can share them across threads
-                let pl_lock_ref = &pl_lock;
-                let next_node_ref = &next_node;
-                let func_ref = &func;
-                let reduce_ref = &reduce;
-
-                scope.spawn(move |_| {
-                    let mut result = T::default();
-                    loop {
-                        // compute the next chunk of nodes to process
-                        let start_pos = next_node_ref
-                            .fetch_add(granularity, core::sync::atomic::Ordering::Relaxed);
-                        let end_pos = (start_pos + granularity).min(num_nodes);
-                        // exit if done
-                        if start_pos >= num_nodes {
-                            break;
-                        }
-                        // apply the function and reduce the result
-                        result = reduce_ref(result, func_ref(start_pos..end_pos));
-                        // update the progress logger if specified
-                        if let Some(pl_lock) = pl_lock_ref {
-                            pl_lock
-                                .lock()
-                                .unwrap()
-                                .update_with_count((start_pos..end_pos).len());
-                        }
-                    }
-                    // comunicate back that the thread finished
-                    tx.send(result).unwrap();
-                });
-            }
-            // reduce the results
-            let mut result = T::default();
-            for rx in res {
-                result = reduce(result, rx.recv().unwrap());
-            }
-            result
-        })
     }
 }
 

@@ -47,7 +47,7 @@ where
 }
 
 pub fn transpose(
-    graph: &impl SequentialGraph,
+    graph: impl SequentialGraph,
     batch_size: usize,
 ) -> Result<Left<labeled_arc_list_graph::LabeledArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
     Ok(Left(transpose_labelled(
