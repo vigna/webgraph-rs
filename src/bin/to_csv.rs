@@ -1,6 +1,6 @@
 use clap::Parser;
 use dsi_progress_logger::*;
-use lender_derive::for_;
+use lender::prelude::*;
 use std::io::Write;
 use webgraph::prelude::*;
 

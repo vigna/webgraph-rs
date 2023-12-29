@@ -11,8 +11,8 @@ use crate::traits::graph::UnitLabelGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::*;
+use lender::prelude::*;
 use lender::*;
-use lender_derive::*;
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
 pub fn transpose_labelled<S: BitSerializer + Clone, D: BitDeserializer + Clone + 'static>(

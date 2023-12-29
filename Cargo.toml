@@ -42,8 +42,7 @@ zip = {version="0.6.6", optional=true}
 libc = "0.2.147"
 itertools = "0.11.0"
 nougat = "0.2.4"
-lender = "0.2.5"
-lender-derive = "0.1.1"
+lender = "0.2.6"
 common_traits = "0.10.0"
 impl-tools = "0.10.0"
 

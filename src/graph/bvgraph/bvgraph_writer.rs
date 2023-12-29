@@ -8,8 +8,8 @@
 use crate::prelude::*;
 use anyhow::Result;
 use core::cmp::Ordering;
+use lender::prelude::*;
 use lender::*;
-use lender_derive::for_;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
