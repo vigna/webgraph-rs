@@ -191,13 +191,13 @@ pub struct IteratorImpl<'node, G: RandomAccessLabelling> {
     pub nodes: core::ops::Range<usize>,
 }
 
-impl<'node, 'succ, G: RandomAccessLabelling> Lending<'succ> for IteratorImpl<'node, G> {
-    type Lend = (usize, <G as RandomAccessLabelling>::Successors<'succ>);
-}
-
 impl<'node, 'succ, G: RandomAccessLabelling> NodeLabelsLending<'succ> for IteratorImpl<'node, G> {
     type Item = G::Label;
     type IntoIterator = <G as RandomAccessLabelling>::Successors<'succ>;
+}
+
+impl<'node, 'succ, G: RandomAccessLabelling> Lending<'succ> for IteratorImpl<'node, G> {
+    type Lend = (usize, <G as RandomAccessLabelling>::Successors<'succ>);
 }
 
 impl<'node, G: RandomAccessLabelling> Lender for IteratorImpl<'node, G> {

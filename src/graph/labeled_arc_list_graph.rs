@@ -19,9 +19,7 @@ pub struct LabeledArcListGraph<I: Clone> {
     into_iter: I,
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    LabeledArcListGraph<I>
-{
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> LabeledArcListGraph<I> {
     #[inline(always)]
     pub fn new(num_nodes: usize, iter: I) -> Self {
         Self {
@@ -39,8 +37,8 @@ pub struct NodeIterator<L, I: IntoIterator<Item = (usize, usize, L)>> {
     iter: I::IntoIter,
 }
 
-unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    SortedIterator for NodeIterator<L, I>
+unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SortedIterator
+    for NodeIterator<L, I>
 {
 }
 
@@ -59,20 +57,20 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
     }
 }
 
-impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
+impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone>
     NodeLabelsLending<'succ> for NodeIterator<L, I>
 {
     type Item = (usize, L);
     type IntoIterator = Successors<'succ, L, I>;
 }
 
-impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    Lending<'succ> for NodeIterator<L, I>
+impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lending<'succ>
+    for NodeIterator<L, I>
 {
     type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> Lender
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender
     for NodeIterator<L, I>
 {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -98,13 +96,13 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    Lending<'lend> for &LabeledArcListGraph<I>
+impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lending<'lend>
+    for &LabeledArcListGraph<I>
 {
     type Lend = (usize, Successors<'lend, L, I>);
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static> IntoLender
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> IntoLender
     for &LabeledArcListGraph<I>
 {
     type Lender = NodeIterator<L, I>;
@@ -114,8 +112,8 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'st
     }
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone + 'static>
-    SequentialLabelling for LabeledArcListGraph<I>
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SequentialLabelling
+    for LabeledArcListGraph<I>
 {
     type Label = (usize, L);
     type Iterator<'node> = NodeIterator<L, I> where Self: 'node;

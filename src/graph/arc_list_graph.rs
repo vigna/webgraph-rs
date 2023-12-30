@@ -77,9 +77,7 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {
     }
 }
 
-impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
-    for &'a ArcListGraph<I>
-{
+impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone> IntoLender for &'a ArcListGraph<I> {
     type Lender = <ArcListGraph<I> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
@@ -88,9 +86,7 @@ impl<'a, I: IntoIterator<Item = (usize, usize)> + Clone + 'static> IntoLender
     }
 }
 
-impl<I: IntoIterator<Item = (usize, usize)> + Clone + 'static> SequentialLabelling
-    for ArcListGraph<I>
-{
+impl<I: IntoIterator<Item = (usize, usize)> + Clone> SequentialLabelling for ArcListGraph<I> {
     type Label = usize;
     type Iterator<'node> = Iterator<I::IntoIter>
     where Self: 'node;
