@@ -79,6 +79,7 @@ pub struct Iterator<'a, BR, O> {
     reader: BR,
     offsets: &'a MemCase<O>,
     next_node: usize,
+    num_nodes: usize,
 }
 
 impl<
@@ -110,6 +111,9 @@ impl<
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
+        if self.next_node >= self.num_nodes {
+            return None;
+        }
         self.reader
             .set_bit_pos(self.offsets.get(self.next_node))
             .unwrap();
@@ -163,6 +167,7 @@ impl SequentialLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> 
             offsets: &self.offsets,
             reader: self.reader_builder.get_reader(),
             next_node: from,
+            num_nodes: self.num_nodes(),
         }
     }
 }
