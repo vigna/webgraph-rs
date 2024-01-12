@@ -137,7 +137,10 @@ impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesReader for DynamicCodesReader<E
 
 /// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
-pub struct DynamicCodesReaderSkipper<E: Endianness, CR: CodeRead<E>> {
+pub struct DynamicCodesReaderSkipper<E: Endianness, CR: CodeRead<E>>
+where
+    CR::Error: 'static,
+{
     pub(crate) code_reader: CR,
 
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
@@ -163,7 +166,10 @@ pub struct DynamicCodesReaderSkipper<E: Endianness, CR: CodeRead<E>> {
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReaderSkipper<E, CR>
+where
+    CR::Error: 'static,
+{
     const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
     const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();

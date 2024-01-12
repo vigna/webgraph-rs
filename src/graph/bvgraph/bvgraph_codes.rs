@@ -16,7 +16,7 @@ pub trait BVGraphCodesReaderBuilder {
         Self: 'a;
 
     /// Create a new reader at bit-offset `offset`
-    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>>;
+    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn Error>>;
 }
 
 /// The generic interface we need to skip codes

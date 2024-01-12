@@ -37,6 +37,7 @@ pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
 impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -101,13 +102,15 @@ where
 impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         DynamicCodesReader<E, BitReader<'a, E>>
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
@@ -286,6 +289,8 @@ impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder
     for DynamicCodesReaderSkipperBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         DynamicCodesReaderSkipper<E, BitReader<'a, E>>
@@ -293,7 +298,7 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
@@ -337,6 +342,7 @@ impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderSkipperBuilder<E, B>
     for DynamicCodesReaderBuilder<E, B>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderSkipperBuilder<E, B>) -> Self {
@@ -412,13 +418,15 @@ impl<
     for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         ConstCodesReader<E, BitReader<'a, E>>
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;

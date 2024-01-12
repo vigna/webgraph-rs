@@ -330,7 +330,11 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize>
+    where
+        WGCW::Error: 'static,
+        <WGCW::MockWriter as BVGraphCodesWriter>::Error: 'static,
+    {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -434,6 +438,8 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
+        WGCW::Error: 'static,
+        <WGCW::MockWriter as BVGraphCodesWriter>::Error: 'static,
     {
         let mut count = 0;
         for_! ( (_, succ) in iter_nodes {

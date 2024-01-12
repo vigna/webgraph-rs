@@ -83,7 +83,7 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         Ok(CodesReaderStats::new(
             self.codes_reader_builder.get_reader(offset)?,
             &self.stats,
