@@ -5,8 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::convert::Infallible;
+
 use super::*;
-use anyhow::{bail, Result};
+use anyhow::bail;
 use dsi_bitstream::prelude::*;
 
 /// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
@@ -40,7 +42,7 @@ impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReader<E, CR> {
     /// Create a new [`DynamicCodesReader`] from a [`CodeRead`] implementation
     /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
     /// method
-    pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
+    pub fn new(code_reader: CR, cf: &CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -79,11 +81,13 @@ impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReader<E, CR> {
 }
 
 impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReader<E, CR> {
-    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+    type Error = <CR as BitSeek>::Error;
+
+    fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
         self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&self) -> usize {
+    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.code_reader.get_bit_pos()
     }
 }
@@ -185,7 +189,7 @@ impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReaderSkipper<E, CR> {
     /// Create a new [`DynamicCodesReader`] from a [`CodeRead`] implementation
     /// This will be called by [`DynamicCodesReaderSkipperBuilder`] in the [`get_reader`]
     /// method
-    pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self> {
+    pub fn new(code_reader: CR, cf: &CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -253,11 +257,13 @@ impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReaderSkipper<E, CR> {
 }
 
 impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReaderSkipper<E, CR> {
-    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+    type Error = <CR as BitSeek>::Error;
+
+    fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
         self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&self) -> usize {
+    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.code_reader.get_bit_pos()
     }
 }
@@ -351,20 +357,20 @@ impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesSkipper for DynamicCodesReaderS
 /// An implementation of [`BVGraphCodesWriter`] with the most commonly used codes
 pub struct DynamicCodesWriter<E: Endianness, CW: CodeWrite<E>> {
     code_writer: CW,
-    write_outdegree: fn(&mut CW, u64) -> Result<usize>,
-    write_reference_offset: fn(&mut CW, u64) -> Result<usize>,
-    write_block_count: fn(&mut CW, u64) -> Result<usize>,
-    write_blocks: fn(&mut CW, u64) -> Result<usize>,
-    write_interval_count: fn(&mut CW, u64) -> Result<usize>,
-    write_interval_start: fn(&mut CW, u64) -> Result<usize>,
-    write_interval_len: fn(&mut CW, u64) -> Result<usize>,
-    write_first_residual: fn(&mut CW, u64) -> Result<usize>,
-    write_residual: fn(&mut CW, u64) -> Result<usize>,
+    write_outdegree: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_reference_offset: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_block_count: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_blocks: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_interval_count: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_interval_start: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_interval_len: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_first_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    write_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
     _marker: core::marker::PhantomData<E>,
 }
 
 impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
-    fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize> {
+    fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error> {
         match code {
             Code::Unary => CW::write_unary,
             Code::Gamma => CW::write_gamma,
@@ -395,11 +401,13 @@ impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
 }
 
 impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
-    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+    type Error = <CW as BitSeek>::Error;
+
+    fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
         self.code_writer.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&self) -> usize {
+    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.code_writer.get_bit_pos()
     }
 }
@@ -409,7 +417,9 @@ fn len_unary(value: u64) -> usize {
 }
 
 impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW> {
+    type Error = <CW as BitWrite<E>>::Error;
     type MockWriter = DynamicCodesMockWriter;
+
     fn mock(&self) -> Self::MockWriter {
         macro_rules! reconstruct_code {
             ($code:expr) => {{
@@ -441,47 +451,47 @@ impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<
     }
 
     #[inline(always)]
-    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+    fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_outdegree)(&mut self.code_writer, value)
     }
 
     #[inline(always)]
-    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_reference_offset)(&mut self.code_writer, value)
     }
 
     #[inline(always)]
-    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+    fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_block_count)(&mut self.code_writer, value)
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_blocks)(&mut self.code_writer, value)
     }
 
     #[inline(always)]
-    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_interval_count)(&mut self.code_writer, value)
     }
     #[inline(always)]
-    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_interval_start)(&mut self.code_writer, value)
     }
     #[inline(always)]
-    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_interval_len)(&mut self.code_writer, value)
     }
 
     #[inline(always)]
-    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_first_residual)(&mut self.code_writer, value)
     }
     #[inline(always)]
-    fn write_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_residual)(&mut self.code_writer, value)
     }
 
-    fn flush(self) -> Result<()> {
+    fn flush(self) -> Result<(), Self::Error> {
         self.code_writer.flush()
     }
 }
@@ -533,53 +543,55 @@ impl DynamicCodesMockWriter {
 }
 
 impl BVGraphCodesWriter for DynamicCodesMockWriter {
+    type Error = Infallible;
+
     type MockWriter = Self;
     fn mock(&self) -> Self::MockWriter {
         self.clone()
     }
 
     #[inline(always)]
-    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+    fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_outdegree)(value))
     }
 
     #[inline(always)]
-    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_reference_offset)(value))
     }
 
     #[inline(always)]
-    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+    fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_block_count)(value))
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_blocks)(value))
     }
 
     #[inline(always)]
-    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_interval_count)(value))
     }
     #[inline(always)]
-    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_interval_start)(value))
     }
     #[inline(always)]
-    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_interval_len)(value))
     }
 
     #[inline(always)]
-    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_first_residual)(value))
     }
     #[inline(always)]
-    fn write_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_residual)(value))
     }
 
-    fn flush(self) -> Result<()> {
+    fn flush(self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

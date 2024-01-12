@@ -12,7 +12,7 @@ use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::*;
 use lender::prelude::*;
-use lender::*;
+
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
 pub fn transpose_labelled<S: BitSerializer + Clone, D: BitDeserializer + Clone + 'static>(
@@ -94,7 +94,7 @@ fn test_transposition_labeled() -> anyhow::Result<()> {
         fn deserialize<E: Endianness, B: CodeRead<E>>(
             &self,
             bitstream: &mut B,
-        ) -> Result<Self::DeserType> {
+        ) -> Result<Self::DeserType, <B as BitRead<E>>::Error> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;
             let result = f64::from_bits((exponent << 53) | mantissa);
@@ -112,7 +112,7 @@ fn test_transposition_labeled() -> anyhow::Result<()> {
             &self,
             value: &Self::SerType,
             bitstream: &mut B,
-        ) -> Result<usize> {
+        ) -> Result<usize, B::Error> {
             let value = value.0.to_bits();
             let mantissa = value & ((1 << 53) - 1);
             let exponent = value >> 53;

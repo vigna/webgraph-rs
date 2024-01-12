@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::Result;
+use std::error::Error;
 
 /// An object that can create code readers, this is done so that the builder can
 /// own the data, and the readers can be created and thrown away freely
@@ -16,7 +16,7 @@ pub trait BVGraphCodesReaderBuilder {
         Self: 'a;
 
     /// Create a new reader at bit-offset `offset`
-    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>>;
+    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>>;
 }
 
 /// The generic interface we need to skip codes
@@ -74,6 +74,7 @@ pub trait BVGraphCodesReader {
 /// The generic interface we need to write codes to write a [`BVGraph`] to
 /// a bitstream
 pub trait BVGraphCodesWriter {
+    type Error: Error + Send + Sync;
     /// A mock writer that does not write anything but returns how many bits
     /// this writer with this configuration would have written
     type MockWriter: BVGraphCodesWriter;
@@ -81,28 +82,28 @@ pub trait BVGraphCodesWriter {
     fn mock(&self) -> Self::MockWriter;
 
     /// Write `value` as a outdegree code and return the number of bits written
-    fn write_outdegree(&mut self, value: u64) -> Result<usize>;
+    fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error>;
 
     /// Write `value` as a reference offset code and return the number of bits written
-    fn write_reference_offset(&mut self, value: u64) -> Result<usize>;
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error>;
 
     /// Write `value` as a block count code and return the number of bits written
-    fn write_block_count(&mut self, value: u64) -> Result<usize>;
+    fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error>;
     /// Write `value` as a block  code and return the number of bits written
-    fn write_blocks(&mut self, value: u64) -> Result<usize>;
+    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error>;
 
     /// Write `value` as a interval count code and return the number of bits written
-    fn write_interval_count(&mut self, value: u64) -> Result<usize>;
+    fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error>;
     /// Write `value` as a interval start code and return the number of bits written
-    fn write_interval_start(&mut self, value: u64) -> Result<usize>;
+    fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error>;
     /// Write `value` as a interval len code and return the number of bits written
-    fn write_interval_len(&mut self, value: u64) -> Result<usize>;
+    fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error>;
 
     /// Write `value` as a first residual code and return the number of bits written
-    fn write_first_residual(&mut self, value: u64) -> Result<usize>;
+    fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     /// Write `value` as a residual code and return the number of bits written
-    fn write_residual(&mut self, value: u64) -> Result<usize>;
+    fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
 
     /// Consume the writer and call flush on the underlying writer
-    fn flush(self) -> Result<()>;
+    fn flush(self) -> Result<(), Self::Error>;
 }

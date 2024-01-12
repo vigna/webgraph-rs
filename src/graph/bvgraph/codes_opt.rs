@@ -6,7 +6,6 @@
  */
 
 use crate::prelude::*;
-use anyhow::Result;
 use dsi_bitstream::prelude::CodesStats;
 
 /// A struct that keeps track of how much bits each piece would take using
@@ -84,7 +83,7 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
         Ok(CodesReaderStats::new(
             self.codes_reader_builder.get_reader(offset)?,
             &self.stats,

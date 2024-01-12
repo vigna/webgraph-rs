@@ -27,14 +27,14 @@ pub struct DegreesIter<CR: BVGraphCodesReader + BVGraphCodesSkipper> {
 
 impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> DegreesIter<CR> {
     /// Get the current bit-offset in the bitstream
-    pub fn get_pos(&self) -> usize {
-        self.codes_reader.get_bit_pos()
+    pub fn get_pos(&mut self) -> u64 {
+        self.codes_reader.get_bit_pos().unwrap()
     }
 }
 
 impl<CR: BVGraphCodesReader + BVGraphCodesSkipper + BitSeek> Iterator for DegreesIter<CR> {
-    type Item = (usize, usize, usize);
-    fn next(&mut self) -> Option<(usize, usize, usize)> {
+    type Item = (u64, usize, usize);
+    fn next(&mut self) -> Option<(u64, usize, usize)> {
         if self.node_id >= self.number_of_nodes {
             return None;
         }

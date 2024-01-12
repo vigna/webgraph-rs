@@ -6,7 +6,7 @@
  */
 
 use super::*;
-use anyhow::{bail, Result};
+use anyhow::bail;
 use dsi_bitstream::prelude::*;
 
 type BitReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
@@ -59,7 +59,7 @@ where
     }
 
     /// Create a new builder from the data and the compression flags.
-    pub fn new(data: B, cf: CompFlags) -> Result<Self> {
+    pub fn new(data: B, cf: CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -107,7 +107,7 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
@@ -208,7 +208,7 @@ where
 
     /// Build a new `DynamicCodesReaderSkipper` from the given data and
     /// compression flags.
-    pub fn new(data: B, cf: CompFlags) -> Result<Self> {
+    pub fn new(data: B, cf: CompFlags) -> anyhow::Result<Self> {
         // macro used to dispatch the right function to read the data
         macro_rules! select_code {
             ($code:expr) => {
@@ -293,7 +293,7 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;
@@ -376,7 +376,7 @@ impl<
     > ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Create a new builder from the given data and compression flags.
-    pub fn new(data: B, comp_flags: CompFlags) -> Result<Self> {
+    pub fn new(data: B, comp_flags: CompFlags) -> anyhow::Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
         }
@@ -418,7 +418,7 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>> {
+    fn get_reader(&self, offset: u64) -> anyhow::Result<Self::Reader<'_>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
         code_reader.set_bit_pos(offset)?;

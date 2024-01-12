@@ -50,7 +50,7 @@ macro_rules! impl_loads {
         /// Load a BVGraph for random access
         pub fn $load_name(
             basename: impl AsRef<Path>,
-        ) -> Result<
+        ) -> anyhow::Result<
             BVGraph<$builder<BE, MmapBackend<u32>>, crate::EF<&'static [usize], &'static [u64]>>,
         > {
             let basename = basename.as_ref();

@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::convert::Infallible;
+
 use super::*;
 use anyhow::bail;
 use anyhow::Result;
@@ -64,11 +66,13 @@ impl<
         const K: u64,
     > BitSeek for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+    type Error = <CR as BitSeek>::Error;
+
+    fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
         self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&self) -> usize {
+    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.code_reader.get_bit_pos()
     }
 }
@@ -275,11 +279,13 @@ impl<
         const K: u64,
     > BitSeek for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    fn set_bit_pos(&mut self, bit_index: usize) -> Result<()> {
+    type Error = <CW as BitSeek>::Error;
+
+    fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
         self.code_writer.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&self) -> usize {
+    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.code_writer.get_bit_pos()
     }
 }
@@ -330,53 +336,55 @@ impl<
     > BVGraphCodesWriter
     for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    type Error = <CW as BitWrite<E>>::Error;
+
     type MockWriter = ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
     fn mock(&self) -> Self::MockWriter {
         ConstCodesMockWriter::new()
     }
 
     #[inline(always)]
-    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+    fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, OUTDEGREES, K, value)
     }
 
     #[inline(always)]
-    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, REFERENCES, K, value)
     }
 
     #[inline(always)]
-    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+    fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, BLOCKS, K, value)
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, BLOCKS, K, value)
     }
 
     #[inline(always)]
-    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, INTERVALS, K, value)
     }
     #[inline(always)]
-    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, INTERVALS, K, value)
     }
     #[inline(always)]
-    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, INTERVALS, K, value)
     }
 
     #[inline(always)]
-    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, RESIDUALS, K, value)
     }
     #[inline(always)]
-    fn write_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, RESIDUALS, K, value)
     }
 
-    fn flush(self) -> Result<()> {
+    fn flush(self) -> Result<(), Self::Error> {
         self.code_writer.flush()
     }
 }
@@ -431,53 +439,55 @@ impl<
     > BVGraphCodesWriter
     for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
+    type Error = Infallible;
+
     type MockWriter = Self;
     fn mock(&self) -> Self::MockWriter {
         ConstCodesMockWriter::new()
     }
 
     #[inline(always)]
-    fn write_outdegree(&mut self, value: u64) -> Result<usize> {
+    fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(OUTDEGREES, K, value)
     }
 
     #[inline(always)]
-    fn write_reference_offset(&mut self, value: u64) -> Result<usize> {
+    fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(REFERENCES, K, value)
     }
 
     #[inline(always)]
-    fn write_block_count(&mut self, value: u64) -> Result<usize> {
+    fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(BLOCKS, K, value)
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize> {
+    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(BLOCKS, K, value)
     }
 
     #[inline(always)]
-    fn write_interval_count(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(INTERVALS, K, value)
     }
     #[inline(always)]
-    fn write_interval_start(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(INTERVALS, K, value)
     }
     #[inline(always)]
-    fn write_interval_len(&mut self, value: u64) -> Result<usize> {
+    fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(INTERVALS, K, value)
     }
 
     #[inline(always)]
-    fn write_first_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(RESIDUALS, K, value)
     }
     #[inline(always)]
-    fn write_residual(&mut self, value: u64) -> Result<usize> {
+    fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(RESIDUALS, K, value)
     }
 
-    fn flush(self) -> Result<()> {
+    fn flush(self) -> Result<(), Self::Error> {
         Ok(())
     }
 }

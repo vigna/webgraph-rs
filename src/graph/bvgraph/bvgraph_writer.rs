@@ -6,10 +6,8 @@
  */
 
 use crate::prelude::*;
-use anyhow::Result;
 use core::cmp::Ordering;
 use lender::prelude::*;
-use lender::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
 pub struct BVComp<WGCW: BVGraphCodesWriter> {
@@ -93,7 +91,7 @@ impl Compressor {
         curr_node: usize,
         reference_offset: Option<usize>,
         min_interval_length: usize,
-    ) -> Result<usize> {
+    ) -> Result<usize, WGCW::Error> {
         let mut written_bits = 0;
         // write the outdegree
         written_bits += writer.write_outdegree(self.outdegree as u64)?;
@@ -163,7 +161,7 @@ impl Compressor {
         curr_list: &[usize],
         ref_list: Option<&[usize]>,
         min_interval_length: usize,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         self.clear();
         self.outdegree = curr_list.len();
 
@@ -332,7 +330,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> Result<usize> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -432,7 +430,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     /// WARNING: presently type inference does not work very well with this method:
     /// you have to specify the type of `L` explicitly, sometimes just
     /// partially---your mileage may vary.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> Result<usize>
+    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<usize>
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
@@ -447,7 +445,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     }
 
     /// Consume the compressor and flush the inner writer.
-    pub fn flush(self) -> Result<()> {
+    pub fn flush(self) -> Result<(), WGCW::Error> {
         self.bit_write.flush()
     }
 }
@@ -462,9 +460,11 @@ mod test {
     use std::io::{BufReader, BufWriter};
 
     #[test]
-    fn test_compressor_no_ref() -> Result<()> {
+    fn test_compressor_no_ref() {
         let mut compressor = Compressor::new();
-        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], None, 2)?;
+        compressor
+            .compress(&[0, 1, 2, 5, 7, 8, 9], None, 2)
+            .unwrap();
         assert_eq!(
             compressor,
             Compressor {
@@ -476,13 +476,14 @@ mod test {
                 residuals: vec![5],
             }
         );
-        Ok(())
     }
 
     #[test]
-    fn test_compressor1() -> Result<()> {
+    fn test_compressor1() {
         let mut compressor = Compressor::new();
-        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2]), 2)?;
+        compressor
+            .compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2]), 2)
+            .unwrap();
         assert_eq!(
             compressor,
             Compressor {
@@ -494,13 +495,14 @@ mod test {
                 residuals: vec![5],
             }
         );
-        Ok(())
     }
 
     #[test]
-    fn test_compressor2() -> Result<()> {
+    fn test_compressor2() {
         let mut compressor = Compressor::new();
-        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2, 100]), 2)?;
+        compressor
+            .compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2, 100]), 2)
+            .unwrap();
         assert_eq!(
             compressor,
             Compressor {
@@ -512,17 +514,18 @@ mod test {
                 residuals: vec![5],
             }
         );
-        Ok(())
     }
 
     #[test]
-    fn test_compressor3() -> Result<()> {
+    fn test_compressor3() {
         let mut compressor = Compressor::new();
-        compressor.compress(
-            &[0, 1, 2, 5, 7, 8, 9, 100],
-            Some(&[0, 1, 2, 4, 7, 8, 9, 101]),
-            2,
-        )?;
+        compressor
+            .compress(
+                &[0, 1, 2, 5, 7, 8, 9, 100],
+                Some(&[0, 1, 2, 4, 7, 8, 9, 101]),
+                2,
+            )
+            .unwrap();
         assert_eq!(
             compressor,
             Compressor {
@@ -534,44 +537,40 @@ mod test {
                 residuals: vec![5, 100],
             }
         );
-        Ok(())
     }
 
     #[test]
-    fn test_writer_window_zero() -> Result<()> {
-        test_compression(0, 0)?;
-        test_compression(0, 1)?;
-        test_compression(0, 2)?;
-        Ok(())
+    fn test_writer_window_zero() {
+        test_compression(0, 0);
+        test_compression(0, 1);
+        test_compression(0, 2);
     }
 
     #[test]
-    fn test_writer_window_one() -> Result<()> {
-        test_compression(1, 0)?;
-        test_compression(1, 1)?;
-        test_compression(1, 2)?;
-        Ok(())
+    fn test_writer_window_one() {
+        test_compression(1, 0);
+        test_compression(1, 1);
+        test_compression(1, 2);
     }
 
     #[test]
-    fn test_writer_window_two() -> Result<()> {
-        test_compression(2, 0)?;
-        test_compression(2, 1)?;
-        test_compression(2, 2)?;
-        Ok(())
+    fn test_writer_window_two() {
+        test_compression(2, 0);
+        test_compression(2, 1);
+        test_compression(2, 2);
     }
 
     #[test]
-    fn test_writer_cnr() -> Result<()> {
+    fn test_writer_cnr() {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000").unwrap();
 
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
         let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(file_path)?,
+            File::create(file_path).unwrap(),
         )));
 
         let comp_flags = CompFlags {
@@ -587,16 +586,16 @@ mod test {
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush()?;
+        bvcomp.flush().unwrap();
 
         // Read it back
 
         let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(file_path)?,
+            File::open(file_path).unwrap(),
         )));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesReader<BE, _>>::new(bit_read, &comp_flags)?;
+        let codes_reader = <ConstCodesReader<BE, _>>::new(bit_read, &comp_flags).unwrap();
 
         let mut seq_iter = WebgraphSequentialIter::new(
             codes_reader,
@@ -619,12 +618,10 @@ mod test {
             );
         }
         std::fs::remove_file(file_path).unwrap();
-
-        Ok(())
     }
 
-    fn test_compression(compression_window: usize, min_interval_length: usize) -> Result<()> {
-        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
+    fn test_compression(compression_window: usize, min_interval_length: usize) {
+        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000").unwrap();
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();
@@ -643,14 +640,14 @@ mod test {
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush()?;
+        bvcomp.flush().unwrap();
 
         // Read it back
         let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
         let bit_read = <BufBitReader<LE, _>>::new(MemWordReader::new(buffer_32));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
+        let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags).unwrap();
 
         let mut seq_iter = WebgraphSequentialIter::new(
             codes_reader,
@@ -672,7 +669,5 @@ mod test {
                 i
             );
         }
-
-        Ok(())
     }
 }

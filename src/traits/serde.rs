@@ -11,7 +11,6 @@ This modules contains the traits that are used throughout the crate.
 
 */
 
-use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
 pub trait BitSerializer {
@@ -22,7 +21,7 @@ pub trait BitSerializer {
         &self,
         value: &Self::SerType,
         bitstream: &mut B,
-    ) -> Result<usize>;
+    ) -> Result<usize, <B as BitWrite<E>>::Error>;
 }
 
 ///
@@ -36,7 +35,7 @@ pub trait BitDeserializer: Clone {
     fn deserialize<E: Endianness, B: CodeRead<E>>(
         &self,
         bitstream: &mut B,
-    ) -> Result<Self::DeserType>;
+    ) -> Result<Self::DeserType, <B as BitRead<E>>::Error>;
 }
 
 impl BitSerializer for () {
@@ -46,7 +45,7 @@ impl BitSerializer for () {
         &self,
         _value: &Self::SerType,
         _bitstream: &mut B,
-    ) -> Result<usize> {
+    ) -> Result<usize, <B as BitWrite<E>>::Error> {
         Ok(0)
     }
 }
@@ -57,7 +56,7 @@ impl BitDeserializer for () {
     fn deserialize<E: Endianness, B: CodeRead<E>>(
         &self,
         _bitstream: &mut B,
-    ) -> Result<Self::DeserType> {
+    ) -> Result<Self::DeserType, <B as BitRead<E>>::Error> {
         Ok(())
     }
 }

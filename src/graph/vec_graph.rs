@@ -11,7 +11,6 @@ use crate::prelude::*;
 use alloc::collections::BTreeSet;
 
 use lender::prelude::*;
-use lender::*;
 
 #[cfg(all(feature = "std", not(feature = "alloc")))]
 use std::collections::BTreeSet;

@@ -115,14 +115,14 @@ impl<
             return None;
         }
         self.reader
-            .set_bit_pos(self.offsets.get(self.next_node))
+            .set_bit_pos(self.offsets.get(self.next_node) as u64)
             .unwrap();
         let res = (
             self.next_node,
             SeqLabels {
                 width: self.width,
                 reader: &mut self.reader,
-                end_pos: self.offsets.get(self.next_node + 1),
+                end_pos: self.offsets.get(self.next_node + 1) as u64,
             },
         );
         self.next_node += 1;
@@ -133,14 +133,14 @@ impl<
 pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     width: usize,
     reader: &'a mut BR,
-    end_pos: usize,
+    end_pos: u64,
 }
 
 impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqLabels<'a, BR> {
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.get_bit_pos() >= self.end_pos {
+        if self.reader.get_bit_pos().unwrap() >= self.end_pos {
             return None;
         }
         let num_labels = self.reader.read_gamma().unwrap() as usize;
@@ -177,14 +177,14 @@ impl SequentialLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> 
 pub struct RanLabels<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     width: usize,
     reader: BR,
-    end_pos: usize,
+    end_pos: u64,
 }
 
 impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabels<BR> {
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.get_bit_pos() >= self.end_pos {
+        if self.reader.get_bit_pos().unwrap() >= self.end_pos {
             return None;
         }
         let num_labels = self.reader.read_gamma().unwrap() as usize;
@@ -203,11 +203,13 @@ impl RandomAccessLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>
 
     fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
         let mut reader = self.reader_builder.get_reader();
-        reader.set_bit_pos(self.offsets.get(node_id)).unwrap();
+        reader
+            .set_bit_pos(self.offsets.get(node_id) as u64)
+            .unwrap();
         RanLabels {
             width: self.width,
             reader,
-            end_pos: self.offsets.get(node_id + 1),
+            end_pos: self.offsets.get(node_id + 1) as u64,
         }
     }
 

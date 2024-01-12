@@ -11,7 +11,7 @@ use crate::{
     traits::{BitDeserializer, BitSerializer},
     utils::KAryHeap,
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context};
 use core::mem::MaybeUninit;
 use core::ptr::addr_of_mut;
 use dsi_bitstream::prelude::*;
@@ -51,11 +51,11 @@ impl SortPairs<(), ()> {
     ///
     /// The `dir` must be empty, and in particular it **must not** be shared
     /// with other `SortPairs` instances.
-    pub fn new<P: AsRef<Path>>(batch_size: usize, dir: P) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(batch_size: usize, dir: P) -> anyhow::Result<Self> {
         Self::new_labeled(batch_size, dir, (), ())
     }
     /// Add a triple to the graph.
-    pub fn push(&mut self, x: usize, y: usize) -> Result<()> {
+    pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
         self.push_labeled(x, y, ())
     }
 }
@@ -70,7 +70,7 @@ impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
         dir: P,
         serializer: S,
         deserializer: D,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let dir = dir.as_ref();
         let mut dir_entries =
             std::fs::read_dir(dir).with_context(|| format!("Could not list {}", dir.display()))?;
@@ -90,7 +90,7 @@ impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
     }
 
     /// Add a triple to the graph.
-    pub fn push_labeled(&mut self, x: usize, y: usize, t: S::SerType) -> Result<()> {
+    pub fn push_labeled(&mut self, x: usize, y: usize, t: S::SerType) -> anyhow::Result<()> {
         self.batch.push((x, y, t));
         if self.batch.len() >= self.batch_size {
             self.dump()?;
@@ -99,7 +99,7 @@ impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
     }
 
     /// Dump the current batch to disk
-    fn dump(&mut self) -> Result<()> {
+    fn dump(&mut self) -> anyhow::Result<()> {
         // early exit
         if self.batch.is_empty() {
             return Ok(());
@@ -119,7 +119,7 @@ impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
     }
 
     /// Cancel all the files that were created
-    pub fn cancel_batches(&mut self) -> Result<()> {
+    pub fn cancel_batches(&mut self) -> anyhow::Result<()> {
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
             // It's OK if something is not OK here
@@ -131,7 +131,7 @@ impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
         Ok(())
     }
 
-    pub fn iter(&mut self) -> Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
+    pub fn iter(&mut self) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
             BatchIterator::new_labeled(
@@ -167,7 +167,7 @@ impl BatchIterator<()> {
     pub fn new_from_vec<P: AsRef<Path>>(
         file_path: P,
         batch: &mut [(usize, usize)],
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         Self::new_from_vec_labeled(file_path, unsafe { core::mem::transmute(batch) }, &(), ())
     }
     /// Dump the given triples in `file_path` and return an iterator
@@ -176,7 +176,7 @@ impl BatchIterator<()> {
     pub fn new_from_vec_sorted<P: AsRef<Path>>(
         file_path: P,
         batch: &[(usize, usize)],
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         Self::new_from_vec_sorted_labeled(
             file_path,
             unsafe { core::mem::transmute(batch) },
@@ -187,7 +187,7 @@ impl BatchIterator<()> {
 
     /// Create a new iterator over the triples previously serialized in `file_path`
     #[inline]
-    pub fn new<P: AsRef<std::path::Path>>(file_path: P, len: usize) -> Result<Self> {
+    pub fn new<P: AsRef<std::path::Path>>(file_path: P, len: usize) -> anyhow::Result<Self> {
         Self::new_labeled(file_path, len, ())
     }
 }
@@ -201,7 +201,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
         batch: &mut [(usize, usize, S::SerType)],
         serializer: &S,
         deserializer: D,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         batch.par_sort_unstable_by_key(|(src, dst, _)| (*src, *dst));
         Self::new_from_vec_sorted_labeled(file_path, batch, serializer, deserializer)
     }
@@ -213,7 +213,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
         batch: &[(usize, usize, S::SerType)],
         serializer: &S,
         deserializer: D,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         // create a batch file where to dump
         let file =
             std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(file_path.as_ref())?);
@@ -251,7 +251,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
         file_path: P,
         len: usize,
         deserializer: D,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let stream = <BufBitReader<LE, _>>::new(MemWordReader::new(
             MmapBackend::load(file_path.as_ref(), MmapFlags::TRANSPARENT_HUGE_PAGES)
                 .with_context(|| format!("Could not mmap {}", file_path.as_ref().display()))?,
@@ -390,7 +390,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
 
 #[cfg(test)]
 #[test]
-pub fn test_push() -> Result<()> {
+pub fn test_push() -> anyhow::Result<()> {
     #[derive(Clone, Debug)]
     struct MyDessert;
 
@@ -399,8 +399,8 @@ pub fn test_push() -> Result<()> {
         fn deserialize<E: Endianness, B: CodeRead<E>>(
             &self,
             bitstream: &mut B,
-        ) -> Result<Self::DeserType> {
-            bitstream.read_delta().map(|x| x as usize)
+        ) -> Result<Self::DeserType, B::Error> {
+            Ok(bitstream.read_delta().map(|x| x as usize)?)
         }
     }
 
@@ -410,8 +410,8 @@ pub fn test_push() -> Result<()> {
             &self,
             value: &Self::SerType,
             bitstream: &mut B,
-        ) -> Result<usize> {
-            bitstream.write_delta(*value as u64)
+        ) -> Result<usize, B::Error> {
+            Ok(bitstream.write_delta(*value as u64)?)
         }
     }
     let dir = tempfile::tempdir()?;

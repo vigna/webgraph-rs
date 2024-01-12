@@ -44,7 +44,7 @@ struct Args {
     check: bool,
 }
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     stderrlog::new()
