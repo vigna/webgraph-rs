@@ -466,11 +466,9 @@ mod test {
     use std::io::{BufReader, BufWriter};
 
     #[test]
-    fn test_compressor_no_ref() {
+    fn test_compressor_no_ref() -> anyhow::Result<()> {
         let mut compressor = Compressor::new();
-        compressor
-            .compress(&[0, 1, 2, 5, 7, 8, 9], None, 2)
-            .unwrap();
+        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], None, 2)?;
         assert_eq!(
             compressor,
             Compressor {
@@ -482,14 +480,13 @@ mod test {
                 residuals: vec![5],
             }
         );
+        Ok(())
     }
 
     #[test]
-    fn test_compressor1() {
+    fn test_compressor1() -> anyhow::Result<()> {
         let mut compressor = Compressor::new();
-        compressor
-            .compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2]), 2)
-            .unwrap();
+        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2]), 2)?;
         assert_eq!(
             compressor,
             Compressor {
@@ -501,14 +498,13 @@ mod test {
                 residuals: vec![5],
             }
         );
+        Ok(())
     }
 
     #[test]
-    fn test_compressor2() {
+    fn test_compressor2() -> anyhow::Result<()> {
         let mut compressor = Compressor::new();
-        compressor
-            .compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2, 100]), 2)
-            .unwrap();
+        compressor.compress(&[0, 1, 2, 5, 7, 8, 9], Some(&[0, 1, 2, 100]), 2)?;
         assert_eq!(
             compressor,
             Compressor {
@@ -520,18 +516,17 @@ mod test {
                 residuals: vec![5],
             }
         );
+        Ok(())
     }
 
     #[test]
-    fn test_compressor3() {
+    fn test_compressor3() -> anyhow::Result<()> {
         let mut compressor = Compressor::new();
-        compressor
-            .compress(
-                &[0, 1, 2, 5, 7, 8, 9, 100],
-                Some(&[0, 1, 2, 4, 7, 8, 9, 101]),
-                2,
-            )
-            .unwrap();
+        compressor.compress(
+            &[0, 1, 2, 5, 7, 8, 9, 100],
+            Some(&[0, 1, 2, 4, 7, 8, 9, 101]),
+            2,
+        )?;
         assert_eq!(
             compressor,
             Compressor {
@@ -543,40 +538,44 @@ mod test {
                 residuals: vec![5, 100],
             }
         );
+        Ok(())
     }
 
     #[test]
-    fn test_writer_window_zero() {
-        test_compression(0, 0);
-        test_compression(0, 1);
-        test_compression(0, 2);
+    fn test_writer_window_zero() -> anyhow::Result<()> {
+        test_compression(0, 0)?;
+        test_compression(0, 1)?;
+        test_compression(0, 2)?;
+        Ok(())
     }
 
     #[test]
-    fn test_writer_window_one() {
-        test_compression(1, 0);
-        test_compression(1, 1);
-        test_compression(1, 2);
+    fn test_writer_window_one() -> anyhow::Result<()> {
+        test_compression(1, 0)?;
+        test_compression(1, 1)?;
+        test_compression(1, 2)?;
+        Ok(())
     }
 
     #[test]
-    fn test_writer_window_two() {
-        test_compression(2, 0);
-        test_compression(2, 1);
-        test_compression(2, 2);
+    fn test_writer_window_two() -> anyhow::Result<()> {
+        test_compression(2, 0)?;
+        test_compression(2, 1)?;
+        test_compression(2, 2)?;
+        Ok(())
     }
 
     #[test]
-    fn test_writer_cnr() {
+    fn test_writer_cnr() -> anyhow::Result<()> {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000").unwrap();
+        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
         let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(file_path).unwrap(),
+            File::create(file_path)?,
         )));
 
         let comp_flags = CompFlags {
@@ -592,16 +591,16 @@ mod test {
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush().unwrap();
+        bvcomp.flush()?;
 
         // Read it back
 
         let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(file_path).unwrap(),
+            File::open(file_path)?,
         )));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesReader<BE, _>>::new(bit_read, &comp_flags).unwrap();
+        let codes_reader = <ConstCodesReader<BE, _>>::new(bit_read, &comp_flags)?;
 
         let mut seq_iter = WebgraphSequentialIter::new(
             codes_reader,
@@ -624,10 +623,15 @@ mod test {
             );
         }
         std::fs::remove_file(file_path).unwrap();
+
+        Ok(())
     }
 
-    fn test_compression(compression_window: usize, min_interval_length: usize) {
-        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000").unwrap();
+    fn test_compression(
+        compression_window: usize,
+        min_interval_length: usize,
+    ) -> anyhow::Result<()> {
+        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();
@@ -646,14 +650,14 @@ mod test {
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush().unwrap();
+        bvcomp.flush()?;
 
         // Read it back
         let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
         let bit_read = <BufBitReader<LE, _>>::new(MemWordReader::new(buffer_32));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags).unwrap();
+        let codes_reader = <ConstCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
 
         let mut seq_iter = WebgraphSequentialIter::new(
             codes_reader,
@@ -675,5 +679,7 @@ mod test {
                 i
             );
         }
+
+        Ok(())
     }
 }
