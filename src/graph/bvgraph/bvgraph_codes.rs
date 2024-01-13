@@ -7,6 +7,11 @@
 
 use std::error::Error;
 
+use dsi_bitstream::{
+    codes::{DeltaRead, DeltaWrite, GammaRead, GammaWrite, ZetaRead, ZetaWrite},
+    traits::Endianness,
+};
+
 // A trait combining the codes used by BVGraph when reading.
 pub trait CodeRead<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
 // A trait combining the codes used by BVGraph when writing.

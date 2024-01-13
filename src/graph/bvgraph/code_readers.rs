@@ -335,6 +335,8 @@ impl<
         const K: u64,
     > BVGraphCodesWriter
     for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+where
+    <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
 

@@ -422,7 +422,10 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW> {
+impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW>
+where
+    <CW as BitWrite<E>>::Error: Send + Sync,
+{
     type Error = <CW as BitWrite<E>>::Error;
     type MockWriter = DynamicCodesMockWriter;
 

@@ -13,6 +13,8 @@ This modules contains the traits that are used throughout the crate.
 
 use dsi_bitstream::prelude::*;
 
+use crate::prelude::{CodeRead, CodeWrite};
+
 pub trait BitSerializer {
     type SerType: Send;
     /// Write the given value to a bitstream of given endianness and providing

@@ -79,6 +79,7 @@ fn test_transposition() -> anyhow::Result<()> {
 #[cfg_attr(test, test)]
 fn test_transposition_labeled() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
+    use crate::prelude::{CodeRead, CodeWrite};
     use crate::traits::SequentialLabelling;
     use dsi_bitstream::prelude::*;
 
