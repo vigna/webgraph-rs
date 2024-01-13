@@ -7,6 +7,18 @@
 
 use std::error::Error;
 
+// A trait combining the codes used by BVGraph when reading.
+pub trait CodeRead<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
+// A trait combining the codes used by BVGraph when writing.
+pub trait CodeWrite<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
+
+/// Blanket implementation so we can consider [`CodeRead`] just as an alias for
+/// a sum of traits
+impl<E: Endianness, T> CodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
+/// Blanket implementation so we can consider [`CodeWrite`] just as an alias for
+/// a sum of traits
+impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
+
 /// An object that can create code readers, this is done so that the builder can
 /// own the data, and the readers can be created and thrown away freely
 pub trait BVGraphCodesReaderBuilder {
