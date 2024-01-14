@@ -450,9 +450,10 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         Ok(count)
     }
 
-    /// Consume the compressor and flush the inner writer.
-    pub fn flush(&mut self) -> Result<(), WGCW::Error> {
-        self.bit_write.flush()
+    /// Consume the compressor return the inner writer after flushing it.
+    pub fn flush(mut self) -> Result<WGCW, WGCW::Error> {
+        self.bit_write.flush()?;
+        Ok(self.bit_write)
     }
 }
 
@@ -651,7 +652,6 @@ mod test {
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
-        drop(bvcomp);
 
         // Read it back
         let buffer_32: &[u32] = unsafe { buffer.align_to().1 };

@@ -121,6 +121,6 @@ pub trait BVGraphCodesWriter {
     /// Write `value` as a residual code and return the number of bits written
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
 
-    /// Consume the writer and call flush on the underlying writer
+    /// Call flush on the underlying writer
     fn flush(&mut self) -> Result<(), Self::Error>;
 }
