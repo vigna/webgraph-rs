@@ -26,7 +26,7 @@ bitvec = { version = "1.0.1", features = ["atomic"] }
 num_cpus = "1.15.0"
 epserde = "0.2.0"
 sux = "0.1"
-dsi-bitstream = {git = "https://github.com/vigna/dsi-bitstream-rs" }
+dsi-bitstream = "0.1.0"
 # Bin dependancies
 clap = { version = "4.1.6", features = ["derive"] }
 dsi-progress-logger = "0.2.0"

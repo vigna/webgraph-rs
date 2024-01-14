@@ -391,6 +391,8 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
 #[cfg(test)]
 #[test]
 pub fn test_push() -> anyhow::Result<()> {
+    use crate::prelude::{CodeRead, CodeWrite};
+
     #[derive(Clone, Debug)]
     struct MyDessert;
 
