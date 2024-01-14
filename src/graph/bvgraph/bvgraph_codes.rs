@@ -122,5 +122,5 @@ pub trait BVGraphCodesWriter {
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
 
     /// Consume the writer and call flush on the underlying writer
-    fn flush(self) -> Result<(), Self::Error>;
+    fn flush(&mut self) -> Result<(), Self::Error>;
 }

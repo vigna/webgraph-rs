@@ -500,7 +500,7 @@ where
         (self.write_residual)(&mut self.code_writer, value)
     }
 
-    fn flush(self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<(), Self::Error> {
         self.code_writer.flush()
     }
 }
@@ -600,7 +600,7 @@ impl BVGraphCodesWriter for DynamicCodesMockWriter {
         Ok((self.len_residual)(value))
     }
 
-    fn flush(self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
 }
