@@ -57,7 +57,7 @@ impl<W> MmapBackend<W> {
             .len() as usize;
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
-        let capacity = (file_len + 7) / 8;
+        let capacity = file_len / 8 + 1; // Must be > 0, or we get a panic
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(capacity * 8)
                 .with_context(|| format!("Cannot initialize mmap of size {}", capacity * 8))?
