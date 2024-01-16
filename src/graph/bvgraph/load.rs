@@ -6,6 +6,7 @@
  */
 
 use super::*;
+use crate::graph::bvgraph::EmptyDict;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
@@ -51,7 +52,10 @@ macro_rules! impl_loads {
         pub fn $load_name(
             basename: impl AsRef<Path>,
         ) -> anyhow::Result<
-            BVGraph<$builder<BE, MmapBackend<u32>>, crate::EF<&'static [usize], &'static [u64]>>,
+            BVGraph<
+                $builder<BE, MmapBackend<u32>, crate::EF<&'static [usize], &'static [u64]>>,
+                crate::EF<&'static [usize], &'static [u64]>,
+            >,
         > {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
@@ -67,11 +71,13 @@ macro_rules! impl_loads {
                 <crate::EF<Vec<usize>, Vec<u64>>>::mmap(&ef_path, Flags::TRANSPARENT_HUGE_PAGES)
                     .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
-            let code_reader_builder = <$builder<BE, MmapBackend<u32>>>::new(graph, comp_flags)?;
+            let code_reader_builder =
+                <$builder<BE, MmapBackend<u32>, crate::EF<&'static [usize], &'static [u64]>>>::new(
+                    graph, offsets, comp_flags,
+                )?;
 
             Ok(BVGraph::new(
                 code_reader_builder,
-                offsets,
                 comp_flags.min_interval_length,
                 comp_flags.compression_window,
                 num_nodes,
@@ -82,7 +88,7 @@ macro_rules! impl_loads {
         /// Load a BVGraph sequentially
         pub fn $load_seq_name<P: AsRef<Path>>(
             basename: P,
-        ) -> Result<BVGraphSequential<$builder<BE, MmapBackend<u32>>>> {
+        ) -> Result<BVGraphSequential<$builder<BE, MmapBackend<u32>, EmptyDict<usize, usize>>>> {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
                 parse_properties(&format!("{}.properties", basename.to_string_lossy()))?;
@@ -92,7 +98,12 @@ macro_rules! impl_loads {
                 MmapFlags::TRANSPARENT_HUGE_PAGES,
             )?;
 
-            let code_reader_builder = <$builder<BE, MmapBackend<u32>>>::new(graph, comp_flags)?;
+            let code_reader_builder =
+                <$builder<BE, MmapBackend<u32>, EmptyDict<usize, usize>>>::new(
+                    graph,
+                    MemCase::from(EmptyDict::default()),
+                    comp_flags,
+                )?;
 
             let seq_reader = BVGraphSequential::new(
                 code_reader_builder,

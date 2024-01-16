@@ -32,8 +32,18 @@ pub trait BVGraphCodesReaderBuilder {
     where
         Self: 'a;
 
-    /// Create a new reader at bit-offset `offset`
-    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn Error>>;
+    /// Create a new reader starting at the given node.
+    fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn Error>>;
+}
+
+pub trait BVGraphSeqCodesReaderBuilder {
+    /// The type of the reader that we are building
+    type Reader<'a>: BVGraphCodesReader + 'a
+    where
+        Self: 'a;
+
+    /// Create a new reader starting at the given node.
+    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn Error>>;
 }
 
 /// The generic interface we need to skip codes

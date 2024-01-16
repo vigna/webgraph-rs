@@ -15,7 +15,7 @@ use lender::*;
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmaped file.
-pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
+pub struct BVGraphSequential<CRB: BVGraphSeqCodesReaderBuilder> {
     codes_reader_builder: CRB,
     number_of_nodes: usize,
     number_of_arcs: Option<usize>,
@@ -23,7 +23,7 @@ pub struct BVGraphSequential<CRB: BVGraphCodesReaderBuilder> {
     min_interval_length: usize,
 }
 
-impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<CRB> {
+impl<CRB: BVGraphSeqCodesReaderBuilder> SequentialLabelling for BVGraphSequential<CRB> {
     type Label = usize;
     type Iterator<'a> = WebgraphSequentialIter<CRB::Reader<'a>>
     where
@@ -43,7 +43,7 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<C
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = WebgraphSequentialIter::new(
-            self.codes_reader_builder.get_reader(0).unwrap(),
+            self.codes_reader_builder.get_reader().unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
@@ -57,13 +57,13 @@ impl<CRB: BVGraphCodesReaderBuilder> SequentialLabelling for BVGraphSequential<C
     }
 }
 
-impl<CRB: BVGraphCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {}
+impl<CRB: BVGraphSeqCodesReaderBuilder> SequentialGraph for BVGraphSequential<CRB> {}
 
 /*impl<'lend, 'a, CRB: BVGraphCodesReaderBuilder> Lending<'lend> for &'a BVGraphSequential<CRB> {
     type Lend = Lend<'lend, <Self as IntoLender>::Lender>;
 }
 */
-impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CRB> {
+impl<'a, CRB: BVGraphSeqCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CRB> {
     type Lender = <BVGraphSequential<CRB> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
@@ -72,7 +72,7 @@ impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraphSequential<CR
     }
 }
 
-impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB> {
+impl<CRB: BVGraphSeqCodesReaderBuilder> BVGraphSequential<CRB> {
     /// Create a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
@@ -96,7 +96,7 @@ impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB> {
     pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraphSequential<CRB2>
     where
         F: FnOnce(CRB) -> CRB2,
-        CRB2: BVGraphCodesReaderBuilder,
+        CRB2: BVGraphSeqCodesReaderBuilder,
     {
         BVGraphSequential {
             codes_reader_builder: map_func(self.codes_reader_builder),
@@ -114,7 +114,7 @@ impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB> {
     }
 }
 
-impl<CRB: BVGraphCodesReaderBuilder> BVGraphSequential<CRB>
+impl<CRB: BVGraphSeqCodesReaderBuilder> BVGraphSequential<CRB>
 where
     for<'a> CRB::Reader<'a>: BVGraphCodesSkipper,
 {
@@ -124,7 +124,7 @@ where
     /// and completely skip the merging step.
     pub fn iter_degrees(&self) -> DegreesIter<CRB::Reader<'_>> {
         DegreesIter::new(
-            self.codes_reader_builder.get_reader(0).unwrap(),
+            self.codes_reader_builder.get_reader().unwrap(),
             self.min_interval_length,
             self.compression_window,
             self.number_of_nodes,

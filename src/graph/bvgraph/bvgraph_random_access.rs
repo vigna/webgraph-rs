@@ -18,9 +18,6 @@ pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Input = usiz
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     codes_reader_builder: CRB,
-    /// The bit offset at which we will have to start for decoding the edges of
-    /// each node.
-    offsets: MemCase<OFF>,
     /// The minimum size of the intervals we are going to decode.
     min_interval_length: usize,
     /// The maximum distance between two nodes that reference each other.
@@ -29,6 +26,7 @@ pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Input = usiz
     number_of_nodes: usize,
     /// The number of arcs in the graph.
     number_of_arcs: usize,
+    _marker: std::marker::PhantomData<OFF>,
 }
 
 impl<CRB, OFF> BVGraph<CRB, OFF>
@@ -53,7 +51,6 @@ where
     ///
     pub fn new(
         codes_reader_builder: CRB,
-        offsets: MemCase<OFF>,
         min_interval_length: usize,
         compression_window: usize,
         number_of_nodes: usize,
@@ -61,11 +58,11 @@ where
     ) -> Self {
         Self {
             codes_reader_builder,
-            offsets,
             min_interval_length,
             compression_window,
             number_of_nodes,
             number_of_arcs,
+            _marker: std::marker::PhantomData,
         }
     }
 
@@ -78,36 +75,38 @@ where
     {
         BVGraph {
             codes_reader_builder: map_func(self.codes_reader_builder),
-            offsets: self.offsets,
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
             compression_window: self.compression_window,
             min_interval_length: self.min_interval_length,
+            _marker: std::marker::PhantomData,
         }
     }
 
-    #[inline(always)]
-    /// Change the offsets (monad style)
-    pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
-    where
-        F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
-        OFF2: IndexedDict<Input = usize, Output = usize>,
-    {
-        BVGraph {
-            codes_reader_builder: self.codes_reader_builder,
-            offsets: map_func(self.offsets),
-            number_of_nodes: self.number_of_nodes,
-            number_of_arcs: self.number_of_arcs,
-            compression_window: self.compression_window,
-            min_interval_length: self.min_interval_length,
+    /* TODO
+        #[inline(always)]
+        /// Change the offsets (monad style)
+        pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
+        where
+            F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
+            OFF2: IndexedDict<Input = usize, Output = usize>,
+        {
+            BVGraph {
+                codes_reader_builder: self.codes_reader_builder,
+                number_of_nodes: self.number_of_nodes,
+                number_of_arcs: self.number_of_arcs,
+                compression_window: self.compression_window,
+                min_interval_length: self.min_interval_length,
+            }
         }
-    }
+    */
 
+    /* TODO
     #[inline(always)]
     /// Consume self and return the codes reader builder and the offsets
     pub fn unwrap(self) -> (CRB, MemCase<OFF>) {
         (self.codes_reader_builder, self.offsets)
-    }
+    }*/
 }
 
 impl<CRB, OFF> SequentialLabelling for BVGraph<CRB, OFF>
@@ -134,10 +133,7 @@ where
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
     fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
-        let codes_reader = self
-            .codes_reader_builder
-            .get_reader(self.offsets.get(start_node) as _)
-            .unwrap();
+        let codes_reader = self.codes_reader_builder.get_reader(start_node).unwrap();
         // we have to pre-fill the buffer
         let mut backrefs = CircularBufferVec::new(self.compression_window + 1);
 
@@ -181,7 +177,7 @@ where
     fn outdegree(&self, node_id: usize) -> usize {
         let mut codes_reader = self
             .codes_reader_builder
-            .get_reader(self.offsets.get(node_id) as _)
+            .get_reader(node_id)
             .expect("Cannot create reader");
         codes_reader.read_outdegree() as usize
     }
@@ -191,7 +187,7 @@ where
     fn successors(&self, node_id: usize) -> RandomSuccessorIter<CRB::Reader<'_>> {
         let codes_reader = self
             .codes_reader_builder
-            .get_reader(self.offsets.get(node_id) as _)
+            .get_reader(node_id)
             .expect("Cannot create reader");
 
         let mut result = RandomSuccessorIter::new(codes_reader);

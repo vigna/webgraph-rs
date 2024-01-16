@@ -39,7 +39,7 @@ pub struct BVGraphCodesStats {
 /// So this struct can be used in a parallel compression scenario but
 /// you might want to have finished reading the graph before looking at the
 /// statistics.
-pub struct CodesReaderStatsBuilder<WGCRB: BVGraphCodesReaderBuilder> {
+pub struct CodesReaderStatsBuilder<WGCRB: BVGraphSeqCodesReaderBuilder> {
     codes_reader_builder: WGCRB,
     /// The statistics for the codes
     pub stats: BVGraphCodesStats,
@@ -47,7 +47,7 @@ pub struct CodesReaderStatsBuilder<WGCRB: BVGraphCodesReaderBuilder> {
 
 impl<WGCRB> CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: BVGraphCodesReaderBuilder,
+    WGCRB: BVGraphSeqCodesReaderBuilder,
 {
     /// Create a new builder
     pub fn new(codes_reader_builder: WGCRB) -> Self {
@@ -66,7 +66,7 @@ where
 
 impl<WGCRB> From<WGCRB> for CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: BVGraphCodesReaderBuilder,
+    WGCRB: BVGraphSeqCodesReaderBuilder,
 {
     #[inline(always)]
     fn from(value: WGCRB) -> Self {
@@ -74,18 +74,18 @@ where
     }
 }
 
-impl<WGCRB> BVGraphCodesReaderBuilder for CodesReaderStatsBuilder<WGCRB>
+impl<WGCRB> BVGraphSeqCodesReaderBuilder for CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: BVGraphCodesReaderBuilder,
+    WGCRB: BVGraphSeqCodesReaderBuilder,
 {
     type Reader<'a> = CodesReaderStats<'a, WGCRB::Reader<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         Ok(CodesReaderStats::new(
-            self.codes_reader_builder.get_reader(offset)?,
+            self.codes_reader_builder.get_reader()?,
             &self.stats,
         ))
     }

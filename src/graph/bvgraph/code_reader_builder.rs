@@ -5,18 +5,57 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::marker::PhantomData;
+
 use super::*;
 use anyhow::bail;
 use dsi_bitstream::prelude::*;
+use epserde::deser::MemCase;
+use sux::traits::IndexedDict;
 
 type BitReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+
+pub struct EmptyDict<I, O> {
+    _marker: core::marker::PhantomData<(I, O)>,
+}
+
+impl<I, O> IndexedDict for EmptyDict<I, O> {
+    type Input = usize;
+    type Output = usize;
+
+    fn get(&self, _key: Self::Input) -> Self::Output {
+        panic!();
+    }
+
+    unsafe fn get_unchecked(&self, index: usize) -> Self::Output {
+        panic!();
+    }
+
+    fn len(&self) -> usize {
+        0
+    }
+}
+
+impl<I, O> Default for EmptyDict<I, O> {
+    fn default() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
 
 /// A builder for the [`DynamicCodesReader`] that stores the data and gives
 /// references to the [`DynamicCodesReader`]. This does single-static-dispatching
 /// to optimize the reader building time.
-pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
+pub struct DynamicCodesReaderBuilder<
+    E: Endianness,
+    B: AsRef<[u32]>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+> {
     /// The owned data we will read as a bitstream.
     data: B,
+    /// The offsets into the data.
+    offsets: MemCase<OFF>,
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
@@ -34,7 +73,8 @@ pub struct DynamicCodesReaderBuilder<E: Endianness, B: AsRef<[u32]>> {
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    DynamicCodesReaderBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
@@ -60,7 +100,7 @@ where
     }
 
     /// Create a new builder from the data and the compression flags.
-    pub fn new(data: B, cf: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(data: B, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -84,6 +124,7 @@ where
 
         Ok(Self {
             data,
+            offsets,
             read_outdegree: select_code!(cf.outdegrees),
             read_reference_offset: select_code!(cf.references),
             read_block_count: select_code!(cf.blocks),
@@ -99,7 +140,8 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
@@ -110,10 +152,10 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
-        code_reader.set_bit_pos(offset)?;
+        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
 
         Ok(DynamicCodesReader {
             code_reader,
@@ -126,7 +168,39 @@ where
             read_interval_len: self.read_interval_len,
             read_first_residual: self.read_first_residual,
             read_residual: self.read_residual,
-            _marker: Default::default(),
+            _marker: PhantomData,
+        })
+    }
+}
+
+impl<E: Endianness, B: AsRef<[u32]>> BVGraphSeqCodesReaderBuilder
+    for DynamicCodesReaderBuilder<E, B, EmptyDict<usize, usize>>
+where
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
+{
+    type Reader<'a> =
+        DynamicCodesReader<E, BitReader<'a, E>>
+    where
+        Self: 'a;
+
+    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+        let code_reader: BitReader<'_, E> =
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+
+        Ok(DynamicCodesReader {
+            code_reader,
+            read_outdegree: self.read_outdegree,
+            read_reference_offset: self.read_reference_offset,
+            read_block_count: self.read_block_count,
+            read_blocks: self.read_blocks,
+            read_interval_count: self.read_interval_count,
+            read_interval_start: self.read_interval_start,
+            read_interval_len: self.read_interval_len,
+            read_first_residual: self.read_first_residual,
+            read_residual: self.read_residual,
+            _marker: PhantomData,
         })
     }
 }
@@ -138,9 +212,15 @@ where
 /// which basically double the size of the readers. So during random access
 /// we won't need them, so we can slightly speedup the random accesses at the
 /// cost of more code.
-pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
+pub struct DynamicCodesReaderSkipperBuilder<
+    E: Endianness,
+    B: AsRef<[u32]>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+> {
     /// The owned data we will read as a bitstream.
     data: B,
+    /// The offsets into the data.
+    offsets: MemCase<OFF>,
     /// The compression flags.
     compression_flags: CompFlags,
 
@@ -171,7 +251,8 @@ pub struct DynamicCodesReaderSkipperBuilder<E: Endianness, B: AsRef<[u32]>> {
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> DynamicCodesReaderSkipperBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    DynamicCodesReaderSkipperBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
@@ -211,7 +292,7 @@ where
 
     /// Build a new `DynamicCodesReaderSkipper` from the given data and
     /// compression flags.
-    pub fn new(data: B, cf: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(data: B, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         // macro used to dispatch the right function to read the data
         macro_rules! select_code {
             ($code:expr) => {
@@ -258,7 +339,7 @@ where
 
         Ok(Self {
             data,
-
+            offsets,
             read_outdegree: select_code!(cf.outdegrees),
             read_reference_offset: select_code!(cf.references),
             read_block_count: select_code!(cf.blocks),
@@ -285,8 +366,8 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> BVGraphCodesReaderBuilder
-    for DynamicCodesReaderSkipperBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    BVGraphCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
@@ -298,10 +379,10 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
-        code_reader.set_bit_pos(offset)?;
+        code_reader.set_bit_pos(self.offsets.get(node) as u64);
         Ok(DynamicCodesReaderSkipper {
             code_reader,
             read_outdegree: self.read_outdegree,
@@ -327,26 +408,67 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderBuilder<E, B>>
-    for DynamicCodesReaderSkipperBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    BVGraphSeqCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, B, OFF>
+where
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
+{
+    type Reader<'a> =
+        DynamicCodesReaderSkipper<E, BitReader<'a, E>>
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+        let code_reader: BitReader<'_, E> =
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        Ok(DynamicCodesReaderSkipper {
+            code_reader,
+            read_outdegree: self.read_outdegree,
+            read_reference_offset: self.read_reference_offset,
+            read_block_count: self.read_block_count,
+            read_blocks: self.read_blocks,
+            read_interval_count: self.read_interval_count,
+            read_interval_start: self.read_interval_start,
+            read_interval_len: self.read_interval_len,
+            read_first_residual: self.read_first_residual,
+            read_residual: self.read_residual,
+            skip_outdegrees: self.skip_outdegrees,
+            skip_reference_offsets: self.skip_reference_offsets,
+            skip_block_counts: self.skip_block_counts,
+            skip_blocks: self.skip_blocks,
+            skip_interval_counts: self.skip_interval_counts,
+            skip_interval_starts: self.skip_interval_starts,
+            skip_interval_lens: self.skip_interval_lens,
+            skip_first_residuals: self.skip_first_residuals,
+            skip_residuals: self.skip_residuals,
+            _marker: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    From<DynamicCodesReaderBuilder<E, B, OFF>> for DynamicCodesReaderSkipperBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
-    fn from(value: DynamicCodesReaderBuilder<E, B>) -> Self {
-        Self::new(value.data, value.compression_flags).unwrap()
+    fn from(value: DynamicCodesReaderBuilder<E, B, OFF>) -> Self {
+        Self::new(value.data, value.offsets, value.compression_flags).unwrap()
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> From<DynamicCodesReaderSkipperBuilder<E, B>>
-    for DynamicCodesReaderBuilder<E, B>
+impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
+    From<DynamicCodesReaderSkipperBuilder<E, B, OFF>> for DynamicCodesReaderBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
 {
     #[inline(always)]
-    fn from(value: DynamicCodesReaderSkipperBuilder<E, B>) -> Self {
-        Self::new(value.data, value.compression_flags).unwrap()
+    fn from(value: DynamicCodesReaderSkipperBuilder<E, B, OFF>) -> Self {
+        Self::new(value.data, value.offsets, value.compression_flags).unwrap()
     }
 }
 
@@ -356,6 +478,7 @@ where
 pub struct ConstCodesReaderBuilder<
     E: Endianness,
     B: AsRef<[u32]>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
     const BLOCKS: usize = { const_codes::GAMMA },
@@ -365,6 +488,8 @@ pub struct ConstCodesReaderBuilder<
 > {
     /// The owned data
     data: B,
+    /// The offsets into the data.
+    offsets: MemCase<OFF>,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
@@ -373,16 +498,17 @@ pub struct ConstCodesReaderBuilder<
 impl<
         E: Endianness,
         B: AsRef<[u32]>,
+        OFF: IndexedDict<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesReaderBuilder<E, B, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Create a new builder from the given data and compression flags.
-    pub fn new(data: B, comp_flags: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(data: B, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
         }
@@ -400,7 +526,42 @@ impl<
         }
         Ok(Self {
             data,
+            offsets,
             _marker: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<
+        E: Endianness,
+        B: AsRef<[u32]>,
+        OFF: IndexedDict<Input = usize, Output = usize>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > BVGraphCodesReaderBuilder
+    for ConstCodesReaderBuilder<E, B, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+where
+    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
+{
+    type Reader<'a> =
+        ConstCodesReader<E, BitReader<'a, E>>
+    where
+        Self: 'a;
+
+    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+        let mut code_reader: BitReader<'_, E> =
+            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
+
+        Ok(ConstCodesReader {
+            code_reader,
+            _marker: PhantomData,
         })
     }
 }
@@ -414,8 +575,18 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BVGraphCodesReaderBuilder
-    for ConstCodesReaderBuilder<E, B, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > BVGraphSeqCodesReaderBuilder
+    for ConstCodesReaderBuilder<
+        E,
+        B,
+        EmptyDict<usize, usize>,
+        OUTDEGREES,
+        REFERENCES,
+        BLOCKS,
+        INTERVALS,
+        RESIDUALS,
+        K,
+    >
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
@@ -426,14 +597,13 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: u64) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let mut code_reader: BitReader<'_, E> =
+    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+        let code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
-        code_reader.set_bit_pos(offset)?;
 
         Ok(ConstCodesReader {
             code_reader,
-            _marker: Default::default(),
+            _marker: PhantomData,
         })
     }
 }
