@@ -11,7 +11,7 @@ Label format of the SWH graph.
 
 */
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use dsi_bitstream::{
     codes::GammaRead,
     impls::{BufBitReader, MemWordReader},
@@ -60,16 +60,17 @@ pub struct SwhLabels<RB: ReaderBuilder, O: IndexedDict> {
 impl SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
     pub fn load_from_file(width: usize, path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
+        let backend_path = path.with_extension("labels");
+        let offsets_path = path.with_extension("ef");
         Ok(SwhLabels {
             width,
             reader_builder: MmapReaderBuilder {
-                backend: MmapBackend::<u32>::load(
-                    path.with_extension("labels"),
-                    MmapFlags::empty(),
-                )?,
+                backend: MmapBackend::<u32>::load(&backend_path, MmapFlags::empty())
+                    .with_context(|| format!("Could not mmap {}", backend_path.display()))?,
             },
 
-            offsets: EF::<Vec<usize>, Vec<u64>>::mmap(path.with_extension("ef"), Flags::empty())?,
+            offsets: EF::<Vec<usize>, Vec<u64>>::mmap(&offsets_path, Flags::empty())
+                .with_context(|| format!("Could not parse {}", offsets_path.display()))?,
         })
     }
 }
