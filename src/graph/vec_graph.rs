@@ -277,7 +277,7 @@ impl<'a, L: Copy + 'static> Iterator for Successors<'a, L> {
     }
 }
 
-unsafe impl<'a, L: Copy + 'static> SortedSuccessors for Successors<'a, L> {}
+unsafe impl<'a, L: Copy + 'static> SortedLabels for Successors<'a, L> {}
 
 impl<'a, L: Copy + 'static> ExactSizeIterator for Successors<'a, L> {
     #[inline(always)]

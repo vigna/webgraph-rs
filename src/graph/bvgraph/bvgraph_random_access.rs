@@ -331,7 +331,7 @@ impl<CR: BVGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
     }
 }
 
-unsafe impl<CR: BVGraphCodesReader> SortedSuccessors for RandomSuccessorIter<CR> {}
+unsafe impl<CR: BVGraphCodesReader> SortedLabels for RandomSuccessorIter<CR> {}
 
 impl<CR: BVGraphCodesReader> RandomSuccessorIter<CR> {
     /// Create an empty iterator

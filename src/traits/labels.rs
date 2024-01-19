@@ -23,6 +23,7 @@ The number of nodes *n* of the graph is returned by [`SequentialLabelling::num_n
 and nodes identifier are in the interval [0 . . *n*).
 
 
+
 */
 
 use core::{
@@ -192,10 +193,18 @@ pub trait SequentialLabelling {
 
 /// Marker trait for lenders returned by [`SequentialLabelling::iter`]
 /// yielding node ids in ascending order.
+///
+/// # Safety
+/// The first element of the pairs returned by the iterator must go from
+/// zero to the [number of nodes](SequentialLabelling::num_nodes) of the graph, excluded.
 pub unsafe trait SortedIterator: Lender {}
 
 /// Marker trait for [`IntoIterator`]s yielding labels in the
 /// order induced by enumerating the successors in ascending order.
+///
+/// # Safety
+/// The labels returned by the iterator must be in the order in which
+/// they would be if successors were returned in ascending order.
 pub unsafe trait SortedLabels: IntoIterator {}
 
 /// A [`SequentialLabelling`] providing, additionally, random access to
@@ -227,6 +236,9 @@ pub struct IteratorImpl<'node, G: RandomAccessLabelling> {
     pub labelling: &'node G,
     pub nodes: core::ops::Range<usize>,
 }
+
+/// We iter on the node ids in a range so it is sorted
+unsafe impl<'a, G: RandomAccessLabelling> SortedIterator for IteratorImpl<'a, G> {}
 
 impl<'node, 'succ, G: RandomAccessLabelling> NodeLabelsLender<'succ> for IteratorImpl<'node, G> {
     type Label = G::Label;

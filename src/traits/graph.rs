@@ -11,9 +11,12 @@ Basic traits to access graphs, both sequentially and
 in random-access fashion.
 
 A [sequential graph](SequentialGraph) is simply a
-[`SequentialLabelling`] whose `Value` is `usize`: labels are interpreted
+[`SequentialLabelling`] whose associated type `Label` is `usize`: labels are interpreted
 as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply a
-[`RandomAccessLabelling`] extending a [`SequentialLabelling`] whose `Value` is `usize`.
+[`RandomAccessLabelling`] extending a [`SequentialLabelling`] whose `Label` is `usize`.
+To access the successors of a node, you should however use
+[`RandomAccessLabelling::successors`], which delegates to [`labels`](RandomAccessLabelling::labels):
+the latter method is overriden on purpose make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabelledSequentialGraph) of type `L` is a
 [`SequentialLabelling`] whose `Value` is `(usize, L)`
@@ -35,7 +38,7 @@ use crate::prelude::{IteratorImpl, Pair, RandomAccessLabelling, SequentialLabell
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::labels::{LenderIntoIter, NodeLabelsLender};
+use super::labels::{LenderIntoIter, NodeLabelsLender, SortedIterator};
 
 /// A graph that can be accessed sequentially.
 ///
@@ -50,61 +53,53 @@ pub trait SequentialGraph: SequentialLabelling<Label = usize> {}
 pub type Successors<'succ, 'node, S> =
     <<S as SequentialLabelling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
-/// Marker trait for [iterators](SequentialGraph::Iterator) of [sequential graphs](SequentialGraph)
-/// that returns nodes in ascending order.
-///
-/// # Safety
-/// The first element of the pairs returned by the iterator must go from
-/// zero to the [number of nodes](SequentialGraph::num_nodes) of the graph, excluded.
-pub unsafe trait SortedIterator: Lender {}
-
-/// Marker trait for [sequential graphs](SequentialGraph) whose [successors](SequentialGraph::Successors)
-/// are returned in ascending order.
-///
-/// # Safety
-/// The successors returned by the iterator must be in ascending order.
-pub unsafe trait SortedSuccessors: IntoIterator {}
-
 /// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGraph {
-    /// Convenience alias of the [`RandomAccessLabelling::labels`] method.
+    /// Return the successors of a node.
+    ///
+    /// Note that this is just a convenience alias of the
+    /// [`RandomAccessLabelling::labels`] method, which is overriden in this
+    /// trait by an unimplemented, deprecated version to make its use impossible.
+    /// This approach avoids that users might call `labels` expecting to get
+    /// just the labels associated with a node.
     #[inline(always)]
     fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
         <Self as RandomAccessLabelling>::labels(self, node_id)
     }
 
-    /// Unconvenience override of the [`RandomAccessLabelling::labels`] method
-    /// that discourages the use of the `labels` method on graphs.
-    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
-        unreachable!();
+    /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
+    ///
+    /// This method contains [`std::unreachable`] to make it impossible
+    /// its usage on graphs. Use the [`successors`] method instead.
+    #[deprecated(note = "use the `successors` method instead; this method is just unreachable!()")]
+    fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        unreachable!("use the `successors` method instead");
     }
 
     /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
     fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
         for neighbour_id in self.successors(src_node_id) {
-            // found
             if neighbour_id == dst_node_id {
                 return true;
-            }
-            // early stop
-            if neighbour_id > dst_node_id {
-                return false;
             }
         }
         false
     }
 }
 
-/// We iter on the node ids in a range so it is sorted
-unsafe impl<'a, G: RandomAccessGraph> SortedIterator for IteratorImpl<'a, G> {}
-
+/// A labelled sequential graph.
+///
+/// A labelled sequential graph is a sequential labelling whose labels are pairs `(usize, L)`.
+/// The first coordinate is the successor, the second is the label.
 pub trait LabelledSequentialGraph<L>: SequentialLabelling<Label = (usize, L)> {}
 
+/// A trivial labelling associating to each successor the label `()`.
 #[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 
+#[doc(hidden)]
 #[repr(transparent)]
 pub struct UnitIterator<L>(L);
 
@@ -165,7 +160,43 @@ impl<'a, G: SequentialGraph> SequentialLabelling for UnitLabelGraph<G> {
 
 impl<'a, G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {}
 
-pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {}
+/// A labelled random-access graph.
+///
+/// A labelled random-access graph is a random-access labelling whose labels are
+/// pairs `(usize, L)`. The first coordinate is the successor, the second is the
+/// label.
+pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {
+    /// Return pairs given by successors of a node and their labels.
+    ///
+    /// Note that this is just a convenience alias of the
+    /// [`RandomAccessLabelling::labels`] method, which is overriden in this
+    /// trait by an unimplemented, deprecated version to make its use impossible.
+    /// This approach avoids that users might call `labels` expecting to get
+    /// just the labels associated with a node.
+    #[inline(always)]
+    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        <Self as RandomAccessLabelling>::labels(self, node_id)
+    }
+
+    /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
+    ///
+    /// This method contains [`std::unreachable`] to make it impossible
+    /// its usage on graphs. Use the [`successors`] method instead.
+    #[deprecated(note = "use the `successors` method instead; this method is just unreachable!()")]
+    fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        unreachable!("use the `successors` method instead");
+    }
+
+    /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
+    fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
+        for (neighbour_id, _) in self.successors(src_node_id) {
+            if neighbour_id == dst_node_id {
+                return true;
+            }
+        }
+        false
+    }
+}
 
 impl<'a, G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
     type Labels<'succ> =
