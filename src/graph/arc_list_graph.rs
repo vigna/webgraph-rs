@@ -50,15 +50,13 @@ impl<I: std::iter::Iterator<Item = (usize, usize)>> Iterator<I> {
     }
 }
 
-impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> NodeLabelsLending<'succ>
-    for Iterator<I>
-{
-    type Item = usize;
+impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> NodeLabels<'succ> for Iterator<I> {
+    type Label = usize;
     type IntoIterator = Successors<'succ, I>;
 }
 
 impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> Lending<'succ> for Iterator<I> {
-    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
 }
 
 impl<I: std::iter::Iterator<Item = (usize, usize)>> Lender for Iterator<I> {

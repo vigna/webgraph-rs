@@ -437,7 +437,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<usize>
     where
         L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
+        L::Lender: for<'next> NodeLabels<'next, Label = usize>,
         WGCW::Error: 'static,
         <WGCW::MockWriter as BVGraphCodesWriter>::Error: 'static,
     {

@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::graph::bvgraph::EF;
-use crate::prelude::{MmapBackend, NodeLabelsLending, RandomAccessLabelling, SequentialLabelling};
+use crate::prelude::{MmapBackend, NodeLabels, RandomAccessLabelling, SequentialLabelling};
 
 pub trait ReaderBuilder {
     /// The type of the reader that we are building
@@ -89,9 +89,9 @@ impl<
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
         O: IndexedDict<Input = usize, Output = usize>,
-    > NodeLabelsLending<'succ> for Iterator<'a, BR, O>
+    > NodeLabels<'succ> for Iterator<'a, BR, O>
 {
-    type Item = Vec<u64>;
+    type Label = Vec<u64>;
     type IntoIterator = SeqLabels<'succ, BR>;
 }
 
@@ -102,7 +102,7 @@ impl<
         O: IndexedDict<Input = usize, Output = usize>,
     > Lending<'succ> for Iterator<'a, BR, O>
 {
-    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
 }
 
 impl<

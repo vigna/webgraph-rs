@@ -53,8 +53,8 @@ impl<T, U> Pair for (T, U) {
 pub mod graph;
 pub use graph::*;
 
-pub mod labelling;
-pub use labelling::*;
+pub mod labels;
+pub use labels::*;
 
 mod serde;
 pub use serde::*;

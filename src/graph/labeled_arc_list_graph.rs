@@ -57,17 +57,17 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
     }
 }
 
-impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone>
-    NodeLabelsLending<'succ> for NodeIterator<L, I>
+impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> NodeLabels<'succ>
+    for NodeIterator<L, I>
 {
-    type Item = (usize, L);
+    type Label = (usize, L);
     type IntoIterator = Successors<'succ, L, I>;
 }
 
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lending<'succ>
     for NodeIterator<L, I>
 {
-    type Lend = (usize, <Self as NodeLabelsLending<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender

@@ -27,7 +27,7 @@ pub fn compress_sequential_iter<P: AsRef<Path>, L: IntoLender>(
 ) -> Result<usize>
 where
     L: IntoLender,
-    L::Lender: for<'next> NodeLabelsLending<'next, Item = usize>,
+    L::Lender: for<'next> NodeLabels<'next, Label = usize>,
 {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
@@ -115,7 +115,7 @@ pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
     tmp_dir: P,
 ) -> Result<usize>
 where
-    L::Lender: Clone + Send + for<'next> NodeLabelsLending<'next, Item = usize>,
+    L::Lender: Clone + Send + for<'next> NodeLabels<'next, Label = usize>,
 {
     let tmp_dir = tmp_dir.as_ref();
     let basename = basename.as_ref();

@@ -13,8 +13,13 @@ use crate::prelude::{CodeRead, CodeWrite};
 /// bitstream with code-writing capabilities.
 pub trait BitSerializer {
     /// The type that implementations of this trait can serialize.
+    ///
+    /// Note that endianness and the bitstream type are not part of this trait,
+    /// but rather of this method, so that types specifying a serializing
+    /// strategy as type parameter can do so without specifying the details of
+    /// the endianness or of the underlying bitstream.
     type SerType: Send;
-    /// Serialize the given value to a [`CodeRead`].
+    /// Serialize the given value to a [`CodeWrite`].
     fn serialize<E: Endianness, B: CodeWrite<E>>(
         &self,
         value: &Self::SerType,
@@ -27,7 +32,12 @@ pub trait BitSerializer {
 pub trait BitDeserializer {
     /// The type that implementations of this trait can deserialized.
     type DeserType;
-    /// Deserialize the given value from a [`CodeWrite`].
+    /// Deserialize the given value from a [`CodeRead`].
+    ///
+    /// Note that endianness and the bitstream type are not part of this trait,
+    /// but rather of this method, so that types specifying a deserializing
+    /// strategy as type parameter can do so without specifying the details of
+    /// the endianness or of the underlying bitstream.
     fn deserialize<E: Endianness, B: CodeRead<E>>(
         &self,
         bitstream: &mut B,
