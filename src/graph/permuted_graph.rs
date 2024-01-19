@@ -66,7 +66,7 @@ where
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = usize;
-    type IntoIterator = PermutedSuccessors<'succ, LendingIntoIter<'succ, I>>;
+    type IntoIterator = PermutedSuccessors<'succ, LenderIntoIter<'succ, I>>;
 }
 
 impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>

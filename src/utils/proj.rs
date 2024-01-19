@@ -17,8 +17,8 @@ projection of a graph whose labels are pairs. In particular,
 use lender::{IntoLender, Lend, Lender, Lending};
 
 use crate::prelude::{
-    Label, LendingIntoIterator, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabelling,
-    SequentialGraph, SequentialLabelling,
+    LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
+    RandomAccessLabelling, SequentialGraph, SequentialLabelling,
 };
 
 // The projection onto the first component of a pair.
@@ -33,18 +33,18 @@ pub struct LeftIterator<L>(pub L);
 impl<'succ, L> NodeLabelsLender<'succ> for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> Label<'next, L>: Pair,
+    for<'next> LenderLabel<'next, L>: Pair,
 {
-    type Label = <Label<'succ, L> as Pair>::Left;
+    type Label = <LenderLabel<'succ, L> as Pair>::Left;
     type IntoIterator = LeftIntoIterator<<L as NodeLabelsLender<'succ>>::IntoIterator>;
 }
 
 impl<'succ, L> Lending<'succ> for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> Label<'next, L>: Pair,
+    for<'next> LenderLabel<'next, L>: Pair,
 {
-    type Lend = (usize, LendingIntoIterator<'succ, Self>);
+    type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -83,7 +83,7 @@ where
 impl<L> Lender for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> Label<'next, L>: Pair,
+    for<'next> LenderLabel<'next, L>: Pair,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -166,18 +166,18 @@ pub struct RightIterator<L>(pub L);
 impl<'succ, L> NodeLabelsLender<'succ> for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> Label<'next, L>: Pair,
+    for<'next> LenderLabel<'next, L>: Pair,
 {
-    type Label = <Label<'succ, L> as Pair>::Right;
+    type Label = <LenderLabel<'succ, L> as Pair>::Right;
     type IntoIterator = RightIntoIterator<<L as NodeLabelsLender<'succ>>::IntoIterator>;
 }
 
 impl<'succ, L> Lending<'succ> for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> Label<'next, L>: Pair,
+    for<'next> LenderLabel<'next, L>: Pair,
 {
-    type Lend = (usize, LendingIntoIterator<'succ, Self>);
+    type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -216,7 +216,7 @@ where
 impl<L> Lender for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> Label<'next, L>: Pair,
+    for<'next> LenderLabel<'next, L>: Pair,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {

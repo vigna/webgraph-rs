@@ -9,9 +9,9 @@ use core::iter;
 use lender::{IntoLender, Lend, Lender, Lending};
 
 use crate::prelude::{
-    Label, LabelledRandomAccessGraph, LabelledSequentialGraph, LendingIntoIter,
-    LendingIntoIterator, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabelling,
-    SequentialGraph, SequentialLabelling,
+    LabelledRandomAccessGraph, LabelledSequentialGraph, LenderIntoIter, LenderIntoIterator,
+    LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabelling, SequentialGraph,
+    SequentialLabelling,
 };
 
 /**
@@ -77,8 +77,8 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
 {
-    type Label = (Label<'succ, L>, Label<'succ, R>);
-    type IntoIterator = std::iter::Zip<LendingIntoIter<'succ, L>, LendingIntoIter<'succ, R>>;
+    type Label = (LenderLabel<'succ, L>, LenderLabel<'succ, R>);
+    type IntoIterator = std::iter::Zip<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, R>>;
 }
 
 impl<'succ, L, R> Lending<'succ> for ZippedGraphIterator<L, R>
@@ -86,7 +86,7 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
 {
-    type Lend = (usize, LendingIntoIterator<'succ, Self>);
+    type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
 impl<L, R> Lender for ZippedGraphIterator<L, R>

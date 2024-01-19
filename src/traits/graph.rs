@@ -35,7 +35,7 @@ use crate::prelude::{IteratorImpl, Pair, RandomAccessLabelling, SequentialLabell
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::labels::{LendingIntoIter, NodeLabelsLender};
+use super::labels::{LenderIntoIter, NodeLabelsLender};
 
 /// A graph that can be accessed sequentially.
 ///
@@ -101,7 +101,7 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = (usize, ());
-    type IntoIterator = UnitSuccessors<LendingIntoIter<'succ, L>>;
+    type IntoIterator = UnitSuccessors<LenderIntoIter<'succ, L>>;
 }
 
 impl<'succ, L> Lending<'succ> for UnitIterator<L>
