@@ -7,11 +7,9 @@
 
 #![doc = include_str!("../README.md")]
 // No warnings
-//#![deny(warnings)]
 // for now we don't need any new feature but we might remove this in the future
 #![deny(unstable_features)]
 // no dead code
-//#![deny(dead_code)]
 #![deny(trivial_casts)]
 #![deny(unconditional_recursion)]
 #![deny(clippy::empty_loop)]
@@ -19,18 +17,7 @@
 #![deny(unreachable_pub)]
 #![deny(unreachable_patterns)]
 #![deny(unused_macro_rules)]
-//#![deny(unused_results)]
-
-// the code must be documented and everything should have a debug print implementation
 #![deny(unused_doc_comments)]
-//#![deny(missing_docs)]
-//#![deny(clippy::missing_docs_in_private_items)]
-//#![deny(clippy::missing_errors_doc)]
-//#![deny(clippy::missing_panics_doc)]
-//#![deny(clippy::missing_safety_doc)]
-//#![deny(clippy::missing_doc_code_examples)]
-//#![deny(clippy::missing_crate_level_docs)]
-//#![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "alloc")]
@@ -98,39 +85,4 @@ pub mod prelude {
     pub use crate::traits::*;
     pub use crate::utils::*;
     pub use crate::Tuple2;
-}
-
-/// Invert the given permutation in place.
-pub fn invert_in_place(perm: &mut [usize]) {
-    for n in 0..perm.len() {
-        let mut i = perm[n];
-        if (i as isize) < 0 {
-            perm[n] = !i;
-        } else if i != n {
-            let mut k = n;
-            loop {
-                let j = perm[i];
-                perm[i] = !k;
-                if j == n {
-                    perm[n] = i;
-                    break;
-                }
-                k = i;
-                i = j;
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-fn test_invert_in_place() {
-    use rand::prelude::SliceRandom;
-    let mut v = (0..1000).collect::<Vec<_>>();
-    v.shuffle(&mut rand::thread_rng());
-    let mut w = v.clone();
-    invert_in_place(&mut w);
-    for i in 0..v.len() {
-        assert_eq!(w[v[i]], i);
-    }
 }

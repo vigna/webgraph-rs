@@ -7,12 +7,7 @@
 
 use crate::prelude::*;
 
-#[cfg(feature = "alloc")]
-use alloc::collections::BTreeSet;
-
 use lender::prelude::*;
-
-#[cfg(all(feature = "std", not(feature = "alloc")))]
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug)]

@@ -11,9 +11,6 @@ categories = ["compression", "data-structures"]
 
 
 [features]
-default = ["std"]
-std = ["anyhow/std"]
-alloc = []
 slow_tests = []
 skips = []
 fuzz = ["dep:arbitrary", "dep:zip", "dsi-bitstream/fuzz"]

@@ -6,7 +6,7 @@
  */
 
 use crate::prelude::*;
-use crate::{invert_in_place, traits::*};
+use crate::traits::*;
 use anyhow::Result;
 use dsi_progress_logger::*;
 use epserde::prelude::*;
@@ -372,4 +372,39 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
         1_000,
         pr,
     )
+}
+
+/// Invert the given permutation in place.
+fn invert_in_place(perm: &mut [usize]) {
+    for n in 0..perm.len() {
+        let mut i = perm[n];
+        if (i as isize) < 0 {
+            perm[n] = !i;
+        } else if i != n {
+            let mut k = n;
+            loop {
+                let j = perm[i];
+                perm[i] = !k;
+                if j == n {
+                    perm[n] = i;
+                    break;
+                }
+                k = i;
+                i = j;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_invert_in_place() {
+    use rand::prelude::SliceRandom;
+    let mut v = (0..1000).collect::<Vec<_>>();
+    v.shuffle(&mut rand::thread_rng());
+    let mut w = v.clone();
+    invert_in_place(&mut w);
+    for i in 0..v.len() {
+        assert_eq!(w[v[i]], i);
+    }
 }
