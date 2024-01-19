@@ -6,11 +6,11 @@
 
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
 use webgraph::prelude::*;
-use dsi_bitstream::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Create a random permutation for a given graph", long_about = None)]
@@ -25,9 +25,10 @@ struct Args {
     epserde: bool,
 }
 
-fn rand_perm<E: Endianness + 'static>(args: Args) -> Result<()> 
+fn rand_perm<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
 {
     let graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.source)?;
 
@@ -55,12 +56,17 @@ fn main() -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()?;
 
-        match get_endianess(&args.source)?.as_str() {
-            #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
-            BE::NAME => rand_perm::<BE>(args),
-            #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
-            LE::NAME => rand_perm::<LE>(args),
-            _ => panic!("Unknown endianness"),
-        }
-
+    match get_endianess(&args.source)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => rand_perm::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => rand_perm::<LE>(args),
+        _ => panic!("Unknown endianness"),
+    }
 }

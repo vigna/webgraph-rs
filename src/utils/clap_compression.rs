@@ -114,6 +114,10 @@ pub struct PermutationArgs {
 /// Shared cli arguments for compression
 /// Reference on how to use it: https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust
 pub struct CompressArgs {
+    /// The endianess of the graph to write
+    #[clap(short = 'e', long)]
+    pub endianess: Option<String>,
+
     /// The compression windows
     #[clap(short = 'w', long, default_value_t = 7)]
     pub compression_window: usize,

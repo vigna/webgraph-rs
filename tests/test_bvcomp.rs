@@ -59,8 +59,9 @@ fn test_bvcomp_slow() -> Result<()> {
                                         max_ref_count,
                                     };
 
-                                    let seq_graph =
-                                        webgraph::graph::bvgraph::load_seq::<BE, _>("tests/data/cnr-2000")?;
+                                    let seq_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(
+                                        "tests/data/cnr-2000",
+                                    )?;
 
                                     let writer = <DynamicCodesWriter<BE, _>>::new(
                                         <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(

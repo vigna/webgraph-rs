@@ -6,8 +6,8 @@
 
 use anyhow::Result;
 use clap::Parser;
-use webgraph::prelude::*;
 use dsi_bitstream::prelude::*;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Transpose a BVGraph", long_about = None)]
@@ -27,9 +27,10 @@ struct Args {
     ca: CompressArgs,
 }
 
-fn transpose<E: Endianness + 'static>(args: Args) -> Result<()> 
+fn transpose<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
 {
     let transposed = args
         .transposed
@@ -39,14 +40,16 @@ where
 
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.pa.batch_size).unwrap();
-    // compress the transposed graph
-    parallel_compress_sequential_iter(
+
+    let target_endianness = args.ca.endianess.clone();
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
         transposed,
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
         temp_dir(args.pa.temp_dir),
+        &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;
 
     Ok(())
@@ -60,9 +63,15 @@ pub fn main() -> Result<()> {
         .init()?;
 
     match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         BE::NAME => transpose::<BE>(args),
-        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         LE::NAME => transpose::<LE>(args),
         _ => panic!("Unknown endianness"),
     }

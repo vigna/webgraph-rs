@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use itertools::Itertools;
 use lender::*;
 use rand::rngs::SmallRng;
@@ -12,8 +14,6 @@ use rand::Rng;
 use rand::SeedableRng;
 use std::hint::black_box;
 use webgraph::prelude::*;
-use anyhow::Result;
-use dsi_bitstream::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Benchmarks the Rust Webgraph implementation", long_about = None)]
@@ -46,9 +46,10 @@ struct Args {
     check: bool,
 }
 
-fn bench_webgraph<E: Endianness + 'static>(args: Args) -> Result<()> 
+fn bench_webgraph<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
 {
     if args.check {
         // Create a sequential reader
@@ -152,11 +153,16 @@ pub fn main() -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()?;
 
-
     match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         BE::NAME => bench_webgraph::<BE>(args),
-        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         LE::NAME => bench_webgraph::<LE>(args),
         _ => panic!("Unknown endianness"),
     }

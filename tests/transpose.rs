@@ -6,9 +6,9 @@
  */
 
 use anyhow::Result;
+use dsi_bitstream::prelude::BE;
 use lender::*;
 use webgraph::prelude::*;
-use dsi_bitstream::prelude::BE;
 
 fn logger_init() {
     env_logger::builder().is_test(true).try_init().unwrap();

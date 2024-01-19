@@ -15,6 +15,7 @@ use lender::*;
 use std::io::{BufReader, Read};
 use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
+
 #[derive(Parser, Debug)]
 #[command(about = "Permutes a graph", long_about = None)]
 struct Args {
@@ -43,7 +44,7 @@ struct Args {
     ca: CompressArgs,
 }
 
-fn permute(
+fn permute<E: Endianness>(
     args: Args,
     graph: &impl SequentialGraph,
     perm: &[usize],
@@ -62,13 +63,15 @@ fn permute(
     let edges = sort_pairs.iter()?.map(|(src, dst, _)| (src, dst));
     let g = Left(arc_list_graph::ArcListGraph::new(num_nodes, edges));
     // compress it
-    parallel_compress_sequential_iter(
+    let target_endianness = args.ca.endianess.clone();
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
         args.dest,
         &g,
         g.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
         temp_dir(args.pa.temp_dir),
+        &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;
 
     Ok(())
@@ -92,7 +95,7 @@ where
 
     if args.epserde {
         let perm = <Vec<usize>>::mmap(&args.perm, Flags::default())?;
-        permute(args, &graph, perm.as_ref(), num_nodes)?;
+        permute::<E>(args, &graph, perm.as_ref(), num_nodes)?;
     } else {
         let mut file = BufReader::new(std::fs::File::open(&args.perm)?);
         let mut perm = Vec::with_capacity(num_nodes);
@@ -108,7 +111,7 @@ where
             perm_pl.light_update();
         }
         perm_pl.done();
-        permute(args, &graph, perm.as_ref(), num_nodes)?;
+        permute::<E>(args, &graph, perm.as_ref(), num_nodes)?;
     }
     glob_pl.done();
 

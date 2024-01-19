@@ -7,6 +7,7 @@
 
 use crate::prelude::*;
 use anyhow::Result;
+use dsi_bitstream::codes::params::DefaultWriteParams;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
@@ -18,7 +19,7 @@ use std::thread::ScopedJoinHandle;
 
 /// Build a BVGraph by compressing an iterator of nodes and successors and
 /// return the length of the produced bitstream (in bits).
-pub fn compress_sequential_iter<P: AsRef<Path>, L: IntoLender>(
+pub fn compress_sequential_iter<E: Endianness, P: AsRef<Path>, L: IntoLender>(
     basename: P,
     iter: L,
     compression_flags: CompFlags,
@@ -28,12 +29,15 @@ pub fn compress_sequential_iter<P: AsRef<Path>, L: IntoLender>(
 where
     L: IntoLender,
     L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+    E: dsi_bitstream::impls::DropHelper<WordAdapter<usize, BufWriter<File>>, DefaultWriteParams>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>:
+        GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E>,
 {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
 
     // Compress the graph
-    let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+    let bit_write = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
         File::create(graph_path)?,
     )));
 
@@ -62,7 +66,7 @@ where
     if build_offsets {
         let file = std::fs::File::create(format!("{}.offsets", basename.to_string_lossy()))?;
         // create a bit writer on the file
-        let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
+        let mut writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
             BufWriter::with_capacity(1 << 20, file),
         ));
 
@@ -104,9 +108,62 @@ where
     Ok(result)
 }
 
+/// A wrapper over [`parallel_compress_sequential_iter`] that takes the
+/// endianness as a string.
+///
+/// Endianess can only be [`BE::NAME`] or [`LE::NAME`].
+/// A given endianess is enabled only if the corresponding feature is enabled,
+/// `be_bins` for big endian and `le_bins` for little endian, or if neither
+/// features are enabled.
+pub fn parallel_compress_sequential_iter_endianness<L: IntoLender, P: AsRef<Path>>(
+    basename: impl AsRef<Path> + Send + Sync,
+    into_lender: L,
+    num_nodes: usize,
+    compression_flags: CompFlags,
+    num_threads: usize,
+    tmp_dir: P,
+    endianess: &str,
+) -> Result<usize>
+where
+    L::Lender: Clone + Send + for<'next> NodeLabelsLender<'next, Label = usize>,
+{
+    match endianess {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => {
+            // compress the transposed graph
+            parallel_compress_sequential_iter::<BigEndian, _, _>(
+                basename,
+                into_lender,
+                num_nodes,
+                compression_flags,
+                num_threads,
+                tmp_dir,
+            )
+        }
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => {
+            // compress the transposed graph
+            parallel_compress_sequential_iter::<LittleEndian, _, _>(
+                basename,
+                into_lender,
+                num_nodes,
+                compression_flags,
+                num_threads,
+                tmp_dir,
+            )
+        }
+        x => anyhow::bail!("Unknown endianness {}", x),
+    }
+}
 /// Compress an iterator of nodes and successors in parllel and return the
 /// lenght in bits of the produced file
-pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
+pub fn parallel_compress_sequential_iter<E: Endianness, L: IntoLender, P: AsRef<Path>>(
     basename: impl AsRef<Path> + Send + Sync,
     into_lender: L,
     num_nodes: usize,
@@ -116,6 +173,9 @@ pub fn parallel_compress_sequential_iter<L: IntoLender, P: AsRef<Path>>(
 ) -> Result<usize>
 where
     L::Lender: Clone + Send + for<'next> NodeLabelsLender<'next, Label = usize>,
+    E: dsi_bitstream::impls::DropHelper<WordAdapter<usize, BufWriter<File>>, DefaultWriteParams>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>:
+        GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E>,
 {
     let tmp_dir = tmp_dir.as_ref();
     let basename = basename.as_ref();

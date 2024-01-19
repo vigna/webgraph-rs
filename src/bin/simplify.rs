@@ -7,7 +7,6 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -41,16 +40,17 @@ where
 
     // transpose the graph
     let sorted = webgraph::algorithms::simplify(&seq_graph, args.pa.batch_size).unwrap();
-    // compress the transposed graph
-    parallel_compress_sequential_iter(
+
+    let target_endianness = args.ca.endianess.clone();
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
         simplified,
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
         temp_dir(args.pa.temp_dir),
-    )
-    .unwrap();
+        &target_endianness.unwrap_or_else(|| E::NAME.into()),
+    )?;
 
     Ok(())
 }

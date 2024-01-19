@@ -18,10 +18,10 @@ struct Args {
     basename: String,
 }
 
-
-fn build_offsets<E: Endianness + 'static>(args: Args) -> Result<()> 
+fn build_offsets<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
     let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.basename)?;
@@ -64,9 +64,15 @@ pub fn main() -> Result<()> {
         .init()?;
 
     match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         BE::NAME => build_offsets::<BE>(args),
-        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         LE::NAME => build_offsets::<LE>(args),
         _ => panic!("Unknown endianness"),
     }

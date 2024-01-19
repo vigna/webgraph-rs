@@ -6,8 +6,8 @@
  */
 
 use anyhow::Result;
-use lender::*;
 use dsi_bitstream::prelude::BE;
+use lender::*;
 use webgraph::prelude::*;
 
 #[test]

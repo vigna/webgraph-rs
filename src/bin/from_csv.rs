@@ -1,11 +1,11 @@
 use clap::Parser;
+use dsi_bitstream::prelude::{Endianness, BE};
 use dsi_progress_logger::*;
-use itertools::{Dedup, Itertools};
+use itertools::Itertools;
 use rayon::slice::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use webgraph::graph::arc_list_graph::ArcListGraph;
-use webgraph::graph::bvgraph::parallel_compress_sequential_iter;
 use webgraph::prelude::*;
 use webgraph::utils::proj::Left;
 
@@ -34,7 +34,6 @@ struct Args {
 
     #[clap(flatten)]
     ca: CompressArgs,
-    // TODO!: add endianess
 }
 
 fn main() {
@@ -112,13 +111,15 @@ fn main() {
             .dedup(),
     ));
     // compress it
-    parallel_compress_sequential_iter(
+    let target_endianness = args.ca.endianess.clone();
+    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
         &args.basename,
         &g,
         args.num_nodes,
         args.ca.into(),
         args.num_cpus.num_cpus,
         temp_dir(args.pa.temp_dir),
+        &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
     .unwrap();
 

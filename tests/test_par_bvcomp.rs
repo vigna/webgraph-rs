@@ -6,10 +6,10 @@
  */
 
 use anyhow::Result;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use webgraph::prelude::*;
-use dsi_bitstream::prelude::*;
 
 fn logger_init() {
     env_logger::builder().is_test(true).try_init().unwrap();

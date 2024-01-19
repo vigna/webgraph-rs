@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use webgraph::{algorithms::BfsOrder, utils::proj::Left};
 use dsi_bitstream::prelude::BE;
+use webgraph::{algorithms::BfsOrder, utils::proj::Left};
 
 #[test]
 fn test_start() -> Result<()> {
