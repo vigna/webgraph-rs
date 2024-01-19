@@ -5,20 +5,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-This modules contains the traits that are used throughout the crate.
-
-*/
-
 use dsi_bitstream::prelude::*;
 
 use crate::prelude::{CodeRead, CodeWrite};
 
+/// A trait for types implementing logic for serializing another type to a
+/// bitstream with code-writing capabilities.
 pub trait BitSerializer {
+    /// The type that implementations of this trait can serialize.
     type SerType: Send;
-    /// Write the given value to a bitstream of given endianness and providing
-    /// support to write codes.
+    /// Serialize the given value to a [`CodeRead`].
     fn serialize<E: Endianness, B: CodeWrite<E>>(
         &self,
         value: &Self::SerType,
@@ -26,20 +22,19 @@ pub trait BitSerializer {
     ) -> Result<usize, <B as BitWrite<E>>::Error>;
 }
 
-///
-/// This trait requires Clone because we need to be able to clone `BatchIterators`
-/// to be able to do the parallel compression of BVGraphs. Thus, it's suggested
-/// that if you have big structures, you wrap them in an [`Arc`](`std::sync::Arc`) or use references.
-pub trait BitDeserializer: Clone {
+/// A trait for types implementing logic for deserializing another type from a
+/// bitstream with code-reading capabilities.
+pub trait BitDeserializer {
+    /// The type that implementations of this trait can deserialized.
     type DeserType;
-    /// Reads a value from a bitstream of given endianness and providing
-    /// support to read codes.
+    /// Deserialize the given value from a [`CodeWrite`].
     fn deserialize<E: Endianness, B: CodeRead<E>>(
         &self,
         bitstream: &mut B,
     ) -> Result<Self::DeserType, <B as BitRead<E>>::Error>;
 }
 
+/// No-op implementation of [`BitSerializer`] for `()`.
 impl BitSerializer for () {
     type SerType = ();
     #[inline(always)]
@@ -52,6 +47,7 @@ impl BitSerializer for () {
     }
 }
 
+/// No-op implementation of [`BitDeserializer`] for `()`.
 impl BitDeserializer for () {
     type DeserType = ();
     #[inline(always)]

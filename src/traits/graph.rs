@@ -31,10 +31,7 @@ Usually there is a convenience method doing the wrapping for you.
 
 */
 
-use crate::{
-    prelude::{IteratorImpl, RandomAccessLabelling, SequentialLabelling},
-    Tuple2,
-};
+use crate::prelude::{IteratorImpl, Pair, RandomAccessLabelling, SequentialLabelling};
 use impl_tools::autoimpl;
 use lender::*;
 
@@ -120,7 +117,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
-            let t = x.into_tuple();
+            let t = x.into_pair();
             (t.0, UnitSuccessors(t.1.into_iter()))
         })
     }

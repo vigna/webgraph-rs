@@ -8,13 +8,10 @@ use core::iter;
 
 use lender::{IntoLender, Lend, Lender, Lending};
 
-use crate::{
-    prelude::{
-        LabelledRandomAccessGraph, LabelledSequentialGraph, LendingIntoIter, LendingIntoIterator,
-        LendingItem, NodeLabelsLending, RandomAccessGraph, RandomAccessLabelling, SequentialGraph,
-        SequentialLabelling,
-    },
-    Tuple2,
+use crate::prelude::{
+    LabelledRandomAccessGraph, LabelledSequentialGraph, LendingIntoIter, LendingIntoIterator,
+    LendingItem, NodeLabelsLending, Pair, RandomAccessGraph, RandomAccessLabelling,
+    SequentialGraph, SequentialLabelling,
 };
 
 /**
@@ -102,8 +99,8 @@ where
         let left = self.0.next();
         let right = self.1.next();
         debug_assert_eq!(left.is_none(), right.is_none());
-        let left = left?.into_tuple();
-        let right = right?.into_tuple();
+        let left = left?.into_pair();
+        let right = right?.into_pair();
         debug_assert_eq!(left.0, right.0);
         Some((left.0, std::iter::zip(left.1, right.1)))
     }

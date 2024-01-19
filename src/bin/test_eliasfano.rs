@@ -44,7 +44,7 @@ pub fn main() -> Result<()> {
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
-    let ef = <webgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
+    let ef = <webgraph::graph::bvgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
         format!("{}.ef", args.basename),
         Flags::default(),
     )?;

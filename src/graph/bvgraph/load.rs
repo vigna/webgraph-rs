@@ -53,8 +53,12 @@ macro_rules! impl_loads {
             basename: impl AsRef<Path>,
         ) -> anyhow::Result<
             BVGraph<
-                $builder<BE, MmapBackend<u32>, crate::EF<&'static [usize], &'static [u64]>>,
-                crate::EF<&'static [usize], &'static [u64]>,
+                $builder<
+                    BE,
+                    MmapBackend<u32>,
+                    crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
+                >,
+                crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
             >,
         > {
             let basename = basename.as_ref();
@@ -67,14 +71,17 @@ macro_rules! impl_loads {
             )?;
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets =
-                <crate::EF<Vec<usize>, Vec<u64>>>::mmap(&ef_path, Flags::TRANSPARENT_HUGE_PAGES)
-                    .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
+            let offsets = <crate::graph::bvgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
+                &ef_path,
+                Flags::TRANSPARENT_HUGE_PAGES,
+            )
+            .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
-            let code_reader_builder =
-                <$builder<BE, MmapBackend<u32>, crate::EF<&'static [usize], &'static [u64]>>>::new(
-                    graph, offsets, comp_flags,
-                )?;
+            let code_reader_builder = <$builder<
+                BE,
+                MmapBackend<u32>,
+                crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
+            >>::new(graph, offsets, comp_flags)?;
 
             Ok(BVGraph::new(
                 code_reader_builder,

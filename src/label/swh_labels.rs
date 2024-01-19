@@ -17,16 +17,14 @@ use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader},
     traits::{BitRead, BitSeek, BE},
 };
-use epserde::deser::{Deserialize, Flags, MemCase};
+use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
 use std::path::Path;
 use sux::traits::IndexedDict;
 
-use crate::{
-    prelude::{MmapBackend, NodeLabelsLending, RandomAccessLabelling, SequentialLabelling},
-    EF,
-};
+use crate::graph::bvgraph::EF;
+use crate::prelude::{MmapBackend, NodeLabelsLending, RandomAccessLabelling, SequentialLabelling};
 
 pub trait ReaderBuilder {
     /// The type of the reader that we are building
@@ -69,8 +67,11 @@ impl SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
                     .with_context(|| format!("Could not mmap {}", backend_path.display()))?,
             },
 
-            offsets: EF::<Vec<usize>, Vec<u64>>::mmap(&offsets_path, Flags::empty())
-                .with_context(|| format!("Could not parse {}", offsets_path.display()))?,
+            offsets: crate::graph::bvgraph::EF::<Vec<usize>, Vec<u64>>::mmap(
+                &offsets_path,
+                Flags::empty(),
+            )
+            .with_context(|| format!("Could not parse {}", offsets_path.display()))?,
         })
     }
 }

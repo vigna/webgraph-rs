@@ -375,7 +375,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
 }
 
 /// Invert the given permutation in place.
-fn invert_in_place(perm: &mut [usize]) {
+pub fn invert_in_place(perm: &mut [usize]) {
     for n in 0..perm.len() {
         let mut i = perm[n];
         if (i as isize) < 0 {

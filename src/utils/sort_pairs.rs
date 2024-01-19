@@ -21,7 +21,12 @@ use std::path::{Path, PathBuf};
 
 /// A struct that ingests paris of nodes and a generic payload and sort them
 /// in chunks of `batch_size` triples, then dumps them to disk.
-pub struct SortPairs<S: BitSerializer = (), D: BitDeserializer = ()> {
+///
+/// We require that the bit deserializer is `Clone` because we need
+/// to be able to do the parallel compression of BVGraphs. Thus, it's suggested
+/// that if you have big structures, you wrap them in an [`Arc`](`std::sync::Arc`) or use references.
+
+pub struct SortPairs<S: BitSerializer = (), D: BitDeserializer + Clone = ()> {
     /// The batch size
     batch_size: usize,
     /// The length of the last batch might be smaller than `batch_size`
@@ -40,7 +45,7 @@ pub struct SortPairs<S: BitSerializer = (), D: BitDeserializer = ()> {
     deserializer: D,
 }
 
-impl<S: BitSerializer, D: BitDeserializer> core::ops::Drop for SortPairs<S, D> {
+impl<S: BitSerializer, D: BitDeserializer + Clone> core::ops::Drop for SortPairs<S, D> {
     fn drop(&mut self) {
         let _ = self.dump();
     }
@@ -60,7 +65,7 @@ impl SortPairs<(), ()> {
     }
 }
 
-impl<S: BitSerializer, D: BitDeserializer> SortPairs<S, D> {
+impl<S: BitSerializer, D: BitDeserializer + Clone> SortPairs<S, D> {
     /// Create a new `SortPairs` with a given batch size
     ///
     /// The `dir` must be empty, and in particular it **must not** be shared
@@ -267,7 +272,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
     }
 }
 
-impl<D: BitDeserializer> Clone for BatchIterator<D> {
+impl<D: BitDeserializer + Clone> Clone for BatchIterator<D> {
     fn clone(&self) -> Self {
         BatchIterator {
             stream: self.stream.clone(),

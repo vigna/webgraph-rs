@@ -16,19 +16,16 @@ projection of a graph whose labels are pairs. In particular,
 */
 use lender::{IntoLender, Lend, Lender, Lending};
 
-use crate::{
-    prelude::{
-        LendingIntoIterator, LendingItem, NodeLabelsLending, RandomAccessGraph,
-        RandomAccessLabelling, SequentialGraph, SequentialLabelling,
-    },
-    Tuple2,
+use crate::prelude::{
+    LendingIntoIterator, LendingItem, NodeLabelsLending, Pair, RandomAccessGraph,
+    RandomAccessLabelling, SequentialGraph, SequentialLabelling,
 };
 
 // The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Left<S: SequentialLabelling>(pub S)
 where
-    S::Label: Tuple2;
+    S::Label: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIterator<L>(pub L);
@@ -36,16 +33,16 @@ pub struct LeftIterator<L>(pub L);
 impl<'succ, L> NodeLabelsLending<'succ> for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
-    for<'next> LendingItem<'next, L>: Tuple2,
+    for<'next> LendingItem<'next, L>: Pair,
 {
-    type Item = <LendingItem<'succ, L> as Tuple2>::_0;
+    type Item = <LendingItem<'succ, L> as Pair>::Left;
     type IntoIterator = LeftIntoIterator<<L as NodeLabelsLending<'succ>>::IntoIterator>;
 }
 
 impl<'succ, L> Lending<'succ> for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
-    for<'next> LendingItem<'next, L>: Tuple2,
+    for<'next> LendingItem<'next, L>: Pair,
 {
     type Lend = (usize, LendingIntoIterator<'succ, Self>);
 }
@@ -53,29 +50,29 @@ where
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIntoIterator<I: IntoIterator>(pub I)
 where
-    I::Item: Tuple2;
+    I::Item: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIntoIter<I: Iterator>(pub I)
 where
-    I::Item: Tuple2;
+    I::Item: Pair;
 
 impl<I: Iterator> Iterator for LeftIntoIter<I>
 where
-    I::Item: Tuple2,
+    I::Item: Pair,
 {
-    type Item = <I::Item as Tuple2>::_0;
+    type Item = <I::Item as Pair>::Left;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|x| x.into_tuple().0)
+        self.0.next().map(|x| x.into_pair().0)
     }
 }
 
 impl<I: IntoIterator> IntoIterator for LeftIntoIterator<I>
 where
-    I::Item: Tuple2,
+    I::Item: Pair,
 {
-    type Item = <I::Item as Tuple2>::_0;
+    type Item = <I::Item as Pair>::Left;
     type IntoIter = LeftIntoIter<I::IntoIter>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -86,12 +83,12 @@ where
 impl<L> Lender for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
-    for<'next> LendingItem<'next, L>: Tuple2,
+    for<'next> LendingItem<'next, L>: Pair,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
-            let (node, succ) = x.into_tuple();
+            let (node, succ) = x.into_pair();
             (node, LeftIntoIterator(succ))
         })
     }
@@ -99,7 +96,7 @@ where
 
 impl<'a, S: SequentialLabelling> IntoLender for &'a Left<S>
 where
-    S::Label: Tuple2,
+    S::Label: Pair,
 {
     type Lender = <Left<S> as SequentialLabelling>::Iterator<'a>;
 
@@ -111,9 +108,9 @@ where
 
 impl<S: SequentialLabelling> SequentialLabelling for Left<S>
 where
-    S::Label: Tuple2,
+    S::Label: Pair,
 {
-    type Label = <S::Label as Tuple2>::_0;
+    type Label = <S::Label as Pair>::Left;
 
     type Iterator<'node> = LeftIterator<S::Iterator<'node>>
        where
@@ -134,7 +131,7 @@ where
 
 impl<R: RandomAccessLabelling> RandomAccessLabelling for Left<R>
 where
-    R::Label: Tuple2,
+    R::Label: Pair,
 {
     type Successors<'succ> = LeftIntoIterator<<R as RandomAccessLabelling>::Successors<'succ>>
     where
@@ -153,15 +150,15 @@ where
     }
 }
 
-impl<S: SequentialLabelling> SequentialGraph for Left<S> where S::Label: Tuple2<_0 = usize> {}
+impl<S: SequentialLabelling> SequentialGraph for Left<S> where S::Label: Pair<Left = usize> {}
 
-impl<R: RandomAccessLabelling> RandomAccessGraph for Left<R> where R::Label: Tuple2<_0 = usize> {}
+impl<R: RandomAccessLabelling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
 
 // The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Right<S: SequentialLabelling>(pub S)
 where
-    S::Label: Tuple2;
+    S::Label: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIterator<L>(pub L);
@@ -169,16 +166,16 @@ pub struct RightIterator<L>(pub L);
 impl<'succ, L> NodeLabelsLending<'succ> for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
-    for<'next> LendingItem<'next, L>: Tuple2,
+    for<'next> LendingItem<'next, L>: Pair,
 {
-    type Item = <LendingItem<'succ, L> as Tuple2>::_1;
+    type Item = <LendingItem<'succ, L> as Pair>::Right;
     type IntoIterator = RightIntoIterator<<L as NodeLabelsLending<'succ>>::IntoIterator>;
 }
 
 impl<'succ, L> Lending<'succ> for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
-    for<'next> LendingItem<'next, L>: Tuple2,
+    for<'next> LendingItem<'next, L>: Pair,
 {
     type Lend = (usize, LendingIntoIterator<'succ, Self>);
 }
@@ -186,29 +183,29 @@ where
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIntoIterator<I: IntoIterator>(pub I)
 where
-    I::Item: Tuple2;
+    I::Item: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIntoIter<I: Iterator>(pub I)
 where
-    I::Item: Tuple2;
+    I::Item: Pair;
 
 impl<I: Iterator> Iterator for RightIntoIter<I>
 where
-    I::Item: Tuple2,
+    I::Item: Pair,
 {
-    type Item = <I::Item as Tuple2>::_1;
+    type Item = <I::Item as Pair>::Right;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|x| x.into_tuple().1)
+        self.0.next().map(|x| x.into_pair().1)
     }
 }
 
 impl<I: IntoIterator> IntoIterator for RightIntoIterator<I>
 where
-    I::Item: Tuple2,
+    I::Item: Pair,
 {
-    type Item = <I::Item as Tuple2>::_1;
+    type Item = <I::Item as Pair>::Right;
     type IntoIter = RightIntoIter<I::IntoIter>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -219,12 +216,12 @@ where
 impl<L> Lender for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLending<'next>,
-    for<'next> LendingItem<'next, L>: Tuple2,
+    for<'next> LendingItem<'next, L>: Pair,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
-            let (node, succ) = x.into_tuple();
+            let (node, succ) = x.into_pair();
             (node, RightIntoIterator(succ))
         })
     }
@@ -232,7 +229,7 @@ where
 
 impl<'a, S: SequentialLabelling> IntoLender for &'a Right<S>
 where
-    S::Label: Tuple2,
+    S::Label: Pair,
 {
     type Lender = <Right<S> as SequentialLabelling>::Iterator<'a>;
 
@@ -244,9 +241,9 @@ where
 
 impl<S: SequentialLabelling> SequentialLabelling for Right<S>
 where
-    S::Label: Tuple2,
+    S::Label: Pair,
 {
-    type Label = <S::Label as Tuple2>::_1;
+    type Label = <S::Label as Pair>::Right;
 
     type Iterator<'node> = RightIterator<S::Iterator<'node>>
        where
@@ -267,7 +264,7 @@ where
 
 impl<R: RandomAccessLabelling> RandomAccessLabelling for Right<R>
 where
-    R::Label: Tuple2,
+    R::Label: Pair,
 {
     type Successors<'succ> = RightIntoIterator<<R as RandomAccessLabelling>::Successors<'succ>>
     where
@@ -286,6 +283,6 @@ where
     }
 }
 
-impl<S: SequentialLabelling> SequentialGraph for Right<S> where S::Label: Tuple2<_1 = usize> {}
+impl<S: SequentialLabelling> SequentialGraph for Right<S> where S::Label: Pair<Right = usize> {}
 
-impl<R: RandomAccessLabelling> RandomAccessGraph for Right<R> where R::Label: Tuple2<_1 = usize> {}
+impl<R: RandomAccessLabelling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}

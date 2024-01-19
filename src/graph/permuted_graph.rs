@@ -83,7 +83,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
-            let (node, succ) = x.into_tuple();
+            let (node, succ) = x.into_pair();
             (
                 self.perm[node],
                 PermutedSuccessors {

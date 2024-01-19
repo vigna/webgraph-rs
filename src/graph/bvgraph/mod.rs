@@ -45,3 +45,9 @@ pub use comp_flags::*;
 
 mod bvgraph_codes;
 pub use bvgraph_codes::*;
+
+/// The default version of EliasFano we use for the CLI
+pub type EF<Memory, Inventory> = sux::dict::EliasFano<
+    sux::rank_sel::SelectFixed2<sux::bits::CountBitVec<Memory>, Inventory, 8>,
+    sux::bits::BitFieldVec<usize, Memory>,
+>;

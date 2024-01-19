@@ -10,7 +10,7 @@ use clap::Parser;
 use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
-use webgraph::{invert_in_place, prelude::*};
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -99,7 +99,7 @@ pub fn main() -> Result<()> {
 
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
-    invert_in_place(llp_perm.as_mut_slice());
+    webgraph::algorithms::invert_in_place(llp_perm.as_mut_slice());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     log::info!("Saving permutation...");
