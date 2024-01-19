@@ -247,7 +247,7 @@ impl<L: Copy + 'static> SequentialLabelling for VecGraph<L> {
 impl<L: Copy + 'static> LabelledSequentialGraph<L> for VecGraph<L> {}
 
 impl<L: Copy + 'static> RandomAccessLabelling for VecGraph<L> {
-    type Successors<'succ> = Successors<'succ, L> where L: 'succ;
+    type Labels<'succ> = Successors<'succ, L> where L: 'succ;
     #[inline(always)]
     fn num_arcs(&self) -> usize {
         self.number_of_arcs
@@ -259,7 +259,7 @@ impl<L: Copy + 'static> RandomAccessLabelling for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn successors(&self, node: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
+    fn labels(&self, node: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
         Successors(self.succ[node].iter())
     }
 }

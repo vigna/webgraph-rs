@@ -197,13 +197,13 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabel
 }
 
 impl RandomAccessLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
-    type Successors<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
+    type Labels<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
 
     fn num_arcs(&self) -> usize {
         todo!();
     }
 
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
         let mut reader = self.reader_builder.get_reader();
         reader
             .set_bit_pos(self.offsets.get(node_id) as u64)
@@ -216,6 +216,6 @@ impl RandomAccessLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>
     }
 
     fn outdegree(&self, node_id: usize) -> usize {
-        self.successors(node_id).count()
+        self.labels(node_id).count()
     }
 }

@@ -133,7 +133,7 @@ impl<R: RandomAccessLabelling> RandomAccessLabelling for Left<R>
 where
     R::Label: Pair,
 {
-    type Successors<'succ> = LeftIntoIterator<<R as RandomAccessLabelling>::Successors<'succ>>
+    type Labels<'succ> = LeftIntoIterator<<R as RandomAccessLabelling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -141,8 +141,8 @@ where
         self.0.num_arcs()
     }
 
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
-        LeftIntoIterator(self.0.successors(node_id))
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        LeftIntoIterator(self.0.labels(node_id))
     }
 
     fn outdegree(&self, _node_id: usize) -> usize {
@@ -266,7 +266,7 @@ impl<R: RandomAccessLabelling> RandomAccessLabelling for Right<R>
 where
     R::Label: Pair,
 {
-    type Successors<'succ> = RightIntoIterator<<R as RandomAccessLabelling>::Successors<'succ>>
+    type Labels<'succ> = RightIntoIterator<<R as RandomAccessLabelling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -274,8 +274,8 @@ where
         self.0.num_arcs()
     }
 
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
-        RightIntoIterator(self.0.successors(node_id))
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        RightIntoIterator(self.0.labels(node_id))
     }
 
     fn outdegree(&self, _node_id: usize) -> usize {

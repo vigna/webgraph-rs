@@ -19,12 +19,10 @@ fn test_zip() {
     while let Some((x, i)) = lender.next() {
         let s = i.collect::<Vec<_>>();
         println!("{:?} {:?}", x, s);
-        assert_eq!(z.successors(x).collect::<Vec<_>>(), s);
+        assert_eq!(z.labels(x).collect::<Vec<_>>(), s);
         assert_eq!(
-            LeftIntoIter(z.successors(x))
-                .into_iter()
-                .collect::<Vec<_>>(),
-            v.successors(x).into_iter().collect::<Vec<_>>()
+            LeftIntoIter(z.labels(x)).into_iter().collect::<Vec<_>>(),
+            v.labels(x).into_iter().collect::<Vec<_>>()
         )
     }
 }

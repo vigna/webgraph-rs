@@ -133,12 +133,12 @@ impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip
 }
 
 impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling for Zip<L, R> {
-    type Successors<'succ> = std::iter::Zip<
-        <<L as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter,
-        <<R as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
+    type Labels<'succ> = std::iter::Zip<
+        <<L as RandomAccessLabelling>::Labels<'succ> as IntoIterator>::IntoIter,
+        <<R as RandomAccessLabelling>::Labels<'succ> as IntoIterator>::IntoIter>
         where
-            <L as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <L as SequentialLabelling>::Label>,
-            <R as RandomAccessLabelling>::Successors<'succ>: IntoIterator<Item = <R as SequentialLabelling>::Label>,
+            <L as RandomAccessLabelling>::Labels<'succ>: IntoIterator<Item = <L as SequentialLabelling>::Label>,
+            <R as RandomAccessLabelling>::Labels<'succ>: IntoIterator<Item = <R as SequentialLabelling>::Label>,
         Self: 'succ;
 
     fn num_arcs(&self) -> usize {
@@ -146,8 +146,8 @@ impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling f
         self.0.num_arcs()
     }
 
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
-        iter::zip(self.0.successors(node_id), self.1.successors(node_id))
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        iter::zip(self.0.labels(node_id), self.1.labels(node_id))
     }
 
     fn outdegree(&self, _node_id: usize) -> usize {

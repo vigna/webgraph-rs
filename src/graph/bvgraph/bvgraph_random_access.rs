@@ -166,7 +166,7 @@ where
     CRB: BVGraphCodesReaderBuilder,
     OFF: IndexedDict<Input = usize, Output = usize>,
 {
-    type Successors<'a> = RandomSuccessorIter<CRB::Reader<'a>>
+    type Labels<'a> = RandomSuccessorIter<CRB::Reader<'a>>
     where Self: 'a, CRB: 'a;
 
     fn num_arcs(&self) -> usize {
@@ -184,7 +184,7 @@ where
 
     #[inline(always)]
     /// Return a random access iterator over the successors of a node.
-    fn successors(&self, node_id: usize) -> RandomSuccessorIter<CRB::Reader<'_>> {
+    fn labels(&self, node_id: usize) -> RandomSuccessorIter<CRB::Reader<'_>> {
         let codes_reader = self
             .codes_reader_builder
             .get_reader(node_id)

@@ -68,7 +68,7 @@ pub fn main() -> Result<()> {
         pl.start("Unit graph successors...");
         for x in 0..unit.num_nodes() {
             black_box(x);
-            for i in unit.successors(x) {
+            for i in unit.labels(x) {
                 black_box(i);
             }
         }
@@ -77,7 +77,7 @@ pub fn main() -> Result<()> {
         pl.start("Zipped-projected graph successors...");
         for x in 0..unit.num_nodes() {
             black_box(x);
-            for (i, _) in labelled.successors(x) {
+            for (i, _) in labelled.labels(x) {
                 black_box(i);
             }
         }

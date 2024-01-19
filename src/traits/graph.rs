@@ -68,6 +68,18 @@ pub unsafe trait SortedSuccessors: IntoIterator {}
 /// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGraph {
+    /// Convenience alias of the [`RandomAccessLabelling::labels`] method.
+    #[inline(always)]
+    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        <Self as RandomAccessLabelling>::labels(self, node_id)
+    }
+
+    /// Unconvenience override of the [`RandomAccessLabelling::labels`] method
+    /// that discourages the use of the `labels` method on graphs.
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+        unreachable!();
+    }
+
     /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
     fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
         for neighbour_id in self.successors(src_node_id) {
@@ -156,15 +168,15 @@ impl<'a, G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {
 pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {}
 
 impl<'a, G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
-    type Successors<'succ> =
-        UnitSuccessors<<<G as RandomAccessLabelling>::Successors<'succ> as IntoIterator>::IntoIter>
+    type Labels<'succ> =
+        UnitSuccessors<<<G as RandomAccessLabelling>::Labels<'succ> as IntoIterator>::IntoIter>
         where Self: 'succ;
 
     fn num_arcs(&self) -> usize {
         self.0.num_arcs()
     }
 
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_> {
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
         UnitSuccessors(self.0.successors(node_id).into_iter())
     }
 

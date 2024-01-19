@@ -16,12 +16,12 @@ each node of a graph a list of labels. In the [sequential case](SequentialLabell
 one can obtain a [lender](lender::Lender) that lends pairs given by a node
 and an iterator on the associated labels. In the [random-access case](RandomAccessLabelling),
 instead, one can get [an iterator on the labels associated with a node](RandomAccessLabelling::successors).
+Labellings can be [zipped together](crate::utils::Zip), obtaining a
+new labelling whose labels are pairs.
 
 The number of nodes *n* of the graph is returned by [`SequentialLabelling::num_nodes`],
 and nodes identifier are in the interval [0 . . *n*).
 
-Labellings can be [zipped together](crate::utils::Zip), obtaining a
-new labelling whose labels are pairs.
 
 */
 
@@ -82,11 +82,11 @@ pub type LenderIntoIter<'lend, L> =
 /// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
 /// force these properties.
 ///
-/// The iterator returned by [iter](SequentialGraph::iter) is a [lender](Lender):
+/// The iterator returned by [iter](SequentialLabelling::iter) is a [lender](Lender):
 /// to access the next pair, you must have finished to use the previous one. You
 /// can invoke [`Lender::into_iter`] to get a standard iterator, in general
-/// at the cost of some allocation and copying.
 
+/// at the cost of some allocation and copying.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialLabelling {
     type Label;
@@ -120,9 +120,9 @@ pub trait SequentialLabelling {
     /// but just the starting point of the iteration.
     fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
 
-    /// Given a graph, apply `func` to each chunk of nodes of size `granularity`
+    /// Given a labelling, apply `func` to each chunk of nodes of size `granularity`
     /// in parallel, and reduce the results using `reduce`.
-    fn par_graph_apply<F, R, T>(
+    fn par_apply<F, R, T>(
         &self,
         func: F,
         reduce: R,
@@ -190,27 +190,39 @@ pub trait SequentialLabelling {
     }
 }
 
-/// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
+/// Marker trait for lenders returned by [`SequentialLabelling::iter`]
+/// yielding node ids in ascending order.
+pub unsafe trait SortedIterator: Lender {}
+
+/// Marker trait for [`IntoIterator`]s yielding labels in the
+/// order induced by enumerating the successors in ascending order.
+pub unsafe trait SortedLabels: IntoIterator {}
+
+/// A [`SequentialLabelling`] providing, additionally, random access to
+/// the list of labels associated with a node.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessLabelling: SequentialLabelling {
-    /// The type of the iterator over the successors of a node
-    /// returned by [successors](RandomAccessGraph::successors).
-    type Successors<'succ>: IntoIterator<Item = <Self as SequentialLabelling>::Label>
+    /// The type of the iterator over the labels of a node
+    /// returned by [successors](RandomAccessLabelling::successors).
+    type Labels<'succ>: IntoIterator<Item = <Self as SequentialLabelling>::Label>
     where
         Self: 'succ;
 
     /// Return the number of arcs in the graph.
     fn num_arcs(&self) -> usize;
 
-    /// Return an [`IntoIterator`] over the successors of a node.
-    fn successors(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Successors<'_>;
+    /// Return the labels associated with a node.
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_>;
 
-    /// Return the number of successors of a node.
+    /// Return the number of labels associated with a node.
     fn outdegree(&self, node_id: usize) -> usize;
 }
 
-/// A struct used to make it easy to implement [a graph iterator](Lender)
-/// for a type that implements [`RandomAccessGraph`].
+/// A struct used to make it easy to implement sequential access
+/// starting from random access.
+///
+/// Users can implement just random-access primitives and then
+/// use this structure to implement sequential access.
 pub struct IteratorImpl<'node, G: RandomAccessLabelling> {
     pub labelling: &'node G,
     pub nodes: core::ops::Range<usize>,
@@ -218,11 +230,11 @@ pub struct IteratorImpl<'node, G: RandomAccessLabelling> {
 
 impl<'node, 'succ, G: RandomAccessLabelling> NodeLabelsLender<'succ> for IteratorImpl<'node, G> {
     type Label = G::Label;
-    type IntoIterator = <G as RandomAccessLabelling>::Successors<'succ>;
+    type IntoIterator = <G as RandomAccessLabelling>::Labels<'succ>;
 }
 
 impl<'node, 'succ, G: RandomAccessLabelling> Lending<'succ> for IteratorImpl<'node, G> {
-    type Lend = (usize, <G as RandomAccessLabelling>::Successors<'succ>);
+    type Lend = (usize, <G as RandomAccessLabelling>::Labels<'succ>);
 }
 
 impl<'node, G: RandomAccessLabelling> Lender for IteratorImpl<'node, G> {
@@ -230,6 +242,6 @@ impl<'node, G: RandomAccessLabelling> Lender for IteratorImpl<'node, G> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.nodes
             .next()
-            .map(|node_id| (node_id, self.labelling.successors(node_id)))
+            .map(|node_id| (node_id, self.labelling.labels(node_id)))
     }
 }

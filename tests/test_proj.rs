@@ -20,8 +20,8 @@ fn test_left() {
     while let Some((x, i)) = lender.next() {
         let s = i.into_iter().collect::<Vec<_>>();
         println!("{:?} {:?}", x, s);
-        assert_eq!(p.successors(x).into_iter().collect::<Vec<_>>(), s);
-        assert_eq!(v.successors(x).collect::<Vec<_>>(), s);
+        assert_eq!(p.labels(x).into_iter().collect::<Vec<_>>(), s);
+        assert_eq!(v.labels(x).collect::<Vec<_>>(), s);
     }
 
     let p = Right(p.0);
@@ -29,7 +29,7 @@ fn test_left() {
     while let Some((x, i)) = lender.next() {
         let s = i.into_iter().collect::<Vec<_>>();
         println!("{:?} {:?}", x, s);
-        assert_eq!(p.successors(x).into_iter().collect::<Vec<_>>(), s);
-        assert_eq!(v.successors(x).collect::<Vec<_>>(), s);
+        assert_eq!(p.labels(x).into_iter().collect::<Vec<_>>(), s);
+        assert_eq!(v.labels(x).collect::<Vec<_>>(), s);
     }
 }
