@@ -106,7 +106,7 @@ impl<L: Copy + 'static> VecGraph<L> {
     /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
     pub fn add_labelled_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
-        I::Lender: for<'next> NodeLabels<'next, Label = (usize, L)>,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
         for_!( (node, succ) in iter_nodes {
             self.add_node(node);
@@ -120,7 +120,7 @@ impl<L: Copy + 'static> VecGraph<L> {
     /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
     pub fn from_labelled_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
-        I::Lender: for<'next> NodeLabels<'next, Label = (usize, L)>,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
         let mut g = Self::new();
         g.add_labelled_lender(iter_nodes);
@@ -174,7 +174,7 @@ impl VecGraph<()> {
     /// Add the nodes and sucessors from the `iter_nodes` iterator of a graph
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
-        I::Lender: for<'next> NodeLabels<'next, Label = usize>,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
         for_!( (node, succ) in iter_nodes {
             self.add_node(node);
@@ -188,7 +188,7 @@ impl VecGraph<()> {
     /// Convert the `iter_nodes` iterator of a graph into a [`VecGraph`].
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
-        I::Lender: for<'next> NodeLabels<'next, Label = usize>,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
         let mut g = Self::new();
         g.add_lender(iter_nodes);

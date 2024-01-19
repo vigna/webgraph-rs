@@ -57,8 +57,8 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
     }
 }
 
-impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> NodeLabels<'succ>
-    for NodeIterator<L, I>
+impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone>
+    NodeLabelsLender<'succ> for NodeIterator<L, I>
 {
     type Label = (usize, L);
     type IntoIterator = Successors<'succ, L, I>;
@@ -67,7 +67,7 @@ impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lending<'succ>
     for NodeIterator<L, I>
 {
-    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender

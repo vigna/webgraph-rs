@@ -35,7 +35,7 @@ use crate::prelude::{IteratorImpl, Pair, RandomAccessLabelling, SequentialLabell
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::labels::{Labels, LendingIntoIter, NodeLabels};
+use super::labels::{Labels, LendingIntoIter, NodeLabelsLender};
 
 /// A graph that can be accessed sequentially.
 ///
@@ -95,9 +95,9 @@ pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 #[repr(transparent)]
 pub struct UnitIterator<L>(L);
 
-impl<'succ, L> NodeLabels<'succ> for UnitIterator<L>
+impl<'succ, L> NodeLabelsLender<'succ> for UnitIterator<L>
 where
-    L: Lender + for<'next> NodeLabels<'next, Label = usize>,
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = (usize, ());
     type IntoIterator = UnitSuccessors<LendingIntoIter<'succ, L>>;
@@ -105,14 +105,14 @@ where
 
 impl<'succ, L> Lending<'succ> for UnitIterator<L>
 where
-    L: Lender + for<'next> NodeLabels<'next, Label = usize>,
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
-    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<L: Lender> Lender for UnitIterator<L>
 where
-    L: IntoLender + for<'next> NodeLabels<'next, Label = usize>,
+    L: IntoLender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {

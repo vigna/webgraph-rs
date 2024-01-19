@@ -61,9 +61,9 @@ pub struct PermutedGraphIterator<'node, I> {
     perm: &'node [usize],
 }
 
-impl<'node, 'succ, I> NodeLabels<'succ> for PermutedGraphIterator<'node, I>
+impl<'node, 'succ, I> NodeLabelsLender<'succ> for PermutedGraphIterator<'node, I>
 where
-    I: Lender + for<'next> NodeLabels<'next, Label = usize>,
+    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = usize;
     type IntoIterator = PermutedSuccessors<'succ, LendingIntoIter<'succ, I>>;
@@ -71,14 +71,14 @@ where
 
 impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>
 where
-    I: Lender + for<'next> NodeLabels<'next, Label = usize>,
+    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
-    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<'a, L> Lender for PermutedGraphIterator<'a, L>
 where
-    L: Lender + for<'next> NodeLabels<'next, Label = usize>,
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {

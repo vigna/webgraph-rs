@@ -276,13 +276,13 @@ impl<CR: BVGraphCodesReader> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<'succ, CR: BVGraphCodesReader> NodeLabels<'succ> for WebgraphSequentialIter<CR> {
+impl<'succ, CR: BVGraphCodesReader> NodeLabelsLender<'succ> for WebgraphSequentialIter<CR> {
     type Label = usize;
     type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Label>>;
 }
 
 impl<'succ, CR: BVGraphCodesReader> Lending<'succ> for WebgraphSequentialIter<CR> {
-    type Lend = (usize, <Self as NodeLabels<'succ>>::IntoIterator);
+    type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<CR: BVGraphCodesReader> Lender for WebgraphSequentialIter<CR> {
