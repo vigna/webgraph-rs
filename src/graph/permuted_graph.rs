@@ -120,7 +120,7 @@ impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSucce
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
     use crate::{graph::vec_graph::VecGraph, prelude::proj::Left};
-    let g = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0), (2, 1)]);
+    let g = VecGraph::from_arc_list([(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
         graph: &Left(g),
         perm: &[2, 0, 1],

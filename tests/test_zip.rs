@@ -13,7 +13,7 @@ use webgraph::utils::Zip;
 
 #[test]
 fn test_zip() {
-    let v = VecGraph::from_arc_list(&[(0, 1), (1, 2), (2, 0)]);
+    let v = VecGraph::from_arc_list([(0, 1), (1, 2), (2, 0)]);
     let z = Zip(v.clone(), v.clone());
     let mut lender = z.into_lender();
     while let Some((x, i)) = lender.next() {

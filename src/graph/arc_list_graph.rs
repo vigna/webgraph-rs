@@ -141,8 +141,8 @@ impl<'succ, I: std::iter::Iterator<Item = (usize, usize)>> std::iter::Iterator
 fn test_coo_iter() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = VecGraph::from_arc_list(&arcs);
-    let coo = ArcListGraph::new(g.num_nodes(), arcs);
+    let g = VecGraph::from_arc_list(arcs.iter().copied());
+    let coo = ArcListGraph::new(g.num_nodes(), arcs.iter().copied());
     let g2 = VecGraph::from_lender(coo.iter());
     assert_eq!(g, g2);
     Ok(())

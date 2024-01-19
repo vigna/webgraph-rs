@@ -63,7 +63,7 @@ pub fn transpose(
 fn test_transposition() -> anyhow::Result<()> {
     use crate::graph::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = Left(VecGraph::from_arc_list(&arcs));
+    let g = Left(VecGraph::from_arc_list(arcs));
 
     let trans = transpose(&g, 3)?;
     let g2 = Left(VecGraph::from_lender(&trans));

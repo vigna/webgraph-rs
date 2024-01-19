@@ -70,11 +70,13 @@ pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGr
 
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
-    /// This method contains [`std::unreachable`] to make it impossible
+    /// This method contains [`std::unimplemented`] to make it impossible
     /// its usage on graphs. Use the [`successors`] method instead.
-    #[deprecated(note = "use the `successors` method instead; this method is just unreachable!()")]
+    #[deprecated(
+        note = "use the `successors` method instead; this method is just unimplemented!()"
+    )]
     fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
-        unreachable!("use the `successors` method instead");
+        unimplemented!("use the `successors` method instead");
     }
 
     /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
@@ -180,11 +182,13 @@ pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)
 
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
-    /// This method contains [`std::unreachable`] to make it impossible
+    /// This method contains [`std::unimplemented`] to make it impossible
     /// its usage on graphs. Use the [`successors`] method instead.
-    #[deprecated(note = "use the `successors` method instead; this method is just unreachable!()")]
+    #[deprecated(
+        note = "use the `successors` method instead; this method is just unimplemented!()"
+    )]
     fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
-        unreachable!("use the `successors` method instead");
+        unimplemented!("use the `successors` method instead");
     }
 
     /// Return whether there is an arc going from `src_node_id` to `dst_node_id`.
