@@ -199,7 +199,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabel
 impl RandomAccessLabelling for SwhLabels<MmapReaderBuilder, EF<&[usize], &[u64]>> {
     type Labels<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
 
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         todo!();
     }
 

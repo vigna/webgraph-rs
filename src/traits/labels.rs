@@ -101,7 +101,7 @@ pub trait SequentialLabelling {
     fn num_nodes(&self) -> usize;
 
     /// Return the number of arcs in the graph, if available.
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         None
     }
 
@@ -218,7 +218,7 @@ pub trait RandomAccessLabelling: SequentialLabelling {
         Self: 'succ;
 
     /// Return the number of arcs in the graph.
-    fn num_arcs(&self) -> usize;
+    fn num_arcs(&self) -> u64;
 
     /// Return the labels associated with a node.
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_>;

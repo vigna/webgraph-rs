@@ -24,13 +24,15 @@ pub fn get_endianess<P: AsRef<Path>>(basename: P) -> Result<String> {
     let map = java_properties::read(BufReader::new(f))
         .with_context(|| format!("cannot parse {} as a java properties file", path))?;
 
-    let endianness = map.get("endianness").map(|x| x.to_string())
+    let endianness = map
+        .get("endianness")
+        .map(|x| x.to_string())
         .unwrap_or_else(|| BigEndian::NAME.to_string());
 
     Ok(endianness)
 }
 
-fn parse_properties<E: Endianness>(path: &str) -> Result<(usize, usize, CompFlags)> {
+fn parse_properties<E: Endianness>(path: &str) -> Result<(usize, u64, CompFlags)> {
     let f = File::open(&path).with_context(|| format!("Cannot open property file {}", path))?;
     let map = java_properties::read(BufReader::new(f))
         .with_context(|| format!("cannot parse {} as a java properties file", path))?;
@@ -43,16 +45,20 @@ fn parse_properties<E: Endianness>(path: &str) -> Result<(usize, usize, CompFlag
     let num_arcs = map
         .get("arcs")
         .with_context(|| format!("Missing 'arcs' property in {}", path))?
-        .parse::<usize>()
+        .parse::<u64>()
         .with_context(|| format!("Cannot parse arcs as usize in {}", path))?;
 
-    let endianness = map.get("endianness").map(|x| x.to_string())
+    let endianness = map
+        .get("endianness")
+        .map(|x| x.to_string())
         .unwrap_or_else(|| BigEndian::NAME.to_string());
 
     anyhow::ensure!(
-        endianness == E::NAME, 
-        "Wrong endianness in {}, got {} while expected {}", 
-        path, endianness, E::NAME
+        endianness == E::NAME,
+        "Wrong endianness in {}, got {} while expected {}",
+        path,
+        endianness,
+        E::NAME
     );
 
     let comp_flags = CompFlags::from_properties(&map)
@@ -74,9 +80,10 @@ macro_rules! impl_loads {
                 >,
                 crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
             >,
-        > 
+        >
         where
-            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+                ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
         {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
@@ -114,7 +121,8 @@ macro_rules! impl_loads {
             basename: P,
         ) -> Result<BVGraphSequential<$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>>
         where
-            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+                ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
         {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =

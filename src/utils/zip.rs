@@ -141,7 +141,7 @@ impl<L: RandomAccessLabelling, R: RandomAccessLabelling> RandomAccessLabelling f
             <R as RandomAccessLabelling>::Labels<'succ>: IntoIterator<Item = <R as SequentialLabelling>::Label>,
         Self: 'succ;
 
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         assert_eq!(self.0.num_arcs(), self.1.num_arcs());
         self.0.num_arcs()
     }

@@ -71,12 +71,12 @@ where
         // Sequential speed test
         for _ in 0..args.repeats {
             // Create a sequential reader
-            let mut c = 0;
+            let mut c: u64 = 0;
             let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
             let start = std::time::Instant::now();
             let mut iter = seq_graph.iter();
             while let Some((_, succ)) = iter.next() {
-                c += succ.count();
+                c += succ.count() as u64;
             }
             println!(
                 "Sequential:{:>20} ns/arc",
@@ -93,10 +93,10 @@ where
                 seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
             let mut deg_reader = seq_graph.iter_degrees();
 
-            let mut c: usize = 0;
+            let mut c: u64 = 0;
             let start = std::time::Instant::now();
             for _ in 0..seq_graph.num_nodes() {
-                c += deg_reader.next_degree()?;
+                c += deg_reader.next_degree()? as u64;
             }
             println!(
                 "Degrees Only:{:>20} ns/arc",

@@ -31,7 +31,7 @@ impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         self.graph.num_arcs_hint()
     }
 

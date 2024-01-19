@@ -10,6 +10,11 @@ use crate::prelude::*;
 use lender::prelude::*;
 use std::collections::BTreeSet;
 
+/// A struct containing a successor.
+///
+/// By implementing equality and order on the first coordinate only, we
+/// can store the successors of a node and their labels as a
+/// [`BTreeSet`] of pairs `(usize, L)`.
 #[derive(Clone, Copy, Debug)]
 struct Successor<L: Copy + 'static>(usize, L);
 
@@ -36,15 +41,15 @@ impl<L: Copy + 'static> Ord for Successor<L> {
     }
 }
 
-/// A vector-based mutable [`Graph`]/[`LabeledGraph`] implementation.
+/// A mutable [`LabelledRandomAccessGraph`] implementation based on a vector of [`BTreeSet`].
 ///
-/// Successors are represented using a [`BTreeSet`]. Choosing `()`
-/// as the label type will result in a [`Graph`] implementation.
+/// Choosing [`()`](https://doc.rust-lang.org/std/primitive.unit.html)
+/// as the label type will result in a [`RandomAccessGraph`] implementation.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VecGraph<L: Copy + 'static = ()> {
     /// The number of arcs in the graph.
-    number_of_arcs: usize,
+    number_of_arcs: u64,
     /// For each node, its list of successors.
     succ: Vec<BTreeSet<Successor<L>>>,
 }
@@ -88,7 +93,7 @@ impl<L: Copy + 'static> VecGraph<L> {
             self.succ.resize(max + 1, BTreeSet::new());
         }
         let result = self.succ[u].insert(Successor(v, l));
-        self.number_of_arcs += result as usize;
+        self.number_of_arcs += result as u64;
         result
     }
 
@@ -99,7 +104,7 @@ impl<L: Copy + 'static> VecGraph<L> {
             return None;
         }
         let result = self.succ[u].remove(&Successor(v, l));
-        self.number_of_arcs -= result as usize;
+        self.number_of_arcs -= result as u64;
         Some(result)
     }
 
@@ -156,7 +161,7 @@ impl VecGraph<()> {
             self.succ.resize(max + 1, BTreeSet::new());
         }
         let result = self.succ[u].insert(Successor(v, ()));
-        self.number_of_arcs += result as usize;
+        self.number_of_arcs += result as u64;
         result
     }
 
@@ -167,7 +172,7 @@ impl VecGraph<()> {
             return None;
         }
         let result = self.succ[u].remove(&Successor(v, ()));
-        self.number_of_arcs -= result as usize;
+        self.number_of_arcs -= result as u64;
         Some(result)
     }
 
@@ -231,7 +236,7 @@ impl<L: Copy + 'static> SequentialLabelling for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         Some(self.num_arcs())
     }
 
@@ -249,7 +254,7 @@ impl<L: Copy + 'static> LabelledSequentialGraph<L> for VecGraph<L> {}
 impl<L: Copy + 'static> RandomAccessLabelling for VecGraph<L> {
     type Labels<'succ> = Successors<'succ, L> where L: 'succ;
     #[inline(always)]
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         self.number_of_arcs
     }
 

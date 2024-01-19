@@ -124,7 +124,7 @@ where
         LeftIterator(self.0.iter_from(from))
     }
 
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         self.0.num_arcs_hint()
     }
 }
@@ -137,7 +137,7 @@ where
     where
         Self: 'succ;
 
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 
@@ -253,7 +253,7 @@ where
         self.0.num_nodes()
     }
 
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         self.0.num_arcs_hint()
     }
 
@@ -270,7 +270,7 @@ where
     where
         Self: 'succ;
 
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 

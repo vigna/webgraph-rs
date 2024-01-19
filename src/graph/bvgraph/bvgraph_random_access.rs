@@ -25,7 +25,7 @@ pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Input = usiz
     /// The number of nodes in the graph.
     number_of_nodes: usize,
     /// The number of arcs in the graph.
-    number_of_arcs: usize,
+    number_of_arcs: u64,
     _marker: std::marker::PhantomData<OFF>,
 }
 
@@ -54,7 +54,7 @@ where
         min_interval_length: usize,
         compression_window: usize,
         number_of_nodes: usize,
-        number_of_arcs: usize,
+        number_of_arcs: u64,
     ) -> Self {
         Self {
             codes_reader_builder,
@@ -127,7 +127,7 @@ where
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         Some(self.number_of_arcs)
     }
 
@@ -169,7 +169,7 @@ where
     type Labels<'a> = RandomSuccessorIter<CRB::Reader<'a>>
     where Self: 'a, CRB: 'a;
 
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         self.number_of_arcs
     }
 

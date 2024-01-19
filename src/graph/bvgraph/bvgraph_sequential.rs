@@ -18,7 +18,7 @@ use lender::*;
 pub struct BVGraphSequential<CRB: BVGraphSeqCodesReaderBuilder> {
     codes_reader_builder: CRB,
     number_of_nodes: usize,
-    number_of_arcs: Option<usize>,
+    number_of_arcs: Option<u64>,
     compression_window: usize,
     min_interval_length: usize,
 }
@@ -36,7 +36,7 @@ impl<CRB: BVGraphSeqCodesReaderBuilder> SequentialLabelling for BVGraphSequentia
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         self.number_of_arcs
     }
 
@@ -80,7 +80,7 @@ impl<CRB: BVGraphSeqCodesReaderBuilder> BVGraphSequential<CRB> {
         compression_window: usize,
         min_interval_length: usize,
         number_of_nodes: usize,
-        number_of_arcs: Option<usize>,
+        number_of_arcs: Option<u64>,
     ) -> Self {
         Self {
             codes_reader_builder,

@@ -78,6 +78,7 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -382,7 +383,7 @@ where
     fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
         let mut code_reader: BitReader<'_, E> =
             BufBitReader::new(MemWordReader::new(self.data.as_ref()));
-        code_reader.set_bit_pos(self.offsets.get(node) as u64);
+        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
         Ok(DynamicCodesReaderSkipper {
             code_reader,
             read_outdegree: self.read_outdegree,
@@ -465,6 +466,7 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
     for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
+    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderSkipperBuilder<E, B, OFF>) -> Self {

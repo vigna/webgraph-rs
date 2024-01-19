@@ -95,7 +95,7 @@ impl<I: IntoIterator<Item = (usize, usize)> + Clone> SequentialLabelling for Arc
     }
 
     #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<usize> {
+    fn num_arcs_hint(&self) -> Option<u64> {
         None
     }
 

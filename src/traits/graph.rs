@@ -203,7 +203,7 @@ impl<'a, G: RandomAccessGraph> RandomAccessLabelling for UnitLabelGraph<G> {
         UnitSuccessors<<<G as RandomAccessLabelling>::Labels<'succ> as IntoIterator>::IntoIter>
         where Self: 'succ;
 
-    fn num_arcs(&self) -> usize {
+    fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 
