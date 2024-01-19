@@ -8,6 +8,7 @@
 use anyhow::Result;
 use lender::*;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::BE;
 
 fn logger_init() {
     env_logger::builder().is_test(true).try_init().unwrap();
@@ -24,7 +25,7 @@ fn test_transpose() -> Result<()> {
     let compression_flags = CompFlags::default();
 
     // load cnr-2000
-    let graph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
+    let graph = webgraph::graph::bvgraph::load::<BE>("tests/data/cnr-2000")?;
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
     let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
@@ -39,7 +40,7 @@ fn test_transpose() -> Result<()> {
     )?;
     // check it
     // TODO assert_eq!(transposed.iter_nodes().len(), num_nodes);
-    let transposed_graph = webgraph::graph::bvgraph::load_seq(TRANSPOSED_PATH)?;
+    let transposed_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(TRANSPOSED_PATH)?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the transposed graph is correct...");
@@ -62,7 +63,7 @@ fn test_transpose() -> Result<()> {
     )?;
     // check it
     // TODO assert_eq!(retransposed.iter_nodes().len(), num_nodes);
-    let retransposed_graph = webgraph::graph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
+    let retransposed_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(RE_TRANSPOSED_PATH)?;
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the re-transposed graph is as the original one...");

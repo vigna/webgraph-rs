@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 
 use webgraph::{algorithms::BfsOrder, utils::proj::Left};
+use dsi_bitstream::prelude::BE;
 
 #[test]
 fn test_start() -> Result<()> {
@@ -50,7 +51,7 @@ fn test_start_orphan() -> Result<()> {
 
 #[test]
 fn test_cnr2000() -> Result<()> {
-    let graph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
+    let graph = webgraph::graph::bvgraph::load::<BE>("tests/data/cnr-2000")?;
     let seen: HashSet<usize> = HashSet::new();
     for node in BfsOrder::new(&graph) {
         assert!(!seen.contains(&node), "{} was seen twice", node);

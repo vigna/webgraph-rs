@@ -9,6 +9,7 @@ use anyhow::Result;
 use dsi_progress_logger::*;
 use lender::*;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
 
 fn logger_init() {
     env_logger::builder().is_test(true).try_init().unwrap();
@@ -21,7 +22,7 @@ fn test_par_bvcomp() -> Result<()> {
     let tmp_basename = "tests/data/cnr-2000-par";
 
     // load the graph
-    let graph = webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
+    let graph = webgraph::graph::bvgraph::load_seq::<BE, _>("tests/data/cnr-2000")?;
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
@@ -39,7 +40,7 @@ fn test_par_bvcomp() -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let comp_graph = webgraph::graph::bvgraph::load_seq(tmp_basename)?;
+        let comp_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(tmp_basename)?;
         let mut iter = comp_graph.iter();
 
         let mut pr = ProgressLogger::default();

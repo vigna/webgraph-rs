@@ -7,11 +7,12 @@
 
 use anyhow::Result;
 use lender::*;
+use dsi_bitstream::prelude::BE;
 use webgraph::prelude::*;
 
 #[test]
 fn test_iter_nodes() -> Result<()> {
-    let bvgraph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
+    let bvgraph = webgraph::graph::bvgraph::load::<BE>("tests/data/cnr-2000")?;
 
     let mut seen_node_ids = Vec::new();
 
@@ -30,7 +31,7 @@ fn test_iter_nodes() -> Result<()> {
 
 #[test]
 fn test_iter_nodes_from() -> Result<()> {
-    let bvgraph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
+    let bvgraph = webgraph::graph::bvgraph::load::<BE>("tests/data/cnr-2000")?;
     for i in [0, 1, 2, 5, 10, 100] {
         let mut seen_node_ids = Vec::new();
         // Check that they read the same

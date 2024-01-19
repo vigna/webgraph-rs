@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::prelude::*;
 use sux::prelude::*;
 
 use crate::prelude::*;

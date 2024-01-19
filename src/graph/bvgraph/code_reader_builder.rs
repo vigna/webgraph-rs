@@ -27,7 +27,7 @@ impl<I, O> IndexedDict for EmptyDict<I, O> {
         panic!();
     }
 
-    unsafe fn get_unchecked(&self, index: usize) -> Self::Output {
+    unsafe fn get_unchecked(&self, _index: usize) -> Self::Output {
         panic!();
     }
 

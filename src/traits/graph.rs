@@ -34,11 +34,11 @@ Usually there is a convenience method doing the wrapping for you.
 
 */
 
-use crate::prelude::{IteratorImpl, Pair, RandomAccessLabelling, SequentialLabelling};
+use crate::prelude::{Pair, RandomAccessLabelling, SequentialLabelling};
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::labels::{LenderIntoIter, NodeLabelsLender, SortedIterator};
+use super::labels::{LenderIntoIter, NodeLabelsLender};
 
 /// A graph that can be accessed sequentially.
 ///
