@@ -18,10 +18,6 @@
 #![deny(unreachable_patterns)]
 #![deny(unused_macro_rules)]
 #![deny(unused_doc_comments)]
-#![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(feature = "alloc")]
-extern crate alloc;
 
 /**
 
