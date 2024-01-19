@@ -1,8 +1,11 @@
+use anyhow::Result;
 use clap::Parser;
 use dsi_progress_logger::*;
 use lender::prelude::*;
 use std::io::Write;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::{BE, LE, NE};
+use dsi_bitstream::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Read a BVGraph and print the edge list `{src}\t{dst}` to stdout", long_about = None)]
@@ -14,17 +17,11 @@ struct Args {
     /// The index of the column containing the source node str.
     pub csv_separator: char,
 }
-
-fn main() {
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    let args = Args::parse();
-
-    let graph = webgraph::graph::bvgraph::load_seq(&args.basename).unwrap();
+fn to_csv<E: Endianness + 'static>(args: Args) -> Result<()> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+{
+    let graph = webgraph::graph::bvgraph::load_seq::<NE, _>(&args.basename)?;
     let num_nodes = graph.num_nodes();
 
     // read the csv and put it inside the sort pairs
@@ -37,10 +34,28 @@ fn main() {
 
     for_! ( (src, succ) in graph.iter() {
         for dst in succ {
-            writeln!(stdout, "{}{}{}", src, args.csv_separator, dst).unwrap();
+            writeln!(stdout, "{}{}{}", src, args.csv_separator, dst)?;
         }
         pl.light_update();
     });
 
     pl.done();
+    Ok(())
+}
+
+fn main() -> Result<()> {
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    let args = Args::parse();
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => to_csv::<BE>(args),
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => to_csv::<LE>(args),
+        _ => panic!("Unknown endianness"),
+    }
 }

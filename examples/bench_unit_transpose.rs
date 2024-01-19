@@ -14,6 +14,7 @@ use lender::prelude::*;
 use webgraph::graph::arc_list_graph;
 use webgraph::utils::proj::Left;
 use webgraph::{algorithms, prelude::*};
+use dsi_bitstream::prelude::*;
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]
 struct Args {
@@ -50,41 +51,55 @@ pub fn transpose(
 
     Ok(sorted)
 }
+
+fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+{
+let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+let unit = UnitLabelGraph(&graph);
+
+for _ in 0..10 {
+    let mut pl = ProgressLogger::default();
+    pl.start("Transposing standard graph...");
+
+    let mut iter = transpose(&graph, 10_000_000)?.iter();
+    while let Some((x, s)) = iter.next() {
+        black_box(x);
+        for i in s {
+            black_box(i);
+        }
+    }
+    pl.done_with_count(graph.num_nodes());
+
+    pl.start("Transposing unit graph...");
+    let mut iter = Left(algorithms::transpose_labelled(&unit, 10_000_000, (), ())?).iter();
+    while let Some((x, s)) = iter.next() {
+        black_box(x);
+        for i in s {
+            black_box(i);
+        }
+    }
+    pl.done_with_count(unit.num_nodes());
+}
+
+Ok(())
+}
+
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
     stderrlog::new()
         .verbosity(2)
         .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+        .init()?;
 
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
-    let unit = UnitLabelGraph(&graph);
-
-    for _ in 0..10 {
-        let mut pl = ProgressLogger::default();
-        pl.start("Transposing standard graph...");
-
-        let mut iter = transpose(&graph, 10_000_000)?.iter();
-        while let Some((x, s)) = iter.next() {
-            black_box(x);
-            for i in s {
-                black_box(i);
-            }
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => bench_impl::<BE>(args),
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => bench_impl::<LE>(args),
+        _ => panic!("Unknown endianness"),
         }
-        pl.done_with_count(graph.num_nodes());
 
-        pl.start("Transposing unit graph...");
-        let mut iter = Left(algorithms::transpose_labelled(&unit, 10_000_000, (), ())?).iter();
-        while let Some((x, s)) = iter.next() {
-            black_box(x);
-            for i in s {
-                black_box(i);
-            }
-        }
-        pl.done_with_count(unit.num_nodes());
-    }
-
-    Ok(())
 }

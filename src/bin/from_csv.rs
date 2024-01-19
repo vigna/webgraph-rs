@@ -33,6 +33,8 @@ struct Args {
 
     #[clap(flatten)]
     ca: CompressArgs,
+
+    // TODO!: add endianess
 }
 
 fn main() {

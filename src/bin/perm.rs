@@ -13,6 +13,7 @@ use lender::*;
 use std::io::{BufReader, Read};
 use webgraph::graph::arc_list_graph;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Permutes a graph", long_about = None)]
@@ -76,15 +77,11 @@ fn permute(
     Ok(())
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
+fn perm_impl<E: Endianness + 'static>(args: Args) -> Result<()> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+{
     let mut glob_pl = ProgressLogger::default();
     glob_pl.display_memory(true).item_name("node");
     glob_pl.start("Permuting the graph...");
@@ -117,5 +114,24 @@ pub fn main() -> Result<()> {
         permute(args, &graph, perm.as_ref(), num_nodes)?;
     }
     glob_pl.done();
+
     Ok(())
+}
+
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.source)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => perm_impl::<BE>(args),
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => perm_impl::<LE>(args),
+        _ => panic!("Unknown endianness"),
+    }
 }

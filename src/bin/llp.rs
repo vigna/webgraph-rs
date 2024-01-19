@@ -11,6 +11,7 @@ use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -52,18 +53,15 @@ struct Args {
     epserde: bool,
 }
 
-pub fn main() -> Result<()> {
+fn llp_impl<E: Endianness + 'static + Send + Sync>(args: Args) -> Result<()> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+{
     let start = std::time::Instant::now();
-    let args = Args::parse();
+
     let perm = args
         .perm
         .unwrap_or_else(|| format!("{}.llp", args.basename));
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
 
     // load the graph
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
@@ -115,4 +113,22 @@ pub fn main() -> Result<()> {
     }
     log::info!("Completed..");
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => llp_impl::<BE>(args),
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => llp_impl::<LE>(args),
+        _ => panic!("Unknown endianness"),
+    }
 }

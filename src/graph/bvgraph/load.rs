@@ -17,7 +17,20 @@ use std::fs::*;
 use std::io::*;
 use std::path::Path;
 
-fn parse_properties(path: &str) -> Result<(usize, usize, CompFlags)> {
+/// Read the .properties file and return the endianness
+pub fn get_endianess<P: AsRef<Path>>(basename: P) -> Result<String> {
+    let path = format!("{}.properties", basename.as_ref().to_string_lossy());
+    let f = File::open(&path).with_context(|| format!("Cannot open property file {}", path))?;
+    let map = java_properties::read(BufReader::new(f))
+        .with_context(|| format!("cannot parse {} as a java properties file", path))?;
+
+    let endianness = map.get("endianness").map(|x| x.to_string())
+        .unwrap_or_else(|| BigEndian::NAME.to_string());
+
+    Ok(endianness)
+}
+
+fn parse_properties<E: Endianness>(path: &str) -> Result<(usize, usize, CompFlags)> {
     let f = File::open(&path).with_context(|| format!("Cannot open property file {}", path))?;
     let map = java_properties::read(BufReader::new(f))
         .with_context(|| format!("cannot parse {} as a java properties file", path))?;
@@ -32,14 +45,15 @@ fn parse_properties(path: &str) -> Result<(usize, usize, CompFlags)> {
         .with_context(|| format!("Missing 'arcs' property in {}", path))?
         .parse::<usize>()
         .with_context(|| format!("Cannot parse arcs as usize in {}", path))?;
-    if let Some(endianness) = map.get("endianness") {
-        anyhow::ensure!(
-            endianness == "big",
-            "Unsupported endianness in {}: {}",
-            path,
-            endianness
-        );
-    }
+
+    let endianness = map.get("endianness").map(|x| x.to_string())
+        .unwrap_or_else(|| BigEndian::NAME.to_string());
+
+    anyhow::ensure!(
+        endianness == E::NAME, 
+        "Wrong endianness in {}, got {} while expected {}", 
+        path, endianness, E::NAME
+    );
 
     let comp_flags = CompFlags::from_properties(&map)
         .with_context(|| format!("Cannot parse compression flags from {}", path))?;
@@ -47,23 +61,26 @@ fn parse_properties(path: &str) -> Result<(usize, usize, CompFlags)> {
 }
 
 macro_rules! impl_loads {
-    ($builder:ident, $reader:ident, $load_name:ident, $load_seq_name:ident) => {
+    ($builder:ident, $load_name:ident, $load_seq_name:ident) => {
         /// Load a BVGraph for random access
-        pub fn $load_name(
+        pub fn $load_name<E: Endianness + 'static>(
             basename: impl AsRef<Path>,
         ) -> anyhow::Result<
             BVGraph<
                 $builder<
-                    BE,
+                    E,
                     MmapBackend<u32>,
                     crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
                 >,
                 crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
             >,
-        > {
+        > 
+        where
+            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+        {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
-                parse_properties(&format!("{}.properties", basename.to_string_lossy()))?;
+                parse_properties::<E>(&format!("{}.properties", basename.to_string_lossy()))?;
 
             let graph = MmapBackend::load(
                 format!("{}.graph", basename.to_string_lossy()),
@@ -78,7 +95,7 @@ macro_rules! impl_loads {
             .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
             let code_reader_builder = <$builder<
-                BE,
+                E,
                 MmapBackend<u32>,
                 crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
             >>::new(graph, offsets, comp_flags)?;
@@ -93,12 +110,15 @@ macro_rules! impl_loads {
         }
 
         /// Load a BVGraph sequentially
-        pub fn $load_seq_name<P: AsRef<Path>>(
+        pub fn $load_seq_name<E: Endianness + 'static, P: AsRef<Path>>(
             basename: P,
-        ) -> Result<BVGraphSequential<$builder<BE, MmapBackend<u32>, EmptyDict<usize, usize>>>> {
+        ) -> Result<BVGraphSequential<$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>>
+        where
+            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+        {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
-                parse_properties(&format!("{}.properties", basename.to_string_lossy()))?;
+                parse_properties::<E>(&format!("{}.properties", basename.to_string_lossy()))?;
 
             let graph = MmapBackend::load(
                 format!("{}.graph", basename.to_string_lossy()),
@@ -106,7 +126,7 @@ macro_rules! impl_loads {
             )?;
 
             let code_reader_builder =
-                <$builder<BE, MmapBackend<u32>, EmptyDict<usize, usize>>>::new(
+                <$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>::new(
                     graph,
                     MemCase::from(EmptyDict::default()),
                     comp_flags,
@@ -125,5 +145,5 @@ macro_rules! impl_loads {
     };
 }
 
-impl_loads! {DynamicCodesReaderBuilder, DynamicCodesReader, load, load_seq}
-impl_loads! {ConstCodesReaderBuilder, ConstCodesReader, load_const, load_seq_const}
+impl_loads! {DynamicCodesReaderBuilder, load, load_seq}
+impl_loads! {ConstCodesReaderBuilder, load_const, load_seq_const}

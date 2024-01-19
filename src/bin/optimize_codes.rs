@@ -10,6 +10,8 @@ use dsi_progress_logger::*;
 use lender::*;
 use std::sync::atomic::Ordering;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
+
 
 #[derive(Parser, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
@@ -18,16 +20,11 @@ struct Args {
     basename: String,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    let seq_graph = webgraph::graph::bvgraph::load_seq(args.basename)?;
+fn optimize_codes<E: Endianness + 'static>(args: Args) -> Result<()> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+{
+    let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(CodesReaderStatsBuilder::new);
 
     let mut pl = ProgressLogger::default();
@@ -105,6 +102,23 @@ pub fn main() -> Result<()> {
         default_bits as f64 / total_bits as f64
     );
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => optimize_codes::<BE>(args),
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => optimize_codes::<LE>(args),
+        _ => panic!("Unknown endianness"),
+    }
 }
 
 fn normalize(mut value: f64) -> String {

@@ -7,6 +7,7 @@
 use anyhow::Result;
 use clap::Parser;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Recompress a BVGraph", long_about = None)]
@@ -35,15 +36,33 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
-        args.new_basename,
-        &seq_graph,
-        seq_graph.num_nodes(),
-        args.ca.into(),
-        args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
-    )?;
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => {
+            let seq_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(&args.basename)?;
+            webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
+                args.new_basename,
+                &seq_graph,
+                seq_graph.num_nodes(),
+                args.ca.into(),
+                args.num_cpus.num_cpus,
+                temp_dir(args.pa.temp_dir),
+            )?;
+        }
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => {
+            let seq_graph = webgraph::graph::bvgraph::load_seq::<LE, _>(&args.basename)?;
+            webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
+                args.new_basename,
+                &seq_graph,
+                seq_graph.num_nodes(),
+                args.ca.into(),
+                args.num_cpus.num_cpus,
+                temp_dir(args.pa.temp_dir),
+            )?;
+        },
+        _ => panic!("Unknown endianness"),
+    };
 
     Ok(())
 }

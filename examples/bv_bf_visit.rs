@@ -11,6 +11,7 @@ use clap::Parser;
 use dsi_progress_logger::*;
 use std::collections::VecDeque;
 use webgraph::prelude::*;
+use dsi_bitstream::prelude::*;
 #[derive(Parser, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct Args {
@@ -18,15 +19,10 @@ struct Args {
     basename: String,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
+fn visit<E: Endianness + 'static>(args: Args) -> Result<()> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+{
     let graph = webgraph::graph::bvgraph::load(&args.basename)?;
     let num_nodes = graph.num_nodes();
     let mut visited = bitvec![0; num_nodes];
@@ -61,4 +57,21 @@ pub fn main() -> Result<()> {
     pl.done();
 
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        BE::NAME => visit::<BE>(args),
+        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        LE::NAME => visit::<LE>(args),
+        _ => panic!("Unknown endianness"),
+    }
 }

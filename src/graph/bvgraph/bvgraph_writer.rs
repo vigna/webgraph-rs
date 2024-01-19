@@ -571,7 +571,7 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::load_seq::<NE, _>("tests/data/cnr-2000")?;
 
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
@@ -632,7 +632,7 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = crate::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::load_seq::<NE, _>("tests/data/cnr-2000")?;
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();
