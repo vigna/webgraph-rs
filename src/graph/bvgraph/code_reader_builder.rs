@@ -77,8 +77,6 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
     DynamicCodesReaderBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -145,8 +143,6 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
     BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         DynamicCodesReader<E, BitReader<'a, E>>
@@ -178,8 +174,6 @@ impl<E: Endianness, B: AsRef<[u32]>> BVGraphSeqCodesReaderBuilder
     for DynamicCodesReaderBuilder<E, B, EmptyDict<usize, usize>>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         DynamicCodesReader<E, BitReader<'a, E>>
@@ -371,8 +365,6 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
     BVGraphCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         DynamicCodesReaderSkipper<E, BitReader<'a, E>>
@@ -413,8 +405,6 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
     BVGraphSeqCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         DynamicCodesReaderSkipper<E, BitReader<'a, E>>
@@ -465,8 +455,6 @@ impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = us
     From<DynamicCodesReaderSkipperBuilder<E, B, OFF>> for DynamicCodesReaderBuilder<E, B, OFF>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     #[inline(always)]
     fn from(value: DynamicCodesReaderSkipperBuilder<E, B, OFF>) -> Self {
@@ -548,8 +536,6 @@ impl<
     for ConstCodesReaderBuilder<E, B, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         ConstCodesReader<E, BitReader<'a, E>>
@@ -591,8 +577,6 @@ impl<
     >
 where
     for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
-    for<'a> <BitReader<'a, E> as BitRead<E>>::Error: 'static,
-    for<'a> <BitReader<'a, E> as BitSeek>::Error: 'static,
 {
     type Reader<'a> =
         ConstCodesReader<E, BitReader<'a, E>>
