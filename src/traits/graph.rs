@@ -35,7 +35,7 @@ use crate::prelude::{IteratorImpl, Pair, RandomAccessLabelling, SequentialLabell
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::labels::{Labels, LendingIntoIter, NodeLabelsLender};
+use super::labels::{LendingIntoIter, NodeLabelsLender};
 
 /// A graph that can be accessed sequentially.
 ///
@@ -47,7 +47,8 @@ use super::labels::{Labels, LendingIntoIter, NodeLabelsLender};
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialGraph: SequentialLabelling<Label = usize> {}
 
-pub type Successors<'succ, 'node, S> = Labels<'succ, 'node, S>;
+pub type Successors<'succ, 'node, S> =
+    <<S as SequentialLabelling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
 /// Marker trait for [iterators](SequentialGraph::Iterator) of [sequential graphs](SequentialGraph)
 /// that returns nodes in ascending order.
