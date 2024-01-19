@@ -6,6 +6,7 @@
 
 use crate::graph::arc_list_graph;
 use crate::traits::SequentialGraph;
+use crate::utils::proj::Left;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::*;
@@ -17,14 +18,19 @@ pub fn simplify(
     graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
-    arc_list_graph::ArcListGraph<
-        Dedup<
-            core::iter::Filter<
-                core::iter::Map<
-                    KMergeIters<BatchIterator>,
-                    fn((usize, usize, ())) -> (usize, usize),
+    Left<
+        arc_list_graph::ArcListGraph<
+            std::iter::Map<
+                Dedup<
+                    core::iter::Filter<
+                        core::iter::Map<
+                            KMergeIters<BatchIterator>,
+                            fn((usize, usize, ())) -> (usize, usize),
+                        >,
+                        fn(&(usize, usize)) -> bool,
+                    >,
                 >,
-                fn(&(usize, usize)) -> bool,
+                fn((usize, usize)) -> (usize, usize, ()),
             >,
         >,
     >,
@@ -54,5 +60,5 @@ pub fn simplify(
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), iter);
     pl.done();
 
-    Ok(sorted)
+    Ok(Left(sorted))
 }

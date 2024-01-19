@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graph::labeled_arc_list_graph;
+use crate::graph::arc_list_graph;
 use crate::prelude::proj::Left;
 use crate::prelude::{BitDeserializer, BitSerializer, LabelledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
@@ -20,9 +20,9 @@ pub fn transpose_labelled<S: BitSerializer + Clone, D: BitDeserializer + Clone +
     batch_size: usize,
     serializer: S,
     deserializer: D,
-) -> Result<labeled_arc_list_graph::LabeledArcListGraph<KMergeIters<BatchIterator<D>, D::DeserType>>>
+) -> Result<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<D>, D::DeserType>>>
 where
-    D::DeserType: Clone,
+    D::DeserType: Clone + Copy,
 {
     let dir = tempfile::tempdir()?;
     let mut sorted = SortPairs::new_labeled(batch_size, dir.into_path(), serializer, deserializer)?;
@@ -39,8 +39,7 @@ where
         pl.light_update();
     });
     // merge the batches
-    let sorted =
-        labeled_arc_list_graph::LabeledArcListGraph::new(graph.num_nodes(), sorted.iter()?);
+    let sorted = arc_list_graph::ArcListGraph::new_labelled(graph.num_nodes(), sorted.iter()?);
     pl.done();
 
     Ok(sorted)
@@ -49,7 +48,7 @@ where
 pub fn transpose(
     graph: impl SequentialGraph,
     batch_size: usize,
-) -> Result<Left<labeled_arc_list_graph::LabeledArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
     Ok(Left(transpose_labelled(
         &UnitLabelGraph(graph),
         batch_size,

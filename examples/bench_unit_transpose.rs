@@ -9,12 +9,12 @@ use std::hint::black_box;
 
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
-use webgraph::graph::arc_list_graph;
+use webgraph::graph::arc_list_graph::{self, ArcListGraph};
 use webgraph::utils::proj::Left;
 use webgraph::{algorithms, prelude::*};
-use dsi_bitstream::prelude::*;
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]
 struct Args {
@@ -26,8 +26,16 @@ pub fn transpose(
     graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
-    arc_list_graph::ArcListGraph<
-        std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
+    Left<
+        ArcListGraph<
+            std::iter::Map<
+                std::iter::Map<
+                    KMergeIters<BatchIterator>,
+                    fn((usize, usize, ())) -> (usize, usize),
+                >,
+                fn((usize, usize)) -> (usize, usize, ()),
+            >,
+        >,
     >,
 > {
     let dir = tempfile::tempdir()?;
@@ -49,41 +57,42 @@ pub fn transpose(
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
-    Ok(sorted)
+    Ok(Left(sorted))
 }
 
-fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()> 
+fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
 {
-let graph = webgraph::graph::bvgraph::load(&args.basename)?;
-let unit = UnitLabelGraph(&graph);
+    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+    let unit = UnitLabelGraph(&graph);
 
-for _ in 0..10 {
-    let mut pl = ProgressLogger::default();
-    pl.start("Transposing standard graph...");
+    for _ in 0..10 {
+        let mut pl = ProgressLogger::default();
+        pl.start("Transposing standard graph...");
 
-    let mut iter = transpose(&graph, 10_000_000)?.iter();
-    while let Some((x, s)) = iter.next() {
-        black_box(x);
-        for i in s {
-            black_box(i);
+        let mut iter = transpose(&graph, 10_000_000)?.iter();
+        while let Some((x, s)) = iter.next() {
+            black_box(x);
+            for i in s {
+                black_box(i);
+            }
         }
-    }
-    pl.done_with_count(graph.num_nodes());
+        pl.done_with_count(graph.num_nodes());
 
-    pl.start("Transposing unit graph...");
-    let mut iter = Left(algorithms::transpose_labelled(&unit, 10_000_000, (), ())?).iter();
-    while let Some((x, s)) = iter.next() {
-        black_box(x);
-        for i in s {
-            black_box(i);
+        pl.start("Transposing unit graph...");
+        let mut iter = Left(algorithms::transpose_labelled(&unit, 10_000_000, (), ())?).iter();
+        while let Some((x, s)) = iter.next() {
+            black_box(x);
+            for i in s {
+                black_box(i);
+            }
         }
+        pl.done_with_count(unit.num_nodes());
     }
-    pl.done_with_count(unit.num_nodes());
-}
 
-Ok(())
+    Ok(())
 }
 
 pub fn main() -> Result<()> {
@@ -95,11 +104,16 @@ pub fn main() -> Result<()> {
         .init()?;
 
     match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(feature = "be_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         BE::NAME => bench_impl::<BE>(args),
-        #[cfg(any(feature = "le_bins", not(any(feature = "be_bins", feature = "le_bins"))))]
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
         LE::NAME => bench_impl::<LE>(args),
         _ => panic!("Unknown endianness"),
-        }
-
+    }
 }

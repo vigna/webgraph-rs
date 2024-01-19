@@ -7,6 +7,7 @@ use std::io::{BufRead, Write};
 use webgraph::graph::arc_list_graph::ArcListGraph;
 use webgraph::graph::bvgraph::parallel_compress_sequential_iter;
 use webgraph::prelude::*;
+use webgraph::utils::proj::Left;
 
 #[derive(Parser, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
@@ -33,7 +34,6 @@ struct Args {
 
     #[clap(flatten)]
     ca: CompressArgs,
-
     // TODO!: add endianess
 }
 
@@ -103,16 +103,16 @@ fn main() {
     log::info!("Arcs read: {}", line_id);
 
     // conver the iter to a graph
-    let g = ArcListGraph::new(
+    let g = Left(ArcListGraph::new(
         args.num_nodes,
         group_by
             .iter()
             .unwrap()
             .map(|(src, dst, _)| (src, dst))
             .dedup(),
-    );
+    ));
     // compress it
-    parallel_compress_sequential_iter::<&ArcListGraph<Dedup<std::iter::Map<KMergeIters<_>, _>>>, _>(
+    parallel_compress_sequential_iter(
         &args.basename,
         &g,
         args.num_nodes,

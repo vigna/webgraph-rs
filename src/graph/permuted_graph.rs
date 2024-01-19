@@ -21,7 +21,7 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
 
 impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
     type Label = usize;
-    type Iterator<'b> = PermutedGraphIterator<'b, G::Iterator<'b>>
+    type Iterator<'b> = PermutedIterator<'b, G::Iterator<'b>>
         where
             Self: 'b;
 
@@ -37,7 +37,7 @@ impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        PermutedGraphIterator {
+        PermutedIterator {
             iter: self.graph.iter_from(from),
             perm: self.perm,
         }
@@ -55,13 +55,13 @@ impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
     }
 }
 
-/// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes
-pub struct PermutedGraphIterator<'node, I> {
+/// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
+pub struct PermutedIterator<'node, I> {
     iter: I,
     perm: &'node [usize],
 }
 
-impl<'node, 'succ, I> NodeLabelsLender<'succ> for PermutedGraphIterator<'node, I>
+impl<'node, 'succ, I> NodeLabelsLender<'succ> for PermutedIterator<'node, I>
 where
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
@@ -69,14 +69,14 @@ where
     type IntoIterator = PermutedSuccessors<'succ, LenderIntoIter<'succ, I>>;
 }
 
-impl<'node, 'succ, I> Lending<'succ> for PermutedGraphIterator<'node, I>
+impl<'node, 'succ, I> Lending<'succ> for PermutedIterator<'node, I>
 where
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<'a, L> Lender for PermutedGraphIterator<'a, L>
+impl<'a, L> Lender for PermutedIterator<'a, L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
