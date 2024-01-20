@@ -40,6 +40,9 @@ use lender::*;
 
 use super::labels::{LenderIntoIter, NodeLabelsLender};
 
+#[allow(non_camel_case_types)]
+struct this_method_cannot_be_called_use_successors_instead;
+
 /// A graph that can be accessed sequentially.
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
@@ -70,12 +73,19 @@ pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGr
 
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
-    /// This method contains [`std::unimplemented`] to make it impossible
-    /// its usage on graphs. Use the [`successors`] method instead.
+    ///
+    /// The `where` clause of this override contains an unsatisfiable private trait bound,
+    /// which makes calling this method impossible. Use the [`successors`] method instead.
+    #[allow(private_bounds)]
     #[deprecated(
         note = "use the `successors` method instead; this method is just unimplemented!()"
     )]
-    fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+    fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_>
+    where
+        for<'a> this_method_cannot_be_called_use_successors_instead: Clone,
+    {
+        // This code is actually impossible to execute due to the unsatisfiable
+        // private trait bound.
         unimplemented!("use the `successors` method instead");
     }
 
@@ -182,12 +192,18 @@ pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)
 
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
-    /// This method contains [`std::unimplemented`] to make it impossible
-    /// its usage on graphs. Use the [`successors`] method instead.
+    /// The `where` clause of this override contains an unsatisfiable private trait bound,
+    /// which makes calling this method impossible. Use the [`successors`] method instead.
+    #[allow(private_bounds)]
     #[deprecated(
         note = "use the `successors` method instead; this method is just unimplemented!()"
     )]
-    fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+    fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_>
+    where
+        for<'a> this_method_cannot_be_called_use_successors_instead: Clone,
+    {
+        // This code is actually impossible to execute due to the unsatisfiable
+        // private trait bound.
         unimplemented!("use the `successors` method instead");
     }
 
