@@ -73,10 +73,9 @@ pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGr
 
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
-    ///
     /// The `where` clause of this override contains an unsatisfiable private trait bound,
     /// which makes calling this method impossible. Use the [`successors`] method instead.
-    #[allow(private_bounds)]
+    #[allow(private_bounds, deprecated)]
     #[deprecated(
         note = "use the `successors` method instead; this method is just unimplemented!()"
     )]

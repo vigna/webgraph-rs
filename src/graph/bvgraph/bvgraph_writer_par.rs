@@ -7,7 +7,6 @@
 
 use crate::prelude::*;
 use anyhow::Result;
-use dsi_bitstream::codes::params::DefaultWriteParams;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
@@ -29,7 +28,6 @@ pub fn compress_sequential_iter<E: Endianness, P: AsRef<Path>, L: IntoLender>(
 where
     L: IntoLender,
     L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    E: dsi_bitstream::impls::DropHelper<WordAdapter<usize, BufWriter<File>>, DefaultWriteParams>,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>:
         GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E>,
 {
@@ -173,7 +171,6 @@ pub fn parallel_compress_sequential_iter<E: Endianness, L: IntoLender, P: AsRef<
 ) -> Result<usize>
 where
     L::Lender: Clone + Send + for<'next> NodeLabelsLender<'next, Label = usize>,
-    E: dsi_bitstream::impls::DropHelper<WordAdapter<usize, BufWriter<File>>, DefaultWriteParams>,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>:
         GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E>,
 {

@@ -94,7 +94,7 @@ where
     // read the permutation
 
     if args.epserde {
-        let perm = <Vec<usize>>::mmap(&args.perm, Flags::default())?;
+        let perm = <Vec<usize>>::mmap(&args.perm, deser::Flags::default())?;
         permute::<E>(args, &graph, perm.as_ref(), num_nodes)?;
     } else {
         let mut file = BufReader::new(std::fs::File::open(&args.perm)?);

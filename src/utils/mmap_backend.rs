@@ -5,7 +5,6 @@
  */
 
 use anyhow::{Context, Result};
-use common_traits::{DoubleType, UnsignedInt};
 use core::fmt::Debug;
 use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader},
@@ -54,7 +53,18 @@ impl<W: Debug> Debug for MmapBackend<W, MmapMut> {
     }
 }
 
+impl<W> From<Mmap> for MmapBackend<W> {
+    fn from(mmap: Mmap) -> Self {
+        Self {
+            len: mmap.len(),
+            mmap: Arc::new(mmap),
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
 impl<W> MmapBackend<W> {
+
     /// Create a new MmapBackend
     pub fn load<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
         let file_len = path
@@ -69,7 +79,7 @@ impl<W> MmapBackend<W> {
             mmap_rs::MmapOptions::new(capacity * 8)
                 .with_context(|| format!("Cannot initialize mmap of size {}", capacity * 8))?
                 .with_flags(flags)
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map()
                 .with_context(|| {
                     format!(
@@ -111,7 +121,7 @@ impl<W> MmapBackend<W, MmapMut> {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map_mut()
                 .with_context(|| {
                     format!(
@@ -152,7 +162,7 @@ impl<W> MmapBackend<W, MmapMut> {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map_mut()
                 .with_context(|| format!("Cannot mutably mmap {}", path.as_ref().display()))?
         };

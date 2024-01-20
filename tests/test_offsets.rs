@@ -35,7 +35,7 @@ fn test_offsets() -> Result<()> {
     // Load Elias-fano
     let ef_offsets = <webgraph::graph::bvgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
         "tests/data/cnr-2000.ef",
-        Flags::TRANSPARENT_HUGE_PAGES,
+        deser::Flags::TRANSPARENT_HUGE_PAGES,
     )?;
 
     for (i, offset) in offsets.iter().enumerate() {

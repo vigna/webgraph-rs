@@ -21,12 +21,12 @@ fuzz = ["dep:arbitrary", "dep:zip", "dsi-bitstream/fuzz"]
 [dependencies]
 anyhow = { version = "1.0.70", features=["backtrace"]}
 java-properties = "1.4.1"
-mmap-rs = "0.5.0"
+mmap-rs = {path = "../mmap-rs"}#"0.5.0"
 bitvec = { version = "1.0.1", features = ["atomic"] }
 num_cpus = "1.15.0"
 epserde = "0.2.0"
 sux = "0.1"
-dsi-bitstream = {path = "../dsi-bitstream-rs"} #"0.1.6"
+dsi-bitstream = {path = "../dsi-bitstream-rs"}#"0.1.7"
 clap = { version = "4.1.6", features = ["derive"] }
 dsi-progress-logger = "0.2.0"
 log = "0.4.17"
@@ -44,6 +44,7 @@ nougat = "0.2.4"
 lender = "0.2.7"
 common_traits = "0.10.0"
 impl-tools = "0.10.0"
+bitflags = "2.4.2"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }

@@ -105,8 +105,7 @@ where
             assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
     } else {
-        let graph = webgraph::graph::bvgraph::load(&args.basename)?;
-
+        let graph = webgraph::graph::bvgraph::load_mem(&args.basename)?;
         // Random-access speed test
         for _ in 0..args.repeats {
             // create a random access reader;

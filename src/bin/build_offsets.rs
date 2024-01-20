@@ -8,7 +8,10 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
-use std::io::BufWriter;
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -21,9 +24,10 @@ struct Args {
 fn build_offsets<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
-    let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::load_seq_file::<E, _>(&args.basename)?;
     let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
     // Create the offsets file
     let file = std::fs::File::create(format!("{}.offsets", args.basename))?;

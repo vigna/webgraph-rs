@@ -6,12 +6,18 @@
  */
 
 use core::marker::PhantomData;
-use std::{fs::File, path::Path};
+use std::{fs::File, io::BufReader, path::Path, sync::Arc};
+
+use crate::utils::MmapBackend;
 
 use super::*;
 use anyhow::{bail, ensure};
+use bitflags::bitflags;
+use common_traits::UnsignedInt;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
+use mmap_rs::{self, Mmap};
+use std::io::Read;
 use sux::traits::IndexedDict;
 
 pub trait CodeReaderFactory<E: Endianness> {
@@ -21,6 +27,7 @@ pub trait CodeReaderFactory<E: Endianness> {
     fn new_reader(&self) -> Self::CodeReader<'_>;
 }
 
+#[derive(Clone)]
 pub struct FileFactory<E: Endianness> {
     path: Box<Path>,
     _marker: core::marker::PhantomData<E>,
@@ -41,14 +48,126 @@ impl<E: Endianness> FileFactory<E> {
 
 impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E>
 where
-    for<'a> BufBitReader<E, WordAdapter<u32, File>>: CodeRead<E>,
+    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E>,
 {
-    type CodeReader<'a> = BufBitReader<E, WordAdapter<u32, File>>
+    type CodeReader<'a> = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where
         Self: 'a;
 
     fn new_reader(&self) -> Self::CodeReader<'_> {
-        BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(File::open(&self.path).unwrap()))
+        BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(
+            File::open(&self.path).unwrap(),
+        )))
+    }
+}
+
+bitflags! {
+    /// Flags for [`map`] and [`load_mmap`].
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Flags: u32 {
+        /// Suggest to map a region using transparent huge pages. This flag
+        /// is only a suggestion, and it is ignored if the kernel does not
+        /// support transparent huge pages. It is mainly useful to support
+        /// `madvise()`-based huge pages on Linux. Note that at the time
+        /// of this writing Linux does not support transparent huge pages
+        /// in file-based memory mappings.
+        const SEQUENTIAL = 1 << 0;
+        const RANDOM_ACCESS = 1 << 1;
+        const TRANSPARENT_HUGE_PAGES = 1 << 2;
+    }
+}
+
+/// Empty flags.
+impl core::default::Default for Flags {
+    fn default() -> Self {
+        Flags::empty()
+    }
+}
+
+impl Flags {
+    /// Translates internal flags to `mmap_rs` flags.
+    pub(crate) fn mmap_flags(&self) -> mmap_rs::MmapFlags {
+        let mut flags: mmap_rs::MmapFlags = mmap_rs::MmapFlags::empty();
+        if self.contains(Self::SEQUENTIAL) {
+            flags |= mmap_rs::MmapFlags::SEQUENTIAL;
+        }
+        if self.contains(Self::RANDOM_ACCESS) {
+            flags |= mmap_rs::MmapFlags::RANDOM_ACCESS;
+        }
+        if self.contains(Self::TRANSPARENT_HUGE_PAGES) {
+            flags |= mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES;
+        }
+
+        flags
+    }
+}
+
+#[derive(Clone)]
+pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
+    data: Arc<M>,
+    _marker: core::marker::PhantomData<E>,
+}
+
+impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
+    pub fn new_mem(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let mut file = std::fs::File::open(path)?;
+        let capacity = file_len.align_to(16);
+
+        // SAFETY: the entire vector will be filled with data read from the file,
+        // or with zeroes if the file is shorter than the vector.
+        let mut bytes = unsafe {
+            Vec::from_raw_parts(
+                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, 16)?),
+                capacity,
+                capacity,
+            )
+        };
+
+        file.read_exact(&mut bytes[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors and full-vector initialization.
+        bytes[file_len..].fill(0);
+        Ok(Self {
+            // Safety: the length is a multiple of 16.
+            data: Arc::new(unsafe { std::mem::transmute(bytes.into_boxed_slice()) }),
+            _marker: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
+    pub fn new_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<Self> {
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let mut file = std::fs::File::open(path)?;
+        let capacity = file_len.align_to(16);
+
+        let mut mmap = mmap_rs::MmapOptions::new(capacity)?
+            .with_flags(flags.mmap_flags())
+            .map_mut()?;
+        file.read_exact(&mut mmap[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors.
+        mmap[file_len..].fill(0);
+
+        Ok(Self {
+            // Safety: the length is a multiple of 16.
+            data: Arc::new(MmapBackend::from(mmap.make_read_only().map_err(|(_, err)| err)?)),
+            _marker: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a[u32]>>: CodeRead<E>,
+{
+    type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a[u32]>>
+    where
+        Self: 'a;
+
+    fn new_reader(&self) -> Self::CodeReader<'_> {
+        BufBitReader::<E, _>::new(MemWordReader::new(self.data.as_ref().as_ref()))
     }
 }
 
