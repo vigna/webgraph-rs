@@ -53,7 +53,7 @@ where
     if args.check {
         // Create a sequential reader
         let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-        let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
+        let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
         // create a random access reader;
         let random_reader = webgraph::graph::bvgraph::load(&args.basename)?;
 
@@ -89,8 +89,7 @@ where
         // Sequential speed test
         for _ in 0..args.repeats {
             let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-            let seq_graph =
-                seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
+            let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
             let mut deg_reader = seq_graph.iter_degrees();
 
             let mut c: u64 = 0;

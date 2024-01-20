@@ -13,7 +13,6 @@ use log::info;
 use std::fs::File;
 use std::io::BufReader;
 use sux::prelude::*;
-use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Thest that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
@@ -82,7 +81,7 @@ pub fn main() -> Result<()> {
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
     let seq_graph = webgraph::graph::bvgraph::load_seq::<NE, _>(&args.basename)?;
-    let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
+    let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");

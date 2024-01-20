@@ -113,6 +113,11 @@ where
         self.compression_flags
     }
 
+    pub fn to_skipper(self) -> DynamicCodesReaderSkipperBuilder<E, F, OFF> {
+        DynamicCodesReaderSkipperBuilder::new(self.factory, self.offsets, self.compression_flags)
+            .unwrap()
+    }
+
     /// Create a new builder from the data and the compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
