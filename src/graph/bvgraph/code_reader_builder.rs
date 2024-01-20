@@ -6,9 +6,10 @@
  */
 
 use core::marker::PhantomData;
+use std::{fs::File, path::Path};
 
 use super::*;
-use anyhow::bail;
+use anyhow::{bail, ensure};
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
@@ -18,6 +19,37 @@ pub trait CodeReaderFactory<E: Endianness> {
     where
         Self: 'a;
     fn new_reader(&self) -> Self::CodeReader<'_>;
+}
+
+pub struct FileFactory<E: Endianness> {
+    path: Box<Path>,
+    _marker: core::marker::PhantomData<E>,
+}
+
+impl<E: Endianness> FileFactory<E> {
+    pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let path: Box<Path> = path.as_ref().into();
+        let metadata = std::fs::metadata(&path)?;
+        ensure!(metadata.is_file(), "File {:?} is not a file", &path);
+
+        Ok(Self {
+            path,
+            _marker: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E>
+where
+    for<'a> BufBitReader<E, WordAdapter<u32, File>>: CodeRead<E>,
+{
+    type CodeReader<'a> = BufBitReader<E, WordAdapter<u32, File>>
+    where
+        Self: 'a;
+
+    fn new_reader(&self) -> Self::CodeReader<'_> {
+        BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(File::open(&self.path).unwrap()))
+    }
 }
 
 pub struct EmptyDict<I, O> {
