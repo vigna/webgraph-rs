@@ -26,8 +26,7 @@ bitvec = { version = "1.0.1", features = ["atomic"] }
 num_cpus = "1.15.0"
 epserde = "0.2.0"
 sux = "0.1"
-dsi-bitstream = {path = "../dsi-bitstream-rs"} #"0.1.5"
-# Bin dependancies
+dsi-bitstream = {path = "../dsi-bitstream-rs"} #"0.1.6"
 clap = { version = "4.1.6", features = ["derive"] }
 dsi-progress-logger = "0.2.0"
 log = "0.4.17"

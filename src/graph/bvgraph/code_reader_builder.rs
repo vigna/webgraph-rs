@@ -13,7 +13,12 @@ use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
 
-type BitReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+pub trait CodeReaderFactory<E: Endianness> {
+    type CodeReader<'a>: CodeRead<E>
+    where
+        Self: 'a;
+    fn new_reader(&self) -> Self::CodeReader<'_>;
+}
 
 pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
@@ -49,48 +54,58 @@ impl<I, O> Default for EmptyDict<I, O> {
 /// to optimize the reader building time.
 pub struct DynamicCodesReaderBuilder<
     E: Endianness,
-    B: AsRef<[u32]>,
+    F: CodeReaderFactory<E>,
     OFF: IndexedDict<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
-    data: B,
+    factory: F,
     /// The offsets into the data.
     offsets: MemCase<OFF>,
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
-    read_outdegree: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_reference_offset: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_block_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_blocks: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_interval_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_interval_start: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_interval_len: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_outdegree: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_reference_offset: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_block_count: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_blocks: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_interval_count: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_interval_start: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_interval_len: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_first_residual: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_residual: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    DynamicCodesReaderBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    DynamicCodesReaderBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
     // they are compiled once!
-    const READ_UNARY: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
+    const READ_UNARY: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_gamma().unwrap();
+    const READ_DELTA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_delta().unwrap();
+    const READ_ZETA2: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(2).unwrap();
+    const READ_ZETA3: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta3().unwrap();
+    const READ_ZETA4: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(4).unwrap();
+    const READ_ZETA5: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(5).unwrap();
+    const READ_ZETA6: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(6).unwrap();
+    const READ_ZETA7: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(7).unwrap();
+    const READ_ZETA1: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        Self::READ_GAMMA;
 
     #[inline(always)]
     /// Return a clone of the compression flags.
@@ -99,7 +114,7 @@ where
     }
 
     /// Create a new builder from the data and the compression flags.
-    pub fn new(data: B, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -122,7 +137,7 @@ where
         }
 
         Ok(Self {
-            data,
+            factory,
             offsets,
             read_outdegree: select_code!(cf.outdegrees),
             read_reference_offset: select_code!(cf.references),
@@ -139,19 +154,18 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
-        DynamicCodesReader<E, BitReader<'a, E>>
+        DynamicCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let mut code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
 
         Ok(DynamicCodesReader {
@@ -170,22 +184,19 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>> BVGraphSeqCodesReaderBuilder
-    for DynamicCodesReaderBuilder<E, B, EmptyDict<usize, usize>>
+impl<E: Endianness, F: CodeReaderFactory<E>> BVGraphSeqCodesReaderBuilder
+    for DynamicCodesReaderBuilder<E, F, EmptyDict<usize, usize>>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
-        DynamicCodesReader<E, BitReader<'a, E>>
+        DynamicCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
-
         Ok(DynamicCodesReader {
-            code_reader,
+            code_reader: self.factory.new_reader(),
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
             read_block_count: self.read_block_count,
@@ -209,75 +220,95 @@ where
 /// cost of more code.
 pub struct DynamicCodesReaderSkipperBuilder<
     E: Endianness,
-    B: AsRef<[u32]>,
+    F: CodeReaderFactory<E>,
     OFF: IndexedDict<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
-    data: B,
+    factory: F,
     /// The offsets into the data.
     offsets: MemCase<OFF>,
     /// The compression flags.
     compression_flags: CompFlags,
 
     // The cached functions to read the codes.
-    read_outdegree: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_reference_offset: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_block_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_blocks: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_interval_count: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_interval_start: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_interval_len: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_first_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
-    read_residual: for<'a> fn(&mut BitReader<'a, E>) -> u64,
+    read_outdegree: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_reference_offset: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_block_count: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_blocks: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_interval_count: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_interval_start: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_interval_len: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_first_residual: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_residual: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
 
     // The cached functions to skip the codes.
-    skip_outdegrees: for<'a> fn(&mut BitReader<'a, E>),
-    skip_reference_offsets: for<'a> fn(&mut BitReader<'a, E>),
-    skip_block_counts: for<'a> fn(&mut BitReader<'a, E>),
-    skip_blocks: for<'a> fn(&mut BitReader<'a, E>),
-    skip_interval_counts: for<'a> fn(&mut BitReader<'a, E>),
-    skip_interval_starts: for<'a> fn(&mut BitReader<'a, E>),
-    skip_interval_lens: for<'a> fn(&mut BitReader<'a, E>),
-    skip_first_residuals: for<'a> fn(&mut BitReader<'a, E>),
-    skip_residuals: for<'a> fn(&mut BitReader<'a, E>),
+    skip_outdegrees: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_reference_offsets: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_block_counts: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_blocks: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_interval_counts: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_interval_starts: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_interval_lens: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_first_residuals: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
+    skip_residuals: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>),
 
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    DynamicCodesReaderSkipperBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
     // they are compiled once!
-    const READ_UNARY: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: for<'a> fn(&mut BitReader<'a, E>) -> u64 = |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: for<'a> fn(&mut BitReader<'a, E>) -> u64 = Self::READ_GAMMA;
+    const READ_UNARY: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_unary().unwrap();
+    const READ_GAMMA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_gamma().unwrap();
+    const READ_DELTA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_delta().unwrap();
+    const READ_ZETA2: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(2).unwrap();
+    const READ_ZETA3: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta3().unwrap();
+    const READ_ZETA4: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(4).unwrap();
+    const READ_ZETA5: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(5).unwrap();
+    const READ_ZETA6: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(6).unwrap();
+    const READ_ZETA7: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        |cr| cr.read_zeta(7).unwrap();
+    const READ_ZETA1: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+        Self::READ_GAMMA;
 
     // Const cached functions we use to skip the data. These could be general
     // functions, but this way we have better visibility and we ensure that
     // they are compiled once!
-    const SKIP_UNARY: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_unary().unwrap();
-    const SKIP_GAMMA: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_gamma().unwrap();
-    const SKIP_DELTA: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_delta().unwrap();
-    const SKIP_ZETA2: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(2).unwrap();
-    const SKIP_ZETA3: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta3().unwrap();
-    const SKIP_ZETA4: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(4).unwrap();
-    const SKIP_ZETA5: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(5).unwrap();
-    const SKIP_ZETA6: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(6).unwrap();
-    const SKIP_ZETA7: for<'a> fn(&mut BitReader<'a, E>) = |cr| cr.skip_zeta(7).unwrap();
-    const SKIP_ZETA1: for<'a> fn(&mut BitReader<'a, E>) = Self::SKIP_GAMMA;
+    const SKIP_UNARY: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_unary().unwrap();
+    const SKIP_GAMMA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_gamma().unwrap();
+    const SKIP_DELTA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_delta().unwrap();
+    const SKIP_ZETA2: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_zeta(2).unwrap();
+    const SKIP_ZETA3: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_zeta3().unwrap();
+    const SKIP_ZETA4: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_zeta(4).unwrap();
+    const SKIP_ZETA5: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_zeta(5).unwrap();
+    const SKIP_ZETA6: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_zeta(6).unwrap();
+    const SKIP_ZETA7: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        |cr| cr.skip_zeta(7).unwrap();
+    const SKIP_ZETA1: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) =
+        Self::SKIP_GAMMA;
 
     #[inline(always)]
     /// Return a copy of the compression flags used to build this reader.
@@ -287,7 +318,7 @@ where
 
     /// Build a new `DynamicCodesReaderSkipper` from the given data and
     /// compression flags.
-    pub fn new(data: B, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         // macro used to dispatch the right function to read the data
         macro_rules! select_code {
             ($code:expr) => {
@@ -333,7 +364,7 @@ where
         }
 
         Ok(Self {
-            data,
+            factory,
             offsets,
             read_outdegree: select_code!(cf.outdegrees),
             read_reference_offset: select_code!(cf.references),
@@ -361,20 +392,19 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    BVGraphCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    BVGraphCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
-        DynamicCodesReaderSkipper<E, BitReader<'a, E>>
+        DynamicCodesReaderSkipper<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
     fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let mut code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
         Ok(DynamicCodesReaderSkipper {
             code_reader,
@@ -401,20 +431,19 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    BVGraphSeqCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    BVGraphSeqCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
-        DynamicCodesReaderSkipper<E, BitReader<'a, E>>
+        DynamicCodesReaderSkipper<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
     fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        let code_reader = self.factory.new_reader();
         Ok(DynamicCodesReaderSkipper {
             code_reader,
             read_outdegree: self.read_outdegree,
@@ -440,25 +469,25 @@ where
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    From<DynamicCodesReaderBuilder<E, B, OFF>> for DynamicCodesReaderSkipperBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    From<DynamicCodesReaderBuilder<E, F, OFF>> for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
-    fn from(value: DynamicCodesReaderBuilder<E, B, OFF>) -> Self {
-        Self::new(value.data, value.offsets, value.compression_flags).unwrap()
+    fn from(value: DynamicCodesReaderBuilder<E, F, OFF>) -> Self {
+        Self::new(value.factory, value.offsets, value.compression_flags).unwrap()
     }
 }
 
-impl<E: Endianness, B: AsRef<[u32]>, OFF: IndexedDict<Input = usize, Output = usize>>
-    From<DynamicCodesReaderSkipperBuilder<E, B, OFF>> for DynamicCodesReaderBuilder<E, B, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+    From<DynamicCodesReaderSkipperBuilder<E, F, OFF>> for DynamicCodesReaderBuilder<E, F, OFF>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     #[inline(always)]
-    fn from(value: DynamicCodesReaderSkipperBuilder<E, B, OFF>) -> Self {
-        Self::new(value.data, value.offsets, value.compression_flags).unwrap()
+    fn from(value: DynamicCodesReaderSkipperBuilder<E, F, OFF>) -> Self {
+        Self::new(value.factory, value.offsets, value.compression_flags).unwrap()
     }
 }
 
@@ -467,7 +496,7 @@ where
 /// the indirection layer which can results in more / better inlining.
 pub struct ConstCodesReaderBuilder<
     E: Endianness,
-    B: AsRef<[u32]>,
+    F: CodeReaderFactory<E>,
     OFF: IndexedDict<Input = usize, Output = usize>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
@@ -477,7 +506,7 @@ pub struct ConstCodesReaderBuilder<
     const K: u64 = 3,
 > {
     /// The owned data
-    data: B,
+    factory: F,
     /// The offsets into the data.
     offsets: MemCase<OFF>,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
@@ -487,7 +516,7 @@ pub struct ConstCodesReaderBuilder<
 
 impl<
         E: Endianness,
-        B: AsRef<[u32]>,
+        F: CodeReaderFactory<E>,
         OFF: IndexedDict<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -495,10 +524,10 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > ConstCodesReaderBuilder<E, B, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesReaderBuilder<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Create a new builder from the given data and compression flags.
-    pub fn new(data: B, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
         }
@@ -515,7 +544,7 @@ impl<
             bail!("Code for residuals does not match");
         }
         Ok(Self {
-            data,
+            factory,
             offsets,
             _marker: core::marker::PhantomData,
         })
@@ -524,7 +553,7 @@ impl<
 
 impl<
         E: Endianness,
-        B: AsRef<[u32]>,
+        F: CodeReaderFactory<E>,
         OFF: IndexedDict<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -533,18 +562,17 @@ impl<
         const RESIDUALS: usize,
         const K: u64,
     > BVGraphCodesReaderBuilder
-    for ConstCodesReaderBuilder<E, B, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    for ConstCodesReaderBuilder<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
-        ConstCodesReader<E, BitReader<'a, E>>
+        ConstCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let mut code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
 
         Ok(ConstCodesReader {
@@ -556,7 +584,7 @@ where
 
 impl<
         E: Endianness,
-        B: AsRef<[u32]>,
+        F: CodeReaderFactory<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -566,7 +594,7 @@ impl<
     > BVGraphSeqCodesReaderBuilder
     for ConstCodesReaderBuilder<
         E,
-        B,
+        F,
         EmptyDict<usize, usize>,
         OUTDEGREES,
         REFERENCES,
@@ -576,16 +604,15 @@ impl<
         K,
     >
 where
-    for<'a> BitReader<'a, E>: CodeRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Reader<'a> =
-        ConstCodesReader<E, BitReader<'a, E>>
+        ConstCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
-        let code_reader: BitReader<'_, E> =
-            BufBitReader::new(MemWordReader::new(self.data.as_ref()));
+        let code_reader = self.factory.new_reader();
 
         Ok(ConstCodesReader {
             code_reader,

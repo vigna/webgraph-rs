@@ -9,7 +9,7 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
-use webgraph::graph::bvgraph::get_endianess;
+use webgraph::graph::bvgraph::{get_endianess, CodeRead};
 use webgraph::traits::SequentialLabelling;
 
 #[derive(Parser, Debug)]
@@ -21,8 +21,7 @@ struct Args {
 
 fn ascii_convert<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     let seq_graph = webgraph::graph::bvgraph::load_seq(args.basename)?;
     let mut pl = ProgressLogger::default();

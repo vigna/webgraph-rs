@@ -79,8 +79,8 @@ fn permute<E: Endianness>(
 
 fn perm_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a MmapBackend<u32>>>: CodeRead<E> + BitSeek,
 {
     let mut glob_pl = ProgressLogger::default();
     glob_pl.display_memory(true).item_name("node");

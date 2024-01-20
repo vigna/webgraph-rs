@@ -6,6 +6,7 @@
  */
 
 use super::*;
+use crate::graph::bvgraph::CodeReaderFactory;
 use crate::graph::bvgraph::EmptyDict;
 use crate::prelude::*;
 use anyhow::{Context, Result};
@@ -67,7 +68,7 @@ fn parse_properties<E: Endianness>(path: &str) -> Result<(usize, u64, CompFlags)
 }
 
 macro_rules! impl_loads {
-    ($builder:ident, $load_name:ident, $load_seq_name:ident) => {
+    ($builder:ident, $load_name:ident, $load_seq_name:ident, $load_seq_name_file:ident) => {
         /// Load a BVGraph for random access
         pub fn $load_name<E: Endianness + 'static>(
             basename: impl AsRef<Path>,
@@ -82,8 +83,10 @@ macro_rules! impl_loads {
             >,
         >
         where
-            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-                ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+            for<'a> dsi_bitstream::impls::BufBitReader<
+                E,
+                dsi_bitstream::impls::MemWordReader<u32, &'a [u32]>,
+            >: CodeRead<E> + BitSeek,
         {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
@@ -121,8 +124,10 @@ macro_rules! impl_loads {
             basename: P,
         ) -> Result<BVGraphSequential<$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>>
         where
-            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-                ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+            for<'a> dsi_bitstream::impls::BufBitReader<
+                E,
+                dsi_bitstream::impls::MemWordReader<u32, &'a [u32]>,
+            >: CodeRead<E> + BitSeek,
         {
             let basename = basename.as_ref();
             let (num_nodes, num_arcs, comp_flags) =
@@ -150,8 +155,43 @@ macro_rules! impl_loads {
 
             Ok(seq_reader)
         }
+
+        /*         /// Load a BVGraph sequentially
+        pub fn $load_seq_name_file<E: Endianness + 'static, P: AsRef<Path>>(
+            basename: P,
+        ) -> Result<BVGraphSequential<$builder<E, WordAdapter<u32, File>, EmptyDict<usize, usize>>>>
+        where
+            for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+                CodeRead<E> + BitSeek,
+        {
+            let basename = basename.as_ref();
+            let (num_nodes, num_arcs, comp_flags) =
+                parse_properties::<E>(&format!("{}.properties", basename.to_string_lossy()))?;
+
+            let graph = MmapBackend::load(
+                format!("{}.graph", basename.to_string_lossy()),
+                MmapFlags::TRANSPARENT_HUGE_PAGES,
+            )?;
+
+            let code_reader_builder =
+                <$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>::new(
+                    graph,
+                    MemCase::from(EmptyDict::default()),
+                    comp_flags,
+                )?;
+
+            let seq_reader = BVGraphSequential::new(
+                code_reader_builder,
+                comp_flags.compression_window,
+                comp_flags.min_interval_length,
+                num_nodes,
+                Some(num_arcs),
+            );
+
+            Ok(seq_reader)
+        }*/
     };
 }
 
-impl_loads! {DynamicCodesReaderBuilder, load, load_seq}
-impl_loads! {ConstCodesReaderBuilder, load_const, load_seq_const}
+impl_loads! {DynamicCodesReaderBuilder, load, load_seq, load_seq_file}
+impl_loads! {ConstCodesReaderBuilder, load_const, load_seq_const, load_seq_const_file}

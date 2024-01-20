@@ -29,8 +29,7 @@ struct Args {
 
 fn transpose<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     let transposed = args
         .transposed

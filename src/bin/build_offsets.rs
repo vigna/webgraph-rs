@@ -20,8 +20,7 @@ struct Args {
 
 fn build_offsets<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
     let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.basename)?;

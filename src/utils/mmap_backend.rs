@@ -5,9 +5,16 @@
  */
 
 use anyhow::{Context, Result};
+use common_traits::{DoubleType, UnsignedInt};
 use core::fmt::Debug;
+use dsi_bitstream::{
+    impls::{BufBitReader, MemWordReader},
+    traits::Endianness,
+};
 use mmap_rs::*;
 use std::sync::Arc;
+
+use crate::prelude::{CodeRead, CodeReaderFactory};
 
 /// Adapt an [`Mmap`] that implements [`AsRef<[u8]>`] into a [`AsRef<[W]>`].
 ///
@@ -173,5 +180,16 @@ impl<W> AsRef<[W]> for MmapBackend<W, MmapMut> {
 impl<W> AsMut<[W]> for MmapBackend<W, MmapMut> {
     fn as_mut(&mut self) -> &mut [W] {
         unsafe { std::slice::from_raw_parts_mut(self.mmap.as_mut_ptr() as *mut W, self.len) }
+    }
+}
+
+impl<E: Endianness> CodeReaderFactory<E> for MmapBackend<u32>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E>,
+{
+    type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+
+    fn new_reader(&self) -> Self::CodeReader<'_> {
+        BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
     }
 }

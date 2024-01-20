@@ -55,8 +55,7 @@ struct Args {
 
 fn llp_impl<E: Endianness + 'static + Send + Sync>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     let start = std::time::Instant::now();
 

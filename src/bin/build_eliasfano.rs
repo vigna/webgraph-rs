@@ -28,8 +28,7 @@ struct Args {
 
 fn build_eliasfano<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        ZetaRead<E> + DeltaRead<E> + GammaRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     if let Some(num_nodes) = args.n {
         // Horribly temporary duplicated code for the case of label offsets.
