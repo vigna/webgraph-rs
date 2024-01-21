@@ -212,7 +212,7 @@ pub unsafe trait SortedLabels: IntoIterator {}
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessLabelling: SequentialLabelling {
     /// The type of the iterator over the labels of a node
-    /// returned by [successors](RandomAccessLabelling::successors).
+    /// returned by [`labels`](RandomAccessLabelling::labels).
     type Labels<'succ>: IntoIterator<Item = <Self as SequentialLabelling>::Label>
     where
         Self: 'succ;

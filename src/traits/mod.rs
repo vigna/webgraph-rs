@@ -29,7 +29,7 @@ To specify these constraints we have to resort to traitification using the [`Pai
 
 The user should rarely, if ever, interact with this trait. Iterating over an iterator whose output
 has been traitified using [`Pair`] is a bit cumbersome, as the output of the iterator is a [`Pair`]
-and must be turned into a pair using the [`into_tuple`](Pair::into_tuple) method.
+and must be turned into a pair using the [`into_pair`](Pair::into_pair) method.
 
 */
 pub trait Pair {

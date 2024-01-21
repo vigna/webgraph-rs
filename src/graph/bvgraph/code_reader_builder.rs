@@ -16,7 +16,7 @@ use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
-use mmap_rs::{self, Mmap};
+use mmap_rs;
 use std::io::Read;
 use sux::traits::IndexedDict;
 
@@ -65,15 +65,24 @@ bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
-        /// Suggest to map a region using transparent huge pages. This flag
-        /// is only a suggestion, and it is ignored if the kernel does not
+        /// Suggest to map a region using transparent huge pages.
+        /// 
+        /// This flag is only a suggestion, and it is ignored if the kernel does not
         /// support transparent huge pages. It is mainly useful to support
         /// `madvise()`-based huge pages on Linux. Note that at the time
         /// of this writing Linux does not support transparent huge pages
         /// in file-based memory mappings.
-        const SEQUENTIAL = 1 << 0;
-        const RANDOM_ACCESS = 1 << 1;
-        const TRANSPARENT_HUGE_PAGES = 1 << 2;
+        const TRANSPARENT_HUGE_PAGES = 1 << 0;
+        /// Suggest that the mapped region will be accessed sequentially.
+        ///
+        /// This flag is only a suggestion, and it is ignored if the kernel does
+        /// not support it. It is mainly useful to support `madvise()` on Linux.
+        const SEQUENTIAL = 1 << 1;
+        /// Suggest that the mapped region will be accessed randomly.
+        ///
+        /// This flag is only a suggestion, and it is ignored if the kernel does
+        /// not support it. It is mainly useful to support `madvise()` on Linux.
+        const RANDOM_ACCESS = 1 << 2;
     }
 }
 

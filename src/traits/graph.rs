@@ -14,8 +14,8 @@ A [sequential graph](SequentialGraph) is simply a
 [`SequentialLabelling`] whose associated type `Label` is `usize`: labels are interpreted
 as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply a
 [`RandomAccessLabelling`] extending a [`SequentialLabelling`] whose `Label` is `usize`.
-To access the successors of a node, you should however use
-[`RandomAccessLabelling::successors`], which delegates to [`labels`](RandomAccessLabelling::labels):
+To access the successors of a node, however, you must use
+[`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabelling::labels):
 the latter method is overriden on purpose make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabelledSequentialGraph) of type `L` is a
@@ -56,14 +56,19 @@ pub trait SequentialGraph: SequentialLabelling<Label = usize> {}
 pub type Successors<'succ, 'node, S> =
     <<S as SequentialLabelling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
-/// A [sequential graph](SequentialGraph) providing, additionally, random access to successor lists.
+/// A [sequential graph](SequentialGraph) providing, additionally, random access
+/// to successor lists.
+/// 
+/// On such a graph, successors are returned by the
+/// [`successors`](RandomAccessGraph::successors) method rather than by the
+/// [`labels`](RandomAccessLabelling::labels) method.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGraph {
     /// Return the successors of a node.
     ///
     /// Note that this is just a convenience alias of the
     /// [`RandomAccessLabelling::labels`] method, which is overriden in this
-    /// trait by an unimplemented, deprecated version to make its use impossible.
+    /// trait by an unimplemented, uncallable version.
     /// This approach avoids that users might call `labels` expecting to get
     /// just the labels associated with a node.
     #[inline(always)]
@@ -74,11 +79,8 @@ pub trait RandomAccessGraph: RandomAccessLabelling<Label = usize> + SequentialGr
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
     /// The `where` clause of this override contains an unsatisfiable private trait bound,
-    /// which makes calling this method impossible. Use the [`successors`] method instead.
-    #[allow(private_bounds, deprecated)]
-    #[deprecated(
-        note = "use the `successors` method instead; this method is just unimplemented!()"
-    )]
+    /// which makes calling this method impossible. Use the [`RandomAccessGraph::successors`] method instead.
+    #[allow(private_bounds)]
     fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_>
     where
         for<'a> this_method_cannot_be_called_use_successors_instead: Clone,
@@ -176,6 +178,9 @@ impl<'a, G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {
 /// A labelled random-access graph is a random-access labelling whose labels are
 /// pairs `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
+/// 
+/// On such a graph, successors are returned by the [`successors`](LabelledRandomAccessGraph::successors)
+/// method rather than by the [`labels`](RandomAccessLabelling::labels) method.
 pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {
     /// Return pairs given by successors of a node and their labels.
     ///
@@ -191,12 +196,10 @@ pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)
 
     /// Unconvenience override of the [`RandomAccessLabelling::labels`] method.
     ///
-    /// The `where` clause of this override contains an unsatisfiable private trait bound,
-    /// which makes calling this method impossible. Use the [`successors`] method instead.
+    /// The `where` clause of this override contains an unsatisfiable private
+    /// trait bound, which makes calling this method impossible. Use the
+    /// [`LabelledRandomAccessGraph::successors`] method instead.
     #[allow(private_bounds)]
-    #[deprecated(
-        note = "use the `successors` method instead; this method is just unimplemented!()"
-    )]
     fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_>
     where
         for<'a> this_method_cannot_be_called_use_successors_instead: Clone,

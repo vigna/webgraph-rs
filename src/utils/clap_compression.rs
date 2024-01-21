@@ -97,7 +97,7 @@ pub struct NumCpusArg {
 
 #[derive(Args, Debug)]
 /// Shared cli arguments for permutating a graph
-/// Reference on how to use it: https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust
+/// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct PermutationArgs {
     #[clap(short = 's', long, default_value_t = 1_000_000)]
     /// The size of a batch.
@@ -112,7 +112,7 @@ pub struct PermutationArgs {
 
 #[derive(Args, Debug)]
 /// Shared cli arguments for compression
-/// Reference on how to use it: https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust
+/// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct CompressArgs {
     /// The endianess of the graph to write
     #[clap(short = 'e', long)]

@@ -109,7 +109,7 @@ where
 /// A wrapper over [`parallel_compress_sequential_iter`] that takes the
 /// endianness as a string.
 ///
-/// Endianess can only be [`BE::NAME`] or [`LE::NAME`].
+/// Endianess can only be [`BE::NAME`](BE) or [`LE::NAME`](LE)
 /// A given endianess is enabled only if the corresponding feature is enabled,
 /// `be_bins` for big endian and `le_bins` for little endian, or if neither
 /// features are enabled.
