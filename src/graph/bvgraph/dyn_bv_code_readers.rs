@@ -382,6 +382,7 @@ impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
             Code::Gamma => CW::write_gamma,
             Code::Delta => CW::write_delta,
             Code::Zeta { k: 3 } => CW::write_zeta3,
+            // TODO: all other zeta codes
             code => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed. Got {:?}", code),
         }
     }

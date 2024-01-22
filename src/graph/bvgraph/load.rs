@@ -17,6 +17,14 @@ use std::io::*;
 use std::path::{Path, PathBuf};
 use sux::traits::IndexedDict;
 
+pub trait Access: 'static {}
+
+pub struct Sequential {}
+impl Access for Sequential {}
+
+pub struct Random {}
+impl Access for Random {}
+
 pub trait Dispatch: 'static {}
 
 pub struct Static<
@@ -86,7 +94,6 @@ impl Mode for Mmap {
         graph: &PathBuf,
         flags: code_reader_builder::Flags,
     ) -> Result<Self::Factory<E>> {
-        eprintln!("mmap");
         Ok(MmapBackend::load(graph, flags.into())?)
     }
 
@@ -138,26 +145,15 @@ impl Mode for LoadMmap {
     }
 }
 
-pub struct Load<E: Endianness, M: Dispatch, GLM: Mode, OLM: Mode> {
-    basename: PathBuf,
-    graph_load_flags: code_reader_builder::Flags,
-    offsets_load_flags: code_reader_builder::Flags,
-    _marker: std::marker::PhantomData<(E, M, GLM, OLM)>,
+pub struct Load<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> {
+    pub(crate) basename: PathBuf,
+    pub(crate) graph_load_flags: code_reader_builder::Flags,
+    pub(crate) offsets_load_flags: code_reader_builder::Flags,
+    pub(crate) _marker: std::marker::PhantomData<(E, A, D, GLM, OLM)>,
 }
 
-impl Load<NE, Dynamic, Mmap, Mmap> {
-    pub fn with_basename(basename: impl AsRef<Path>) -> Self {
-        Self {
-            basename: PathBuf::from(basename.as_ref()),
-            graph_load_flags: code_reader_builder::Flags::empty(),
-            offsets_load_flags: code_reader_builder::Flags::empty(),
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
-    pub fn endianness<E2: Endianness>(self) -> Load<E2, D, GLM, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
+    pub fn endianness<E2: Endianness>(self) -> Load<E2, A, D, GLM, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -167,8 +163,8 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
-    pub fn dispatch<D2: Dispatch>(self) -> Load<E, D2, GLM, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
+    pub fn dispatch<D2: Dispatch>(self) -> Load<E, A, D2, GLM, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -178,8 +174,8 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
-    pub fn mode<LM: Mode>(self) -> Load<E, D, LM, LM> {
+impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
+    pub fn random_access(self) -> Load<E, Random, D, GLM, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -189,8 +185,19 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch> Load<E, D, Mmap, Mmap> {
-    pub fn flags(self, flags: code_reader_builder::Flags) -> Load<E, D, Mmap, Mmap> {
+impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
+    pub fn mode<LM: Mode>(self) -> Load<E, A, D, LM, LM> {
+        Load {
+            basename: self.basename,
+            graph_load_flags: self.graph_load_flags,
+            offsets_load_flags: self.offsets_load_flags,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, Mmap, Mmap> {
+    pub fn flags(self, flags: code_reader_builder::Flags) -> Load<E, A, D, Mmap, Mmap> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -200,8 +207,8 @@ impl<E: Endianness, D: Dispatch> Load<E, D, Mmap, Mmap> {
     }
 }
 
-impl<E: Endianness, D: Dispatch> Load<E, D, LoadMmap, LoadMmap> {
-    pub fn flags(self, flags: code_reader_builder::Flags) -> Load<E, D, LoadMmap, LoadMmap> {
+impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, LoadMmap, LoadMmap> {
+    pub fn flags(self, flags: code_reader_builder::Flags) -> Load<E, A, D, LoadMmap, LoadMmap> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -211,8 +218,8 @@ impl<E: Endianness, D: Dispatch> Load<E, D, LoadMmap, LoadMmap> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
-    pub fn graph_mode<NGLM: Mode>(self) -> Load<E, D, NGLM, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
+    pub fn graph_mode<NGLM: Mode>(self) -> Load<E, A, D, NGLM, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -222,8 +229,8 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, OLM: Mode> Load<E, D, Mmap, OLM> {
-    pub fn graph_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, D, Mmap, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, Mmap, OLM> {
+    pub fn graph_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, A, D, Mmap, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -233,8 +240,11 @@ impl<E: Endianness, D: Dispatch, OLM: Mode> Load<E, D, Mmap, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, OLM: Mode> Load<E, D, LoadMmap, OLM> {
-    pub fn graph_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, D, LoadMmap, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, LoadMmap, OLM> {
+    pub fn graph_load_flags(
+        self,
+        flags: code_reader_builder::Flags,
+    ) -> Load<E, A, D, LoadMmap, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -244,8 +254,8 @@ impl<E: Endianness, D: Dispatch, OLM: Mode> Load<E, D, LoadMmap, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
-    pub fn offsets_mode<NOLM: Mode>(self) -> Load<E, D, GLM, NOLM> {
+impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, Random, D, GLM, OLM> {
+    pub fn offsets_mode<NOLM: Mode>(self) -> Load<E, Random, D, GLM, NOLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -255,22 +265,11 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, D, GLM, Mmap> {
-    pub fn offsets_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, D, GLM, Mmap> {
-        Load {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, D, GLM, LoadMmap> {
+impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, Mmap> {
     pub fn offsets_load_flags(
         self,
         flags: code_reader_builder::Flags,
-    ) -> Load<E, D, GLM, LoadMmap> {
+    ) -> Load<E, Random, D, GLM, Mmap> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -280,8 +279,22 @@ impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, D, GLM, LoadMmap> {
     }
 }
 
-impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Dynamic, GLM, OLM> {
-    pub fn random_access(
+impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, LoadMmap> {
+    pub fn offsets_load_flags(
+        self,
+        flags: code_reader_builder::Flags,
+    ) -> Load<E, Random, D, GLM, LoadMmap> {
+        Load {
+            basename: self.basename,
+            graph_load_flags: self.graph_load_flags,
+            offsets_load_flags: flags,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Random, Dynamic, GLM, OLM> {
+    pub fn load(
         mut self,
     ) -> anyhow::Result<BVGraph<DynamicCodesReaderBuilder<E, GLM::Factory<E>, OLM::Offsets>>>
     where
@@ -303,8 +316,10 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Dynamic, GLM, OLM> {
             num_arcs,
         ))
     }
+}
 
-    pub fn sequential(
+impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Sequential, Dynamic, GLM, OLM> {
+    pub fn load(
         mut self,
     ) -> anyhow::Result<
         BVGraphSequential<DynamicCodesReaderBuilder<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
@@ -324,8 +339,8 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Dynamic, GLM, OLM> {
                 MemCase::from(EmptyDict::default()),
                 comp_flags,
             )?,
-            comp_flags.min_interval_length,
             comp_flags.compression_window,
+            comp_flags.min_interval_length,
             num_nodes,
             Some(num_arcs),
         ))
@@ -342,9 +357,9 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Load<E, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>, GLM, OLM>
+    > Load<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>, GLM, OLM>
 {
-    pub fn random_access(
+    pub fn load(
         mut self,
     ) -> anyhow::Result<
         BVGraph<
@@ -380,8 +395,22 @@ impl<
             num_arcs,
         ))
     }
+}
 
-    pub fn sequential(
+impl<
+        E: Endianness,
+        GLM: Mode,
+        OLM: Mode,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    >
+    Load<E, Sequential, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>, GLM, OLM>
+{
+    pub fn load(
         mut self,
     ) -> anyhow::Result<
         BVGraphSequential<
@@ -409,8 +438,8 @@ impl<
 
         Ok(BVGraphSequential::new(
             ConstCodesReaderBuilder::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
-            comp_flags.min_interval_length,
             comp_flags.compression_window,
+            comp_flags.min_interval_length,
             num_nodes,
             Some(num_arcs),
         ))

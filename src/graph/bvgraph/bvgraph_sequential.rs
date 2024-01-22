@@ -5,12 +5,25 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::path::PathBuf;
+
 use super::*;
 use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use lender::*;
+
+pub fn with_basename(
+    basename: impl AsRef<std::path::Path>,
+) -> Load<NE, Sequential, Dynamic, Mmap, Mmap> {
+    Load {
+        basename: PathBuf::from(basename.as_ref()),
+        graph_load_flags: code_reader_builder::Flags::empty(),
+        offsets_load_flags: code_reader_builder::Flags::empty(),
+        _marker: std::marker::PhantomData,
+    }
+}
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators

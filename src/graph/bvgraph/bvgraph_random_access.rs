@@ -5,11 +5,27 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::path::PathBuf;
+
+use dsi_bitstream::traits::NE;
 use lender::IntoLender;
 use sux::prelude::*;
 
 use crate::prelude::*;
 use crate::utils::nat2int;
+
+use super::code_reader_builder;
+
+pub fn with_basename(
+    basename: impl AsRef<std::path::Path>,
+) -> Load<NE, Random, Dynamic, Mmap, Mmap> {
+    Load {
+        basename: PathBuf::from(basename.as_ref()),
+        graph_load_flags: code_reader_builder::Flags::empty(),
+        offsets_load_flags: code_reader_builder::Flags::empty(),
+        _marker: std::marker::PhantomData,
+    }
+}
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
