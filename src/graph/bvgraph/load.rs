@@ -56,7 +56,7 @@ impl LoadMode for File {
     type Offsets = EF<Vec<usize>, Vec<u64>>;
     fn load_offsets(
         offsets: &PathBuf,
-        flags: code_reader_builder::Flags,
+        _flags: code_reader_builder::Flags,
     ) -> Result<MemCase<Self::Offsets>> {
         Ok(MemCase::encase(EF::<Vec<usize>, Vec<u64>>::load_full(
             offsets,
@@ -147,8 +147,19 @@ impl Load<NE, Dynamic, Mmap, Mmap> {
     }
 }
 
-impl<E: Endianness, M: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, M, GLM, OLM> {
-    pub fn dispatch<D: Dispatch>(self) -> Load<E, D, GLM, OLM> {
+impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
+    pub fn endianness<E2: Endianness>(self) -> Load<E2, D, GLM, OLM> {
+        Load {
+            basename: self.basename,
+            graph_load_flags: self.graph_load_flags,
+            offsets_load_flags: self.offsets_load_flags,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
+    pub fn dispatch<D2: Dispatch>(self) -> Load<E, D2, GLM, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
