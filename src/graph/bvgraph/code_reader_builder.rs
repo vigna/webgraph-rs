@@ -6,7 +6,7 @@
  */
 
 use core::marker::PhantomData;
-use std::{fs::File, io::BufReader, path::Path, sync::Arc};
+use std::{fs::File, io::BufReader, path::Path};
 
 use crate::utils::MmapBackend;
 
@@ -21,7 +21,7 @@ use std::io::Read;
 use sux::traits::IndexedDict;
 
 pub trait CodeReaderFactory<E: Endianness> {
-    type CodeReader<'a>: CodeRead<E>
+    type CodeReader<'a>
     where
         Self: 'a;
     fn new_reader(&self) -> Self::CodeReader<'_>;
@@ -46,10 +46,7 @@ impl<E: Endianness> FileFactory<E> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E>
-where
-    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E>,
-{
+impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E> {
     type CodeReader<'a> = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where
         Self: 'a;
@@ -66,7 +63,7 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages.
-        /// 
+        ///
         /// This flag is only a suggestion, and it is ignored if the kernel does not
         /// support transparent huge pages. It is mainly useful to support
         /// `madvise()`-based huge pages on Linux. Note that at the time
@@ -93,27 +90,43 @@ impl core::default::Default for Flags {
     }
 }
 
-impl Flags {
-    /// Translates internal flags to `mmap_rs` flags.
-    pub(crate) fn mmap_flags(&self) -> mmap_rs::MmapFlags {
-        let mut flags: mmap_rs::MmapFlags = mmap_rs::MmapFlags::empty();
-        if self.contains(Self::SEQUENTIAL) {
-            flags |= mmap_rs::MmapFlags::SEQUENTIAL;
+impl From<Flags> for mmap_rs::MmapFlags {
+    fn from(flags: Flags) -> Self {
+        let mut mmap_flags = mmap_rs::MmapFlags::empty();
+        if flags.contains(Flags::SEQUENTIAL) {
+            mmap_flags |= mmap_rs::MmapFlags::SEQUENTIAL;
         }
-        if self.contains(Self::RANDOM_ACCESS) {
-            flags |= mmap_rs::MmapFlags::RANDOM_ACCESS;
+        if flags.contains(Flags::RANDOM_ACCESS) {
+            mmap_flags |= mmap_rs::MmapFlags::RANDOM_ACCESS;
         }
-        if self.contains(Self::TRANSPARENT_HUGE_PAGES) {
-            flags |= mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES;
+        if flags.contains(Flags::TRANSPARENT_HUGE_PAGES) {
+            mmap_flags |= mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES;
         }
 
-        flags
+        mmap_flags
+    }
+}
+
+impl From<Flags> for epserde::deser::Flags {
+    fn from(flags: Flags) -> Self {
+        let mut deser_flags = epserde::deser::Flags::empty();
+        if flags.contains(Flags::SEQUENTIAL) {
+            deser_flags |= epserde::deser::Flags::SEQUENTIAL;
+        }
+        if flags.contains(Flags::RANDOM_ACCESS) {
+            deser_flags |= epserde::deser::Flags::RANDOM_ACCESS;
+        }
+        if flags.contains(Flags::TRANSPARENT_HUGE_PAGES) {
+            deser_flags |= epserde::deser::Flags::TRANSPARENT_HUGE_PAGES;
+        }
+
+        deser_flags
     }
 }
 
 #[derive(Clone)]
 pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
-    data: Arc<M>,
+    data: M,
     _marker: core::marker::PhantomData<E>,
 }
 
@@ -139,7 +152,7 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
         bytes[file_len..].fill(0);
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: Arc::new(unsafe { std::mem::transmute(bytes.into_boxed_slice()) }),
+            data: unsafe { std::mem::transmute(bytes.into_boxed_slice()) },
             _marker: core::marker::PhantomData,
         })
     }
@@ -152,7 +165,7 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
         let capacity = file_len.align_to(16);
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
-            .with_flags(flags.mmap_flags())
+            .with_flags(flags.into())
             .map_mut()?;
         file.read_exact(&mut mmap[..file_len])?;
         // Fixes the last few bytes to guarantee zero-extension semantics
@@ -161,16 +174,13 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
 
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: Arc::new(MmapBackend::from(mmap.make_read_only().map_err(|(_, err)| err)?)),
+            data: MmapBackend::from(mmap.make_read_only().map_err(|(_, err)| err)?),
             _marker: core::marker::PhantomData,
         })
     }
 }
 
-impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M>
-where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a[u32]>>: CodeRead<E>,
-{
+impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M> {
     type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a[u32]>>
     where
         Self: 'a;

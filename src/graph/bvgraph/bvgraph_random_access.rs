@@ -12,8 +12,7 @@ use crate::utils::nat2int;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Input = usize, Output = usize>>
-{
+pub struct BVGraph<CRB: BVGraphCodesReaderBuilder> {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     codes_reader_builder: CRB,
@@ -25,13 +24,11 @@ pub struct BVGraph<CRB: BVGraphCodesReaderBuilder, OFF: IndexedDict<Input = usiz
     number_of_nodes: usize,
     /// The number of arcs in the graph.
     number_of_arcs: u64,
-    _marker: std::marker::PhantomData<OFF>,
 }
 
-impl<CRB, OFF> BVGraph<CRB, OFF>
+impl<CRB> BVGraph<CRB>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     /// Create a new BVGraph from the given parameters.
     ///
@@ -61,34 +58,30 @@ where
             compression_window,
             number_of_nodes,
             number_of_arcs,
-            _marker: std::marker::PhantomData,
         }
     }
 
     #[inline(always)]
     /// Change the codes reader builder (monad style)
-    pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraph<CRB2, OFF>
-    where
-        F: FnOnce(CRB) -> CRB2,
-        CRB2: BVGraphCodesReaderBuilder,
-    {
+    pub fn map_codes_reader_builder<CRB2: BVGraphCodesReaderBuilder>(
+        self,
+        map_func: impl FnOnce(CRB) -> CRB2
+    ) -> BVGraph<CRB2> {
         BVGraph {
             codes_reader_builder: map_func(self.codes_reader_builder),
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
             compression_window: self.compression_window,
             min_interval_length: self.min_interval_length,
-            _marker: std::marker::PhantomData,
         }
     }
 
     /* TODO
         #[inline(always)]
         /// Change the offsets (monad style)
-        pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB, OFF2>
+        pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<CRB2>
         where
             F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
-            OFF2: IndexedDict<Input = usize, Output = usize>,
         {
             BVGraph {
                 codes_reader_builder: self.codes_reader_builder,
@@ -108,17 +101,15 @@ where
     }*/
 }
 
-impl<CRB, OFF> SequentialLabelling for BVGraph<CRB, OFF>
+impl<CRB> SequentialLabelling for BVGraph<CRB>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     type Label = usize;
     type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
     where
         Self: 'b,
-        CRB: 'b,
-        OFF: 'b;
+        CRB: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -153,17 +144,11 @@ where
     }
 }
 
-impl<CRB, OFF> SequentialGraph for BVGraph<CRB, OFF>
-where
-    CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
-{
-}
+impl<CRB> SequentialGraph for BVGraph<CRB> where CRB: BVGraphCodesReaderBuilder {}
 
-impl<CRB, OFF> RandomAccessLabelling for BVGraph<CRB, OFF>
+impl<CRB> RandomAccessLabelling for BVGraph<CRB>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     type Labels<'a> = RandomSuccessorIter<CRB::Reader<'a>>
     where Self: 'a, CRB: 'a;
@@ -292,12 +277,7 @@ where
     }
 }
 
-impl<CRB, OFF> RandomAccessGraph for BVGraph<CRB, OFF>
-where
-    CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
-{
-}
+impl<CRB> RandomAccessGraph for BVGraph<CRB> where CRB: BVGraphCodesReaderBuilder {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
@@ -405,10 +385,9 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
 
 /* TODO
 /// Allow to do `for (node, succ_iter) in &graph`
-impl<'a, CRB, OFF> IntoIterator for &'a BVGraph<CRB, OFF>
+impl<'a, CRB> IntoIterator for &'a BVGraph<CRB>
 where
     CRB: BVGraphCodesReaderBuilder,
-    OFF: IndexedDict<Input = usize, Output = usize>,
 {
     type IntoLendIter = WebgraphSequentialIter<CRB::Reader<'a>>;
     type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;

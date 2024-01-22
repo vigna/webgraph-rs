@@ -24,8 +24,8 @@ java-properties = "1.4.1"
 mmap-rs = {path = "../mmap-rs"}#"0.5.0"
 bitvec = { version = "1.0.1", features = ["atomic"] }
 num_cpus = "1.15.0"
-epserde = "0.2.0"
-sux = "0.1"
+epserde = {path = "../epserde-rs/epserde"}#"0.2.0"
+sux = {path = "../sux-rs"}#"0.1"
 dsi-bitstream = {path = "../dsi-bitstream-rs"}#"0.1.7"
 clap = { version = "4.1.6", features = ["derive"] }
 dsi-progress-logger = "0.2.0"

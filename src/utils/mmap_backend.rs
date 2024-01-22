@@ -64,7 +64,6 @@ impl<W> From<Mmap> for MmapBackend<W> {
 }
 
 impl<W> MmapBackend<W> {
-
     /// Create a new MmapBackend
     pub fn load<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
         let file_len = path
@@ -193,10 +192,7 @@ impl<W> AsMut<[W]> for MmapBackend<W, MmapMut> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for MmapBackend<u32>
-where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E>,
-{
+impl<E: Endianness> CodeReaderFactory<E> for MmapBackend<u32> {
     type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 
     fn new_reader(&self) -> Self::CodeReader<'_> {
