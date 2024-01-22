@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::codecs::Flags;
 use super::*;
 use crate::graph::bvgraph::EmptyDict;
 use crate::prelude::*;
@@ -54,15 +55,12 @@ pub trait Mode: 'static {
 
     fn new_factory<E: Endianness>(
         graph: &PathBuf,
-        flags: code_reader_builder::Flags,
+        flags: codecs::Flags,
     ) -> Result<Self::Factory<E>>;
 
     type Offsets: IndexedDict<Input = usize, Output = usize>;
 
-    fn load_offsets(
-        offsets: &PathBuf,
-        flags: code_reader_builder::Flags,
-    ) -> Result<MemCase<Self::Offsets>>;
+    fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>>;
 }
 
 pub struct File {}
@@ -70,17 +68,11 @@ impl Mode for File {
     type Factory<E: Endianness> = FileFactory<E>;
     type Offsets = EF<Vec<usize>, Vec<u64>>;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
-        _flags: code_reader_builder::Flags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
         Ok(FileFactory::<E>::new(graph)?)
     }
 
-    fn load_offsets(
-        offsets: &PathBuf,
-        _flags: code_reader_builder::Flags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
         Ok(EF::<Vec<usize>, Vec<u64>>::load_full(offsets)?.into())
     }
 }
@@ -90,17 +82,11 @@ impl Mode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
     type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
-        flags: code_reader_builder::Flags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MmapBackend::load(graph, flags.into())?)
     }
 
-    fn load_offsets(
-        offsets: &PathBuf,
-        flags: code_reader_builder::Flags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
         EF::<Vec<usize>, Vec<u64>>::mmap(offsets, flags.into())
     }
 }
@@ -110,17 +96,11 @@ impl Mode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
     type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
-        _flags: code_reader_builder::Flags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mem(graph)?)
     }
 
-    fn load_offsets(
-        offsets: &PathBuf,
-        _flags: code_reader_builder::Flags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
         Ok(EF::<Vec<usize>, Vec<u64>>::load_mem(offsets)?)
     }
 }
@@ -130,25 +110,19 @@ impl Mode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
     type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
-        flags: code_reader_builder::Flags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mmap(graph, flags)?)
     }
 
-    fn load_offsets(
-        offsets: &PathBuf,
-        flags: code_reader_builder::Flags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
         EF::<Vec<usize>, Vec<u64>>::load_mmap(offsets, flags.into())
     }
 }
 
 pub struct Load<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> {
     pub(crate) basename: PathBuf,
-    pub(crate) graph_load_flags: code_reader_builder::Flags,
-    pub(crate) offsets_load_flags: code_reader_builder::Flags,
+    pub(crate) graph_load_flags: Flags,
+    pub(crate) offsets_load_flags: Flags,
     pub(crate) _marker: std::marker::PhantomData<(E, A, D, GLM, OLM)>,
 }
 
@@ -197,7 +171,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, Mmap, Mmap> {
-    pub fn flags(self, flags: code_reader_builder::Flags) -> Load<E, A, D, Mmap, Mmap> {
+    pub fn flags(self, flags: Flags) -> Load<E, A, D, Mmap, Mmap> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -208,7 +182,7 @@ impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, Mmap, Mmap> {
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, LoadMmap, LoadMmap> {
-    pub fn flags(self, flags: code_reader_builder::Flags) -> Load<E, A, D, LoadMmap, LoadMmap> {
+    pub fn flags(self, flags: Flags) -> Load<E, A, D, LoadMmap, LoadMmap> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -230,7 +204,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, Mmap, OLM> {
-    pub fn graph_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, A, D, Mmap, OLM> {
+    pub fn graph_load_flags(self, flags: Flags) -> Load<E, A, D, Mmap, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -241,10 +215,7 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, Mmap, OLM> 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, LoadMmap, OLM> {
-    pub fn graph_load_flags(
-        self,
-        flags: code_reader_builder::Flags,
-    ) -> Load<E, A, D, LoadMmap, OLM> {
+    pub fn graph_load_flags(self, flags: Flags) -> Load<E, A, D, LoadMmap, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -266,10 +237,7 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, Random, D, GLM, O
 }
 
 impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, Mmap> {
-    pub fn offsets_load_flags(
-        self,
-        flags: code_reader_builder::Flags,
-    ) -> Load<E, Random, D, GLM, Mmap> {
+    pub fn offsets_load_flags(self, flags: Flags) -> Load<E, Random, D, GLM, Mmap> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -280,10 +248,7 @@ impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, Mmap> {
 }
 
 impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, LoadMmap> {
-    pub fn offsets_load_flags(
-        self,
-        flags: code_reader_builder::Flags,
-    ) -> Load<E, Random, D, GLM, LoadMmap> {
+    pub fn offsets_load_flags(self, flags: Flags) -> Load<E, Random, D, GLM, LoadMmap> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -538,14 +503,14 @@ macro_rules! impl_loads {
             )
             .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
-            let code_reader_builder = <$builder<
+            let factories = <$builder<
                 E,
                 MmapBackend<u32>,
                 crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
             >>::new(graph, offsets, comp_flags)?;
 
             Ok(BVGraph::new(
-                code_reader_builder,
+                factories,
                 comp_flags.min_interval_length,
                 comp_flags.compression_window,
                 num_nodes,
@@ -577,8 +542,7 @@ macro_rules! impl_loads {
 
             let graph = MemoryFactory::new_mmap(
                 format!("{}.graph", basename.to_string_lossy()),
-                code_reader_builder::Flags::TRANSPARENT_HUGE_PAGES
-                    | code_reader_builder::Flags::RANDOM_ACCESS,
+                Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
             )?;
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
@@ -588,14 +552,14 @@ macro_rules! impl_loads {
             )
             .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
-            let code_reader_builder = <$builder<
+            let factories = <$builder<
                 E,
                 MemoryFactory<E, MmapBackend<u32>>,
                 crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
             >>::new(graph, offsets, comp_flags)?;
 
             Ok(BVGraph::new(
-                code_reader_builder,
+                factories,
                 comp_flags.min_interval_length,
                 comp_flags.compression_window,
                 num_nodes,
@@ -622,15 +586,14 @@ macro_rules! impl_loads {
                 MmapFlags::TRANSPARENT_HUGE_PAGES,
             )?;
 
-            let code_reader_builder =
-                <$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>::new(
-                    graph,
-                    MemCase::from(EmptyDict::default()),
-                    comp_flags,
-                )?;
+            let factories = <$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>::new(
+                graph,
+                MemCase::from(EmptyDict::default()),
+                comp_flags,
+            )?;
 
             let seq_reader = BVGraphSequential::new(
-                code_reader_builder,
+                factories,
                 comp_flags.compression_window,
                 comp_flags.min_interval_length,
                 num_nodes,

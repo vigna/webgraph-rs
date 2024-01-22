@@ -9,19 +9,18 @@ use std::path::PathBuf;
 
 use crate::prelude::*;
 use crate::utils::nat2int;
+use bitflags::Flags;
 use dsi_bitstream::traits::NE;
 use lender::IntoLender;
 use sux::prelude::*;
-
-use super::code_reader_builder;
 
 pub fn with_basename(
     basename: impl AsRef<std::path::Path>,
 ) -> Load<NE, Random, Dynamic, Mmap, Mmap> {
     Load {
         basename: PathBuf::from(basename.as_ref()),
-        graph_load_flags: code_reader_builder::Flags::empty(),
-        offsets_load_flags: code_reader_builder::Flags::empty(),
+        graph_load_flags: Flags::empty(),
+        offsets_load_flags: Flags::empty(),
         _marker: std::marker::PhantomData,
     }
 }
@@ -76,45 +75,6 @@ where
             number_of_arcs,
         }
     }
-
-    #[inline(always)]
-    /// Change the codes reader builder (monad style)
-    pub fn map_codes_reader_builder<F2: RandomAccessDecoderFactory>(
-        self,
-        map_func: impl FnOnce(F) -> F2,
-    ) -> BVGraph<F2> {
-        BVGraph {
-            reader_factory: map_func(self.reader_factory),
-            number_of_nodes: self.number_of_nodes,
-            number_of_arcs: self.number_of_arcs,
-            compression_window: self.compression_window,
-            min_interval_length: self.min_interval_length,
-        }
-    }
-
-    /* TODO
-        #[inline(always)]
-        /// Change the offsets (monad style)
-        pub fn map_offsets<OFF2, F>(self, map_func: F) -> BVGraph<F2>
-        where
-            F: FnOnce(MemCase<OFF>) -> MemCase<OFF2>,
-        {
-            BVGraph {
-                codes_reader_builder: self.codes_reader_builder,
-                number_of_nodes: self.number_of_nodes,
-                number_of_arcs: self.number_of_arcs,
-                compression_window: self.compression_window,
-                min_interval_length: self.min_interval_length,
-            }
-        }
-    */
-
-    /* TODO
-    #[inline(always)]
-    /// Consume self and return the codes reader builder and the offsets
-    pub fn unwrap(self) -> (F, MemCase<OFF>) {
-        (self.codes_reader_builder, self.offsets)
-    }*/
 }
 
 impl<F> SequentialLabelling for BVGraph<F>

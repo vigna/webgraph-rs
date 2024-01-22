@@ -5,12 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::PathBuf;
-
-use dsi_bitstream::traits::NE;
-
-use self::prelude::{Dynamic, Load, Mmap, Random};
-
 pub mod arc_list_graph;
 pub mod bvgraph;
 pub mod permuted_graph;

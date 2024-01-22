@@ -11,6 +11,7 @@ use super::*;
 use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
+use bitflags::Flags;
 use dsi_bitstream::prelude::*;
 use lender::*;
 
@@ -19,8 +20,8 @@ pub fn with_basename(
 ) -> Load<NE, Sequential, Dynamic, Mmap, Mmap> {
     Load {
         basename: PathBuf::from(basename.as_ref()),
-        graph_load_flags: code_reader_builder::Flags::empty(),
-        offsets_load_flags: code_reader_builder::Flags::empty(),
+        graph_load_flags: Flags::empty(),
+        offsets_load_flags: Flags::empty(),
         _marker: std::marker::PhantomData,
     }
 }

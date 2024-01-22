@@ -28,9 +28,6 @@ pub use masked_iterator::*;
 mod codes_opt;
 pub use codes_opt::*;
 
-mod code_reader_builder;
-pub use code_reader_builder::*;
-
 mod codecs;
 pub use codecs::*;
 
@@ -39,9 +36,6 @@ pub use load::*;
 
 mod comp_flags;
 pub use comp_flags::*;
-
-mod bvgraph_codes;
-pub use bvgraph_codes::*;
 
 /// The default version of EliasFano we use for the CLI
 pub type EF<Memory, Inventory> = sux::dict::EliasFano<
