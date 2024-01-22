@@ -111,6 +111,7 @@ impl<L: Copy + 'static> VecGraph<L> {
         }
         // SAFETY: the label is not used by Eq/Ord.
         let result = self.succ[u].remove(&Successor(v, unsafe {
+            #[allow(clippy::uninit_assumed_init)]
             MaybeUninit::<L>::uninit().assume_init()
         }));
         self.number_of_arcs -= result as u64;
