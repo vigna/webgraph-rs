@@ -742,7 +742,7 @@ where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Decoder<'a> =
-        ConstCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        ConstDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
@@ -750,7 +750,7 @@ where
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
 
-        Ok(ConstCodesReader {
+        Ok(ConstDecoder {
             code_reader,
             _marker: PhantomData,
         })
@@ -782,14 +782,14 @@ where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Decoder<'a> =
-        ConstCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        ConstDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         let code_reader = self.factory.new_reader();
 
-        Ok(ConstCodesReader {
+        Ok(ConstDecoder {
             code_reader,
             _marker: PhantomData,
         })
