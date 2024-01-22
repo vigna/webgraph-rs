@@ -16,7 +16,7 @@ use dsi_bitstream::prelude::*;
 /// scanning the graph. In particular, it can be used to
 /// build the offsets of a graph or to enumerate the graph
 /// degrees when the offsets are not available.
-pub struct DegreesIter<CR: Reader + BVGraphCodesSkipper> {
+pub struct DegreesIter<CR: Decoder + BVGraphCodesSkipper> {
     codes_reader: CR,
     backrefs: Vec<usize>,
     node_id: usize,
@@ -25,14 +25,14 @@ pub struct DegreesIter<CR: Reader + BVGraphCodesSkipper> {
     number_of_nodes: usize,
 }
 
-impl<CR: Reader + BVGraphCodesSkipper + BitSeek> DegreesIter<CR> {
+impl<CR: Decoder + BVGraphCodesSkipper + BitSeek> DegreesIter<CR> {
     /// Get the current bit-offset in the bitstream
     pub fn get_pos(&mut self) -> u64 {
         self.codes_reader.get_bit_pos().unwrap()
     }
 }
 
-impl<CR: Reader + BVGraphCodesSkipper + BitSeek> Iterator for DegreesIter<CR> {
+impl<CR: Decoder + BVGraphCodesSkipper + BitSeek> Iterator for DegreesIter<CR> {
     type Item = (u64, usize, usize);
     fn next(&mut self) -> Option<(u64, usize, usize)> {
         if self.node_id >= self.number_of_nodes {
@@ -43,7 +43,7 @@ impl<CR: Reader + BVGraphCodesSkipper + BitSeek> Iterator for DegreesIter<CR> {
     }
 }
 
-impl<CR: Reader + BVGraphCodesSkipper> DegreesIter<CR> {
+impl<CR: Decoder + BVGraphCodesSkipper> DegreesIter<CR> {
     /// Create a new iterator over the degrees of the graph.
     pub fn new(
         codes_reader: CR,

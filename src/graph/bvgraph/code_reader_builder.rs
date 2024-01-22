@@ -330,16 +330,16 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    RandomAccessReaderFactory for DynamicCodesReaderBuilder<E, F, OFF>
+    RandomAccessDecoderFactory for DynamicCodesReaderBuilder<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Reader<'a> =
+    type Decoder<'a> =
         DynamicCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
-    fn new_reader(&self, node: usize) -> anyhow::Result<Self::Reader<'_>> {
+    fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
 
@@ -359,17 +359,17 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>> SequentialReaderFactory
+impl<E: Endianness, F: CodeReaderFactory<E>> SequentialDecoderFactory
     for DynamicCodesReaderBuilder<E, F, EmptyDict<usize, usize>>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Reader<'a> =
+    type Decoder<'a> =
         DynamicCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
+    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         Ok(DynamicCodesReader {
             code_reader: self.factory.new_reader(),
             read_outdegree: self.read_outdegree,
@@ -568,17 +568,17 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    RandomAccessReaderFactory for DynamicCodesReaderSkipperBuilder<E, F, OFF>
+    RandomAccessDecoderFactory for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Reader<'a> =
+    type Decoder<'a> =
         DynamicCodesReaderSkipper<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
-    fn new_reader(&self, node: usize) -> anyhow::Result<Self::Reader<'_>> {
+    fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
         Ok(DynamicCodesReaderSkipper {
@@ -607,17 +607,17 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    SequentialReaderFactory for DynamicCodesReaderSkipperBuilder<E, F, OFF>
+    SequentialDecoderFactory for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Reader<'a> =
+    type Decoder<'a> =
         DynamicCodesReaderSkipper<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
-    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
+    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         let code_reader = self.factory.new_reader();
         Ok(DynamicCodesReaderSkipper {
             code_reader,
@@ -736,17 +736,17 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > RandomAccessReaderFactory
+    > RandomAccessDecoderFactory
     for ConstCodesReaderBuilder<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Reader<'a> =
+    type Decoder<'a> =
         ConstCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
-    fn new_reader(&self, offset: usize) -> anyhow::Result<Self::Reader<'_>> {
+    fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
 
@@ -766,7 +766,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > SequentialReaderFactory
+    > SequentialDecoderFactory
     for ConstCodesReaderBuilder<
         E,
         F,
@@ -781,12 +781,12 @@ impl<
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Reader<'a> =
+    type Decoder<'a> =
         ConstCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
+    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         let code_reader = self.factory.new_reader();
 
         Ok(ConstCodesReader {

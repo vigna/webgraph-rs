@@ -152,7 +152,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Reader for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Decoder for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
@@ -332,15 +332,15 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BVGraphCodesWriter
-    for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encoder for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
 
-    type MockWriter = ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
-    fn mock(&self) -> Self::MockWriter {
+    type MockEncoder =
+        ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
+    fn mock(&self) -> Self::MockEncoder {
         ConstCodesMockWriter::new()
     }
 
@@ -437,13 +437,12 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BVGraphCodesWriter
-    for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encoder for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = Infallible;
 
-    type MockWriter = Self;
-    fn mock(&self) -> Self::MockWriter {
+    type MockEncoder = Self;
+    fn mock(&self) -> Self::MockEncoder {
         ConstCodesMockWriter::new()
     }
 

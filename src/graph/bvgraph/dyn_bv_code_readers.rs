@@ -92,7 +92,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReader<E,
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> Reader for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Decoder for DynamicCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -274,7 +274,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReaderSki
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> Reader for DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Decoder for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -423,14 +423,14 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> BVGraphCodesWriter for DynamicCodesWriter<E, CW>
+impl<E: Endianness, CW: CodeWrite<E>> Encoder for DynamicCodesWriter<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
-    type MockWriter = DynamicCodesMockWriter;
+    type MockEncoder = DynamicCodesMockWriter;
 
-    fn mock(&self) -> Self::MockWriter {
+    fn mock(&self) -> Self::MockEncoder {
         macro_rules! reconstruct_code {
             ($code:expr) => {{
                 let code = $code as usize;
@@ -552,11 +552,11 @@ impl DynamicCodesMockWriter {
     }
 }
 
-impl BVGraphCodesWriter for DynamicCodesMockWriter {
+impl Encoder for DynamicCodesMockWriter {
     type Error = Infallible;
 
-    type MockWriter = Self;
-    fn mock(&self) -> Self::MockWriter {
+    type MockEncoder = Self;
+    fn mock(&self) -> Self::MockEncoder {
         self.clone()
     }
 

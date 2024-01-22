@@ -24,28 +24,6 @@ impl<E: Endianness, T> CodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + 
 /// a sum of traits
 impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
-/// An object that can create code readers, this is done so that the builder can
-/// own the data, and the readers can be created and thrown away freely
-pub trait RandomAccessReaderFactory {
-    /// The type of the reader that we are building
-    type Reader<'a>: Reader + 'a
-    where
-        Self: 'a;
-
-    /// Create a new reader starting at the given node.
-    fn new_reader(&self, node: usize) -> anyhow::Result<Self::Reader<'_>>;
-}
-
-pub trait SequentialReaderFactory {
-    /// The type of the reader that we are building
-    type Reader<'a>: Reader + 'a
-    where
-        Self: 'a;
-
-    /// Create a new reader starting at the given node.
-    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>>;
-}
-
 /// The generic interface we need to skip codes
 pub trait BVGraphCodesSkipper {
     /// skip a outdegree code
@@ -73,7 +51,7 @@ pub trait BVGraphCodesSkipper {
 }
 
 /// The generic interface we need to read codes to decode a [`BVGraph`]
-pub trait Reader {
+pub trait Decoder {
     /// read a outdegree code
     fn read_outdegree(&mut self) -> u64;
 
@@ -100,13 +78,13 @@ pub trait Reader {
 
 /// The generic interface we need to write codes to write a [`BVGraph`] to
 /// a bitstream
-pub trait BVGraphCodesWriter {
+pub trait Encoder {
     type Error: Error + Send + Sync;
     /// A mock writer that does not write anything but returns how many bits
     /// this writer with this configuration would have written
-    type MockWriter: BVGraphCodesWriter;
+    type MockEncoder: Encoder;
     /// Returns a mock writer that does not write anything.
-    fn mock(&self) -> Self::MockWriter;
+    fn mock(&self) -> Self::MockEncoder;
 
     /// Write `value` as a outdegree code and return the number of bits written
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error>;

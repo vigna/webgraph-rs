@@ -10,7 +10,7 @@ use core::cmp::Ordering;
 use lender::prelude::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
-pub struct BVComp<WGCW: BVGraphCodesWriter> {
+pub struct BVComp<WGCW: Encoder> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
     backrefs: CircularBufferVec,
@@ -24,7 +24,7 @@ pub struct BVComp<WGCW: BVGraphCodesWriter> {
     /// out how to compress the graph best
     bit_write: WGCW,
     /// The mock writer, this is used to do tentative compressions
-    mock_writer: WGCW::MockWriter,
+    mock_writer: WGCW::MockEncoder,
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
@@ -85,7 +85,7 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<WGCW: BVGraphCodesWriter>(
+    fn write<WGCW: Encoder>(
         &self,
         writer: &mut WGCW,
         curr_node: usize,
@@ -297,7 +297,7 @@ impl Compressor {
     }
 }
 
-impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
+impl<WGCW: Encoder> BVComp<WGCW> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
@@ -333,7 +333,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
     pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize>
     where
         WGCW::Error: 'static,
-        <WGCW::MockWriter as BVGraphCodesWriter>::Error: 'static,
+        <WGCW::MockEncoder as Encoder>::Error: 'static,
     {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
@@ -439,7 +439,7 @@ impl<WGCW: BVGraphCodesWriter> BVComp<WGCW> {
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         WGCW::Error: 'static,
-        <WGCW::MockWriter as BVGraphCodesWriter>::Error: 'static,
+        <WGCW::MockEncoder as Encoder>::Error: 'static,
     {
         let mut count = 0;
         for_! ( (_, succ) in iter_nodes {
