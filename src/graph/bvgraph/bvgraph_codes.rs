@@ -26,24 +26,24 @@ impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E>
 
 /// An object that can create code readers, this is done so that the builder can
 /// own the data, and the readers can be created and thrown away freely
-pub trait BVGraphCodesReaderBuilder {
+pub trait RandomAccessReaderFactory {
     /// The type of the reader that we are building
-    type Reader<'a>: BVGraphCodesReader + 'a
+    type Reader<'a>: Reader + 'a
     where
         Self: 'a;
 
     /// Create a new reader starting at the given node.
-    fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn Error>>;
+    fn new_reader(&self, node: usize) -> anyhow::Result<Self::Reader<'_>>;
 }
 
-pub trait BVGraphSeqCodesReaderBuilder {
+pub trait SequentialReaderFactory {
     /// The type of the reader that we are building
-    type Reader<'a>: BVGraphCodesReader + 'a
+    type Reader<'a>: Reader + 'a
     where
         Self: 'a;
 
     /// Create a new reader starting at the given node.
-    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn Error>>;
+    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>>;
 }
 
 /// The generic interface we need to skip codes
@@ -73,7 +73,7 @@ pub trait BVGraphCodesSkipper {
 }
 
 /// The generic interface we need to read codes to decode a [`BVGraph`]
-pub trait BVGraphCodesReader {
+pub trait Reader {
     /// read a outdegree code
     fn read_outdegree(&mut self) -> u64;
 

@@ -92,7 +92,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReader<E,
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesReader for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Reader for DynamicCodesReader<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -274,7 +274,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReaderSki
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> BVGraphCodesReader for DynamicCodesReaderSkipper<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Reader for DynamicCodesReaderSkipper<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)

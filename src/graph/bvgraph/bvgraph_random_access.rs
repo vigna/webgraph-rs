@@ -29,7 +29,7 @@ pub fn with_basename(
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<CRB: BVGraphCodesReaderBuilder> {
+pub struct BVGraph<CRB: RandomAccessReaderFactory> {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     codes_reader_builder: CRB,
@@ -45,7 +45,7 @@ pub struct BVGraph<CRB: BVGraphCodesReaderBuilder> {
 
 impl<CRB> BVGraph<CRB>
 where
-    CRB: BVGraphCodesReaderBuilder,
+    CRB: RandomAccessReaderFactory,
 {
     /// Create a new BVGraph from the given parameters.
     ///
@@ -80,7 +80,7 @@ where
 
     #[inline(always)]
     /// Change the codes reader builder (monad style)
-    pub fn map_codes_reader_builder<CRB2: BVGraphCodesReaderBuilder>(
+    pub fn map_codes_reader_builder<CRB2: RandomAccessReaderFactory>(
         self,
         map_func: impl FnOnce(CRB) -> CRB2,
     ) -> BVGraph<CRB2> {
@@ -120,7 +120,7 @@ where
 
 impl<CRB> SequentialLabelling for BVGraph<CRB>
 where
-    CRB: BVGraphCodesReaderBuilder,
+    CRB: RandomAccessReaderFactory,
 {
     type Label = usize;
     type Iterator<'b> = WebgraphSequentialIter<CRB::Reader<'b>>
@@ -140,7 +140,7 @@ where
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
     fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
-        let codes_reader = self.codes_reader_builder.get_reader(start_node).unwrap();
+        let codes_reader = self.codes_reader_builder.new_reader(start_node).unwrap();
         // we have to pre-fill the buffer
         let mut backrefs = CircularBufferVec::new(self.compression_window + 1);
 
@@ -161,11 +161,11 @@ where
     }
 }
 
-impl<CRB> SequentialGraph for BVGraph<CRB> where CRB: BVGraphCodesReaderBuilder {}
+impl<CRB> SequentialGraph for BVGraph<CRB> where CRB: RandomAccessReaderFactory {}
 
 impl<CRB> RandomAccessLabelling for BVGraph<CRB>
 where
-    CRB: BVGraphCodesReaderBuilder,
+    CRB: RandomAccessReaderFactory,
 {
     type Labels<'a> = RandomSuccessorIter<CRB::Reader<'a>>
     where Self: 'a, CRB: 'a;
@@ -178,7 +178,7 @@ where
     fn outdegree(&self, node_id: usize) -> usize {
         let mut codes_reader = self
             .codes_reader_builder
-            .get_reader(node_id)
+            .new_reader(node_id)
             .expect("Cannot create reader");
         codes_reader.read_outdegree() as usize
     }
@@ -188,7 +188,7 @@ where
     fn labels(&self, node_id: usize) -> RandomSuccessorIter<CRB::Reader<'_>> {
         let codes_reader = self
             .codes_reader_builder
-            .get_reader(node_id)
+            .new_reader(node_id)
             .expect("Cannot create reader");
 
         let mut result = RandomSuccessorIter::new(codes_reader);
@@ -294,11 +294,11 @@ where
     }
 }
 
-impl<CRB> RandomAccessGraph for BVGraph<CRB> where CRB: BVGraphCodesReaderBuilder {}
+impl<CRB> RandomAccessGraph for BVGraph<CRB> where CRB: RandomAccessReaderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct RandomSuccessorIter<CR: BVGraphCodesReader> {
+pub struct RandomSuccessorIter<CR: Reader> {
     reader: CR,
     /// The number of values left
     size: usize,
@@ -320,16 +320,16 @@ pub struct RandomSuccessorIter<CR: BVGraphCodesReader> {
     next_interval_node: usize,
 }
 
-impl<CR: BVGraphCodesReader> ExactSizeIterator for RandomSuccessorIter<CR> {
+impl<CR: Reader> ExactSizeIterator for RandomSuccessorIter<CR> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<CR: BVGraphCodesReader> SortedLabels for RandomSuccessorIter<CR> {}
+unsafe impl<CR: Reader> SortedLabels for RandomSuccessorIter<CR> {}
 
-impl<CR: BVGraphCodesReader> RandomSuccessorIter<CR> {
+impl<CR: Reader> RandomSuccessorIter<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
@@ -346,7 +346,7 @@ impl<CR: BVGraphCodesReader> RandomSuccessorIter<CR> {
     }
 }
 
-impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
+impl<CR: Reader> Iterator for RandomSuccessorIter<CR> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -400,7 +400,7 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     }
 }
 
-impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraph<CRB> {
+impl<'a, CRB: RandomAccessReaderFactory> IntoLender for &'a BVGraph<CRB> {
     type Lender = <BVGraph<CRB> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]

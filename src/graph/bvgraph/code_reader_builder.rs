@@ -330,7 +330,7 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    BVGraphCodesReaderBuilder for DynamicCodesReaderBuilder<E, F, OFF>
+    RandomAccessReaderFactory for DynamicCodesReaderBuilder<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
@@ -339,7 +339,7 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self, node: usize) -> anyhow::Result<Self::Reader<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
 
@@ -359,7 +359,7 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>> BVGraphSeqCodesReaderBuilder
+impl<E: Endianness, F: CodeReaderFactory<E>> SequentialReaderFactory
     for DynamicCodesReaderBuilder<E, F, EmptyDict<usize, usize>>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
@@ -369,7 +369,7 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
         Ok(DynamicCodesReader {
             code_reader: self.factory.new_reader(),
             read_outdegree: self.read_outdegree,
@@ -568,7 +568,7 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    BVGraphCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, F, OFF>
+    RandomAccessReaderFactory for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
@@ -578,7 +578,7 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self, node: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self, node: usize) -> anyhow::Result<Self::Reader<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
         Ok(DynamicCodesReaderSkipper {
@@ -607,7 +607,7 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    BVGraphSeqCodesReaderBuilder for DynamicCodesReaderSkipperBuilder<E, F, OFF>
+    SequentialReaderFactory for DynamicCodesReaderSkipperBuilder<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
@@ -617,7 +617,7 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
         let code_reader = self.factory.new_reader();
         Ok(DynamicCodesReaderSkipper {
             code_reader,
@@ -736,7 +736,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BVGraphCodesReaderBuilder
+    > RandomAccessReaderFactory
     for ConstCodesReaderBuilder<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
@@ -746,7 +746,7 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self, offset: usize) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self, offset: usize) -> anyhow::Result<Self::Reader<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
 
@@ -766,7 +766,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BVGraphSeqCodesReaderBuilder
+    > SequentialReaderFactory
     for ConstCodesReaderBuilder<
         E,
         F,
@@ -786,7 +786,7 @@ where
     where
         Self: 'a;
 
-    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
         let code_reader = self.factory.new_reader();
 
         Ok(ConstCodesReader {

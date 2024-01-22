@@ -39,7 +39,7 @@ pub struct BVGraphCodesStats {
 /// So this struct can be used in a parallel compression scenario but
 /// you might want to have finished reading the graph before looking at the
 /// statistics.
-pub struct CodesReaderStatsBuilder<WGCRB: BVGraphSeqCodesReaderBuilder> {
+pub struct CodesReaderStatsBuilder<WGCRB: SequentialReaderFactory> {
     codes_reader_builder: WGCRB,
     /// The statistics for the codes
     pub stats: BVGraphCodesStats,
@@ -47,7 +47,7 @@ pub struct CodesReaderStatsBuilder<WGCRB: BVGraphSeqCodesReaderBuilder> {
 
 impl<WGCRB> CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: BVGraphSeqCodesReaderBuilder,
+    WGCRB: SequentialReaderFactory,
 {
     /// Create a new builder
     pub fn new(codes_reader_builder: WGCRB) -> Self {
@@ -66,7 +66,7 @@ where
 
 impl<WGCRB> From<WGCRB> for CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: BVGraphSeqCodesReaderBuilder,
+    WGCRB: SequentialReaderFactory,
 {
     #[inline(always)]
     fn from(value: WGCRB) -> Self {
@@ -74,18 +74,18 @@ where
     }
 }
 
-impl<WGCRB> BVGraphSeqCodesReaderBuilder for CodesReaderStatsBuilder<WGCRB>
+impl<WGCRB> SequentialReaderFactory for CodesReaderStatsBuilder<WGCRB>
 where
-    WGCRB: BVGraphSeqCodesReaderBuilder,
+    WGCRB: SequentialReaderFactory,
 {
     type Reader<'a> = CodesReaderStats<'a, WGCRB::Reader<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
-    fn get_reader(&self) -> Result<Self::Reader<'_>, Box<dyn std::error::Error>> {
+    fn new_reader(&self) -> anyhow::Result<Self::Reader<'_>> {
         Ok(CodesReaderStats::new(
-            self.codes_reader_builder.get_reader()?,
+            self.codes_reader_builder.new_reader()?,
             &self.stats,
         ))
     }
@@ -93,12 +93,12 @@ where
 
 /// A wrapper over a generic [`BVGraphCodesReader`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
-pub struct CodesReaderStats<'a, WGCR: BVGraphCodesReader> {
+pub struct CodesReaderStats<'a, WGCR: Reader> {
     codes_reader: WGCR,
     stats: &'a BVGraphCodesStats,
 }
 
-impl<'a, WGCR: BVGraphCodesReader> CodesReaderStats<'a, WGCR> {
+impl<'a, WGCR: Reader> CodesReaderStats<'a, WGCR> {
     /// Wrap a reader
     #[inline(always)]
     pub fn new(codes_reader: WGCR, stats: &'a BVGraphCodesStats) -> Self {
@@ -115,7 +115,7 @@ impl<'a, WGCR: BVGraphCodesReader> CodesReaderStats<'a, WGCR> {
     }
 }
 
-impl<'a, WGCR: BVGraphCodesReader> BVGraphCodesReader for CodesReaderStats<'a, WGCR> {
+impl<'a, WGCR: Reader> Reader for CodesReaderStats<'a, WGCR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats
@@ -174,9 +174,7 @@ impl<'a, WGCR: BVGraphCodesReader> BVGraphCodesReader for CodesReaderStats<'a, W
     }
 }
 
-impl<'a, WGCR: BVGraphCodesReader + BVGraphCodesSkipper> BVGraphCodesSkipper
-    for CodesReaderStats<'a, WGCR>
-{
+impl<'a, WGCR: Reader + BVGraphCodesSkipper> BVGraphCodesSkipper for CodesReaderStats<'a, WGCR> {
     #[inline(always)]
     fn skip_outdegree(&mut self) {
         self.codes_reader.skip_outdegree()

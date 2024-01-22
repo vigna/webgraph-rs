@@ -152,8 +152,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BVGraphCodesReader
-    for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Reader for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
