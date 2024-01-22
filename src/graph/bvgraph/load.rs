@@ -17,20 +17,19 @@ use std::io::*;
 use std::path::{Path, PathBuf};
 use sux::traits::IndexedDict;
 
-pub trait Dispatch: 'static + Clone + Copy {}
+pub trait Dispatch: 'static {}
 
-#[derive(Debug, Clone, Copy)]
 pub struct Static {}
 impl Dispatch for Static {}
-#[derive(Debug, Clone, Copy)]
+
 pub struct Dynamic {}
 impl Dispatch for Dynamic {}
 
-pub trait LoadMode: 'static + Clone + Copy {
+pub trait Mode: 'static {
     type Factory<E: Endianness>: CodeReaderFactory<E>;
 
     fn new_factory<E: Endianness>(
-        filename: &PathBuf,
+        graph: &PathBuf,
         flags: code_reader_builder::Flags,
     ) -> Result<Self::Factory<E>>;
 
@@ -41,43 +40,40 @@ pub trait LoadMode: 'static + Clone + Copy {
         flags: code_reader_builder::Flags,
     ) -> Result<MemCase<Self::Offsets>>;
 }
-#[derive(Debug, Clone, Copy)]
+
 pub struct File {}
-impl LoadMode for File {
+impl Mode for File {
     type Factory<E: Endianness> = FileFactory<E>;
+    type Offsets = EF<Vec<usize>, Vec<u64>>;
 
     fn new_factory<E: Endianness>(
-        basename: &PathBuf,
+        graph: &PathBuf,
         _flags: code_reader_builder::Flags,
     ) -> Result<Self::Factory<E>> {
-        Ok(FileFactory::<E>::new(basename)?)
+        Ok(FileFactory::<E>::new(graph)?)
     }
 
-    type Offsets = EF<Vec<usize>, Vec<u64>>;
     fn load_offsets(
         offsets: &PathBuf,
         _flags: code_reader_builder::Flags,
     ) -> Result<MemCase<Self::Offsets>> {
-        Ok(MemCase::encase(EF::<Vec<usize>, Vec<u64>>::load_full(
-            offsets,
-        )?))
+        Ok(EF::<Vec<usize>, Vec<u64>>::load_full(offsets)?.into())
     }
 }
-#[derive(Debug, Clone, Copy)]
-pub struct Mmap {
-    flags: code_reader_builder::Flags,
-}
-impl LoadMode for Mmap {
+
+pub struct Mmap {}
+impl Mode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
+    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(
-        basename: &PathBuf,
+        graph: &PathBuf,
         flags: code_reader_builder::Flags,
     ) -> Result<Self::Factory<E>> {
-        Ok(MmapBackend::<u32>::load(basename, flags.into())?)
+        eprintln!("mmap");
+        Ok(MmapBackend::load(graph, flags.into())?)
     }
 
-    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
     fn load_offsets(
         offsets: &PathBuf,
         flags: code_reader_builder::Flags,
@@ -85,41 +81,39 @@ impl LoadMode for Mmap {
         EF::<Vec<usize>, Vec<u64>>::mmap(offsets, flags.into())
     }
 }
-#[derive(Debug, Clone, Copy)]
+
 pub struct LoadMem {}
-impl LoadMode for LoadMem {
+impl Mode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
+    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(
-        filename: &PathBuf,
+        graph: &PathBuf,
         _flags: code_reader_builder::Flags,
     ) -> Result<Self::Factory<E>> {
-        Ok(MemoryFactory::<E, _>::new_mem(filename)?)
+        Ok(MemoryFactory::<E, _>::new_mem(graph)?)
     }
 
-    type Offsets = EF<Vec<usize>, Vec<u64>>;
     fn load_offsets(
         offsets: &PathBuf,
-        flags: code_reader_builder::Flags,
+        _flags: code_reader_builder::Flags,
     ) -> Result<MemCase<Self::Offsets>> {
-        Ok(MemCase::encase(EF::<Vec<usize>, Vec<u64>>::load_full(
-            offsets,
-        )?))
+        Ok(EF::<Vec<usize>, Vec<u64>>::load_mem(offsets)?)
     }
 }
-#[derive(Debug, Clone, Copy)]
+
 pub struct LoadMmap {}
-impl LoadMode for LoadMmap {
+impl Mode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
+    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(
-        filename: &PathBuf,
+        graph: &PathBuf,
         flags: code_reader_builder::Flags,
     ) -> Result<Self::Factory<E>> {
-        Ok(MemoryFactory::<E, _>::new_mmap(filename, flags)?)
+        Ok(MemoryFactory::<E, _>::new_mmap(graph, flags)?)
     }
 
-    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
     fn load_offsets(
         offsets: &PathBuf,
         flags: code_reader_builder::Flags,
@@ -128,8 +122,7 @@ impl LoadMode for LoadMmap {
     }
 }
 
-#[derive(Debug)]
-pub struct Load<E: Endianness, M: Dispatch, GLM: LoadMode, OLM: LoadMode> {
+pub struct Load<E: Endianness, M: Dispatch, GLM: Mode, OLM: Mode> {
     basename: PathBuf,
     graph_load_flags: code_reader_builder::Flags,
     offsets_load_flags: code_reader_builder::Flags,
@@ -140,14 +133,14 @@ impl Load<NE, Dynamic, Mmap, Mmap> {
     pub fn with_basename(basename: impl AsRef<Path>) -> Self {
         Self {
             basename: PathBuf::from(basename.as_ref()),
-            graph_load_flags: code_reader_builder::Flags::default(),
-            offsets_load_flags: code_reader_builder::Flags::default(),
+            graph_load_flags: code_reader_builder::Flags::empty(),
+            offsets_load_flags: code_reader_builder::Flags::empty(),
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
+impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     pub fn endianness<E2: Endianness>(self) -> Load<E2, D, GLM, OLM> {
         Load {
             basename: self.basename,
@@ -158,7 +151,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, O
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
+impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
     pub fn dispatch<D2: Dispatch>(self) -> Load<E, D2, GLM, OLM> {
         Load {
             basename: self.basename,
@@ -169,8 +162,8 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, O
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
-    pub fn load_mode<LM: LoadMode>(self) -> Load<E, D, LM, LM> {
+impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
+    pub fn mode<LM: Mode>(self) -> Load<E, D, LM, LM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -202,8 +195,8 @@ impl<E: Endianness, D: Dispatch> Load<E, D, LoadMmap, LoadMmap> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
-    pub fn graph_load_mode<NGLM: LoadMode>(self, graph_load_mode: NGLM) -> Load<E, D, NGLM, OLM> {
+impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
+    pub fn graph_mode<NGLM: Mode>(self) -> Load<E, D, NGLM, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -213,7 +206,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, O
     }
 }
 
-impl<E: Endianness, D: Dispatch, OLM: LoadMode> Load<E, D, Mmap, OLM> {
+impl<E: Endianness, D: Dispatch, OLM: Mode> Load<E, D, Mmap, OLM> {
     pub fn graph_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, D, Mmap, OLM> {
         Load {
             basename: self.basename,
@@ -224,7 +217,7 @@ impl<E: Endianness, D: Dispatch, OLM: LoadMode> Load<E, D, Mmap, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, OLM: LoadMode> Load<E, D, LoadMmap, OLM> {
+impl<E: Endianness, D: Dispatch, OLM: Mode> Load<E, D, LoadMmap, OLM> {
     pub fn graph_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, D, LoadMmap, OLM> {
         Load {
             basename: self.basename,
@@ -235,11 +228,8 @@ impl<E: Endianness, D: Dispatch, OLM: LoadMode> Load<E, D, LoadMmap, OLM> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, OLM> {
-    pub fn offsets_load_mode<NOLM: LoadMode>(
-        self,
-        offsets_load_mode: NOLM,
-    ) -> Load<E, D, GLM, NOLM> {
+impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, D, GLM, OLM> {
+    pub fn offsets_mode<NOLM: Mode>(self) -> Load<E, D, GLM, NOLM> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -249,7 +239,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> Load<E, D, GLM, O
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> Load<E, D, GLM, Mmap> {
+impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, D, GLM, Mmap> {
     pub fn offsets_load_flags(self, flags: code_reader_builder::Flags) -> Load<E, D, GLM, Mmap> {
         Load {
             basename: self.basename,
@@ -260,7 +250,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> Load<E, D, GLM, Mmap> {
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> Load<E, D, GLM, LoadMmap> {
+impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, D, GLM, LoadMmap> {
     pub fn offsets_load_flags(
         self,
         flags: code_reader_builder::Flags,
@@ -274,12 +264,12 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> Load<E, D, GLM, LoadMmap> {
     }
 }
 
-impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> Load<E, Dynamic, GLM, OLM> {
-    pub fn random(
+impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Dynamic, GLM, OLM> {
+    pub fn random_access(
         mut self,
     ) -> anyhow::Result<BVGraph<DynamicCodesReaderBuilder<E, GLM::Factory<E>, OLM::Offsets>>>
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+        for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
             CodeRead<E> + BitSeek,
     {
         self.basename.set_extension("properties");
@@ -289,13 +279,8 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> Load<E, Dynamic, GLM, OLM> {
         self.basename.set_extension("ef");
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
-        let code_reader_builder =
-            <DynamicCodesReaderBuilder<E, GLM::Factory<E>, OLM::Offsets>>::new(
-                factory, offsets, comp_flags,
-            )?;
-
         Ok(BVGraph::new(
-            code_reader_builder,
+            DynamicCodesReaderBuilder::new(factory, offsets, comp_flags)?,
             comp_flags.min_interval_length,
             comp_flags.compression_window,
             num_nodes,
@@ -309,7 +294,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> Load<E, Dynamic, GLM, OLM> {
         BVGraphSequential<DynamicCodesReaderBuilder<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+        for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
             CodeRead<E> + BitSeek,
     {
         self.basename.set_extension("properties");
@@ -317,15 +302,12 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> Load<E, Dynamic, GLM, OLM> {
         self.basename.set_extension("graph");
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
-        let code_reader_builder =
-            <DynamicCodesReaderBuilder<E, GLM::Factory<E>, EmptyDict<usize, usize>>>::new(
-                factory,
-                MemCase::encase(EmptyDict::default()),
-                comp_flags,
-            )?;
-
         Ok(BVGraphSequential::new(
-            code_reader_builder,
+            DynamicCodesReaderBuilder::new(
+                factory,
+                MemCase::from(EmptyDict::default()),
+                comp_flags,
+            )?,
             comp_flags.min_interval_length,
             comp_flags.compression_window,
             num_nodes,

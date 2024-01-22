@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use lender::IntoLender;
 use sux::prelude::*;
 
 use crate::prelude::*;
@@ -65,7 +66,7 @@ where
     /// Change the codes reader builder (monad style)
     pub fn map_codes_reader_builder<CRB2: BVGraphCodesReaderBuilder>(
         self,
-        map_func: impl FnOnce(CRB) -> CRB2
+        map_func: impl FnOnce(CRB) -> CRB2,
     ) -> BVGraph<CRB2> {
         BVGraph {
             codes_reader_builder: map_func(self.codes_reader_builder),
@@ -383,17 +384,11 @@ impl<CR: BVGraphCodesReader> Iterator for RandomSuccessorIter<CR> {
     }
 }
 
-/* TODO
-/// Allow to do `for (node, succ_iter) in &graph`
-impl<'a, CRB> IntoIterator for &'a BVGraph<CRB>
-where
-    CRB: BVGraphCodesReaderBuilder,
-{
-    type IntoLendIter = WebgraphSequentialIter<CRB::Reader<'a>>;
-    type Item = <WebgraphSequentialIter<CRB::Reader<'a>> as Iterator>::Item;
+impl<'a, CRB: BVGraphCodesReaderBuilder> IntoLender for &'a BVGraph<CRB> {
+    type Lender = <BVGraph<CRB> as SequentialLabelling>::Iterator<'a>;
 
-    fn into_iter(self) -> Self::Lender {
-        self.stream_nodes()
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
     }
 }
- */
