@@ -11,7 +11,7 @@ use super::{CodeWrite, Encoder};
 use crate::prelude::CompFlags;
 use dsi_bitstream::prelude::*;
 
-pub struct DynamicCodesWriter<E: Endianness, CW: CodeWrite<E>> {
+pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     code_writer: CW,
     write_outdegree: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
     write_reference_offset: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
@@ -25,7 +25,7 @@ pub struct DynamicCodesWriter<E: Endianness, CW: CodeWrite<E>> {
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
+impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
     fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error> {
         match code {
             Code::Unary => CW::write_unary,
@@ -37,9 +37,6 @@ impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
         }
     }
 
-    /// Create a new [`ConstCodesReaderBuilder`] from a [`CodeRead`] implementation
-    /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
-    /// method
     pub fn new(code_writer: CW, cf: &CompFlags) -> Self {
         Self {
             code_writer,
@@ -57,7 +54,7 @@ impl<E: Endianness, CW: CodeWrite<E>> DynamicCodesWriter<E, CW> {
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynamicCodesWriter<E, CW> {
+impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynCodesEncoder<E, CW> {
     type Error = <CW as BitSeek>::Error;
 
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
@@ -73,12 +70,12 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> Encoder for DynamicCodesWriter<E, CW>
+impl<E: Endianness, CW: CodeWrite<E>> Encoder for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
-    type MockEncoder = DynamicCodesMockWriter;
+    type MockEncoder = MockDynCodesEncoder;
 
     fn mock(&self) -> Self::MockEncoder {
         macro_rules! reconstruct_code {
@@ -97,7 +94,7 @@ where
                 }
             }};
         }
-        DynamicCodesMockWriter {
+        MockDynCodesEncoder {
             len_outdegree: reconstruct_code!(self.write_outdegree),
             len_reference_offset: reconstruct_code!(self.write_reference_offset),
             len_block_count: reconstruct_code!(self.write_block_count),
@@ -159,7 +156,7 @@ where
 /// An implementation of [`BVGraphCodesWriter`] that doesn't write anything
 /// but just returns the length of the bytes that would have been written.
 #[derive(Clone)]
-pub struct DynamicCodesMockWriter {
+pub struct MockDynCodesEncoder {
     len_outdegree: fn(u64) -> usize,
     len_reference_offset: fn(u64) -> usize,
     len_block_count: fn(u64) -> usize,
@@ -171,7 +168,7 @@ pub struct DynamicCodesMockWriter {
     len_residual: fn(u64) -> usize,
 }
 
-impl DynamicCodesMockWriter {
+impl MockDynCodesEncoder {
     /// Selects the length function for the given [`Code`].
     fn select_code(code: &Code) -> fn(u64) -> usize {
         match code {
@@ -202,7 +199,7 @@ impl DynamicCodesMockWriter {
     }
 }
 
-impl Encoder for DynamicCodesMockWriter {
+impl Encoder for MockDynCodesEncoder {
     type Error = Infallible;
 
     type MockEncoder = Self;

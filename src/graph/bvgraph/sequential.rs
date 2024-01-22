@@ -73,10 +73,6 @@ impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSequential<CR
 
 impl<CRB: SequentialDecoderFactory> SequentialGraph for BVGraphSequential<CRB> {}
 
-/*impl<'lend, 'a, CRB: BVGraphCodesReaderBuilder> Lending<'lend> for &'a BVGraphSequential<CRB> {
-    type Lend = Lend<'lend, <Self as IntoLender>::Lender>;
-}
-*/
 impl<'a, CRB: SequentialDecoderFactory> IntoLender for &'a BVGraphSequential<CRB> {
     type Lender = <BVGraphSequential<CRB> as SequentialLabelling>::Iterator<'a>;
 

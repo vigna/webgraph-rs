@@ -261,7 +261,7 @@ impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, LoadMmap> {
 impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Random, Dynamic, GLM, OLM> {
     pub fn load(
         mut self,
-    ) -> anyhow::Result<BVGraph<DynamicCodesReaderBuilder<E, GLM::Factory<E>, OLM::Offsets>>>
+    ) -> anyhow::Result<BVGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
         for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
             CodeRead<E> + BitSeek,
@@ -274,7 +274,7 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Random, Dynamic, GLM, OLM> {
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
         Ok(BVGraph::new(
-            DynamicCodesReaderBuilder::new(factory, offsets, comp_flags)?,
+            DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
             comp_flags.min_interval_length,
             comp_flags.compression_window,
             num_nodes,
@@ -287,7 +287,7 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Sequential, Dynamic, GLM, OLM>
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BVGraphSequential<DynamicCodesReaderBuilder<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
+        BVGraphSequential<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
         for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
@@ -299,11 +299,7 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Sequential, Dynamic, GLM, OLM>
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BVGraphSequential::new(
-            DynamicCodesReaderBuilder::new(
-                factory,
-                MemCase::from(EmptyDict::default()),
-                comp_flags,
-            )?,
+            DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
             comp_flags.compression_window,
             comp_flags.min_interval_length,
             num_nodes,
@@ -605,5 +601,5 @@ macro_rules! impl_loads {
     };
 }
 
-impl_loads! {DynamicCodesReaderBuilder, load_mem, load, load_seq, load_seq_file}
+impl_loads! {DynCodesDecoderFactory, load_mem, load, load_seq, load_seq_file}
 impl_loads! {ConstCodesDecoderFactory, load_mem_const, load_const, load_seq_const, load_seq_const_file}

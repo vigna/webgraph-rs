@@ -32,25 +32,25 @@ pub struct BVGraphCodesStats {
 }
 
 /// A wrapper that keeps track of how much bits each piece would take using
-/// different codes for compressions for a [`BVGraphCodesReaderBuilder`]
+/// different codes for compressions for a [`SequentialDecoderFactory`]
 /// implementation and returns the stats.
 ///
 /// The statistics can be updated in a concurrent way using atomic operations.
 /// So this struct can be used in a parallel compression scenario but
 /// you might want to have finished reading the graph before looking at the
 /// statistics.
-pub struct CodesReaderStatsBuilder<WGCRB: SequentialDecoderFactory> {
-    codes_reader_builder: WGCRB,
+pub struct CodesReaderStatsBuilder<SDF: SequentialDecoderFactory> {
+    codes_reader_builder: SDF,
     /// The statistics for the codes
     pub stats: BVGraphCodesStats,
 }
 
-impl<WGCRB> CodesReaderStatsBuilder<WGCRB>
+impl<SDF> CodesReaderStatsBuilder<SDF>
 where
-    WGCRB: SequentialDecoderFactory,
+    SDF: SequentialDecoderFactory,
 {
     /// Create a new builder
-    pub fn new(codes_reader_builder: WGCRB) -> Self {
+    pub fn new(codes_reader_builder: SDF) -> Self {
         Self {
             codes_reader_builder,
             stats: BVGraphCodesStats::default(),
@@ -59,26 +59,26 @@ where
 
     #[inline(always)]
     /// Consume the builder and return the inner reader
-    pub fn unwrap(self) -> WGCRB {
+    pub fn unwrap(self) -> SDF {
         self.codes_reader_builder
     }
 }
 
-impl<WGCRB> From<WGCRB> for CodesReaderStatsBuilder<WGCRB>
+impl<SDF> From<SDF> for CodesReaderStatsBuilder<SDF>
 where
-    WGCRB: SequentialDecoderFactory,
+    SDF: SequentialDecoderFactory,
 {
     #[inline(always)]
-    fn from(value: WGCRB) -> Self {
+    fn from(value: SDF) -> Self {
         Self::new(value)
     }
 }
 
-impl<WGCRB> SequentialDecoderFactory for CodesReaderStatsBuilder<WGCRB>
+impl<SDF> SequentialDecoderFactory for CodesReaderStatsBuilder<SDF>
 where
-    WGCRB: SequentialDecoderFactory,
+    SDF: SequentialDecoderFactory,
 {
-    type Decoder<'a> = CodesReaderStats<'a, WGCRB::Decoder<'a>>
+    type Decoder<'a> = CodesReaderStats<'a, SDF::Decoder<'a>>
     where
         Self: 'a;
 

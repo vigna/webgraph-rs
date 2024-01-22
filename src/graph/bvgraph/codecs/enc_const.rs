@@ -21,7 +21,7 @@ use super::{
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
 #[derive(Clone)]
-pub struct ConstCodesWriter<
+pub struct ConstCodesEncoder<
     E: Endianness,
     CW: CodeWrite<E>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
@@ -44,7 +44,8 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BitSeek for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > BitSeek
+    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = <CW as BitSeek>::Error;
 
@@ -66,7 +67,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Creates a new [`ConstCodesWriter`] with the given [`CodeWrite`] implementation
     pub fn new(code_writer: CW) -> Self {
@@ -100,16 +101,16 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder for ConstCodesWriter<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encoder for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
 
     type MockEncoder =
-        ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
+        MockConstCodesEncoder<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
     fn mock(&self) -> Self::MockEncoder {
-        ConstCodesMockWriter::new()
+        MockConstCodesEncoder::new()
     }
 
     #[inline(always)]
@@ -159,10 +160,8 @@ where
 }
 
 #[repr(transparent)]
-/// An implementation of [`BVGraphCodesWriter`] that doesn't write but just
-/// returns the number of bits that would be written.
 #[derive(Clone, Default)]
-pub struct ConstCodesMockWriter<
+pub struct MockConstCodesEncoder<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
     const BLOCKS: usize = { const_codes::GAMMA },
@@ -178,9 +177,8 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > MockConstCodesEncoder<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Creates a new [`ConstCodesMockWriter`]
     pub fn new() -> Self {
         Self
     }
@@ -205,13 +203,13 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder for ConstCodesMockWriter<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encoder for MockConstCodesEncoder<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = Infallible;
 
     type MockEncoder = Self;
     fn mock(&self) -> Self::MockEncoder {
-        ConstCodesMockWriter::new()
+        MockConstCodesEncoder::new()
     }
 
     #[inline(always)]

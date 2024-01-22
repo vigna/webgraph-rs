@@ -14,9 +14,8 @@ use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
 
-/// An implementation of [`BVGraphCodesReader`] with the most commonly used codes
 #[derive(Clone)]
-pub struct DynamicCodesReader<E: Endianness, CR: CodeRead<E>> {
+pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
     pub(crate) read_reference_offset: fn(&mut CR) -> u64,
@@ -30,7 +29,7 @@ pub struct DynamicCodesReader<E: Endianness, CR: CodeRead<E>> {
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> DynCodesDecoder<E, CR> {
     const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
     const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
     const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
@@ -42,9 +41,6 @@ impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReader<E, CR> {
     const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
 
-    /// Create a new [`DynamicCodesReader`] from a [`CodeRead`] implementation
-    /// This will be called by [`DynamicCodesReaderBuilder`] in the [`get_reader`]
-    /// method
     pub fn new(code_reader: CR, cf: &CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {
@@ -83,7 +79,7 @@ impl<E: Endianness, CR: CodeRead<E>> DynamicCodesReader<E, CR> {
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR> {
     type Error = <CR as BitSeek>::Error;
 
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
@@ -95,7 +91,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynamicCodesReader<E,
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> Decoder for DynamicCodesReader<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Decoder for DynCodesDecoder<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -138,7 +134,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decoder for DynamicCodesReader<E, CR> {
     }
 }
 
-pub struct DynamicCodesReaderBuilder<
+pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: CodeReaderFactory<E>,
     OFF: IndexedDict<Input = usize, Output = usize>,
@@ -165,7 +161,7 @@ pub struct DynamicCodesReaderBuilder<
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    DynamicCodesReaderBuilder<E, F, OFF>
+    DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
@@ -241,12 +237,12 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
-    RandomAccessDecoderFactory for DynamicCodesReaderBuilder<E, F, OFF>
+    RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Decoder<'a> =
-        DynamicCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
@@ -254,7 +250,7 @@ where
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
 
-        Ok(DynamicCodesReader {
+        Ok(DynCodesDecoder {
             code_reader,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
@@ -271,17 +267,17 @@ where
 }
 
 impl<E: Endianness, F: CodeReaderFactory<E>> SequentialDecoderFactory
-    for DynamicCodesReaderBuilder<E, F, EmptyDict<usize, usize>>
+    for DynCodesDecoderFactory<E, F, EmptyDict<usize, usize>>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
 {
     type Decoder<'a> =
-        DynamicCodesReader<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
-        Ok(DynamicCodesReader {
+        Ok(DynCodesDecoder {
             code_reader: self.factory.new_reader(),
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,

@@ -587,7 +587,7 @@ mod test {
         //    bit_write,
         //    &comp_flags,
         //);
-        let codes_writer = <ConstCodesWriter<BE, _>>::new(bit_write);
+        let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 
@@ -642,11 +642,7 @@ mod test {
             ..Default::default()
         };
 
-        //let codes_writer = DynamicCodesWriter::new(
-        //    bit_write,
-        //    &comp_flags,
-        //);
-        let codes_writer = <ConstCodesWriter<LE, _>>::new(bit_write);
+        let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
 
         let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
 

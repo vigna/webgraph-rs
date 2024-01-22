@@ -43,7 +43,7 @@ where
         ..Default::default()
     };
 
-    let codes_writer = DynamicCodesWriter::new(bit_write, &comp_flags);
+    let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags);
 
     let mut bvcomp = BVComp::new(
         codes_writer,
@@ -227,7 +227,7 @@ where
                     let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
                         BufWriter::new(File::create(&file_path).unwrap()),
                     ));
-                    let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, cp_flags);
+                    let codes_writer = <DynCodesEncoder<BE, _>>::new(writer, cp_flags);
                     let mut bvcomp = BVComp::new(
                         codes_writer,
                         cp_flags.compression_window,
@@ -263,7 +263,7 @@ where
             let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
                 File::create(last_file_path).unwrap(),
             )));
-            let codes_writer = <DynamicCodesWriter<BE, _>>::new(writer, &compression_flags);
+            let codes_writer = <DynCodesEncoder<BE, _>>::new(writer, &compression_flags);
             let mut bvcomp = BVComp::new(
                 codes_writer,
                 compression_flags.compression_window,

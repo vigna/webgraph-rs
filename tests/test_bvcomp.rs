@@ -22,9 +22,7 @@ use dsi_bitstream::{
 };
 use dsi_progress_logger::*;
 use webgraph::{
-    graph::bvgraph::{
-        BVComp, CompFlags, DynamicCodesReader, DynamicCodesWriter, WebgraphSequentialIter,
-    },
+    graph::bvgraph::{BVComp, CompFlags, DynCodesDecoder, DynCodesEncoder, WebgraphSequentialIter},
     prelude::*,
     utils::MmapBackend,
 };
@@ -63,7 +61,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         "tests/data/cnr-2000",
                                     )?;
 
-                                    let writer = <DynamicCodesWriter<BE, _>>::new(
+                                    let writer = <DynCodesEncoder<BE, _>>::new(
                                         <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
                                             BufWriter::new(File::create(tmp_path)?),
                                         )),
@@ -93,7 +91,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     pl.done();
                                     bvcomp.flush()?;
 
-                                    let code_reader = DynamicCodesReader::new(
+                                    let code_reader = DynCodesDecoder::new(
                                         BufBitReader::<BE, _>::new(MemWordReader::<u32, _>::new(
                                             MmapBackend::load(
                                                 tmp_path,

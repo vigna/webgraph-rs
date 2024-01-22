@@ -10,11 +10,11 @@ use crate::traits::*;
 mod degrees_iter;
 pub use degrees_iter::*;
 
-pub mod bvgraph_sequential;
-pub use bvgraph_sequential::*;
+pub mod sequential;
+pub use sequential::*;
 
-pub mod bvgraph_random_access;
-pub use bvgraph_random_access::*;
+pub mod random_access;
+pub use random_access::*;
 
 mod bvgraph_writer;
 pub use bvgraph_writer::*;
