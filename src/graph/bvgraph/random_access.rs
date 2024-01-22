@@ -82,7 +82,7 @@ where
     F: RandomAccessDecoderFactory,
 {
     type Label = usize;
-    type Iterator<'b> = WebgraphSequentialIter<F::Decoder<'b>>
+    type Iterator<'b> = SeqIter<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -109,7 +109,7 @@ where
             backrefs.push(node_id, self.successors(node_id).collect());
         }
 
-        WebgraphSequentialIter {
+        SeqIter {
             codes_reader,
             backrefs,
             compression_window: self.compression_window,

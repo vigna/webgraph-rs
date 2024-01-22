@@ -64,7 +64,7 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: webgraph::graph::bvgraph::EF<_, _> = ef.convert_to().unwrap();
+            let ef: EF = ef.convert_to().unwrap();
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -142,7 +142,7 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: webgraph::graph::bvgraph::EF<_, _> = ef.convert_to().unwrap();
+    let ef: EF = ef.convert_to().unwrap();
     pl.done();
 
     let mut pl = ProgressLogger::default();

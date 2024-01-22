@@ -221,3 +221,11 @@ impl<I, O> Default for EmptyDict<I, O> {
         }
     }
 }
+
+impl<E: Endianness> CodeReaderFactory<E> for MmapBackend<u32> {
+    type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+
+    fn new_reader(&self) -> Self::CodeReader<'_> {
+        BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
+    }
+}

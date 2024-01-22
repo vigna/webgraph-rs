@@ -11,7 +11,7 @@ use dsi_bitstream::{
     traits::Endianness,
 };
 use mmap_rs::*;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use crate::prelude::{CodeRead, CodeReaderFactory};
 
@@ -65,7 +65,7 @@ impl<W> From<Mmap> for MmapBackend<W> {
 
 impl<W> MmapBackend<W> {
     /// Create a new MmapBackend
-    pub fn load<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
+    pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
             .metadata()
@@ -100,7 +100,7 @@ impl<W> MmapBackend<W> {
 
 impl<W> MmapBackend<W, MmapMut> {
     /// Create a new mutable MmapBackend
-    pub fn load_mut<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
+    pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
             .metadata()
@@ -140,7 +140,7 @@ impl<W> MmapBackend<W, MmapMut> {
     }
 
     /// Create a new mutable MmapBackend
-    pub fn new<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
+    pub fn new(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
             .metadata()
@@ -190,13 +190,5 @@ impl<W> AsRef<[W]> for MmapBackend<W, MmapMut> {
 impl<W> AsMut<[W]> for MmapBackend<W, MmapMut> {
     fn as_mut(&mut self) -> &mut [W] {
         unsafe { std::slice::from_raw_parts_mut(self.mmap.as_mut_ptr() as *mut W, self.len) }
-    }
-}
-
-impl<E: Endianness> CodeReaderFactory<E> for MmapBackend<u32> {
-    type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
-
-    fn new_reader(&self) -> Self::CodeReader<'_> {
-        BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
     }
 }

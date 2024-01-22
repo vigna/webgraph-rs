@@ -29,7 +29,7 @@ pub fn with_basename(
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmaped file.
-pub struct BVGraphSequential<CRB: SequentialDecoderFactory> {
+pub struct BVGraphSeq<CRB: SequentialDecoderFactory> {
     codes_reader_builder: CRB,
     number_of_nodes: usize,
     number_of_arcs: Option<u64>,
@@ -37,9 +37,9 @@ pub struct BVGraphSequential<CRB: SequentialDecoderFactory> {
     min_interval_length: usize,
 }
 
-impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSequential<CRB> {
+impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<CRB> {
     type Label = usize;
-    type Iterator<'a> = WebgraphSequentialIter<CRB::Decoder<'a>>
+    type Iterator<'a> = SeqIter<CRB::Decoder<'a>>
     where
         Self: 'a;
 
@@ -56,7 +56,7 @@ impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSequential<CR
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        let mut iter = WebgraphSequentialIter::new(
+        let mut iter = SeqIter::new(
             self.codes_reader_builder.new_decoder().unwrap(),
             self.compression_window,
             self.min_interval_length,
@@ -71,10 +71,10 @@ impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSequential<CR
     }
 }
 
-impl<CRB: SequentialDecoderFactory> SequentialGraph for BVGraphSequential<CRB> {}
+impl<CRB: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<CRB> {}
 
-impl<'a, CRB: SequentialDecoderFactory> IntoLender for &'a BVGraphSequential<CRB> {
-    type Lender = <BVGraphSequential<CRB> as SequentialLabelling>::Iterator<'a>;
+impl<'a, CRB: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<CRB> {
+    type Lender = <BVGraphSeq<CRB> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -82,7 +82,7 @@ impl<'a, CRB: SequentialDecoderFactory> IntoLender for &'a BVGraphSequential<CRB
     }
 }
 
-impl<CRB: SequentialDecoderFactory> BVGraphSequential<CRB> {
+impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
     /// Create a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
@@ -103,12 +103,12 @@ impl<CRB: SequentialDecoderFactory> BVGraphSequential<CRB> {
 
     #[inline(always)]
     /// Change the codes reader builder
-    pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraphSequential<CRB2>
+    pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraphSeq<CRB2>
     where
         F: FnOnce(CRB) -> CRB2,
         CRB2: SequentialDecoderFactory,
     {
-        BVGraphSequential {
+        BVGraphSeq {
             codes_reader_builder: map_func(self.codes_reader_builder),
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
@@ -124,7 +124,7 @@ impl<CRB: SequentialDecoderFactory> BVGraphSequential<CRB> {
     }
 }
 
-impl<CRB: SequentialDecoderFactory> BVGraphSequential<CRB>
+impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB>
 where
     for<'a> CRB::Decoder<'a>: Decoder,
 {
@@ -145,7 +145,7 @@ where
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Clone)]
-pub struct WebgraphSequentialIter<CR: Decoder> {
+pub struct SeqIter<CR: Decoder> {
     pub(crate) codes_reader: CR,
     pub(crate) backrefs: CircularBufferVec,
     pub(crate) compression_window: usize,
@@ -154,7 +154,7 @@ pub struct WebgraphSequentialIter<CR: Decoder> {
     pub(crate) current_node: usize,
 }
 
-impl<CR: Decoder + BitSeek> WebgraphSequentialIter<CR> {
+impl<CR: Decoder + BitSeek> SeqIter<CR> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
@@ -163,7 +163,7 @@ impl<CR: Decoder + BitSeek> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<CR: Decoder> WebgraphSequentialIter<CR> {
+impl<CR: Decoder> SeqIter<CR> {
     /// Create a new iterator from a codes reader
     pub fn new(
         codes_reader: CR,
@@ -286,16 +286,16 @@ impl<CR: Decoder> WebgraphSequentialIter<CR> {
     }
 }
 
-impl<'succ, CR: Decoder> NodeLabelsLender<'succ> for WebgraphSequentialIter<CR> {
+impl<'succ, CR: Decoder> NodeLabelsLender<'succ> for SeqIter<CR> {
     type Label = usize;
     type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Label>>;
 }
 
-impl<'succ, CR: Decoder> Lending<'succ> for WebgraphSequentialIter<CR> {
+impl<'succ, CR: Decoder> Lending<'succ> for SeqIter<CR> {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<CR: Decoder> Lender for WebgraphSequentialIter<CR> {
+impl<CR: Decoder> Lender for SeqIter<CR> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
@@ -311,6 +311,6 @@ impl<CR: Decoder> Lender for WebgraphSequentialIter<CR> {
     }
 }
 
-unsafe impl<CR: Decoder> SortedIterator for WebgraphSequentialIter<CR> {}
+unsafe impl<CR: Decoder> SortedIterator for SeqIter<CR> {}
 
 // TODO impl<CR: BVGraphCodesReader> ExactSizeIterator for WebgraphSequentialIter<CR> {}

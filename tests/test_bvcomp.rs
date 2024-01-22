@@ -22,7 +22,7 @@ use dsi_bitstream::{
 };
 use dsi_progress_logger::*;
 use webgraph::{
-    graph::bvgraph::{BVComp, CompFlags, DynCodesDecoder, DynCodesEncoder, WebgraphSequentialIter},
+    graph::bvgraph::{BVComp, CompFlags, DynCodesDecoder, DynCodesEncoder, SeqIter},
     prelude::*,
     utils::MmapBackend,
 };
@@ -100,7 +100,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                         )),
                                         &compression_flags,
                                     )?;
-                                    let mut seq_reader1 = WebgraphSequentialIter::new(
+                                    let mut seq_reader1 = SeqIter::new(
                                         code_reader,
                                         compression_flags.compression_window,
                                         compression_flags.min_interval_length,

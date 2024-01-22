@@ -66,56 +66,56 @@ pub trait Mode: 'static {
 pub struct File {}
 impl Mode for File {
     type Factory<E: Endianness> = FileFactory<E>;
-    type Offsets = EF<Vec<usize>, Vec<u64>>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
         Ok(FileFactory::<E>::new(graph)?)
     }
 
     fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        Ok(EF::<Vec<usize>, Vec<u64>>::load_full(offsets)?.into())
+        Ok(EF::load_full(offsets)?.into())
     }
 }
 
 pub struct Mmap {}
 impl Mode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
-    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
+    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MmapBackend::load(graph, flags.into())?)
     }
 
     fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        EF::<Vec<usize>, Vec<u64>>::mmap(offsets, flags.into())
+        EF::mmap(offsets, flags.into())
     }
 }
 
 pub struct LoadMem {}
 impl Mode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
+    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mem(graph)?)
     }
 
     fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        Ok(EF::<Vec<usize>, Vec<u64>>::load_mem(offsets)?)
+        Ok(EF::load_mem(offsets)?)
     }
 }
 
 pub struct LoadMmap {}
 impl Mode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
-    type Offsets = <EF<Vec<usize>, Vec<u64>> as DeserializeInner>::DeserType<'static>;
+    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mmap(graph, flags)?)
     }
 
     fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        EF::<Vec<usize>, Vec<u64>>::load_mmap(offsets, flags.into())
+        EF::load_mmap(offsets, flags.into())
     }
 }
 
@@ -287,7 +287,7 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Sequential, Dynamic, GLM, OLM>
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BVGraphSequential<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
+        BVGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
         for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
@@ -298,7 +298,7 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Sequential, Dynamic, GLM, OLM>
         self.basename.set_extension("graph");
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
-        Ok(BVGraphSequential::new(
+        Ok(BVGraphSeq::new(
             DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
             comp_flags.compression_window,
             comp_flags.min_interval_length,
@@ -374,7 +374,7 @@ impl<
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BVGraphSequential<
+        BVGraphSeq<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
@@ -397,7 +397,7 @@ impl<
         self.basename.set_extension("graph");
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
-        Ok(BVGraphSequential::new(
+        Ok(BVGraphSeq::new(
             ConstCodesDecoderFactory::new(
                 factory,
                 MemCase::from(EmptyDict::default()),
@@ -469,13 +469,7 @@ macro_rules! impl_loads {
         pub fn $load_name<E: Endianness + 'static>(
             basename: impl AsRef<Path>,
         ) -> anyhow::Result<
-            BVGraph<
-                $builder<
-                    E,
-                    MmapBackend<u32>,
-                    crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
-                >,
-            >,
+            BVGraph<$builder<E, MmapBackend<u32>, <EF as DeserializeInner>::DeserType<'static>>>,
         >
         where
             for<'a> dsi_bitstream::impls::BufBitReader<
@@ -493,17 +487,16 @@ macro_rules! impl_loads {
             )?;
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets = <crate::graph::bvgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
+            let offsets = <crate::graph::bvgraph::EF>::mmap(
                 &ef_path,
                 epserde::deser::Flags::TRANSPARENT_HUGE_PAGES,
             )
             .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
-            let factories = <$builder<
-                E,
-                MmapBackend<u32>,
-                crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
-            >>::new(graph, offsets, comp_flags)?;
+            let factories =
+                <$builder<E, MmapBackend<u32>, <EF as DeserializeInner>::DeserType<'static>>>::new(
+                    graph, offsets, comp_flags,
+                )?;
 
             Ok(BVGraph::new(
                 factories,
@@ -522,7 +515,7 @@ macro_rules! impl_loads {
                 $builder<
                     E,
                     MemoryFactory<E, MmapBackend<u32>>,
-                    crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
+                    <EF as DeserializeInner>::DeserType<'static>,
                 >,
             >,
         >
@@ -542,16 +535,14 @@ macro_rules! impl_loads {
             )?;
 
             let ef_path = format!("{}.ef", basename.to_string_lossy());
-            let offsets = <crate::graph::bvgraph::EF<Vec<usize>, Vec<u64>>>::mmap(
-                &ef_path,
-                deser::Flags::TRANSPARENT_HUGE_PAGES,
-            )
-            .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
+            let offsets =
+                <crate::graph::bvgraph::EF>::mmap(&ef_path, deser::Flags::TRANSPARENT_HUGE_PAGES)
+                    .with_context(|| format!("Cannot open the elias-fano file {}", ef_path))?;
 
             let factories = <$builder<
                 E,
                 MemoryFactory<E, MmapBackend<u32>>,
-                crate::graph::bvgraph::EF<&'static [usize], &'static [u64]>,
+                <EF as DeserializeInner>::DeserType<'static>,
             >>::new(graph, offsets, comp_flags)?;
 
             Ok(BVGraph::new(
@@ -566,7 +557,7 @@ macro_rules! impl_loads {
         /// Load a BVGraph sequentially
         pub fn $load_seq_name<E: Endianness + 'static, P: AsRef<Path>>(
             basename: P,
-        ) -> Result<BVGraphSequential<$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>>
+        ) -> Result<BVGraphSeq<$builder<E, MmapBackend<u32>, EmptyDict<usize, usize>>>>
         where
             for<'a> dsi_bitstream::impls::BufBitReader<
                 E,
@@ -588,7 +579,7 @@ macro_rules! impl_loads {
                 comp_flags,
             )?;
 
-            let seq_reader = BVGraphSequential::new(
+            let seq_reader = BVGraphSeq::new(
                 factories,
                 comp_flags.compression_window,
                 comp_flags.min_interval_length,

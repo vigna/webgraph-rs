@@ -603,7 +603,7 @@ mod test {
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesDecoder<BE, _>>::new(bit_read, &comp_flags)?;
 
-        let mut seq_iter = WebgraphSequentialIter::new(
+        let mut seq_iter = SeqIter::new(
             codes_reader,
             compression_window,
             min_interval_length,
@@ -656,7 +656,7 @@ mod test {
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesDecoder<LE, _>>::new(bit_read, &comp_flags)?;
 
-        let mut seq_iter = WebgraphSequentialIter::new(
+        let mut seq_iter = SeqIter::new(
             codes_reader,
             compression_window,
             min_interval_length,
