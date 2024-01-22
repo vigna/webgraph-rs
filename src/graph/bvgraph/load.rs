@@ -19,8 +19,24 @@ use sux::traits::IndexedDict;
 
 pub trait Dispatch: 'static {}
 
-pub struct Static {}
-impl Dispatch for Static {}
+pub struct Static<
+    const OUTDEGREES: usize = { const_codes::GAMMA },
+    const REFERENCES: usize = { const_codes::UNARY },
+    const BLOCKS: usize = { const_codes::GAMMA },
+    const INTERVALS: usize = { const_codes::GAMMA },
+    const RESIDUALS: usize = { const_codes::ZETA },
+    const K: u64 = 3,
+> {}
+impl<
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > Dispatch for Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+}
 
 pub struct Dynamic {}
 impl Dispatch for Dynamic {}
@@ -308,6 +324,91 @@ impl<E: Endianness, GLM: Mode, OLM: Mode> Load<E, Dynamic, GLM, OLM> {
                 MemCase::from(EmptyDict::default()),
                 comp_flags,
             )?,
+            comp_flags.min_interval_length,
+            comp_flags.compression_window,
+            num_nodes,
+            Some(num_arcs),
+        ))
+    }
+}
+
+impl<
+        E: Endianness,
+        GLM: Mode,
+        OLM: Mode,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > Load<E, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>, GLM, OLM>
+{
+    pub fn random_access(
+        mut self,
+    ) -> anyhow::Result<
+        BVGraph<
+            ConstCodesReaderBuilder<
+                E,
+                GLM::Factory<E>,
+                OLM::Offsets,
+                OUTDEGREES,
+                REFERENCES,
+                BLOCKS,
+                INTERVALS,
+                RESIDUALS,
+                K,
+            >,
+        >,
+    >
+    where
+        for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+            CodeRead<E> + BitSeek,
+    {
+        self.basename.set_extension("properties");
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
+        self.basename.set_extension("graph");
+        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
+        self.basename.set_extension("ef");
+        let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
+
+        Ok(BVGraph::new(
+            ConstCodesReaderBuilder::new(factory, offsets, comp_flags)?,
+            comp_flags.min_interval_length,
+            comp_flags.compression_window,
+            num_nodes,
+            num_arcs,
+        ))
+    }
+
+    pub fn sequential(
+        mut self,
+    ) -> anyhow::Result<
+        BVGraphSequential<
+            ConstCodesReaderBuilder<
+                E,
+                GLM::Factory<E>,
+                EmptyDict<usize, usize>,
+                OUTDEGREES,
+                REFERENCES,
+                BLOCKS,
+                INTERVALS,
+                RESIDUALS,
+                K,
+            >,
+        >,
+    >
+    where
+        for<'a> <<GLM as Mode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+            CodeRead<E> + BitSeek,
+    {
+        self.basename.set_extension("properties");
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
+        self.basename.set_extension("graph");
+        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
+
+        Ok(BVGraphSequential::new(
+            ConstCodesReaderBuilder::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
             comp_flags.min_interval_length,
             comp_flags.compression_window,
             num_nodes,
