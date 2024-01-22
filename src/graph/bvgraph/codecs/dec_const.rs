@@ -38,7 +38,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesReader`]  with compile-time defined codes
 #[derive(Clone)]
-pub struct ConstCodesReader<
+pub struct ConstCodesDecoder<
     E: Endianness,
     CR: CodeRead<E>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
@@ -64,7 +64,8 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > BitSeek for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > BitSeek
+    for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = <CR as BitSeek>::Error;
 
@@ -86,7 +87,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Create a new [`ConstCodesReader`] from a [`CodeRead`] implementation
     /// and a [`CompFlags`] struct
@@ -152,7 +153,8 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Decoder for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Decoder
+    for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
@@ -193,60 +195,6 @@ impl<
     #[inline(always)]
     fn read_residual(&mut self) -> u64 {
         select_code_read!(self, RESIDUALS, K)
-    }
-}
-
-impl<
-        E: Endianness,
-        CR: CodeRead<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-        const K: u64,
-    > BVGraphCodesSkipper
-    for ConstCodesReader<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-{
-    #[inline(always)]
-    fn skip_outdegree(&mut self) {
-        select_code_skip!(self, OUTDEGREES, K)
-    }
-
-    #[inline(always)]
-    fn skip_reference_offset(&mut self) {
-        select_code_skip!(self, REFERENCES, K)
-    }
-
-    #[inline(always)]
-    fn skip_block_count(&mut self) {
-        select_code_skip!(self, BLOCKS, K)
-    }
-    #[inline(always)]
-    fn skip_block(&mut self) {
-        select_code_skip!(self, BLOCKS, K)
-    }
-
-    #[inline(always)]
-    fn skip_interval_count(&mut self) {
-        select_code_skip!(self, INTERVALS, K)
-    }
-    #[inline(always)]
-    fn skip_interval_start(&mut self) {
-        select_code_skip!(self, INTERVALS, K)
-    }
-    #[inline(always)]
-    fn skip_interval_len(&mut self) {
-        select_code_skip!(self, INTERVALS, K)
-    }
-
-    #[inline(always)]
-    fn skip_first_residual(&mut self) {
-        select_code_skip!(self, RESIDUALS, K)
-    }
-    #[inline(always)]
-    fn skip_residual(&mut self) {
-        select_code_skip!(self, RESIDUALS, K)
     }
 }
 

@@ -53,7 +53,6 @@ where
     if args.check {
         // Create a sequential reader
         let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-        let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
         // create a random access reader;
         let random_reader = webgraph::graph::bvgraph::load(&args.basename)?;
 
@@ -68,7 +67,7 @@ where
             assert_eq!(seq.1.collect_vec(), random, "{}", node_id);
         }
     } else if args.sequential {
-        // Sequential speed test
+        // Sequential speed testx
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut c: u64 = 0;
@@ -89,7 +88,6 @@ where
         // Sequential speed test
         for _ in 0..args.repeats {
             let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-            let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
             let mut deg_reader = seq_graph.iter_degrees();
 
             let mut c: u64 = 0;

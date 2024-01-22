@@ -28,7 +28,6 @@ where
 {
     // Create the sequential iterator over the graph
     let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.basename)?;
-    let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
     // Create the offsets file
     let file = std::fs::File::create(format!("{}.offsets", args.basename))?;
     // create a bit writer on the file

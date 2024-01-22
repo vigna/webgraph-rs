@@ -363,7 +363,7 @@ impl<
         mut self,
     ) -> anyhow::Result<
         BVGraph<
-            ConstCodesReaderBuilder<
+            ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
                 OLM::Offsets,
@@ -388,7 +388,7 @@ impl<
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
         Ok(BVGraph::new(
-            ConstCodesReaderBuilder::new(factory, offsets, comp_flags)?,
+            ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,
             comp_flags.min_interval_length,
             comp_flags.compression_window,
             num_nodes,
@@ -414,7 +414,7 @@ impl<
         mut self,
     ) -> anyhow::Result<
         BVGraphSequential<
-            ConstCodesReaderBuilder<
+            ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
                 EmptyDict<usize, usize>,
@@ -437,7 +437,11 @@ impl<
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BVGraphSequential::new(
-            ConstCodesReaderBuilder::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
+            ConstCodesDecoderFactory::new(
+                factory,
+                MemCase::from(EmptyDict::default()),
+                comp_flags,
+            )?,
             comp_flags.compression_window,
             comp_flags.min_interval_length,
             num_nodes,
@@ -639,4 +643,4 @@ macro_rules! impl_loads {
 }
 
 impl_loads! {DynamicCodesReaderBuilder, load_mem, load, load_seq, load_seq_file}
-impl_loads! {ConstCodesReaderBuilder, load_mem_const, load_const, load_seq_const, load_seq_const_file}
+impl_loads! {ConstCodesDecoderFactory, load_mem_const, load_const, load_seq_const, load_seq_const_file}

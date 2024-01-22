@@ -129,7 +129,7 @@ impl<CRB: SequentialDecoderFactory> BVGraphSequential<CRB> {
 
 impl<CRB: SequentialDecoderFactory> BVGraphSequential<CRB>
 where
-    for<'a> CRB::Decoder<'a>: BVGraphCodesSkipper,
+    for<'a> CRB::Decoder<'a>: Decoder,
 {
     #[inline(always)]
     /// Create an iterator specialized in the degrees of the nodes.

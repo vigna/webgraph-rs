@@ -24,32 +24,6 @@ impl<E: Endianness, T> CodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + 
 /// a sum of traits
 impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
-/// The generic interface we need to skip codes
-pub trait BVGraphCodesSkipper {
-    /// skip a outdegree code
-    fn skip_outdegree(&mut self);
-
-    /// skip a reference offset code
-    fn skip_reference_offset(&mut self);
-
-    /// skip a block count code
-    fn skip_block_count(&mut self);
-    /// skip a block code
-    fn skip_block(&mut self);
-
-    /// skip a interval count code
-    fn skip_interval_count(&mut self);
-    /// skip a interval start code
-    fn skip_interval_start(&mut self);
-    /// skip a interval len code
-    fn skip_interval_len(&mut self);
-
-    /// skip a first residual code
-    fn skip_first_residual(&mut self);
-    /// skip a residual code
-    fn skip_residual(&mut self);
-}
-
 /// The generic interface we need to read codes to decode a [`BVGraph`]
 pub trait Decoder {
     /// read a outdegree code

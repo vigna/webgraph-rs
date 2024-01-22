@@ -81,7 +81,6 @@ pub fn main() -> Result<()> {
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
     let seq_graph = webgraph::graph::bvgraph::load_seq::<NE, _>(&args.basename)?;
-    let seq_graph = seq_graph.map_codes_reader_builder(|x| x.to_skipper());
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");
