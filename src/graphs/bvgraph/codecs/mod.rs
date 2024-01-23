@@ -12,6 +12,9 @@ pub use factories::*;
 mod dec_const;
 pub use dec_const::*;
 
+mod dec_dbg;
+pub use dec_dbg::*;
+
 mod dec_dyn;
 pub use dec_dyn::*;
 

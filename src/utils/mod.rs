@@ -5,10 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Collection of common functions we use throughout the codebase
-mod dbg_codes;
-pub use dbg_codes::*;
-
 mod clap_compression;
 pub use clap_compression::*;
 
