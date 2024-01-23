@@ -13,7 +13,7 @@ fn test_permuted() {
     // 4 -> 0 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graph::vec_graph::VecGraph::new();
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
 
     for i in 0..=5 {
         graph.add_node(i);

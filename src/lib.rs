@@ -19,14 +19,14 @@
 pub mod algorithms;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
-pub mod graph;
+pub mod graphs;
 pub mod label;
 pub mod traits;
 pub mod utils;
 
 pub mod prelude {
     pub use crate::algorithms::*;
-    pub use crate::graph::prelude::*;
+    pub use crate::graphs::prelude::*;
     pub use crate::traits::graph::*;
     pub use crate::traits::*;
     pub use crate::utils::*;

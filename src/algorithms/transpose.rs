@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graph::arc_list_graph;
+use crate::graphs::arc_list_graph;
 use crate::prelude::proj::Left;
 use crate::prelude::{BitDeserializer, BitSerializer, LabelledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
@@ -60,7 +60,7 @@ pub fn transpose(
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition() -> anyhow::Result<()> {
-    use crate::graph::vec_graph::VecGraph;
+    use crate::graphs::vec_graph::VecGraph;
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = Left(VecGraph::from_arc_list(arcs));
 
@@ -77,7 +77,7 @@ fn test_transposition() -> anyhow::Result<()> {
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition_labeled() -> anyhow::Result<()> {
-    use crate::graph::vec_graph::VecGraph;
+    use crate::graphs::vec_graph::VecGraph;
     use crate::prelude::{CodeRead, CodeWrite};
     use crate::traits::SequentialLabelling;
     use dsi_bitstream::prelude::*;

@@ -13,7 +13,7 @@ use dsi_progress_logger::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::{BufReader, Read};
-use webgraph::graph::arc_list_graph;
+use webgraph::graphs::arc_list_graph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -64,7 +64,7 @@ fn permute<E: Endianness>(
     let g = Left(arc_list_graph::ArcListGraph::new(num_nodes, edges));
     // compress it
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
+    webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
         args.dest,
         &g,
         g.num_nodes(),
@@ -88,7 +88,7 @@ where
     // TODO!: check that batchsize fits in memory, and that print the maximum
     // batch_size usable
 
-    let graph = webgraph::graph::bvgraph::sequential::with_basename(&args.source)
+    let graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.source)
         .endianness::<E>()
         .load()?;
 

@@ -22,7 +22,7 @@ fn test_par_bvcomp() -> Result<()> {
     let tmp_basename = "tests/data/cnr-2000-par";
 
     // load the graph
-    let graph = webgraph::graph::bvgraph::sequential::with_basename("tests/data/cnr-2000")
+    let graph = webgraph::graphs::bvgraph::sequential::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     for thread_num in 1..10 {
@@ -31,7 +31,7 @@ fn test_par_bvcomp() -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<BE, _, _>(
+        webgraph::graphs::bvgraph::parallel_compress_sequential_iter::<BE, _, _>(
             tmp_basename,
             &graph,
             graph.num_nodes(),
@@ -42,7 +42,7 @@ fn test_par_bvcomp() -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let comp_graph = webgraph::graph::bvgraph::sequential::with_basename(tmp_basename)
+        let comp_graph = webgraph::graphs::bvgraph::sequential::with_basename(tmp_basename)
             .endianness::<BE>()
             .load()?;
         let mut iter = comp_graph.iter();

@@ -35,7 +35,7 @@ where
         .transposed
         .unwrap_or_else(|| args.basename.clone() + ".t");
 
-    let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
 
@@ -43,7 +43,7 @@ where
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.pa.batch_size).unwrap();
 
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
+    webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
         transposed,
         &sorted,
         sorted.num_nodes(),

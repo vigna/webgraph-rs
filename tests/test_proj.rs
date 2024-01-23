@@ -6,7 +6,7 @@
  */
 
 use lender::*;
-use webgraph::graph::vec_graph::VecGraph;
+use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::traits::RandomAccessLabelling;
 use webgraph::utils::proj::{Left, Right};
 use webgraph::utils::Zip;

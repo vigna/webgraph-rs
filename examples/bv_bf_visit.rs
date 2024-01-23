@@ -23,7 +23,7 @@ fn visit<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graph::bvgraph::random_access::with_basename(&args.basename)
+    let graph = webgraph::graphs::bvgraph::random_access::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
     let num_nodes = graph.num_nodes();

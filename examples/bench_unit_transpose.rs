@@ -12,7 +12,7 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
-use webgraph::graph::arc_list_graph::{self, ArcListGraph};
+use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::utils::proj::Left;
 use webgraph::{algorithms, prelude::*};
 #[derive(Parser, Debug)]
@@ -64,7 +64,7 @@ fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+    let graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
 

@@ -10,7 +10,7 @@ fn test_start() -> Result<()> {
     // 4 -> 0 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graph::vec_graph::VecGraph::new();
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
 
     for i in 0..=5 {
         graph.add_node(i);
@@ -32,7 +32,7 @@ fn test_start_orphan() -> Result<()> {
     // 0 -> 4 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graph::vec_graph::VecGraph::new();
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
 
     for i in 0..=5 {
         graph.add_node(i);
@@ -51,7 +51,7 @@ fn test_start_orphan() -> Result<()> {
 
 #[test]
 fn test_cnr2000() -> Result<()> {
-    let graph = webgraph::graph::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+    let graph = webgraph::graphs::bvgraph::random_access::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     let seen: HashSet<usize> = HashSet::new();

@@ -23,7 +23,7 @@ use mmap_rs::MmapFlags;
 use std::path::Path;
 use sux::traits::IndexedDict;
 
-use crate::graph::bvgraph::EF;
+use crate::graphs::bvgraph::EF;
 use crate::prelude::{MmapBackend, NodeLabelsLender, RandomAccessLabelling, SequentialLabelling};
 
 pub trait ReaderBuilder {

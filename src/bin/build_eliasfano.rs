@@ -121,7 +121,7 @@ where
         }
     } else {
         info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-        let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        let seq_graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 

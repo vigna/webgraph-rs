@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graph::arc_list_graph;
+use crate::graphs::arc_list_graph;
 use crate::traits::SequentialGraph;
 use crate::utils::proj::Left;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};

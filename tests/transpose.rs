@@ -25,7 +25,7 @@ fn test_transpose() -> Result<()> {
     let compression_flags = CompFlags::default();
 
     // load cnr-2000
-    let graph = webgraph::graph::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+    let graph = webgraph::graphs::bvgraph::random_access::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     let num_nodes = graph.num_nodes();
@@ -42,7 +42,7 @@ fn test_transpose() -> Result<()> {
     )?;
     // check it
     // TODO assert_eq!(transposed.iter_nodes().len(), num_nodes);
-    let transposed_graph = webgraph::graph::bvgraph::sequential::with_basename(TRANSPOSED_PATH)
+    let transposed_graph = webgraph::graphs::bvgraph::sequential::with_basename(TRANSPOSED_PATH)
         .endianness::<BE>()
         .load()?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
@@ -68,7 +68,7 @@ fn test_transpose() -> Result<()> {
     // check it
     // TODO assert_eq!(retransposed.iter_nodes().len(), num_nodes);
     let retransposed_graph =
-        webgraph::graph::bvgraph::sequential::with_basename(RE_TRANSPOSED_PATH)
+        webgraph::graphs::bvgraph::sequential::with_basename(RE_TRANSPOSED_PATH)
             .endianness::<BE>()
             .load()?;
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);

@@ -12,7 +12,7 @@ use webgraph::prelude::*;
 
 #[test]
 fn test_iter_nodes() -> Result<()> {
-    let bvgraph = webgraph::graph::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+    let bvgraph = webgraph::graphs::bvgraph::random_access::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 
@@ -33,7 +33,7 @@ fn test_iter_nodes() -> Result<()> {
 
 #[test]
 fn test_iter_nodes_from() -> Result<()> {
-    let bvgraph = webgraph::graph::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+    let bvgraph = webgraph::graphs::bvgraph::random_access::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 

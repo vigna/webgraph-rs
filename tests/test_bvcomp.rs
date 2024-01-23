@@ -22,7 +22,7 @@ use dsi_bitstream::{
 };
 use dsi_progress_logger::*;
 use webgraph::{
-    graph::bvgraph::{BVComp, CompFlags, DynCodesDecoder, DynCodesEncoder, SeqIter},
+    graphs::bvgraph::{BVComp, CompFlags, DynCodesDecoder, DynCodesEncoder, SeqIter},
     prelude::*,
     utils::MmapBackend,
 };
@@ -58,7 +58,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     };
 
                                     let seq_graph =
-                                        webgraph::graph::bvgraph::sequential::with_basename(
+                                        webgraph::graphs::bvgraph::sequential::with_basename(
                                             "tests/data/cnr-2000",
                                         )
                                         .endianness::<BE>()

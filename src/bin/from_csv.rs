@@ -5,7 +5,7 @@ use itertools::Itertools;
 use rayon::slice::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
-use webgraph::graph::arc_list_graph::ArcListGraph;
+use webgraph::graphs::arc_list_graph::ArcListGraph;
 use webgraph::prelude::*;
 use webgraph::utils::proj::Left;
 
@@ -112,7 +112,7 @@ fn main() {
     ));
     // compress it
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
+    webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
         &args.basename,
         &g,
         args.num_nodes,
