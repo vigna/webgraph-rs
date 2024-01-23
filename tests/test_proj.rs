@@ -7,9 +7,9 @@
 
 use lender::*;
 use webgraph::graphs::vec_graph::VecGraph;
+use webgraph::label::proj::{Left, Right};
+use webgraph::label::Zip;
 use webgraph::traits::RandomAccessLabelling;
-use webgraph::utils::proj::{Left, Right};
-use webgraph::utils::Zip;
 
 #[test]
 fn test_left() {

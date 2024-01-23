@@ -13,7 +13,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
-use webgraph::utils::proj::Left;
+use webgraph::label::Left;
 use webgraph::{algorithms, prelude::*};
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]

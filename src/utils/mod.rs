@@ -49,8 +49,3 @@ pub use kary_heap::*;
 
 mod sort_pairs;
 pub use sort_pairs::*;
-
-pub mod proj;
-
-mod zip;
-pub use zip::*;

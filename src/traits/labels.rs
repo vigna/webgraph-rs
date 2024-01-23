@@ -16,7 +16,7 @@ each node of a graph a list of labels. In the [sequential case](SequentialLabell
 one can obtain a [lender](lender::Lender) that lends pairs given by a node
 and an iterator on the associated labels. In the [random-access case](RandomAccessLabelling),
 instead, one can get [an iterator on the labels associated with a node](RandomAccessLabelling::successors).
-Labellings can be [zipped together](crate::utils::Zip), obtaining a
+Labellings can be [zipped together](crate::label::Zip), obtaining a
 new labelling whose labels are pairs.
 
 The number of nodes *n* of the graph is returned by [`SequentialLabelling::num_nodes`],

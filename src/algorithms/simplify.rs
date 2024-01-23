@@ -5,8 +5,8 @@
  */
 
 use crate::graphs::arc_list_graph;
+use crate::label::Left;
 use crate::traits::SequentialGraph;
-use crate::utils::proj::Left;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::*;

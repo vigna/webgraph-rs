@@ -7,9 +7,9 @@
 
 use lender::*;
 use webgraph::graphs::vec_graph::VecGraph;
+use webgraph::label::proj::LeftIntoIter;
+use webgraph::label::Zip;
 use webgraph::traits::RandomAccessLabelling;
-use webgraph::utils::proj::LeftIntoIter;
-use webgraph::utils::Zip;
 
 #[test]
 fn test_zip() {

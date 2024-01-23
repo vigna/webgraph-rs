@@ -22,7 +22,7 @@ of the pairs. This is not possible directly, as a pair is a type, not a trait. D
 new design of graph iterator trait, this is no longer a problem, but the same issue
 resurfaces in other contexts.
 
-For example, [when implementing projections](crate::utils::proj) one need
+For example, [when implementing projections](crate::label::proj) one need
 to specify that the label of a labelling is a pair, and in the case a
 component is `usize`, the associated projection can be seen as a graph.
 To specify these constraints we have to resort to traitification using the [`Pair`] trait.

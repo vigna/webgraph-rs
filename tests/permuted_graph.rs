@@ -6,7 +6,7 @@
  */
 
 use lender::*;
-use webgraph::{prelude::*, utils::proj::Left};
+use webgraph::prelude::*;
 
 #[test]
 fn test_permuted() {

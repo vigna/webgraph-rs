@@ -27,6 +27,7 @@ pub mod utils;
 pub mod prelude {
     pub use crate::algorithms::*;
     pub use crate::graphs::prelude::*;
+    pub use crate::label::*;
     pub use crate::traits::graph::*;
     pub use crate::traits::*;
     pub use crate::utils::*;

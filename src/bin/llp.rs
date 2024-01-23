@@ -11,6 +11,7 @@ use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
+use std::iter::Iterator;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]

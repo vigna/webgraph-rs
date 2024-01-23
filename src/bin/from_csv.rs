@@ -6,8 +6,8 @@ use rayon::slice::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use webgraph::graphs::arc_list_graph::ArcListGraph;
+use webgraph::label::Left;
 use webgraph::prelude::*;
-use webgraph::utils::proj::Left;
 
 #[derive(Parser, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
