@@ -6,13 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-mod factories;
-use std::error::Error;
-
-use dsi_bitstream::{
-    codes::{DeltaRead, DeltaWrite, GammaRead, GammaWrite, ZetaRead, ZetaWrite},
-    traits::Endianness,
-};
+pub mod factories;
 pub use factories::*;
 
 mod dec_const;
@@ -27,9 +21,16 @@ pub use enc_const::*;
 mod enc_dyn;
 pub use enc_dyn::*;
 
-// A trait combining the codes used by BVGraph when reading.
+use dsi_bitstream::{
+    codes::{DeltaRead, DeltaWrite, GammaRead, GammaWrite, ZetaRead, ZetaWrite},
+    traits::Endianness,
+};
+
+use std::error::Error;
+
+/// A trait combining the codes used by [`DynCodesDecoder`] and [`ConstCodesDecoder`].
 pub trait CodeRead<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
-// A trait combining the codes used by BVGraph when writing.
+/// A trait combining the codes used by [`DynCodesEncoder`] and [`ConstCodesEncoder`].
 pub trait CodeWrite<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
 /// Blanket implementation so we can consider [`CodeRead`] just as an alias for

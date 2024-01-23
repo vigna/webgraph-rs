@@ -6,6 +6,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/*!
+
+Factories for bit readers.
+
+Implementations of the [`BitReaderFactory`] trait can be used to create
+bit readers accessing a file using different techniques.
+- [`FileFactory`] uses a [std::fs::File] to create a bit reader.
+- [`MemoryFactory`] creates bit readers from a slice of memory,
+either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
+- [`MmapBackend`] can be used to create a bit reader from a memory-mapped file.
+
+Any factory can be plugged either into a
+[`SequentialDecoderFactory`](super::SequentialDecoderFactory)
+or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
+decoupling the choice of encoder from the underlying support.
+
+*/
 use anyhow::ensure;
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
@@ -23,11 +40,11 @@ use sux::traits::IndexedDict;
 
 use crate::utils::MmapBackend;
 
-pub trait CodeReaderFactory<E: Endianness> {
-    type CodeReader<'a>
+pub trait BitReaderFactory<E: Endianness> {
+    type BitReader<'a>
     where
         Self: 'a;
-    fn new_reader(&self) -> Self::CodeReader<'_>;
+    fn new_reader(&self) -> Self::BitReader<'_>;
 }
 
 #[derive(Clone)]
@@ -49,12 +66,12 @@ impl<E: Endianness> FileFactory<E> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E> {
-    type CodeReader<'a> = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
+impl<E: Endianness> BitReaderFactory<E> for FileFactory<E> {
+    type BitReader<'a> = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::CodeReader<'_> {
+    fn new_reader(&self) -> Self::BitReader<'_> {
         BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(
             File::open(&self.path).unwrap(),
         )))
@@ -62,7 +79,7 @@ impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E> {
 }
 
 bitflags! {
-    /// Flags for [`map`] and [`load_mmap`].
+    /// Flags for [`MemoryFactory`] and [`MmapBackend`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages.
@@ -183,12 +200,12 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
     }
 }
 
-impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M> {
-    type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a[u32]>>
+impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M> {
+    type BitReader<'a> = BufBitReader<E, MemWordReader<u32, &'a[u32]>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::CodeReader<'_> {
+    fn new_reader(&self) -> Self::BitReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.data.as_ref().as_ref()))
     }
 }
@@ -222,10 +239,10 @@ impl<I, O> Default for EmptyDict<I, O> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for MmapBackend<u32> {
-    type CodeReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+impl<E: Endianness> BitReaderFactory<E> for MmapBackend<u32> {
+    type BitReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 
-    fn new_reader(&self) -> Self::CodeReader<'_> {
+    fn new_reader(&self) -> Self::BitReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
     }
 }

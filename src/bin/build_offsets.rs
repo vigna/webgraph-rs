@@ -27,7 +27,9 @@ where
     for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
-    let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
     // Create the offsets file
     let file = std::fs::File::create(format!("{}.offsets", args.basename))?;
     // create a bit writer on the file

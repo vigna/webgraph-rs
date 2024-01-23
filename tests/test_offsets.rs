@@ -16,8 +16,9 @@ use webgraph::prelude::*;
 #[test]
 fn test_offsets() -> Result<()> {
     // load the graph
-    let graph = webgraph::graph::bvgraph::load::<BE>("tests/data/cnr-2000")?;
-
+    let graph = webgraph::graph::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
     // Read the offsets gammas
     let mut offsets_file = std::fs::File::open("tests/data/cnr-2000.offsets")?;
     let mut offsets_data = vec![0; offsets_file.metadata()?.len() as usize];
@@ -33,7 +34,7 @@ fn test_offsets() -> Result<()> {
     println!("{:?}", offsets.len());
 
     // Load Elias-fano
-    let ef_offsets = <webgraph::graph::bvgraph::EF>::mmap(
+    let ef_offsets = <webgraph::graph::bvgraph::EliasFano>::mmap(
         "tests/data/cnr-2000.ef",
         deser::Flags::TRANSPARENT_HUGE_PAGES,
     )?;

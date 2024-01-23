@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_bitstream::prelude::{BE, LE, NE};
+use dsi_bitstream::prelude::{BE, LE};
 use dsi_progress_logger::*;
 use lender::prelude::*;
 use std::io::Write;
@@ -21,7 +21,9 @@ fn to_csv<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graph::bvgraph::load_seq::<NE, _>(&args.basename)?;
+    let graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
     let num_nodes = graph.num_nodes();
 
     // read the csv and put it inside the sort pairs

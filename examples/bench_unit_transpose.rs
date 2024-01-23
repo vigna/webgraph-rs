@@ -64,7 +64,10 @@ fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+    let graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
+
     let unit = UnitLabelGraph(&graph);
 
     for _ in 0..10 {

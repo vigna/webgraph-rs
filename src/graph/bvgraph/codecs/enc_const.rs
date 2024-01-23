@@ -5,18 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::bail;
 use dsi_bitstream::prelude::*;
-use epserde::deser::MemCase;
-use std::{convert::Infallible, marker::PhantomData};
-use sux::traits::IndexedDict;
+use std::convert::Infallible;
 
-use crate::prelude::{CodeReaderFactory, CompFlags, EmptyDict};
-
-use super::{
-    code_to_const, const_codes, CodeRead, CodeWrite, ConstCodesDecoder, Encoder,
-    RandomAccessDecoderFactory, SequentialDecoderFactory,
-};
+use super::{const_codes, CodeWrite, Encoder};
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
@@ -255,132 +247,5 @@ impl<
 
     fn flush(&mut self) -> Result<(), Self::Error> {
         Ok(())
-    }
-}
-
-pub struct ConstCodesDecoderFactory<
-    E: Endianness,
-    F: CodeReaderFactory<E>,
-    OFF: IndexedDict<Input = usize, Output = usize>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
-    const K: u64 = 3,
-> {
-    /// The owned data
-    factory: F,
-    /// The offsets into the data.
-    offsets: MemCase<OFF>,
-    /// Tell the compiler that's Ok that we don't store `E` but we need it
-    /// for typing.
-    _marker: core::marker::PhantomData<E>,
-}
-
-impl<
-        E: Endianness,
-        F: CodeReaderFactory<E>,
-        OFF: IndexedDict<Input = usize, Output = usize>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-        const K: u64,
-    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-{
-    /// Create a new builder from the given data and compression flags.
-    pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
-        if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
-            bail!("Code for outdegrees does not match");
-        }
-        if code_to_const(comp_flags.references)? != REFERENCES {
-            bail!("Cod for references does not match");
-        }
-        if code_to_const(comp_flags.blocks)? != BLOCKS {
-            bail!("Code for blocks does not match");
-        }
-        if code_to_const(comp_flags.intervals)? != INTERVALS {
-            bail!("Code for intervals does not match");
-        }
-        if code_to_const(comp_flags.residuals)? != RESIDUALS {
-            bail!("Code for residuals does not match");
-        }
-        Ok(Self {
-            factory,
-            offsets,
-            _marker: core::marker::PhantomData,
-        })
-    }
-}
-
-impl<
-        E: Endianness,
-        F: CodeReaderFactory<E>,
-        OFF: IndexedDict<Input = usize, Output = usize>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-        const K: u64,
-    > RandomAccessDecoderFactory
-    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
-{
-    type Decoder<'a> =
-        ConstCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
-    where
-        Self: 'a;
-
-    fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
-        let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
-
-        Ok(ConstCodesDecoder {
-            code_reader,
-            _marker: PhantomData,
-        })
-    }
-}
-
-impl<
-        E: Endianness,
-        F: CodeReaderFactory<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-        const K: u64,
-    > SequentialDecoderFactory
-    for ConstCodesDecoderFactory<
-        E,
-        F,
-        EmptyDict<usize, usize>,
-        OUTDEGREES,
-        REFERENCES,
-        BLOCKS,
-        INTERVALS,
-        RESIDUALS,
-        K,
-    >
-where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
-{
-    type Decoder<'a> =
-        ConstCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
-    where
-        Self: 'a;
-
-    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
-        let code_reader = self.factory.new_reader();
-
-        Ok(ConstCodesDecoder {
-            code_reader,
-            _marker: PhantomData,
-        })
     }
 }

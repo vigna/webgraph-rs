@@ -57,9 +57,12 @@ fn test_bvcomp_slow() -> Result<()> {
                                         max_ref_count,
                                     };
 
-                                    let seq_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(
-                                        "tests/data/cnr-2000",
-                                    )?;
+                                    let seq_graph =
+                                        webgraph::graph::bvgraph::sequential::with_basename(
+                                            "tests/data/cnr-2000",
+                                        )
+                                        .endianness::<BE>()
+                                        .load()?;
 
                                     let writer = <DynCodesEncoder<BE, _>>::new(
                                         <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(

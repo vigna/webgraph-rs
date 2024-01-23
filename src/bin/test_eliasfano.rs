@@ -13,6 +13,7 @@ use log::info;
 use std::fs::File;
 use std::io::BufReader;
 use sux::prelude::*;
+use webgraph::graph::EliasFano;
 
 #[derive(Parser, Debug)]
 #[command(about = "Thest that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
@@ -43,8 +44,7 @@ pub fn main() -> Result<()> {
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
-    let ef =
-        <webgraph::graph::bvgraph::EF>::mmap(format!("{}.ef", args.basename), Flags::default())?;
+    let ef = EliasFano::mmap(format!("{}.ef", args.basename), Flags::default())?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
@@ -78,7 +78,9 @@ pub fn main() -> Result<()> {
         .expected_updates(Some(num_nodes));
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-    let seq_graph = webgraph::graph::bvgraph::load_seq::<NE, _>(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        .endianness::<BE>()
+        .load()?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");

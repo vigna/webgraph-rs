@@ -23,7 +23,10 @@ fn optimize_codes<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
+
     let seq_graph = seq_graph.map_codes_reader_builder(CodesReaderStatsBuilder::new);
 
     let mut pl = ProgressLogger::default();

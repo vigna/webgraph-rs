@@ -51,7 +51,9 @@ fn test_start_orphan() -> Result<()> {
 
 #[test]
 fn test_cnr2000() -> Result<()> {
-    let graph = webgraph::graph::bvgraph::load::<BE>("tests/data/cnr-2000")?;
+    let graph = webgraph::graph::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
     let seen: HashSet<usize> = HashSet::new();
     for node in BfsOrder::new(&graph) {
         assert!(!seen.contains(&node), "{} was seen twice", node);

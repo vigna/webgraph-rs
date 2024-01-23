@@ -42,7 +42,10 @@ pub fn main() -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         BE::NAME => {
-            let seq_graph = webgraph::graph::bvgraph::load_seq::<BE, _>(&args.basename)?;
+            let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+                .endianness::<BE>()
+                .load()?;
+
             webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
                 args.new_basename,
                 &seq_graph,
@@ -58,7 +61,10 @@ pub fn main() -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         LE::NAME => {
-            let seq_graph = webgraph::graph::bvgraph::load_seq::<LE, _>(&args.basename)?;
+            let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+                .endianness::<LE>()
+                .load()?;
+
             webgraph::graph::bvgraph::parallel_compress_sequential_iter_endianness(
                 args.new_basename,
                 &seq_graph,

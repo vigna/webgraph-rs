@@ -88,7 +88,9 @@ where
     // TODO!: check that batchsize fits in memory, and that print the maximum
     // batch_size usable
 
-    let graph = webgraph::graph::bvgraph::load_seq(&args.source)?;
+    let graph = webgraph::graph::bvgraph::sequential::with_basename(&args.source)
+        .endianness::<E>()
+        .load()?;
 
     let num_nodes = graph.num_nodes();
     // read the permutation

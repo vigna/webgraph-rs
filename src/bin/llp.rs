@@ -64,7 +64,9 @@ where
         .unwrap_or_else(|| format!("{}.llp", args.basename));
 
     // load the graph
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+    let graph = webgraph::graph::bvgraph::random_access::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
 
     // parse the gamma format
     let mut gammas = vec![];

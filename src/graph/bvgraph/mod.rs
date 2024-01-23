@@ -38,7 +38,7 @@ mod comp_flags;
 pub use comp_flags::*;
 
 /// The default version of EliasFano we use for the CLI
-pub type EF = sux::dict::EliasFano<
+pub type EliasFano = sux::dict::EliasFano<
     sux::rank_sel::SelectFixed2<sux::bits::CountBitVec, Vec<u64>, 8>,
     sux::bits::BitFieldVec,
 >;

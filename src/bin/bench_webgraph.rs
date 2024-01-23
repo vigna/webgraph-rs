@@ -13,6 +13,7 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::hint::black_box;
+use webgraph::graph::bvgraph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -52,9 +53,13 @@ where
 {
     if args.check {
         // Create a sequential reader
-        let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
+        let seq_graph = bvgraph::sequential::with_basename("tests/data/cnr-2000")
+            .endianness::<E>()
+            .load()?;
         // create a random access reader;
-        let random_reader = webgraph::graph::bvgraph::load(&args.basename)?;
+        let random_reader = bvgraph::random_access::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
 
         // Check that sequential and random-access interfaces return the same result
         let mut seq_iter = seq_graph.iter();
@@ -71,7 +76,11 @@ where
         for _ in 0..args.repeats {
             // Create a sequential reader
             let mut c: u64 = 0;
-            let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
+
+            let seq_graph = bvgraph::sequential::with_basename(&args.basename)
+                .endianness::<E>()
+                .load()?;
+
             let start = std::time::Instant::now();
             let mut iter = seq_graph.iter();
             while let Some((_, succ)) = iter.next() {
@@ -87,7 +96,9 @@ where
     } else if args.degrees_only {
         // Sequential speed test
         for _ in 0..args.repeats {
-            let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
+            let seq_graph = bvgraph::sequential::with_basename(&args.basename)
+                .endianness::<E>()
+                .load()?;
             let mut deg_reader = seq_graph.iter_degrees();
 
             let mut c: u64 = 0;
@@ -103,7 +114,9 @@ where
             assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
     } else {
-        let graph = webgraph::graph::bvgraph::load_mem(&args.basename)?;
+        let graph = bvgraph::random_access::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
         // Random-access speed test
         for _ in 0..args.repeats {
             // create a random access reader;

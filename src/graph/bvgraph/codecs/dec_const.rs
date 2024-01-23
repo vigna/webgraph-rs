@@ -5,10 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::marker::PhantomData;
+
 use super::super::*;
 use anyhow::bail;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use epserde::deser::MemCase;
+use sux::traits::IndexedDict;
 
 /// Temporary constants while const enum generics are not stable
 pub mod const_codes {
@@ -27,8 +31,8 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
     Ok(match code {
         Code::Unary => const_codes::UNARY,
         Code::Gamma => const_codes::GAMMA,
-        Code::Delta => const_codes::DELTA,
         Code::Zeta { k: _ } => const_codes::ZETA,
+        Code::Delta => const_codes::DELTA,
         _ => bail!("Only unary, ɣ, δ, and ζ codes are allowed"),
     })
 }
@@ -128,20 +132,6 @@ macro_rules! select_code_read {
     };
 }
 
-macro_rules! select_code_skip {
-    ($self:ident, $code:expr, $k: expr) => {
-        match $code {
-            const_codes::UNARY => $self.code_reader.skip_unary().unwrap(),
-            const_codes::GAMMA => $self.code_reader.skip_gamma().unwrap(),
-            const_codes::DELTA => $self.code_reader.skip_delta().unwrap(),
-            const_codes::ZETA if $k == 1 => $self.code_reader.skip_gamma().unwrap(),
-            const_codes::ZETA if $k == 3 => $self.code_reader.skip_zeta3().unwrap(),
-            const_codes::ZETA => $self.code_reader.skip_zeta(K).unwrap(),
-            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
-        }
-    };
-}
-
 impl<
         E: Endianness,
         CR: CodeRead<E>,
@@ -193,5 +183,132 @@ impl<
     #[inline(always)]
     fn read_residual(&mut self) -> u64 {
         select_code_read!(self, RESIDUALS, K)
+    }
+}
+
+pub struct ConstCodesDecoderFactory<
+    E: Endianness,
+    F: BitReaderFactory<E>,
+    OFF: IndexedDict<Input = usize, Output = usize>,
+    const OUTDEGREES: usize = { const_codes::GAMMA },
+    const REFERENCES: usize = { const_codes::UNARY },
+    const BLOCKS: usize = { const_codes::GAMMA },
+    const INTERVALS: usize = { const_codes::GAMMA },
+    const RESIDUALS: usize = { const_codes::ZETA },
+    const K: u64 = 3,
+> {
+    /// The owned data
+    factory: F,
+    /// The offsets into the data.
+    offsets: MemCase<OFF>,
+    /// Tell the compiler that's Ok that we don't store `E` but we need it
+    /// for typing.
+    _marker: core::marker::PhantomData<E>,
+}
+
+impl<
+        E: Endianness,
+        F: BitReaderFactory<E>,
+        OFF: IndexedDict<Input = usize, Output = usize>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    /// Create a new builder from the given data and compression flags.
+    pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
+        if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
+            bail!("Code for outdegrees does not match");
+        }
+        if code_to_const(comp_flags.references)? != REFERENCES {
+            bail!("Cod for references does not match");
+        }
+        if code_to_const(comp_flags.blocks)? != BLOCKS {
+            bail!("Code for blocks does not match");
+        }
+        if code_to_const(comp_flags.intervals)? != INTERVALS {
+            bail!("Code for intervals does not match");
+        }
+        if code_to_const(comp_flags.residuals)? != RESIDUALS {
+            bail!("Code for residuals does not match");
+        }
+        Ok(Self {
+            factory,
+            offsets,
+            _marker: core::marker::PhantomData,
+        })
+    }
+}
+
+impl<
+        E: Endianness,
+        F: BitReaderFactory<E>,
+        OFF: IndexedDict<Input = usize, Output = usize>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > RandomAccessDecoderFactory
+    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+where
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,
+{
+    type Decoder<'a> =
+        ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+    where
+        Self: 'a;
+
+    fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
+        let mut code_reader = self.factory.new_reader();
+        code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
+
+        Ok(ConstCodesDecoder {
+            code_reader,
+            _marker: PhantomData,
+        })
+    }
+}
+
+impl<
+        E: Endianness,
+        F: BitReaderFactory<E>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > SequentialDecoderFactory
+    for ConstCodesDecoderFactory<
+        E,
+        F,
+        EmptyDict<usize, usize>,
+        OUTDEGREES,
+        REFERENCES,
+        BLOCKS,
+        INTERVALS,
+        RESIDUALS,
+        K,
+    >
+where
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+{
+    type Decoder<'a> =
+        ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+    where
+        Self: 'a;
+
+    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
+        let code_reader = self.factory.new_reader();
+
+        Ok(ConstCodesDecoder {
+            code_reader,
+            _marker: PhantomData,
+        })
     }
 }

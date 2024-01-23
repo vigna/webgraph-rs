@@ -6,7 +6,9 @@
  */
 
 pub mod arc_list_graph;
+
 pub mod bvgraph;
+pub use bvgraph::*;
 pub mod permuted_graph;
 
 pub mod vec_graph;

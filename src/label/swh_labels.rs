@@ -23,7 +23,7 @@ use mmap_rs::MmapFlags;
 use std::path::Path;
 use sux::traits::IndexedDict;
 
-use crate::graph::bvgraph::EF;
+use crate::graph::bvgraph::EliasFano;
 use crate::prelude::{MmapBackend, NodeLabelsLender, RandomAccessLabelling, SequentialLabelling};
 
 pub trait ReaderBuilder {
@@ -55,7 +55,7 @@ pub struct SwhLabels<RB: ReaderBuilder, O: IndexedDict> {
     offsets: MemCase<O>,
 }
 
-impl SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>> {
+impl SwhLabels<MmapReaderBuilder, <EliasFano as DeserializeInner>::DeserType<'static>> {
     pub fn load_from_file(width: usize, path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let backend_path = path.with_extension("labels");
@@ -67,7 +67,7 @@ impl SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>> 
                     .with_context(|| format!("Could not mmap {}", backend_path.display()))?,
             },
 
-            offsets: EF::mmap(&offsets_path, Flags::empty())
+            offsets: EliasFano::mmap(&offsets_path, Flags::empty())
                 .with_context(|| format!("Could not parse {}", offsets_path.display()))?,
         })
     }
@@ -150,11 +150,11 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqL
 }
 
 impl SequentialLabelling
-    for SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>>
+    for SwhLabels<MmapReaderBuilder, <EliasFano as DeserializeInner>::DeserType<'static>>
 {
     type Label = Vec<u64>;
 
-    type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
+    type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EliasFano as DeserializeInner>::DeserType<'node>>
     where
         Self: 'node;
 
@@ -196,7 +196,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabel
 }
 
 impl RandomAccessLabelling
-    for SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>>
+    for SwhLabels<MmapReaderBuilder, <EliasFano as DeserializeInner>::DeserType<'static>>
 {
     type Labels<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
 

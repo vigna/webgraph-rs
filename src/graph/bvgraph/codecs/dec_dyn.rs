@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::convert::Infallible;
 use std::marker::PhantomData;
 
 use super::super::*;
@@ -136,7 +135,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decoder for DynCodesDecoder<E, CR> {
 
 pub struct DynCodesDecoderFactory<
     E: Endianness,
-    F: CodeReaderFactory<E>,
+    F: BitReaderFactory<E>,
     OFF: IndexedDict<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
@@ -146,47 +145,47 @@ pub struct DynCodesDecoderFactory<
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
-    read_outdegree: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_reference_offset: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_block_count: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_blocks: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_interval_count: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_interval_start: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_interval_len: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_first_residual: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
-    read_residual: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64,
+    read_outdegree: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_reference_offset: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_block_count: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_blocks: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_interval_count: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_interval_start: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_interval_len: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_first_residual: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_residual: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
     // they are compiled once!
-    const READ_UNARY: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_UNARY: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_GAMMA: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_DELTA: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA2: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA3: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA4: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA5: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA6: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA7: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: for<'a> fn(&mut <F as CodeReaderFactory<E>>::CodeReader<'a>) -> u64 =
+    const READ_ZETA1: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
         Self::READ_GAMMA;
 
     #[inline(always)]
@@ -236,13 +235,13 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,
 {
     type Decoder<'a> =
-        DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
     where
         Self: 'a;
 
@@ -266,13 +265,13 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>> SequentialDecoderFactory
+impl<E: Endianness, F: BitReaderFactory<E>> SequentialDecoderFactory
     for DynCodesDecoderFactory<E, F, EmptyDict<usize, usize>>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodeRead<E> + BitSeek,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
 {
     type Decoder<'a> =
-        DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
     where
         Self: 'a;
 

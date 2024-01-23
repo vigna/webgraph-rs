@@ -35,7 +35,9 @@ where
         .transposed
         .unwrap_or_else(|| args.basename.clone() + ".t");
 
-    let seq_graph = webgraph::graph::bvgraph::load_seq::<E, _>(&args.basename)?;
+    let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
 
     // transpose the graph
     let sorted = webgraph::algorithms::transpose(&seq_graph, args.pa.batch_size).unwrap();

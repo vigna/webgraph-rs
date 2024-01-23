@@ -10,7 +10,7 @@ use core::cmp::Ordering;
 use lender::prelude::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
-pub struct BVComp<WGCW: Encoder> {
+pub struct BVComp<E: Encoder> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
     backrefs: CircularBufferVec,
@@ -22,9 +22,9 @@ pub struct BVComp<WGCW: Encoder> {
     /// The bitstream writer, this implements the mock function so we can
     /// do multiple tentative compressions and use the real one once we figured
     /// out how to compress the graph best
-    bit_write: WGCW,
+    bit_write: E,
     /// The mock writer, this is used to do tentative compressions
-    mock_writer: WGCW::MockEncoder,
+    mock_writer: E::MockEncoder,
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
@@ -85,13 +85,13 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<WGCW: Encoder>(
+    fn write<E: Encoder>(
         &self,
-        writer: &mut WGCW,
+        writer: &mut E,
         curr_node: usize,
         reference_offset: Option<usize>,
         min_interval_length: usize,
-    ) -> Result<usize, WGCW::Error> {
+    ) -> Result<usize, E::Error> {
         let mut written_bits = 0;
         // write the outdegree
         written_bits += writer.write_outdegree(self.outdegree as u64)?;
@@ -297,13 +297,13 @@ impl Compressor {
     }
 }
 
-impl<WGCW: Encoder> BVComp<WGCW> {
+impl<E: Encoder> BVComp<E> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
     /// Create a new BVGraph compressor.
     pub fn new(
-        bit_write: WGCW,
+        bit_write: E,
         compression_window: usize,
         min_interval_length: usize,
         max_ref_count: usize,
@@ -332,8 +332,8 @@ impl<WGCW: Encoder> BVComp<WGCW> {
     /// empty iterator)
     pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize>
     where
-        WGCW::Error: 'static,
-        <WGCW::MockEncoder as Encoder>::Error: 'static,
+        E::Error: 'static,
+        <E::MockEncoder as Encoder>::Error: 'static,
     {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
@@ -438,8 +438,8 @@ impl<WGCW: Encoder> BVComp<WGCW> {
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        WGCW::Error: 'static,
-        <WGCW::MockEncoder as Encoder>::Error: 'static,
+        E::Error: 'static,
+        <E::MockEncoder as Encoder>::Error: 'static,
     {
         let mut count = 0;
         for_! ( (_, succ) in iter_nodes {
@@ -451,7 +451,7 @@ impl<WGCW: Encoder> BVComp<WGCW> {
     }
 
     /// Consume the compressor return the inner writer after flushing it.
-    pub fn flush(mut self) -> Result<WGCW, WGCW::Error> {
+    pub fn flush(mut self) -> Result<E, E::Error> {
         self.bit_write.flush()?;
         Ok(self.bit_write)
     }
@@ -571,7 +571,9 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = crate::graph::bvgraph::load_seq::<BE, _>("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::sequential::with_basename("tests/data/cnr-2000")
+            .endianness::<BE>()
+            .load()?;
 
         // Compress the graph
         let file_path = "tests/data/cnr-2000.bvcomp";
@@ -632,7 +634,9 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = crate::graph::bvgraph::load_seq::<BE, _>("tests/data/cnr-2000")?;
+        let seq_graph = crate::graph::bvgraph::sequential::with_basename("tests/data/cnr-2000")
+            .endianness::<BE>()
+            .load()?;
 
         // Compress the graph
         let mut buffer: Vec<u64> = Vec::new();

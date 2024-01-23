@@ -6,14 +6,8 @@
 
 use anyhow::{Context, Result};
 use core::fmt::Debug;
-use dsi_bitstream::{
-    impls::{BufBitReader, MemWordReader},
-    traits::Endianness,
-};
 use mmap_rs::*;
 use std::{path::Path, sync::Arc};
-
-use crate::prelude::{CodeRead, CodeReaderFactory};
 
 /// Adapt an [`Mmap`] that implements [`AsRef<[u8]>`] into a [`AsRef<[W]>`].
 ///

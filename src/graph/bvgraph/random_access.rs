@@ -126,7 +126,7 @@ impl<F> RandomAccessLabelling for BVGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    type Labels<'a> = RandomSuccessorIter<F::Decoder<'a>>
+    type Labels<'a> = Successors<F::Decoder<'a>>
     where Self: 'a, F: 'a;
 
     fn num_arcs(&self) -> u64 {
@@ -144,13 +144,13 @@ where
 
     #[inline(always)]
     /// Return a random access iterator over the successors of a node.
-    fn labels(&self, node_id: usize) -> RandomSuccessorIter<F::Decoder<'_>> {
+    fn labels(&self, node_id: usize) -> Successors<F::Decoder<'_>> {
         let codes_reader = self
             .reader_factory
             .new_decoder(node_id)
             .expect("Cannot create reader");
 
-        let mut result = RandomSuccessorIter::new(codes_reader);
+        let mut result = Successors::new(codes_reader);
         let degree = result.reader.read_outdegree() as usize;
         // no edges, we are done!
         if degree == 0 {
@@ -257,13 +257,13 @@ impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct RandomSuccessorIter<CR: Decoder> {
+pub struct Successors<CR: Decoder> {
     reader: CR,
     /// The number of values left
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<MaskedIterator<RandomSuccessorIter<CR>>>,
+    copied_nodes_iter: Option<MaskedIterator<Successors<CR>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(usize, usize)>,
@@ -279,16 +279,16 @@ pub struct RandomSuccessorIter<CR: Decoder> {
     next_interval_node: usize,
 }
 
-impl<CR: Decoder> ExactSizeIterator for RandomSuccessorIter<CR> {
+impl<CR: Decoder> ExactSizeIterator for Successors<CR> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<CR: Decoder> SortedLabels for RandomSuccessorIter<CR> {}
+unsafe impl<CR: Decoder> SortedLabels for Successors<CR> {}
 
-impl<CR: Decoder> RandomSuccessorIter<CR> {
+impl<CR: Decoder> Successors<CR> {
     /// Create an empty iterator
     fn new(reader: CR) -> Self {
         Self {
@@ -305,7 +305,7 @@ impl<CR: Decoder> RandomSuccessorIter<CR> {
     }
 }
 
-impl<CR: Decoder> Iterator for RandomSuccessorIter<CR> {
+impl<CR: Decoder> Iterator for Successors<CR> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {

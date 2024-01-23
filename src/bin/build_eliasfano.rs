@@ -64,7 +64,7 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: EF = ef.convert_to().unwrap();
+            let ef: EliasFano = ef.convert_to().unwrap();
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -121,7 +121,10 @@ where
         }
     } else {
         info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-        let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
+        let seq_graph = webgraph::graph::bvgraph::sequential::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
+
         // otherwise directly read the graph
         // progress bar
         pl.start("Building EliasFano...");
@@ -142,7 +145,7 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = ef.convert_to().unwrap();
+    let ef: EliasFano = ef.convert_to().unwrap();
     pl.done();
 
     let mut pl = ProgressLogger::default();
