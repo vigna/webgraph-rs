@@ -30,7 +30,7 @@ fn test_transpose() -> Result<()> {
         .load()?;
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
-    let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
+    let transposed = webgraph::algo::transpose(&graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<BE, _, _>(
         TRANSPOSED_PATH,
@@ -55,7 +55,7 @@ fn test_transpose() -> Result<()> {
         }
     }
     // re-transpose and par-compress
-    let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
+    let retransposed = webgraph::algo::transpose(&transposed_graph, BATCH_SIZE)?;
 
     parallel_compress_sequential_iter::<BE, _, _>(
         RE_TRANSPOSED_PATH,

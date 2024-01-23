@@ -16,7 +16,7 @@
 #![deny(unused_macro_rules)]
 #![deny(unused_doc_comments)]
 
-pub mod algorithms;
+pub mod algo;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
 pub mod graphs;
@@ -25,7 +25,7 @@ pub mod traits;
 pub mod utils;
 
 pub mod prelude {
-    pub use crate::algorithms::*;
+    pub use crate::algo::*;
     pub use crate::graphs::prelude::*;
     pub use crate::labels::*;
     pub use crate::traits::graph::*;

@@ -9,17 +9,17 @@ use crate::prelude::*;
 #[repr(transparent)]
 /// A debug wrapper on a code read that prints the codes it reads
 /// to stderr
-pub struct DebugCodeRead<CR: Decoder> {
+pub struct DebugDecoder<CR: Decoder> {
     pub cr: CR,
 }
 
-impl<CR: Decoder> DebugCodeRead<CR> {
+impl<CR: Decoder> DebugDecoder<CR> {
     pub fn new(cr: CR) -> Self {
         Self { cr }
     }
 }
 
-impl<CR: Decoder> Decoder for DebugCodeRead<CR> {
+impl<CR: Decoder> Decoder for DebugDecoder<CR> {
     fn read_outdegree(&mut self) -> u64 {
         let outdegree = self.cr.read_outdegree();
         eprintln!("outdegree: {}", outdegree);

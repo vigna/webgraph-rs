@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 
 use dsi_bitstream::prelude::BE;
-use webgraph::{algorithms::BfsOrder, labels::proj::Left};
+use webgraph::{algo::BfsOrder, labels::proj::Left};
 
 #[test]
 fn test_start() -> Result<()> {

@@ -39,13 +39,13 @@ pub struct BVGraphCodesStats {
 /// So this struct can be used in a parallel compression scenario but
 /// you might want to have finished reading the graph before looking at the
 /// statistics.
-pub struct CodesReaderStatsBuilder<SDF: SequentialDecoderFactory> {
+pub struct StatsDecoderFactory<SDF: SequentialDecoderFactory> {
     codes_reader_builder: SDF,
     /// The statistics for the codes
     pub stats: BVGraphCodesStats,
 }
 
-impl<SDF> CodesReaderStatsBuilder<SDF>
+impl<SDF> StatsDecoderFactory<SDF>
 where
     SDF: SequentialDecoderFactory,
 {
@@ -64,7 +64,7 @@ where
     }
 }
 
-impl<SDF> From<SDF> for CodesReaderStatsBuilder<SDF>
+impl<SDF> From<SDF> for StatsDecoderFactory<SDF>
 where
     SDF: SequentialDecoderFactory,
 {
@@ -74,31 +74,31 @@ where
     }
 }
 
-impl<SDF> SequentialDecoderFactory for CodesReaderStatsBuilder<SDF>
+impl<SDF> SequentialDecoderFactory for StatsDecoderFactory<SDF>
 where
     SDF: SequentialDecoderFactory,
 {
-    type Decoder<'a> = CodesReaderStats<'a, SDF::Decoder<'a>>
+    type Decoder<'a> = StatsDecoder<'a, SDF::Decoder<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
-        Ok(CodesReaderStats::new(
+        Ok(StatsDecoder::new(
             self.codes_reader_builder.new_decoder()?,
             &self.stats,
         ))
     }
 }
 
-/// A wrapper over a generic [`BVGraphCodesReader`] that keeps track of how much
+/// A wrapper over a generic [`Decoder`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
-pub struct CodesReaderStats<'a, WGCR: Decoder> {
+pub struct StatsDecoder<'a, WGCR: Decoder> {
     codes_reader: WGCR,
     stats: &'a BVGraphCodesStats,
 }
 
-impl<'a, WGCR: Decoder> CodesReaderStats<'a, WGCR> {
+impl<'a, WGCR: Decoder> StatsDecoder<'a, WGCR> {
     /// Wrap a reader
     #[inline(always)]
     pub fn new(codes_reader: WGCR, stats: &'a BVGraphCodesStats) -> Self {
@@ -115,7 +115,7 @@ impl<'a, WGCR: Decoder> CodesReaderStats<'a, WGCR> {
     }
 }
 
-impl<'a, WGCR: Decoder> Decoder for CodesReaderStats<'a, WGCR> {
+impl<'a, WGCR: Decoder> Decoder for StatsDecoder<'a, WGCR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats

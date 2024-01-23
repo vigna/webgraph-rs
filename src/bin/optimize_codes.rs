@@ -27,7 +27,7 @@ where
         .endianness::<E>()
         .load()?;
 
-    let seq_graph = seq_graph.map_codes_reader_builder(CodesReaderStatsBuilder::new);
+    let seq_graph = seq_graph.map_codes_reader_builder(StatsDecoderFactory::new);
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
