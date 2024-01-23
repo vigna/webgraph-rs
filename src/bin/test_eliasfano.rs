@@ -13,7 +13,7 @@ use log::info;
 use std::fs::File;
 use std::io::BufReader;
 use sux::prelude::*;
-use webgraph::graph::EliasFano;
+use webgraph::graph::EF;
 
 #[derive(Parser, Debug)]
 #[command(about = "Thest that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
@@ -44,7 +44,7 @@ pub fn main() -> Result<()> {
     let of_file_str = format!("{}.offsets", args.basename);
     let of_file_path = std::path::Path::new(&of_file_str);
 
-    let ef = EliasFano::mmap(format!("{}.ef", args.basename), Flags::default())?;
+    let ef = EF::mmap(format!("{}.ef", args.basename), Flags::default())?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)

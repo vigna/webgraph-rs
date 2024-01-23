@@ -65,56 +65,56 @@ pub trait Mode: 'static {
 pub struct File {}
 impl Mode for File {
     type Factory<E: Endianness> = FileFactory<E>;
-    type Offsets = EliasFano;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
         Ok(FileFactory::<E>::new(graph)?)
     }
 
     fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        Ok(EliasFano::load_full(offsets)?.into())
+        Ok(EF::load_full(offsets)?.into())
     }
 }
 
 pub struct Mmap {}
 impl Mode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
-    type Offsets = <EliasFano as DeserializeInner>::DeserType<'static>;
+    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MmapBackend::load(graph, flags.into())?)
     }
 
     fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        EliasFano::mmap(offsets, flags.into())
+        EF::mmap(offsets, flags.into())
     }
 }
 
 pub struct LoadMem {}
 impl Mode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = <EliasFano as DeserializeInner>::DeserType<'static>;
+    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mem(graph)?)
     }
 
     fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        Ok(EliasFano::load_mem(offsets)?)
+        Ok(EF::load_mem(offsets)?)
     }
 }
 
 pub struct LoadMmap {}
 impl Mode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
-    type Offsets = <EliasFano as DeserializeInner>::DeserType<'static>;
+    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mmap(graph, flags)?)
     }
 
     fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
-        EliasFano::load_mmap(offsets, flags.into())
+        EF::load_mmap(offsets, flags.into())
     }
 }
 

@@ -64,7 +64,7 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: EliasFano = ef.convert_to().unwrap();
+            let ef: EF = ef.convert_to().unwrap();
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -145,7 +145,7 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EliasFano = ef.convert_to().unwrap();
+    let ef: EF = ef.convert_to().unwrap();
     pl.done();
 
     let mut pl = ProgressLogger::default();
