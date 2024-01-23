@@ -5,7 +5,7 @@
  */
 
 use crate::graphs::arc_list_graph;
-use crate::label::Left;
+use crate::labels::Left;
 use crate::traits::SequentialGraph;
 use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;

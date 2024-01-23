@@ -6,7 +6,7 @@ use rayon::slice::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use webgraph::graphs::arc_list_graph::ArcListGraph;
-use webgraph::label::Left;
+use webgraph::labels::Left;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
