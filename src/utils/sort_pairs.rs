@@ -157,7 +157,7 @@ impl<S: BitSerializer, D: BitDeserializer + Clone> SortPairs<S, D> {
 /// iterate over the triples
 #[derive(Debug)]
 pub struct BatchIterator<D: BitDeserializer = ()> {
-    stream: BufBitReader<LE, MemWordReader<u32, MmapBackend<u32>>>,
+    stream: BufBitReader<NE, MemWordReader<u32, MmapBackend<u32>>>,
     len: usize,
     current: usize,
     prev_src: usize,
@@ -223,7 +223,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
         let file =
             std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(file_path.as_ref())?);
         // createa bitstream to write to the file
-        let mut stream = <BufBitWriter<LE, _>>::new(<WordAdapter<usize, _>>::new(file));
+        let mut stream = <BufBitWriter<NE, _>>::new(<WordAdapter<usize, _>>::new(file));
         // Dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
         for (src, dst, payload) in batch.iter() {
@@ -257,7 +257,7 @@ impl<D: BitDeserializer> BatchIterator<D> {
         len: usize,
         deserializer: D,
     ) -> anyhow::Result<Self> {
-        let stream = <BufBitReader<LE, _>>::new(MemWordReader::new(
+        let stream = <BufBitReader<NE, _>>::new(MemWordReader::new(
             MmapBackend::load(file_path.as_ref(), MmapFlags::TRANSPARENT_HUGE_PAGES)
                 .with_context(|| format!("Could not mmap {}", file_path.as_ref().display()))?,
         ));
