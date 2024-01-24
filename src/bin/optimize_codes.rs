@@ -45,7 +45,7 @@ where
 
     macro_rules! impl_best_code {
         ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident - $old:expr),*) => {
-            println!("{:>16} {:>16} {:>12} {:>8} {:>10} {:>16}",
+            println!("{:>17} {:>16} {:>12} {:>8} {:>10} {:>16}",
                 "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
             );
             $(
@@ -56,7 +56,7 @@ where
 
             $(
                 let (code, new) = $stats.$code.best_code();
-                println!("{:>16} {:>16} {:>12} {:>8} {:>10} {:>16}",
+                println!("{:>17} {:>16} {:>12} {:>8} {:>10} {:>16}",
                     stringify!($code), format!("{:?}", code),
                     format!("{:.3}%", 100.0 * ($old - new) as f64 / $old as f64),
                     format!("{:.3}", (($old - new) as f64 / ($old_bits - $new_bits) as f64)),
