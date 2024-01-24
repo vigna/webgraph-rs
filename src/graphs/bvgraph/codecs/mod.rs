@@ -18,6 +18,9 @@ pub use dec_dbg::*;
 mod dec_dyn;
 pub use dec_dyn::*;
 
+mod dec_stats;
+pub use dec_stats::*;
+
 mod enc_const;
 pub use enc_const::*;
 

@@ -25,9 +25,6 @@ pub use bvgraph_writer_par::*;
 mod masked_iterator;
 pub use masked_iterator::*;
 
-mod codes_opt;
-pub use codes_opt::*;
-
 mod codecs;
 pub use codecs::*;
 

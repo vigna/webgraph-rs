@@ -34,55 +34,48 @@ pub struct BVGraphCodesStats {
 /// A wrapper that keeps track of how much bits each piece would take using
 /// different codes for compressions for a [`SequentialDecoderFactory`]
 /// implementation and returns the stats.
-///
-/// The statistics can be updated in a concurrent way using atomic operations.
-/// So this struct can be used in a parallel compression scenario but
-/// you might want to have finished reading the graph before looking at the
-/// statistics.
-pub struct StatsDecoderFactory<SDF: SequentialDecoderFactory> {
-    codes_reader_builder: SDF,
+pub struct StatsDecoderFactory<F: SequentialDecoderFactory> {
+    factory: F,
 }
 
-impl<SDF> StatsDecoderFactory<SDF>
+impl<F> StatsDecoderFactory<F>
 where
-    SDF: SequentialDecoderFactory,
+    F: SequentialDecoderFactory,
 {
     /// Create a new builder
-    pub fn new(codes_reader_builder: SDF) -> Self {
-        Self {
-            codes_reader_builder,
-        }
+    pub fn new(factory: F) -> Self {
+        Self { factory }
     }
 
     #[inline(always)]
     /// Consume the builder and return the inner reader
-    pub fn unwrap(self) -> SDF {
-        self.codes_reader_builder
+    pub fn unwrap(self) -> F {
+        self.factory
     }
 }
 
-impl<SDF> From<SDF> for StatsDecoderFactory<SDF>
+impl<F> From<F> for StatsDecoderFactory<F>
 where
-    SDF: SequentialDecoderFactory,
+    F: SequentialDecoderFactory,
 {
     #[inline(always)]
-    fn from(value: SDF) -> Self {
+    fn from(value: F) -> Self {
         Self::new(value)
     }
 }
 
-impl<SDF> SequentialDecoderFactory for StatsDecoderFactory<SDF>
+impl<F> SequentialDecoderFactory for StatsDecoderFactory<F>
 where
-    SDF: SequentialDecoderFactory,
+    F: SequentialDecoderFactory,
 {
-    type Decoder<'a> = StatsDecoder<SDF::Decoder<'a>>
+    type Decoder<'a> = StatsDecoder<F::Decoder<'a>>
     where
         Self: 'a;
 
     #[inline(always)]
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         Ok(StatsDecoder::new(
-            self.codes_reader_builder.new_decoder()?,
+            self.factory.new_decoder()?,
             BVGraphCodesStats::default(),
         ))
     }
