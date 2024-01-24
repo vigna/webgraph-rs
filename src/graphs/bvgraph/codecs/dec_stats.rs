@@ -7,28 +7,44 @@
 
 use crate::prelude::*;
 use dsi_bitstream::prelude::CodesStats;
+use std::sync::Mutex;
 
-/// A struct that keeps track of how much bits each piece would take using
+/// A struct that keeps track of how much bits each piece would take
+/// using different codes for compression.
 #[derive(Debug, Default)]
-pub struct BVGraphCodesStats {
+pub struct DecoderStats {
     /// The statistics for the outdegrees values
-    pub outdegree: CodesStats,
+    pub outdegrees: CodesStats,
     /// The statistics for the reference_offset values
-    pub reference_offset: CodesStats,
+    pub reference_offsets: CodesStats,
     /// The statistics for the block_count values
-    pub block_count: CodesStats,
+    pub block_counts: CodesStats,
     /// The statistics for the blocks values
     pub blocks: CodesStats,
     /// The statistics for the interval_count values
-    pub interval_count: CodesStats,
+    pub interval_counts: CodesStats,
     /// The statistics for the interval_start values
-    pub interval_start: CodesStats,
+    pub interval_starts: CodesStats,
     /// The statistics for the interval_len values
-    pub interval_len: CodesStats,
+    pub interval_lens: CodesStats,
     /// The statistics for the first_residual values
-    pub first_residual: CodesStats,
+    pub first_residuals: CodesStats,
     /// The statistics for the residual values
-    pub residual: CodesStats,
+    pub residuals: CodesStats,
+}
+
+impl DecoderStats {
+    fn update(&mut self, rhs: &Self) {
+        self.outdegrees.add(&rhs.outdegrees);
+        self.reference_offsets.add(&rhs.reference_offsets);
+        self.block_counts.add(&rhs.block_counts);
+        self.blocks.add(&rhs.blocks);
+        self.interval_counts.add(&rhs.interval_counts);
+        self.interval_starts.add(&rhs.interval_starts);
+        self.interval_lens.add(&rhs.interval_lens);
+        self.first_residuals.add(&rhs.first_residuals);
+        self.residuals.add(&rhs.residuals);
+    }
 }
 
 /// A wrapper that keeps track of how much bits each piece would take using
@@ -36,21 +52,23 @@ pub struct BVGraphCodesStats {
 /// implementation and returns the stats.
 pub struct StatsDecoderFactory<F: SequentialDecoderFactory> {
     factory: F,
+    glob_stats: Mutex<DecoderStats>,
 }
 
 impl<F> StatsDecoderFactory<F>
 where
     F: SequentialDecoderFactory,
 {
-    /// Create a new builder
     pub fn new(factory: F) -> Self {
-        Self { factory }
+        Self {
+            factory,
+            glob_stats: Mutex::new(DecoderStats::default()),
+        }
     }
 
-    #[inline(always)]
-    /// Consume the builder and return the inner reader
-    pub fn unwrap(self) -> F {
-        self.factory
+    /// Consume self and return the stats.
+    pub fn stats(self) -> DecoderStats {
+        self.glob_stats.into_inner().unwrap()
     }
 }
 
@@ -68,98 +86,109 @@ impl<F> SequentialDecoderFactory for StatsDecoderFactory<F>
 where
     F: SequentialDecoderFactory,
 {
-    type Decoder<'a> = StatsDecoder<F::Decoder<'a>>
+    type Decoder<'a> = StatsDecoder<'a, F>
     where
         Self: 'a;
 
     #[inline(always)]
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         Ok(StatsDecoder::new(
+            &self,
             self.factory.new_decoder()?,
-            BVGraphCodesStats::default(),
+            DecoderStats::default(),
         ))
     }
 }
 
 /// A wrapper over a generic [`Decoder`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
-pub struct StatsDecoder<D: Decoder> {
-    codes_reader: D,
-    stats: BVGraphCodesStats,
+pub struct StatsDecoder<'a, F: SequentialDecoderFactory> {
+    factory: &'a StatsDecoderFactory<F>,
+    codes_reader: F::Decoder<'a>,
+    stats: DecoderStats,
 }
 
-impl<D: Decoder> StatsDecoder<D> {
+impl<'a, F: SequentialDecoderFactory> Drop for StatsDecoder<'a, F> {
+    fn drop(&mut self) {
+        self.factory.glob_stats.lock().unwrap().update(&self.stats);
+    }
+}
+
+impl<'a, F: SequentialDecoderFactory> StatsDecoder<'a, F> {
     /// Wrap a reader
     #[inline(always)]
-    pub fn new(codes_reader: D, stats: BVGraphCodesStats) -> Self {
+    pub fn new(
+        factory: &'a StatsDecoderFactory<F>,
+        codes_reader: F::Decoder<'a>,
+        stats: DecoderStats,
+    ) -> Self {
         Self {
+            factory,
             codes_reader,
             stats,
         }
     }
-
-    /// Return the wrapped codes reader and the stats
-    #[inline(always)]
-    pub fn into_inner(self) -> BVGraphCodesStats {
-        self.stats
-    }
 }
 
-impl<'a, D: Decoder> Decoder for StatsDecoder<D> {
+impl<'a, F: SequentialDecoderFactory> Decoder for StatsDecoder<'a, F> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats
-            .outdegree
+            .outdegrees
             .update(self.codes_reader.read_outdegree())
     }
 
     #[inline(always)]
     fn read_reference_offset(&mut self) -> u64 {
         self.stats
-            .reference_offset
+            .reference_offsets
             .update(self.codes_reader.read_reference_offset())
     }
 
     #[inline(always)]
     fn read_block_count(&mut self) -> u64 {
         self.stats
-            .block_count
+            .block_counts
             .update(self.codes_reader.read_block_count())
     }
+
     #[inline(always)]
-    fn read_blocks(&mut self) -> u64 {
-        self.stats.blocks.update(self.codes_reader.read_blocks())
+    fn read_block(&mut self) -> u64 {
+        self.stats.blocks.update(self.codes_reader.read_block())
     }
 
     #[inline(always)]
     fn read_interval_count(&mut self) -> u64 {
         self.stats
-            .interval_count
+            .interval_counts
             .update(self.codes_reader.read_interval_count())
     }
+
     #[inline(always)]
     fn read_interval_start(&mut self) -> u64 {
         self.stats
-            .interval_start
+            .interval_starts
             .update(self.codes_reader.read_interval_start())
     }
+
     #[inline(always)]
     fn read_interval_len(&mut self) -> u64 {
         self.stats
-            .interval_len
+            .interval_lens
             .update(self.codes_reader.read_interval_len())
     }
 
     #[inline(always)]
     fn read_first_residual(&mut self) -> u64 {
         self.stats
-            .first_residual
+            .first_residuals
             .update(self.codes_reader.read_first_residual())
     }
     #[inline(always)]
+
     fn read_residual(&mut self) -> u64 {
         self.stats
-            .residual
+            .residuals
             .update(self.codes_reader.read_residual())
     }
 }

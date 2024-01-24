@@ -104,12 +104,12 @@ impl<CR: Decoder> DegreesIter<CR> {
                 // otherwise we copy only the blocks of even index
 
                 // the first block could be zero
-                let mut idx = self.codes_reader.read_blocks() as usize;
+                let mut idx = self.codes_reader.read_block() as usize;
                 nodes_left_to_decode -= idx;
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
-                    let block = self.codes_reader.read_blocks() as usize;
+                    let block = self.codes_reader.read_block() as usize;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
                         nodes_left_to_decode -= block + 1;

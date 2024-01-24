@@ -159,7 +159,7 @@ impl<
         select_code_read!(self, BLOCKS, K)
     }
     #[inline(always)]
-    fn read_blocks(&mut self) -> u64 {
+    fn read_block(&mut self) -> u64 {
         select_code_read!(self, BLOCKS, K)
     }
 

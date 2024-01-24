@@ -9,8 +9,7 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
-use std::sync::atomic::Ordering;
-use webgraph::prelude::*;
+use webgraph::{graphs::bvgraph, prelude::*};
 
 #[derive(Parser, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
@@ -23,87 +22,84 @@ fn optimize_codes<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let seq_graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
+    let graph = bvgraph::sequential::with_basename(&args.basename)
         .endianness::<E>()
-        .load()?;
-
-    let seq_graph = seq_graph.map_factory(StatsDecoderFactory::new);
+        .load()?
+        .map_factory(StatsDecoderFactory::new);
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
-        .expected_updates(Some(seq_graph.num_nodes()));
+        .expected_updates(Some(graph.num_nodes()));
 
-    pl.start("Reading nodes...");
+    pl.start("Scanning...");
 
-    let mut iter = seq_graph.iter();
+    let mut iter = graph.iter();
     while iter.next().is_some() {
         pl.light_update();
     }
-
     pl.done();
-    /*
-    let reader = seq_graph.unwrap_codes_reader_builder();
-    let stats = reader.into_inner();
 
-    eprintln!("{:#?}", stats);
+    drop(iter); // This releases the decoder and updates the global stats
+    let stats = graph.into_inner().stats();
 
     macro_rules! impl_best_code {
-        ($total_bits:expr, $default_bits:expr, $stats:expr, $($code:ident - $def:expr),*) => {
-            println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
+        ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident - $old:expr),*) => {
+            println!("{:>16} {:>16} {:>12} {:>8} {:>10} {:>16}",
                 "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
             );
             $(
-                let (_, len) = $stats.$code.best_code();
-                $total_bits += len;
-                $default_bits += $def;
+                let (_, new) = $stats.$code.best_code();
+                $new_bits += new;
+                $old_bits += $old;
             )*
 
             $(
-                let (code, len) = $stats.$code.best_code();
-                println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
+                let (code, new) = $stats.$code.best_code();
+                println!("{:>16} {:>16} {:>12} {:>8} {:>10} {:>16}",
                     stringify!($code), format!("{:?}", code),
-                    format!("{:.3}", $def as f64 / len as f64),
-                    format!("{:.3}", (($def - len) as f64 / ($default_bits - $total_bits) as f64)),
-                    normalize(($def - len) as f64 / 8.0),
-                    $def - len,
+                    format!("{:.3}%", 100.0 * ($old - new) as f64 / $old as f64),
+                    format!("{:.3}", (($old - new) as f64 / ($old_bits - $new_bits) as f64)),
+                    normalize(($old - new) as f64 / 8.0),
+                    $old - new,
                 );
             )*
         };
     }
 
-    let mut total_bits = 0;
-    let mut default_bits = 0;
+    let mut new_bits = 0;
+    let mut old_bits = 0;
     impl_best_code!(
-        total_bits,
-        default_bits,
+        new_bits,
+        old_bits,
         stats,
-        outdegree - stats.outdegree.gamma,
-        reference_offset - stats.reference_offset.unary,
-        block_count - stats.block_count.gamma,
+        outdegrees - stats.outdegrees.gamma,
+        reference_offsets - stats.reference_offsets.unary,
+        block_counts - stats.block_counts.gamma,
         blocks - stats.blocks.gamma,
-        interval_count - stats.interval_count.gamma,
-        interval_start - stats.interval_start.gamma,
-        interval_len - stats.interval_len.gamma,
-        first_residual - stats.first_residual.zeta[2],
-        residual - stats.residual.zeta[2]
+        interval_counts - stats.interval_counts.gamma,
+        interval_starts - stats.interval_starts.gamma,
+        interval_lens - stats.interval_lens.gamma,
+        first_residuals - stats.first_residuals.zeta[2],
+        residuals - stats.residuals.zeta[2]
     );
 
-    println!("  Total bits: {:>16}", total_bits);
-    println!("Default bits: {:>16}", default_bits);
-    println!("  Saved bits: {:>16}", default_bits - total_bits);
+    println!();
+    println!(" Old bit size: {:>16}", old_bits);
+    println!(" New bit size: {:>16}", new_bits);
+    println!("   Saved bits: {:>16}", old_bits - new_bits);
 
-    println!("  Total size: {:>8}", normalize(total_bits as f64 / 8.0));
-    println!("Default size: {:>8}", normalize(default_bits as f64 / 8.0));
+    println!("Old byte size: {:>16}", normalize(old_bits as f64 / 8.0));
+    println!("New byte size: {:>16}", normalize(new_bits as f64 / 8.0));
     println!(
-        "  Saved size: {:>8}",
-        normalize((default_bits - total_bits) as f64 / 8.0)
+        "  Saved bytes: {:>16}",
+        normalize((old_bits - new_bits) as f64 / 8.0)
     );
 
     println!(
-        "Improvement: {:.3} times",
-        default_bits as f64 / total_bits as f64
-    );*/
+        "  Improvement: {:>15.3}%",
+        100.0 * (old_bits - new_bits) as f64 / old_bits as f64
+    );
     Ok(())
 }
 

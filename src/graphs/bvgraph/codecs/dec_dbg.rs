@@ -38,8 +38,8 @@ impl<CR: Decoder> Decoder for DebugDecoder<CR> {
         block_count
     }
 
-    fn read_blocks(&mut self) -> u64 {
-        let blocks = self.cr.read_blocks();
+    fn read_block(&mut self) -> u64 {
+        let blocks = self.cr.read_block();
         eprintln!("blocks: {}", blocks);
         blocks
     }

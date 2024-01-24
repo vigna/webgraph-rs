@@ -30,7 +30,7 @@ pub fn with_basename(
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmaped file.
 pub struct BVGraphSeq<CRB: SequentialDecoderFactory> {
-    codes_reader_builder: CRB,
+    factory: CRB,
     number_of_nodes: usize,
     number_of_arcs: Option<u64>,
     compression_window: usize,
@@ -57,7 +57,7 @@ impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<CRB> {
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = SeqIter::new(
-            self.codes_reader_builder.new_decoder().unwrap(),
+            self.factory.new_decoder().unwrap(),
             self.compression_window,
             self.min_interval_length,
             self.number_of_nodes,
@@ -93,7 +93,7 @@ impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
         number_of_arcs: Option<u64>,
     ) -> Self {
         Self {
-            codes_reader_builder,
+            factory: codes_reader_builder,
             compression_window,
             min_interval_length,
             number_of_nodes,
@@ -109,7 +109,7 @@ impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
         CRB2: SequentialDecoderFactory,
     {
         BVGraphSeq {
-            codes_reader_builder: map_func(self.codes_reader_builder),
+            factory: map_func(self.factory),
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
             compression_window: self.compression_window,
@@ -118,9 +118,9 @@ impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
     }
 
     #[inline(always)]
-    /// Consume self and return the codes reader builder
-    pub fn unwrap_codes_reader_builder(self) -> CRB {
-        self.codes_reader_builder
+    /// Consume self and return the factory
+    pub fn into_inner(self) -> CRB {
+        self.factory
     }
 }
 
@@ -134,7 +134,7 @@ where
     /// and completely skip the merging step.
     pub fn iter_degrees(&self) -> DegreesIter<CRB::Decoder<'_>> {
         DegreesIter::new(
-            self.codes_reader_builder.new_decoder().unwrap(),
+            self.factory.new_decoder().unwrap(),
             self.min_interval_length,
             self.compression_window,
             self.number_of_nodes,
@@ -222,12 +222,12 @@ impl<CR: Decoder> SeqIter<CR> {
             } else {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero
-                let mut idx = self.codes_reader.read_blocks() as usize;
+                let mut idx = self.codes_reader.read_block() as usize;
                 results.extend_from_slice(&neighbours[..idx]);
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
-                    let block = self.codes_reader.read_blocks() as usize;
+                    let block = self.codes_reader.read_block() as usize;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
                         results.extend_from_slice(&neighbours[idx..end]);

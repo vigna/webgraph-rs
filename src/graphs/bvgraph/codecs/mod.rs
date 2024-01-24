@@ -57,7 +57,7 @@ pub trait Decoder {
     /// read a blocks count code
     fn read_block_count(&mut self) -> u64;
     /// read a block code
-    fn read_blocks(&mut self) -> u64;
+    fn read_block(&mut self) -> u64;
 
     /// read a interval count code
     fn read_interval_count(&mut self) -> u64;

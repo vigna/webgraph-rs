@@ -179,10 +179,10 @@ where
             let mut blocks = Vec::with_capacity(alloc_len);
             if number_of_blocks != 0 {
                 // the first block could be zero
-                blocks.push(result.reader.read_blocks() as usize);
+                blocks.push(result.reader.read_block() as usize);
                 // while the other can't
                 for _ in 1..number_of_blocks {
-                    blocks.push(result.reader.read_blocks() as usize + 1);
+                    blocks.push(result.reader.read_block() as usize + 1);
                 }
             }
             // create the masked iterator

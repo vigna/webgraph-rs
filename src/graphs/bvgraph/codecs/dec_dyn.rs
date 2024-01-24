@@ -106,7 +106,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decoder for DynCodesDecoder<E, CR> {
         (self.read_block_count)(&mut self.code_reader)
     }
     #[inline(always)]
-    fn read_blocks(&mut self) -> u64 {
+    fn read_block(&mut self) -> u64 {
         (self.read_blocks)(&mut self.code_reader)
     }
 
