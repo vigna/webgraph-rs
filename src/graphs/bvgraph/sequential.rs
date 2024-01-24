@@ -103,7 +103,7 @@ impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
 
     #[inline(always)]
     /// Change the codes reader builder
-    pub fn map_codes_reader_builder<CRB2, F>(self, map_func: F) -> BVGraphSeq<CRB2>
+    pub fn map_factory<CRB2, F>(self, map_func: F) -> BVGraphSeq<CRB2>
     where
         F: FnOnce(CRB) -> CRB2,
         CRB2: SequentialDecoderFactory,

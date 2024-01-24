@@ -27,12 +27,13 @@ where
         .endianness::<E>()
         .load()?;
 
-    let seq_graph = seq_graph.map_codes_reader_builder(StatsDecoderFactory::new);
+    let seq_graph = seq_graph.map_factory(StatsDecoderFactory::new);
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
         .expected_updates(Some(seq_graph.num_nodes()));
+
     pl.start("Reading nodes...");
 
     let mut iter = seq_graph.iter();
@@ -41,9 +42,9 @@ where
     }
 
     pl.done();
-
+    /*
     let reader = seq_graph.unwrap_codes_reader_builder();
-    let stats = reader.stats;
+    let stats = reader.into_inner();
 
     eprintln!("{:#?}", stats);
 
@@ -53,13 +54,13 @@ where
                 "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
             );
             $(
-                let (_, len) = $stats.$code.get_best_code();
+                let (_, len) = $stats.$code.best_code();
                 $total_bits += len;
                 $default_bits += $def;
             )*
 
             $(
-                let (code, len) = $stats.$code.get_best_code();
+                let (code, len) = $stats.$code.best_code();
                 println!("{:>16},{:>16},{:>12},{:>8},{:>10},{:>16}",
                     stringify!($code), format!("{:?}", code),
                     format!("{:.3}", $def as f64 / len as f64),
@@ -77,15 +78,15 @@ where
         total_bits,
         default_bits,
         stats,
-        outdegree - stats.outdegree.gamma.load(Ordering::Relaxed),
-        reference_offset - stats.reference_offset.unary.load(Ordering::Relaxed),
-        block_count - stats.block_count.gamma.load(Ordering::Relaxed),
-        blocks - stats.blocks.gamma.load(Ordering::Relaxed),
-        interval_count - stats.interval_count.gamma.load(Ordering::Relaxed),
-        interval_start - stats.interval_start.gamma.load(Ordering::Relaxed),
-        interval_len - stats.interval_len.gamma.load(Ordering::Relaxed),
-        first_residual - stats.first_residual.zeta[2].load(Ordering::Relaxed),
-        residual - stats.residual.zeta[2].load(Ordering::Relaxed)
+        outdegree - stats.outdegree.gamma,
+        reference_offset - stats.reference_offset.unary,
+        block_count - stats.block_count.gamma,
+        blocks - stats.blocks.gamma,
+        interval_count - stats.interval_count.gamma,
+        interval_start - stats.interval_start.gamma,
+        interval_len - stats.interval_len.gamma,
+        first_residual - stats.first_residual.zeta[2],
+        residual - stats.residual.zeta[2]
     );
 
     println!("  Total bits: {:>16}", total_bits);
@@ -102,7 +103,7 @@ where
     println!(
         "Improvement: {:.3} times",
         default_bits as f64 / total_bits as f64
-    );
+    );*/
     Ok(())
 }
 

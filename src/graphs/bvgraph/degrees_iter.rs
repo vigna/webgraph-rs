@@ -128,9 +128,6 @@ impl<CR: Decoder> DegreesIter<CR> {
             let number_of_intervals = self.codes_reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficency
-                #[cfg(feature = "skips")]
-                let _ = self.codes_reader.skip_interval_start();
-                #[cfg(not(feature = "skips"))]
                 let _ = self.codes_reader.read_interval_start();
                 let mut delta = self.codes_reader.read_interval_len() as usize;
                 delta += self.min_interval_length;
@@ -138,9 +135,6 @@ impl<CR: Decoder> DegreesIter<CR> {
                 nodes_left_to_decode -= delta;
                 // decode the intervals
                 for _ in 1..number_of_intervals {
-                    #[cfg(feature = "skips")]
-                    let _ = self.codes_reader.skip_interval_start();
-                    #[cfg(not(feature = "skips"))]
                     let _ = self.codes_reader.read_interval_start();
                     delta = self.codes_reader.read_interval_len() as usize;
                     delta += self.min_interval_length;
@@ -153,16 +147,7 @@ impl<CR: Decoder> DegreesIter<CR> {
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficency
-            #[cfg(feature = "skips")]
-            let _ = self.codes_reader.skip_first_residual();
-            #[cfg(not(feature = "skips"))]
             let _ = self.codes_reader.read_first_residual();
-
-            #[cfg(feature = "skips")]
-            for _ in 1..nodes_left_to_decode {
-                let _ = self.codes_reader.skip_residual();
-            }
-            #[cfg(not(feature = "skips"))]
             for _ in 1..nodes_left_to_decode {
                 let _ = self.codes_reader.read_residual();
             }
