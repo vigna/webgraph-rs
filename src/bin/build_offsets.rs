@@ -78,6 +78,6 @@ pub fn main() -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         LE::NAME => build_offsets::<LE>(args),
-        _ => panic!("Unknown endianness"),
+        e => panic!("Unknown endianness: {}", e),
     }
 }

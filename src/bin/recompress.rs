@@ -75,7 +75,7 @@ pub fn main() -> Result<()> {
                 &target_endianness.unwrap_or_else(|| LE::NAME.into()),
             )?;
         }
-        _ => panic!("Unknown endianness"),
+        e => panic!("Unknown endianness: {}", e),
     };
 
     Ok(())
