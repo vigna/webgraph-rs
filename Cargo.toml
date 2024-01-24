@@ -43,6 +43,7 @@ lender = "0.2.9"
 common_traits = "0.10.0"
 impl-tools = "0.10.0"
 bitflags = "2.4.2"
+dary_heap = "0.3.6"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }

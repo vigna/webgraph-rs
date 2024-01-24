@@ -6,14 +6,12 @@
  */
 
 //use crate::traits::SortedIterator;
+use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::MmapBackend;
-use crate::{
-    traits::{BitDeserializer, BitSerializer},
-    utils::KAryHeap,
-};
 use anyhow::{anyhow, Context};
 use core::mem::MaybeUninit;
 use core::ptr::addr_of_mut;
+use dary_heap;
 use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
 use rayon::prelude::*;
@@ -311,38 +309,45 @@ impl<D: BitDeserializer> Iterator for BatchIterator<D> {
 /// Private struct that can be used to sort triples based only on the nodes and
 /// ignoring the payload
 struct HeadTail<T, I: Iterator<Item = (usize, usize, T)>> {
-    head: (usize, usize),
-    payload: T,
+    head: (usize, usize, T),
     tail: I,
 }
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> PartialEq for HeadTail<T, I> {
     fn eq(&self, other: &Self) -> bool {
-        self.head == other.head
+        (self.head.0, self.head.1) == (other.head.0, other.head.1)
     }
 }
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> Eq for HeadTail<T, I> {}
+
 impl<T, I: Iterator<Item = (usize, usize, T)>> PartialOrd for HeadTail<T, I> {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.head.cmp(&other.head))
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some((other.head.0, other.head.1).cmp(&(self.head.0, self.head.1)))
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (other.head.0, other.head.1).cmp(&(self.head.0, self.head.1))
     }
 }
 
 #[derive(Clone, Debug)]
 /// Merge K different sorted iterators
 pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)>, T = ()> {
-    heap: KAryHeap<HeadTail<T, I>>,
+    heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
 }
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
     pub fn new(iters: impl Iterator<Item = I>) -> Self {
-        let mut heap = KAryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
+        let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
             match iter.next() {
                 None => {}
                 Some((src, dst, payload)) => {
                     heap.push(HeadTail {
-                        head: (src, dst),
-                        payload,
+                        head: (src, dst, payload),
                         tail: iter,
                     });
                 }
@@ -360,34 +365,17 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
         if self.heap.is_empty() {
             return None;
         }
-        // Read the head of the heap
-        let head_tail = self.heap.peek_mut();
-        let (src, dst) = head_tail.head;
-        // get the payload without requiring clone or copy
-        // this leaves head_tail.payload uninitalized
-        // but we will either replace it or drop it
-        let res = Some((src, dst, unsafe {
-            core::ptr::replace(
-                addr_of_mut!(head_tail.payload),
-                MaybeUninit::uninit().assume_init(),
-            )
-        }));
+        let mut head_tail = self.heap.peek_mut().unwrap();
 
         match head_tail.tail.next() {
             None => {
-                // Remove the head of the heap if the iterator ended
-                let HeadTail { payload, .. } = self.heap.pop().unwrap();
-                core::mem::forget(payload); // so we don't drop the maybe uninit
+                drop(head_tail);
+                Some(self.heap.pop().unwrap().head)
             }
             Some((src, dst, payload)) => {
-                // set the new values
-                head_tail.head = (src, dst);
-                head_tail.payload = payload;
-                // fix the heap
-                self.heap.bubble_down(0);
+                Some(std::mem::replace(&mut head_tail.head, (src, dst, payload)))
             }
         }
-        res
     }
 }
 
