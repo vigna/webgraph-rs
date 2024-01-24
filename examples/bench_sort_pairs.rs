@@ -18,6 +18,7 @@ use webgraph::prelude::*;
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct Args {
     n: usize,
+    batch: usize,
 }
 
 pub fn main() -> Result<()> {
@@ -31,7 +32,7 @@ pub fn main() -> Result<()> {
 
     let dir = tempfile::tempdir()?;
 
-    let mut sp = SortPairs::new(1_000_000, dir.into_path())?;
+    let mut sp = SortPairs::new(args.batch, dir.into_path())?;
 
     let mut r = SmallRng::seed_from_u64(0);
 
