@@ -37,11 +37,5 @@ pub use mmap_backend::*;
 mod perm;
 pub use perm::*;
 
-//mod sorted_graph;
-//pub use sorted_graph::*;
-
-mod kary_heap;
-pub use kary_heap::*;
-
 mod sort_pairs;
 pub use sort_pairs::*;
