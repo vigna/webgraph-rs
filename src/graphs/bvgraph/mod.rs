@@ -7,8 +7,8 @@
 
 use crate::traits::*;
 
-mod degrees_iter;
-pub use degrees_iter::*;
+mod pos_deg_iter;
+pub use pos_deg_iter::*;
 
 pub mod sequential;
 pub use sequential::BVGraphSeq;

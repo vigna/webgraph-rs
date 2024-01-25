@@ -44,8 +44,8 @@ where
     pl.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;
-    let mut degs_iter = seq_graph.iter_degrees();
-    for (new_offset, _node_id, _degree) in &mut degs_iter {
+    let mut degs_iter = seq_graph.offset_deg_iter();
+    for (new_offset, _degree) in &mut degs_iter {
         // write where
         writer.write_gamma((new_offset - offset) as _)?;
         offset = new_offset;

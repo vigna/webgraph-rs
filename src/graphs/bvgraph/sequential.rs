@@ -133,8 +133,8 @@ where
     /// Create an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
-    pub fn iter_degrees(&self) -> DegreesIter<F::Decoder<'_>> {
-        DegreesIter::new(
+    pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
+        OffsetDegIter::new(
             self.factory.new_decoder().unwrap(),
             self.min_interval_length,
             self.compression_window,

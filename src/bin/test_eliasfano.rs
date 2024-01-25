@@ -86,11 +86,11 @@ pub fn main() -> Result<()> {
     // progress bar
     pl.start("Building EliasFano...");
     // read the graph a write the offsets
-    for (new_offset, node_id, _degree) in seq_graph.iter_degrees() {
+    for (node, (new_offset, _degree)) in seq_graph.offset_deg_iter().enumerate() {
         // decode the next nodes so we know where the next node_id starts
         // read ef
-        let ef_res = ef.get(node_id as _);
-        assert_eq!(new_offset, ef_res as _, "node_id: {}", node_id);
+        let ef_res = ef.get(node as _);
+        assert_eq!(new_offset, ef_res as _, "node_id: {}", node);
         pl.light_update();
     }
     pl.done();

@@ -63,7 +63,7 @@ where
 
         // Check that sequential and random-access interfaces return the same result
         let mut seq_iter = seq_graph.iter();
-        let mut deg_reader = seq_graph.iter_degrees();
+        let mut deg_reader = seq_graph.offset_deg_iter();
         for node_id in 0..seq_graph.num_nodes() {
             let seq = seq_iter.next().unwrap();
             let random = random_reader.successors(node_id).collect::<Vec<_>>();
@@ -99,7 +99,7 @@ where
             let seq_graph = BVGraphSeq::with_basename(&args.basename)
                 .endianness::<E>()
                 .load()?;
-            let mut deg_reader = seq_graph.iter_degrees();
+            let mut deg_reader = seq_graph.offset_deg_iter();
 
             let mut c: u64 = 0;
             let start = std::time::Instant::now();

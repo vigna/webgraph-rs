@@ -148,17 +148,6 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
-    pub fn random_access(self) -> Load<E, Random, D, GLM, OLM> {
-        Load {
-            basename: self.basename,
-            graph_load_flags: self.graph_load_flags,
-            offsets_load_flags: self.offsets_load_flags,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, GLM, OLM> {
     pub fn mode<LM: Mode>(self) -> Load<E, A, D, LM, LM> {
         Load {
             basename: self.basename,
