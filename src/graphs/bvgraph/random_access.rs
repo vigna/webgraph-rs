@@ -12,14 +12,15 @@ use dsi_bitstream::traits::NE;
 use lender::IntoLender;
 use std::iter::Iterator;
 use std::path::PathBuf;
-use sux::prelude::*;
+
+use self::sequential::SeqIter;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
 pub struct BVGraph<F> {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
-    reader_factory: F,
+    factory: F,
     /// The minimum size of the intervals we are going to decode.
     min_interval_length: usize,
     /// The maximum distance between two nodes that reference each other.
@@ -63,19 +64,25 @@ where
     /// - `number_of_arcs`: the number of arcs in the graph.
     ///
     pub fn new(
-        codes_reader_builder: F,
+        factory: F,
         min_interval_length: usize,
         compression_window: usize,
         number_of_nodes: usize,
         number_of_arcs: u64,
     ) -> Self {
         Self {
-            reader_factory: codes_reader_builder,
+            factory,
             min_interval_length,
             compression_window,
             number_of_nodes,
             number_of_arcs,
         }
+    }
+
+    #[inline(always)]
+    /// Consume self and return the factory
+    pub fn into_inner(self) -> F {
+        self.factory
     }
 }
 
@@ -101,18 +108,16 @@ where
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
     fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
-        let codes_reader = self.reader_factory.new_decoder(start_node).unwrap();
+        let codes_reader = self.factory.new_decoder(start_node).unwrap();
         // we have to pre-fill the buffer
         let mut backrefs = CircularBufferVec::new(self.compression_window + 1);
 
-        // TODO!: this can be optimized, but usually the chunk on which we iter is
-        // much bigger than the compression window so it's not urgent
         for node_id in start_node.saturating_sub(self.compression_window)..start_node {
             backrefs.push(node_id, self.successors(node_id).collect());
         }
 
         SeqIter {
-            codes_reader,
+            decoder: codes_reader,
             backrefs,
             compression_window: self.compression_window,
             min_interval_length: self.min_interval_length,
@@ -138,7 +143,7 @@ where
     /// Return the outdegree of a node.
     fn outdegree(&self, node_id: usize) -> usize {
         let mut codes_reader = self
-            .reader_factory
+            .factory
             .new_decoder(node_id)
             .expect("Cannot create reader");
         codes_reader.read_outdegree() as usize
@@ -148,7 +153,7 @@ where
     /// Return a random access iterator over the successors of a node.
     fn labels(&self, node_id: usize) -> Successors<F::Decoder<'_>> {
         let codes_reader = self
-            .reader_factory
+            .factory
             .new_decoder(node_id)
             .expect("Cannot create reader");
 
@@ -259,13 +264,13 @@ impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct Successors<CR: Decoder> {
-    reader: CR,
+pub struct Successors<D: Decoder> {
+    reader: D,
     /// The number of values left
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<MaskedIterator<Successors<CR>>>,
+    copied_nodes_iter: Option<MaskedIterator<Successors<D>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(usize, usize)>,
@@ -281,18 +286,18 @@ pub struct Successors<CR: Decoder> {
     next_interval_node: usize,
 }
 
-impl<CR: Decoder> ExactSizeIterator for Successors<CR> {
+impl<D: Decoder> ExactSizeIterator for Successors<D> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<CR: Decoder> SortedLabels for Successors<CR> {}
+unsafe impl<D: Decoder> SortedLabels for Successors<D> {}
 
-impl<CR: Decoder> Successors<CR> {
+impl<D: Decoder> Successors<D> {
     /// Create an empty iterator
-    fn new(reader: CR) -> Self {
+    fn new(reader: D) -> Self {
         Self {
             reader,
             size: 0,
@@ -307,7 +312,7 @@ impl<CR: Decoder> Successors<CR> {
     }
 }
 
-impl<CR: Decoder> Iterator for Successors<CR> {
+impl<D: Decoder> Iterator for Successors<D> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {

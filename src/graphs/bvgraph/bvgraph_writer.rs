@@ -460,6 +460,8 @@ impl<E: Encoder> BVComp<E> {
 #[cfg(test)]
 mod test {
 
+    use self::sequential::SeqIter;
+
     use super::*;
     use dsi_bitstream::prelude::*;
     use itertools::Itertools;

@@ -11,10 +11,10 @@ mod degrees_iter;
 pub use degrees_iter::*;
 
 pub mod sequential;
-pub use sequential::*;
+pub use sequential::BVGraphSeq;
 
 pub mod random_access;
-pub use random_access::*;
+pub use random_access::BVGraph;
 
 mod bvgraph_writer;
 pub use bvgraph_writer::*;
