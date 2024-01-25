@@ -5,13 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//use crate::traits::SortedIterator;
 use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::MmapBackend;
 use anyhow::{anyhow, Context};
-use core::mem::MaybeUninit;
-use core::ptr::addr_of_mut;
-use dary_heap;
+use dary_heap::{self, PeekMut};
 use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
 use rayon::prelude::*;
@@ -25,21 +22,21 @@ use std::path::{Path, PathBuf};
 /// that if you have big structures, you wrap them in an [`Arc`](`std::sync::Arc`) or use references.
 
 pub struct SortPairs<S: BitSerializer = (), D: BitDeserializer + Clone = ()> {
-    /// The batch size
+    /// The batch size.
     batch_size: usize,
-    /// The length of the last batch might be smaller than `batch_size`
+    /// The length of the last batch might be smaller than [`SortPairs::batch_size`].
     last_batch_len: usize,
-    /// The batch of triples we are currently building
+    /// The batch of triples we are currently building.
     batch: Vec<(usize, usize, S::SerType)>,
-    /// were we are going to store the tmp files
+    /// Where we are going to store the batches.
     dir: PathBuf,
-    /// keep track of how many batches we created
+    /// Keeps track of how many batches we created.
     num_batches: usize,
-    /// A stateufl serializer we will pass to batch iterators to serialize
-    /// the labels to a bitstream
+    /// A stataful serializer we will pass to batch iterators to serialize
+    /// the labels to a bitstream.
     serializer: S,
-    /// A stateufl deserializer we will pass to batch iterators to deserialize
-    /// the labels from a bitstream
+    /// A stataful deserializer we will pass to batch iterators to deserialize
+    /// the labels from a bitstream.
     deserializer: D,
 }
 
@@ -122,7 +119,7 @@ impl<S: BitSerializer, D: BitDeserializer + Clone> SortPairs<S, D> {
     }
 
     /// Cancel all the files that were created
-    pub fn cancel_batches(&mut self) -> anyhow::Result<()> {
+    pub fn delete_batches(&mut self) -> anyhow::Result<()> {
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
             // It's OK if something is not OK here
@@ -314,6 +311,7 @@ struct HeadTail<T, I: Iterator<Item = (usize, usize, T)>> {
 }
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> PartialEq for HeadTail<T, I> {
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         (self.head.0, self.head.1) == (other.head.0, other.head.1)
     }
@@ -322,12 +320,14 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> PartialEq for HeadTail<T, I> {
 impl<T, I: Iterator<Item = (usize, usize, T)>> Eq for HeadTail<T, I> {}
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> PartialOrd for HeadTail<T, I> {
+    #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some((other.head.0, other.head.1).cmp(&(self.head.0, self.head.1)))
     }
 }
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
+    #[inline(always)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         (other.head.0, other.head.1).cmp(&(self.head.0, self.head.1))
     }
@@ -343,14 +343,11 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
     pub fn new(iters: impl Iterator<Item = I>) -> Self {
         let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
-            match iter.next() {
-                None => {}
-                Some((src, dst, payload)) => {
-                    heap.push(HeadTail {
-                        head: (src, dst, payload),
-                        tail: iter,
-                    });
-                }
+            if let Some((src, dst, payload)) = iter.next() {
+                heap.push(HeadTail {
+                    head: (src, dst, payload),
+                    tail: iter,
+                });
             }
         }
         KMergeIters { heap }
@@ -362,16 +359,10 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
     type Item = (usize, usize, T);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.heap.is_empty() {
-            return None;
-        }
-        let mut head_tail = self.heap.peek_mut().unwrap();
+        let mut head_tail = self.heap.peek_mut()?;
 
         match head_tail.tail.next() {
-            None => {
-                drop(head_tail);
-                Some(self.heap.pop().unwrap().head)
-            }
+            None => Some(PeekMut::pop(head_tail).head),
             Some((src, dst, payload)) => {
                 Some(std::mem::replace(&mut head_tail.head, (src, dst, payload)))
             }
