@@ -36,12 +36,17 @@ pub fn main() -> Result<()> {
 
     let mut r = SmallRng::seed_from_u64(0);
 
+    let mut pl = ProgressLogger::default();
+
+    pl.start("Writing...");
     for _ in 0..args.n {
         sp.push(r.next_u64() as usize, r.next_u64() as usize)?;
+        pl.light_update();
     }
+    pl.done();
+
     let mut iter = sp.iter()?;
 
-    let mut pl = ProgressLogger::default();
     pl.start("Reading...");
     for _ in 0..args.n {
         black_box(iter.next().unwrap());

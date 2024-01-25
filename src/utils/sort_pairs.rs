@@ -240,7 +240,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     {
         // create a batch file where to dump
         let file =
-            std::io::BufWriter::with_capacity(1 << 22, std::fs::File::create(file_path.as_ref())?);
+            std::io::BufWriter::with_capacity(1 << 16, std::fs::File::create(file_path.as_ref())?);
         // createa bitstream to write to the file
         let mut stream = <BufBitWriter<NE, _>>::new(<WordAdapter<usize, _>>::new(file));
         // Dump the triples to the bitstream
