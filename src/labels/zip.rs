@@ -70,9 +70,9 @@ impl<L: SequentialLabelling, R: SequentialLabelling> Zip<L, R> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct ZippedGraphIterator<L, R>(L, R);
+pub struct Iter<L, R>(L, R);
 
-impl<'succ, L, R> NodeLabelsLender<'succ> for ZippedGraphIterator<L, R>
+impl<'succ, L, R> NodeLabelsLender<'succ> for Iter<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -81,7 +81,7 @@ where
     type IntoIterator = std::iter::Zip<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, R>>;
 }
 
-impl<'succ, L, R> Lending<'succ> for ZippedGraphIterator<L, R>
+impl<'succ, L, R> Lending<'succ> for Iter<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -89,7 +89,7 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
-impl<L, R> Lender for ZippedGraphIterator<L, R>
+impl<L, R> Lender for Iter<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -118,7 +118,7 @@ impl<'a, L: SequentialLabelling, R: SequentialLabelling> IntoLender for &'a Zip<
 impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip<L, R> {
     type Label = (L::Label, R::Label);
 
-    type Iterator<'node> = ZippedGraphIterator<L::Iterator<'node>, R::Iterator<'node>>
+    type Iterator<'node> = Iter<L::Iterator<'node>, R::Iterator<'node>>
         where
         Self: 'node;
 
@@ -128,7 +128,7 @@ impl<L: SequentialLabelling, R: SequentialLabelling> SequentialLabelling for Zip
     }
 
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        ZippedGraphIterator(self.0.iter_from(from), self.1.iter_from(from))
+        Iter(self.0.iter_from(from), self.1.iter_from(from))
     }
 }
 

@@ -28,7 +28,7 @@ fn test_permuted() {
     // 5 -> 1 -> 3
     //       `-> 4
     // 2 -> 0
-    let permuted_graph = PermutedGraph {
+    let permuted_graph = PermGraph {
         graph: &Left(graph),
         perm: &perm,
     };

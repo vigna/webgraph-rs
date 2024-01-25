@@ -210,7 +210,7 @@ pub fn layered_label_propagation(
 
         let cost = compute_log_gap_cost(
             &thread_pool,
-            &PermutedGraph {
+            &PermGraph {
                 graph,
                 perm: &update_perm,
             },
