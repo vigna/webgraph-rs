@@ -47,7 +47,7 @@ pub fn main() -> Result<()> {
                     .endianness::<BE>()
                     .load()?;
 
-            webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
+            webgraph::graphs::bvgraph::comp_par_endianness(
                 args.new_basename,
                 &seq_graph,
                 seq_graph.num_nodes(),
@@ -67,7 +67,7 @@ pub fn main() -> Result<()> {
                     .endianness::<LE>()
                     .load()?;
 
-            webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
+            webgraph::graphs::bvgraph::comp_par_endianness(
                 args.new_basename,
                 &seq_graph,
                 seq_graph.num_nodes(),

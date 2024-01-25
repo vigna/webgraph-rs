@@ -44,7 +44,7 @@ where
     let sorted = webgraph::algo::transpose(&seq_graph, args.pa.batch_size).unwrap();
 
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
+    webgraph::graphs::bvgraph::comp_par_endianness(
         transposed,
         &sorted,
         sorted.num_nodes(),

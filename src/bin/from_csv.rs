@@ -112,7 +112,7 @@ fn main() {
     ));
     // compress it
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graphs::bvgraph::parallel_compress_sequential_iter_endianness(
+    webgraph::graphs::bvgraph::comp_par_endianness(
         &args.basename,
         &g,
         args.num_nodes,
