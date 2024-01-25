@@ -54,7 +54,7 @@ fn permute<E: Endianness>(
     let mut sort_pairs = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
 
     // dump the paris
-    PermGraph { graph, perm }.iter().for_each(|(x, succ)| {
+    PermutedGraph { graph, perm }.iter().for_each(|(x, succ)| {
         succ.into_iter().for_each(|s| {
             sort_pairs.push(x, s).unwrap();
         })
