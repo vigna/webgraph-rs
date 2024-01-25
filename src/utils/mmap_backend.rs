@@ -23,7 +23,7 @@ use std::{path::Path, sync::Arc};
 /// The main usecases are to be able to easily mmap slices to disk, and to be able
 /// to read a bitstream form mmap.
 #[derive(Clone)]
-pub struct MmapBackend<W, M = Arc<Mmap>> {
+pub struct MmapBackend<W, M = Mmap> {
     mmap: M,
     len: usize,
     _marker: core::marker::PhantomData<W>,
@@ -51,7 +51,7 @@ impl<W> From<Mmap> for MmapBackend<W> {
     fn from(mmap: Mmap) -> Self {
         Self {
             len: mmap.len(),
-            mmap: Arc::new(mmap),
+            mmap,
             _marker: core::marker::PhantomData,
         }
     }
@@ -86,7 +86,7 @@ impl<W> MmapBackend<W> {
 
         Ok(Self {
             len: mmap.len() / core::mem::size_of::<W>(),
-            mmap: Arc::new(mmap),
+            mmap,
             _marker: core::marker::PhantomData,
         })
     }
@@ -169,9 +169,18 @@ impl<W> MmapBackend<W, MmapMut> {
     }
 }
 
+#[derive(Clone)]
+pub struct ArcMmapBackend<W>(pub Arc<MmapBackend<W>>);
+
 impl<W> AsRef<[W]> for MmapBackend<W> {
     fn as_ref(&self) -> &[W] {
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
+    }
+}
+
+impl<W> AsRef<[W]> for ArcMmapBackend<W> {
+    fn as_ref(&self) -> &[W] {
+        unsafe { std::slice::from_raw_parts(self.0.mmap.as_ptr() as *const W, self.0.len) }
     }
 }
 

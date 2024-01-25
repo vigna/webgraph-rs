@@ -11,11 +11,6 @@ use dsi_bitstream::prelude::*;
 /// bitstream with code-writing capabilities.
 pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
     /// The type that implementations of this trait can serialize.
-    ///
-    /// Note that endianness and the bitstream type are not part of this trait,
-    /// but rather of this method, so that types specifying a serializing
-    /// strategy as type parameter can do so without specifying the details of
-    /// the endianness or of the underlying bitstream.
     type SerType;
     /// Serialize the given value to a [`CodeWrite`].
     fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error>;
@@ -27,13 +22,7 @@ pub trait BitDeserializer<E: Endianness, BR: BitRead<E>> {
     /// The type that implementations of this trait can deserialized.
     type DeserType;
     /// Deserialize the given value from a [`CodeRead`].
-    ///
-    /// Note that endianness and the bitstream type are not part of this trait,
-    /// but rather of this method, so that types specifying a deserializing
-    /// strategy as type parameter can do so without specifying the details of
-    /// the endianness or of the underlying bitstream.
-    fn deserialize(&self, bitstream: &mut BR)
-        -> Result<Self::DeserType, <BR as BitRead<E>>::Error>;
+    fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error>;
 }
 
 /// No-op implementation of [`BitSerializer`] for `()`.
