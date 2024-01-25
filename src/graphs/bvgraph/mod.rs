@@ -16,23 +16,17 @@ pub use sequential::BVGraphSeq;
 pub mod random_access;
 pub use random_access::BVGraph;
 
-mod bvcomp;
-pub use bvcomp::*;
-
-mod bvgraph_writer_par;
-pub use bvgraph_writer_par::*;
-
 mod masked_iterator;
 pub use masked_iterator::*;
 
 mod codecs;
 pub use codecs::*;
 
+mod comp;
+pub use comp::*;
+
 mod load;
 pub use load::*;
-
-mod comp_flags;
-pub use comp_flags::*;
 
 /// The default version of EliasFano we use for the CLI
 pub type EF = sux::dict::EliasFano<
