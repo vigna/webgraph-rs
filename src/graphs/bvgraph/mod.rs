@@ -7,8 +7,8 @@
 
 use crate::traits::*;
 
-mod pos_deg_iter;
-pub use pos_deg_iter::*;
+mod offset_deg_iter;
+pub use offset_deg_iter::*;
 
 pub mod sequential;
 pub use sequential::BVGraphSeq;
