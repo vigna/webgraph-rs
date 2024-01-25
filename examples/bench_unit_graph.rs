@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod bench_sort_pairs;
+
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
