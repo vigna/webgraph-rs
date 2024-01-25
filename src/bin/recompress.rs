@@ -7,7 +7,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use webgraph::prelude::*;
+use webgraph::{graphs::bvgraph, prelude::*};
 
 #[derive(Parser, Debug)]
 #[command(about = "Recompress a BVGraph", long_about = None)]
@@ -42,12 +42,11 @@ pub fn main() -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         BE::NAME => {
-            let seq_graph =
-                webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
-                    .endianness::<BE>()
-                    .load()?;
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                .endianness::<BE>()
+                .load()?;
 
-            webgraph::graphs::bvgraph::comp_par_endianness(
+            BVComp::parallel_endianness(
                 args.new_basename,
                 &seq_graph,
                 seq_graph.num_nodes(),
@@ -62,12 +61,11 @@ pub fn main() -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         LE::NAME => {
-            let seq_graph =
-                webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
-                    .endianness::<LE>()
-                    .load()?;
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                .endianness::<LE>()
+                .load()?;
 
-            webgraph::graphs::bvgraph::comp_par_endianness(
+            BVComp::parallel_endianness(
                 args.new_basename,
                 &seq_graph,
                 seq_graph.num_nodes(),

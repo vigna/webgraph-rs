@@ -64,7 +64,7 @@ fn permute<E: Endianness>(
     let g = Left(arc_list_graph::ArcListGraph::new(num_nodes, edges));
     // compress it
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graphs::bvgraph::comp_par_endianness(
+    BVComp::parallel_endianness(
         args.dest,
         &g,
         g.num_nodes(),

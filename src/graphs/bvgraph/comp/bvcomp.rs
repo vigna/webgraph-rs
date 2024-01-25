@@ -10,7 +10,7 @@ use core::cmp::Ordering;
 use lender::prelude::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
-pub struct BVComp<E: Encoder> {
+pub struct BVComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
     backrefs: CircularBufferVec,
@@ -22,9 +22,7 @@ pub struct BVComp<E: Encoder> {
     /// The bitstream writer, this implements the mock function so we can
     /// do multiple tentative compressions and use the real one once we figured
     /// out how to compress the graph best
-    bit_write: E,
-    /// The mock writer, this is used to do tentative compressions
-    mock_writer: E::MockEncoder,
+    encoder: E,
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
@@ -312,8 +310,7 @@ impl<E: Encoder> BVComp<E> {
         BVComp {
             backrefs: CircularBufferVec::new(compression_window + 1),
             ref_counts: CircularBuffer::new(compression_window + 1),
-            mock_writer: encoder.mock(),
-            bit_write: encoder,
+            encoder,
             min_interval_length,
             compression_window,
             max_ref_count,
@@ -352,7 +349,7 @@ impl<E: Encoder> BVComp<E> {
         // avoid the mock writing
         if self.compression_window == 0 {
             let written_bits = compressor.write(
-                &mut self.bit_write,
+                &mut self.encoder,
                 self.curr_node,
                 None,
                 self.min_interval_length,
@@ -363,9 +360,10 @@ impl<E: Encoder> BVComp<E> {
         }
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
+        let mut mock_writer = self.encoder.mock();
         // Write the compressed data
         let mut min_bits = compressor.write(
-            &mut self.mock_writer,
+            &mut mock_writer,
             self.curr_node,
             Some(0),
             self.min_interval_length,
@@ -391,11 +389,12 @@ impl<E: Encoder> BVComp<E> {
             }
             // Get its compressor
             let compressor = &mut self.compressors[delta];
+            let mut mock_writer = self.encoder.mock();
             // Compute how we would compress this
             compressor.compress(curr_list, Some(ref_list), self.min_interval_length)?;
             // Compute how many bits it would use, using the mock writer
             let bits = compressor.write(
-                &mut self.mock_writer,
+                &mut mock_writer,
                 self.curr_node,
                 Some(delta),
                 self.min_interval_length,
@@ -411,7 +410,7 @@ impl<E: Encoder> BVComp<E> {
         // write the best result reusing the precomputed compression
         let compressor = &mut self.compressors[ref_delta];
         let written_bits = compressor.write(
-            &mut self.bit_write,
+            &mut self.encoder,
             self.curr_node,
             Some(ref_delta),
             self.min_interval_length,
@@ -448,8 +447,8 @@ impl<E: Encoder> BVComp<E> {
 
     /// Consume the compressor return the inner writer after flushing it.
     pub fn flush(mut self) -> Result<E, E::Error> {
-        self.bit_write.flush()?;
-        Ok(self.bit_write)
+        self.encoder.flush()?;
+        Ok(self.encoder)
     }
 }
 

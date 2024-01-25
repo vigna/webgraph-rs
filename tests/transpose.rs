@@ -32,7 +32,7 @@ fn test_transpose() -> Result<()> {
     // transpose and par compress]
     let transposed = webgraph::algo::transpose(&graph, BATCH_SIZE)?;
 
-    comp_par::<BE, _>(
+    BVComp::parallel::<BE, _>(
         TRANSPOSED_PATH,
         &transposed,
         transposed.num_nodes(),
@@ -58,7 +58,7 @@ fn test_transpose() -> Result<()> {
     // re-transpose and par-compress
     let retransposed = webgraph::algo::transpose(&transposed_graph, BATCH_SIZE)?;
 
-    comp_par::<BE, _>(
+    BVComp::parallel::<BE, _>(
         RE_TRANSPOSED_PATH,
         &retransposed,
         retransposed.num_nodes(),

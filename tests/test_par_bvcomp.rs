@@ -32,7 +32,7 @@ fn test_par_bvcomp() -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graphs::bvgraph::comp_par::<BE, _>(
+        BVComp::parallel::<BE, _>(
             tmp_basename,
             &graph,
             graph.num_nodes(),

@@ -44,7 +44,7 @@ where
     let sorted = webgraph::algo::simplify(&seq_graph, args.pa.batch_size).unwrap();
 
     let target_endianness = args.ca.endianess.clone();
-    webgraph::graphs::bvgraph::comp_par_endianness(
+    BVComp::parallel_endianness(
         simplified,
         &sorted,
         sorted.num_nodes(),
