@@ -7,29 +7,23 @@
 
 use dsi_bitstream::prelude::*;
 
-use crate::prelude::{CodeRead, CodeWrite};
-
 /// A trait for types implementing logic for serializing another type to a
 /// bitstream with code-writing capabilities.
-pub trait BitSerializer {
+pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
     /// The type that implementations of this trait can serialize.
     ///
     /// Note that endianness and the bitstream type are not part of this trait,
     /// but rather of this method, so that types specifying a serializing
     /// strategy as type parameter can do so without specifying the details of
     /// the endianness or of the underlying bitstream.
-    type SerType: Send;
+    type SerType;
     /// Serialize the given value to a [`CodeWrite`].
-    fn serialize<E: Endianness, B: CodeWrite<E>>(
-        &self,
-        value: &Self::SerType,
-        bitstream: &mut B,
-    ) -> Result<usize, <B as BitWrite<E>>::Error>;
+    fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error>;
 }
 
 /// A trait for types implementing logic for deserializing another type from a
 /// bitstream with code-reading capabilities.
-pub trait BitDeserializer {
+pub trait BitDeserializer<E: Endianness, BR: BitRead<E>> {
     /// The type that implementations of this trait can deserialized.
     type DeserType;
     /// Deserialize the given value from a [`CodeRead`].
@@ -38,33 +32,24 @@ pub trait BitDeserializer {
     /// but rather of this method, so that types specifying a deserializing
     /// strategy as type parameter can do so without specifying the details of
     /// the endianness or of the underlying bitstream.
-    fn deserialize<E: Endianness, B: CodeRead<E>>(
-        &self,
-        bitstream: &mut B,
-    ) -> Result<Self::DeserType, <B as BitRead<E>>::Error>;
+    fn deserialize(&self, bitstream: &mut BR)
+        -> Result<Self::DeserType, <BR as BitRead<E>>::Error>;
 }
 
 /// No-op implementation of [`BitSerializer`] for `()`.
-impl BitSerializer for () {
+impl<E: Endianness, BW: BitWrite<E>> BitSerializer<E, BW> for () {
     type SerType = ();
     #[inline(always)]
-    fn serialize<E: Endianness, B: CodeWrite<E>>(
-        &self,
-        _value: &Self::SerType,
-        _bitstream: &mut B,
-    ) -> Result<usize, <B as BitWrite<E>>::Error> {
+    fn serialize(&self, _value: &Self::SerType, _bitstream: &mut BW) -> Result<usize, BW::Error> {
         Ok(0)
     }
 }
 
 /// No-op implementation of [`BitDeserializer`] for `()`.
-impl BitDeserializer for () {
+impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
     type DeserType = ();
     #[inline(always)]
-    fn deserialize<E: Endianness, B: CodeRead<E>>(
-        &self,
-        _bitstream: &mut B,
-    ) -> Result<Self::DeserType, <B as BitRead<E>>::Error> {
+    fn deserialize(&self, _bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
         Ok(())
     }
 }

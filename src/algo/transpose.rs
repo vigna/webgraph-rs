@@ -6,22 +6,27 @@
 
 use crate::graphs::arc_list_graph;
 use crate::prelude::proj::Left;
+use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, SortPairs};
 use crate::prelude::{BitDeserializer, BitSerializer, LabelledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
-use crate::utils::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
+use dsi_bitstream::traits::NE;
 use dsi_progress_logger::*;
 use lender::prelude::*;
 
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
-pub fn transpose_labelled<S: BitSerializer + Clone, D: BitDeserializer + Clone + 'static>(
+pub fn transpose_labelled<
+    S: BitSerializer<NE, BitWriter> + Clone,
+    D: BitDeserializer<NE, BitReader> + Clone + 'static,
+>(
     graph: &impl LabelledSequentialGraph<S::SerType>,
     batch_size: usize,
     serializer: S,
     deserializer: D,
 ) -> Result<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<D>, D::DeserType>>>
 where
+    S::SerType: Send,
     D::DeserType: Clone + Copy,
 {
     let dir = tempfile::tempdir()?;
@@ -77,10 +82,11 @@ fn test_transposition() -> anyhow::Result<()> {
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test_transposition_labeled() -> anyhow::Result<()> {
+    use dsi_bitstream::codes::{GammaRead, GammaWrite};
+    use dsi_bitstream::traits::{BitRead, BitWrite};
+
     use crate::graphs::vec_graph::VecGraph;
-    use crate::prelude::{CodeRead, CodeWrite};
     use crate::traits::SequentialLabelling;
-    use dsi_bitstream::prelude::*;
 
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct Payload(f64);
@@ -88,13 +94,16 @@ fn test_transposition_labeled() -> anyhow::Result<()> {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct BD {}
 
-    impl BitDeserializer for BD {
+    impl BitDeserializer<NE, BitReader> for BD
+    where
+        BitReader: GammaRead<NE>,
+    {
         type DeserType = Payload;
 
-        fn deserialize<E: Endianness, B: CodeRead<E>>(
+        fn deserialize(
             &self,
-            bitstream: &mut B,
-        ) -> Result<Self::DeserType, <B as BitRead<E>>::Error> {
+            bitstream: &mut BitReader,
+        ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;
             let result = f64::from_bits((exponent << 53) | mantissa);
@@ -105,14 +114,17 @@ fn test_transposition_labeled() -> anyhow::Result<()> {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct BS {}
 
-    impl BitSerializer for BS {
+    impl BitSerializer<NE, BitWriter> for BS
+    where
+        BitWriter: GammaWrite<NE>,
+    {
         type SerType = Payload;
 
-        fn serialize<E: Endianness, B: CodeWrite<E>>(
+        fn serialize(
             &self,
             value: &Self::SerType,
-            bitstream: &mut B,
-        ) -> Result<usize, B::Error> {
+            bitstream: &mut BitWriter,
+        ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
             let value = value.0.to_bits();
             let mantissa = value & ((1 << 53) - 1);
             let exponent = value >> 53;

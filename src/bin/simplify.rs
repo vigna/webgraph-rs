@@ -30,7 +30,6 @@ struct Args {
 fn simplify<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a MmapBackend<u32>>>: CodeRead<E> + BitSeek,
 {
     let simplified = args
         .simplified

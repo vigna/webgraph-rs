@@ -14,6 +14,7 @@ use dsi_progress_logger::*;
 use lender::prelude::*;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::labels::Left;
+use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
 use webgraph::{algo, prelude::*};
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]

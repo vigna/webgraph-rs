@@ -7,7 +7,7 @@
 use crate::graphs::arc_list_graph;
 use crate::labels::Left;
 use crate::traits::SequentialGraph;
-use crate::utils::{BatchIterator, KMergeIters, SortPairs};
+use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
 use dsi_progress_logger::*;
 use itertools::{Dedup, Itertools};
@@ -24,7 +24,7 @@ pub fn simplify(
                 Dedup<
                     core::iter::Filter<
                         core::iter::Map<
-                            KMergeIters<BatchIterator>,
+                            KMergeIters<BatchIterator<()>>,
                             fn((usize, usize, ())) -> (usize, usize),
                         >,
                         fn(&(usize, usize)) -> bool,

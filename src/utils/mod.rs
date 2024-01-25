@@ -37,5 +37,5 @@ pub use mmap_backend::*;
 mod perm;
 pub use perm::*;
 
-mod sort_pairs;
-pub use sort_pairs::*;
+pub mod sort_pairs;
+pub use sort_pairs::SortPairs;
