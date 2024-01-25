@@ -8,8 +8,8 @@
 mod bvcomp;
 pub use bvcomp::*;
 
-mod bvgraph_writer_par;
-pub use bvgraph_writer_par::*;
+mod util;
+pub use util::*;
 
-mod comp_flags;
-pub use comp_flags::*;
+mod flags;
+pub use flags::*;

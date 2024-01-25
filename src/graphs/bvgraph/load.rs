@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::codecs::Flags;
+use super::codecs::MemoryFlags;
 use super::*;
 use crate::graphs::bvgraph::EmptyDict;
 use crate::prelude::*;
@@ -54,12 +54,12 @@ pub trait Mode: 'static {
 
     fn new_factory<E: Endianness>(
         graph: &PathBuf,
-        flags: codecs::Flags,
+        flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
     type Offsets: IndexedDict<Input = usize, Output = usize>;
 
-    fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>>;
+    fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>>;
 }
 
 pub struct File {}
@@ -67,11 +67,14 @@ impl Mode for File {
     type Factory<E: Endianness> = FileFactory<E>;
     type Offsets = EF;
 
-    fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(
+        graph: &PathBuf,
+        _flags: MemoryFlags,
+    ) -> Result<Self::Factory<E>> {
         Ok(FileFactory::<E>::new(graph)?)
     }
 
-    fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, _flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
         Ok(EF::load_full(offsets)?.into())
     }
 }
@@ -81,11 +84,11 @@ impl Mode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
     type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
-    fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
         Ok(MmapBackend::load(graph, flags.into())?)
     }
 
-    fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
         EF::mmap(offsets, flags.into())
     }
 }
@@ -95,11 +98,14 @@ impl Mode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
     type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
-    fn new_factory<E: Endianness>(graph: &PathBuf, _flags: Flags) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(
+        graph: &PathBuf,
+        _flags: MemoryFlags,
+    ) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mem(graph)?)
     }
 
-    fn load_offsets(offsets: &PathBuf, _flags: Flags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, _flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
         Ok(EF::load_mem(offsets)?)
     }
 }
@@ -109,19 +115,19 @@ impl Mode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
     type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
-    fn new_factory<E: Endianness>(graph: &PathBuf, flags: Flags) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
         Ok(MemoryFactory::<E, _>::new_mmap(graph, flags)?)
     }
 
-    fn load_offsets(offsets: &PathBuf, flags: Flags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
         EF::load_mmap(offsets, flags.into())
     }
 }
 
 pub struct Load<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> {
     pub(crate) basename: PathBuf,
-    pub(crate) graph_load_flags: Flags,
-    pub(crate) offsets_load_flags: Flags,
+    pub(crate) graph_load_flags: MemoryFlags,
+    pub(crate) offsets_load_flags: MemoryFlags,
     pub(crate) _marker: std::marker::PhantomData<(E, A, D, GLM, OLM)>,
 }
 
@@ -159,7 +165,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, Mmap, Mmap> {
-    pub fn flags(self, flags: Flags) -> Load<E, A, D, Mmap, Mmap> {
+    pub fn flags(self, flags: MemoryFlags) -> Load<E, A, D, Mmap, Mmap> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -170,7 +176,7 @@ impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, Mmap, Mmap> {
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> Load<E, A, D, LoadMmap, LoadMmap> {
-    pub fn flags(self, flags: Flags) -> Load<E, A, D, LoadMmap, LoadMmap> {
+    pub fn flags(self, flags: MemoryFlags) -> Load<E, A, D, LoadMmap, LoadMmap> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -192,7 +198,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, A, D, 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, Mmap, OLM> {
-    pub fn graph_load_flags(self, flags: Flags) -> Load<E, A, D, Mmap, OLM> {
+    pub fn graph_load_flags(self, flags: MemoryFlags) -> Load<E, A, D, Mmap, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -203,7 +209,7 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, Mmap, OLM> 
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: Mode> Load<E, A, D, LoadMmap, OLM> {
-    pub fn graph_load_flags(self, flags: Flags) -> Load<E, A, D, LoadMmap, OLM> {
+    pub fn graph_load_flags(self, flags: MemoryFlags) -> Load<E, A, D, LoadMmap, OLM> {
         Load {
             basename: self.basename,
             graph_load_flags: flags,
@@ -225,7 +231,7 @@ impl<E: Endianness, D: Dispatch, GLM: Mode, OLM: Mode> Load<E, Random, D, GLM, O
 }
 
 impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, Mmap> {
-    pub fn offsets_load_flags(self, flags: Flags) -> Load<E, Random, D, GLM, Mmap> {
+    pub fn offsets_load_flags(self, flags: MemoryFlags) -> Load<E, Random, D, GLM, Mmap> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -236,7 +242,7 @@ impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, Mmap> {
 }
 
 impl<E: Endianness, D: Dispatch, GLM: Mode> Load<E, Random, D, GLM, LoadMmap> {
-    pub fn offsets_load_flags(self, flags: Flags) -> Load<E, Random, D, GLM, LoadMmap> {
+    pub fn offsets_load_flags(self, flags: MemoryFlags) -> Load<E, Random, D, GLM, LoadMmap> {
         Load {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,

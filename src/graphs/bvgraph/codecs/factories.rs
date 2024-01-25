@@ -81,7 +81,7 @@ impl<E: Endianness> BitReaderFactory<E> for FileFactory<E> {
 bitflags! {
     /// Flags for [`MemoryFactory`] and [`MmapBackend`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct Flags: u32 {
+    pub struct MemoryFlags: u32 {
         /// Suggest to map a region using transparent huge pages.
         ///
         /// This flag is only a suggestion, and it is ignored if the kernel does not
@@ -104,22 +104,22 @@ bitflags! {
 }
 
 /// Empty flags.
-impl core::default::Default for Flags {
+impl core::default::Default for MemoryFlags {
     fn default() -> Self {
-        Flags::empty()
+        MemoryFlags::empty()
     }
 }
 
-impl From<Flags> for mmap_rs::MmapFlags {
-    fn from(flags: Flags) -> Self {
+impl From<MemoryFlags> for mmap_rs::MmapFlags {
+    fn from(flags: MemoryFlags) -> Self {
         let mut mmap_flags = mmap_rs::MmapFlags::empty();
-        if flags.contains(Flags::SEQUENTIAL) {
+        if flags.contains(MemoryFlags::SEQUENTIAL) {
             mmap_flags |= mmap_rs::MmapFlags::SEQUENTIAL;
         }
-        if flags.contains(Flags::RANDOM_ACCESS) {
+        if flags.contains(MemoryFlags::RANDOM_ACCESS) {
             mmap_flags |= mmap_rs::MmapFlags::RANDOM_ACCESS;
         }
-        if flags.contains(Flags::TRANSPARENT_HUGE_PAGES) {
+        if flags.contains(MemoryFlags::TRANSPARENT_HUGE_PAGES) {
             mmap_flags |= mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES;
         }
 
@@ -127,16 +127,16 @@ impl From<Flags> for mmap_rs::MmapFlags {
     }
 }
 
-impl From<Flags> for epserde::deser::Flags {
-    fn from(flags: Flags) -> Self {
+impl From<MemoryFlags> for epserde::deser::Flags {
+    fn from(flags: MemoryFlags) -> Self {
         let mut deser_flags = epserde::deser::Flags::empty();
-        if flags.contains(Flags::SEQUENTIAL) {
+        if flags.contains(MemoryFlags::SEQUENTIAL) {
             deser_flags |= epserde::deser::Flags::SEQUENTIAL;
         }
-        if flags.contains(Flags::RANDOM_ACCESS) {
+        if flags.contains(MemoryFlags::RANDOM_ACCESS) {
             deser_flags |= epserde::deser::Flags::RANDOM_ACCESS;
         }
-        if flags.contains(Flags::TRANSPARENT_HUGE_PAGES) {
+        if flags.contains(MemoryFlags::TRANSPARENT_HUGE_PAGES) {
             deser_flags |= epserde::deser::Flags::TRANSPARENT_HUGE_PAGES;
         }
 
@@ -179,7 +179,7 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
 }
 
 impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
-    pub fn new_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<Self> {
+    pub fn new_mmap(path: impl AsRef<Path>, flags: MemoryFlags) -> anyhow::Result<Self> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         let capacity = file_len.align_to(16);
