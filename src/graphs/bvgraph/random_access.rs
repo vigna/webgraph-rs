@@ -14,20 +14,9 @@ use std::iter::Iterator;
 use std::path::PathBuf;
 use sux::prelude::*;
 
-pub fn with_basename(
-    basename: impl AsRef<std::path::Path>,
-) -> Load<NE, Random, Dynamic, Mmap, Mmap> {
-    Load {
-        basename: PathBuf::from(basename.as_ref()),
-        graph_load_flags: Flags::empty(),
-        offsets_load_flags: Flags::empty(),
-        _marker: std::marker::PhantomData,
-    }
-}
-
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
-pub struct BVGraph<F: RandomAccessDecoderFactory> {
+pub struct BVGraph<F> {
     /// Backend that can create objects that allows us to read the bitstream of
     /// the graph to decode the edges.
     reader_factory: F,
@@ -39,6 +28,19 @@ pub struct BVGraph<F: RandomAccessDecoderFactory> {
     number_of_nodes: usize,
     /// The number of arcs in the graph.
     number_of_arcs: u64,
+}
+
+impl BVGraph<()> {
+    pub fn with_basename(
+        basename: impl AsRef<std::path::Path>,
+    ) -> Load<NE, Random, Dynamic, Mmap, Mmap> {
+        Load {
+            basename: PathBuf::from(basename.as_ref()),
+            graph_load_flags: Flags::empty(),
+            offsets_load_flags: Flags::empty(),
+            _marker: std::marker::PhantomData,
+        }
+    }
 }
 
 impl<F> BVGraph<F>

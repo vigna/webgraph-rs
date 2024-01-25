@@ -58,7 +58,7 @@ fn test_bvcomp_slow() -> Result<()> {
                                     };
 
                                     let seq_graph =
-                                        webgraph::graphs::bvgraph::sequential::with_basename(
+                                        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(
                                             "tests/data/cnr-2000",
                                         )
                                         .endianness::<BE>()

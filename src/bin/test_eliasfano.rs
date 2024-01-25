@@ -78,9 +78,10 @@ pub fn main() -> Result<()> {
         .expected_updates(Some(num_nodes));
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-    let seq_graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
-        .endianness::<BE>()
-        .load()?;
+    let seq_graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+            .endianness::<BE>()
+            .load()?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");

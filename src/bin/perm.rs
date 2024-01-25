@@ -88,7 +88,7 @@ where
     // TODO!: check that batchsize fits in memory, and that print the maximum
     // batch_size usable
 
-    let graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.source)
+    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
         .endianness::<E>()
         .load()?;
 

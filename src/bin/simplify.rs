@@ -35,9 +35,10 @@ where
         .simplified
         .unwrap_or_else(|| args.basename.clone() + ".simple");
 
-    let seq_graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
-        .endianness::<E>()
-        .load()?;
+    let seq_graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
 
     // transpose the graph
     let sorted = webgraph::algo::simplify(&seq_graph, args.pa.batch_size).unwrap();

@@ -29,7 +29,7 @@ fn rand_perm<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.source)
+    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
         .endianness::<E>()
         .load()?;
 

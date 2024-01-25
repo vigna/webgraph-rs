@@ -23,9 +23,10 @@ fn ascii_convert<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let seq_graph = webgraph::graphs::bvgraph::sequential::with_basename(&args.basename)
-        .endianness::<E>()
-        .load()?;
+    let seq_graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("offset");

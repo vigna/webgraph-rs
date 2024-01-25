@@ -571,7 +571,7 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = crate::graphs::bvgraph::sequential::with_basename("tests/data/cnr-2000")
+        let seq_graph = BVGraphSeq::with_basename("tests/data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
@@ -634,7 +634,7 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = crate::graphs::bvgraph::sequential::with_basename("tests/data/cnr-2000")
+        let seq_graph = BVGraphSeq::with_basename("tests/data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 

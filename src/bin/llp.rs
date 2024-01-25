@@ -65,7 +65,7 @@ where
         .unwrap_or_else(|| format!("{}.llp", args.basename));
 
     // load the graph
-    let graph = webgraph::graphs::bvgraph::random_access::with_basename(&args.basename)
+    let graph = BVGraph::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
 

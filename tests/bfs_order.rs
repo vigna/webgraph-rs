@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use anyhow::Result;
 
 use dsi_bitstream::prelude::BE;
-use webgraph::{algo::BfsOrder, labels::proj::Left};
+use webgraph::{algo::BfsOrder, graphs::BVGraph, labels::proj::Left};
 
 #[test]
 fn test_start() -> Result<()> {
@@ -51,7 +51,7 @@ fn test_start_orphan() -> Result<()> {
 
 #[test]
 fn test_cnr2000() -> Result<()> {
-    let graph = webgraph::graphs::bvgraph::random_access::with_basename("tests/data/cnr-2000")
+    let graph = BVGraph::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     let seen: HashSet<usize> = HashSet::new();

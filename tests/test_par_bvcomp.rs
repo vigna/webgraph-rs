@@ -22,9 +22,10 @@ fn test_par_bvcomp() -> Result<()> {
     let tmp_basename = "tests/data/cnr-2000-par";
 
     // load the graph
-    let graph = webgraph::graphs::bvgraph::sequential::with_basename("tests/data/cnr-2000")
-        .endianness::<BE>()
-        .load()?;
+    let graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename("tests/data/cnr-2000")
+            .endianness::<BE>()
+            .load()?;
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
@@ -42,9 +43,10 @@ fn test_par_bvcomp() -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let comp_graph = webgraph::graphs::bvgraph::sequential::with_basename(tmp_basename)
-            .endianness::<BE>()
-            .load()?;
+        let comp_graph =
+            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(tmp_basename)
+                .endianness::<BE>()
+                .load()?;
         let mut iter = comp_graph.iter();
 
         let mut pr = ProgressLogger::default();

@@ -15,31 +15,33 @@ use bitflags::Flags;
 use dsi_bitstream::prelude::*;
 use lender::*;
 
-pub fn with_basename(
-    basename: impl AsRef<std::path::Path>,
-) -> Load<NE, Sequential, Dynamic, Mmap, Mmap> {
-    Load {
-        basename: PathBuf::from(basename.as_ref()),
-        graph_load_flags: Flags::empty(),
-        offsets_load_flags: Flags::empty(),
-        _marker: std::marker::PhantomData,
-    }
-}
-
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmaped file.
-pub struct BVGraphSeq<CRB: SequentialDecoderFactory> {
-    factory: CRB,
+pub struct BVGraphSeq<F> {
+    factory: F,
     number_of_nodes: usize,
     number_of_arcs: Option<u64>,
     compression_window: usize,
     min_interval_length: usize,
 }
 
-impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<CRB> {
+impl BVGraphSeq<()> {
+    pub fn with_basename(
+        basename: impl AsRef<std::path::Path>,
+    ) -> Load<NE, Sequential, Dynamic, Mmap, Mmap> {
+        Load {
+            basename: PathBuf::from(basename.as_ref()),
+            graph_load_flags: Flags::empty(),
+            offsets_load_flags: Flags::empty(),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<F: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<F> {
     type Label = usize;
-    type Iterator<'a> = SeqIter<CRB::Decoder<'a>>
+    type Iterator<'a> = SeqIter<F::Decoder<'a>>
     where
         Self: 'a;
 
@@ -71,10 +73,10 @@ impl<CRB: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<CRB> {
     }
 }
 
-impl<CRB: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<CRB> {}
+impl<F: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<F> {}
 
-impl<'a, CRB: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<CRB> {
-    type Lender = <BVGraphSeq<CRB> as SequentialLabelling>::Iterator<'a>;
+impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
+    type Lender = <BVGraphSeq<F> as SequentialLabelling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -82,11 +84,11 @@ impl<'a, CRB: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<CRB> {
     }
 }
 
-impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
+impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
     /// Create a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
-        codes_reader_builder: CRB,
+        codes_reader_builder: F,
         compression_window: usize,
         min_interval_length: usize,
         number_of_nodes: usize,
@@ -102,11 +104,10 @@ impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
     }
 
     #[inline(always)]
-    /// Change the codes reader builder
-    pub fn map_factory<CRB2, F>(self, map_func: F) -> BVGraphSeq<CRB2>
+    pub fn map_factory<F1, F0>(self, map_func: F0) -> BVGraphSeq<F1>
     where
-        F: FnOnce(CRB) -> CRB2,
-        CRB2: SequentialDecoderFactory,
+        F0: FnOnce(F) -> F1,
+        F1: SequentialDecoderFactory,
     {
         BVGraphSeq {
             factory: map_func(self.factory),
@@ -119,20 +120,20 @@ impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB> {
 
     #[inline(always)]
     /// Consume self and return the factory
-    pub fn into_inner(self) -> CRB {
+    pub fn into_inner(self) -> F {
         self.factory
     }
 }
 
-impl<CRB: SequentialDecoderFactory> BVGraphSeq<CRB>
+impl<F: SequentialDecoderFactory> BVGraphSeq<F>
 where
-    for<'a> CRB::Decoder<'a>: Decoder,
+    for<'a> F::Decoder<'a>: Decoder,
 {
     #[inline(always)]
     /// Create an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
-    pub fn iter_degrees(&self) -> DegreesIter<CRB::Decoder<'_>> {
+    pub fn iter_degrees(&self) -> DegreesIter<F::Decoder<'_>> {
         DegreesIter::new(
             self.factory.new_decoder().unwrap(),
             self.min_interval_length,

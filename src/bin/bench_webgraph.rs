@@ -53,11 +53,11 @@ where
 {
     if args.check {
         // Create a sequential reader
-        let seq_graph = bvgraph::sequential::with_basename("tests/data/cnr-2000")
+        let seq_graph = BVGraphSeq::with_basename("tests/data/cnr-2000")
             .endianness::<E>()
             .load()?;
         // create a random access reader;
-        let random_reader = bvgraph::random_access::with_basename(&args.basename)
+        let random_reader = BVGraph::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 
@@ -77,7 +77,7 @@ where
             // Create a sequential reader
             let mut c: u64 = 0;
 
-            let seq_graph = bvgraph::sequential::with_basename(&args.basename)
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
                 .endianness::<E>()
                 .load()?;
 
@@ -96,7 +96,7 @@ where
     } else if args.degrees_only {
         // Sequential speed test
         for _ in 0..args.repeats {
-            let seq_graph = bvgraph::sequential::with_basename(&args.basename)
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
                 .endianness::<E>()
                 .load()?;
             let mut deg_reader = seq_graph.iter_degrees();
@@ -114,7 +114,7 @@ where
             assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
     } else {
-        let graph = bvgraph::random_access::with_basename(&args.basename)
+        let graph = BVGraph::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
         // Random-access speed test
