@@ -5,11 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::convert::Infallible;
-
 use super::{CodeWrite, Encoder};
-use crate::prelude::CompFlags;
+use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
+use std::convert::Infallible;
 
 pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     code_writer: CW,
@@ -31,9 +30,19 @@ impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
             Code::Unary => CW::write_unary,
             Code::Gamma => CW::write_gamma,
             Code::Delta => CW::write_delta,
+            Code::Zeta { k: 1 } => |cw, x| CW::write_zeta(cw, x, 1),
+            Code::Zeta { k: 2 } => |cw, x| CW::write_zeta(cw, x, 2),
             Code::Zeta { k: 3 } => CW::write_zeta3,
-            // TODO: all other zeta codes
-            code => panic!("Only unary, ɣ, δ, and ζ₃ codes are allowed. Got {:?}", code),
+            Code::Zeta { k: 4 } => |cw, x| CW::write_zeta(cw, x, 4),
+            Code::Zeta { k: 5 } => |cw, x| CW::write_zeta(cw, x, 5),
+            Code::Zeta { k: 6 } => |cw, x| CW::write_zeta(cw, x, 6),
+            Code::Zeta { k: 7 } => |cw, x| CW::write_zeta(cw, x, 7),
+            code => {
+                panic!(
+                    "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
+                    code
+                )
+            }
         }
     }
 

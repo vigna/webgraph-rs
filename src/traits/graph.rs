@@ -58,7 +58,7 @@ pub type Successors<'succ, 'node, S> =
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access
 /// to successor lists.
-/// 
+///
 /// On such a graph, successors are returned by the
 /// [`successors`](RandomAccessGraph::successors) method rather than by the
 /// [`labels`](RandomAccessLabelling::labels) method.
@@ -178,7 +178,7 @@ impl<'a, G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {
 /// A labelled random-access graph is a random-access labelling whose labels are
 /// pairs `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
-/// 
+///
 /// On such a graph, successors are returned by the [`successors`](LabelledRandomAccessGraph::successors)
 /// method rather than by the [`labels`](RandomAccessLabelling::labels) method.
 pub trait LabelledRandomAccessGraph<L>: RandomAccessLabelling<Label = (usize, L)> {

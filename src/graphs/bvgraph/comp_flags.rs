@@ -5,9 +5,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{bail, Result};
-use dsi_bitstream::prelude::Code;
+use anyhow::{bail, ensure, Result};
 use std::collections::HashMap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Code {
+    Unary,
+    Gamma,
+    Delta,
+    Zeta { k: usize },
+}
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
@@ -58,13 +65,12 @@ impl CompFlags {
     /// into which code to use.
     ///
     /// Returns `None` if the string is not recognized.
-    pub fn code_from_str(s: &str) -> Option<Code> {
+    pub fn code_from_str(s: &str, k: usize) -> Option<Code> {
         match s.to_uppercase().as_str() {
             "UNARY" => Some(Code::Unary),
             "GAMMA" => Some(Code::Gamma),
             "DELTA" => Some(Code::Delta),
-            "ZETA" => Some(Code::Zeta { k: 3 }),
-            "NIBBLE" => Some(Code::Nibble),
+            "ZETA" => Some(Code::Zeta { k }),
             _ => None,
         }
     }
@@ -75,8 +81,6 @@ impl CompFlags {
             Code::Gamma => Some("GAMMA"),
             Code::Delta => Some("DELTA"),
             Code::Zeta { k: _ } => Some("ZETA"),
-            Code::Nibble => Some("NIBBLE"),
-            _ => None,
         }
     }
 
@@ -139,27 +143,34 @@ impl CompFlags {
     pub fn from_properties(map: &HashMap<String, String>) -> Result<Self> {
         // Default values, same as the Java class
         let mut cf = CompFlags::default();
+        let mut k = 3;
+        if let Some(spec_k) = map.get("zeta_k") {
+            let spec_k = spec_k.parse::<usize>()?;
+            if !(1..=7).contains(&spec_k) {
+                bail!("Only ζ₁-ζ₇ are supported");
+            }
+            k = spec_k;
+        }
+
         if let Some(comp_flags) = map.get("compressionflags") {
             if !comp_flags.is_empty() {
                 for flag in comp_flags.split('|') {
                     let s: Vec<_> = flag.split('_').collect();
                     // FIXME: this is a hack to avoid having to implement
                     // FromStr for Code
-                    let code = CompFlags::code_from_str(s[1]).unwrap();
+                    let code = CompFlags::code_from_str(s[1], k).unwrap();
                     match s[0] {
                         "OUTDEGREES" => cf.outdegrees = code,
                         "REFERENCES" => cf.references = code,
                         "BLOCKS" => cf.blocks = code,
                         "INTERVALS" => cf.intervals = code,
                         "RESIDUALS" => cf.residuals = code,
+                        "OFFSETS" => {
+                            ensure!(code == Code::Gamma, "Only γ code is supported for offsets")
+                        }
                         _ => bail!("Unknown compression flag {}", flag),
                     }
                 }
-            }
-        }
-        if let Some(k) = map.get("zeta_k") {
-            if k.parse::<usize>()? != 3 {
-                bail!("Only ζ₃ is supported");
             }
         }
         if let Some(compression_window) = map.get("compressionwindow") {

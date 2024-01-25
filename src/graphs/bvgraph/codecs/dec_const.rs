@@ -33,7 +33,6 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
         Code::Gamma => const_codes::GAMMA,
         Code::Zeta { k: _ } => const_codes::ZETA,
         Code::Delta => const_codes::DELTA,
-        _ => bail!("Only unary, ɣ, δ, and ζ codes are allowed"),
     })
 }
 

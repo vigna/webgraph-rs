@@ -16,8 +16,8 @@ pub use sequential::BVGraphSeq;
 pub mod random_access;
 pub use random_access::BVGraph;
 
-mod bvgraph_writer;
-pub use bvgraph_writer::*;
+mod bvcomp;
+pub use bvcomp::*;
 
 mod bvgraph_writer_par;
 pub use bvgraph_writer_par::*;

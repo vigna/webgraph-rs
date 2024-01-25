@@ -13,7 +13,6 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::hint::black_box;
-use webgraph::graphs::bvgraph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]

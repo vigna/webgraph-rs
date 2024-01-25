@@ -28,8 +28,7 @@ pub fn compress_sequential_iter<E: Endianness, P: AsRef<Path>, L: IntoLender>(
 where
     L: IntoLender,
     L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>:
-        GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
 {
     let basename = basename.as_ref();
     let graph_path = format!("{}.graph", basename.to_string_lossy());
@@ -171,8 +170,7 @@ pub fn parallel_compress_sequential_iter<E: Endianness, L: IntoLender, P: AsRef<
 ) -> Result<usize>
 where
     L::Lender: Clone + Send + for<'next> NodeLabelsLender<'next, Label = usize>,
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>:
-        GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
 {
     let tmp_dir = tmp_dir.as_ref();
     let basename = basename.as_ref();

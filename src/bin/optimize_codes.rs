@@ -9,7 +9,7 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
-use webgraph::{graphs::bvgraph, prelude::*};
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]

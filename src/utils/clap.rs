@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::graphs::Code;
 use crate::prelude::CompFlags;
 use clap::Args;
 use clap::ValueEnum;
-use dsi_bitstream::codes::Code;
 use rand::Rng;
 use std::path::Path;
 

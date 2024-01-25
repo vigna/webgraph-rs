@@ -79,8 +79,7 @@ pub type LenderIntoIter<'lend, L> =
 /// ascending order, or that the labels of the successors will be returned
 /// in any specified order.
 ///
-/// TODO
-/// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
+/// The marker traits [`SortedIterator`] and [`SortedLabels`] can be used to
 /// force these properties.
 ///
 /// The iterator returned by [iter](SequentialLabelling::iter) is a [lender](Lender):

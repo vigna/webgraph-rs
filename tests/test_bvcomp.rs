@@ -12,20 +12,10 @@ use tempfile::NamedTempFile;
 const NODES: usize = 325557;
 
 use anyhow::Result;
-use dsi_bitstream::{
-    prelude::{
-        BufBitReader, BufBitWriter,
-        Code::{Delta, Gamma, Unary, Zeta},
-        MemWordReader, WordAdapter,
-    },
-    traits::BE,
-};
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
-use webgraph::{
-    graphs::bvgraph::{BVComp, CompFlags, DynCodesDecoder, DynCodesEncoder},
-    prelude::*,
-    utils::MmapBackend,
-};
+use webgraph::prelude::*;
+use Code::{Delta, Gamma, Unary, Zeta};
 
 fn logger_init() {
     env_logger::builder().is_test(true).try_init().unwrap();
@@ -38,11 +28,18 @@ fn test_bvcomp_slow() -> Result<()> {
 
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
-    for outdegrees in [Unary, Gamma, Delta] {
+    for outdegrees in [Code::Unary, Gamma, Delta] {
         for references in [Unary, Gamma, Delta] {
             for blocks in [Unary, Gamma, Delta] {
                 for intervals in [Unary, Gamma, Delta] {
-                    for residuals in [Unary, Gamma, Delta, Zeta { k: 3 }] {
+                    for residuals in [
+                        Unary,
+                        Gamma,
+                        Delta,
+                        Zeta { k: 3 },
+                        Zeta { k: 1 },
+                        Zeta { k: 5 },
+                    ] {
                         for compression_window in [0, 1, 2, 4, 7, 8, 10] {
                             for min_interval_length in [0, 2, 4, 7, 8, 10] {
                                 for max_ref_count in [0, 1, 2, 3] {
