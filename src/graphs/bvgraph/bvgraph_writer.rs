@@ -460,7 +460,7 @@ impl<E: Encoder> BVComp<E> {
 #[cfg(test)]
 mod test {
 
-    use self::sequential::SeqIter;
+    use self::sequential::Iter;
 
     use super::*;
     use dsi_bitstream::prelude::*;
@@ -607,7 +607,7 @@ mod test {
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesDecoder<BE, _>>::new(bit_read, &comp_flags)?;
 
-        let mut seq_iter = SeqIter::new(
+        let mut seq_iter = Iter::new(
             codes_reader,
             compression_window,
             min_interval_length,
@@ -662,7 +662,7 @@ mod test {
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
         let codes_reader = <ConstCodesDecoder<LE, _>>::new(bit_read, &comp_flags)?;
 
-        let mut seq_iter = SeqIter::new(
+        let mut seq_iter = Iter::new(
             codes_reader,
             compression_window,
             min_interval_length,

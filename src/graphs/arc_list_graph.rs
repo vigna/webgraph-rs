@@ -47,7 +47,7 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
 }
 
 #[derive(Debug, Clone)]
-pub struct NodeIterator<L, I: IntoIterator<Item = (usize, usize, L)>> {
+pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
     curr_node: usize,
     next_pair: (usize, usize, L),
@@ -55,13 +55,13 @@ pub struct NodeIterator<L, I: IntoIterator<Item = (usize, usize, L)>> {
 }
 
 unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SortedIterator
-    for NodeIterator<L, I>
+    for Iter<L, I>
 {
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator<L, I> {
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> Iter<L, I> {
     pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
-        NodeIterator {
+        Iter {
             num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
             next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX, unsafe {
@@ -75,21 +75,19 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> NodeIterator
 }
 
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone>
-    NodeLabelsLender<'succ> for NodeIterator<L, I>
+    NodeLabelsLender<'succ> for Iter<L, I>
 {
     type Label = (usize, L);
-    type IntoIterator = Successors<'succ, L, I>;
+    type IntoIterator = Succ<'succ, L, I>;
 }
 
 impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lending<'succ>
-    for NodeIterator<L, I>
+    for Iter<L, I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender
-    for NodeIterator<L, I>
-{
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender for Iter<L, I> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
@@ -105,20 +103,20 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
             }));
         }
 
-        Some((self.curr_node, Successors { node_iter: self }))
+        Some((self.curr_node, Succ { node_iter: self }))
     }
 }
 
 impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lending<'lend>
     for &ArcListGraph<I>
 {
-    type Lend = (usize, Successors<'lend, L, I>);
+    type Lend = (usize, Succ<'lend, L, I>);
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> IntoLender
     for &ArcListGraph<I>
 {
-    type Lender = NodeIterator<L, I>;
+    type Lender = Iter<L, I>;
 
     fn into_lender(self) -> Self::Lender {
         self.iter()
@@ -129,7 +127,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
     for ArcListGraph<I>
 {
     type Label = (usize, L);
-    type Iterator<'node> = NodeIterator<L, I> where Self: 'node;
+    type Iterator<'node> = Iter<L, I> where Self: 'node;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -143,7 +141,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        let mut iter = NodeIterator::new(self.num_nodes, self.into_iter.clone().into_iter());
+        let mut iter = Iter::new(self.num_nodes, self.into_iter.clone().into_iter());
         for _ in 0..from {
             iter.next();
         }
@@ -153,11 +151,11 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 }
 
 /// Iter until we found a triple with src different than curr_node
-pub struct Successors<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
-    node_iter: &'succ mut NodeIterator<L, I>,
+pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
+    node_iter: &'succ mut Iter<L, I>,
 }
 
-impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Successors<'a, L, I> {
+impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'a, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
         // If the source of the next pair is not the current node,

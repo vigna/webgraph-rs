@@ -21,7 +21,7 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
 
 impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
     type Label = usize;
-    type Iterator<'b> = PermutedIterator<'b, G::Iterator<'b>>
+    type Iterator<'b> = Iter<'b, G::Iterator<'b>>
         where
             Self: 'b;
 
@@ -37,7 +37,7 @@ impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        PermutedIterator {
+        Iter {
             iter: self.graph.iter_from(from),
             perm: self.perm,
         }
@@ -56,27 +56,27 @@ impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
 }
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
-pub struct PermutedIterator<'node, I> {
+pub struct Iter<'node, I> {
     iter: I,
     perm: &'node [usize],
 }
 
-impl<'node, 'succ, I> NodeLabelsLender<'succ> for PermutedIterator<'node, I>
+impl<'node, 'succ, I> NodeLabelsLender<'succ> for Iter<'node, I>
 where
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = usize;
-    type IntoIterator = PermutedSuccessors<'succ, LenderIntoIter<'succ, I>>;
+    type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>>;
 }
 
-impl<'node, 'succ, I> Lending<'succ> for PermutedIterator<'node, I>
+impl<'node, 'succ, I> Lending<'succ> for Iter<'node, I>
 where
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<'a, L> Lender for PermutedIterator<'a, L>
+impl<'a, L> Lender for Iter<'a, L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
@@ -86,7 +86,7 @@ where
             let (node, succ) = x.into_pair();
             (
                 self.perm[node],
-                PermutedSuccessors {
+                Succ {
                     iter: succ.into_iter(),
                     perm: self.perm,
                 },
@@ -96,12 +96,12 @@ where
 }
 
 #[derive(Clone)]
-pub struct PermutedSuccessors<'a, I: Iterator<Item = usize>> {
+pub struct Succ<'a, I: Iterator<Item = usize>> {
     iter: I,
     perm: &'a [usize],
 }
 
-impl<'a, I: Iterator<Item = usize>> Iterator for PermutedSuccessors<'a, I> {
+impl<'a, I: Iterator<Item = usize>> Iterator for Succ<'a, I> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -109,7 +109,7 @@ impl<'a, I: Iterator<Item = usize>> Iterator for PermutedSuccessors<'a, I> {
     }
 }
 
-impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for PermutedSuccessors<'a, I> {
+impl<'a, I: ExactSizeIterator<Item = usize>> ExactSizeIterator for Succ<'a, I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()

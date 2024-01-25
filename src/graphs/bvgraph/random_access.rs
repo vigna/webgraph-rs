@@ -13,7 +13,7 @@ use lender::IntoLender;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
-use self::sequential::SeqIter;
+use self::sequential::Iter;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
@@ -91,7 +91,7 @@ where
     F: RandomAccessDecoderFactory,
 {
     type Label = usize;
-    type Iterator<'b> = SeqIter<F::Decoder<'b>>
+    type Iterator<'b> = Iter<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -116,7 +116,7 @@ where
             backrefs.push(node_id, self.successors(node_id).collect());
         }
 
-        SeqIter {
+        Iter {
             decoder: codes_reader,
             backrefs,
             compression_window: self.compression_window,
@@ -133,7 +133,7 @@ impl<F> RandomAccessLabelling for BVGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    type Labels<'a> = Successors<F::Decoder<'a>>
+    type Labels<'a> = Succ<F::Decoder<'a>>
     where Self: 'a, F: 'a;
 
     fn num_arcs(&self) -> u64 {
@@ -151,13 +151,13 @@ where
 
     #[inline(always)]
     /// Return a random access iterator over the successors of a node.
-    fn labels(&self, node_id: usize) -> Successors<F::Decoder<'_>> {
+    fn labels(&self, node_id: usize) -> Succ<F::Decoder<'_>> {
         let codes_reader = self
             .factory
             .new_decoder(node_id)
             .expect("Cannot create reader");
 
-        let mut result = Successors::new(codes_reader);
+        let mut result = Succ::new(codes_reader);
         let degree = result.reader.read_outdegree() as usize;
         // no edges, we are done!
         if degree == 0 {
@@ -264,13 +264,13 @@ impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct Successors<D: Decoder> {
+pub struct Succ<D: Decoder> {
     reader: D,
     /// The number of values left
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<MaskedIterator<Successors<D>>>,
+    copied_nodes_iter: Option<MaskedIterator<Succ<D>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(usize, usize)>,
@@ -286,16 +286,16 @@ pub struct Successors<D: Decoder> {
     next_interval_node: usize,
 }
 
-impl<D: Decoder> ExactSizeIterator for Successors<D> {
+impl<D: Decoder> ExactSizeIterator for Succ<D> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<D: Decoder> SortedLabels for Successors<D> {}
+unsafe impl<D: Decoder> SortedLabels for Succ<D> {}
 
-impl<D: Decoder> Successors<D> {
+impl<D: Decoder> Succ<D> {
     /// Create an empty iterator
     fn new(reader: D) -> Self {
         Self {
@@ -312,7 +312,7 @@ impl<D: Decoder> Successors<D> {
     }
 }
 
-impl<D: Decoder> Iterator for Successors<D> {
+impl<D: Decoder> Iterator for Succ<D> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
