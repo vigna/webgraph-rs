@@ -29,8 +29,8 @@ pub struct BVGraphSeq<F> {
 impl BVGraphSeq<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> Load<NE, Sequential, Dynamic, Mmap, Mmap> {
-        Load {
+    ) -> LoadConfig<NE, Sequential, Dynamic, Mmap, Mmap> {
+        LoadConfig {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),
             offsets_load_flags: Flags::empty(),

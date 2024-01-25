@@ -34,8 +34,8 @@ pub struct BVGraph<F> {
 impl BVGraph<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> Load<NE, Random, Dynamic, Mmap, Mmap> {
-        Load {
+    ) -> LoadConfig<NE, Random, Dynamic, Mmap, Mmap> {
+        LoadConfig {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),
             offsets_load_flags: Flags::empty(),
