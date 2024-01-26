@@ -121,6 +121,16 @@ where
     type Error = <CW as BitWrite<E>>::Error;
 
     #[inline(always)]
+    fn start_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn end_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_outdegree)(&mut self.code_writer, value)
     }
@@ -264,6 +274,16 @@ impl DynCodesEstimator {
 
 impl Encoder for DynCodesEstimator {
     type Error = Infallible;
+
+    #[inline(always)]
+    fn start_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn end_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {

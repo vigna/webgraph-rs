@@ -99,6 +99,16 @@ impl<
     type Error = <CW as BitWrite<E>>::Error;
 
     #[inline(always)]
+    fn start_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn end_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, OUTDEGREES, K, value)
     }
@@ -209,6 +219,16 @@ impl<
     > Encoder for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = Infallible;
+
+    #[inline(always)]
+    fn start_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn end_node(node: usize) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {

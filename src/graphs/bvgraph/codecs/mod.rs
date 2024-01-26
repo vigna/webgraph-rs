@@ -62,6 +62,7 @@ pub trait Decoder {
 /// Methods to encode the component of a [`BVGraph`].
 pub trait Encoder {
     type Error: Error + Send + Sync + 'static;
+    fn start_node(node: usize) -> Result<(), Self::Error>;
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error>;
@@ -72,6 +73,7 @@ pub trait Encoder {
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn flush(&mut self) -> Result<(), Self::Error>;
+    fn end_node(node: usize) -> Result<(), Self::Error>;
 }
 
 pub trait MeasurableEncoder: Encoder {
