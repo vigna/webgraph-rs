@@ -23,6 +23,7 @@ struct Triple<L> {
     pair: [usize; 2],
     label: L,
 }
+
 impl<T> RadixKey for Triple<T> {
     const LEVELS: usize = 16;
 
@@ -54,7 +55,7 @@ pub struct SortPairs<
     /// The length of the last batch might be smaller than [`SortPairs::batch_size`].
     last_batch_len: usize,
     /// The batch of triples we are currently building.
-    batch: Vec<(usize, usize, S::SerType)>,
+    batch: Vec<Triple<S::SerType>>,
     /// Where we are going to store the batches.
     dir: PathBuf,
     /// Keeps track of how many batches we created.
@@ -125,7 +126,10 @@ where
 
     /// Add a triple to the graph.
     pub fn push_labelled(&mut self, x: usize, y: usize, t: S::SerType) -> anyhow::Result<()> {
-        self.batch.push((x, y, t));
+        self.batch.push(Triple {
+            pair: [x, y],
+            label: t,
+        });
         if self.batch.len() >= self.batch_size {
             self.dump()?;
         }
@@ -229,14 +233,19 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     #[inline]
     pub fn new_from_vec_labelled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
-        batch: &mut [(usize, usize, S::SerType)],
+        batch: &mut [Triple<S::SerType>],
         serializer: &S,
         deserializer: D,
     ) -> anyhow::Result<Self>
     where
         S::SerType: Send,
     {
-        batch.par_sort_unstable_by_key(|(src, dst, _)| (*src, *dst));
+        //rdst::RadixSort::radix_sort_unstable(batch);
+        batch.par_sort_unstable_by_key(
+            |Triple {
+                 pair: [src, dst], ..
+             }| (*src, *dst),
+        );
         Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
     }
 
@@ -244,7 +253,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     /// over them, assuming they are already sorted
     pub fn new_from_vec_sorted_labelled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
-        batch: &[(usize, usize, S::SerType)],
+        batch: &[Triple<S::SerType>],
         serializer: &S,
         deserializer: D,
     ) -> anyhow::Result<Self>
@@ -258,7 +267,11 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         let mut stream = <BufBitWriter<NE, _>>::new(<WordAdapter<usize, _>>::new(file));
         // Dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
-        for (src, dst, payload) in batch.iter() {
+        for Triple {
+            pair: [src, dst],
+            label: payload,
+        } in batch.iter()
+        {
             // write the src gap as gamma
             stream
                 .write_gamma((src - prev_src) as _)
