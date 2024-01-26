@@ -36,7 +36,7 @@ pub fn simplify(
         >,
     >,
 > {
-    let dir = Builder::new().prefix("Simplify").tempdir()?;
+    let dir = Builder::new().prefix("simplify-").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();

@@ -422,7 +422,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
 
 #[cfg(test)]
 #[test]
-pub fn test_push() -> anyhow::Result<()> {
+pub fn test_sort_pairs() -> anyhow::Result<()> {
     use tempfile::Builder;
 
     #[derive(Clone, Debug)]
@@ -448,7 +448,7 @@ pub fn test_push() -> anyhow::Result<()> {
             Ok(bitstream.write_delta(*value as u64)?)
         }
     }
-    let dir = Builder::new().prefix("SortPairs").tempdir()?;
+    let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
     let mut sp = SortPairs::new_labelled(10, dir.path(), MyDessert, MyDessert)?;
     let n = 25;
     for i in 0..n {
