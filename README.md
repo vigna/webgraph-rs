@@ -4,6 +4,7 @@
 [![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph)](https://crates.io/crates/webgraph/reverse_dependencies)
 ![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/webgraph)
+[![](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs).
 
 A pure Rust implementation of the [WebGraph framework](https://webgraph.di.unimi.it/) for graph compression.
 
