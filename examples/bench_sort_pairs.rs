@@ -59,8 +59,7 @@ pub fn main() -> Result<()> {
     let dir = tempfile::tempdir()?;
 
     if args.labelled {
-        let mut sp =
-            SortPairs::<Mock, Mock>::new_labelled(args.batch, dir.into_path(), Mock(), Mock())?;
+        let mut sp = SortPairs::<Mock, Mock>::new_labelled(args.batch, dir.path(), Mock(), Mock())?;
 
         let mut r = SmallRng::seed_from_u64(0);
 
@@ -83,7 +82,7 @@ pub fn main() -> Result<()> {
         pl.done();
         return Ok(());
     } else {
-        let mut sp = SortPairs::new(args.batch, dir.into_path())?;
+        let mut sp = SortPairs::new(args.batch, dir.path())?;
 
         let mut r = SmallRng::seed_from_u64(0);
 

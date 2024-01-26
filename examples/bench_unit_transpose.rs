@@ -40,7 +40,7 @@ pub fn transpose(
     >,
 > {
     let dir = tempfile::tempdir()?;
-    let mut sorted = SortPairs::new(batch_size, dir.into_path())?;
+    let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")

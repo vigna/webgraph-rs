@@ -26,12 +26,11 @@ pub fn transpose_labelled<
     deserializer: D,
 ) -> Result<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<D>, D::DeserType>>>
 where
-    S::SerType: Send,
+    S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
     let dir = tempfile::tempdir()?;
-    let mut sorted =
-        SortPairs::new_labelled(batch_size, dir.into_path(), serializer, deserializer)?;
+    let mut sorted = SortPairs::new_labelled(batch_size, dir.path(), serializer, deserializer)?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")

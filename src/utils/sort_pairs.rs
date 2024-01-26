@@ -19,12 +19,13 @@ use std::{
     sync::Arc,
 };
 
-struct Triple<L> {
+#[derive(Clone, Debug, Copy)]
+struct Triple<L: Copy> {
     pair: [usize; 2],
     label: L,
 }
 
-impl<T> RadixKey for Triple<T> {
+impl<T: Copy> RadixKey for Triple<T> {
     const LEVELS: usize = 16;
 
     fn get_level(&self, level: usize) -> u8 {
@@ -48,7 +49,7 @@ pub struct SortPairs<
     S: BitSerializer<NE, BitWriter> = (),
     D: BitDeserializer<NE, BitReader> + Clone = (),
 > where
-    S::SerType: Send,
+    S::SerType: Send + Sync + Copy,
 {
     /// The batch size.
     batch_size: usize,
@@ -71,7 +72,7 @@ pub struct SortPairs<
 impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone> core::ops::Drop
     for SortPairs<S, D>
 where
-    S::SerType: Send,
+    S::SerType: Send + Sync + Copy,
 {
     fn drop(&mut self) {
         let _ = self.dump();
@@ -94,7 +95,7 @@ impl SortPairs<(), ()> {
 
 impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone> SortPairs<S, D>
 where
-    S::SerType: Send,
+    S::SerType: Send + Sync + Copy,
 {
     /// Create a new `SortPairs` with a given batch size
     ///
@@ -238,14 +239,16 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         deserializer: D,
     ) -> anyhow::Result<Self>
     where
-        S::SerType: Send,
+        S::SerType: Send + Sync + Copy,
     {
-        //rdst::RadixSort::radix_sort_unstable(batch);
+        let start = std::time::Instant::now();
+        //batch.radix_sort_unstable();
         batch.par_sort_unstable_by_key(
             |Triple {
                  pair: [src, dst], ..
              }| (*src, *dst),
         );
+        eprintln!("Sorted {} triples in {:?}", batch.len(), start.elapsed());
         Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
     }
 
@@ -258,7 +261,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         deserializer: D,
     ) -> anyhow::Result<Self>
     where
-        S::SerType: Send,
+        S::SerType: Send + Sync + Copy,
     {
         // create a batch file where to dump
         let file =
@@ -452,7 +455,7 @@ pub fn test_push() -> anyhow::Result<()> {
         }
     }
     let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new_labelled(10, dir.into_path(), MyDessert, MyDessert)?;
+    let mut sp = SortPairs::new_labelled(10, dir.path(), MyDessert, MyDessert)?;
     let n = 25;
     for i in 0..n {
         sp.push_labelled(i, i + 1, i + 2)?;
