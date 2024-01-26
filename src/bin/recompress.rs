@@ -7,7 +7,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use webgraph::{graphs::bvgraph, prelude::*};
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Recompress a BVGraph", long_about = None)]

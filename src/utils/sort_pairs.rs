@@ -20,7 +20,7 @@ use std::{
 };
 
 #[derive(Clone, Debug, Copy)]
-struct Triple<L: Copy> {
+pub struct Triple<L: Copy> {
     pair: [usize; 2],
     label: L,
 }
@@ -67,16 +67,6 @@ pub struct SortPairs<
     /// A stataful deserializer we will pass to batch iterators to deserialize
     /// the labels from a bitstream.
     deserializer: D,
-}
-
-impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone> core::ops::Drop
-    for SortPairs<S, D>
-where
-    S::SerType: Send + Sync + Copy,
-{
-    fn drop(&mut self) {
-        let _ = self.dump();
-    }
 }
 
 impl SortPairs<(), ()> {
@@ -139,10 +129,11 @@ where
 
     /// Dump the current batch to disk
     fn dump(&mut self) -> anyhow::Result<()> {
-        // early exit
+        // This method must be idempotent as it is called by `iter`
         if self.batch.is_empty() {
             return Ok(());
         }
+
         // create a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
         BatchIterator::new_from_vec_labelled(
@@ -242,12 +233,12 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         S::SerType: Send + Sync + Copy,
     {
         let start = std::time::Instant::now();
-        //batch.radix_sort_unstable();
-        batch.par_sort_unstable_by_key(
+        batch.radix_sort_unstable();
+        /*batch.par_sort_unstable_by_key(
             |Triple {
                  pair: [src, dst], ..
              }| (*src, *dst),
-        );
+        );*/
         eprintln!("Sorted {} triples in {:?}", batch.len(), start.elapsed());
         Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
     }
