@@ -12,6 +12,7 @@ use anyhow::Result;
 use dsi_progress_logger::*;
 use itertools::{Dedup, Itertools};
 use lender::*;
+use tempfile::Builder;
 /// Make the graph undirected and remove selfloops
 #[allow(clippy::type_complexity)]
 pub fn simplify(
@@ -35,7 +36,7 @@ pub fn simplify(
         >,
     >,
 > {
-    let dir = tempfile::tempdir()?;
+    let dir = Builder::new().prefix("Simplify").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();

@@ -16,16 +16,19 @@ use dsi_progress_logger::*;
 use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;
+use tempfile::Builder;
 use webgraph::prelude::*;
 #[derive(Parser, Debug)]
-#[command(about = "Tests the speed of SortPairs", long_about = None)]
+#[command(about = "Tests the merge speed of SortPairs", long_about = None)]
 struct Args {
     n: usize,
     batch: usize,
+    /// Use 128-bit labels that are neither read nor written.
     #[arg(short = 'l', long)]
     labelled: bool,
 }
 
+/// No-op serializer/deserializer (as we want to check the merge speed)
 #[derive(Debug, Clone)]
 struct Mock();
 impl<E: Endianness, W: BitWrite<E>> BitSerializer<E, W> for Mock {
@@ -56,7 +59,7 @@ pub fn main() -> Result<()> {
         .init()
         .unwrap();
 
-    let dir = tempfile::tempdir()?;
+    let dir = Builder::new().prefix("bench_sort_pairs").tempdir()?;
 
     if args.labelled {
         let mut sp = SortPairs::<Mock, Mock>::new_labelled(args.batch, dir.path(), Mock(), Mock())?;

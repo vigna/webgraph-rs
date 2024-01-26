@@ -12,6 +12,7 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
+use tempfile::Builder;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::labels::Left;
 use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
@@ -39,7 +40,7 @@ pub fn transpose(
         >,
     >,
 > {
-    let dir = tempfile::tempdir()?;
+    let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();

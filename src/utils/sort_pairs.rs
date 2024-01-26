@@ -9,6 +9,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
 use dary_heap::{self, PeekMut};
 use dsi_bitstream::prelude::*;
+use log::{debug, info};
 use mmap_rs::MmapFlags;
 use rayon::prelude::*;
 use rdst::*;
@@ -233,13 +234,13 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         S::SerType: Send + Sync + Copy,
     {
         let start = std::time::Instant::now();
-        batch.radix_sort_unstable();
-        /*batch.par_sort_unstable_by_key(
+        // batch.radix_sort_unstable(); Presently, this crashes on eu-2015
+        batch.par_sort_unstable_by_key(
             |Triple {
                  pair: [src, dst], ..
              }| (*src, *dst),
-        );*/
-        eprintln!("Sorted {} triples in {:?}", batch.len(), start.elapsed());
+        );
+        debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
         Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
     }
 
@@ -422,6 +423,8 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
 #[cfg(test)]
 #[test]
 pub fn test_push() -> anyhow::Result<()> {
+    use tempfile::Builder;
+
     #[derive(Clone, Debug)]
     struct MyDessert;
 
@@ -445,7 +448,7 @@ pub fn test_push() -> anyhow::Result<()> {
             Ok(bitstream.write_delta(*value as u64)?)
         }
     }
-    let dir = tempfile::tempdir()?;
+    let dir = Builder::new().prefix("SortPairs").tempdir()?;
     let mut sp = SortPairs::new_labelled(10, dir.path(), MyDessert, MyDessert)?;
     let n = 25;
     for i in 0..n {

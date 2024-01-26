@@ -13,6 +13,7 @@ use anyhow::Result;
 use dsi_bitstream::traits::NE;
 use dsi_progress_logger::*;
 use lender::prelude::*;
+use tempfile::Builder;
 
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
@@ -29,7 +30,7 @@ where
     S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
-    let dir = tempfile::tempdir()?;
+    let dir = Builder::new().prefix("Transpose").tempdir()?;
     let mut sorted = SortPairs::new_labelled(batch_size, dir.path(), serializer, deserializer)?;
 
     let mut pl = ProgressLogger::default();
