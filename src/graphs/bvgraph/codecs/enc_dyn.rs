@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{CodeWrite, Encoder};
+use super::{CodeWrite, Encoder, MeasurableEncoder};
 use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
@@ -24,19 +24,54 @@ pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     _marker: core::marker::PhantomData<E>,
 }
 
+fn write_zeta2<E: Endianness, CW: CodeWrite<E>>(
+    cw: &mut CW,
+    x: u64,
+) -> Result<usize, <CW as BitWrite<E>>::Error> {
+    CW::write_zeta(cw, x, 2)
+}
+
+fn write_zeta4<E: Endianness, CW: CodeWrite<E>>(
+    cw: &mut CW,
+    x: u64,
+) -> Result<usize, <CW as BitWrite<E>>::Error> {
+    CW::write_zeta(cw, x, 4)
+}
+
+fn write_zeta5<E: Endianness, CW: CodeWrite<E>>(
+    cw: &mut CW,
+    x: u64,
+) -> Result<usize, <CW as BitWrite<E>>::Error> {
+    CW::write_zeta(cw, x, 5)
+}
+
+fn write_zeta6<E: Endianness, CW: CodeWrite<E>>(
+    cw: &mut CW,
+    x: u64,
+) -> Result<usize, <CW as BitWrite<E>>::Error> {
+    CW::write_zeta(cw, x, 6)
+}
+
+fn write_zeta7<E: Endianness, CW: CodeWrite<E>>(
+    cw: &mut CW,
+    x: u64,
+) -> Result<usize, <CW as BitWrite<E>>::Error> {
+    CW::write_zeta(cw, x, 7)
+}
+
 impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
-    fn select_code(code: &Code) -> fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error> {
+    fn select_code(code: Code) -> fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error> {
         match code {
             Code::Unary => CW::write_unary,
             Code::Gamma => CW::write_gamma,
             Code::Delta => CW::write_delta,
-            Code::Zeta { k: 1 } => |cw, x| CW::write_zeta(cw, x, 1),
-            Code::Zeta { k: 2 } => |cw, x| CW::write_zeta(cw, x, 2),
+            Code::Zeta { k: 1 } => CW::write_gamma,
+            Code::Zeta { k: 2 } => write_zeta2,
             Code::Zeta { k: 3 } => CW::write_zeta3,
-            Code::Zeta { k: 4 } => |cw, x| CW::write_zeta(cw, x, 4),
-            Code::Zeta { k: 5 } => |cw, x| CW::write_zeta(cw, x, 5),
-            Code::Zeta { k: 6 } => |cw, x| CW::write_zeta(cw, x, 6),
-            Code::Zeta { k: 7 } => |cw, x| CW::write_zeta(cw, x, 7),
+            Code::Zeta { k: 4 } => write_zeta4,
+            Code::Zeta { k: 5 } => write_zeta5,
+            Code::Zeta { k: 6 } => write_zeta6,
+            Code::Zeta { k: 7 } => write_zeta7,
             code => {
                 panic!(
                     "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
@@ -49,15 +84,15 @@ impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
     pub fn new(code_writer: CW, cf: &CompFlags) -> Self {
         Self {
             code_writer,
-            write_outdegree: Self::select_code(&cf.outdegrees),
-            write_reference_offset: Self::select_code(&cf.references),
-            write_block_count: Self::select_code(&cf.blocks),
-            write_blocks: Self::select_code(&cf.blocks),
-            write_interval_count: Self::select_code(&cf.intervals),
-            write_interval_start: Self::select_code(&cf.intervals),
-            write_interval_len: Self::select_code(&cf.intervals),
-            write_first_residual: Self::select_code(&cf.residuals),
-            write_residual: Self::select_code(&cf.residuals),
+            write_outdegree: Self::select_code(cf.outdegrees),
+            write_reference_offset: Self::select_code(cf.references),
+            write_block_count: Self::select_code(cf.blocks),
+            write_blocks: Self::select_code(cf.blocks),
+            write_interval_count: Self::select_code(cf.intervals),
+            write_interval_start: Self::select_code(cf.intervals),
+            write_interval_len: Self::select_code(cf.intervals),
+            write_first_residual: Self::select_code(cf.residuals),
+            write_residual: Self::select_code(cf.residuals),
             _marker: core::marker::PhantomData,
         }
     }
@@ -84,37 +119,6 @@ where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
-    type MockEncoder = MockDynCodesEncoder;
-
-    fn mock(&self) -> Self::MockEncoder {
-        macro_rules! reconstruct_code {
-            ($code:expr) => {{
-                let code = $code as usize;
-                if code == CW::write_unary as usize {
-                    len_unary
-                } else if code == CW::write_gamma as usize {
-                    len_gamma
-                } else if code == CW::write_delta as usize {
-                    len_delta
-                } else if code == CW::write_zeta3 as usize {
-                    |x| len_zeta(x, 3)
-                } else {
-                    unreachable!()
-                }
-            }};
-        }
-        MockDynCodesEncoder {
-            len_outdegree: reconstruct_code!(self.write_outdegree),
-            len_reference_offset: reconstruct_code!(self.write_reference_offset),
-            len_block_count: reconstruct_code!(self.write_block_count),
-            len_blocks: reconstruct_code!(self.write_blocks),
-            len_interval_count: reconstruct_code!(self.write_interval_count),
-            len_interval_start: reconstruct_code!(self.write_interval_start),
-            len_interval_len: reconstruct_code!(self.write_interval_len),
-            len_first_residual: reconstruct_code!(self.write_first_residual),
-            len_residual: reconstruct_code!(self.write_residual),
-        }
-    }
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
@@ -162,10 +166,55 @@ where
     }
 }
 
-/// An implementation of [`BVGraphCodesWriter`] that doesn't write anything
-/// but just returns the length of the bytes that would have been written.
+impl<E: Endianness, CW: CodeWrite<E>> MeasurableEncoder for DynCodesEncoder<E, CW>
+where
+    <CW as BitWrite<E>>::Error: Send + Sync,
+{
+    type Estimator = DynCodesEstimator;
+
+    fn estimator(&self) -> Self::Estimator {
+        macro_rules! reconstruct_code {
+            ($code:expr) => {{
+                let code = $code as usize;
+                if code == CW::write_unary as usize {
+                    len_unary
+                } else if code == CW::write_gamma as usize {
+                    len_gamma
+                } else if code == CW::write_delta as usize {
+                    len_delta
+                } else if code == write_zeta2::<E, CW> as usize {
+                    |x| len_zeta(x, 2)
+                } else if code == CW::write_zeta3 as usize {
+                    |x| len_zeta(x, 3)
+                } else if code == write_zeta4::<E, CW> as usize {
+                    |x| len_zeta(x, 4)
+                } else if code == write_zeta5::<E, CW> as usize {
+                    |x| len_zeta(x, 5)
+                } else if code == write_zeta6::<E, CW> as usize {
+                    |x| len_zeta(x, 6)
+                } else if code == write_zeta7::<E, CW> as usize {
+                    |x| len_zeta(x, 7)
+                } else {
+                    unreachable!()
+                }
+            }};
+        }
+        DynCodesEstimator {
+            len_outdegree: reconstruct_code!(self.write_outdegree),
+            len_reference_offset: reconstruct_code!(self.write_reference_offset),
+            len_block_count: reconstruct_code!(self.write_block_count),
+            len_blocks: reconstruct_code!(self.write_blocks),
+            len_interval_count: reconstruct_code!(self.write_interval_count),
+            len_interval_start: reconstruct_code!(self.write_interval_start),
+            len_interval_len: reconstruct_code!(self.write_interval_len),
+            len_first_residual: reconstruct_code!(self.write_first_residual),
+            len_residual: reconstruct_code!(self.write_residual),
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct MockDynCodesEncoder {
+pub struct DynCodesEstimator {
     len_outdegree: fn(u64) -> usize,
     len_reference_offset: fn(u64) -> usize,
     len_block_count: fn(u64) -> usize,
@@ -177,44 +226,44 @@ pub struct MockDynCodesEncoder {
     len_residual: fn(u64) -> usize,
 }
 
-impl MockDynCodesEncoder {
+impl DynCodesEstimator {
     /// Selects the length function for the given [`Code`].
-    fn select_code(code: &Code) -> fn(u64) -> usize {
+    fn select_code(code: Code) -> fn(u64) -> usize {
         match code {
             Code::Unary => len_unary,
             Code::Gamma => len_gamma,
             Code::Delta => len_delta,
+            Code::Zeta { k: 1 } => |x| len_gamma(x),
+            Code::Zeta { k: 2 } => |x| len_zeta(x, 2),
             Code::Zeta { k: 3 } => |x| len_zeta(x, 3),
+            Code::Zeta { k: 4 } => |x| len_zeta(x, 4),
+            Code::Zeta { k: 5 } => |x| len_zeta(x, 5),
+            Code::Zeta { k: 6 } => |x| len_zeta(x, 6),
+            Code::Zeta { k: 7 } => |x| len_zeta(x, 7),
             code => panic!(
-                "Only unary, ɣ, δ, and ζ₃ codes are allowed. Got: {:?}",
+                "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
                 code
             ),
         }
     }
 
-    /// Creates a new [`DynamicCodesMockWriter`] from the given [`CompFlags`].
     pub fn new(cf: &CompFlags) -> Self {
         Self {
-            len_outdegree: Self::select_code(&cf.outdegrees),
-            len_reference_offset: Self::select_code(&cf.references),
-            len_block_count: Self::select_code(&cf.blocks),
-            len_blocks: Self::select_code(&cf.blocks),
-            len_interval_count: Self::select_code(&cf.intervals),
-            len_interval_start: Self::select_code(&cf.intervals),
-            len_interval_len: Self::select_code(&cf.intervals),
-            len_first_residual: Self::select_code(&cf.residuals),
-            len_residual: Self::select_code(&cf.residuals),
+            len_outdegree: Self::select_code(cf.outdegrees),
+            len_reference_offset: Self::select_code(cf.references),
+            len_block_count: Self::select_code(cf.blocks),
+            len_blocks: Self::select_code(cf.blocks),
+            len_interval_count: Self::select_code(cf.intervals),
+            len_interval_start: Self::select_code(cf.intervals),
+            len_interval_len: Self::select_code(cf.intervals),
+            len_first_residual: Self::select_code(cf.residuals),
+            len_residual: Self::select_code(cf.residuals),
         }
     }
 }
 
-impl Encoder for MockDynCodesEncoder {
+impl Encoder for DynCodesEstimator {
     type Error = Infallible;
-
-    type MockEncoder = Self;
-    fn mock(&self) -> Self::MockEncoder {
-        self.clone()
-    }
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {

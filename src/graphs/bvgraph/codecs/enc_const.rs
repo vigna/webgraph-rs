@@ -8,7 +8,7 @@
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
-use super::{const_codes, CodeWrite, Encoder};
+use super::{const_codes, CodeWrite, Encoder, MeasurableEncoder};
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
@@ -93,17 +93,10 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-where
-    <CW as BitWrite<E>>::Error: Send + Sync,
+    > Encoder
+    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = <CW as BitWrite<E>>::Error;
-
-    type MockEncoder =
-        MockConstCodesEncoder<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
-    fn mock(&self) -> Self::MockEncoder {
-        MockConstCodesEncoder::new()
-    }
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
@@ -151,9 +144,27 @@ where
     }
 }
 
+impl<
+        E: Endianness,
+        CW: CodeWrite<E>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: u64,
+    > MeasurableEncoder
+    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+{
+    type Estimator = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
+    fn estimator(&self) -> Self::Estimator {
+        ConstCodesEstimator::new()
+    }
+}
+
 #[repr(transparent)]
 #[derive(Clone, Default)]
-pub struct MockConstCodesEncoder<
+pub struct ConstCodesEstimator<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
     const BLOCKS: usize = { const_codes::GAMMA },
@@ -169,7 +180,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > MockConstCodesEncoder<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     pub fn new() -> Self {
         Self
@@ -195,14 +206,9 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder for MockConstCodesEncoder<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encoder for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = Infallible;
-
-    type MockEncoder = Self;
-    fn mock(&self) -> Self::MockEncoder {
-        MockConstCodesEncoder::new()
-    }
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {

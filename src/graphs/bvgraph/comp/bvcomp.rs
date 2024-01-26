@@ -295,7 +295,7 @@ impl Compressor {
     }
 }
 
-impl<E: Encoder> BVComp<E> {
+impl<E: MeasurableEncoder> BVComp<E> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
@@ -327,11 +327,7 @@ impl<E: Encoder> BVComp<E> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize>
-    where
-        E::Error: 'static,
-        <E::MockEncoder as Encoder>::Error: 'static,
-    {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -360,10 +356,10 @@ impl<E: Encoder> BVComp<E> {
         }
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
-        let mut mock_writer = self.encoder.mock();
+        let mut estimator = self.encoder.estimator();
         // Write the compressed data
         let mut min_bits = compressor.write(
-            &mut mock_writer,
+            &mut estimator,
             self.curr_node,
             Some(0),
             self.min_interval_length,
@@ -389,12 +385,12 @@ impl<E: Encoder> BVComp<E> {
             }
             // Get its compressor
             let compressor = &mut self.compressors[delta];
-            let mut mock_writer = self.encoder.mock();
+            let mut estimator = self.encoder.estimator();
             // Compute how we would compress this
             compressor.compress(curr_list, Some(ref_list), self.min_interval_length)?;
             // Compute how many bits it would use, using the mock writer
             let bits = compressor.write(
-                &mut mock_writer,
+                &mut estimator,
                 self.curr_node,
                 Some(delta),
                 self.min_interval_length,
@@ -433,8 +429,6 @@ impl<E: Encoder> BVComp<E> {
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        E::Error: 'static,
-        <E::MockEncoder as Encoder>::Error: 'static,
     {
         let mut count = 0;
         for_! ( (_, succ) in iter_nodes {

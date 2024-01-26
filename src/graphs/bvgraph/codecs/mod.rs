@@ -61,12 +61,7 @@ pub trait Decoder {
 
 /// Methods to encode the component of a [`BVGraph`].
 pub trait Encoder {
-    type Error: Error + Send + Sync;
-    /// A mock writer that does not write anything but returns how many bits
-    /// this writer with this configuration would have written
-    type MockEncoder: Encoder;
-    /// Returns a mock writer that does not write anything.
-    fn mock(&self) -> Self::MockEncoder;
+    type Error: Error + Send + Sync + 'static;
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error>;
@@ -77,6 +72,15 @@ pub trait Encoder {
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn flush(&mut self) -> Result<(), Self::Error>;
+}
+
+pub trait MeasurableEncoder: Encoder {
+    /// An associated (usually stateless) encoder that returns
+    /// integers estimating the amount of space used by each
+    /// operation of this measurable encoder.
+    type Estimator: Encoder;
+    /// Return an estimator for this measurable encoder.
+    fn estimator(&self) -> Self::Estimator;
 }
 
 /// A trait providing decoders with random access.
