@@ -16,7 +16,7 @@ use sux::prelude::*;
 use webgraph::graphs::EF;
 
 #[derive(Parser, Debug)]
-#[command(about = "Thest that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
+#[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
