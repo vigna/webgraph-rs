@@ -60,7 +60,7 @@ pub fn main() -> Result<()> {
 
     if args.labelled {
         let mut sp =
-            SortPairs::<Mock, Mock>::new_labeled(args.batch, dir.into_path(), Mock(), Mock())?;
+            SortPairs::<Mock, Mock>::new_labelled(args.batch, dir.into_path(), Mock(), Mock())?;
 
         let mut r = SmallRng::seed_from_u64(0);
 
@@ -68,7 +68,7 @@ pub fn main() -> Result<()> {
 
         pl.start("Writing...");
         for _ in 0..args.n {
-            sp.push_labeled(r.next_u64() as usize, r.next_u64() as usize, 0)?;
+            sp.push_labelled(r.next_u64() as usize, r.next_u64() as usize, 0)?;
             pl.light_update();
         }
         pl.done();

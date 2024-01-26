@@ -8,8 +8,8 @@ use crate::traits::*;
 use core::mem::MaybeUninit;
 use lender::*;
 
-/// An adapter exhibiting a list of labeled
-/// arcs sorted by source as a [labeled sequential graph](LabelledSequentialGraph).
+/// An adapter exhibiting a list of labelled
+/// arcs sorted by source as a [labelled sequential graph](LabelledSequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.

@@ -30,7 +30,8 @@ where
     D::DeserType: Clone + Copy,
 {
     let dir = tempfile::tempdir()?;
-    let mut sorted = SortPairs::new_labeled(batch_size, dir.into_path(), serializer, deserializer)?;
+    let mut sorted =
+        SortPairs::new_labelled(batch_size, dir.into_path(), serializer, deserializer)?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -39,7 +40,7 @@ where
     // create batches of sorted edges
     for_!( (src, succ) in graph.iter() {
         for (dst, l) in succ {
-            sorted.push_labeled(dst, src, l)?;
+            sorted.push_labelled(dst, src, l)?;
         }
         pl.light_update();
     });
@@ -81,7 +82,7 @@ fn test_transposition() -> anyhow::Result<()> {
 
 #[cfg(test)]
 #[cfg_attr(test, test)]
-fn test_transposition_labeled() -> anyhow::Result<()> {
+fn test_transposition_labelled() -> anyhow::Result<()> {
     use dsi_bitstream::codes::{GammaRead, GammaWrite};
     use dsi_bitstream::traits::{BitRead, BitWrite};
 

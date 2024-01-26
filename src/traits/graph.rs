@@ -27,7 +27,7 @@ Finally, the [zipping of a graph and a labelling](Zip) implements the
 labelled graph traits.
 
 Note that most utilities to manipulate graphs manipulate in fact
-labelled graph. To use the same utilities on an unlabeled graph
+labelled graph. To use the same utilities on an unlabelled graph
 you just have to wrap it in a [UnitLabelGraph], which
 is a zero-cost abstraction assigning to each successor the label `()`.
 Usually there is a convenience method doing the wrapping for you.
