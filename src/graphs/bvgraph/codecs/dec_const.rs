@@ -47,7 +47,7 @@ pub struct ConstCodesDecoder<
     const BLOCKS: usize = { const_codes::GAMMA },
     const INTERVALS: usize = { const_codes::GAMMA },
     const RESIDUALS: usize = { const_codes::ZETA },
-    const K: u64 = 3,
+    const K: usize = 3,
 > {
     /// The inner codes reader we will dispatch to
     pub(crate) code_reader: CR,
@@ -64,7 +64,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > BitSeek
     for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
@@ -87,7 +87,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Create a new [`ConstCodesReader`] from a [`CodeRead`] implementation
@@ -125,7 +125,7 @@ macro_rules! select_code_read {
             const_codes::DELTA => $self.code_reader.read_delta().unwrap(),
             const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma().unwrap(),
             const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3().unwrap(),
-            const_codes::ZETA => $self.code_reader.read_zeta(K).unwrap(),
+            const_codes::ZETA => $self.code_reader.read_zeta(K as u64).unwrap(),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         }
     };
@@ -139,7 +139,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > Decoder
     for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
@@ -194,7 +194,7 @@ pub struct ConstCodesDecoderFactory<
     const BLOCKS: usize = { const_codes::GAMMA },
     const INTERVALS: usize = { const_codes::GAMMA },
     const RESIDUALS: usize = { const_codes::ZETA },
-    const K: u64 = 3,
+    const K: usize = 3,
 > {
     /// The owned data
     factory: F,
@@ -214,7 +214,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Create a new builder from the given data and compression flags.
@@ -251,7 +251,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
@@ -281,7 +281,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > SequentialDecoderFactory
     for ConstCodesDecoderFactory<
         E,

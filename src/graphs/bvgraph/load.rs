@@ -45,7 +45,7 @@ pub struct Static<
     const BLOCKS: usize = { const_codes::GAMMA },
     const INTERVALS: usize = { const_codes::GAMMA },
     const RESIDUALS: usize = { const_codes::ZETA },
-    const K: u64 = 3,
+    const K: usize = 3,
 > {}
 
 #[sealed]
@@ -55,7 +55,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     > Dispatch for Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
 }
@@ -374,7 +374,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     >
     LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>, GLM, OLM>
 {
@@ -426,7 +426,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
+        const K: usize,
     >
     LoadConfig<
         E,

@@ -33,6 +33,10 @@ struct Args {
     #[arg(short = 'f', long)]
     first: bool,
 
+    /// Static dispatch for speed tests.
+    #[arg(short = 's', long = "static")]
+    _static: bool,
+
     /// Test sequential high-speed offset/degree scanning.
     #[arg(short = 'd', long)]
     degrees: bool,
@@ -42,7 +46,48 @@ struct Args {
     check: bool,
 }
 
-fn bench_webgraph<E: Endianness + 'static>(args: Args) -> Result<()>
+fn bench_random<E: Endianness>(
+    graph: impl RandomAccessGraph,
+    samples: usize,
+    repeats: usize,
+    first: bool,
+) {
+    // Random-access speed test
+    for _ in 0..repeats {
+        let mut rng = SmallRng::seed_from_u64(0);
+        let mut c: u64 = 0;
+        let num_nodes = graph.num_nodes();
+        let start = std::time::Instant::now();
+        if first {
+            for _ in 0..samples {
+                black_box(
+                    graph
+                        .successors(rng.gen_range(0..num_nodes))
+                        .into_iter()
+                        .next()
+                        .unwrap_or(0),
+                );
+            }
+        } else {
+            for _ in 0..samples {
+                c += black_box(
+                    graph
+                        .successors(rng.gen_range(0..num_nodes))
+                        .into_iter()
+                        .count() as u64,
+                );
+            }
+        }
+
+        println!(
+            "{}:    {:>20} ns/arc",
+            if first { "First" } else { "Random" },
+            (start.elapsed().as_secs_f64() / c as f64) * 1e9
+        );
+    }
+}
+
+fn bench_webgraph<E: Endianness, D: Dispatch>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -84,41 +129,29 @@ where
 
             assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
-    } else if let Some(random) = args.random {
-        let graph = BVGraph::with_basename(&args.basename)
-            .endianness::<E>()
-            .mode::<LoadMmap>()
-            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-            .load()?;
-
-        // Random-access speed test
-        for _ in 0..args.repeats {
-            let mut rng = SmallRng::seed_from_u64(0);
-            let mut c: u64 = 0;
-            let start = std::time::Instant::now();
-            if args.first {
-                for _ in 0..random {
-                    black_box(
-                        graph
-                            .successors(rng.gen_range(0..graph.num_nodes()))
-                            .next()
-                            .unwrap_or(0),
-                    );
-                }
-            } else {
-                for _ in 0..random {
-                    c += black_box(
-                        graph
-                            .successors(rng.gen_range(0..graph.num_nodes()))
-                            .count() as u64,
-                    );
-                }
-            }
-
-            println!(
-                "{}:    {:>20} ns/arc",
-                if args.first { "First" } else { "Random" },
-                (start.elapsed().as_secs_f64() / c as f64) * 1e9
+    } else if let Some(samples) = args.random {
+        if std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>() {
+            bench_random::<E>(
+                BVGraph::with_basename(&args.basename)
+                    .endianness::<E>()
+                    .mode::<LoadMmap>()
+                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                    .load()?,
+                samples,
+                args.repeats,
+                args.first,
+            );
+        } else {
+            bench_random::<E>(
+                BVGraph::with_basename(&args.basename)
+                    .endianness::<E>()
+                    .dispatch::<Static>()
+                    .mode::<LoadMmap>()
+                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                    .load()?,
+                samples,
+                args.repeats,
+                args.first,
             );
         }
     } else {
@@ -160,12 +193,18 @@ pub fn main() -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => bench_webgraph::<BE>(args),
+        BE::NAME => match args._static {
+            true => bench_webgraph::<BE, Static>(args),
+            false => bench_webgraph::<BE, Dynamic>(args),
+        },
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => bench_webgraph::<LE>(args),
+        LE::NAME => match args._static {
+            true => bench_webgraph::<LE, Static>(args),
+            false => bench_webgraph::<LE, Dynamic>(args),
+        },
         e => panic!("Unknown endianness: {}", e),
     }
 }
