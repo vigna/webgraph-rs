@@ -121,27 +121,28 @@ where
                 (start.elapsed().as_secs_f64() / c as f64) * 1e9
             );
         }
-    }
-    // Sequential speed testx
-    for _ in 0..args.repeats {
-        // Create a sequential reader
-        let mut c: u64 = 0;
+    } else {
+        // Sequential speed testx
+        for _ in 0..args.repeats {
+            // Create a sequential reader
+            let mut c: u64 = 0;
 
-        let seq_graph = BVGraphSeq::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                .endianness::<E>()
+                .load()?;
 
-        let start = std::time::Instant::now();
-        let mut iter = seq_graph.iter();
-        while let Some((_, succ)) = iter.next() {
-            c += succ.count() as u64;
+            let start = std::time::Instant::now();
+            let mut iter = seq_graph.iter();
+            while let Some((_, succ)) = iter.next() {
+                c += succ.count() as u64;
+            }
+            println!(
+                "Sequential:{:>20} ns/arc",
+                (start.elapsed().as_secs_f64() / c as f64) * 1e9
+            );
+
+            assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
-        println!(
-            "Sequential:{:>20} ns/arc",
-            (start.elapsed().as_secs_f64() / c as f64) * 1e9
-        );
-
-        assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
     }
     Ok(())
 }
