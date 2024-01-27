@@ -66,6 +66,8 @@ where
 
     // load the graph
     let graph = BVGraph::with_basename(&args.basename)
+        .mode::<LoadMmap>()
+        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
         .load()?;
 
