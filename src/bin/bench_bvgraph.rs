@@ -22,7 +22,7 @@ struct Args {
     basename: String,
 
     /// Perform a random-access test on this number of randomly chosen nodes.
-    #[arg(short, long, default_value = "1000000", empty_values(true))]
+    #[arg(short, long)]
     random: Option<usize>,
 
     /// The number of repeats.
