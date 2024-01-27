@@ -22,10 +22,7 @@ struct Args {
     _static: bool,
 }
 
-fn visit(graph: impl RandomAccessGraph) -> Result<()>
-where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
-{
+fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     let num_nodes = graph.num_nodes();
     let mut visited = bitvec![0; num_nodes];
     let mut queue = VecDeque::new();
