@@ -219,7 +219,7 @@ impl BVComp<()> {
                         nodes_per_thread * (thread_id + 1),
                     );
                     // Spawn the thread
-                    let thread_iter = iter.clone();
+                    let thread_iter = iter.clone().take(nodes_per_thread);
                     let handle = s.spawn(move || {
                         log::info!("Thread {} started", thread_id,);
                         let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
@@ -233,7 +233,10 @@ impl BVComp<()> {
                             cp_flags.max_ref_count,
                             nodes_per_thread * thread_id,
                         );
-                        let written_bits = bvcomp.extend(thread_iter).unwrap();
+                        let mut written_bits = 0;
+                        for_! [(_node_id, successors) in thread_iter {
+                            written_bits += bvcomp.push(successors).unwrap();
+                        }];
                         log::info!(
                             "Finished Compression thread {} and wrote {} bits bits [{}, {})",
                             thread_id,

@@ -34,6 +34,26 @@ impl<T: Copy> RadixKey for Triple<T> {
     }
 }
 
+impl<T: Copy> PartialEq for Triple<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.pair == other.pair
+    }
+}
+
+impl<T: Copy> Eq for Triple<T> {}
+
+impl<T: Copy> PartialOrd for Triple<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.pair.cmp(&other.pair))
+    }
+}
+
+impl<T: Copy> Ord for Triple<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.pair.cmp(&other.pair)
+    }
+}
+
 use super::{ArcMmapBackend, MmapBackend};
 
 pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
@@ -235,6 +255,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     {
         let start = std::time::Instant::now();
         // batch.radix_sort_unstable(); Presently, this crashes on eu-2015
+        batch.par_sort_unstable();
         debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
         Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
     }
