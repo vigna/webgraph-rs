@@ -134,7 +134,7 @@ where
             bench_random::<E>(
                 BVGraph::with_basename(&args.basename)
                     .endianness::<E>()
-                    .mode::<LoadMmap>()
+                    .mode::<Mmap>()
                     .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
                     .load()?,
                 samples,
@@ -146,7 +146,7 @@ where
                 BVGraph::with_basename(&args.basename)
                     .endianness::<E>()
                     .dispatch::<Static>()
-                    .mode::<LoadMmap>()
+                    .mode::<Mmap>()
                     .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
                     .load()?,
                 samples,

@@ -67,7 +67,7 @@ pub fn main() -> Result<()> {
         .init()?;
 
     let config = BVGraph::with_basename(&args.basename)
-        .mode::<LoadMmap>()
+        .mode::<Mmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
 
     match get_endianess(&args.basename)?.as_str() {
