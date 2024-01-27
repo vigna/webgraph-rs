@@ -6,6 +6,7 @@
  */
 
 use anyhow::{bail, ensure, Result};
+use dsi_bitstream::traits::{Endianness, BigEndian, LittleEndian};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,17 +85,23 @@ impl CompFlags {
         }
     }
 
-    pub fn to_properties(&self, num_nodes: usize, num_arcs: usize) -> String {
+    pub fn to_properties<E: Endianness>(&self, num_nodes: usize, num_arcs: u64) -> Result<String> {
         let mut s = String::new();
         s.push_str("#BVGraph properties\n");
-        s.push_str("version=0\n");
         s.push_str("graphclass=it.unimi.dsi.webgraph.BVGraph\n");
+
+        if core::any::TypeId::of::<E>() == core::any::TypeId::of::<BigEndian>() {
+            s.push_str("version=0\n");
+        } else {
+            s.push_str("version=1\n");
+        }
+        s.push_str(&format!("endianness={}\n", E::NAME));
+
         s.push_str(&format!("nodes={}\n", num_nodes));
         s.push_str(&format!("arcs={}\n", num_arcs));
         s.push_str(&format!("minintervallength={}\n", self.min_interval_length));
         s.push_str(&format!("maxrefcount={}\n", self.max_ref_count));
         s.push_str(&format!("windowsize={}\n", self.compression_window));
-        s.push_str("zetak=3\n");
         s.push_str("compressionflags=");
         let mut cflags = false;
         if self.outdegrees != Code::Gamma {
@@ -125,7 +132,7 @@ impl CompFlags {
             ));
             cflags = true;
         }
-        if self.residuals != (Code::Zeta { k: 3 }) {
+        if matches!(self.residuals, Code::Zeta{k:_}) {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
                 Self::code_to_str(self.residuals).unwrap()
@@ -136,12 +143,55 @@ impl CompFlags {
             s.pop();
         }
         s.push('\n');
-        s
+        // check that if a k is specified, it is the same for all codes
+        let mut k = None;
+        macro_rules! check_and_set_k {
+            ($code:expr) => {
+                match $code {
+                    Code::Zeta{k: new_k} => { 
+                        if let Some(old_k) = k {
+                            ensure!(old_k == new_k, "Only one value of k is supported")
+                        }
+                        k = Some(new_k) 
+                    }
+                    _ => {}
+                } 
+            };
+        }
+        check_and_set_k!(self.outdegrees);
+        check_and_set_k!(self.references);
+        check_and_set_k!(self.blocks);
+        check_and_set_k!(self.intervals);
+        check_and_set_k!(self.residuals);
+        // if no k was specified, use the default one (3)
+        s.push_str(&format!("zetak={}\n", k.unwrap_or(3)));
+        Ok(s)
     }
 
     /// Convert the decoded `.properties` file into a `CompFlags` struct.
-    pub fn from_properties(map: &HashMap<String, String>) -> Result<Self> {
+    /// Also check that the endiannes is correct.
+    pub fn from_properties<E: Endianness>(map: &HashMap<String, String>) -> Result<Self> {
         // Default values, same as the Java class
+        let endianness = map
+            .get("endianness")
+            .map(|x| x.to_string())
+            .unwrap_or_else(|| BigEndian::NAME.to_string());
+
+        anyhow::ensure!(
+            endianness == E::NAME,
+            "Wrong endianness, got {} while expected {}",
+            endianness,
+            E::NAME
+        );
+        // check that the version was properly set for LE
+        if core::any::TypeId::of::<E>() == core::any::TypeId::of::<LittleEndian>() {
+            anyhow::ensure!(
+                map.get("version").map(|x| x.parse::<u32>().unwrap()) == Some(1),
+                "Wrong version, got {} while expected 1",
+                map.get("version").unwrap_or(&"None".to_string())
+            );
+        }
+
         let mut cf = CompFlags::default();
         let mut k = 3;
         if let Some(spec_k) = map.get("zeta_k") {
@@ -151,7 +201,6 @@ impl CompFlags {
             }
             k = spec_k;
         }
-
         if let Some(comp_flags) = map.get("compressionflags") {
             if !comp_flags.is_empty() {
                 for flag in comp_flags.split('|') {

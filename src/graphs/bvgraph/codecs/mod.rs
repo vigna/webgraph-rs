@@ -66,7 +66,7 @@ pub trait Encoder {
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error>;
-    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error>;
+    fn write_block(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error>;

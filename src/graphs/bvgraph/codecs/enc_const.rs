@@ -123,7 +123,7 @@ impl<
         select_code_write!(self, BLOCKS, K, value)
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
+    fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_write!(self, BLOCKS, K, value)
     }
 
@@ -245,7 +245,7 @@ impl<
         select_code_mock_write!(BLOCKS, K, value)
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
+    fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
         select_code_mock_write!(BLOCKS, K, value)
     }
 

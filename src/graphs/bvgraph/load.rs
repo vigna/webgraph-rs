@@ -492,7 +492,9 @@ pub fn get_endianess<P: AsRef<Path>>(basename: P) -> Result<String> {
     Ok(endianness)
 }
 
-fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
+/// Read the .properties file and return the number of nodes, number of arcs and compression flags
+/// for the graph. The endianness is checked against the expected one.
+pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
     let name = path.as_ref().to_string_lossy();
     let f = std::fs::File::open(&path)
         .with_context(|| format!("Cannot open property file {}", name))?;
@@ -510,20 +512,7 @@ fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64
         .parse::<u64>()
         .with_context(|| format!("Cannot parse arcs as usize in {}", name))?;
 
-    let endianness = map
-        .get("endianness")
-        .map(|x| x.to_string())
-        .unwrap_or_else(|| BigEndian::NAME.to_string());
-
-    anyhow::ensure!(
-        endianness == E::NAME,
-        "Wrong endianness in {}, got {} while expected {}",
-        name,
-        endianness,
-        E::NAME
-    );
-
-    let comp_flags = CompFlags::from_properties(&map)
+    let comp_flags = CompFlags::from_properties::<E>(&map)
         .with_context(|| format!("Cannot parse compression flags from {}", name))?;
     Ok((num_nodes, num_arcs, comp_flags))
 }

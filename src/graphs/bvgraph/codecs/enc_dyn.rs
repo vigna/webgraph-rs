@@ -145,7 +145,7 @@ where
         (self.write_block_count)(&mut self.code_writer, value)
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
+    fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
         (self.write_blocks)(&mut self.code_writer, value)
     }
 
@@ -300,7 +300,7 @@ impl Encoder for DynCodesEstimator {
         Ok((self.len_block_count)(value))
     }
     #[inline(always)]
-    fn write_blocks(&mut self, value: u64) -> Result<usize, Self::Error> {
+    fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
         Ok((self.len_blocks)(value))
     }
 

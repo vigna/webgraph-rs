@@ -65,6 +65,18 @@ impl<D: Decoder> OffsetDegIter<D> {
         self.number_of_nodes
     }
 
+    /// Convert the decoder to another one.
+    pub fn map_decoder<D2: Decoder, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
+        OffsetDegIter {
+            decoder: f(self.decoder),
+            backrefs: self.backrefs,
+            node_id: self.node_id,
+            min_interval_length: self.min_interval_length,
+            compression_window: self.compression_window,
+            number_of_nodes: self.number_of_nodes,
+        }
+    }
+
     #[inline(always)]
     /// Manually get the next degree, this is what the iterator calls internally
     /// but it calls `.unwrap()` on it because the trait Graph doesn't allows

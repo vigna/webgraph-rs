@@ -96,7 +96,7 @@ impl BVComp<()> {
         }
 
         log::info!("Writing the .properties file");
-        let properties = compression_flags.to_properties(real_num_nodes, bvcomp.arcs);
+        let properties = compression_flags.to_properties::<BE>(real_num_nodes, bvcomp.arcs)?;
         std::fs::write(
             format!("{}.properties", basename.to_string_lossy()),
             properties,
@@ -185,7 +185,7 @@ impl BVComp<()> {
             // collect the handles in vec, otherwise the handles will be dropped
             // in-place calling a join and making the algorithm sequential.
             #[allow(clippy::type_complexity)]
-            let mut handles: Vec<Mutex<Option<ScopedJoinHandle<(usize, usize)>>>> = vec![];
+            let mut handles: Vec<Mutex<Option<ScopedJoinHandle<(usize, u64)>>>> = vec![];
             handles.resize_with(num_threads, || Mutex::new(None));
             let handles = Arc::new(handles);
 
@@ -342,7 +342,7 @@ impl BVComp<()> {
             result_writer.flush().unwrap();
 
             log::info!("Writing the .properties file");
-            let properties = compression_flags.to_properties(num_nodes, total_arcs);
+            let properties = compression_flags.to_properties::<BE>(num_nodes, total_arcs)?;
             std::fs::write(
                 format!("{}.properties", basename.to_string_lossy()),
                 properties,

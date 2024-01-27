@@ -38,7 +38,7 @@ pub struct BVComp<E> {
     /// parallel compression we need to work on different chunks
     start_node: usize,
     /// The number of arcs compressed so far
-    pub arcs: usize,
+    pub arcs: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,7 +101,7 @@ impl Compressor {
                     written_bits += writer.write_block_count(self.blocks.len() as _)?;
                     if !self.blocks.is_empty() {
                         for i in 0..self.blocks.len() {
-                            written_bits += writer.write_blocks((self.blocks[i] - 1) as u64)?;
+                            written_bits += writer.write_block((self.blocks[i] - 1) as u64)?;
                         }
                     }
                 }
@@ -337,7 +337,7 @@ impl<E: MeasurableEncoder> BVComp<E> {
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];
-        self.arcs += curr_list.len();
+        self.arcs += curr_list.len() as u64;
         // first try to compress the current node without references
         let compressor = &mut self.compressors[0];
         // Compute how we would compress this
