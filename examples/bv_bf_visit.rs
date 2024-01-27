@@ -40,7 +40,6 @@ where
     pl.start("Visiting graph...");
 
     for start in 0..num_nodes {
-        pl.update();
         if visited[start] {
             continue;
         }
@@ -48,6 +47,7 @@ where
         visited.set(start, true);
 
         while !queue.is_empty() {
+            pl.light_update();
             let current_node = queue.pop_front().unwrap();
             for succ in graph.successors(current_node) {
                 if !visited[succ] {
