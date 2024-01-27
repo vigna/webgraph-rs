@@ -14,7 +14,7 @@ use webgraph::prelude::*;
 struct Args {
     /// The basename of the graph.
     basename: String,
-    /// The basename of the transposed graph. Defaults to `basename` + `.t`.
+    /// The basename of the transposed graph. Defaults to `basename` + `-t`.
     transposed: Option<String>,
 
     #[clap(flatten)]
@@ -33,7 +33,7 @@ where
 {
     let transposed = args
         .transposed
-        .unwrap_or_else(|| args.basename.clone() + ".t");
+        .unwrap_or_else(|| args.basename.clone() + "-t");
 
     let seq_graph =
         webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)

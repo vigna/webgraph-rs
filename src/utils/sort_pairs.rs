@@ -233,6 +233,15 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     where
         S::SerType: Send + Sync + Copy,
     {
+        use std::io::Write;
+        let mut file = std::fs::File::create("/mnt/big/tmp/data.tsv").unwrap();
+        for Triple {
+            pair: [x, y],
+            label: _,
+        } in &*batch
+        {
+            file.write(format_args!("{}\t{}\n", x, y).to_string().as_bytes());
+        }
         let start = std::time::Instant::now();
         // batch.radix_sort_unstable(); Presently, this crashes on eu-2015
         batch.par_sort_unstable_by_key(
@@ -240,6 +249,9 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
                  pair: [src, dst], ..
              }| (*src, *dst),
         );
+        batch
+            .par_windows(2)
+            .for_each(|v| assert!(v[0].pair <= v[1].pair, "{:?} > {:?}", v[0].pair, v[1].pair));
         debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
         Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
     }
