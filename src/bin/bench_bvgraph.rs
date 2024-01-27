@@ -33,7 +33,7 @@ struct Args {
     #[arg(short = 'f', long)]
     first: bool,
 
-    /// Static dispatch for speed tests.
+    /// Static dispatch for random-access speed tests (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
     _static: bool,
 

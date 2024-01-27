@@ -17,17 +17,15 @@ use webgraph::prelude::*;
 struct Args {
     /// The basename of the graph.
     basename: String,
+    /// Static dispatch (default BVGraph parameters).
+    #[arg(short = 's', long = "static")]
+    _static: bool,
 }
 
-fn visit<E: Endianness + 'static>(args: Args) -> Result<()>
+fn visit(graph: impl RandomAccessGraph) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = BVGraph::with_basename(&args.basename)
-        .mode::<LoadMmap>()
-        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-        .endianness::<E>()
-        .load()?;
     let num_nodes = graph.num_nodes();
     let mut visited = bitvec![0; num_nodes];
     let mut queue = VecDeque::new();
@@ -71,17 +69,28 @@ pub fn main() -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()?;
 
+    let config = BVGraph::with_basename(&args.basename)
+        .mode::<LoadMmap>()
+        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
+
     match get_endianess(&args.basename)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => visit::<BE>(args),
+        BE::NAME => match args._static {
+            true => visit(config.endianness::<BE>().dispatch::<Static>().load()?),
+            false => visit(config.endianness::<BE>().load()?),
+        },
+
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => visit::<LE>(args),
+        LE::NAME => match args._static {
+            true => visit(config.endianness::<LE>().dispatch::<Static>().load()?),
+            false => visit(config.endianness::<LE>().load()?),
+        },
         e => panic!("Unknown endianness: {}", e),
     }
 }
