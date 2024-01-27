@@ -171,6 +171,8 @@ impl BVComp<()> {
     ) -> Result<usize>
     where
         L::Lender: Clone + Send + for<'next> NodeLabelsLender<'next, Label = usize>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
+        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         let tmp_dir = tmp_dir.as_ref();
         let basename = basename.as_ref();
@@ -222,10 +224,10 @@ impl BVComp<()> {
                     let thread_iter = iter.clone().take(nodes_per_thread);
                     let handle = s.spawn(move || {
                         log::info!("Thread {} started", thread_id,);
-                        let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
+                        let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
                             BufWriter::new(File::create(&file_path).unwrap()),
                         ));
-                        let codes_writer = <DynCodesEncoder<BE, _>>::new(writer, cp_flags);
+                        let codes_writer = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
                         let mut bvcomp = BVComp::new(
                             codes_writer,
                             cp_flags.compression_window,
@@ -261,10 +263,10 @@ impl BVComp<()> {
                 // handle the case when this is the only available thread
                 let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
                 // complete the last chunk
-                let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(
+                let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
                     BufWriter::new(File::create(last_file_path).unwrap()),
                 ));
-                let codes_writer = <DynCodesEncoder<BE, _>>::new(writer, &compression_flags);
+                let codes_writer = <DynCodesEncoder<E, _>>::new(writer, &compression_flags);
                 let mut bvcomp = BVComp::new(
                     codes_writer,
                     compression_flags.compression_window,
@@ -292,7 +294,7 @@ impl BVComp<()> {
 
             // create hte buffered writer
             let mut result_writer =
-                <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
+                <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
             let mut result_len = 0;
             let mut total_arcs = 0;
@@ -324,7 +326,7 @@ impl BVComp<()> {
                 );
                 result_len += bits_to_copy;
 
-                let mut reader = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(
+                let mut reader = <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(
                     BufReader::new(File::open(&file_path).unwrap()),
                 ));
                 // copy all the data

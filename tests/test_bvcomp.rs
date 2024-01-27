@@ -24,6 +24,10 @@ fn logger_init() {
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_bvcomp_slow() -> Result<()> {
+    _test_bvcomp_slow::<LE>().and(_test_bvcomp_slow::<BE>())
+}
+
+fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
     logger_init();
 
     let tmp_file = NamedTempFile::new()?;

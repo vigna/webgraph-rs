@@ -129,39 +129,34 @@ pub struct CompressArgs {
     pub max_ref_count: usize,
 
     #[arg(value_enum)]
-    #[clap(short, long, default_value = "gamma")]
+    #[clap(long, default_value = "gamma")]
     /// The code to use for the outdegree
-    pub outdegrees_code: PrivCode,
+    pub outdegrees: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(short, long, default_value = "unary")]
+    #[clap(long, default_value = "unary")]
     /// The code to use for the reference offsets
-    pub references_code: PrivCode,
+    pub references: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(short, long, default_value = "gamma")]
+    #[clap(long, default_value = "gamma")]
     /// The code to use for the blocks
-    pub blocks_code: PrivCode,
+    pub blocks: PrivCode,
 
     #[arg(value_enum)]
-    #[clap(short, long, default_value = "gamma")]
-    /// The code to use for the intervals
-    pub intervals_code: PrivCode,
-
-    #[arg(value_enum)]
-    #[clap(short = 'e', long, default_value = "zeta3")]
+    #[clap(long, default_value = "zeta3")]
     /// The code to use for the residuals
-    pub residuals_code: PrivCode,
+    pub residuals: PrivCode,
 }
 
 impl From<CompressArgs> for CompFlags {
     fn from(value: CompressArgs) -> Self {
         CompFlags {
-            outdegrees: value.outdegrees_code.into(),
-            references: value.references_code.into(),
-            blocks: value.blocks_code.into(),
-            intervals: value.intervals_code.into(),
-            residuals: value.residuals_code.into(),
+            outdegrees: value.outdegrees.into(),
+            references: value.references.into(),
+            blocks: value.blocks.into(),
+            intervals: PrivCode::Gamma.into(),
+            residuals: value.residuals.into(),
             min_interval_length: value.min_interval_length,
             compression_window: value.compression_window,
             max_ref_count: value.max_ref_count,

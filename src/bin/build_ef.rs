@@ -153,8 +153,7 @@ where
     pl.display_memory(true);
     pl.start("Writing to disk...");
     // serialize and dump the schema to disk
-    let schema = ef.serialize_with_schema(&mut ef_file)?;
-    std::fs::write(format!("{}.ef.schema", args.basename), schema.to_csv())?;
+    ef.serialize(&mut ef_file)?;
 
     pl.done();
     Ok(())
