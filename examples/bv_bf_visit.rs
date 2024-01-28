@@ -20,6 +20,9 @@ struct Args {
     /// Static dispatch (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
     _static: bool,
+    /// Static dispatch (default BVGraph parameters).
+    #[arg(short = 'r', long, default_value_t = 1)]
+    repeats: usize,
 }
 
 fn visit(graph: impl RandomAccessGraph) -> Result<()> {
@@ -70,24 +73,39 @@ pub fn main() -> Result<()> {
         .mode::<Mmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
 
-    match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        BE::NAME => match args._static {
-            true => visit(config.endianness::<BE>().dispatch::<Static>().load()?),
-            false => visit(config.endianness::<BE>().load()?),
-        },
+    for _ in 0..args.repeats {
+        match get_endianess(&args.basename)?.as_str() {
+            #[cfg(any(
+                feature = "be_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            BE::NAME => match args._static {
+                true => visit(
+                    config
+                        .clone()
+                        .endianness::<BE>()
+                        .dispatch::<Static>()
+                        .load()?,
+                )?,
+                false => visit(config.clone().endianness::<BE>().load()?)?,
+            },
 
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        LE::NAME => match args._static {
-            true => visit(config.endianness::<LE>().dispatch::<Static>().load()?),
-            false => visit(config.endianness::<LE>().load()?),
-        },
-        e => panic!("Unknown endianness: {}", e),
+            #[cfg(any(
+                feature = "le_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            LE::NAME => match args._static {
+                true => visit(
+                    config
+                        .clone()
+                        .endianness::<LE>()
+                        .dispatch::<Static>()
+                        .load()?,
+                )?,
+                false => visit(config.clone().endianness::<LE>().load()?)?,
+            },
+            e => panic!("Unknown endianness: {}", e),
+        };
     }
+    Ok(())
 }
