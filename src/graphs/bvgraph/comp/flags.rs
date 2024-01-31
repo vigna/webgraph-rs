@@ -6,7 +6,7 @@
  */
 
 use anyhow::{bail, ensure, Result};
-use dsi_bitstream::traits::{Endianness, BigEndian, LittleEndian};
+use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,7 +132,7 @@ impl CompFlags {
             ));
             cflags = true;
         }
-        if matches!(self.residuals, Code::Zeta{k:_}) {
+        if matches!(self.residuals, Code::Zeta { k: _ }) {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
                 Self::code_to_str(self.residuals).unwrap()
@@ -148,14 +148,14 @@ impl CompFlags {
         macro_rules! check_and_set_k {
             ($code:expr) => {
                 match $code {
-                    Code::Zeta{k: new_k} => { 
+                    Code::Zeta { k: new_k } => {
                         if let Some(old_k) = k {
                             ensure!(old_k == new_k, "Only one value of k is supported")
                         }
-                        k = Some(new_k) 
+                        k = Some(new_k)
                     }
                     _ => {}
-                } 
+                }
             };
         }
         check_and_set_k!(self.outdegrees);

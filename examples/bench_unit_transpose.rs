@@ -18,7 +18,7 @@ use webgraph::labels::Left;
 use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
 use webgraph::{algo, prelude::*};
 #[derive(Parser, Debug)]
-#[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]
+#[command(about = "Benchmark direct transposition and labeled transposition on a unit graph.", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
@@ -86,7 +86,7 @@ where
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let mut iter = Left(algo::transpose_labelled(&unit, 10_000_000, (), ())?).iter();
+        let mut iter = Left(algo::transpose_labeled(&unit, 10_000_000, (), ())?).iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {

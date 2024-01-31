@@ -96,11 +96,11 @@ impl SortPairs<(), ()> {
     /// The `dir` must be empty, and in particular it **must not** be shared
     /// with other `SortPairs` instances.
     pub fn new<P: AsRef<Path>>(batch_size: usize, dir: P) -> anyhow::Result<Self> {
-        Self::new_labelled(batch_size, dir, (), ())
+        Self::new_labeled(batch_size, dir, (), ())
     }
     /// Add a triple to the graph.
     pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
-        self.push_labelled(x, y, ())
+        self.push_labeled(x, y, ())
     }
 }
 
@@ -112,7 +112,7 @@ where
     ///
     /// The `dir` must be empty, and in particular it **must not** be shared
     /// with other `SortPairs` instances.
-    pub fn new_labelled<P: AsRef<Path>>(
+    pub fn new_labeled<P: AsRef<Path>>(
         batch_size: usize,
         dir: P,
         serializer: S,
@@ -137,7 +137,7 @@ where
     }
 
     /// Add a triple to the graph.
-    pub fn push_labelled(&mut self, x: usize, y: usize, t: S::SerType) -> anyhow::Result<()> {
+    pub fn push_labeled(&mut self, x: usize, y: usize, t: S::SerType) -> anyhow::Result<()> {
         self.batch.push(Triple {
             pair: [x, y],
             label: t,
@@ -157,7 +157,7 @@ where
 
         // create a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
-        BatchIterator::new_from_vec_labelled(
+        BatchIterator::new_from_vec_labeled(
             batch_name,
             &mut self.batch,
             &self.serializer,
@@ -185,7 +185,7 @@ where
     pub fn iter(&mut self) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
-            BatchIterator::new_labelled(
+            BatchIterator::new_labeled(
                 self.dir.join(format!("{:06x}", batch_idx)),
                 if batch_idx == self.num_batches - 1 {
                     self.last_batch_len
@@ -218,7 +218,7 @@ impl BatchIterator<()> {
         file_path: P,
         batch: &mut [(usize, usize)],
     ) -> anyhow::Result<Self> {
-        Self::new_from_vec_labelled(file_path, unsafe { core::mem::transmute(batch) }, &(), ())
+        Self::new_from_vec_labeled(file_path, unsafe { core::mem::transmute(batch) }, &(), ())
     }
     /// Dump the given triples in `file_path` and return an iterator
     /// over them, assuming they are already sorted
@@ -226,7 +226,7 @@ impl BatchIterator<()> {
         file_path: P,
         batch: &[(usize, usize)],
     ) -> anyhow::Result<Self> {
-        Self::new_from_vec_sorted_labelled(
+        Self::new_from_vec_sorted_labeled(
             file_path,
             unsafe { core::mem::transmute(batch) },
             &(),
@@ -236,7 +236,7 @@ impl BatchIterator<()> {
 
     /// Create a new iterator over the triples previously serialized in `file_path`
     pub fn new<P: AsRef<std::path::Path>>(file_path: P, len: usize) -> anyhow::Result<Self> {
-        Self::new_labelled(file_path, len, ())
+        Self::new_labeled(file_path, len, ())
     }
 }
 
@@ -244,7 +244,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     /// Sort the given triples in memory, dump them in `file_path` and return an iterator
     /// over them
     #[inline]
-    pub fn new_from_vec_labelled<S: BitSerializer<NE, BitWriter>>(
+    pub fn new_from_vec_labeled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
         batch: &mut [Triple<S::SerType>],
         serializer: &S,
@@ -257,12 +257,12 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         // batch.radix_sort_unstable(); Presently, this crashes on eu-2015
         batch.par_sort_unstable();
         debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
-        Self::new_from_vec_sorted_labelled(file_path, batch, serializer, deserializer)
+        Self::new_from_vec_sorted_labeled(file_path, batch, serializer, deserializer)
     }
 
     /// Dump the given triples in `file_path` and return an iterator
     /// over them, assuming they are already sorted
-    pub fn new_from_vec_sorted_labelled<S: BitSerializer<NE, BitWriter>>(
+    pub fn new_from_vec_sorted_labeled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
         batch: &[Triple<S::SerType>],
         serializer: &S,
@@ -304,11 +304,11 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         // flush the stream and reset the buffer
         stream.flush().context("Could not flush stream")?;
 
-        Self::new_labelled(file_path.as_ref(), batch.len(), deserializer)
+        Self::new_labeled(file_path.as_ref(), batch.len(), deserializer)
     }
 
     /// Create a new iterator over the triples previously serialized in `file_path`
-    pub fn new_labelled<P: AsRef<std::path::Path>>(
+    pub fn new_labeled<P: AsRef<std::path::Path>>(
         file_path: P,
         len: usize,
         deserializer: D,
@@ -465,10 +465,10 @@ pub fn test_sort_pairs() -> anyhow::Result<()> {
         }
     }
     let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
-    let mut sp = SortPairs::new_labelled(10, dir.path(), MyDessert, MyDessert)?;
+    let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
     let n = 25;
     for i in 0..n {
-        sp.push_labelled(i, i + 1, i + 2)?;
+        sp.push_labeled(i, i + 1, i + 2)?;
     }
     let mut iter = sp.iter()?;
     let mut cloned = iter.clone();

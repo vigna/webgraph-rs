@@ -39,7 +39,7 @@ impl BVGraphSeq<()> {
     }
 }
 
-impl<F: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<F> {
+impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     type Label = usize;
     type Iterator<'a> = Iter<F::Decoder<'a>>
     where
@@ -76,7 +76,7 @@ impl<F: SequentialDecoderFactory> SequentialLabelling for BVGraphSeq<F> {
 impl<F: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<F> {}
 
 impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
-    type Lender = <BVGraphSeq<F> as SequentialLabelling>::Iterator<'a>;
+    type Lender = <BVGraphSeq<F> as SequentialLabeling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

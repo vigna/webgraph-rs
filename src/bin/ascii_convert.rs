@@ -10,7 +10,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use webgraph::graphs::bvgraph::{get_endianess, CodeRead};
-use webgraph::traits::SequentialLabelling;
+use webgraph::traits::SequentialLabeling;
 
 #[derive(Parser, Debug)]
 #[command(about = "Dumps a graph as an COO arc list", long_about = None)]

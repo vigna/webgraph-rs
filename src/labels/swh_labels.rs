@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::graphs::bvgraph::EF;
-use crate::prelude::{MmapBackend, NodeLabelsLender, RandomAccessLabelling, SequentialLabelling};
+use crate::prelude::{MmapBackend, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 
 pub trait ReaderBuilder {
     /// The type of the reader that we are building
@@ -149,7 +149,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqL
     }
 }
 
-impl SequentialLabelling
+impl SequentialLabeling
     for SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>>
 {
     type Label = Vec<u64>;
@@ -195,7 +195,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabel
     }
 }
 
-impl RandomAccessLabelling
+impl RandomAccessLabeling
     for SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>>
 {
     type Labels<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
@@ -204,7 +204,7 @@ impl RandomAccessLabelling
         todo!();
     }
 
-    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         let mut reader = self.reader_builder.get_reader();
         reader
             .set_bit_pos(self.offsets.get(node_id) as u64)

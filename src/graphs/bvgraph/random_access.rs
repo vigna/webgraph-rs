@@ -86,7 +86,7 @@ where
     }
 }
 
-impl<F> SequentialLabelling for BVGraph<F>
+impl<F> SequentialLabeling for BVGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
@@ -129,7 +129,7 @@ where
 
 impl<F> SequentialGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
-impl<F> RandomAccessLabelling for BVGraph<F>
+impl<F> RandomAccessLabeling for BVGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
@@ -367,7 +367,7 @@ impl<D: Decoder> Iterator for Succ<D> {
 }
 
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BVGraph<F> {
-    type Lender = <BVGraph<F> as SequentialLabelling>::Iterator<'a>;
+    type Lender = <BVGraph<F> as SequentialLabeling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

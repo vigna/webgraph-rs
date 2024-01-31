@@ -25,7 +25,7 @@ struct Args {
     batch: usize,
     /// Use 128-bit labels that are neither read nor written.
     #[arg(short = 'l', long)]
-    labelled: bool,
+    labeled: bool,
 }
 
 /// No-op serializer/deserializer (as we want to check the merge speed)
@@ -61,8 +61,8 @@ pub fn main() -> Result<()> {
 
     let dir = Builder::new().prefix("bench_sort_pairs").tempdir()?;
 
-    if args.labelled {
-        let mut sp = SortPairs::<Mock, Mock>::new_labelled(args.batch, dir.path(), Mock(), Mock())?;
+    if args.labeled {
+        let mut sp = SortPairs::<Mock, Mock>::new_labeled(args.batch, dir.path(), Mock(), Mock())?;
 
         let mut r = SmallRng::seed_from_u64(0);
 
@@ -70,7 +70,7 @@ pub fn main() -> Result<()> {
 
         pl.start("Writing...");
         for _ in 0..args.n {
-            sp.push_labelled(r.next_u64() as usize, r.next_u64() as usize, 0)?;
+            sp.push_labeled(r.next_u64() as usize, r.next_u64() as usize, 0)?;
             pl.light_update();
         }
         pl.done();

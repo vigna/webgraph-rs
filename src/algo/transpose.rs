@@ -7,7 +7,7 @@
 use crate::graphs::arc_list_graph;
 use crate::prelude::proj::Left;
 use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, SortPairs};
-use crate::prelude::{BitDeserializer, BitSerializer, LabelledSequentialGraph, SequentialGraph};
+use crate::prelude::{BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
@@ -17,11 +17,11 @@ use tempfile::Builder;
 
 /// Create transpose the graph and return a sequential graph view of it
 #[allow(clippy::type_complexity)]
-pub fn transpose_labelled<
+pub fn transpose_labeled<
     S: BitSerializer<NE, BitWriter> + Clone,
     D: BitDeserializer<NE, BitReader> + Clone + 'static,
 >(
-    graph: &impl LabelledSequentialGraph<S::SerType>,
+    graph: &impl LabeledSequentialGraph<S::SerType>,
     batch_size: usize,
     serializer: S,
     deserializer: D,
@@ -31,7 +31,7 @@ where
     D::DeserType: Clone + Copy,
 {
     let dir = Builder::new().prefix("Transpose").tempdir()?;
-    let mut sorted = SortPairs::new_labelled(batch_size, dir.path(), serializer, deserializer)?;
+    let mut sorted = SortPairs::new_labeled(batch_size, dir.path(), serializer, deserializer)?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -40,12 +40,12 @@ where
     // create batches of sorted edges
     for_!( (src, succ) in graph.iter() {
         for (dst, l) in succ {
-            sorted.push_labelled(dst, src, l)?;
+            sorted.push_labeled(dst, src, l)?;
         }
         pl.light_update();
     });
     // merge the batches
-    let sorted = arc_list_graph::ArcListGraph::new_labelled(graph.num_nodes(), sorted.iter()?);
+    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), sorted.iter()?);
     pl.done();
 
     Ok(sorted)
@@ -55,7 +55,7 @@ pub fn transpose(
     graph: impl SequentialGraph,
     batch_size: usize,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
-    Ok(Left(transpose_labelled(
+    Ok(Left(transpose_labeled(
         &UnitLabelGraph(graph),
         batch_size,
         (),
@@ -82,12 +82,12 @@ fn test_transposition() -> anyhow::Result<()> {
 
 #[cfg(test)]
 #[cfg_attr(test, test)]
-fn test_transposition_labelled() -> anyhow::Result<()> {
+fn test_transposition_labeled() -> anyhow::Result<()> {
     use dsi_bitstream::codes::{GammaRead, GammaWrite};
     use dsi_bitstream::traits::{BitRead, BitWrite};
 
     use crate::graphs::vec_graph::VecGraph;
-    use crate::traits::SequentialLabelling;
+    use crate::traits::SequentialLabeling;
 
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct Payload(f64);
@@ -145,15 +145,15 @@ fn test_transposition_labelled() -> anyhow::Result<()> {
     ];
 
     // TODO pass &arcs
-    let g = VecGraph::<Payload>::from_labelled_arc_list(arcs);
+    let g = VecGraph::<Payload>::from_labeled_arc_list(arcs);
 
-    let trans = transpose_labelled(&g, 2, BS {}, BD {})?;
-    let g2 = VecGraph::<Payload>::from_labelled_lender(trans.iter());
+    let trans = transpose_labeled(&g, 2, BS {}, BD {})?;
+    let g2 = VecGraph::<Payload>::from_labeled_lender(trans.iter());
 
-    let trans = transpose_labelled(&g2, 2, BS {}, BD {})?;
-    let g3 = VecGraph::<Payload>::from_labelled_lender(trans.iter());
+    let trans = transpose_labeled(&g2, 2, BS {}, BD {})?;
+    let g3 = VecGraph::<Payload>::from_labeled_lender(trans.iter());
 
-    let g4 = VecGraph::from_labelled_lender(g.iter());
+    let g4 = VecGraph::from_labeled_lender(g.iter());
 
     assert_eq!(g3, g4);
 

@@ -19,7 +19,7 @@ pub struct PermutedGraph<'a, G: SequentialGraph> {
     pub perm: &'a [usize],
 }
 
-impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
+impl<'a, G: SequentialGraph> SequentialLabeling for PermutedGraph<'a, G> {
     type Label = usize;
     type Iterator<'b> = Iter<'b, G::Iterator<'b>>
         where
@@ -47,7 +47,7 @@ impl<'a, G: SequentialGraph> SequentialLabelling for PermutedGraph<'a, G> {
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {}
 
 impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
-    type Lender = <PermutedGraph<'a, G> as SequentialLabelling>::Iterator<'b>;
+    type Lender = <PermutedGraph<'a, G> as SequentialLabeling>::Iterator<'b>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

@@ -10,20 +10,20 @@ Left and right projections.
 
 The two structures in this module, [`Left`] and [`Right`], provide
 projection of a graph whose labels are pairs. In particular,
-`Left(Zip(g,h))` is the same labelling as `g` and
-`Right(Zip(g,h))` is the same labelling as `h'.
+`Left(Zip(g,h))` is the same labeling as `g` and
+`Right(Zip(g,h))` is the same labeling as `h'.
 
 */
 use lender::{IntoLender, Lend, Lender, Lending};
 
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
-    RandomAccessLabelling, SequentialGraph, SequentialLabelling,
+    RandomAccessLabeling, SequentialGraph, SequentialLabeling,
 };
 
 // The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct Left<S: SequentialLabelling>(pub S)
+pub struct Left<S: SequentialLabeling>(pub S)
 where
     S::Label: Pair;
 
@@ -94,11 +94,11 @@ where
     }
 }
 
-impl<'a, S: SequentialLabelling> IntoLender for &'a Left<S>
+impl<'a, S: SequentialLabeling> IntoLender for &'a Left<S>
 where
     S::Label: Pair,
 {
-    type Lender = <Left<S> as SequentialLabelling>::Iterator<'a>;
+    type Lender = <Left<S> as SequentialLabeling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<S: SequentialLabelling> SequentialLabelling for Left<S>
+impl<S: SequentialLabeling> SequentialLabeling for Left<S>
 where
     S::Label: Pair,
 {
@@ -129,11 +129,11 @@ where
     }
 }
 
-impl<R: RandomAccessLabelling> RandomAccessLabelling for Left<R>
+impl<R: RandomAccessLabeling> RandomAccessLabeling for Left<R>
 where
     R::Label: Pair,
 {
-    type Labels<'succ> = LeftIntoIterator<<R as RandomAccessLabelling>::Labels<'succ>>
+    type Labels<'succ> = LeftIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -141,7 +141,7 @@ where
         self.0.num_arcs()
     }
 
-    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         LeftIntoIterator(self.0.labels(node_id))
     }
 
@@ -150,13 +150,13 @@ where
     }
 }
 
-impl<S: SequentialLabelling> SequentialGraph for Left<S> where S::Label: Pair<Left = usize> {}
+impl<S: SequentialLabeling> SequentialGraph for Left<S> where S::Label: Pair<Left = usize> {}
 
-impl<R: RandomAccessLabelling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
+impl<R: RandomAccessLabeling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
 
 // The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct Right<S: SequentialLabelling>(pub S)
+pub struct Right<S: SequentialLabeling>(pub S)
 where
     S::Label: Pair;
 
@@ -227,11 +227,11 @@ where
     }
 }
 
-impl<'a, S: SequentialLabelling> IntoLender for &'a Right<S>
+impl<'a, S: SequentialLabeling> IntoLender for &'a Right<S>
 where
     S::Label: Pair,
 {
-    type Lender = <Right<S> as SequentialLabelling>::Iterator<'a>;
+    type Lender = <Right<S> as SequentialLabeling>::Iterator<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -239,7 +239,7 @@ where
     }
 }
 
-impl<S: SequentialLabelling> SequentialLabelling for Right<S>
+impl<S: SequentialLabeling> SequentialLabeling for Right<S>
 where
     S::Label: Pair,
 {
@@ -262,11 +262,11 @@ where
     }
 }
 
-impl<R: RandomAccessLabelling> RandomAccessLabelling for Right<R>
+impl<R: RandomAccessLabeling> RandomAccessLabeling for Right<R>
 where
     R::Label: Pair,
 {
-    type Labels<'succ> = RightIntoIterator<<R as RandomAccessLabelling>::Labels<'succ>>
+    type Labels<'succ> = RightIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -274,7 +274,7 @@ where
         self.0.num_arcs()
     }
 
-    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabelling>::Labels<'_> {
+    fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         RightIntoIterator(self.0.labels(node_id))
     }
 
@@ -283,6 +283,6 @@ where
     }
 }
 
-impl<S: SequentialLabelling> SequentialGraph for Right<S> where S::Label: Pair<Right = usize> {}
+impl<S: SequentialLabeling> SequentialGraph for Right<S> where S::Label: Pair<Right = usize> {}
 
-impl<R: RandomAccessLabelling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}
+impl<R: RandomAccessLabeling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}

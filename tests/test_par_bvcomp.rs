@@ -26,7 +26,9 @@ fn test_par_bvcomp() -> Result<()> {
         webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename("tests/data/cnr-2000")
             .endianness::<BE>()
             .load()?;
-    let expected_size = std::fs::File::open("tests/data/cnr-2000.graph")?.metadata()?.len();
+    let expected_size = std::fs::File::open("tests/data/cnr-2000.graph")?
+        .metadata()?
+        .len();
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
@@ -44,7 +46,9 @@ fn test_par_bvcomp() -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let found_size = std::fs::File::open(format!("{}.graph", tmp_basename))?.metadata()?.len();
+        let found_size = std::fs::File::open(format!("{}.graph", tmp_basename))?
+            .metadata()?
+            .len();
 
         if (found_size as f64) > (expected_size as f64) * 1.1 {
             panic!(
