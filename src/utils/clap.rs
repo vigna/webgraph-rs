@@ -40,7 +40,13 @@ pub enum PrivCode {
     Unary,
     Gamma,
     Delta,
+    Zeta1,
+    Zeta2,
     Zeta3,
+    Zeta4,
+    Zeta5,
+    Zeta6,
+    Zeta7,
 }
 
 impl From<PrivCode> for Code {
@@ -49,7 +55,13 @@ impl From<PrivCode> for Code {
             PrivCode::Unary => Code::Unary,
             PrivCode::Gamma => Code::Gamma,
             PrivCode::Delta => Code::Delta,
+            PrivCode::Zeta1 => Code::Zeta { k: 1 },
+            PrivCode::Zeta2 => Code::Zeta { k: 2 },
             PrivCode::Zeta3 => Code::Zeta { k: 3 },
+            PrivCode::Zeta4 => Code::Zeta { k: 4 },
+            PrivCode::Zeta5 => Code::Zeta { k: 5 },
+            PrivCode::Zeta6 => Code::Zeta { k: 6 },
+            PrivCode::Zeta7 => Code::Zeta { k: 7 },
         }
     }
 }
