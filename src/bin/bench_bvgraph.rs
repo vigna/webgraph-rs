@@ -33,7 +33,7 @@ struct Args {
     #[arg(short = 'f', long)]
     first: bool,
 
-    /// Static dispatch for random-access speed tests (default BVGraph parameters).
+    /// Static dispatch for speed tests (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
     _static: bool,
 
@@ -84,6 +84,24 @@ fn bench_random<E: Endianness>(
             if first { "First" } else { "Random" },
             (start.elapsed().as_secs_f64() / c as f64) * 1e9
         );
+    }
+}
+
+fn bench_seq<E: Endianness>(graph: impl SequentialGraph, repeats: usize) {
+    for _ in 0..repeats {
+        let mut c: u64 = 0;
+
+        let start = std::time::Instant::now();
+        let mut iter = graph.iter();
+        while let Some((_, succ)) = iter.next() {
+            c += succ.into_iter().count() as u64;
+        }
+        println!(
+            "Sequential:{:>20} ns/arc",
+            (start.elapsed().as_secs_f64() / c as f64) * 1e9
+        );
+
+        assert_eq!(c, graph.num_arcs_hint().unwrap());
     }
 }
 
@@ -155,26 +173,26 @@ where
             );
         }
     } else {
-        // Sequential speed testx
-        for _ in 0..args.repeats {
-            // Create a sequential reader
-            let mut c: u64 = 0;
-
-            let seq_graph = BVGraphSeq::with_basename(&args.basename)
-                .endianness::<E>()
-                .load()?;
-
-            let start = std::time::Instant::now();
-            let mut iter = seq_graph.iter();
-            while let Some((_, succ)) = iter.next() {
-                c += succ.count() as u64;
-            }
-            println!(
-                "Sequential:{:>20} ns/arc",
-                (start.elapsed().as_secs_f64() / c as f64) * 1e9
+        if std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>() {
+            bench_seq::<E>(
+                BVGraphSeq::with_basename(&args.basename)
+                    .endianness::<E>()
+                    .dispatch::<Dynamic>()
+                    .mode::<Mmap>()
+                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
+                    .load()?,
+                args.repeats,
             );
-
-            assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
+        } else {
+            bench_seq::<E>(
+                BVGraphSeq::with_basename(&args.basename)
+                    .endianness::<E>()
+                    .dispatch::<Static>()
+                    .mode::<Mmap>()
+                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
+                    .load()?,
+                args.repeats,
+            );
         }
     }
     Ok(())

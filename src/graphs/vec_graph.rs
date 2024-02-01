@@ -11,6 +11,7 @@ use lender::prelude::*;
 use std::iter::Iterator;
 use std::{collections::BTreeSet, mem::MaybeUninit};
 
+#[doc(hidden)]
 /// A struct containing a successor.
 ///
 /// By implementing equality and order on the first coordinate only, we
