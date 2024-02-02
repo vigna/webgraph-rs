@@ -73,7 +73,7 @@ fn test_transposition() -> anyhow::Result<()> {
     let trans = transpose(&g, 3)?;
     let g2 = Left(VecGraph::from_lender(&trans));
 
-    let trans = transpose(&g2, 3)?;
+    let trans = transpose(g2, 3)?;
     let g3 = Left(VecGraph::from_lender(&trans));
 
     assert_eq!(g, g3);

@@ -108,7 +108,7 @@ impl LoadMode for File {
         graph: &PathBuf,
         _flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        Ok(FileFactory::<E>::new(graph)?)
+        FileFactory::<E>::new(graph)
     }
 
     fn load_offsets(offsets: &PathBuf, _flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
@@ -127,7 +127,7 @@ impl LoadMode for Mmap {
     type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
-        Ok(MmapBackend::load(graph, flags.into())?)
+        MmapBackend::load(graph, flags.into())
     }
 
     fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
@@ -147,11 +147,11 @@ impl LoadMode for LoadMem {
         graph: &PathBuf,
         _flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        Ok(MemoryFactory::<E, _>::new_mem(graph)?)
+        MemoryFactory::<E, _>::new_mem(graph)
     }
 
     fn load_offsets(offsets: &PathBuf, _flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
-        Ok(EF::load_mem(offsets)?)
+        EF::load_mem(offsets)
     }
 }
 
@@ -166,7 +166,7 @@ impl LoadMode for LoadMmap {
     type Offsets = <EF as DeserializeInner>::DeserType<'static>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
-        Ok(MemoryFactory::<E, _>::new_mmap(graph, flags)?)
+        MemoryFactory::<E, _>::new_mmap(graph, flags)
     }
 
     fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {

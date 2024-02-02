@@ -93,7 +93,7 @@ where
     #[inline(always)]
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         Ok(StatsDecoder::new(
-            &self,
+            self,
             self.factory.new_decoder()?,
             DecoderStats::default(),
         ))

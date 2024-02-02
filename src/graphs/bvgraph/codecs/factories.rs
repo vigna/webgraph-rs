@@ -206,7 +206,7 @@ impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M>
         Self: 'a;
 
     fn new_reader(&self) -> Self::BitReader<'_> {
-        BufBitReader::<E, _>::new(MemWordReader::new(self.data.as_ref().as_ref()))
+        BufBitReader::<E, _>::new(MemWordReader::new(self.data.as_ref()))
     }
 }
 

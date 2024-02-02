@@ -184,7 +184,7 @@ impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'a, L, 
 #[cfg_attr(test, test)]
 fn test() -> anyhow::Result<()> {
     use crate::graphs::vec_graph::VecGraph;
-    let arcs = vec![
+    let arcs = [
         (0, 1, Some(1.0)),
         (0, 2, None),
         (1, 2, Some(2.0)),

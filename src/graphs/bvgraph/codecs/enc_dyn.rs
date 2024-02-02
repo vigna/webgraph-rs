@@ -243,7 +243,7 @@ impl DynCodesEstimator {
             Code::Unary => len_unary,
             Code::Gamma => len_gamma,
             Code::Delta => len_delta,
-            Code::Zeta { k: 1 } => |x| len_gamma(x),
+            Code::Zeta { k: 1 } => len_gamma,
             Code::Zeta { k: 2 } => |x| len_zeta(x, 2),
             Code::Zeta { k: 3 } => |x| len_zeta(x, 3),
             Code::Zeta { k: 4 } => |x| len_zeta(x, 4),

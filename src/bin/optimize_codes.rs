@@ -22,7 +22,7 @@ fn optimize_codes<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = BVGraphSeq::with_basename(&args.basename)
+    let graph = BVGraphSeq::with_basename(args.basename)
         .endianness::<E>()
         .load()?
         .map_factory(StatsDecoderFactory::new);

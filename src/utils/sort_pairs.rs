@@ -9,7 +9,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
 use dary_heap::{self, PeekMut};
 use dsi_bitstream::prelude::*;
-use log::{debug, info};
+use log::debug;
 use mmap_rs::MmapFlags;
 use rayon::prelude::*;
 use rdst::*;
@@ -450,7 +450,7 @@ pub fn test_sort_pairs() -> anyhow::Result<()> {
             &self,
             bitstream: &mut BitReader,
         ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
-            Ok(bitstream.read_delta().map(|x| x as usize)?)
+            bitstream.read_delta().map(|x| x as usize)
         }
     }
 
@@ -461,7 +461,7 @@ pub fn test_sort_pairs() -> anyhow::Result<()> {
             value: &Self::SerType,
             bitstream: &mut BitWriter,
         ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
-            Ok(bitstream.write_delta(*value as u64)?)
+            bitstream.write_delta(*value as u64)
         }
     }
     let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
