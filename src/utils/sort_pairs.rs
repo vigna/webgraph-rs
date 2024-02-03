@@ -9,9 +9,10 @@ use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
 use dary_heap::{self, PeekMut};
 use dsi_bitstream::prelude::*;
-use log::debug;
+use log::{debug, info};
 use mmap_rs::MmapFlags;
 use rayon::prelude::*;
+use rdst::tuner::*;
 use rdst::*;
 use std::{
     fs::File,
@@ -24,6 +25,18 @@ use std::{
 pub struct Triple<L: Copy> {
     pair: [usize; 2],
     label: L,
+}
+
+struct MyTuner {}
+
+impl Tuner for MyTuner {
+    fn pick_algorithm(&self, p: &TuningParams, _counts: &[usize]) -> Algorithm {
+        if p.input_len >= 500_000 {
+            Algorithm::MtLsb
+        } else {
+            Algorithm::Lsb
+        }
+    }
 }
 
 impl<T: Copy> RadixKey for Triple<T> {
@@ -254,8 +267,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         S::SerType: Send + Sync + Copy,
     {
         let start = std::time::Instant::now();
-        // batch.radix_sort_unstable(); Presently, this crashes on eu-2015
-        batch.par_sort_unstable();
+        batch.radix_sort_unstable();
         debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
         Self::new_from_vec_sorted_labeled(file_path, batch, serializer, deserializer)
     }
