@@ -6,6 +6,7 @@
  */
 
 use anyhow::Result;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use webgraph::prelude::*;
@@ -21,14 +22,20 @@ fn test_par_bvcomp() -> Result<()> {
     let tmp_basename = "tests/data/cnr-2000-par";
 
     // load the graph
-    let graph = webgraph::graph::bvgraph::load_seq("tests/data/cnr-2000")?;
+    let graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename("tests/data/cnr-2000")
+            .endianness::<BE>()
+            .load()?;
+    let expected_size = std::fs::File::open("tests/data/cnr-2000.graph")?
+        .metadata()?
+        .len();
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
+        BVComp::parallel::<BE, _>(
             tmp_basename,
             &graph,
             graph.num_nodes(),
@@ -39,7 +46,21 @@ fn test_par_bvcomp() -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let comp_graph = webgraph::graph::bvgraph::load_seq(tmp_basename)?;
+        let found_size = std::fs::File::open(format!("{}.graph", tmp_basename))?
+            .metadata()?
+            .len();
+
+        if (found_size as f64) > (expected_size as f64) * 1.1 {
+            panic!(
+                "The compressed graph is too big: {} > {}",
+                found_size, expected_size
+            );
+        }
+
+        let comp_graph =
+            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(tmp_basename)
+                .endianness::<BE>()
+                .load()?;
         let mut iter = comp_graph.iter();
 
         let mut pr = ProgressLogger::default();

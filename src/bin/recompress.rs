@@ -6,6 +6,7 @@
 
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -34,16 +35,48 @@ pub fn main() -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()
         .unwrap();
+    let target_endianness = args.ca.endianess.clone();
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => {
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                .endianness::<BE>()
+                .load()?;
 
-    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-    webgraph::graph::bvgraph::parallel_compress_sequential_iter::<&BVGraphSequential<_>, _>(
-        args.new_basename,
-        &seq_graph,
-        seq_graph.num_nodes(),
-        args.ca.into(),
-        args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
-    )?;
+            BVComp::parallel_endianness(
+                args.new_basename,
+                &seq_graph,
+                seq_graph.num_nodes(),
+                args.ca.into(),
+                args.num_cpus.num_cpus,
+                temp_dir(args.pa.temp_dir),
+                &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+            )?;
+        }
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => {
+            let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                .endianness::<LE>()
+                .load()?;
+
+            BVComp::parallel_endianness(
+                args.new_basename,
+                &seq_graph,
+                seq_graph.num_nodes(),
+                args.ca.into(),
+                args.num_cpus.num_cpus,
+                temp_dir(args.pa.temp_dir),
+                &target_endianness.unwrap_or_else(|| LE::NAME.into()),
+            )?;
+        }
+        e => panic!("Unknown endianness: {}", e),
+    };
 
     Ok(())
 }

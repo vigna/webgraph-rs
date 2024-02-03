@@ -114,9 +114,9 @@ pub fn harness(data: FuzzCase) {
     };
     // create code reader builders
     let codes_reader_be =
-        <DynamicCodesReaderBuilder<BE, _>>::new(data_be, comp_flags.clone()).unwrap();
+        <DynCodesDecoderFactory<BE, _>>::new(data_be, comp_flags.clone()).unwrap();
     let codes_reader_le =
-        <DynamicCodesReaderBuilder<LE, _>>::new(data_le, comp_flags.clone()).unwrap();
+        <DynCodesDecoderFactory<LE, _>>::new(data_le, comp_flags.clone()).unwrap();
 
     // test sequential graphs and build the offsets
     let mut efb = EliasFanoBuilder::new(
@@ -175,9 +175,9 @@ pub fn harness(data: FuzzCase) {
 
     // create code reader builders
     let codes_reader_be =
-        <DynamicCodesReaderBuilder<BE, _>>::new(data_be, comp_flags.clone()).unwrap();
+        <DynCodesDecoderFactory<BE, _>>::new(data_be, comp_flags.clone()).unwrap();
     let codes_reader_le =
-        <DynamicCodesReaderBuilder<LE, _>>::new(data_le, comp_flags.clone()).unwrap();
+        <DynCodesDecoderFactory<LE, _>>::new(data_le, comp_flags.clone()).unwrap();
 
     // Create the two bvgraphs
     let graph_be: BVGraph<_, _> = BVGraph::new(

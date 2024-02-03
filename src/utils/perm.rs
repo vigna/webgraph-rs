@@ -8,7 +8,6 @@ use crate::utils::MmapBackend;
 use anyhow::Result;
 use mmap_rs::{Mmap, MmapFlags, MmapMut};
 use std::path::Path;
-use std::sync::Arc;
 use sux::traits::bit_field_slice::BitFieldSlice;
 use sux::traits::bit_field_slice::BitFieldSliceMut;
 use sux::traits::*;
@@ -21,7 +20,7 @@ use sux::traits::*;
 /// values from [`epserde`] implement it.
 ///
 /// The java format is an array of big endian u64s.
-pub struct JavaPermutation<M = Arc<Mmap>> {
+pub struct JavaPermutation<M = Mmap> {
     pub perm: MmapBackend<u64, M>,
 }
 

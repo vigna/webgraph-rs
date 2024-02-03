@@ -1,11 +1,12 @@
 use clap::Parser;
+use dsi_bitstream::prelude::{Endianness, BE};
 use dsi_progress_logger::*;
-use itertools::{Dedup, Itertools};
+use itertools::Itertools;
 use rayon::slice::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
-use webgraph::graph::arc_list_graph::ArcListGraph;
-use webgraph::graph::bvgraph::parallel_compress_sequential_iter;
+use webgraph::graphs::arc_list_graph::ArcListGraph;
+use webgraph::labels::Left;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -101,22 +102,24 @@ fn main() {
     log::info!("Arcs read: {}", line_id);
 
     // conver the iter to a graph
-    let g = ArcListGraph::new(
+    let g = Left(ArcListGraph::new(
         args.num_nodes,
         group_by
             .iter()
             .unwrap()
             .map(|(src, dst, _)| (src, dst))
             .dedup(),
-    );
+    ));
     // compress it
-    parallel_compress_sequential_iter::<&ArcListGraph<Dedup<std::iter::Map<KMergeIters<_>, _>>>, _>(
+    let target_endianness = args.ca.endianess.clone();
+    BVComp::parallel_endianness(
         &args.basename,
         &g,
         args.num_nodes,
         args.ca.into(),
         args.num_cpus.num_cpus,
         temp_dir(args.pa.temp_dir),
+        &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
     .unwrap();
 

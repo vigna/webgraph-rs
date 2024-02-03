@@ -7,7 +7,7 @@
 use anyhow::{Context, Result};
 use core::fmt::Debug;
 use mmap_rs::*;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 /// Adapt an [`Mmap`] that implements [`AsRef<[u8]>`] into a [`AsRef<[W]>`].
 ///
@@ -23,7 +23,7 @@ use std::sync::Arc;
 /// The main usecases are to be able to easily mmap slices to disk, and to be able
 /// to read a bitstream form mmap.
 #[derive(Clone)]
-pub struct MmapBackend<W, M = Arc<Mmap>> {
+pub struct MmapBackend<W, M = Mmap> {
     mmap: M,
     len: usize,
     _marker: core::marker::PhantomData<W>,
@@ -47,9 +47,19 @@ impl<W: Debug> Debug for MmapBackend<W, MmapMut> {
     }
 }
 
+impl<W> From<Mmap> for MmapBackend<W> {
+    fn from(mmap: Mmap) -> Self {
+        Self {
+            len: mmap.len(),
+            mmap,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
 impl<W> MmapBackend<W> {
     /// Create a new MmapBackend
-    pub fn load<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
+    pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
             .metadata()
@@ -58,11 +68,12 @@ impl<W> MmapBackend<W> {
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
         let capacity = file_len / 8 + 1; // Must be > 0, or we get a panic
+
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(capacity * 8)
                 .with_context(|| format!("Cannot initialize mmap of size {}", capacity * 8))?
                 .with_flags(flags)
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map()
                 .with_context(|| {
                     format!(
@@ -75,7 +86,7 @@ impl<W> MmapBackend<W> {
 
         Ok(Self {
             len: mmap.len() / core::mem::size_of::<W>(),
-            mmap: Arc::new(mmap),
+            mmap,
             _marker: core::marker::PhantomData,
         })
     }
@@ -83,7 +94,7 @@ impl<W> MmapBackend<W> {
 
 impl<W> MmapBackend<W, MmapMut> {
     /// Create a new mutable MmapBackend
-    pub fn load_mut<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
+    pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
             .metadata()
@@ -104,7 +115,7 @@ impl<W> MmapBackend<W, MmapMut> {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map_mut()
                 .with_context(|| {
                     format!(
@@ -123,7 +134,7 @@ impl<W> MmapBackend<W, MmapMut> {
     }
 
     /// Create a new mutable MmapBackend
-    pub fn new<P: AsRef<std::path::Path>>(path: P, flags: MmapFlags) -> Result<Self> {
+    pub fn new(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
             .metadata()
@@ -145,7 +156,7 @@ impl<W> MmapBackend<W, MmapMut> {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map_mut()
                 .with_context(|| format!("Cannot mutably mmap {}", path.as_ref().display()))?
         };
@@ -158,9 +169,18 @@ impl<W> MmapBackend<W, MmapMut> {
     }
 }
 
+#[derive(Clone)]
+pub struct ArcMmapBackend<W>(pub Arc<MmapBackend<W>>);
+
 impl<W> AsRef<[W]> for MmapBackend<W> {
     fn as_ref(&self) -> &[W] {
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
+    }
+}
+
+impl<W> AsRef<[W]> for ArcMmapBackend<W> {
+    fn as_ref(&self) -> &[W] {
+        unsafe { std::slice::from_raw_parts(self.0.mmap.as_ptr() as *const W, self.0.len) }
     }
 }
 

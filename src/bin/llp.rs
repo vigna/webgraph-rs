@@ -7,10 +7,12 @@
 
 use anyhow::{bail, Result};
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
-use webgraph::{invert_in_place, prelude::*};
+use std::iter::Iterator;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(about = "Performs an LLP round", long_about = None)]
@@ -52,21 +54,22 @@ struct Args {
     epserde: bool,
 }
 
-pub fn main() -> Result<()> {
+fn llp_impl<E: Endianness + 'static + Send + Sync>(args: Args) -> Result<()>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+{
     let start = std::time::Instant::now();
-    let args = Args::parse();
+
     let perm = args
         .perm
         .unwrap_or_else(|| format!("{}.llp", args.basename));
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
     // load the graph
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+    let graph = BVGraph::with_basename(&args.basename)
+        .mode::<LoadMmap>()
+        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+        .endianness::<E>()
+        .load()?;
 
     // parse the gamma format
     let mut gammas = vec![];
@@ -99,7 +102,7 @@ pub fn main() -> Result<()> {
 
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
-    invert_in_place(llp_perm.as_mut_slice());
+    webgraph::algo::invert_in_place(llp_perm.as_mut_slice());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     log::info!("Saving permutation...");
@@ -115,4 +118,28 @@ pub fn main() -> Result<()> {
     }
     log::info!("Completed..");
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()
+        .unwrap();
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => llp_impl::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => llp_impl::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
 }

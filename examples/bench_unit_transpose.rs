@@ -9,13 +9,16 @@ use std::hint::black_box;
 
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
-use webgraph::graph::arc_list_graph;
-use webgraph::utils::proj::Left;
-use webgraph::{algorithms, prelude::*};
+use tempfile::Builder;
+use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
+use webgraph::labels::Left;
+use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
+use webgraph::{algo, prelude::*};
 #[derive(Parser, Debug)]
-#[command(about = "Benchmark direct transposition and labelled transposition on a unit graph.", long_about = None)]
+#[command(about = "Benchmark direct transposition and labeled transposition on a unit graph.", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: String,
@@ -25,12 +28,20 @@ pub fn transpose(
     graph: &impl SequentialGraph,
     batch_size: usize,
 ) -> Result<
-    arc_list_graph::ArcListGraph<
-        std::iter::Map<KMergeIters<BatchIterator>, fn((usize, usize, ())) -> (usize, usize)>,
+    Left<
+        ArcListGraph<
+            std::iter::Map<
+                std::iter::Map<
+                    KMergeIters<BatchIterator>,
+                    fn((usize, usize, ())) -> (usize, usize),
+                >,
+                fn((usize, usize)) -> (usize, usize, ()),
+            >,
+        >,
     >,
 > {
-    let dir = tempfile::tempdir()?;
-    let mut sorted = SortPairs::new(batch_size, dir.into_path())?;
+    let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
+    let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -48,18 +59,17 @@ pub fn transpose(
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
-    Ok(sorted)
+    Ok(Left(sorted))
 }
-pub fn main() -> Result<()> {
-    let args = Args::parse();
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+{
+    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.basename)
+        .endianness::<E>()
+        .load()?;
 
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
     let unit = UnitLabelGraph(&graph);
 
     for _ in 0..10 {
@@ -76,7 +86,7 @@ pub fn main() -> Result<()> {
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let mut iter = Left(algorithms::transpose_labelled(&unit, 10_000_000, (), ())?).iter();
+        let mut iter = Left(algo::transpose_labeled(&unit, 10_000_000, (), ())?).iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {
@@ -87,4 +97,27 @@ pub fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => bench_impl::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => bench_impl::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
 }

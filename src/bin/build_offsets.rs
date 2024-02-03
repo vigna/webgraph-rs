@@ -8,7 +8,10 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
-use std::io::BufWriter;
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -18,18 +21,15 @@ struct Args {
     basename: String,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
+fn build_offsets<E: Endianness + 'static>(args: Args) -> Result<()>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
+{
     // Create the sequential iterator over the graph
-    let seq_graph = webgraph::graph::bvgraph::load_seq(&args.basename)?;
-    let seq_graph = seq_graph.map_codes_reader_builder(DynamicCodesReaderSkipperBuilder::from);
+    let seq_graph = BVGraphSeq::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
     // Create the offsets file
     let file = std::fs::File::create(format!("{}.offsets", args.basename))?;
     // create a bit writer on the file
@@ -44,8 +44,8 @@ pub fn main() -> Result<()> {
     pl.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;
-    let mut degs_iter = seq_graph.iter_degrees();
-    for (new_offset, _node_id, _degree) in &mut degs_iter {
+    let mut degs_iter = seq_graph.offset_deg_iter();
+    for (new_offset, _degree) in &mut degs_iter {
         // write where
         writer.write_gamma((new_offset - offset) as _)?;
         offset = new_offset;
@@ -57,4 +57,27 @@ pub fn main() -> Result<()> {
     pl.light_update();
     pl.done();
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => build_offsets::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => build_offsets::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
 }

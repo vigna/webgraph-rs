@@ -5,12 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Collection of common functions we use throughout the codebase
-mod dbg_codes;
-pub use dbg_codes::*;
-
-mod clap_compression;
-pub use clap_compression::*;
+mod clap;
+pub use clap::*;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
 pub const fn int2nat(x: i64) -> u64 {
@@ -41,16 +37,5 @@ pub use mmap_backend::*;
 mod perm;
 pub use perm::*;
 
-//mod sorted_graph;
-//pub use sorted_graph::*;
-
-mod kary_heap;
-pub use kary_heap::*;
-
-mod sort_pairs;
-pub use sort_pairs::*;
-
-pub mod proj;
-
-mod zip;
-pub use zip::*;
+pub mod sort_pairs;
+pub use sort_pairs::SortPairs;

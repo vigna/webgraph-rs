@@ -2,14 +2,15 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 
-use webgraph::{algorithms::BfsOrder, utils::proj::Left};
+use dsi_bitstream::prelude::BE;
+use webgraph::{algo::BfsOrder, graphs::BVGraph, labels::proj::Left};
 
 #[test]
 fn test_start() -> Result<()> {
     // 4 -> 0 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graph::vec_graph::VecGraph::new();
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
 
     for i in 0..=5 {
         graph.add_node(i);
@@ -31,7 +32,7 @@ fn test_start_orphan() -> Result<()> {
     // 0 -> 4 -> 2
     //       `-> 3
     // 1 -> 5
-    let mut graph = webgraph::graph::vec_graph::VecGraph::new();
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
 
     for i in 0..=5 {
         graph.add_node(i);
@@ -50,7 +51,9 @@ fn test_start_orphan() -> Result<()> {
 
 #[test]
 fn test_cnr2000() -> Result<()> {
-    let graph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
+    let graph = BVGraph::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
     let seen: HashSet<usize> = HashSet::new();
     for node in BfsOrder::new(&graph) {
         assert!(!seen.contains(&node), "{} was seen twice", node);

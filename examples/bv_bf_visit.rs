@@ -8,6 +8,7 @@
 use anyhow::Result;
 use bitvec::*;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use std::collections::VecDeque;
 use webgraph::prelude::*;
@@ -16,18 +17,15 @@ use webgraph::prelude::*;
 struct Args {
     /// The basename of the graph.
     basename: String,
+    /// Static dispatch (default BVGraph parameters).
+    #[arg(short = 's', long = "static")]
+    _static: bool,
+    /// Static dispatch (default BVGraph parameters).
+    #[arg(short = 'r', long, default_value_t = 1)]
+    repeats: usize,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     let num_nodes = graph.num_nodes();
     let mut visited = bitvec![0; num_nodes];
     let mut queue = VecDeque::new();
@@ -40,7 +38,6 @@ pub fn main() -> Result<()> {
     pl.start("Visiting graph...");
 
     for start in 0..num_nodes {
-        pl.update();
         if visited[start] {
             continue;
         }
@@ -48,6 +45,7 @@ pub fn main() -> Result<()> {
         visited.set(start, true);
 
         while !queue.is_empty() {
+            pl.light_update();
             let current_node = queue.pop_front().unwrap();
             for succ in graph.successors(current_node) {
                 if !visited[succ] {
@@ -60,5 +58,54 @@ pub fn main() -> Result<()> {
 
     pl.done();
 
+    Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    let config = BVGraph::with_basename(&args.basename)
+        .mode::<Mmap>()
+        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
+
+    for _ in 0..args.repeats {
+        match get_endianess(&args.basename)?.as_str() {
+            #[cfg(any(
+                feature = "be_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            BE::NAME => match args._static {
+                true => visit(
+                    config
+                        .clone()
+                        .endianness::<BE>()
+                        .dispatch::<Static>()
+                        .load()?,
+                )?,
+                false => visit(config.clone().endianness::<BE>().load()?)?,
+            },
+
+            #[cfg(any(
+                feature = "le_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            LE::NAME => match args._static {
+                true => visit(
+                    config
+                        .clone()
+                        .endianness::<LE>()
+                        .dispatch::<Static>()
+                        .load()?,
+                )?,
+                false => visit(config.clone().endianness::<LE>().load()?)?,
+            },
+            e => panic!("Unknown endianness: {}", e),
+        };
+    }
     Ok(())
 }

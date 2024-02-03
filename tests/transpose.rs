@@ -6,6 +6,7 @@
  */
 
 use anyhow::Result;
+use dsi_bitstream::prelude::BE;
 use lender::*;
 use webgraph::prelude::*;
 
@@ -24,12 +25,14 @@ fn test_transpose() -> Result<()> {
     let compression_flags = CompFlags::default();
 
     // load cnr-2000
-    let graph = webgraph::graph::bvgraph::load("tests/data/cnr-2000")?;
+    let graph = BVGraph::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
-    let transposed = webgraph::algorithms::transpose(&graph, BATCH_SIZE)?;
+    let transposed = webgraph::algo::transpose(&graph, BATCH_SIZE)?;
 
-    parallel_compress_sequential_iter(
+    BVComp::parallel::<BE, _>(
         TRANSPOSED_PATH,
         &transposed,
         transposed.num_nodes(),
@@ -39,7 +42,10 @@ fn test_transpose() -> Result<()> {
     )?;
     // check it
     // TODO assert_eq!(transposed.iter_nodes().len(), num_nodes);
-    let transposed_graph = webgraph::graph::bvgraph::load_seq(TRANSPOSED_PATH)?;
+    let transposed_graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(TRANSPOSED_PATH)
+            .endianness::<BE>()
+            .load()?;
     assert_eq!(transposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the transposed graph is correct...");
@@ -50,9 +56,9 @@ fn test_transpose() -> Result<()> {
         }
     }
     // re-transpose and par-compress
-    let retransposed = webgraph::algorithms::transpose(&transposed_graph, BATCH_SIZE)?;
+    let retransposed = webgraph::algo::transpose(&transposed_graph, BATCH_SIZE)?;
 
-    parallel_compress_sequential_iter(
+    BVComp::parallel::<BE, _>(
         RE_TRANSPOSED_PATH,
         &retransposed,
         retransposed.num_nodes(),
@@ -62,7 +68,10 @@ fn test_transpose() -> Result<()> {
     )?;
     // check it
     // TODO assert_eq!(retransposed.iter_nodes().len(), num_nodes);
-    let retransposed_graph = webgraph::graph::bvgraph::load_seq(RE_TRANSPOSED_PATH)?;
+    let retransposed_graph =
+        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(RE_TRANSPOSED_PATH)
+            .endianness::<BE>()
+            .load()?;
     assert_eq!(retransposed_graph.num_nodes(), num_nodes);
 
     log::info!("Checking that the re-transposed graph is as the original one...");

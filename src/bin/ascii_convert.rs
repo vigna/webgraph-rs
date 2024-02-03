@@ -6,9 +6,11 @@
 
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
-use webgraph::traits::SequentialLabelling;
+use webgraph::graphs::bvgraph::{get_endianess, CodeRead};
+use webgraph::traits::SequentialLabeling;
 
 #[derive(Parser, Debug)]
 #[command(about = "Dumps a graph as an COO arc list", long_about = None)]
@@ -17,16 +19,14 @@ struct Args {
     basename: String,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
+fn ascii_convert<E: Endianness + 'static>(args: Args) -> Result<()>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+{
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.basename)
+        .endianness::<E>()
+        .load()?;
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    let seq_graph = webgraph::graph::bvgraph::load_seq(args.basename)?;
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("offset");
     pl.start("Computing offsets...");
@@ -46,4 +46,27 @@ pub fn main() -> Result<()> {
     pl.done();
 
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => ascii_convert::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => ascii_convert::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
 }

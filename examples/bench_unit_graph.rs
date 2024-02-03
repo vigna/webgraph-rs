@@ -5,8 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod bench_sort_pairs;
+
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use std::hint::black_box;
@@ -18,20 +21,21 @@ struct Args {
     basename: String,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    let graph = webgraph::graph::bvgraph::load(&args.basename)?;
+fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+{
+    let graph = BVGraph::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
     let unit = UnitLabelGraph(&graph);
-    let labelled = Zip(
-        webgraph::graph::bvgraph::load(&args.basename)?,
-        webgraph::graph::bvgraph::load(&args.basename)?,
+    let labeled = Zip(
+        BVGraph::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?,
+        BVGraph::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?,
     );
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
@@ -77,7 +81,7 @@ pub fn main() -> Result<()> {
         pl.start("Zipped-projected graph successors...");
         for x in 0..unit.num_nodes() {
             black_box(x);
-            for (i, _) in labelled.successors(x) {
+            for (i, _) in labeled.successors(x) {
                 black_box(i);
             }
         }
@@ -85,4 +89,27 @@ pub fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn main() -> Result<()> {
+    let args = Args::parse();
+
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => bench_impl::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => bench_impl::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
 }
