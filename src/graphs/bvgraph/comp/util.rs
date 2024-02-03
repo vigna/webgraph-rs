@@ -329,13 +329,7 @@ impl BVComp<()> {
                 let mut reader = <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(
                     BufReader::new(File::open(&file_path).unwrap()),
                 ));
-                // copy all the data
-                while bits_to_copy > 0 {
-                    let bits = bits_to_copy.min(64);
-                    let word = reader.read_bits(bits)?;
-                    result_writer.write_bits(word, bits)?;
-                    bits_to_copy -= bits;
-                }
+                result_writer.copy_from(&mut reader, bits_to_copy as u64)?;
             }
 
             log::info!("Flushing the merged Compression bitstream");
