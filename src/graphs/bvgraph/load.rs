@@ -11,6 +11,7 @@ use crate::graphs::bvgraph::EmptyDict;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
+use epserde::deser::DeserType;
 use epserde::prelude::*;
 use java_properties;
 use sealed::sealed;
@@ -124,7 +125,7 @@ pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
-    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
+    type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
         MmapBackend::load(graph, flags.into())
@@ -141,7 +142,7 @@ pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
+    type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness>(
         graph: &PathBuf,
@@ -163,7 +164,7 @@ pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
-    type Offsets = <EF as DeserializeInner>::DeserType<'static>;
+    type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
         MemoryFactory::<E, _>::new_mmap(graph, flags)

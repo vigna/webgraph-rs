@@ -17,7 +17,7 @@ use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader},
     traits::{BitRead, BitSeek, BE},
 };
-use epserde::prelude::*;
+use epserde::{deser::DeserType, prelude::*};
 use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
 use std::path::Path;
@@ -55,7 +55,7 @@ pub struct SwhLabels<RB: ReaderBuilder, O: IndexedDict> {
     offsets: MemCase<O>,
 }
 
-impl SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>> {
+impl SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     pub fn load_from_file(width: usize, path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let backend_path = path.with_extension("labels");
@@ -149,9 +149,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqL
     }
 }
 
-impl SequentialLabeling
-    for SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>>
-{
+impl SequentialLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     type Label = Vec<u64>;
 
     type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
@@ -195,9 +193,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabel
     }
 }
 
-impl RandomAccessLabeling
-    for SwhLabels<MmapReaderBuilder, <EF as DeserializeInner>::DeserType<'static>>
-{
+impl RandomAccessLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     type Labels<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
