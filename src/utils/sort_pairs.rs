@@ -9,9 +9,8 @@ use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
 use dary_heap::{self, PeekMut};
 use dsi_bitstream::prelude::*;
-use log::{debug, info};
+use log::debug;
 use mmap_rs::MmapFlags;
-use rayon::prelude::*;
 use rdst::tuner::*;
 use rdst::*;
 use std::{

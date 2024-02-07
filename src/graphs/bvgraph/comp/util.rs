@@ -303,7 +303,7 @@ impl BVComp<()> {
             for thread_id in 0..num_threads {
                 log::info!("Waiting for thread {}", thread_id);
                 // wait for the thread to finish
-                let (mut bits_to_copy, n_arcs) = loop {
+                let (bits_to_copy, n_arcs) = loop {
                     {
                         let mut maybe_handle = handles[thread_id].lock().unwrap();
                         if maybe_handle.is_some() {
