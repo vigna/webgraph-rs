@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use crate::utils::nat2int;
 use bitflags::Flags;
-use dsi_bitstream::traits::NE;
+use dsi_bitstream::traits::BE;
 use lender::IntoLender;
 use std::iter::Iterator;
 use std::path::PathBuf;
@@ -34,7 +34,7 @@ pub struct BVGraph<F> {
 impl BVGraph<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> LoadConfig<NE, Random, Dynamic, Mmap, Mmap> {
+    ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap> {
         LoadConfig {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),

@@ -12,7 +12,8 @@ use crate::utils::nat2int;
 use crate::utils::CircularBufferVec;
 use anyhow::Result;
 use bitflags::Flags;
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::traits::BitSeek;
+use dsi_bitstream::traits::BE;
 use lender::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
@@ -29,7 +30,7 @@ pub struct BVGraphSeq<F> {
 impl BVGraphSeq<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> LoadConfig<NE, Sequential, Dynamic, Mmap, Mmap> {
+    ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap> {
         LoadConfig {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),
