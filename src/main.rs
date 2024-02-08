@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::{value_parser, Command};
 use clap_complete::shells::Shell;
 
-mod bvgraph_cli;
+mod cli;
 
 pub fn main() -> Result<()> {
     stderrlog::new()
@@ -35,7 +35,7 @@ pub fn main() -> Result<()> {
         ($command:expr, $($module:ident),*) => {{
             let command = $command;
             $(
-                let command = bvgraph_cli::$module::cli(command);
+                let command = cli::$module::cli(command);
             )*
             let mut completion_command = command.clone();
             let matches = command.get_matches();
@@ -51,7 +51,7 @@ pub fn main() -> Result<()> {
                     return Ok(());
                 },
                 $(
-                    Some((bvgraph_cli::$module::COMMAND_NAME, sub_m)) => bvgraph_cli::$module::main(sub_m),
+                    Some((cli::$module::COMMAND_NAME, sub_m)) => cli::$module::main(sub_m),
                 )*
                 _ => unreachable!(),
             }
