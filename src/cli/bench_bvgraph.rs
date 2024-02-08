@@ -77,12 +77,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn bench_random<E: Endianness>(
-    graph: impl RandomAccessGraph,
-    samples: usize,
-    repeats: usize,
-    first: bool,
-) {
+fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, first: bool) {
     // Random-access speed test
     for _ in 0..repeats {
         let mut rng = SmallRng::seed_from_u64(0);
@@ -118,7 +113,7 @@ fn bench_random<E: Endianness>(
     }
 }
 
-fn bench_seq<E: Endianness>(graph: impl SequentialGraph, repeats: usize) {
+fn bench_seq(graph: impl SequentialGraph, repeats: usize) {
     for _ in 0..repeats {
         let mut c: u64 = 0;
 
@@ -169,7 +164,7 @@ where
             let mut c: u64 = 0;
             let start = std::time::Instant::now();
             for _ in 0..seq_graph.num_nodes() {
-                black_box(c += deg_reader.next_degree()? as u64);
+                c += black_box(deg_reader.next_degree()? as u64);
             }
             println!(
                 "Degrees Only:{:>20} ns/arc",
@@ -178,52 +173,59 @@ where
 
             assert_eq!(c, seq_graph.num_arcs_hint().unwrap());
         }
-    } else if let Some(samples) = args.random {
-        if std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>() {
-            bench_random::<E>(
-                BVGraph::with_basename(&args.basename)
-                    .endianness::<E>()
-                    .mode::<Mmap>()
-                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                    .load()?,
-                samples,
-                args.repeats,
-                args.first,
-            );
-        } else {
-            bench_random::<E>(
-                BVGraph::with_basename(&args.basename)
-                    .endianness::<E>()
-                    .dispatch::<Static>()
-                    .mode::<Mmap>()
-                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                    .load()?,
-                samples,
-                args.repeats,
-                args.first,
-            );
-        }
     } else {
-        if std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>() {
-            bench_seq::<E>(
-                BVGraphSeq::with_basename(&args.basename)
-                    .endianness::<E>()
-                    .dispatch::<Dynamic>()
-                    .mode::<Mmap>()
-                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
-                    .load()?,
-                args.repeats,
-            );
-        } else {
-            bench_seq::<E>(
-                BVGraphSeq::with_basename(&args.basename)
-                    .endianness::<E>()
-                    .dispatch::<Static>()
-                    .mode::<Mmap>()
-                    .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
-                    .load()?,
-                args.repeats,
-            );
+        match (
+            args.random,
+            std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>(),
+        ) {
+            (Some(samples), true) => {
+                bench_random(
+                    BVGraph::with_basename(&args.basename)
+                        .endianness::<E>()
+                        .dispatch::<Dynamic>()
+                        .mode::<Mmap>()
+                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                        .load()?,
+                    samples,
+                    args.repeats,
+                    args.first,
+                );
+            }
+            (Some(samples), false) => {
+                bench_random(
+                    BVGraph::with_basename(&args.basename)
+                        .endianness::<E>()
+                        .dispatch::<Static>()
+                        .mode::<Mmap>()
+                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                        .load()?,
+                    samples,
+                    args.repeats,
+                    args.first,
+                );
+            }
+            (None, true) => {
+                bench_seq(
+                    BVGraphSeq::with_basename(&args.basename)
+                        .endianness::<E>()
+                        .dispatch::<Dynamic>()
+                        .mode::<Mmap>()
+                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
+                        .load()?,
+                    args.repeats,
+                );
+            }
+            (None, false) => {
+                bench_seq(
+                    BVGraphSeq::with_basename(&args.basename)
+                        .endianness::<E>()
+                        .dispatch::<Static>()
+                        .mode::<Mmap>()
+                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::SEQUENTIAL)
+                        .load()?,
+                    args.repeats,
+                );
+            }
         }
     }
     Ok(())

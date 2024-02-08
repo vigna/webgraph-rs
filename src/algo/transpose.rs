@@ -51,6 +51,7 @@ where
     Ok(sorted)
 }
 
+#[allow(clippy::type_complexity)]
 pub fn transpose(
     graph: impl SequentialGraph,
     batch_size: usize,

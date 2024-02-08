@@ -155,7 +155,7 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
     }
 }
 
-impl<'a, G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
+impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
 
     type Iterator<'node> = UnitIterator<G::Iterator<'node>>
@@ -171,7 +171,7 @@ impl<'a, G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     }
 }
 
-impl<'a, G: SequentialGraph> LabeledSequentialGraph<()> for UnitLabelGraph<G> {}
+impl<G: SequentialGraph> LabeledSequentialGraph<()> for UnitLabelGraph<G> {}
 
 /// A labeled random-access graph.
 ///
@@ -220,7 +220,7 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
     }
 }
 
-impl<'a, G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
+impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     type Labels<'succ> =
         UnitSuccessors<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
         where Self: 'succ;
@@ -238,4 +238,4 @@ impl<'a, G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     }
 }
 
-impl<'a, G: RandomAccessGraph> LabeledRandomAccessGraph<()> for UnitLabelGraph<G> {}
+impl<G: RandomAccessGraph> LabeledRandomAccessGraph<()> for UnitLabelGraph<G> {}

@@ -144,6 +144,7 @@ impl<W> MmapBackend<W, MmapMut> {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(path.as_ref())
             .with_context(|| {
                 format!(

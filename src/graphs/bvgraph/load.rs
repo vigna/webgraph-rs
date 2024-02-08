@@ -84,14 +84,17 @@ impl Dispatch for Dynamic {}
 pub trait LoadMode: 'static {
     type Factory<E: Endianness>: BitReaderFactory<E>;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
+    fn new_factory<E: Endianness, P: AsRef<Path>>(
+        graph: P,
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
     type Offsets: IndexedDict<Input = usize, Output = usize>;
 
-    fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>>;
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>>;
 }
 
 /// The graph is read from a file; offsets are fully deserialized in memory.
@@ -105,14 +108,17 @@ impl LoadMode for File {
     type Factory<E: Endianness> = FileFactory<E>;
     type Offsets = EF;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
+    fn new_factory<E: Endianness, P: AsRef<Path>>(
+        graph: P,
         _flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
         FileFactory::<E>::new(graph)
     }
 
-    fn load_offsets(offsets: &PathBuf, _flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        _flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         Ok(EF::load_full(offsets)?.into())
     }
 }
@@ -127,11 +133,17 @@ impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapBackend<u32>;
     type Offsets = DeserType<'static, EF>;
 
-    fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness, P: AsRef<Path>>(
+        graph: P,
+        flags: MemoryFlags,
+    ) -> Result<Self::Factory<E>> {
         MmapBackend::load(graph, flags.into())
     }
 
-    fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         EF::mmap(offsets, flags.into())
     }
 }
@@ -144,14 +156,17 @@ impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
     type Offsets = DeserType<'static, EF>;
 
-    fn new_factory<E: Endianness>(
-        graph: &PathBuf,
+    fn new_factory<E: Endianness, P: AsRef<Path>>(
+        graph: P,
         _flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
         MemoryFactory::<E, _>::new_mem(graph)
     }
 
-    fn load_offsets(offsets: &PathBuf, _flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        _flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         EF::load_mem(offsets)
     }
 }
@@ -166,11 +181,17 @@ impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
     type Offsets = DeserType<'static, EF>;
 
-    fn new_factory<E: Endianness>(graph: &PathBuf, flags: MemoryFlags) -> Result<Self::Factory<E>> {
+    fn new_factory<E: Endianness, P: AsRef<Path>>(
+        graph: P,
+        flags: MemoryFlags,
+    ) -> Result<Self::Factory<E>> {
         MemoryFactory::<E, _>::new_mmap(graph, flags)
     }
 
-    fn load_offsets(offsets: &PathBuf, flags: MemoryFlags) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         EF::load_mmap(offsets, flags.into())
     }
 }
@@ -326,6 +347,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Lo
 
 impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic, GLM, OLM> {
     /// Load a random-access graph with dynamic dispatch.
+    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<BVGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
@@ -352,6 +374,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
 
 impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dynamic, GLM, OLM> {
     /// Load a sequential graph with dynamic dispatch.
+    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -389,6 +412,7 @@ impl<
     LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>, GLM, OLM>
 {
     /// Load a random-access graph with static dispatch.
+    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -447,6 +471,7 @@ impl<
     >
 {
     /// Load a sequential graph with static dispatch.
+    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<

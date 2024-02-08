@@ -12,14 +12,23 @@ use std::convert::Infallible;
 
 pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     code_writer: CW,
+    #[allow(clippy::type_complexity)]
     write_outdegree: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_reference_offset: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_block_count: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_blocks: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_interval_count: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_interval_start: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_interval_len: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_first_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    #[allow(clippy::type_complexity)]
     write_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
     _marker: core::marker::PhantomData<E>,
 }
@@ -60,6 +69,7 @@ fn write_zeta7<E: Endianness, CW: CodeWrite<E>>(
 }
 
 impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
+    #[allow(clippy::type_complexity)]
     fn select_code(code: Code) -> fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error> {
         match code {
             Code::Unary => CW::write_unary,
