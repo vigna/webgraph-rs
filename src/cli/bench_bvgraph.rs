@@ -1,11 +1,12 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use itertools::Itertools;
 use lender::*;
@@ -15,9 +16,11 @@ use rand::SeedableRng;
 use std::hint::black_box;
 use webgraph::prelude::*;
 
-#[derive(Parser, Debug)]
-#[command(about = "Benchmarks the Rust BVGraph implementation", long_about = None)]
-struct Args {
+pub const COMMAND_NAME: &str = "bench_bvgraph";
+
+#[derive(Args, Debug)]
+#[command(about = "Benchmarks the Rust BVGraph implementation.", long_about = None)]
+struct CliArgs {
     /// The basename of the graph.
     basename: String,
 
@@ -44,6 +47,34 @@ struct Args {
     /// Do not test speed, but check that the sequential and random-access successor lists are the same.
     #[arg(short = 'c', long)]
     check: bool,
+}
+
+pub fn cli(command: Command) -> Command {
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+}
+
+pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let args = CliArgs::from_arg_matches(submatches)?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => match args._static {
+            true => bench_webgraph::<BE, Static>(args),
+            false => bench_webgraph::<BE, Dynamic>(args),
+        },
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => match args._static {
+            true => bench_webgraph::<LE, Static>(args),
+            false => bench_webgraph::<LE, Dynamic>(args),
+        },
+        e => panic!("Unknown endianness: {}", e),
+    }
 }
 
 fn bench_random<E: Endianness>(
@@ -105,7 +136,7 @@ fn bench_seq<E: Endianness>(graph: impl SequentialGraph, repeats: usize) {
     }
 }
 
-fn bench_webgraph<E: Endianness, D: Dispatch>(args: Args) -> Result<()>
+fn bench_webgraph<E: Endianness, D: Dispatch>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -196,33 +227,4 @@ where
         }
     }
     Ok(())
-}
-
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()?;
-
-    match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        BE::NAME => match args._static {
-            true => bench_webgraph::<BE, Static>(args),
-            false => bench_webgraph::<BE, Dynamic>(args),
-        },
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        LE::NAME => match args._static {
-            true => bench_webgraph::<LE, Static>(args),
-            false => bench_webgraph::<LE, Dynamic>(args),
-        },
-        e => panic!("Unknown endianness: {}", e),
-    }
 }

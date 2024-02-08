@@ -4,9 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-
-mod clap;
-pub use clap::*;
+use rand::Rng;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
 pub const fn int2nat(x: i64) -> u64 {
@@ -26,6 +24,28 @@ pub const fn int2nat(x: i64) -> u64 {
 /// ```
 pub const fn nat2int(x: u64) -> i64 {
     ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
+}
+
+/// Create a new random dir inside the given folder
+pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> String {
+    let mut base = base.as_ref().to_owned();
+    const ALPHABET: &[u8] = b"0123456789abcdef";
+    let mut rnd = rand::thread_rng();
+    let mut random_str = String::new();
+    loop {
+        random_str.clear();
+        for _ in 0..16 {
+            let idx = rnd.gen_range(0..ALPHABET.len());
+            random_str.push(ALPHABET[idx] as char);
+        }
+        base.push(&random_str);
+
+        if !base.exists() {
+            std::fs::create_dir(&base).unwrap();
+            return base.to_string_lossy().to_string();
+        }
+        base.pop();
+    }
 }
 
 mod circular_buffer;

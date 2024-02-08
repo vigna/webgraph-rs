@@ -1,17 +1,21 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::utils::*;
 use anyhow::Result;
-use clap::Parser;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
 
-#[derive(Parser, Debug)]
+pub const COMMAND_NAME: &str = "transpose";
+
+#[derive(Args, Debug)]
 #[command(about = "Transpose a BVGraph", long_about = None)]
-struct Args {
+struct CliArgs {
     /// The basename of the graph.
     basename: String,
     /// The basename of the transposed graph. Defaults to `basename` + `-t`.
@@ -27,7 +31,29 @@ struct Args {
     ca: CompressArgs,
 }
 
-fn transpose<E: Endianness + 'static>(args: Args) -> Result<()>
+pub fn cli(command: Command) -> Command {
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+}
+
+pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let args = CliArgs::from_arg_matches(submatches)?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => transpose::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => transpose::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
+}
+
+fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -55,26 +81,4 @@ where
     )?;
 
     Ok(())
-}
-
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()?;
-
-    match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        BE::NAME => transpose::<BE>(args),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        LE::NAME => transpose::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
-    }
 }

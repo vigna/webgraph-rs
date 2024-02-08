@@ -1,11 +1,12 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use epserde::prelude::*;
@@ -15,21 +16,21 @@ use std::io::BufReader;
 use sux::prelude::*;
 use webgraph::graphs::EF;
 
-#[derive(Parser, Debug)]
-#[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph", long_about = None)]
-struct Args {
+pub const COMMAND_NAME: &str = "check_ef";
+
+#[derive(Args, Debug)]
+#[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]
+struct CliArgs {
     /// The basename of the graph.
     basename: String,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
+pub fn cli(command: Command) -> Command {
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+}
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let args = CliArgs::from_arg_matches(submatches)?;
 
     let f = File::open(format!("{}.properties", args.basename)).with_context(|| {
         format!(

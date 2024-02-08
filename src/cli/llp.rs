@@ -1,12 +1,14 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::utils::*;
 use anyhow::{bail, Result};
-use clap::Parser;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use rayon::prelude::*;
@@ -14,9 +16,11 @@ use std::io::{BufWriter, Write};
 use std::iter::Iterator;
 use webgraph::prelude::*;
 
-#[derive(Parser, Debug)]
-#[command(about = "Performs an LLP round", long_about = None)]
-struct Args {
+pub const COMMAND_NAME: &str = "llp";
+
+#[derive(Args, Debug)]
+#[command(about = "Performs an LLP round.", long_about = None)]
+struct CliArgs {
     /// The basename of the graph.
     basename: String,
 
@@ -54,7 +58,29 @@ struct Args {
     epserde: bool,
 }
 
-fn llp_impl<E: Endianness + 'static + Send + Sync>(args: Args) -> Result<()>
+pub fn cli(command: Command) -> Command {
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+}
+
+pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let args = CliArgs::from_arg_matches(submatches)?;
+
+    match get_endianess(&args.basename)?.as_str() {
+        #[cfg(any(
+            feature = "be_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        BE::NAME => llp_impl::<BE>(args),
+        #[cfg(any(
+            feature = "le_bins",
+            not(any(feature = "be_bins", feature = "le_bins"))
+        ))]
+        LE::NAME => llp_impl::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
+}
+
+fn llp_impl<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -118,28 +144,4 @@ where
     }
     log::info!("Completed..");
     Ok(())
-}
-
-pub fn main() -> Result<()> {
-    let args = Args::parse();
-
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
-
-    match get_endianess(&args.basename)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        BE::NAME => llp_impl::<BE>(args),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        LE::NAME => llp_impl::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
-    }
 }

@@ -1,17 +1,21 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::utils::*;
 use anyhow::Result;
-use clap::Parser;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
 
-#[derive(Parser, Debug)]
+pub const COMMAND_NAME: &str = "recompress";
+
+#[derive(Args, Debug)]
 #[command(about = "Recompress a BVGraph", long_about = None)]
-struct Args {
+struct CliArgs {
     /// The basename of the graph.
     basename: String,
     /// The basename for the newly compressed graph.
@@ -27,14 +31,13 @@ struct Args {
     ca: CompressArgs,
 }
 
-pub fn main() -> Result<()> {
-    let args = Args::parse();
+pub fn cli(command: Command) -> Command {
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+}
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let args = CliArgs::from_arg_matches(submatches)?;
+
     let target_endianness = args.ca.endianess.clone();
     match get_endianess(&args.basename)?.as_str() {
         #[cfg(any(

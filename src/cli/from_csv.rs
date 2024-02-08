@@ -1,17 +1,28 @@
-use clap::Parser;
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use super::utils::*;
+use anyhow::Result;
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::{Endianness, BE};
 use dsi_progress_logger::*;
 use itertools::Itertools;
-use rayon::slice::ParallelSliceMut;
+use rayon::prelude::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use webgraph::graphs::arc_list_graph::ArcListGraph;
 use webgraph::labels::Left;
 use webgraph::prelude::*;
 
-#[derive(Parser, Debug)]
+pub const COMMAND_NAME: &str = "from_csv";
+
+#[derive(Args, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
-struct Args {
+struct CliArgs {
     /// The basename of the dst.
     basename: String,
 
@@ -36,14 +47,12 @@ struct Args {
     ca: CompressArgs,
 }
 
-fn main() {
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+pub fn cli(command: Command) -> Command {
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+}
 
-    let args = Args::parse();
+pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let args = CliArgs::from_arg_matches(submatches)?;
 
     let mut group_by = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
     let mut nodes = BTreeMap::new();
@@ -135,4 +144,5 @@ fn main() {
             buf.write_all(b"\n").unwrap();
         }
     }
+    Ok(())
 }

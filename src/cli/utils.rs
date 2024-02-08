@@ -1,37 +1,14 @@
 /*
+ * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::Code;
-use crate::prelude::CompFlags;
 use clap::Args;
 use clap::ValueEnum;
-use rand::Rng;
-use std::path::Path;
-
-/// Create a new random dir inside the given folder
-pub fn temp_dir<P: AsRef<Path>>(base: P) -> String {
-    let mut base = base.as_ref().to_owned();
-    const ALPHABET: &[u8] = b"0123456789abcdef";
-    let mut rnd = rand::thread_rng();
-    let mut random_str = String::new();
-    loop {
-        random_str.clear();
-        for _ in 0..16 {
-            let idx = rnd.gen_range(0..ALPHABET.len());
-            random_str.push(ALPHABET[idx] as char);
-        }
-        base.push(&random_str);
-
-        if !base.exists() {
-            std::fs::create_dir(&base).unwrap();
-            return base.to_string_lossy().to_string();
-        }
-        base.pop();
-    }
-}
+use webgraph::graphs::Code;
+use webgraph::prelude::CompFlags;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Our own enum for the codes, this is used to implement ValueEnum here
