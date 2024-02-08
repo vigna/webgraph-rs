@@ -15,7 +15,7 @@ use std::{
 };
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "build_offsets";
+pub const COMMAND_NAME: &str = "offsets";
 
 #[derive(Args, Debug)]
 #[command(about = "Builds the .offsets file for a graph.", long_about = None)]

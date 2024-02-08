@@ -6,7 +6,8 @@
 
 use anyhow::Result;
 use clap::Command;
-mod cli;
+ 
+mod bvgraph_cli;
 
 pub fn main() -> Result<()> {
     stderrlog::new()
@@ -24,13 +25,13 @@ pub fn main() -> Result<()> {
         ($command:expr, $($module:ident),*) => {{
             let command = $command;
             $(
-                let command = cli::$module::cli(command);
+                let command = bvgraph_cli::$module::cli(command);
             )*
 
             let matches = command.get_matches();
             match matches.subcommand() {
                 $(
-                    Some((cli::$module::COMMAND_NAME, sub_m)) => cli::$module::main(sub_m),
+                    Some((bvgraph_cli::$module::COMMAND_NAME, sub_m)) => bvgraph_cli::$module::main(sub_m),
                 )*
                 _ => unreachable!(),
             }
@@ -40,9 +41,8 @@ pub fn main() -> Result<()> {
     impl_dispatch!(
         command,
         ascii_convert,
-        bench_bvgraph,
-        build_offsets,
-        build_ef,
+        bench,
+        build,
         check_ef,
         convert,
         from_csv,

@@ -6,9 +6,8 @@
  */
 
 pub mod ascii_convert;
-pub mod bench_bvgraph;
-pub mod build_ef;
-pub mod build_offsets;
+pub mod bench;
+pub mod build;
 pub mod check_ef;
 pub mod convert;
 pub mod from_csv;

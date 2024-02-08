@@ -16,7 +16,7 @@ use std::io::{BufReader, BufWriter, Seek};
 use sux::prelude::*;
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "build_ef";
+pub const COMMAND_NAME: &str = "ef";
 
 #[derive(Args, Debug)]
 #[command(about = "Builds the .ef file for a graph.", long_about = None)]

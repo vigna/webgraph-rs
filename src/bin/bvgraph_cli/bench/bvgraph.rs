@@ -16,7 +16,7 @@ use rand::SeedableRng;
 use std::hint::black_box;
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "bench_bvgraph";
+pub const COMMAND_NAME: &str = "bvgraph";
 
 #[derive(Args, Debug)]
 #[command(about = "Benchmarks the Rust BVGraph implementation.", long_about = None)]
