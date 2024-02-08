@@ -7,7 +7,7 @@
 use anyhow::Result;
 use clap::{value_parser, Command};
 use clap_complete::shells::Shell;
- 
+
 mod bvgraph_cli;
 
 pub fn main() -> Result<()> {
@@ -27,8 +27,8 @@ pub fn main() -> Result<()> {
                 .arg(
                     clap::Arg::new("shell")
                         .required(true)
-                        .value_parser(value_parser!(Shell))
-                )
+                        .value_parser(value_parser!(Shell)),
+                ),
         );
 
     macro_rules! impl_dispatch {
@@ -43,7 +43,7 @@ pub fn main() -> Result<()> {
                 Some(("generate-completions", sub_m)) => {
                     let shell = sub_m.get_one::<Shell>("shell").unwrap();
                     clap_complete::generate(
-                        *shell, 
+                        *shell,
                         &mut completion_command,
                         "bvgraph",
                         &mut std::io::stdout(),
