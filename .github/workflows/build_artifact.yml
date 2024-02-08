@@ -1,0 +1,36 @@
+name: Rust Release Artifacts
+
+on:
+  release:
+    types: [created]
+    
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-gnu
+            archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: zip tar.gz
+          - target: x86_64-apple-darwin
+            archive: zip tar.gz
+    steps:
+      - uses: actions/checkout@master
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUSTFLAGS: "-C target-cpu=x86-64-v3" # Compile with BMI2 LZCNT and POPCNT support
+        with:
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
+          EXTRA_FILES: "README.md LICENSE"
+          EXTRA_COMMAND_FLAGS: "--release"
+          MINIFY: false # UPX makes the binaries smaller, but it slows down the executable startup time
