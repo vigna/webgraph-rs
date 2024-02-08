@@ -53,7 +53,7 @@ struct CliArgs {
     /// The seed to use for the prng
     seed: u64,
 
-    #[arg(short = 'e', long)]
+    #[arg(short = 'p', long)]
     /// Save the permutation in ε-serde format.
     epserde: bool,
 }
