@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use core::fmt::Debug;
 use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
@@ -42,13 +42,19 @@ impl<W: Debug> Debug for MmapBackend<W, MmapMut> {
     }
 }
 
-impl<W> From<Mmap> for MmapBackend<W> {
-    fn from(mmap: Mmap) -> Self {
-        Self {
-            len: mmap.len(),
-            mmap,
+impl<W> TryFrom<Mmap> for MmapBackend<W> {
+    type Error = anyhow::Error;
+    fn try_from(value: Mmap) -> std::prelude::v1::Result<Self, Self::Error> {
+        ensure!(
+            value.len() % size_of::<W>() == 0,
+            "The size of the mmap is not a multiple of the size of W"
+        );
+        let len = value.len() / size_of::<W>();
+        Ok(Self {
+            len,
+            mmap: value,
             _marker: core::marker::PhantomData,
-        }
+        })
     }
 }
 

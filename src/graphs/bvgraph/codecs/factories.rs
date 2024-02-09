@@ -194,7 +194,7 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
 
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: MmapBackend::from(mmap.make_read_only().map_err(|(_, err)| err)?),
+            data: MmapBackend::try_from(mmap.make_read_only().map_err(|(_, err)| err)?)?,
             _marker: core::marker::PhantomData,
         })
     }
