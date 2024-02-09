@@ -19,4 +19,4 @@ pub mod recompress;
 pub mod simplify;
 pub mod to_csv;
 pub mod transpose;
-mod utils;
+pub mod utils;
