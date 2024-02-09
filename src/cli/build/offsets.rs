@@ -13,7 +13,7 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter},
 };
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "offsets";
 

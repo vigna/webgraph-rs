@@ -7,8 +7,8 @@
 
 use clap::Args;
 use clap::ValueEnum;
-use webgraph::graphs::Code;
-use webgraph::prelude::CompFlags;
+use crate::graphs::Code;
+use crate::prelude::CompFlags;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Our own enum for the codes, this is used to implement ValueEnum here

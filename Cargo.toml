@@ -13,7 +13,6 @@ categories = ["compression", "data-structures"]
 [features]
 default = []
 slow_tests = [] # Test feature that enables long running tests
-cli = [] # Enable the import of the CLI datastructures to re-use parts for your own tools
 be_bins = [] # Enable read / write of only BE bvgraphs (to reduce code size)
 le_bins = [] # Enable read / write of only LE bvgraphs (to reduce code size)
 fuzz = ["dep:arbitrary", "dep:zip", "dsi-bitstream/fuzz"] # Expose the fuzzing harnesses

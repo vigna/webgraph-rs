@@ -14,9 +14,9 @@ use dsi_progress_logger::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::{BufReader, Read};
-use webgraph::graphs::arc_list_graph;
-use webgraph::labels::Left;
-use webgraph::prelude::*;
+use crate::graphs::arc_list_graph;
+use crate::labels::Left;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "perm";
 
@@ -119,7 +119,7 @@ where
     // TODO!: check that batchsize fits in memory, and that print the maximum
     // batch_size usable
 
-    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
+    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
         .endianness::<E>()
         .load()?;
 

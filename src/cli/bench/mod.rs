@@ -7,8 +7,8 @@
 use anyhow::Result;
 use clap::{ArgMatches, Command};
 
-mod bf_visit;
-mod bvgraph;
+pub mod bf_visit;
+pub mod bvgraph;
 
 pub const COMMAND_NAME: &str = "bench";
 

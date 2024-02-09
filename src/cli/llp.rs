@@ -14,7 +14,7 @@ use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
 use std::iter::Iterator;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "llp";
 
@@ -128,7 +128,7 @@ where
 
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
-    webgraph::algo::invert_in_place(llp_perm.as_mut_slice());
+    crate::algo::invert_in_place(llp_perm.as_mut_slice());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     log::info!("Saving permutation...");

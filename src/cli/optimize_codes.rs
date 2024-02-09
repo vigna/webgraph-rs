@@ -10,7 +10,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "optimize-codes";
 

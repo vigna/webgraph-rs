@@ -11,8 +11,8 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use std::io::Write;
-use webgraph::graphs::bvgraph::{get_endianess, CodeRead};
-use webgraph::traits::SequentialLabeling;
+use crate::graphs::bvgraph::{get_endianess, CodeRead};
+use crate::traits::SequentialLabeling;
 
 pub const COMMAND_NAME: &str = "to-csv";
 
@@ -58,7 +58,7 @@ fn to_csv<E: Endianness + 'static>(basename: &str, sep: &str) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
         .endianness::<E>()
         .load()?;
     let num_nodes = graph.num_nodes();

@@ -7,8 +7,8 @@
 use anyhow::Result;
 use clap::{ArgMatches, Command};
 
-mod ef;
-mod offsets;
+pub mod ef;
+pub mod offsets;
 
 pub const COMMAND_NAME: &str = "build";
 

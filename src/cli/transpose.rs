@@ -9,7 +9,7 @@ use super::utils::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "transpose";
 
@@ -62,12 +62,12 @@ where
         .unwrap_or_else(|| args.basename.clone() + "-t");
 
     let seq_graph =
-        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+        crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 
     // transpose the graph
-    let sorted = webgraph::algo::transpose(&seq_graph, args.pa.batch_size).unwrap();
+    let sorted = crate::algo::transpose(&seq_graph, args.pa.batch_size).unwrap();
 
     let target_endianness = args.ca.endianess.clone();
     BVComp::parallel_endianness(

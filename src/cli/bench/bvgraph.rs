@@ -14,7 +14,7 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::hint::black_box;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "bvgraph";
 

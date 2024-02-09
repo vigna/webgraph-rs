@@ -9,7 +9,7 @@ use super::utils::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "recompress";
 

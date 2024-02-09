@@ -11,7 +11,7 @@ use dsi_progress_logger::*;
 use log::info;
 use std::fs::File;
 use std::io::BufWriter;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "convert";
 

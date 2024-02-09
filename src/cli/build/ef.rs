@@ -14,7 +14,7 @@ use log::info;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use sux::prelude::*;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "ef";
 
@@ -147,7 +147,7 @@ where
     } else {
         info!("The offsets file does not exists, reading the graph to build Elias-Fano");
         let seq_graph =
-            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+            crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
                 .endianness::<E>()
                 .load()?;
 

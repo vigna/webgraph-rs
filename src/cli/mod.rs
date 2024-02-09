@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Command line interface structs and functions, organized by subcommands.
+
 pub mod ascii_convert;
 pub mod bench;
 pub mod build;

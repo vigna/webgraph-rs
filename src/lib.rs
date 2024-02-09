@@ -23,7 +23,6 @@ pub mod graphs;
 pub mod labels;
 pub mod traits;
 pub mod utils;
-#[cfg(feature = "cli")]
 pub mod cli;
 
 pub mod prelude {

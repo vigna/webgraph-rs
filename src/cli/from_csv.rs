@@ -14,9 +14,9 @@ use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
-use webgraph::graphs::arc_list_graph::ArcListGraph;
-use webgraph::labels::Left;
-use webgraph::prelude::*;
+use crate::graphs::arc_list_graph::ArcListGraph;
+use crate::labels::Left;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "from-csv";
 

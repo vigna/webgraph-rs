@@ -10,8 +10,8 @@ use clap::{Arg, ArgMatches, Command};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
-use webgraph::graphs::bvgraph::{get_endianess, CodeRead};
-use webgraph::traits::SequentialLabeling;
+use crate::graphs::bvgraph::{get_endianess, CodeRead};
+use crate::traits::SequentialLabeling;
 
 pub const COMMAND_NAME: &str = "ascii-convert";
 
@@ -48,7 +48,7 @@ fn ascii_convert<E: Endianness + 'static>(basename: &str) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
         .endianness::<E>()
         .load()?;
 

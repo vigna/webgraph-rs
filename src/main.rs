@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::{value_parser, Command};
 use clap_complete::shells::Shell;
 
-mod cli;
+use webgraph::cli;
 
 pub fn main() -> Result<()> {
     stderrlog::new()

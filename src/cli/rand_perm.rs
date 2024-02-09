@@ -11,7 +11,7 @@ use dsi_bitstream::prelude::*;
 use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
-use webgraph::prelude::*;
+use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "rand-perm";
 
@@ -54,7 +54,7 @@ fn rand_perm<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
+    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
         .endianness::<E>()
         .load()?;
 
