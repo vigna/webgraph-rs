@@ -21,7 +21,7 @@ pub fn hyperball<G>(
     log2_precision: usize,
     num_threads: Option<usize>,
     granularity: usize,
-) -> Result<()> 
+) -> Result<()>
 where
     G: SequentialGraph + Sync,
 {
@@ -50,11 +50,11 @@ where
                     frontier.insert(src, &dst, Ordering::Relaxed);
                 }
             }
-        }, 
-        |_, _| {()}, // nothing to collect
-        &thread_pool, 
-        granularity, 
-        Some(&mut pl)
+        },
+        |_, _| (), // nothing to collect
+        &thread_pool,
+        granularity,
+        Some(&mut pl),
     );
     // save it to disk
     let non_atomic: HyperLogLogVec = frontier.convert_to()?;
@@ -80,7 +80,9 @@ where
                 let mut iter = graph.iter_from(nodes.start).take(nodes.len());
                 while let Some((src, succ)) = iter.next() {
                     // get the regs of the current node
-                    let mut regs = frontier.iter_regs(src, Ordering::SeqCst).collect::<Vec<_>>();
+                    let mut regs = frontier
+                        .iter_regs(src, Ordering::SeqCst)
+                        .collect::<Vec<_>>();
                     let mut node_modified = false;
                     for dst in succ {
                         // keep only the biggest regs
@@ -99,15 +101,19 @@ where
                     new_frontier.from_iter(src, regs.into_iter(), Ordering::SeqCst);
                 }
                 modified
-            }, 
-            |a, b| {a + b}, // merge the modified flags
-            &thread_pool, 
-            granularity, 
-            Some(&mut pl)
+            },
+            |a, b| a + b, // merge the modified flags
+            &thread_pool,
+            granularity,
+            Some(&mut pl),
         );
 
         pl.done();
-        log::info!("Modified nodes: {} - {}%", modified, modified as f32 / graph.num_nodes() as f32 * 100.0);
+        log::info!(
+            "Modified nodes: {} - {}%",
+            modified,
+            modified as f32 / graph.num_nodes() as f32 * 100.0
+        );
 
         // dump the frontier to disk and reset it
         let mut non_atomic: HyperLogLogVec = new_frontier.convert_to()?;
