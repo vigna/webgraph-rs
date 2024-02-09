@@ -42,7 +42,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
 
     for _ in 0..args.repeats {
-        match get_endianess(&args.basename)?.as_str() {
+        match get_endianness(&args.basename)?.as_str() {
             #[cfg(any(
                 feature = "be_bins",
                 not(any(feature = "be_bins", feature = "le_bins"))
