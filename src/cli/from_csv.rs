@@ -18,7 +18,7 @@ use webgraph::graphs::arc_list_graph::ArcListGraph;
 use webgraph::labels::Left;
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "from_csv";
+pub const COMMAND_NAME: &str = "from-csv";
 
 #[derive(Args, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]

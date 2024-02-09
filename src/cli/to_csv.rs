@@ -14,7 +14,7 @@ use std::io::Write;
 use webgraph::graphs::bvgraph::{get_endianess, CodeRead};
 use webgraph::traits::SequentialLabeling;
 
-pub const COMMAND_NAME: &str = "to_csv";
+pub const COMMAND_NAME: &str = "to-csv";
 
 pub fn cli(command: Command) -> Command {
     command.subcommand(

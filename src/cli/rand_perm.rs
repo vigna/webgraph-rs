@@ -13,7 +13,7 @@ use rand::prelude::SliceRandom;
 use std::io::prelude::*;
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "rand_perm";
+pub const COMMAND_NAME: &str = "rand-perm";
 
 #[derive(Args, Debug)]
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]

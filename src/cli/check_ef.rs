@@ -16,7 +16,7 @@ use std::io::BufReader;
 use sux::prelude::*;
 use webgraph::graphs::EF;
 
-pub const COMMAND_NAME: &str = "check_ef";
+pub const COMMAND_NAME: &str = "check-ef";
 
 #[derive(Args, Debug)]
 #[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]

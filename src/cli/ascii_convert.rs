@@ -13,7 +13,7 @@ use lender::*;
 use webgraph::graphs::bvgraph::{get_endianess, CodeRead};
 use webgraph::traits::SequentialLabeling;
 
-pub const COMMAND_NAME: &str = "ascii_convert";
+pub const COMMAND_NAME: &str = "ascii-convert";
 
 pub fn cli(command: Command) -> Command {
     command

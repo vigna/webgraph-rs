@@ -14,7 +14,7 @@ use dsi_progress_logger::*;
 use std::collections::VecDeque;
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "bf_visit";
+pub const COMMAND_NAME: &str = "bf-visit";
 
 #[derive(Args, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]

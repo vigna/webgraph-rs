@@ -12,7 +12,7 @@ use dsi_progress_logger::*;
 use lender::*;
 use webgraph::prelude::*;
 
-pub const COMMAND_NAME: &str = "optimize_codes";
+pub const COMMAND_NAME: &str = "optimize-codes";
 
 #[derive(Args, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
