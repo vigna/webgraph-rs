@@ -13,6 +13,7 @@ use dsi_progress_logger::*;
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
+    path::PathBuf,
 };
 
 pub const COMMAND_NAME: &str = "offsets";
@@ -22,7 +23,7 @@ pub const COMMAND_NAME: &str = "offsets";
 
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -57,7 +58,8 @@ where
         .endianness::<E>()
         .load()?;
     // Create the offsets file
-    let file = std::fs::File::create(format!("{}.offsets", args.basename))?;
+    let target = suffix_path(&args.basename, ".offsets");
+    let file = std::fs::File::create(&target)?;
     // create a bit writer on the file
     let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
         BufWriter::with_capacity(1 << 20, file),

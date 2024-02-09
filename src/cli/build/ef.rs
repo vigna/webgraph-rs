@@ -14,6 +14,7 @@ use epserde::prelude::*;
 use log::info;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
+use std::path::PathBuf;
 use sux::prelude::*;
 
 pub const COMMAND_NAME: &str = "ef";
@@ -22,7 +23,7 @@ pub const COMMAND_NAME: &str = "ef";
 #[command(about = "Builds the .ef file for a graph.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
     /// The number of elements to be inserted in the Elias-Fano
     /// starting from a label offset file. It is usually one more than
     /// the number of nodes in the graph.
@@ -57,16 +58,16 @@ where
 {
     if let Some(num_nodes) = args.n {
         // Horribly temporary duplicated code for the case of label offsets.
-        let of_file_str = format!("{}.labeloffsets", args.basename);
-        let of_file_path = std::path::Path::new(&of_file_str);
+        let of_file_path = suffix_path(&args.basename, ".labeloffsets");
         if of_file_path.exists() {
-            let mut file = File::open(format!("{}.labels", args.basename))?;
+            let labels_path = suffix_path(&args.basename, ".labels");
+            let mut file = File::open(&labels_path)?;
             let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
 
             let mut efb = EliasFanoBuilder::new(num_nodes, file_len as usize);
 
             info!("The offsets file exists, reading it to build Elias-Fano");
-            let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
+            let of_file = BufReader::with_capacity(1 << 20, File::open(&of_file_path)?);
             // create a bit reader on the file
             let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
             // progress bar
@@ -96,31 +97,35 @@ where
             pl.display_memory(true);
             pl.start("Writing to disk...");
             // serialize and dump the schema to disk
-            let mut ef_file = BufWriter::new(File::create(format!("{}.ef", args.basename))?);
+            let ef_path = suffix_path(&args.basename, ".ef");
+            let mut ef_file = BufWriter::new(File::create(&ef_path)?);
             ef.serialize(&mut ef_file)?;
             pl.done();
             return Ok(());
         }
     }
-    let f = File::open(format!("{}.properties", args.basename)).with_context(|| {
+
+    let properties_path = suffix_path(&args.basename, ".properties");
+    let f = File::open(&properties_path).with_context(|| {
         format!(
-            "Could not load properties file: {}.properties",
-            args.basename
+            "Could not open properties file: {}",
+            properties_path.display()
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
-    let mut file = File::open(format!("{}.graph", args.basename))?;
+    let graph_path = suffix_path(&args.basename, ".graph");
+    let mut file = File::open(&graph_path)?;
     let file_len = 8 * file.seek(std::io::SeekFrom::End(0))?;
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
 
-    let mut ef_file = BufWriter::new(File::create(format!("{}.ef", args.basename))?);
+    let ef_path = suffix_path(&args.basename, ".ef");
+    let mut ef_file = BufWriter::new(File::create(&ef_path)?);
 
     // Create the offsets file
-    let of_file_str = format!("{}.offsets", args.basename);
-    let of_file_path = std::path::Path::new(&of_file_str);
+    let of_file_path = suffix_path(&args.basename, ".offsets");
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
@@ -130,7 +135,7 @@ where
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
         info!("The offsets file exists, reading it to build Elias-Fano");
-        let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
+        let of_file = BufReader::with_capacity(1 << 20, File::open(&of_file_path)?);
         // create a bit reader on the file
         let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
         // progress bar

@@ -4,6 +4,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
+
+use std::path::{Path, PathBuf};
+
 use rand::Rng;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
@@ -46,6 +49,24 @@ pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> String {
         }
         base.pop();
     }
+}
+
+/// Appends a string to a path
+///
+/// ```
+/// # use std::path::{Path, PathBuf};
+/// # use webgraph::utils::suffix_path;
+///
+/// assert_eq!(
+///     suffix_path(Path::new("/tmp/graph"), "-transposed"),
+///     Path::new("/tmp/graph-transposed").to_owned()
+/// );
+/// ```
+#[inline(always)]
+pub fn suffix_path<P: AsRef<Path>, S: AsRef<std::ffi::OsStr>>(path: P, suffix: S) -> PathBuf {
+    let mut path = path.as_ref().as_os_str().to_owned();
+    path.push(suffix);
+    path.into()
 }
 
 mod circular_buffer;
