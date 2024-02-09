@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::graphs::EF;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -14,7 +15,6 @@ use log::info;
 use std::fs::File;
 use std::io::BufReader;
 use sux::prelude::*;
-use crate::graphs::EF;
 
 pub const COMMAND_NAME: &str = "check-ef";
 
@@ -79,10 +79,9 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         .expected_updates(Some(num_nodes));
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-    let seq_graph =
-    crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
-            .endianness::<BE>()
-            .load()?;
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+        .endianness::<BE>()
+        .load()?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");

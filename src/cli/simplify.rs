@@ -6,10 +6,10 @@
  */
 
 use super::utils::*;
+use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "simplify";
 
@@ -61,10 +61,9 @@ where
         .simplified
         .unwrap_or_else(|| args.basename.clone() + ".simple");
 
-    let seq_graph =
-        crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
 
     // transpose the graph
     let sorted = crate::algo::simplify(&seq_graph, args.pa.batch_size).unwrap();

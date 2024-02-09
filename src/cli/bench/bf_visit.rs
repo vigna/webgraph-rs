@@ -6,13 +6,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::prelude::*;
 use anyhow::Result;
 use bitvec::*;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use std::collections::VecDeque;
-use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "bf-visit";
 

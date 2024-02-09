@@ -7,6 +7,9 @@
  */
 
 use super::utils::*;
+use crate::graphs::arc_list_graph;
+use crate::labels::Left;
+use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -14,9 +17,6 @@ use dsi_progress_logger::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::{BufReader, Read};
-use crate::graphs::arc_list_graph;
-use crate::labels::Left;
-use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "perm";
 

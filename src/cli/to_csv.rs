@@ -5,14 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::graphs::bvgraph::{get_endianess, CodeRead};
+use crate::traits::SequentialLabeling;
 use anyhow::Result;
 use clap::{Arg, ArgMatches, Command};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use std::io::Write;
-use crate::graphs::bvgraph::{get_endianess, CodeRead};
-use crate::traits::SequentialLabeling;
 
 pub const COMMAND_NAME: &str = "to-csv";
 

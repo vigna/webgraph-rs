@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -14,7 +15,6 @@ use log::info;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use sux::prelude::*;
-use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "ef";
 

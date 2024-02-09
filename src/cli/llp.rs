@@ -7,6 +7,7 @@
  */
 
 use super::utils::*;
+use crate::prelude::*;
 use anyhow::{bail, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -14,7 +15,6 @@ use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
 use std::iter::Iterator;
-use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "llp";
 

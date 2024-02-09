@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -13,7 +14,6 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter},
 };
-use crate::prelude::*;
 
 pub const COMMAND_NAME: &str = "offsets";
 

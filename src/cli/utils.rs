@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use clap::Args;
-use clap::ValueEnum;
 use crate::graphs::Code;
 use crate::prelude::CompFlags;
+use clap::Args;
+use clap::ValueEnum;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Our own enum for the codes, this is used to implement ValueEnum here
