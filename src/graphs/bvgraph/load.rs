@@ -513,11 +513,11 @@ impl<
 
 /// Read the .properties file and return the endianness
 pub fn get_endianess<P: AsRef<Path>>(basename: P) -> Result<String> {
-    let path = format!("{}.properties", basename.as_ref().to_string_lossy());
+    let path = suffix_path(&basename.as_ref(), ".properties");
     let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open property file {}", path))?;
+        .with_context(|| format!("Cannot open property file {}", path.display()))?;
     let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("cannot parse {} as a java properties file", path))?;
+        .with_context(|| format!("cannot parse {} as a java properties file", path.display()))?;
 
     let endianness = map
         .get("endianness")
@@ -530,7 +530,7 @@ pub fn get_endianess<P: AsRef<Path>>(basename: P) -> Result<String> {
 /// Read the .properties file and return the number of nodes, number of arcs and compression flags
 /// for the graph. The endianness is checked against the expected one.
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
-    let name = path.as_ref().to_string_lossy();
+    let name = path.as_ref().display();
     let f = std::fs::File::open(&path)
         .with_context(|| format!("Cannot open property file {}", name))?;
     let map = java_properties::read(BufReader::new(f))

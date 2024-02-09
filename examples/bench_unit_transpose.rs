@@ -12,16 +12,18 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::prelude::*;
+use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::labels::Left;
 use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
 use webgraph::{algo, prelude::*};
+
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labeled transposition on a unit graph.", long_about = None)]
 struct Args {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 }
 
 pub fn transpose(
@@ -66,7 +68,7 @@ fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.basename)
+    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
 

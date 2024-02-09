@@ -13,12 +13,14 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
 use std::hint::black_box;
+use std::path::PathBuf;
 use webgraph::prelude::*;
+
 #[derive(Parser, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct Args {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 }
 
 fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>

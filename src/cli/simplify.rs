@@ -10,6 +10,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "simplify";
 
@@ -17,9 +18,9 @@ pub const COMMAND_NAME: &str = "simplify";
 #[command(about = "Simplify a BVGraph, i.e. make it undirected and remove duplicates and selfloops", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
     /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
-    simplified: Option<String>,
+    simplified: Option<PathBuf>,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -59,7 +60,7 @@ where
 {
     let simplified = args
         .simplified
-        .unwrap_or_else(|| args.basename.clone() + ".simple");
+        .unwrap_or_else(|| suffix_path(&args.basename, ".simple"));
 
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
         .endianness::<E>()

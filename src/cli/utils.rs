@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::path::PathBuf;
+
 use crate::graphs::Code;
 use crate::prelude::CompFlags;
 use clap::Args;
@@ -95,8 +97,8 @@ pub struct PermutationArgs {
     /// Directory where of the **MANY LARGE** temporary files.
     /// If not passed it creates a random folder inside either
     /// the env var `TMPDIR` or `/tmp` if the env var is not specified.
-    #[arg(short = 't', long, default_value_t = std::env::temp_dir().to_string_lossy().to_string())]
-    pub temp_dir: String,
+    #[arg(short = 't', long, default_value = std::env::temp_dir().into_os_string())]
+    pub temp_dir: PathBuf,
 }
 
 #[derive(Args, Debug)]

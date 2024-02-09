@@ -10,6 +10,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "recompress";
 
@@ -17,9 +18,9 @@ pub const COMMAND_NAME: &str = "recompress";
 #[command(about = "Recompress a BVGraph", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
     /// The basename for the newly compressed graph.
-    new_basename: String,
+    new_basename: PathBuf,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,

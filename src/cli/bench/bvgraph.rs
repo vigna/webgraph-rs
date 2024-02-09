@@ -15,6 +15,7 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 use std::hint::black_box;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "bvgraph";
 
@@ -22,7 +23,7 @@ pub const COMMAND_NAME: &str = "bvgraph";
 #[command(about = "Benchmarks the Rust BVGraph implementation.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 
     /// Perform a random-access test on this number of randomly chosen nodes.
     #[arg(short, long)]

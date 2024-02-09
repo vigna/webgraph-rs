@@ -11,6 +11,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use lender::*;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "optimize-codes";
 
@@ -18,7 +19,7 @@ pub const COMMAND_NAME: &str = "optimize-codes";
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {

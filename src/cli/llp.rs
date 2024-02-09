@@ -15,6 +15,7 @@ use epserde::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
 use std::iter::Iterator;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "llp";
 
@@ -22,10 +23,10 @@ pub const COMMAND_NAME: &str = "llp";
 #[command(about = "Performs an LLP round.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 
     /// A filename for the LLP permutation. It defaults to "{basename}.llp"
-    perm: Option<String>,
+    perm: Option<PathBuf>,
 
     #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string(), "0-0".to_string()])]
     /// The gammas to use in LLP, separated by commas. The format is given by a integer
@@ -88,7 +89,7 @@ where
 
     let perm = args
         .perm
-        .unwrap_or_else(|| format!("{}.llp", args.basename));
+        .unwrap_or_else(|| suffix_path(&args.basename, ".llp"));
 
     // load the graph
     let graph = BVGraph::with_basename(&args.basename)

@@ -12,6 +12,7 @@ use dsi_progress_logger::*;
 use log::info;
 use std::fs::File;
 use std::io::BufWriter;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "convert";
 
@@ -19,9 +20,9 @@ pub const COMMAND_NAME: &str = "convert";
 #[command(about = "Invert the endianness of a BVGraph, this can be done using recompress but this is faster.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    src_basename: String,
+    src_basename: PathBuf,
     /// The basename for the newly compressed graph.
-    dst_basename: String,
+    dst_basename: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -36,8 +37,8 @@ macro_rules! impl_convert {
             <$dst>::NAME
         );
 
-        let (num_nodes, num_arcs, comp_flags) =
-            parse_properties::<$src>(format!("{}.properties", $args.src_basename))?;
+        let properties_path = suffix_path(&$args.src_basename, ".properties");
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<$src>(&properties_path)?;
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)
             .item_name("node")
@@ -48,11 +49,11 @@ macro_rules! impl_convert {
             .load()?;
         // build the encoder with the opposite endianness
         std::fs::write(
-            format!("{}.properties", $args.dst_basename),
+            &properties_path,
             comp_flags.to_properties::<$dst>(num_nodes, num_arcs)?,
         )?;
         let writer = <BufBitWriter<$dst, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&format!("{}.graph", $args.dst_basename))?,
+            File::create(&suffix_path(&$args.dst_basename, ".graph"))?,
         )));
         let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags);
         // build the iterator that will read the graph and write it to the encoder

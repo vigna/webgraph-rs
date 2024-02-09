@@ -12,6 +12,7 @@ use dsi_bitstream::prelude::*;
 use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "rand-perm";
 
@@ -19,9 +20,9 @@ pub const COMMAND_NAME: &str = "rand-perm";
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    source: String,
+    source: PathBuf,
     /// The permutation.
-    perm: String,
+    perm: PathBuf,
 
     #[arg(short = 'e', long)]
     /// Load the permutation from ε-serde format.
