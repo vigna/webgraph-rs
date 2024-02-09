@@ -17,13 +17,13 @@
 #![deny(unused_doc_comments)]
 
 pub mod algo;
+pub mod cli;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
 pub mod graphs;
 pub mod labels;
 pub mod traits;
 pub mod utils;
-pub mod cli;
 
 pub mod prelude {
     pub use crate::algo::*;
