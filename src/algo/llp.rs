@@ -22,6 +22,12 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 
+fn labels_path(gamma_index: usize) -> PathBuf {
+    [temp_dir(), format!("labels_{}.bin", gamma_index)]
+        .iter()
+        .collect()
+}
+
 /// Write the permutation computed by the LLP algorithm inside `perm`,
 /// and return the labels of said permutation.
 ///
@@ -220,7 +226,7 @@ pub fn layered_label_propagation(
         costs.push(cost);
 
         // storing the perms
-        let mut file = std::fs::File::create(format!("labels_{}.bin", gamma_index))?;
+        let mut file = std::fs::File::create(labels_path(gamma_index))?;
         labels.serialize(&mut file)?;
 
         gamma_pl.update_and_display();
@@ -249,18 +255,17 @@ pub fn layered_label_propagation(
     // reuse the update_perm to store the final permutation
     let mut temp_perm = update_perm;
 
-    let mut result_labels =
-        <Vec<usize>>::load_mem(format!("labels_{}.bin", best_gamma_index))?.to_vec();
+    let mut result_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))?.to_vec();
 
     for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", gamma_index))?;
+        let labels = <Vec<usize>>::load_mem(labels_path(gamma_index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = <Vec<usize>>::load_mem(format!("labels_{}.bin", best_gamma_index))?;
+        let best_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);
