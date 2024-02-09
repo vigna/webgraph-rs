@@ -6,7 +6,7 @@
  */
 
 use crate::prelude::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
@@ -59,7 +59,8 @@ where
         .load()?;
     // Create the offsets file
     let target = suffix_path(&args.basename, ".offsets");
-    let file = std::fs::File::create(&target)?;
+    let file = std::fs::File::create(&target)
+        .with_context(|| format!("Could not create {}", target.display()))?;
     // create a bit writer on the file
     let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
         BufWriter::with_capacity(1 << 20, file),
@@ -75,13 +76,17 @@ where
     let mut degs_iter = seq_graph.offset_deg_iter();
     for (new_offset, _degree) in &mut degs_iter {
         // write where
-        writer.write_gamma((new_offset - offset) as _)?;
+        writer
+            .write_gamma((new_offset - offset) as _)
+            .context("Could not write gamma")?;
         offset = new_offset;
         // decode the next nodes so we know where the next node_id starts
         pl.light_update();
     }
     // write the last offset, this is done to avoid decoding the last node
-    writer.write_gamma((degs_iter.get_pos() - offset) as _)?;
+    writer
+        .write_gamma((degs_iter.get_pos() - offset) as _)
+        .context("Could not write final gamma")?;
     pl.light_update();
     pl.done();
     Ok(())
