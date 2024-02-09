@@ -26,11 +26,12 @@ with basename `BASENAME` you need to call
 let graph = BVGraph::with_basename("BASENAME").load()?;
 ```
 
-The [with_basename]() method returns a [LoadConfig] instance that can be further
+The [`with_basename`] method returns a [`LoadConfig`] instance that can be further
 customized, selecting endianness, type of memory access, etc. By default you
-will get big endianness, and memory mapping for both the graph and the offsets.
+will get big endianness, memory mapping for both the graph and the offsets, and
+dynamic code dispatch.
 
-Once you loaded the graph, you can [retrieve the successors of a node]()
+Once you loaded the [graph](), you can [retrieve the successors of a node]()
 or [iterate on the whole graph]().
 
 ## More Options
@@ -41,7 +42,15 @@ does not need the `.ef` file, but provides only [iteration]().
 - Graphs can be labeled by [zipping]() then together with a [labeling](). In fact,
   graphs are just labelings with `usize` labels.
 
+## Operating on Graphs
+
+There are many operations available on graphs, such as [`transpose`] or [`simplify`].
+
 ## Acknowledgments
 
 This software has been partially supported by project SERICS (PE00000014) under the NRRP MUR program funded by the EU - NGEU,
 and by project ANR COREGRAPHIE, grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
+
+[`LoadConfig`]:
+[`with_basename`]:
+[`transpose`]

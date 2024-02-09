@@ -7,24 +7,19 @@
 use anyhow::{Context, Result};
 use core::fmt::Debug;
 use mmap_rs::*;
-use std::{path::Path, sync::Arc};
+use std::{mem::size_of, path::Path, sync::Arc};
 
-/// Adapt an [`Mmap`] that implements [`AsRef<[u8]>`] into a [`AsRef<[W]>`].
+/// Helper struct providing convenience methods and
+/// type-based [`AsRef`] access to an [`Mmap`] or [`MmapMut`].
 ///
-/// This is implemented for two different instances of `M`:
-/// - [`Arc<Mmap>`], an immutable case where we put [`Mmap`] inside an [`Arc`](`std::sync::Arc`) so
-/// it's [Clonable](`core::clone::Clone`).
-/// - [`MmapMut`], for mutable cases.
-///
-/// While this could not depend on [`Mmap`] but just on [`AsRef<[u8]>`],
-/// we only need it on [`Mmap`], so we can provide ergonomic methods to create
-/// and load the mmap.
-///
-/// The main usecases are to be able to easily mmap slices to disk, and to be able
-/// to read a bitstream form mmap.
+/// The parameter `W` defines the type used to access the [`Mmap`] or [`MmapMut`]
+/// instance. Usually, this will be a unsigned type such as `usize`, but per se `W`
+/// has no trait bounds.
 #[derive(Clone)]
 pub struct MmapBackend<W, M = Mmap> {
+    /// The underlying [`Mmap`].
     mmap: M,
+    /// The length of the mapping in `W`'s.
     len: usize,
     _marker: core::marker::PhantomData<W>,
 }
@@ -58,6 +53,11 @@ impl<W> From<Mmap> for MmapBackend<W> {
 }
 
 impl<W> MmapBackend<W> {
+    /// Return the size of the memory mapping in `W`'s.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
     /// Create a new MmapBackend
     pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
@@ -67,11 +67,12 @@ impl<W> MmapBackend<W> {
             .len() as usize;
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
-        let capacity = file_len / 8 + 1; // Must be > 0, or we get a panic
+        // Align to multiple of size_of::<W>. Moreover, it must be > 0, or we get a panic.
+        let mmap_len = (file_len / size_of::<W>() + 1) * size_of::<W>();
 
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(capacity * 8)
-                .with_context(|| format!("Cannot initialize mmap of size {}", capacity * 8))?
+            mmap_rs::MmapOptions::new(mmap_len)
+                .with_context(|| format!("Cannot initialize mmap of size {}", mmap_len))?
                 .with_flags(flags)
                 .with_file(&file, 0)
                 .map()
@@ -79,7 +80,7 @@ impl<W> MmapBackend<W> {
                     format!(
                         "Cannot mmap {} (size {})",
                         path.as_ref().display(),
-                        capacity * 8
+                        mmap_len
                     )
                 })?
         };
@@ -170,6 +171,10 @@ impl<W> MmapBackend<W, MmapMut> {
     }
 }
 
+/// A clonable version of [`MmapBackend`].
+///
+/// This newtype contains an [`MmapBackend`] wrapped in an [`Arc`], making it possible
+/// to clone the backend.
 #[derive(Clone)]
 pub struct ArcMmapBackend<W>(pub Arc<MmapBackend<W>>);
 
