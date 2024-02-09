@@ -19,11 +19,13 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
+use std::env::temp_dir;
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 
 fn labels_path(gamma_index: usize) -> PathBuf {
-    [temp_dir(), format!("labels_{}.bin", gamma_index)]
+    [temp_dir(), format!("labels_{}.bin", gamma_index).into()]
         .iter()
         .collect()
 }
@@ -259,7 +261,7 @@ pub fn layered_label_propagation(
 
     for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels = <Vec<usize>>::load_mem(labels_path(gamma_index))?;
+        let labels = <Vec<usize>>::load_mem(labels_path(*gamma_index))?;
         combine(&mut result_labels, *labels, &mut temp_perm)?;
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
