@@ -75,7 +75,7 @@ macro_rules! impl_convert {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianess(&args.src_basename)?.as_str() {
+    match get_endianness(&args.src_basename)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))

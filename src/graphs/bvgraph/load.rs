@@ -512,7 +512,7 @@ impl<
 }
 
 /// Read the .properties file and return the endianness
-pub fn get_endianess<P: AsRef<Path>>(basename: P) -> Result<String> {
+pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
     let path = suffix_path(&basename.as_ref(), ".properties");
     let f = std::fs::File::open(&path)
         .with_context(|| format!("Cannot open property file {}", path.display()))?;

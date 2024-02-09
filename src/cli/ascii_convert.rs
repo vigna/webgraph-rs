@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::bvgraph::{get_endianess, CodeRead};
+use crate::graphs::bvgraph::{get_endianness, CodeRead};
 use crate::traits::SequentialLabeling;
 use anyhow::Result;
 use clap::{Arg, ArgMatches, Command};
@@ -29,7 +29,7 @@ pub fn cli(command: Command) -> Command {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let basename = submatches.get_one::<String>("basename").unwrap();
-    match get_endianess(basename)?.as_str() {
+    match get_endianness(basename)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))

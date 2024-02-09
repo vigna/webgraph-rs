@@ -94,7 +94,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         .timestamp(stderrlog::Timestamp::Second)
         .init()?;
 
-    match get_endianess(&args.source)?.as_str() {
+    match get_endianness(&args.source)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
