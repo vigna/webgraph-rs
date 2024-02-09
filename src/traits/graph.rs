@@ -11,23 +11,23 @@ Basic traits to access graphs, both sequentially and
 in random-access fashion.
 
 A [sequential graph](SequentialGraph) is simply a
-[`SequentialLabeling`] whose associated type `Label` is `usize`: labels are interpreted
+[`SequentialLabeling`] whose associated type [`Label`](SequentialLabeling::Label) is `usize`: labels are interpreted
 as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply a
-[`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose `Label` is `usize`.
+[`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `usize`.
 To access the successors of a node, however, you must use
 [`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabeling::labels):
 the latter method is overriden on purpose make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
-[`SequentialLabeling`] whose `Value` is `(usize, L)`
+[`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
 and a [random-access graph with labels](RandomAccessGraph) is a
-[`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose `Value` is `(usize, L)`.
+[`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`.
 
 Finally, the [zipping of a graph and a labeling](Zip) implements the
-labeled graph traits.
+labeled graph traits (sequential or random-access, depending on the labelings).
 
 Note that most utilities to manipulate graphs manipulate in fact
-labeled graph. To use the same utilities on an unlabeled graph
+labeled graphs. To use the same utilities on an unlabeled graph
 you just have to wrap it in a [UnitLabelGraph], which
 is a zero-cost abstraction assigning to each successor the label `()`.
 Usually there is a convenience method doing the wrapping for you.
@@ -47,12 +47,14 @@ struct this_method_cannot_be_called_use_successors_instead;
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
 /// ascending order, or the successors of a node will be returned in ascending order.
-/// The marker traits [SortedIterator] and [SortedSuccessors] can be used to
+/// The marker traits [SortedIterator] and [SortedLabels] can be used to
 /// force these properties.
 ///
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
+/// Convenience type alias for the iterator over the successors of a node
+/// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
 pub type Successors<'succ, 'node, S> =
     <<S as SequentialLabeling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
@@ -76,7 +78,7 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
         <Self as RandomAccessLabeling>::labels(self, node_id)
     }
 
-    /// Unconvenience override of the [`RandomAccessLabeling::labels`] method.
+    /// Disabling override of the [`RandomAccessLabeling::labels`] method.
     ///
     /// The `where` clause of this override contains an unsatisfiable private trait bound,
     /// which makes calling this method impossible. Use the [`RandomAccessGraph::successors`] method instead.
@@ -107,7 +109,13 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
 /// The first coordinate is the successor, the second is the label.
 pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
-/// A trivial labeling associating to each successor the label `()`.
+/// A wrapper associating to each successor the label `()`.
+///
+/// This wrapper can be used whenever a method requires a labeled graph, but
+/// the graph is actually unlabeled. It is (usually) a zero-cost abstraction.
+///
+/// If the method returns some graphs derived from the input, it will usually
+/// be necessary to [project the labels away](crate::labels::Left).
 #[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
@@ -144,6 +152,7 @@ where
     }
 }
 
+#[doc(hidden)]
 #[repr(transparent)]
 pub struct UnitSuccessors<I>(I);
 
@@ -194,7 +203,7 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
         <Self as RandomAccessLabeling>::labels(self, node_id)
     }
 
-    /// Unconvenience override of the [`RandomAccessLabeling::labels`] method.
+    /// Disabling override of the [`RandomAccessLabeling::labels`] method.
     ///
     /// The `where` clause of this override contains an unsatisfiable private
     /// trait bound, which makes calling this method impossible. Use the
