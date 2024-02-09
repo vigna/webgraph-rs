@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
@@ -19,7 +21,7 @@ fn logger_init() {
 fn test_par_bvcomp() -> Result<()> {
     logger_init();
     let comp_flags = CompFlags::default();
-    let tmp_basename = "tests/data/cnr-2000-par";
+    let tmp_basename = PathBuf::from("tests/data/cnr-2000-par");
 
     // load the graph
     let graph =
@@ -36,7 +38,7 @@ fn test_par_bvcomp() -> Result<()> {
         let start = std::time::Instant::now();
         // recompress the graph in parallel
         BVComp::parallel::<BE, _>(
-            tmp_basename,
+            &tmp_basename,
             &graph,
             graph.num_nodes(),
             comp_flags,
@@ -46,7 +48,7 @@ fn test_par_bvcomp() -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let found_size = std::fs::File::open(format!("{}.graph", tmp_basename))?
+        let found_size = std::fs::File::open(suffix_path(&tmp_basename, ".graph"))?
             .metadata()?
             .len();
 
@@ -58,7 +60,7 @@ fn test_par_bvcomp() -> Result<()> {
         }
 
         let comp_graph =
-            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(tmp_basename)
+            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&tmp_basename)
                 .endianness::<BE>()
                 .load()?;
         let mut iter = comp_graph.iter();
@@ -81,8 +83,8 @@ fn test_par_bvcomp() -> Result<()> {
 
         pr.done();
         // cancel the file at the end
-        std::fs::remove_file(format!("{}.graph", tmp_basename))?;
-        std::fs::remove_file(format!("{}.properties", tmp_basename))?;
+        std::fs::remove_file(suffix_path(&tmp_basename, ".graph"))?;
+        std::fs::remove_file(suffix_path(&tmp_basename, ".properties"))?;
         log::info!("\n");
     }
 

@@ -97,10 +97,7 @@ impl BVComp<()> {
 
         log::info!("Writing the .properties file");
         let properties = compression_flags.to_properties::<BE>(real_num_nodes, bvcomp.arcs)?;
-        std::fs::write(
-            suffix_path(&basename, ".properties"),
-            properties,
-        )?;
+        std::fs::write(suffix_path(&basename, ".properties"), properties)?;
 
         bvcomp.flush()?;
         Ok(result)
@@ -337,10 +334,7 @@ impl BVComp<()> {
 
             log::info!("Writing the .properties file");
             let properties = compression_flags.to_properties::<BE>(num_nodes, total_arcs)?;
-            std::fs::write(
-                suffix_path(&basename, ".properties"),
-                properties,
-            )?;
+            std::fs::write(suffix_path(&basename, ".properties"), properties)?;
 
             log::info!(
                 "Compressed {} arcs into {} bits for {:.4} bits/arc",

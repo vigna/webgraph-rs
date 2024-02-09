@@ -13,6 +13,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use std::collections::VecDeque;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "bf-visit";
 
@@ -20,7 +21,7 @@ pub const COMMAND_NAME: &str = "bf-visit";
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
     /// Static dispatch (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
     _static: bool,

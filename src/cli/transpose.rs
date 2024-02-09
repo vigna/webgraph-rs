@@ -10,6 +10,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "transpose";
 
@@ -17,9 +18,9 @@ pub const COMMAND_NAME: &str = "transpose";
 #[command(about = "Transpose a BVGraph", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
     /// The basename of the transposed graph. Defaults to `basename` + `-t`.
-    transposed: Option<String>,
+    transposed: Option<PathBuf>,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -59,7 +60,7 @@ where
 {
     let transposed = args
         .transposed
-        .unwrap_or_else(|| args.basename.clone() + "-t");
+        .unwrap_or_else(|| suffix_path(&args.basename, "-t"));
 
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
         .endianness::<E>()

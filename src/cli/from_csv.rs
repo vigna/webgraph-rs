@@ -17,6 +17,7 @@ use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "from-csv";
 
@@ -24,7 +25,7 @@ pub const COMMAND_NAME: &str = "from-csv";
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
 struct CliArgs {
     /// The basename of the dst.
-    basename: String,
+    basename: PathBuf,
 
     #[arg(long)]
     /// The number of nodes in the graph
@@ -134,7 +135,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
     // save the nodes
     if !args.csv_args.numeric {
-        let mut file = std::fs::File::create(format!("{}.nodes", args.basename)).unwrap();
+        let mut file = std::fs::File::create(suffix_path(&args.basename, ".nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx

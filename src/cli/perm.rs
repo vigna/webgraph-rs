@@ -17,6 +17,7 @@ use dsi_progress_logger::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::{BufReader, Read};
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "perm";
 
@@ -24,11 +25,11 @@ pub const COMMAND_NAME: &str = "perm";
 #[command(about = "Apply a permutation to a bvgraph.", long_about = None)]
 struct CliArgs {
     /// The basename of the source graph.
-    source: String,
+    source: PathBuf,
     /// The basename of the destination graph.
-    dest: String,
+    dest: PathBuf,
     /// The permutation.
-    perm: String,
+    perm: PathBuf,
 
     #[arg(short = 'e', long, default_value_t = false)]
     /// Load the permutation from ε-serde format.

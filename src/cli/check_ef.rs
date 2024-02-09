@@ -6,6 +6,7 @@
  */
 
 use crate::graphs::EF;
+use crate::utils::suffix_path;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -14,6 +15,7 @@ use epserde::prelude::*;
 use log::info;
 use std::fs::File;
 use std::io::BufReader;
+use std::path::PathBuf;
 use sux::prelude::*;
 
 pub const COMMAND_NAME: &str = "check-ef";
@@ -22,7 +24,7 @@ pub const COMMAND_NAME: &str = "check-ef";
 #[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: String,
+    basename: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -32,20 +34,20 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let f = File::open(format!("{}.properties", args.basename)).with_context(|| {
+    let properties_path = suffix_path(&args.basename, ".properties");
+    let f = File::open(&properties_path).with_context(|| {
         format!(
-            "Could not load properties file: {}.properties",
-            args.basename
+            "Could not load properties file: {}",
+            properties_path.display()
         )
     })?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Create the offsets file
-    let of_file_str = format!("{}.offsets", args.basename);
-    let of_file_path = std::path::Path::new(&of_file_str);
+    let of_file_path = suffix_path(&args.basename, ".offsets");
 
-    let ef = EF::mmap(format!("{}.ef", args.basename), Flags::default())?;
+    let ef = EF::mmap(suffix_path(&args.basename, ".ef"), Flags::default())?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
