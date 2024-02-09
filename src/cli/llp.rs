@@ -8,7 +8,7 @@
 
 use super::utils::*;
 use crate::prelude::*;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
@@ -96,7 +96,8 @@ where
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
-        .load()?;
+        .load()
+        .with_context(|| format!("Could not load {}", args.basename.display()))?;
 
     // parse the gamma format
     let mut gammas = vec![];
@@ -125,7 +126,8 @@ where
         args.chunk_size,
         args.granularity,
         0,
-    )?;
+    )
+    .context("Could not compute the LLP")?;
 
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
@@ -135,12 +137,16 @@ where
     log::info!("Saving permutation...");
 
     if args.epserde {
-        llp_perm.store(perm)?;
+        llp_perm
+            .store(&perm)
+            .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
     } else {
-        let mut file = std::fs::File::create(perm)?;
+        let mut file = std::fs::File::create(&perm)
+            .with_context(|| format!("Could not create permutation at {}", perm.display()))?;
         let mut buf = BufWriter::new(&mut file);
         for word in llp_perm.into_iter() {
-            buf.write_all(&word.to_be_bytes())?;
+            buf.write_all(&word.to_be_bytes())
+                .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
         }
     }
     log::info!("Completed..");

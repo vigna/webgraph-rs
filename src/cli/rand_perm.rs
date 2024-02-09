@@ -6,7 +6,7 @@
  */
 
 use crate::prelude::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::ser::Serialize;
@@ -57,18 +57,25 @@ where
 {
     let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
         .endianness::<E>()
-        .load()?;
+        .load()
+        .with_context(|| format!("Could not read graph from {}", args.source.display()))?;
 
     let mut rng = rand::thread_rng();
     let mut perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     perm.shuffle(&mut rng);
 
     if args.epserde {
-        perm.store(&args.perm)?;
+        perm.store(&args.perm)
+            .with_context(|| format!("Could not store permutation to {}", args.perm.display()))?;
     } else {
-        let mut file = std::io::BufWriter::new(std::fs::File::create(args.perm)?);
+        let mut file =
+            std::io::BufWriter::new(std::fs::File::create(&args.perm).with_context(|| {
+                format!("Could not create permutation at {}", args.perm.display())
+            })?);
         for perm in perm {
-            file.write_all(&perm.to_be_bytes())?;
+            file.write_all(&perm.to_be_bytes()).with_context(|| {
+                format!("Could not write permutation to {}", args.perm.display())
+            })?;
         }
     }
 

@@ -5,7 +5,7 @@
 */
 
 use crate::prelude::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
@@ -46,14 +46,23 @@ macro_rules! impl_convert {
 
         let seq_graph = BVGraphSeq::with_basename(&$args.src_basename)
             .endianness::<$src>()
-            .load()?;
+            .load()
+            .with_context(|| format!("Could not load graph {}", $args.src_basename.display()))?;
         // build the encoder with the opposite endianness
         std::fs::write(
             &properties_path,
             comp_flags.to_properties::<$dst>(num_nodes, num_arcs)?,
-        )?;
+        )
+        .with_context(|| {
+            format!(
+                "Could not write properties to {}",
+                properties_path.display()
+            )
+        })?;
+        let target_graph_path = suffix_path(&$args.dst_basename, ".graph");
         let writer = <BufBitWriter<$dst, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&suffix_path(&$args.dst_basename, ".graph"))?,
+            File::create(&target_graph_path)
+                .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
         )));
         let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags);
         // build the iterator that will read the graph and write it to the encoder

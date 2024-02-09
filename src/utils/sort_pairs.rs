@@ -186,7 +186,8 @@ where
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
             // It's OK if something is not OK here
-            std::fs::remove_file(batch_name)?;
+            std::fs::remove_file(&batch_name)
+                .with_context(|| format!("Could not remove file {}", batch_name.display()))?;
         }
         self.num_batches = 0;
         self.last_batch_len = 0;
@@ -283,8 +284,16 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         S::SerType: Send + Sync + Copy,
     {
         // create a batch file where to dump
-        let file =
-            std::io::BufWriter::with_capacity(1 << 16, std::fs::File::create(file_path.as_ref())?);
+        let file_path = file_path.as_ref();
+        let file = std::io::BufWriter::with_capacity(
+            1 << 16,
+            std::fs::File::create(file_path).with_context(|| {
+                format!(
+                    "Could not create BatchIterator temporary file {}",
+                    file_path.display()
+                )
+            })?,
+        );
         // createa bitstream to write to the file
         let mut stream = <BufBitWriter<NE, _>>::new(<WordAdapter<usize, _>>::new(file));
         // Dump the triples to the bitstream
@@ -315,7 +324,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         // flush the stream and reset the buffer
         stream.flush().context("Could not flush stream")?;
 
-        Self::new_labeled(file_path.as_ref(), batch.len(), deserializer)
+        Self::new_labeled(file_path, batch.len(), deserializer)
     }
 
     /// Create a new iterator over the triples previously serialized in `file_path`
