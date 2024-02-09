@@ -26,13 +26,22 @@ pub struct JavaPermutation<M = Mmap> {
 
 impl JavaPermutation<MmapMut> {
     /// Create a new  mutable Memory mapped permutation
-    pub fn new(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
+    ///
+    /// # Arguments
+    /// - `path` - The path to the file to memory map
+    /// - `flags` - The flags to use for the memory mapping
+    /// - `len` - The length of the permutation (in number of nodes)
+    pub fn new(path: impl AsRef<Path>, flags: MmapFlags, len: usize) -> Result<Self> {
         Ok(Self {
-            perm: MmapBackend::new(path, flags)?,
+            perm: MmapBackend::new(path, flags, len)?,
         })
     }
 
     /// Memory map a mutable permutation from disk
+    ///
+    /// # Arguments
+    /// - `path` - The path to the file to memory map
+    /// - `flags` - The flags to use for the memory mapping
     pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
             perm: MmapBackend::load_mut(path, flags)?,
@@ -42,6 +51,10 @@ impl JavaPermutation<MmapMut> {
 
 impl JavaPermutation {
     /// Memory map a permutation from disk reading
+    ///
+    /// # Arguments
+    /// - `path` - The path to the file to memory map
+    /// - `flags` - The flags to use for the memory mapping
     pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
             perm: MmapBackend::load(path, flags)?,

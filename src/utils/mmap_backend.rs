@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{ensure, Context, Result};
 use core::fmt::Debug;
 use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
@@ -44,6 +44,7 @@ impl<W: Debug> Debug for MmapBackend<W, MmapMut> {
 
 impl<W> TryFrom<Mmap> for MmapBackend<W> {
     type Error = anyhow::Error;
+
     fn try_from(value: Mmap) -> std::prelude::v1::Result<Self, Self::Error> {
         ensure!(
             value.len() % size_of::<W>() == 0,
@@ -64,7 +65,17 @@ impl<W> MmapBackend<W> {
         self.len
     }
 
-    /// Create a new MmapBackend
+    /// Return whether the memory mapping is empty.
+    pub fn is_empty(&self) -> bool {
+        // make clippy happy
+        self.len == 0
+    }
+
+    /// Load a new MmapBackend from a file.
+    ///
+    /// # Arguments
+    /// - `path`: The path to the file to be memory mapped.
+    /// - `flags`: The flags to be used for the mmap.
     pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
@@ -101,6 +112,10 @@ impl<W> MmapBackend<W> {
 
 impl<W> MmapBackend<W, MmapMut> {
     /// Create a new mutable MmapBackend
+    ///
+    /// # Arguments
+    /// - `path`: The path to the file to be created.
+    /// - `flags`: The flags to be used for the mmap.
     pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len = path
             .as_ref()
@@ -140,13 +155,13 @@ impl<W> MmapBackend<W, MmapMut> {
         })
     }
 
-    /// Create a new mutable MmapBackend
-    pub fn new(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
-        let file_len = path
-            .as_ref()
-            .metadata()
-            .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
-            .len();
+    /// Create a new mutable MmapBackend, overwriting the file if it exists.
+    ///
+    /// # Arguments
+    /// - `path`: The path to the file to be created.
+    /// - `flags`: The flags to be used for the mmap.
+    /// - `len`: The length of the mmap in `W`'s.
+    pub fn new(path: impl AsRef<Path>, flags: MmapFlags, len: usize) -> Result<Self> {
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -154,12 +169,9 @@ impl<W> MmapBackend<W, MmapMut> {
             .truncate(true)
             .open(path.as_ref())
             .with_context(|| {
-                format!(
-                    "Cannot create {} for mutable MmapBackend",
-                    path.as_ref().display()
-                )
+                format!("Cannot create {} new MmapBackend", path.as_ref().display())
             })?;
-
+        let file_len = len * size_of::<W>();
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
