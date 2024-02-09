@@ -66,6 +66,7 @@ pub fn main() -> Result<()> {
         check_ef,
         convert,
         from_csv,
+        hyperball,
         llp,
         optimize_codes,
         perm,

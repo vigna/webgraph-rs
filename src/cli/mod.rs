@@ -13,6 +13,7 @@ pub mod build;
 pub mod check_ef;
 pub mod convert;
 pub mod from_csv;
+pub mod hyperball;
 pub mod llp;
 pub mod optimize_codes;
 pub mod perm;

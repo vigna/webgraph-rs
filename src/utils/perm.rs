@@ -88,4 +88,9 @@ impl BitFieldSliceMut<usize> for JavaPermutation<MmapMut> {
     unsafe fn set_unchecked(&mut self, index: usize, value: usize) {
         *self.perm.as_mut().get_unchecked_mut(index) = value as u64;
     }
+
+    #[inline(always)]
+    fn reset(&mut self) {
+        self.perm.as_mut().reset();
+    }
 }
