@@ -21,13 +21,13 @@ pub const COMMAND_NAME: &str = "ef";
 
 #[derive(Args, Debug)]
 #[command(about = "Builds the .ef file for a graph.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub basename: PathBuf,
     /// The number of elements to be inserted in the Elias-Fano
     /// starting from a label offset file. It is usually one more than
     /// the number of nodes in the graph.
-    n: Option<usize>,
+    pub n: Option<usize>,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -52,7 +52,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn build_eliasfano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn build_eliasfano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

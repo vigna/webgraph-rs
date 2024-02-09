@@ -23,7 +23,7 @@ pub const COMMAND_NAME: &str = "offsets";
 
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub basename: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -48,7 +48,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn build_offsets<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn build_offsets<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
     for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
