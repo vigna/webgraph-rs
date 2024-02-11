@@ -59,7 +59,10 @@ pub trait Decoder {
     fn read_residual(&mut self) -> u64;
 }
 
+use impl_tools::autoimpl;
+
 /// Methods to encode the component of a [`BVGraph`].
+#[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encoder {
     type Error: Error + Send + Sync + 'static;
     fn start_node(node: usize) -> Result<(), Self::Error>;
@@ -76,6 +79,7 @@ pub trait Encoder {
     fn end_node(node: usize) -> Result<(), Self::Error>;
 }
 
+#[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait MeasurableEncoder: Encoder {
     /// An associated encoder that returns
     /// integers estimating the amount of space used by each
@@ -83,10 +87,11 @@ pub trait MeasurableEncoder: Encoder {
     type Estimator<'a>: Encoder where Self: 'a;
     /// Return an estimator for this measurable encoder.
     /// This is expected to be a fast operation as its called many times.
-    fn estimator(&self) -> Self::Estimator<'_>;
+    fn estimator(&mut self) -> Self::Estimator<'_>;
 }
 
 /// A trait providing decoders with random access.
+#[autoimpl(for<T: trait + ?Sized> & T, Box<T>)]
 pub trait RandomAccessDecoderFactory {
     /// The type of the reader that we are building
     type Decoder<'a>: Decoder + 'a
@@ -98,6 +103,7 @@ pub trait RandomAccessDecoderFactory {
 }
 
 /// A trait providing decoders on the whole graph.
+#[autoimpl(for<T: trait + ?Sized> & T, Box<T>)]
 pub trait SequentialDecoderFactory {
     /// The type xof the reader that we are building
     type Decoder<'a>: Decoder + 'a

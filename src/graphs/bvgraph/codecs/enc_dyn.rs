@@ -30,6 +30,9 @@ pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     write_first_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
     #[allow(clippy::type_complexity)]
     write_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
+    /// A cache of the estimator, this is inside a Box just to reduce the 
+    /// size of the struct, since the estimator is not always used.
+    estimator: Option<Box<DynCodesEstimator>>,
     _marker: core::marker::PhantomData<E>,
 }
 
@@ -103,6 +106,7 @@ impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
             write_interval_len: Self::select_code(cf.intervals),
             write_first_residual: Self::select_code(cf.residuals),
             write_residual: Self::select_code(cf.residuals),
+            estimator: None,
             _marker: core::marker::PhantomData,
         }
     }
@@ -190,47 +194,54 @@ impl<E: Endianness, CW: CodeWrite<E>> MeasurableEncoder for DynCodesEncoder<E, C
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
-    type Estimator<'a> = DynCodesEstimator
+    type Estimator<'a> = &'a mut DynCodesEstimator
         where Self: 'a;
 
-    fn estimator(&self) -> Self::Estimator<'_> {
-        macro_rules! reconstruct_code {
-            ($code:expr) => {{
-                let code = $code as usize;
-                if code == CW::write_unary as usize {
-                    len_unary
-                } else if code == CW::write_gamma as usize {
-                    len_gamma
-                } else if code == CW::write_delta as usize {
-                    len_delta
-                } else if code == write_zeta2::<E, CW> as usize {
-                    |x| len_zeta(x, 2)
-                } else if code == CW::write_zeta3 as usize {
-                    |x| len_zeta(x, 3)
-                } else if code == write_zeta4::<E, CW> as usize {
-                    |x| len_zeta(x, 4)
-                } else if code == write_zeta5::<E, CW> as usize {
-                    |x| len_zeta(x, 5)
-                } else if code == write_zeta6::<E, CW> as usize {
-                    |x| len_zeta(x, 6)
-                } else if code == write_zeta7::<E, CW> as usize {
-                    |x| len_zeta(x, 7)
-                } else {
-                    unreachable!()
-                }
-            }};
+    fn estimator(&mut self) -> Self::Estimator<'_> {
+        // If the estimator is not initialized, we initialize it
+        if self.estimator.is_none() {
+            macro_rules! reconstruct_code {
+                ($code:expr) => {{
+                    let code = $code as usize;
+                    if code == CW::write_unary as usize {
+                        len_unary
+                    } else if code == CW::write_gamma as usize {
+                        len_gamma
+                    } else if code == CW::write_delta as usize {
+                        len_delta
+                    } else if code == write_zeta2::<E, CW> as usize {
+                        |x| len_zeta(x, 2)
+                    } else if code == CW::write_zeta3 as usize {
+                        |x| len_zeta(x, 3)
+                    } else if code == write_zeta4::<E, CW> as usize {
+                        |x| len_zeta(x, 4)
+                    } else if code == write_zeta5::<E, CW> as usize {
+                        |x| len_zeta(x, 5)
+                    } else if code == write_zeta6::<E, CW> as usize {
+                        |x| len_zeta(x, 6)
+                    } else if code == write_zeta7::<E, CW> as usize {
+                        |x| len_zeta(x, 7)
+                    } else {
+                        unreachable!()
+                    }
+                }};
+            }
+            let estimator = DynCodesEstimator {
+                len_outdegree: reconstruct_code!(self.write_outdegree),
+                len_reference_offset: reconstruct_code!(self.write_reference_offset),
+                len_block_count: reconstruct_code!(self.write_block_count),
+                len_blocks: reconstruct_code!(self.write_blocks),
+                len_interval_count: reconstruct_code!(self.write_interval_count),
+                len_interval_start: reconstruct_code!(self.write_interval_start),
+                len_interval_len: reconstruct_code!(self.write_interval_len),
+                len_first_residual: reconstruct_code!(self.write_first_residual),
+                len_residual: reconstruct_code!(self.write_residual),
+            };
+            self.estimator = Some(Box::new(estimator));
         }
-        DynCodesEstimator {
-            len_outdegree: reconstruct_code!(self.write_outdegree),
-            len_reference_offset: reconstruct_code!(self.write_reference_offset),
-            len_block_count: reconstruct_code!(self.write_block_count),
-            len_blocks: reconstruct_code!(self.write_blocks),
-            len_interval_count: reconstruct_code!(self.write_interval_count),
-            len_interval_start: reconstruct_code!(self.write_interval_start),
-            len_interval_len: reconstruct_code!(self.write_interval_len),
-            len_first_residual: reconstruct_code!(self.write_first_residual),
-            len_residual: reconstruct_code!(self.write_residual),
-        }
+
+        // now we are sure it is initialized so we can unwrap it
+        self.estimator.as_mut().unwrap().as_mut()
     }
 }
 
