@@ -385,7 +385,6 @@ impl<E: MeasurableEncoder> BVComp<E> {
             }
             // Get its compressor
             let compressor = &mut self.compressors[delta];
-            let mut estimator = self.encoder.estimator();
             // Compute how we would compress this
             compressor.compress(curr_list, Some(ref_list), self.min_interval_length)?;
             // Compute how many bits it would use, using the mock writer
