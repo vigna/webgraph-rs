@@ -20,7 +20,6 @@ pub fn main() -> Result<()> {
         .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .allow_external_subcommands(true)
         .subcommand(
             Command::new("generate-completions")
                 .about("Generates shell completions.")
@@ -60,6 +59,7 @@ pub fn main() -> Result<()> {
                     (cli::$module::COMMAND_NAME, sub_m) => cli::$module::main(sub_m),
                 )*
                 (command_name, _) => {
+                    // this shouldn't happen as clap should catch this
                     eprintln!("Unknown command: {:?}", command_name);
                     completion_command.print_help().unwrap();
                     std::process::exit(1);
