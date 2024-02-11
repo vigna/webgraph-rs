@@ -23,7 +23,7 @@ or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
 decoupling the choice of encoder from the underlying support.
 
 */
-use anyhow::ensure;
+use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
@@ -56,8 +56,9 @@ pub struct FileFactory<E: Endianness> {
 impl<E: Endianness> FileFactory<E> {
     pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let path: Box<Path> = path.as_ref().into();
-        let metadata = std::fs::metadata(&path)?;
-        ensure!(metadata.is_file(), "File {:?} is not a file", &path);
+        let metadata = std::fs::metadata(&path)
+            .with_context(|| format!("Could not stat {}", path.display()))?;
+        ensure!(metadata.is_file(), "File {} is not a file", path.display());
 
         Ok(Self {
             path,
@@ -152,8 +153,13 @@ pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
 
 impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
     pub fn new_mem(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
+        let path = path.as_ref();
+        let file_len = path
+            .metadata()
+            .with_context(|| format!("Could not stat {}", path.display()))?
+            .len() as usize;
+        let mut file = std::fs::File::open(path)
+            .with_context(|| format!("Could not open {}", path.display()))?;
         let capacity = file_len.align_to(16);
 
         // SAFETY: the entire vector will be filled with data read from the file,
@@ -166,7 +172,8 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
             )
         };
 
-        file.read_exact(&mut bytes[..file_len])?;
+        file.read_exact(&mut bytes[..file_len])
+            .with_context(|| format!("Could not read {}", path.display()))?;
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors and full-vector initialization.
         bytes[file_len..].fill(0);
@@ -180,21 +187,33 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
 
 impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
     pub fn new_mmap(path: impl AsRef<Path>, flags: MemoryFlags) -> anyhow::Result<Self> {
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
+        let path = path.as_ref();
+        let file_len = path
+            .metadata()
+            .with_context(|| format!("Could not stat {}", path.display()))?
+            .len() as usize;
+        let mut file = std::fs::File::open(path)
+            .with_context(|| format!("Could not open {}", path.display()))?;
         let capacity = file_len.align_to(16);
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
             .with_flags(flags.into())
-            .map_mut()?;
-        file.read_exact(&mut mmap[..file_len])?;
+            .map_mut()
+            .context("Could not create anonymous mmap")?;
+        file.read_exact(&mut mmap[..file_len])
+            .with_context(|| format!("Could not read {}", path.display()))?;
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors.
         mmap[file_len..].fill(0);
 
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: MmapBackend::try_from(mmap.make_read_only().map_err(|(_, err)| err)?)?,
+            data: MmapBackend::try_from(
+                mmap.make_read_only()
+                    .map_err(|(_, err)| err)?
+                    .context("Could not make memory read-only")?,
+            )
+            .context("Could not create mmap backend")?,
             _marker: core::marker::PhantomData,
         })
     }

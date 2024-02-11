@@ -7,7 +7,7 @@
 
 use crate::prelude::*;
 use crate::traits::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use dsi_progress_logger::*;
 use epserde::prelude::*;
 
@@ -59,7 +59,8 @@ pub fn layered_label_propagation(
     let num_threads = num_threads.unwrap_or_else(num_cpus::get);
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
-        .build()?;
+        .build()
+        .context("Could not create thread pool")?;
 
     // init the gamma progress logger
     let mut gamma_pl = ProgressLogger::default();
@@ -228,8 +229,11 @@ pub fn layered_label_propagation(
         costs.push(cost);
 
         // storing the perms
-        let mut file = std::fs::File::create(labels_path(gamma_index))?;
-        labels.serialize(&mut file)?;
+        let mut file =
+            std::fs::File::create(labels_path(gamma_index)).context("Could not write labels")?;
+        labels
+            .serialize(&mut file)
+            .context("Could not serialize labels")?;
 
         gamma_pl.update_and_display();
     }
@@ -257,17 +261,21 @@ pub fn layered_label_propagation(
     // reuse the update_perm to store the final permutation
     let mut temp_perm = update_perm;
 
-    let mut result_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))?.to_vec();
+    let mut result_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))
+        .context("Could not load labels from best gammar")?
+        .to_vec();
 
     for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels = <Vec<usize>>::load_mem(labels_path(*gamma_index))?;
-        combine(&mut result_labels, *labels, &mut temp_perm)?;
+        let labels =
+            <Vec<usize>>::load_mem(labels_path(*gamma_index)).context("Could not load labels")?;
+        combine(&mut result_labels, *labels, &mut temp_perm).context("Could not combine labels")?;
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))?;
+        let best_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))
+            .context("Could not load labels from best gamma")?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);
