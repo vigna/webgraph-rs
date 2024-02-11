@@ -19,7 +19,7 @@ pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
     pub(crate) read_reference_offset: fn(&mut CR) -> u64,
     pub(crate) read_block_count: fn(&mut CR) -> u64,
-    pub(crate) read_blocks: fn(&mut CR) -> u64,
+    pub(crate) read_block: fn(&mut CR) -> u64,
     pub(crate) read_interval_count: fn(&mut CR) -> u64,
     pub(crate) read_interval_start: fn(&mut CR) -> u64,
     pub(crate) read_interval_len: fn(&mut CR) -> u64,
@@ -67,7 +67,7 @@ impl<E: Endianness, CR: CodeRead<E>> DynCodesDecoder<E, CR> {
             read_outdegree: select_code!(&cf.outdegrees),
             read_reference_offset: select_code!(&cf.references),
             read_block_count: select_code!(&cf.blocks),
-            read_blocks: select_code!(&cf.blocks),
+            read_block: select_code!(&cf.blocks),
             read_interval_count: select_code!(&cf.intervals),
             read_interval_start: select_code!(&cf.intervals),
             read_interval_len: select_code!(&cf.intervals),
@@ -107,7 +107,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decoder for DynCodesDecoder<E, CR> {
     }
     #[inline(always)]
     fn read_block(&mut self) -> u64 {
-        (self.read_blocks)(&mut self.code_reader)
+        (self.read_block)(&mut self.code_reader)
     }
 
     #[inline(always)]
@@ -254,7 +254,7 @@ where
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
             read_block_count: self.read_block_count,
-            read_blocks: self.read_blocks,
+            read_block: self.read_blocks,
             read_interval_count: self.read_interval_count,
             read_interval_start: self.read_interval_start,
             read_interval_len: self.read_interval_len,
@@ -281,7 +281,7 @@ where
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
             read_block_count: self.read_block_count,
-            read_blocks: self.read_blocks,
+            read_block: self.read_blocks,
             read_interval_count: self.read_interval_count,
             read_interval_start: self.read_interval_start,
             read_interval_len: self.read_interval_len,

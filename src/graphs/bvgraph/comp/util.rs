@@ -195,12 +195,12 @@ impl BVComp<()> {
             let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
 
             log::info!(
-            "Spawning the main compression thread {} writing on {} writing from node_id {} to {}",
-            last_thread_id,
-            last_file_path.display(),
-            last_thread_id * nodes_per_thread,
-            num_nodes,
-        );
+                "Spawning the main compression thread {} writing on {} nodes [{}..{})",
+                last_thread_id,
+                last_file_path.display(),
+                last_thread_id * nodes_per_thread,
+                num_nodes,
+            );
             let sub_handles = handles.clone();
             let handle = s.spawn(move || {
                 // for the first N - 1 threads, clone the iter and skip to the next
@@ -211,7 +211,7 @@ impl BVComp<()> {
 
                     // spawn the thread
                     log::info!(
-                        "Spawning compression thread {} writing on {} form node id {} to {}",
+                        "Spawning compression thread {} writing on {} nodes [{}..{})",
                         thread_id,
                         file_path.display(),
                         nodes_per_thread * thread_id,
@@ -237,7 +237,7 @@ impl BVComp<()> {
                             written_bits += bvcomp.push(successors).unwrap();
                         }];
                         log::info!(
-                            "Finished Compression thread {} and wrote {} bits bits [{}, {})",
+                            "Finished Compression thread {} and wrote {} bits [{}..{})",
                             thread_id,
                             written_bits,
                             nodes_per_thread * thread_id,
@@ -274,7 +274,7 @@ impl BVComp<()> {
                 let written_bits = bvcomp.extend(iter).unwrap();
 
                 log::info!(
-                    "Finished Compression thread {} and wrote {} bits [{}, {})",
+                    "Finished compression thread {} and wrote {} bits [{}..{})",
                     last_thread_id,
                     written_bits,
                     last_thread_id * nodes_per_thread,
@@ -314,7 +314,7 @@ impl BVComp<()> {
                 // compute the path of the bitstream created by this thread
                 let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
                 log::info!(
-                    "Copying {} [{}, {}) bits from {} to {}",
+                    "Copying {} [{}..{}) bits from {} to {}",
                     bits_to_copy,
                     result_len,
                     result_len + bits_to_copy,
