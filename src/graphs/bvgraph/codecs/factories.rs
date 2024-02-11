@@ -211,8 +211,9 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
             data: MmapBackend::try_from(
                 mmap.make_read_only()
                     .map_err(|(_, err)| err)?
-                    .context("Could not make memory read-only")?
-            ).context("Could not create mmap backend")?,
+                    .context("Could not make memory read-only")?,
+            )
+            .context("Could not create mmap backend")?,
             _marker: core::marker::PhantomData,
         })
     }
