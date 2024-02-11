@@ -208,11 +208,11 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
 
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: MmapBackend::from(
+            data: MmapBackend::try_from(
                 mmap.make_read_only()
-                    .map_err(|(_, err)| err)
-                    .context("Could not make memory read-only")?,
-            ),
+                    .map_err(|(_, err)| err)?
+                    .context("Could not make memory read-only")?
+            ).context("Could not create mmap backend")?,
             _marker: core::marker::PhantomData,
         })
     }

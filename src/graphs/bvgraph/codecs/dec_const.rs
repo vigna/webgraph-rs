@@ -74,8 +74,8 @@ impl<
         self.code_reader.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
-        self.code_reader.get_bit_pos()
+    fn bit_pos(&mut self) -> Result<u64, Self::Error> {
+        self.code_reader.bit_pos()
     }
 }
 

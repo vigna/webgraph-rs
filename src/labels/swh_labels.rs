@@ -139,7 +139,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqL
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.get_bit_pos().unwrap() >= self.end_pos {
+        if self.reader.bit_pos().unwrap() >= self.end_pos {
             return None;
         }
         let num_labels = self.reader.read_gamma().unwrap() as usize;
@@ -183,7 +183,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabel
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.get_bit_pos().unwrap() >= self.end_pos {
+        if self.reader.bit_pos().unwrap() >= self.end_pos {
             return None;
         }
         let num_labels = self.reader.read_gamma().unwrap() as usize;

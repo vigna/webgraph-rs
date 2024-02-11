@@ -45,8 +45,8 @@ impl<
         self.code_writer.set_bit_pos(bit_index)
     }
 
-    fn get_bit_pos(&mut self) -> Result<u64, Self::Error> {
-        self.code_writer.get_bit_pos()
+    fn bit_pos(&mut self) -> Result<u64, Self::Error> {
+        self.code_writer.bit_pos()
     }
 }
 
@@ -166,8 +166,9 @@ impl<
     > MeasurableEncoder
     for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    type Estimator = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
-    fn estimator(&self) -> Self::Estimator {
+    type Estimator<'a> = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+        where Self: 'a;
+    fn estimator(&mut self) -> Self::Estimator<'_> {
         ConstCodesEstimator::new()
     }
 }

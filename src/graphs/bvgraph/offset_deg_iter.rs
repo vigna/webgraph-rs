@@ -26,7 +26,7 @@ pub struct OffsetDegIter<D: Decoder> {
 impl<D: Decoder + BitSeek> OffsetDegIter<D> {
     /// Get the current bit offset in the bitstream.
     pub fn get_pos(&mut self) -> u64 {
-        self.decoder.get_bit_pos().unwrap()
+        self.decoder.bit_pos().unwrap()
     }
 }
 

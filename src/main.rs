@@ -20,7 +20,6 @@ pub fn main() -> Result<()> {
         .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .allow_external_subcommands(true)
         .subcommand(
             Command::new("generate-completions")
                 .about("Generates shell completions.")
@@ -39,8 +38,14 @@ pub fn main() -> Result<()> {
             )*
             let mut completion_command = command.clone();
             let matches = command.get_matches();
-            match matches.subcommand() {
-                Some(("generate-completions", sub_m)) => {
+            let subcommand = matches.subcommand();
+            // if no command is specified, print the help message
+            if subcommand.is_none() {
+                completion_command.print_help().unwrap();
+                return Ok(());
+            }
+            match subcommand.unwrap() {
+                ("generate-completions", sub_m) => {
                     let shell = sub_m.get_one::<Shell>("shell").unwrap();
                     clap_complete::generate(
                         *shell,
@@ -51,9 +56,14 @@ pub fn main() -> Result<()> {
                     return Ok(());
                 },
                 $(
-                    Some((cli::$module::COMMAND_NAME, sub_m)) => cli::$module::main(sub_m),
+                    (cli::$module::COMMAND_NAME, sub_m) => cli::$module::main(sub_m),
                 )*
-                _ => unreachable!(),
+                (command_name, _) => {
+                    // this shouldn't happen as clap should catch this
+                    eprintln!("Unknown command: {:?}", command_name);
+                    completion_command.print_help().unwrap();
+                    std::process::exit(1);
+                }
             }
         }};
     }
@@ -66,6 +76,7 @@ pub fn main() -> Result<()> {
         check_ef,
         convert,
         from_csv,
+        hyperball,
         llp,
         optimize_codes,
         perm,

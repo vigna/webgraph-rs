@@ -160,8 +160,8 @@ impl<D: Decoder + BitSeek> Iter<D> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
-    pub fn get_bit_pos(&mut self) -> Result<u64, <D as BitSeek>::Error> {
-        self.decoder.get_bit_pos()
+    pub fn bit_pos(&mut self) -> Result<u64, <D as BitSeek>::Error> {
+        self.decoder.bit_pos()
     }
 }
 
