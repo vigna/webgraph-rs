@@ -77,12 +77,13 @@ pub trait Encoder {
 }
 
 pub trait MeasurableEncoder: Encoder {
-    /// An associated (usually stateless) encoder that returns
+    /// An associated encoder that returns
     /// integers estimating the amount of space used by each
     /// operation of this measurable encoder.
-    type Estimator: Encoder;
+    type Estimator<'a>: Encoder where Self: 'a;
     /// Return an estimator for this measurable encoder.
-    fn estimator(&self) -> Self::Estimator;
+    /// This is expected to be a fast operation as its called many times.
+    fn estimator(&self) -> Self::Estimator<'_>;
 }
 
 /// A trait providing decoders with random access.

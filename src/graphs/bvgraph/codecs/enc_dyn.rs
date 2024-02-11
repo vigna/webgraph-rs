@@ -190,9 +190,10 @@ impl<E: Endianness, CW: CodeWrite<E>> MeasurableEncoder for DynCodesEncoder<E, C
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
-    type Estimator = DynCodesEstimator;
+    type Estimator<'a> = DynCodesEstimator
+        where Self: 'a;
 
-    fn estimator(&self) -> Self::Estimator {
+    fn estimator(&self) -> Self::Estimator<'_> {
         macro_rules! reconstruct_code {
             ($code:expr) => {{
                 let code = $code as usize;

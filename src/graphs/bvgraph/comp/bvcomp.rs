@@ -356,14 +356,17 @@ impl<E: MeasurableEncoder> BVComp<E> {
         }
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
-        let mut estimator = self.encoder.estimator();
-        // Write the compressed data
-        let mut min_bits = compressor.write(
-            &mut estimator,
-            self.curr_node,
-            Some(0),
-            self.min_interval_length,
-        )?;
+        let mut min_bits = {
+            let mut estimator = self.encoder.estimator();
+            // Write the compressed data
+            compressor.write(
+                &mut estimator,
+                self.curr_node,
+                Some(0),
+                self.min_interval_length,
+            )?
+        };
+
         let mut ref_count = 0;
 
         let deltas = 1 + self
@@ -388,12 +391,15 @@ impl<E: MeasurableEncoder> BVComp<E> {
             // Compute how we would compress this
             compressor.compress(curr_list, Some(ref_list), self.min_interval_length)?;
             // Compute how many bits it would use, using the mock writer
-            let bits = compressor.write(
-                &mut estimator,
-                self.curr_node,
-                Some(delta),
-                self.min_interval_length,
-            )?;
+            let bits = {
+                    let mut estimator = self.encoder.estimator();
+                    compressor.write(
+                    &mut estimator,
+                    self.curr_node,
+                    Some(delta),
+                    self.min_interval_length,
+                )?
+            };
             // keep track of the best, it's strictly less so we keep the
             // nearest one in the case of multiple equal ones
             if bits < min_bits {

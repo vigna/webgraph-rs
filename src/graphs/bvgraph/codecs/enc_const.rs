@@ -166,8 +166,9 @@ impl<
     > MeasurableEncoder
     for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    type Estimator = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>;
-    fn estimator(&self) -> Self::Estimator {
+    type Estimator<'a> = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+        where Self: 'a;
+    fn estimator(&self) -> Self::Estimator<'_> {
         ConstCodesEstimator::new()
     }
 }
