@@ -84,7 +84,9 @@ pub trait MeasurableEncoder: Encoder {
     /// An associated encoder that returns
     /// integers estimating the amount of space used by each
     /// operation of this measurable encoder.
-    type Estimator<'a>: Encoder where Self: 'a;
+    type Estimator<'a>: Encoder
+    where
+        Self: 'a;
     /// Return an estimator for this measurable encoder.
     /// This is expected to be a fast operation as its called many times.
     fn estimator(&mut self) -> Self::Estimator<'_>;

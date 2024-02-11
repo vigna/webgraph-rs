@@ -30,7 +30,7 @@ pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     write_first_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
     #[allow(clippy::type_complexity)]
     write_residual: fn(&mut CW, u64) -> Result<usize, <CW as BitWrite<E>>::Error>,
-    /// A cache of the estimator, this is inside a Box just to reduce the 
+    /// A cache of the estimator, this is inside a Box just to reduce the
     /// size of the struct, since the estimator is not always used.
     estimator: Option<Box<DynCodesEstimator>>,
     _marker: core::marker::PhantomData<E>,
