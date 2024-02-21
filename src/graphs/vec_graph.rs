@@ -18,25 +18,25 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 /// can store the successors of a node and their labels as a
 /// [`BTreeSet`] of pairs `(usize, L)`.
 #[derive(Clone, Copy, Debug)]
-struct Successor<L: Copy + 'static>(usize, L);
+struct Successor<L: Clone + 'static>(usize, L);
 
-impl<L: Copy + 'static> PartialEq for Successor<L> {
+impl<L: Clone + 'static> PartialEq for Successor<L> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<L: Copy + 'static> Eq for Successor<L> {}
+impl<L: Clone + 'static> Eq for Successor<L> {}
 
-impl<L: Copy + 'static> PartialOrd for Successor<L> {
+impl<L: Clone + 'static> PartialOrd for Successor<L> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.0.cmp(&other.0))
     }
 }
 
-impl<L: Copy + 'static> Ord for Successor<L> {
+impl<L: Clone + 'static> Ord for Successor<L> {
     #[inline(always)]
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.0.cmp(&other.0)
@@ -49,20 +49,20 @@ impl<L: Copy + 'static> Ord for Successor<L> {
 /// as the label type will result in a [`RandomAccessGraph`] implementation.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VecGraph<L: Copy + 'static = ()> {
+pub struct VecGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
     /// For each node, its list of successors.
     succ: Vec<BTreeSet<Successor<L>>>,
 }
 
-impl<L: Copy + 'static> core::default::Default for VecGraph<L> {
+impl<L: Clone + 'static> core::default::Default for VecGraph<L> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<L: Copy + 'static> VecGraph<L> {
+impl<L: Clone + 'static> VecGraph<L> {
     /// Create a new empty graph.
     pub fn new() -> Self {
         Self {
@@ -225,7 +225,7 @@ impl VecGraph<()> {
     }
 }
 
-impl<'a, L: Copy + 'static> IntoLender for &'a VecGraph<L> {
+impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
     type Lender = <VecGraph<L> as SequentialLabeling>::Iterator<'a>;
 
     #[inline(always)]
@@ -234,7 +234,7 @@ impl<'a, L: Copy + 'static> IntoLender for &'a VecGraph<L> {
     }
 }
 
-impl<L: Copy + 'static> SequentialLabeling for VecGraph<L> {
+impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
     type Label = (usize, L);
     type Iterator<'a> = IteratorImpl<'a, Self> where Self: 'a;
 
@@ -257,9 +257,9 @@ impl<L: Copy + 'static> SequentialLabeling for VecGraph<L> {
     }
 }
 
-impl<L: Copy + 'static> LabeledSequentialGraph<L> for VecGraph<L> {}
+impl<L: Clone + 'static> LabeledSequentialGraph<L> for VecGraph<L> {}
 
-impl<L: Copy + 'static> RandomAccessLabeling for VecGraph<L> {
+impl<L: Clone + 'static> RandomAccessLabeling for VecGraph<L> {
     type Labels<'succ> = Successors<'succ, L> where L: 'succ;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
@@ -277,23 +277,23 @@ impl<L: Copy + 'static> RandomAccessLabeling for VecGraph<L> {
     }
 }
 
-impl<L: Copy + 'static> LabeledRandomAccessGraph<L> for VecGraph<L> {}
+impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for VecGraph<L> {}
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct Successors<'a, L: Copy + 'static>(std::collections::btree_set::Iter<'a, Successor<L>>);
+pub struct Successors<'a, L: Clone + 'static>(std::collections::btree_set::Iter<'a, Successor<L>>);
 
-impl<'a, L: Copy + 'static> Iterator for Successors<'a, L> {
+impl<'a, L: Clone + 'static> Iterator for Successors<'a, L> {
     type Item = (usize, L);
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().copied().map(|x| (x.0, x.1))
+        self.0.next().cloned().map(|x| (x.0, x.1))
     }
 }
 
-unsafe impl<'a, L: Copy + 'static> SortedLabels for Successors<'a, L> {}
+unsafe impl<'a, L: Clone + 'static> SortedLabels for Successors<'a, L> {}
 
-impl<'a, L: Copy + 'static> ExactSizeIterator for Successors<'a, L> {
+impl<'a, L: Clone + 'static> ExactSizeIterator for Successors<'a, L> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
