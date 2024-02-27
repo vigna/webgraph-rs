@@ -149,7 +149,7 @@ impl<
         select_code_write!(self, RESIDUALS, K, value)
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<usize, Self::Error> {
         self.code_writer.flush()
     }
 }
@@ -272,7 +272,7 @@ impl<
         select_code_mock_write!(RESIDUALS, K, value)
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+    fn flush(&mut self) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 }

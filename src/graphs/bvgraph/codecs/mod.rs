@@ -75,7 +75,7 @@ pub trait Encoder {
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
-    fn flush(&mut self) -> Result<(), Self::Error>;
+    fn flush(&mut self) -> Result<usize, Self::Error>;
     fn end_node(node: usize) -> Result<(), Self::Error>;
 }
 

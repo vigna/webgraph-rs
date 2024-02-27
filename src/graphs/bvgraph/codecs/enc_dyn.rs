@@ -163,7 +163,7 @@ where
         (self.write_residual)(&mut self.code_writer, value)
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<usize, Self::Error> {
         self.code_writer.flush()
     }
 }
@@ -283,7 +283,7 @@ impl Encoder for DynCodesEstimator {
         Ok((self.len_residual)(value))
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+    fn flush(&mut self) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 }
