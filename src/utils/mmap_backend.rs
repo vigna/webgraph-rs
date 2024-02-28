@@ -5,6 +5,7 @@
  */
 
 use anyhow::{ensure, Context, Result};
+use common_traits::UnsignedInt;
 use core::fmt::Debug;
 use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
@@ -77,18 +78,20 @@ impl<W> MmapBackend<W> {
     /// - `path`: The path to the file to be memory mapped.
     /// - `flags`: The flags to be used for the mmap.
     pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
-        let file_len = path
+        let file_len: usize = path
             .as_ref()
             .metadata()
             .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
-            .len() as usize;
+            .len()
+            .try_into()?;
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
-        // Align to multiple of size_of::<W>. Moreover, it must be > 0, or we get a panic.
-        let mmap_len = (file_len / size_of::<W>() + 1) * size_of::<W>();
+        // Align to multiple of size_of::<W>
+        let mmap_len = file_len.align_to(size_of::<W>());
 
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(mmap_len)
+            // Length must be > 0, or we get a panic.
+            mmap_rs::MmapOptions::new(mmap_len.max(1))
                 .with_context(|| format!("Cannot initialize mmap of size {}", mmap_len))?
                 .with_flags(flags)
                 .with_file(&file, 0)
@@ -103,7 +106,7 @@ impl<W> MmapBackend<W> {
         };
 
         Ok(Self {
-            len: mmap.len() / core::mem::size_of::<W>(),
+            len: mmap_len / core::mem::size_of::<W>(),
             mmap,
             _marker: core::marker::PhantomData,
         })
@@ -117,11 +120,13 @@ impl<W> MmapBackend<W, MmapMut> {
     /// - `path`: The path to the file to be created.
     /// - `flags`: The flags to be used for the mmap.
     pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
-        let file_len = path
+        let file_len: usize = path
             .as_ref()
             .metadata()
             .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
-            .len();
+            .len()
+            .try_into()
+            .with_context(|| format!("Cannot convert file length to usize"))?;
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -133,8 +138,11 @@ impl<W> MmapBackend<W, MmapMut> {
                 )
             })?;
 
+        // Align to multiple of size_of::<W>
+        let mmap_len = file_len.align_to(size_of::<W>());
+
         let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)
+            mmap_rs::MmapOptions::new(mmap_len.max(1))
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
                 .with_flags(flags)
                 .with_file(&file, 0)
