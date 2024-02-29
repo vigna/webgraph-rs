@@ -90,17 +90,17 @@ impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
     /// and the number of nodes.
     pub fn new(
         codes_reader_builder: F,
-        compression_window: usize,
-        min_interval_length: usize,
         number_of_nodes: usize,
         number_of_arcs: Option<u64>,
+        compression_window: usize,
+        min_interval_length: usize,
     ) -> Self {
         Self {
             factory: codes_reader_builder,
-            compression_window,
-            min_interval_length,
             number_of_nodes,
             number_of_arcs,
+            compression_window,
+            min_interval_length,
         }
     }
 

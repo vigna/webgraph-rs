@@ -83,7 +83,8 @@ impl<W> MmapBackend<W> {
             .metadata()
             .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
             .len()
-            .try_into()?;
+            .try_into()
+            .with_context(|| "Cannot convert file length to usize")?;
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapBackend")?;
         // Align to multiple of size_of::<W>
@@ -126,7 +127,7 @@ impl<W> MmapBackend<W, MmapMut> {
             .with_context(|| format!("Cannot stat {}", path.as_ref().display()))?
             .len()
             .try_into()
-            .with_context(|| format!("Cannot convert file length to usize"))?;
+            .with_context(|| "Cannot convert file length to usize")?;
         let file = std::fs::OpenOptions::new()
             .read(true)
             .write(true)

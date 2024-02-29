@@ -18,17 +18,11 @@ use self::sequential::Iter;
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
 pub struct BVGraph<F> {
-    /// Backend that can create objects that allows us to read the bitstream of
-    /// the graph to decode the edges.
     factory: F,
-    /// The minimum size of the intervals we are going to decode.
-    min_interval_length: usize,
-    /// The maximum distance between two nodes that reference each other.
-    compression_window: usize,
-    /// The number of nodes in the graph.
     number_of_nodes: usize,
-    /// The number of arcs in the graph.
     number_of_arcs: u64,
+    compression_window: usize,
+    min_interval_length: usize,
 }
 
 impl BVGraph<()> {
@@ -65,17 +59,17 @@ where
     ///
     pub fn new(
         factory: F,
-        min_interval_length: usize,
-        compression_window: usize,
         number_of_nodes: usize,
         number_of_arcs: u64,
+        compression_window: usize,
+        min_interval_length: usize,
     ) -> Self {
         Self {
             factory,
-            min_interval_length,
-            compression_window,
             number_of_nodes,
             number_of_arcs,
+            compression_window,
+            min_interval_length,
         }
     }
 

@@ -364,10 +364,10 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
 
         Ok(BVGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
-            comp_flags.min_interval_length,
-            comp_flags.compression_window,
             num_nodes,
             num_arcs,
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
@@ -390,10 +390,10 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
 
         Ok(BVGraphSeq::new(
             DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
-            comp_flags.compression_window,
-            comp_flags.min_interval_length,
             num_nodes,
             Some(num_arcs),
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
@@ -443,10 +443,10 @@ impl<
 
         Ok(BVGraph::new(
             ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,
-            comp_flags.min_interval_length,
-            comp_flags.compression_window,
             num_nodes,
             num_arcs,
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
@@ -503,10 +503,10 @@ impl<
                 MemCase::from(EmptyDict::default()),
                 comp_flags,
             )?,
-            comp_flags.compression_window,
-            comp_flags.min_interval_length,
             num_nodes,
             Some(num_arcs),
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
