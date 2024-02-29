@@ -49,8 +49,8 @@ impl BVComp<()> {
         let mut bvcomp = BVComp::new(
             codes_writer,
             compression_flags.compression_window,
-            compression_flags.min_interval_length,
             compression_flags.max_ref_count,
+            compression_flags.min_interval_length,
             0,
         );
 
@@ -237,8 +237,8 @@ impl BVComp<()> {
                         let mut bvcomp = BVComp::new(
                             codes_writer,
                             cp_flags.compression_window,
-                            cp_flags.min_interval_length,
                             cp_flags.max_ref_count,
+                            cp_flags.min_interval_length,
                             nodes_per_thread * thread_id,
                         );
                         let mut written_bits = 0;
@@ -276,8 +276,8 @@ impl BVComp<()> {
                 let mut bvcomp = BVComp::new(
                     codes_writer,
                     compression_flags.compression_window,
-                    compression_flags.min_interval_length,
                     compression_flags.max_ref_count,
+                    compression_flags.min_interval_length,
                     last_thread_id * nodes_per_thread,
                 );
                 let written_bits = bvcomp.extend(iter).unwrap();

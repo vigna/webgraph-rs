@@ -26,12 +26,12 @@ pub struct BVComp<E> {
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
-    /// The minimum length of sequences that will be compressed as a (start, len)
-    min_interval_length: usize,
     /// The number of previous nodes that will be considered during the compression
     compression_window: usize,
     /// The maximum recursion depth that will be used to decompress a node
     max_ref_count: usize,
+    /// The minimum length of sequences that will be compressed as a (start, len)
+    min_interval_length: usize,
     /// The current node we are compressing
     curr_node: usize,
     /// The first node we are compressing, this is needed because during
@@ -303,8 +303,8 @@ impl<E: MeasurableEncoder> BVComp<E> {
     pub fn new(
         encoder: E,
         compression_window: usize,
-        min_interval_length: usize,
         max_ref_count: usize,
+        min_interval_length: usize,
         start_node: usize,
     ) -> Self {
         BVComp {
@@ -587,7 +587,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
@@ -644,7 +644,7 @@ mod test {
 
         let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
