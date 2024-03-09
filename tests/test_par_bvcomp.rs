@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
@@ -16,21 +16,27 @@ use webgraph::prelude::*;
 fn logger_init() {
     env_logger::builder().is_test(true).try_init().unwrap();
 }
-
 #[test]
 fn test_par_bvcomp() -> Result<()> {
     logger_init();
+    _test_par_bvcomp("tests/data/cnr-2000")?;
+    _test_par_bvcomp("tests/data/cnr-2000-hc")?;
+    Ok(())
+}
+
+fn _test_par_bvcomp(basename: &str) -> Result<()> {
     let comp_flags = CompFlags::default();
-    let tmp_basename = PathBuf::from("tests/data/cnr-2000-par");
+    let tmp_basename = PathBuf::from(String::from(basename) + "-par");
 
     // load the graph
-    let graph =
-        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename("tests/data/cnr-2000")
-            .endianness::<BE>()
-            .load()?;
-    let expected_size = std::fs::File::open("tests/data/cnr-2000.graph")?
-        .metadata()?
-        .len();
+    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+        .endianness::<BE>()
+        .load()?;
+
+    let mut graph_filename = PathBuf::from(basename);
+    graph_filename.set_extension("graph");
+
+    let expected_size = graph_filename.metadata()?.len();
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
