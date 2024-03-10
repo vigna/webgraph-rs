@@ -15,12 +15,12 @@ use dsi_bitstream::prelude::*;
 /// used to build the offsets of a graph or to enumerate the graph degrees when
 /// the offsets are not available.
 pub struct OffsetDegIter<D: Decoder> {
+    number_of_nodes: usize,
+    compression_window: usize,
+    min_interval_length: usize,
+    node_id: usize,
     decoder: D,
     backrefs: Vec<usize>,
-    node_id: usize,
-    min_interval_length: usize,
-    compression_window: usize,
-    number_of_nodes: usize,
 }
 
 impl<D: Decoder + BitSeek> OffsetDegIter<D> {
@@ -45,17 +45,17 @@ impl<D: Decoder> OffsetDegIter<D> {
     /// Create a new iterator over the degrees of the graph.
     pub fn new(
         decoder: D,
-        min_interval_length: usize,
-        compression_window: usize,
         number_of_nodes: usize,
+        compression_window: usize,
+        min_interval_length: usize,
     ) -> Self {
         Self {
+            number_of_nodes,
+            compression_window,
+            min_interval_length,
+            node_id: 0,
             decoder,
             backrefs: vec![0; compression_window + 1],
-            node_id: 0,
-            min_interval_length,
-            compression_window,
-            number_of_nodes,
         }
     }
 

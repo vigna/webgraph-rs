@@ -603,9 +603,9 @@ mod test {
 
         let mut seq_iter = Iter::new(
             codes_reader,
+            seq_graph.num_nodes(),
             compression_window,
             min_interval_length,
-            seq_graph.num_nodes(),
         );
         // Check that the graph is the same
         let mut iter = seq_graph.iter().enumerate();
@@ -658,9 +658,9 @@ mod test {
 
         let mut seq_iter = Iter::new(
             codes_reader,
+            seq_graph.num_nodes(),
             compression_window,
             min_interval_length,
-            seq_graph.num_nodes(),
         );
         // Check that the graph is the same
         let mut iter = seq_graph.iter().enumerate();

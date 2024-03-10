@@ -77,8 +77,8 @@ pub fn harness(data: FuzzCase) {
         let mut bvcomp = BVComp::new(
             codes_writer,
             comp_flags.compression_window,
-            comp_flags.min_interval_length,
             comp_flags.max_ref_count,
+            comp_flags.min_interval_length,
         );
         bvcomp.extend(graph.iter_nodes()).unwrap();
         bvcomp.flush().unwrap();
@@ -91,8 +91,8 @@ pub fn harness(data: FuzzCase) {
         let mut bvcomp = BVComp::new(
             codes_writer,
             comp_flags.compression_window,
-            comp_flags.min_interval_length,
             comp_flags.max_ref_count,
+            comp_flags.min_interval_length,
         );
         bvcomp.extend(graph.iter_nodes()).unwrap();
         bvcomp.flush().unwrap();

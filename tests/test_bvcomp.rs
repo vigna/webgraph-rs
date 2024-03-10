@@ -74,8 +74,8 @@ fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
                                     let mut bvcomp = BVComp::new(
                                         writer,
                                         compression_window,
-                                        min_interval_length,
                                         max_ref_count,
+                                        min_interval_length,
                                         0,
                                     );
 
@@ -86,6 +86,7 @@ fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
 
                                     pl.start("Compressing...");
 
+                                    // TODO: use LoadConfig
                                     let mut iter_nodes = seq_graph.iter();
                                     while let Some((_, iter)) = iter_nodes.next() {
                                         bvcomp.push(iter)?;

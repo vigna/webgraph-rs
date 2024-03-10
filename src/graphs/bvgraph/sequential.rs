@@ -61,9 +61,9 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
         let mut iter = Iter::new(
             self.factory.new_decoder().unwrap(),
+            self.number_of_nodes,
             self.compression_window,
             self.min_interval_length,
-            self.number_of_nodes,
         );
 
         for _ in 0..from {
@@ -137,9 +137,9 @@ where
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
         OffsetDegIter::new(
             self.factory.new_decoder().unwrap(),
-            self.min_interval_length,
-            self.compression_window,
             self.number_of_nodes,
+            self.compression_window,
+            self.min_interval_length,
         )
     }
 }
@@ -148,11 +148,11 @@ where
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Clone)]
 pub struct Iter<D: Decoder> {
-    pub(crate) decoder: D,
-    pub(crate) backrefs: CircularBufferVec,
+    pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,
     pub(crate) min_interval_length: usize,
-    pub(crate) number_of_nodes: usize,
+    pub(crate) decoder: D,
+    pub(crate) backrefs: CircularBufferVec,
     pub(crate) current_node: usize,
 }
 
@@ -169,16 +169,16 @@ impl<D: Decoder> Iter<D> {
     /// Create a new iterator from a codes reader
     pub fn new(
         decoder: D,
+        number_of_nodes: usize,
         compression_window: usize,
         min_interval_length: usize,
-        number_of_nodes: usize,
     ) -> Self {
         Self {
-            decoder,
-            backrefs: CircularBufferVec::new(compression_window + 1),
+            number_of_nodes,
             compression_window,
             min_interval_length,
-            number_of_nodes,
+            decoder,
+            backrefs: CircularBufferVec::new(compression_window + 1),
             current_node: 0,
         }
     }
