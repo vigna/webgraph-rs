@@ -107,9 +107,9 @@ fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
                                     )?;
                                     let mut seq_reader1 = sequential::Iter::new(
                                         code_reader,
+                                        NODES,
                                         compression_flags.compression_window,
                                         compression_flags.min_interval_length,
-                                        NODES,
                                     );
 
                                     pl.start("Checking equality...");
