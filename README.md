@@ -50,7 +50,3 @@ There are many operations available on graphs, such as [`transpose`] or [`simpli
 
 This software has been partially supported by project SERICS (PE00000014) under the NRRP MUR program funded by the EU - NGEU,
 and by project ANR COREGRAPHIE, grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
-
-[`LoadConfig`]:
-[`with_basename`]:
-[`transpose`]

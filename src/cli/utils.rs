@@ -115,9 +115,9 @@ pub struct CompressArgs {
     /// The minimum interval length
     #[clap(short = 'l', long, default_value_t = 4)]
     pub min_interval_length: usize,
-    /// The maximum recursion depth for references
+    /// The maximum recursion depth for references (-1 for infinite recursion depth)
     #[clap(short = 'c', long, default_value_t = 3)]
-    pub max_ref_count: usize,
+    pub max_ref_count: isize,
 
     #[arg(value_enum)]
     #[clap(long, default_value = "gamma")]
@@ -150,7 +150,10 @@ impl From<CompressArgs> for CompFlags {
             residuals: value.residuals.into(),
             min_interval_length: value.min_interval_length,
             compression_window: value.compression_window,
-            max_ref_count: value.max_ref_count,
+            max_ref_count: match value.max_ref_count {
+                -1 => usize::MAX,
+                _ => value.max_ref_count as usize,
+            },
         }
     }
 }
