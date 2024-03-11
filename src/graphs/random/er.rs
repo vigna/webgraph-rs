@@ -45,11 +45,15 @@ impl SequentialLabeling for ErdosRenyi {
     }
 
     fn iter_from(&self, from: usize) -> Iter {
+        let mut rng = SmallRng::seed_from_u64(self.seed);
+        for _ in 0..from * (self.n - 1) {
+            rng.gen_bool(self.p);
+        }
         Iter {
             n: self.n,
             p: self.p,
             x: from,
-            rng: SmallRng::seed_from_u64(self.seed),
+            rng,
         }
     }
 }
@@ -96,10 +100,13 @@ mod tests {
 
     #[test]
     fn test_er() {
-        let g = ErdosRenyi::new(10, 0.2, 0);
+        let g = ErdosRenyi::new(10, 0.3, 0);
         for from in 0..10 {
             let mut it0 = g.iter_from(from);
-            let mut it1 = g.iter_from(from);
+            let mut it1 = g.iter();
+            for _ in 0..from {
+                it1.next();
+            }
             while let (Some((x, s)), Some((y, t))) = (it0.next(), it1.next()) {
                 assert_eq!(x, y);
                 assert_eq!(s, t);
