@@ -13,12 +13,13 @@ use dsi_progress_logger::*;
 use lender::*;
 use webgraph::prelude::*;
 
-fn logger_init() {
-    env_logger::builder().is_test(true).try_init().unwrap();
-}
 #[test]
 fn test_par_bvcomp() -> Result<()> {
-    logger_init();
+    stderrlog::new()
+        .verbosity(2)
+        .timestamp(stderrlog::Timestamp::Second)
+        .init()?;
+
     _test_par_bvcomp("tests/data/cnr-2000")?;
     _test_par_bvcomp("tests/data/cnr-2000-hc")?;
     Ok(())

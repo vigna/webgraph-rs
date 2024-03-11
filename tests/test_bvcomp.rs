@@ -6,6 +6,7 @@
  */
 
 use lender::*;
+use libc::initgroups;
 use std::{fs::File, io::BufWriter};
 use tempfile::NamedTempFile;
 
@@ -17,19 +18,15 @@ use dsi_progress_logger::*;
 use webgraph::prelude::*;
 use Code::{Delta, Gamma, Unary, Zeta};
 
-fn logger_init() {
-    env_logger::builder().is_test(true).try_init().unwrap();
-}
 
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_bvcomp_slow() -> Result<()> {
+    env_logger::builder().is_test(true).filter_level(Info).try_init()?;
     _test_bvcomp_slow::<LE>().and(_test_bvcomp_slow::<BE>())
 }
 
 fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
-    logger_init();
-
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
     for compression_window in [0, 1, 3, 16] {
