@@ -222,7 +222,7 @@ impl CompFlags {
                 }
             }
         }
-        if let Some(compression_window) = map.get("compressionwindow") {
+        if let Some(compression_window) = map.get("windowsize") {
             cf.compression_window = compression_window.parse()?;
         }
         if let Some(min_interval_length) = map.get("minintervallength") {
