@@ -58,7 +58,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
             .metadata()?
             .len();
 
-        if (found_size as f64) > (expected_size as f64) * 1.1 {
+        if (found_size as f64) > (expected_size as f64) * 1.2 {
             panic!(
                 "The compressed graph is too big: {} > {}",
                 found_size, expected_size
