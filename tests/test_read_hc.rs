@@ -13,8 +13,6 @@ use dsi_progress_logger::*;
 use lender::*;
 use webgraph::{graphs::bvgraph, prelude::*};
 
-
-
 #[test]
 fn test_hc() -> Result<()> {
     let norm = bvgraph::BVGraphSeq::with_basename("tests/data/cnr-2000").load()?;
@@ -27,14 +25,8 @@ fn test_hc() -> Result<()> {
         let succ = norm_succ.collect::<Vec<_>>();
         let (hc_node, hc_succ) = hc_iter.next().unwrap();
         let h_succ = hc_succ.collect::<Vec<_>>();
-        assert_eq!(
-            norm_node,
-            hc_node,
-        );
-        assert_eq!(
-            succ,
-            h_succ,
-        );
+        assert_eq!(norm_node, hc_node,);
+        assert_eq!(succ, h_succ,);
     }
 
     Ok(())

@@ -17,11 +17,13 @@ use dsi_progress_logger::*;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
 use Code::{Delta, Gamma, Unary, Zeta};
 
-
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
 fn test_bvcomp_slow() -> Result<()> {
-    env_logger::builder().is_test(true).filter_level(log::LevelFilter::Info).try_init()?;
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
     _test_bvcomp_slow::<LE>().and(_test_bvcomp_slow::<BE>())
 }
 
@@ -40,7 +42,7 @@ fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
                                     eprintln!();
                                     eprintln!(
                                         "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",
-                                        outdegrees, references, blocks, intervals, residuals, compression_window, max_ref_count, min_interval_length, 
+                                        outdegrees, references, blocks, intervals, residuals, compression_window, max_ref_count, min_interval_length,
                                     );
                                     let compression_flags = CompFlags {
                                         outdegrees,
