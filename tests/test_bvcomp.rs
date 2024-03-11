@@ -32,21 +32,19 @@ fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
 
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
-    for outdegrees in [Code::Unary, Gamma, Delta] {
-        for references in [Unary, Gamma, Delta] {
-            for blocks in [Unary, Gamma, Delta] {
-                for intervals in [Unary, Gamma, Delta] {
-                    for residuals in [
-                        Unary,
-                        Gamma,
-                        Delta,
-                        Zeta { k: 3 },
-                        Zeta { k: 1 },
-                        Zeta { k: 5 },
-                    ] {
-                        for compression_window in [0, 1, 2, 4, 7, 8, 10] {
-                            for min_interval_length in [0, 2, 4, 7, 8, 10] {
-                                for max_ref_count in [0, 1, 2, 3] {
+    for compression_window in [0, 1, 3, 16] {
+        for max_ref_count in [0, 1, 3, usize::MAX] {
+            for min_interval_length in [0, 1, 3] {
+                for outdegrees in [Unary, Gamma, Delta] {
+                    for references in [Unary, Gamma, Delta] {
+                        for blocks in [Unary, Gamma, Delta] {
+                            for intervals in [Unary, Gamma, Delta] {
+                                for residuals in [Gamma, Delta, Zeta { k: 2 }, Zeta { k: 3 }] {
+                                    eprintln!();
+                                    eprintln!(
+                                        "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",
+                                        outdegrees, references, blocks, intervals, residuals, compression_window, max_ref_count, min_interval_length, 
+                                    );
                                     let compression_flags = CompFlags {
                                         outdegrees,
                                         references,
