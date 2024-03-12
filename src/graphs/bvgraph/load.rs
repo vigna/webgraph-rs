@@ -15,8 +15,10 @@ use epserde::deser::DeserType;
 use epserde::prelude::*;
 use java_properties;
 use sealed::sealed;
-use std::io::*;
-use std::path::{Path, PathBuf};
+use std::{
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 use sux::traits::IndexedDict;
 
 /// Sequential or random access.
@@ -119,7 +121,10 @@ impl LoadMode for File {
         offsets: P,
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        Ok(EF::load_full(offsets)?.into())
+        let path = offsets.as_ref();
+        Ok(EF::load_full(path)
+            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))?
+            .into())
     }
 }
 
@@ -144,7 +149,9 @@ impl LoadMode for Mmap {
         offsets: P,
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        EF::mmap(offsets, flags.into())
+        let path = offsets.as_ref();
+        EF::mmap(path, flags.into())
+            .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
     }
 }
 
@@ -167,7 +174,9 @@ impl LoadMode for LoadMem {
         offsets: P,
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        EF::load_mem(offsets)
+        let path = offsets.as_ref();
+        EF::load_mem(path)
+            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
     }
 }
 
