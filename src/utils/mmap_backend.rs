@@ -85,10 +85,17 @@ impl<W> MmapBackend<W> {
             .len()
             .try_into()
             .with_context(|| "Cannot convert file length to usize")?;
-        let file = std::fs::File::open(path.as_ref())
-            .with_context(|| "Cannot open file for MmapBackend")?;
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
+        #[cfg(windows)]
+        {
+            ensure!(
+                mmap_len == file_len,
+                "Cannot mmap a non-aligned file in read-only mode. Use \"webgraph.exe align BASENAME\" to ensure alignment in graph files."
+            )
+        }
+        let file = std::fs::File::open(path.as_ref())
+            .with_context(|| "Cannot open file for MmapBackend")?;
 
         let mmap = unsafe {
             // Length must be > 0, or we get a panic.
@@ -142,6 +149,14 @@ impl<W> MmapBackend<W, MmapMut> {
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
 
+        #[cfg(windows)]
+        {
+            if mmap_len - file_len != 0 {
+                // Zero pad the file as CreateFileMappingW does not initialize everything to 0
+                file.set_len(mmap_len as u64)?;
+            }
+        }
+
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(mmap_len.max(1))
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
@@ -181,6 +196,11 @@ impl<W> MmapBackend<W, MmapMut> {
                 format!("Cannot create {} new MmapBackend", path.as_ref().display())
             })?;
         let file_len = len * size_of::<W>();
+        #[cfg(windows)]
+        {
+            // Zero fill the file as CreateFileMappingW does not initialize everything to 0
+            file.set_len(file_len as u64)?;
+        }
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
