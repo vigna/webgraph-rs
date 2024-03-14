@@ -70,6 +70,7 @@ pub fn main() -> Result<()> {
 
     impl_dispatch!(
         command,
+        align,
         ascii_convert,
         bench,
         build,

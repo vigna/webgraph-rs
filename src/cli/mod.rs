@@ -7,6 +7,7 @@
 
 //! Command line interface structs and functions, organized by subcommands.
 
+pub mod align;
 pub mod ascii_convert;
 pub mod bench;
 pub mod build;
