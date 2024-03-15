@@ -91,7 +91,7 @@ impl<W> MmapBackend<W> {
         {
             ensure!(
                 mmap_len == file_len,
-                "Cannot mmap a non-aligned file in read-only mode. Use \"webgraph.exe align BASENAME\" to ensure alignment in graph files."
+                "Cannot mmap a non-aligned file in read-only mode. Use \"webgraph.exe pad BASENAME\" to ensure alignment in graph files."
             )
         }
         let file = std::fs::File::open(path.as_ref())

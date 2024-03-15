@@ -15,9 +15,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub const COMMAND_NAME: &str = "align";
+pub const COMMAND_NAME: &str = "pad";
 
-fn align(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
+fn pad(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
     let file_len = path
         .as_ref()
         .metadata()
@@ -40,11 +40,11 @@ fn align(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
             .read(true)
             .write(true)
             .open(path.as_ref())
-            .with_context(|| format!("Cannot open file {} to align", path.as_ref().display()))?;
+            .with_context(|| format!("Cannot open file {} to pad", path.as_ref().display()))?;
         file.set_len(expected_len)
             .with_context(|| format!("Cannot extend file {}", path.as_ref().display()))?;
         info!(
-            "File {} successfully aligned to a block size of {} bytes",
+            "File {} successfully zero-padded to align to a block size of {} bytes",
             path.as_ref().display(),
             block_size
         );
@@ -53,7 +53,7 @@ fn align(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
 }
 
 #[derive(Args, Debug)]
-#[command(about = "Align graph files to the specified size", long_about = None)]
+#[command(about = "Zero pad graph files to align to the specified size", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
@@ -119,15 +119,15 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     for entry in paths {
         let path = entry.with_context(|| "Cannot read fs entry")?.path();
         let base_name = path.file_stem().unwrap_or(&OsString::from("")).to_owned();
-        // Align every file that has the correct base name
+        // Pad every file that has the correct base name
         if base_filename == base_name && path.is_file() {
-            align(
+            pad(
                 &path,
                 block_size
                     .try_into()
                     .with_context(|| "Cannot convert usize to u64")?,
             )
-            .with_context(|| format!("Cannot align file {}", path.display()))?;
+            .with_context(|| format!("Cannot pad file {}", path.display()))?;
         }
     }
     Ok(())

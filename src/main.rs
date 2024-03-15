@@ -70,7 +70,6 @@ pub fn main() -> Result<()> {
 
     impl_dispatch!(
         command,
-        align,
         ascii_convert,
         bench,
         build,
@@ -80,6 +79,7 @@ pub fn main() -> Result<()> {
         hyperball,
         llp,
         optimize_codes,
+        pad,
         perm,
         rand_perm,
         recompress,
