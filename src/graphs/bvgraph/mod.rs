@@ -11,6 +11,8 @@ pub const GRAPH_EXTENSION: &str = "graph";
 pub const PROPERTIES_EXTENSION: &str = "properties";
 pub const OFFSETS_EXTENSION: &str = "offsets";
 pub const EF_EXTENSION: &str = "ef";
+pub const LABELS_EXTENSION: &str = "labels";
+pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 
 mod offset_deg_iter;
 pub use offset_deg_iter::OffsetDegIter;
