@@ -140,8 +140,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: usize,
-    > Decoder
-    for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Decode for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {

@@ -106,12 +106,12 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 }
 
 /// A decoder that encodes the read values using the given encoder.
-pub struct Converter<D: Decoder, E: Encoder> {
+pub struct Converter<D: Decode, E: Encode> {
     decoder: D,
     encoder: E,
 }
 
-impl<D: Decoder, E: Encoder> Decoder for Converter<D, E> {
+impl<D: Decode, E: Encode> Decode for Converter<D, E> {
     // TODO: implement correctly start_node/end_node
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {

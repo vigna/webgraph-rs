@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{CodeWrite, Encoder, MeasurableEncoder};
+use super::{CodeWrite, Encode, MeasurableEncoder};
 use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
@@ -106,7 +106,7 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> Encoder for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: CodeWrite<E>> Encode for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
@@ -229,7 +229,7 @@ impl DynCodesEstimator {
     }
 }
 
-impl Encoder for DynCodesEstimator {
+impl Encode for DynCodesEstimator {
     type Error = Infallible;
 
     #[inline(always)]

@@ -130,7 +130,7 @@ impl<'a, F: SequentialDecoderFactory> StatsDecoder<'a, F> {
     }
 }
 
-impl<'a, F: SequentialDecoderFactory> Decoder for StatsDecoder<'a, F> {
+impl<'a, F: SequentialDecoderFactory> Decode for StatsDecoder<'a, F> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats

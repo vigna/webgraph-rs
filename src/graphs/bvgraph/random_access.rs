@@ -258,7 +258,7 @@ impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct Succ<D: Decoder> {
+pub struct Succ<D: Decode> {
     reader: D,
     /// The number of values left
     size: usize,
@@ -280,16 +280,16 @@ pub struct Succ<D: Decoder> {
     next_interval_node: usize,
 }
 
-impl<D: Decoder> ExactSizeIterator for Succ<D> {
+impl<D: Decode> ExactSizeIterator for Succ<D> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<D: Decoder> SortedLabels for Succ<D> {}
+unsafe impl<D: Decode> SortedLabels for Succ<D> {}
 
-impl<D: Decoder> Succ<D> {
+impl<D: Decode> Succ<D> {
     /// Create an empty iterator
     fn new(reader: D) -> Self {
         Self {
@@ -306,7 +306,7 @@ impl<D: Decoder> Succ<D> {
     }
 }
 
-impl<D: Decoder> Iterator for Succ<D> {
+impl<D: Decode> Iterator for Succ<D> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {

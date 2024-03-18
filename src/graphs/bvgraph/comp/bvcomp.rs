@@ -83,7 +83,7 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<E: Encoder>(
+    fn write<E: Encode>(
         &self,
         writer: &mut E,
         curr_node: usize,

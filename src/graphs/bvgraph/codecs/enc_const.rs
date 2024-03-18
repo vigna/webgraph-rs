@@ -8,7 +8,7 @@
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
-use super::{const_codes, CodeWrite, Encoder, MeasurableEncoder};
+use super::{const_codes, CodeWrite, Encode, MeasurableEncoder};
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
@@ -93,8 +93,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder
-    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encode for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = <CW as BitWrite<E>>::Error;
 
@@ -217,7 +216,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encode for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = Infallible;
 

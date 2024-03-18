@@ -14,7 +14,7 @@ use dsi_bitstream::prelude::*;
 /// This iterator is faster than scanning the graph. In particular, it can be
 /// used to build the offsets of a graph or to enumerate the graph degrees when
 /// the offsets are not available.
-pub struct OffsetDegIter<D: Decoder> {
+pub struct OffsetDegIter<D: Decode> {
     number_of_nodes: usize,
     compression_window: usize,
     min_interval_length: usize,
@@ -23,14 +23,14 @@ pub struct OffsetDegIter<D: Decoder> {
     backrefs: Vec<usize>,
 }
 
-impl<D: Decoder + BitSeek> OffsetDegIter<D> {
+impl<D: Decode + BitSeek> OffsetDegIter<D> {
     /// Get the current bit offset in the bitstream.
     pub fn get_pos(&mut self) -> u64 {
         self.decoder.bit_pos().unwrap()
     }
 }
 
-impl<D: Decoder + BitSeek> Iterator for OffsetDegIter<D> {
+impl<D: Decode + BitSeek> Iterator for OffsetDegIter<D> {
     type Item = (u64, usize);
     fn next(&mut self) -> Option<(u64, usize)> {
         if self.node_id >= self.number_of_nodes {
@@ -41,7 +41,7 @@ impl<D: Decoder + BitSeek> Iterator for OffsetDegIter<D> {
     }
 }
 
-impl<D: Decoder> OffsetDegIter<D> {
+impl<D: Decode> OffsetDegIter<D> {
     /// Create a new iterator over the degrees of the graph.
     pub fn new(
         decoder: D,
@@ -66,7 +66,7 @@ impl<D: Decoder> OffsetDegIter<D> {
     }
 
     /// Convert the decoder to another one.
-    pub fn map_decoder<D2: Decoder, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
+    pub fn map_decoder<D2: Decode, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
         OffsetDegIter {
             decoder: f(self.decoder),
             backrefs: self.backrefs,

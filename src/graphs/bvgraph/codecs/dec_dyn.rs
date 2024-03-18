@@ -90,7 +90,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> Decoder for DynCodesDecoder<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Decode for DynCodesDecoder<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)

@@ -128,7 +128,7 @@ impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
 
 impl<F: SequentialDecoderFactory> BVGraphSeq<F>
 where
-    for<'a> F::Decoder<'a>: Decoder,
+    for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
     /// Create an iterator specialized in the degrees of the nodes.
@@ -147,7 +147,7 @@ where
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Clone)]
-pub struct Iter<D: Decoder> {
+pub struct Iter<D: Decode> {
     pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,
     pub(crate) min_interval_length: usize,
@@ -156,7 +156,7 @@ pub struct Iter<D: Decoder> {
     pub(crate) current_node: usize,
 }
 
-impl<D: Decoder + BitSeek> Iter<D> {
+impl<D: Decode + BitSeek> Iter<D> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
@@ -165,7 +165,7 @@ impl<D: Decoder + BitSeek> Iter<D> {
     }
 }
 
-impl<D: Decoder> Iter<D> {
+impl<D: Decode> Iter<D> {
     /// Create a new iterator from a codes reader
     pub fn new(
         decoder: D,
@@ -288,16 +288,16 @@ impl<D: Decoder> Iter<D> {
     }
 }
 
-impl<'succ, D: Decoder> NodeLabelsLender<'succ> for Iter<D> {
+impl<'succ, D: Decode> NodeLabelsLender<'succ> for Iter<D> {
     type Label = usize;
     type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Label>>;
 }
 
-impl<'succ, D: Decoder> Lending<'succ> for Iter<D> {
+impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<D: Decoder> Lender for Iter<D> {
+impl<D: Decode> Lender for Iter<D> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
@@ -313,9 +313,9 @@ impl<D: Decoder> Lender for Iter<D> {
     }
 }
 
-unsafe impl<D: Decoder> SortedIterator for Iter<D> {}
+unsafe impl<D: Decode> SortedIterator for Iter<D> {}
 
-impl<D: Decoder> ExactSizeLender for Iter<D> {
+impl<D: Decode> ExactSizeLender for Iter<D> {
     fn len(&self) -> usize {
         self.number_of_nodes - self.current_node
     }
