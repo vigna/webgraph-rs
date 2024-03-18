@@ -59,7 +59,7 @@ fn permute<E: Endianness>(
     num_nodes: usize,
 ) -> Result<()> {
     // create a stream where to dump the sorted pairs
-    let mut sort_pairs = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
+    let mut sort_pairs = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)?)?;
 
     // dump the paris
     PermutedGraph { graph, perm }.iter().for_each(|(x, succ)| {
@@ -81,7 +81,7 @@ fn permute<E: Endianness>(
         g.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
+        temp_dir(args.pa.temp_dir)?,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;
 

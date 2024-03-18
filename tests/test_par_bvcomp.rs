@@ -50,7 +50,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
             graph.num_nodes(),
             comp_flags,
             thread_num,
-            temp_dir(std::env::temp_dir()),
+            temp_dir(std::env::temp_dir())?,
         )
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());

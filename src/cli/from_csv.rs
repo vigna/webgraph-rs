@@ -54,7 +54,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let mut group_by = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
+    let mut group_by = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)?)?;
     let mut nodes = BTreeMap::new();
 
     // read the csv and put it inside the sort pairs
@@ -127,7 +127,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         args.num_nodes,
         args.ca.into(),
         args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
+        temp_dir(args.pa.temp_dir)?,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
     .unwrap();

@@ -38,7 +38,7 @@ fn test_transpose() -> Result<()> {
         transposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
-        temp_dir(std::env::temp_dir()),
+        temp_dir(std::env::temp_dir())?,
     )?;
     // check it
     // TODO assert_eq!(transposed.iter_nodes().len(), num_nodes);
@@ -64,7 +64,7 @@ fn test_transpose() -> Result<()> {
         retransposed.num_nodes(),
         compression_flags,
         rayon::current_num_threads(),
-        temp_dir(std::env::temp_dir()),
+        temp_dir(std::env::temp_dir())?,
     )?;
     // check it
     // TODO assert_eq!(retransposed.iter_nodes().len(), num_nodes);

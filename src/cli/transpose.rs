@@ -76,7 +76,7 @@ where
         sorted.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
+        temp_dir(args.pa.temp_dir)?,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;
 
