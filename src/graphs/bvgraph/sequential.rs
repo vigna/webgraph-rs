@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::utils::nat2int;
-use crate::utils::CircularBufferVec;
+use crate::utils::CircularBuffer;
 use anyhow::Result;
 use bitflags::Flags;
 use dsi_bitstream::traits::BitSeek;
@@ -152,7 +152,7 @@ pub struct Iter<D: Decode> {
     pub(crate) compression_window: usize,
     pub(crate) min_interval_length: usize,
     pub(crate) decoder: D,
-    pub(crate) backrefs: CircularBufferVec,
+    pub(crate) backrefs: CircularBuffer<Vec<usize>>,
     pub(crate) current_node: usize,
 }
 
@@ -178,7 +178,7 @@ impl<D: Decode> Iter<D> {
             compression_window,
             min_interval_length,
             decoder,
-            backrefs: CircularBufferVec::new(compression_window + 1),
+            backrefs: CircularBuffer::new(compression_window + 1),
             current_node: 0,
         }
     }
@@ -186,8 +186,9 @@ impl<D: Decode> Iter<D> {
     /// Get the successors of the next node in the stream
     pub fn next_successors(&mut self) -> Result<&[usize]> {
         let mut res = self.backrefs.take(self.current_node);
+        res.clear();
         self.get_successors_iter_priv(self.current_node, &mut res)?;
-        let res = self.backrefs.push(self.current_node, res);
+        let res = self.backrefs.replace(self.current_node, res);
         self.current_node += 1;
         Ok(res)
     }
@@ -303,10 +304,11 @@ impl<D: Decode> Lender for Iter<D> {
             return None;
         }
         let mut res = self.backrefs.take(self.current_node);
+        res.clear();
         self.get_successors_iter_priv(self.current_node, &mut res)
             .unwrap();
 
-        let res = self.backrefs.push(self.current_node, res);
+        let res = self.backrefs.replace(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
         Some((node_id, res.iter().copied()))

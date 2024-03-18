@@ -13,7 +13,7 @@ use lender::prelude::*;
 pub struct BVComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
-    backrefs: CircularBufferVec,
+    backrefs: CircularBuffer<Vec<usize>>,
     /// The ring-buffer that stores how many recursion steps are needed to
     /// decode the last `compression_window` nodes, this is used for
     /// `max_ref_count` which is used to modulate the compression / decoding
@@ -308,7 +308,7 @@ impl<E: MeasurableEncoder> BVComp<E> {
         start_node: usize,
     ) -> Self {
         BVComp {
-            backrefs: CircularBufferVec::new(compression_window + 1),
+            backrefs: CircularBuffer::new(compression_window + 1),
             ref_counts: CircularBuffer::new(compression_window + 1),
             encoder,
             min_interval_length,
@@ -332,8 +332,9 @@ impl<E: MeasurableEncoder> BVComp<E> {
         // allocated
         {
             let mut succ_vec = self.backrefs.take(self.curr_node);
+            succ_vec.clear();
             succ_vec.extend(succ_iter);
-            self.backrefs.push(self.curr_node, succ_vec);
+            self.backrefs.replace(self.curr_node, succ_vec);
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];

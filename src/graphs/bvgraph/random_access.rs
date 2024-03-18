@@ -103,10 +103,10 @@ where
     fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
         let codes_reader = self.factory.new_decoder(start_node).unwrap();
         // we have to pre-fill the buffer
-        let mut backrefs = CircularBufferVec::new(self.compression_window + 1);
+        let mut backrefs = CircularBuffer::new(self.compression_window + 1);
 
         for node_id in start_node.saturating_sub(self.compression_window)..start_node {
-            backrefs.push(node_id, self.successors(node_id).collect());
+            backrefs.replace(node_id, self.successors(node_id).collect());
         }
 
         Iter {

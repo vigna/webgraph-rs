@@ -5,77 +5,41 @@
  */
 
 /// A circular buffer which is used to keep the backreferences both in
-/// sequential reads and for compressing during writes.
+/// sequential reads and compression.
+///
 /// For efficency reasons, we re-use the allocated buffers to avoid pressure
 /// over the allocator.
+///
+/// This structure implements [`Index`](std::ops::Index) and
+/// [`IndexMut`](std::ops::IndexMut) with both positive and negative indices,
+/// which are resolved with modular arithmetic. It is also possible to
+/// [take](CircularBuffer::take) and [replace](CircularBuffer::replace) the
+/// value at a given index.
 #[derive(Debug, Clone)]
-pub(crate) struct CircularBufferVec {
-    data: Vec<Vec<usize>>,
-}
-
-impl CircularBufferVec {
-    /// Create a new circular buffer that can hold `len` values. This should be
-    /// equal to the compression windows + 1 so there is space for the new data.
-    pub(crate) fn new(len: usize) -> Self {
-        Self {
-            data: (0..len)
-                .map(|_| Vec::with_capacity(100))
-                .collect::<Vec<_>>(),
-        }
-    }
-
-    /// Take the buffer to write the neighbours of the new node
-    pub(crate) fn take(&mut self, index: usize) -> Vec<usize> {
-        let idx = index % self.data.len();
-        let mut res = core::mem::take(&mut self.data[idx]);
-        res.clear();
-        res
-    }
-
-    /// Put it back in the buffer so it can be read
-    pub(crate) fn push(&mut self, index: usize, data: Vec<usize>) -> &[usize] {
-        let idx = index % self.data.len();
-        self.data[idx] = data;
-        &self.data[idx]
-    }
-}
-
-impl core::ops::Index<usize> for CircularBufferVec {
-    type Output = [usize];
-
-    #[inline]
-    fn index(&self, node_id: usize) -> &Self::Output {
-        let idx = node_id % self.data.len();
-        &self.data[idx]
-    }
-}
-
-impl core::ops::Index<isize> for CircularBufferVec {
-    type Output = [usize];
-
-    #[inline]
-    fn index(&self, node_id: isize) -> &Self::Output {
-        // TODO!: add checks
-        let idx = node_id.rem_euclid(self.data.len() as isize) as usize;
-        &self.data[idx]
-    }
-}
-
-/// A circular buffer which is used to keep the backreferences both in
-/// sequential reads and for compressing during writes.
-/// For efficency reasons, we re-use the allocated buffers to avoid pressure
-/// over the allocator.
 pub(crate) struct CircularBuffer<T: Default> {
     data: Vec<T>,
 }
 
 impl<T: Default> CircularBuffer<T> {
-    /// Create a new circular buffer that can hold `len` values. This should be
-    /// equal to the compression windows + 1 so there is space for the new data.
+    /// Creates a new circular buffer which can hold `len` values.
     pub(crate) fn new(len: usize) -> Self {
         Self {
             data: (0..len).map(|_| T::default()).collect::<Vec<_>>(),
         }
+    }
+
+    /// Takes an element from the buffer, replacing it with its default value.
+    pub(crate) fn take(&mut self, index: usize) -> T {
+        let idx = index % self.data.len();
+        core::mem::take(&mut self.data[idx])
+    }
+
+    /// Replaces an element in the buffer with a new value and
+    /// return a reference to the new value in the buffer.
+    pub(crate) fn replace(&mut self, index: usize, data: T) -> &T {
+        let idx = index % self.data.len();
+        self.data[idx] = data;
+        &self.data[idx]
     }
 }
 
