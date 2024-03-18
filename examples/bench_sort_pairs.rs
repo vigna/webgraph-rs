@@ -82,7 +82,6 @@ pub fn main() -> Result<()> {
             pl.light_update();
         }
         pl.done();
-        return Ok(());
     } else {
         let mut sp = SortPairs::new(args.batch, dir.path())?;
 
