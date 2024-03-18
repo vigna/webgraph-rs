@@ -8,7 +8,7 @@
 use crate::traits::*;
 
 mod offset_deg_iter;
-pub use offset_deg_iter::*;
+pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
 pub use sequential::BVGraphSeq;
@@ -17,7 +17,7 @@ pub mod random_access;
 pub use random_access::BVGraph;
 
 mod masked_iterator;
-pub use masked_iterator::*;
+pub use masked_iterator::MaskedIterator;
 
 mod codecs;
 pub use codecs::*;

@@ -53,11 +53,9 @@ impl<E: Endianness, W: BitRead<E>> BitDeserializer<E, W> for Mock {
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
 
     let dir = Builder::new().prefix("bench_sort_pairs").tempdir()?;
 

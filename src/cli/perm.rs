@@ -92,11 +92,6 @@ fn permute<E: Endianness>(
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()?;
-
     match get_endianness(&args.source)?.as_str() {
         #[cfg(any(
             feature = "be_bins",

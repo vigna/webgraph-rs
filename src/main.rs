@@ -11,10 +11,9 @@ use clap_complete::shells::Shell;
 use webgraph::cli;
 
 pub fn main() -> Result<()> {
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()?;
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
 
     let command = Command::new("webgraph")
         .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")

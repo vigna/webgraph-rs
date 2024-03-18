@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
@@ -15,10 +15,10 @@ use webgraph::prelude::*;
 
 #[test]
 fn test_par_bvcomp() -> Result<()> {
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()?;
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
 
     _test_par_bvcomp("tests/data/cnr-2000")?;
     _test_par_bvcomp("tests/data/cnr-2000-hc")?;

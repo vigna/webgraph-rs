@@ -8,12 +8,12 @@
 
 use crate::prelude::*;
 use anyhow::Result;
-use bitvec::*;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
+use sux::prelude::BitVec;
 
 pub const COMMAND_NAME: &str = "bf-visit";
 
@@ -80,7 +80,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     let num_nodes = graph.num_nodes();
-    let mut visited = bitvec![0; num_nodes];
+    let mut visited = BitVec::new(num_nodes);
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default();

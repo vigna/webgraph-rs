@@ -63,7 +63,7 @@ impl BVComp<()> {
 
         let mut real_num_nodes = 0;
         if build_offsets {
-            let offsets_path = suffix_path(&basename, ".offsets");
+            let offsets_path = suffix_path(basename, ".offsets");
             let file = std::fs::File::create(&offsets_path)
                 .with_context(|| format!("Could not create {}", offsets_path.display()))?;
             // create a bit writer on the file
@@ -104,7 +104,7 @@ impl BVComp<()> {
         let properties = compression_flags
             .to_properties::<BE>(real_num_nodes, bvcomp.arcs)
             .context("Could not serialize properties")?;
-        let properties_path = suffix_path(&basename, ".properties");
+        let properties_path = suffix_path(basename, ".properties");
         std::fs::write(&properties_path, properties)
             .with_context(|| format!("Could not write {}", properties_path.display()))?;
 
@@ -356,7 +356,7 @@ impl BVComp<()> {
             let properties = compression_flags
                 .to_properties::<BE>(num_nodes, total_arcs)
                 .context("Could not serialize properties")?;
-            let properties_path = suffix_path(&basename, ".properties");
+            let properties_path = suffix_path(basename, ".properties");
             std::fs::write(&properties_path, properties).with_context(|| {
                 format!(
                     "Could not write properties to {}",

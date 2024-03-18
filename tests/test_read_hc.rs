@@ -5,13 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::{Path, PathBuf};
-
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
 use lender::*;
-use webgraph::{graphs::bvgraph, prelude::*};
+use webgraph::graphs::bvgraph;
 
 #[test]
 fn test_hc() -> Result<()> {

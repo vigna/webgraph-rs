@@ -32,7 +32,7 @@ impl ErdosRenyi {
     /// nodes, the probability of an edge between any two nodes, and a
     /// seed for the [pseudorandom number generator](SmallRng).
     pub fn new(n: usize, p: f64, seed: u64) -> Self {
-        assert!(p >= 0.0 && p <= 1.0, "p must be in [0..1]");
+        assert!((0.0..=1.0).contains(&p), "p must be in [0..1]");
         Self { n, p, seed }
     }
 }

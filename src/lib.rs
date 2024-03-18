@@ -17,6 +17,7 @@
 #![deny(unused_doc_comments)]
 
 pub mod algo;
+#[cfg(feature = "cli")]
 pub mod cli;
 #[cfg(feature = "fuzz")]
 pub mod fuzz;
