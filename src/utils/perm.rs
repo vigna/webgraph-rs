@@ -10,37 +10,39 @@ use mmap_rs::{Mmap, MmapFlags, MmapMut};
 use std::path::Path;
 use sux::traits::*;
 
-/// Wrapper for the permutation in the Java format.
+/// Maps into memory a file of big-endian 64-bit values, making it accessible as
+/// a [`BitFieldSlice<usize>`].
 ///
-/// To allow interoperability of the Java end the epserde formats, functions
-/// should be implemented over a generic type that implements [`BitFieldSlice`] as
-/// both [`JavaPermutation<Mmap>`], [`JavaPermutation<MmapMut>`], and the deserialized
-/// values from [`epserde`] implement it.
+/// The purpose of this helper class make interoperability with the big version
+/// of the Java implementation of WebGraph easier. It is a thin wrapper
+/// around [`MmapHelper`], and its methods are named accordingly.
 ///
-/// The java format is an array of big endian u64s.
+/// Note that this class is only available on 64-bit platforms.
+#[cfg(target_pointer_width = "64")]
 pub struct JavaPermutation<M = Mmap> {
     pub perm: MmapHelper<u64, M>,
 }
 
+#[cfg(target_pointer_width = "64")]
 impl JavaPermutation<MmapMut> {
-    /// Create a new  mutable Memory mapped permutation
+    /// Creates and maps a permutation into memory (read/write), overwriting it if it exists.
     ///
     /// # Arguments
-    /// - `path` - The path to the file to memory map
-    /// - `flags` - The flags to use for the memory mapping
-    /// - `len` - The length of the permutation (in number of nodes)
+    /// - `path` - The path to the permutation.
+    /// - `flags` - The flags to use for the memory mapping.
+    /// - `len` - The length of the permutation (number of 64-bit unsigned values).
     pub fn new(path: impl AsRef<Path>, flags: MmapFlags, len: usize) -> Result<Self> {
         Ok(Self {
             perm: MmapHelper::new(path, flags, len)?,
         })
     }
 
-    /// Memory map a mutable permutation from disk
+    /// Maps a permutation into memory (read/write).
     ///
     /// # Arguments
-    /// - `path` - The path to the file to memory map
-    /// - `flags` - The flags to use for the memory mapping
-    pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
+    /// - `path` - The path to the permutation.
+    /// - `flags` - The flags to use for the memory mapping.
+    pub fn mmap_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
             perm: MmapHelper::mmap_mut(path, flags)?,
         })
@@ -48,12 +50,12 @@ impl JavaPermutation<MmapMut> {
 }
 
 impl JavaPermutation {
-    /// Memory map a permutation from disk reading
+    /// Maps a permutation into memory (read-only).
     ///
     /// # Arguments
-    /// - `path` - The path to the file to memory map
-    /// - `flags` - The flags to use for the memory mapping
-    pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
+    /// - `path` - The path to the permutation.
+    /// - `flags` - The flags to use for the memory mapping.
+    pub fn mmap(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
             perm: MmapHelper::mmap(path, flags)?,
         })

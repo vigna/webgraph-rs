@@ -72,12 +72,12 @@ impl<W> TryFrom<Mmap> for MmapHelper<W> {
 }
 
 impl<W> MmapHelper<W> {
-    /// Return the size of the memory mapping in `W`'s.
+    /// Returns the size of the memory mapping in `W`'s.
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Return whether the memory mapping is empty.
+    /// Returns whether the memory mapping is empty.
     pub fn is_empty(&self) -> bool {
         // make clippy happy
         self.len == 0
