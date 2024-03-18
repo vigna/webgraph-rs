@@ -131,14 +131,14 @@ impl LoadMode for File {
 pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
-    type Factory<E: Endianness> = MmapBackend<u32>;
+    type Factory<E: Endianness> = MmapHelper<u32>;
     type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
         flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        MmapBackend::load(graph, flags.into())
+        MmapHelper::mmap(graph, flags.into())
     }
 
     fn load_offsets<P: AsRef<Path>>(
@@ -183,7 +183,7 @@ impl LoadMode for LoadMem {
 pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
-    type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
+    type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
     type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(

@@ -10,24 +10,35 @@ use core::fmt::Debug;
 use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
 
-/// Helper struct providing convenience methods and
-/// type-based [`AsRef`] access to an [`Mmap`] or [`MmapMut`].
+/// Helper struct providing convenience methods and type-based [`AsRef`] access
+/// to an [`Mmap`] or [`MmapMut`] instance.
 ///
-/// The parameter `W` defines the type used to access the [`Mmap`] or [`MmapMut`]
-/// instance. Usually, this will be a unsigned type such as `usize`, but per se `W`
-/// has no trait bounds.
-#[derive(Clone)]
+/// The parameter `W` defines the type of the slice used to access the [`Mmap`]
+/// or [`MmapMut`] instance. Usually, this will be a unsigned type such as
+/// `usize`, but per se `W` has no trait bounds.
+///
+/// If the length of the file is not a multiple of the size of `W`, the behavior
+/// of [`load`] is platform-dependent:
+/// - on Linux, files will be silently zero-extended to the smallest length that
+///   is a multiple of  the size of `W`;
+/// - on Windows, an error will be returned; you will have to pad manually the
+///   file using the `pad` command of the `webgraph` CLI.
+///
+/// On the contrary, [`load_mut`] will always refuse to map a file whose length
+/// is not a multiple of the size of `W`.
+///
+/// If you need clonable version of this structure, consider using [`ArcMmapHelper`].
 pub struct MmapHelper<W, M = Mmap> {
-    /// The underlying [`Mmap`].
+    /// The underlying memory mapping, [`Mmap`] or [`MmapMut`].
     mmap: M,
     /// The length of the mapping in `W`'s.
     len: usize,
     _marker: core::marker::PhantomData<W>,
 }
 
-impl<W: Debug> Debug for MmapHelper<W> {
+impl<W: Debug> Debug for MmapHelper<W, Mmap> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("MmapBackend")
+        f.debug_struct("MmapHelper")
             .field("mmap", &self.mmap.as_ptr())
             .field("len", &self.len)
             .finish()
@@ -36,7 +47,7 @@ impl<W: Debug> Debug for MmapHelper<W> {
 
 impl<W: Debug> Debug for MmapHelper<W, MmapMut> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("MmapBackend")
+        f.debug_struct("MmapHelper")
             .field("mmap", &self.mmap.as_ptr())
             .field("len", &self.len)
             .finish()
@@ -72,12 +83,12 @@ impl<W> MmapHelper<W> {
         self.len == 0
     }
 
-    /// Load a new MmapBackend from a file.
+    /// Maps a file into memory (read-only).
     ///
     /// # Arguments
     /// - `path`: The path to the file to be memory mapped.
     /// - `flags`: The flags to be used for the mmap.
-    pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
+    pub fn mmap(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len: usize = path
             .as_ref()
             .metadata()
@@ -85,14 +96,21 @@ impl<W> MmapHelper<W> {
             .len()
             .try_into()
             .with_context(|| "Cannot convert file length to usize")?;
-        let file = std::fs::File::open(path.as_ref())
-            .with_context(|| "Cannot open file for MmapBackend")?;
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
+        #[cfg(windows)]
+        {
+            ensure!(
+                mmap_len == file_len,
+                "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME -b U{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8
+            )
+        }
+        let file = std::fs::File::open(path.as_ref())
+            .with_context(|| "Cannot open file for MmapHelper")?;
 
         let mmap = unsafe {
             // Length must be > 0, or we get a panic.
-            mmap_rs::MmapOptions::new(mmap_len.max(1))
+            mmap_rs::MmapOptions::new(mmap_len.max(size_of::<W>()))
                 .with_context(|| format!("Cannot initialize mmap of size {}", mmap_len))?
                 .with_flags(flags)
                 .with_file(&file, 0)
@@ -115,12 +133,12 @@ impl<W> MmapHelper<W> {
 }
 
 impl<W> MmapHelper<W, MmapMut> {
-    /// Create a new mutable MmapBackend
+    /// Maps a file into memory (read/write).
     ///
     /// # Arguments
-    /// - `path`: The path to the file to be created.
+    /// - `path`: The path to the file to be mapped.
     /// - `flags`: The flags to be used for the mmap.
-    pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
+    pub fn mmap_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len: usize = path
             .as_ref()
             .metadata()
@@ -134,13 +152,15 @@ impl<W> MmapHelper<W, MmapMut> {
             .open(path.as_ref())
             .with_context(|| {
                 format!(
-                    "Cannot open {} for mutable MmapBackend",
+                    "Cannot open {} for mutable MmapHelper",
                     path.as_ref().display()
                 )
             })?;
 
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
+
+        ensure!(mmap_len == file_len, "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME -b U{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8);
 
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(mmap_len.max(1))
@@ -164,12 +184,12 @@ impl<W> MmapHelper<W, MmapMut> {
         })
     }
 
-    /// Create a new mutable MmapBackend, overwriting the file if it exists.
+    /// Creates and maps a file into memory (read/write), overwriting it if it exists.
     ///
     /// # Arguments
     /// - `path`: The path to the file to be created.
     /// - `flags`: The flags to be used for the mmap.
-    /// - `len`: The length of the mmap in `W`'s.
+    /// - `len`: The length of the file in `W`'s.
     pub fn new(path: impl AsRef<Path>, flags: MmapFlags, len: usize) -> Result<Self> {
         let file = std::fs::OpenOptions::new()
             .read(true)
@@ -177,10 +197,18 @@ impl<W> MmapHelper<W, MmapMut> {
             .create(true)
             .truncate(true)
             .open(path.as_ref())
-            .with_context(|| {
-                format!("Cannot create {} new MmapBackend", path.as_ref().display())
-            })?;
+            .with_context(|| format!("Cannot create {} new MmapHelper", path.as_ref().display()))?;
         let file_len = len * size_of::<W>();
+        #[cfg(windows)]
+        {
+            // Zero fill the file as CreateFileMappingW does not initialize everything to 0
+            file.set_len(
+                file_len
+                    .try_into()
+                    .with_context(|| "Cannot convert usize to u64")?,
+            )
+            .with_context(|| "Cannot modify file size")?;
+        }
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
@@ -198,22 +226,9 @@ impl<W> MmapHelper<W, MmapMut> {
     }
 }
 
-/// A clonable version of [`MmapBackend`].
-///
-/// This newtype contains an [`MmapBackend`] wrapped in an [`Arc`], making it possible
-/// to clone the backend.
-#[derive(Clone)]
-pub struct ArcMmapBackend<W>(pub Arc<MmapHelper<W>>);
-
 impl<W> AsRef<[W]> for MmapHelper<W> {
     fn as_ref(&self) -> &[W] {
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
-    }
-}
-
-impl<W> AsRef<[W]> for ArcMmapBackend<W> {
-    fn as_ref(&self) -> &[W] {
-        unsafe { std::slice::from_raw_parts(self.0.mmap.as_ptr() as *const W, self.0.len) }
     }
 }
 
@@ -226,5 +241,27 @@ impl<W> AsRef<[W]> for MmapHelper<W, MmapMut> {
 impl<W> AsMut<[W]> for MmapHelper<W, MmapMut> {
     fn as_mut(&mut self) -> &mut [W] {
         unsafe { std::slice::from_raw_parts_mut(self.mmap.as_mut_ptr() as *mut W, self.len) }
+    }
+}
+
+/// A clonable version of a read-only [`MmapHelper`].
+///
+/// This newtype contains a read-only [`MmapHelper`] wrapped in an [`Arc`],
+/// making it possible to clone it.
+#[derive(Clone)]
+pub struct ArcMmapHelper<W>(pub Arc<MmapHelper<W>>);
+
+impl<W: Debug> Debug for ArcMmapHelper<W> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ArcMmapHelper")
+            .field("mmap", &self.0.mmap.as_ptr())
+            .field("len", &self.0.len)
+            .finish()
+    }
+}
+
+impl<W> AsRef<[W]> for ArcMmapHelper<W> {
+    fn as_ref(&self) -> &[W] {
+        unsafe { std::slice::from_raw_parts(self.0.mmap.as_ptr() as *const W, self.0.len) }
     }
 }

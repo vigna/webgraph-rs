@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::utils::MmapBackend;
+use crate::utils::MmapHelper;
 use anyhow::Result;
 use mmap_rs::{Mmap, MmapFlags, MmapMut};
 use std::path::Path;
@@ -19,7 +19,7 @@ use sux::traits::*;
 ///
 /// The java format is an array of big endian u64s.
 pub struct JavaPermutation<M = Mmap> {
-    pub perm: MmapBackend<u64, M>,
+    pub perm: MmapHelper<u64, M>,
 }
 
 impl JavaPermutation<MmapMut> {
@@ -31,7 +31,7 @@ impl JavaPermutation<MmapMut> {
     /// - `len` - The length of the permutation (in number of nodes)
     pub fn new(path: impl AsRef<Path>, flags: MmapFlags, len: usize) -> Result<Self> {
         Ok(Self {
-            perm: MmapBackend::new(path, flags, len)?,
+            perm: MmapHelper::new(path, flags, len)?,
         })
     }
 
@@ -42,7 +42,7 @@ impl JavaPermutation<MmapMut> {
     /// - `flags` - The flags to use for the memory mapping
     pub fn load_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
-            perm: MmapBackend::load_mut(path, flags)?,
+            perm: MmapHelper::mmap_mut(path, flags)?,
         })
     }
 }
@@ -55,7 +55,7 @@ impl JavaPermutation {
     /// - `flags` - The flags to use for the memory mapping
     pub fn load(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
-            perm: MmapBackend::load(path, flags)?,
+            perm: MmapHelper::mmap(path, flags)?,
         })
     }
 }

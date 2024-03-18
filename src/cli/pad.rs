@@ -26,40 +26,39 @@ fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
             )
         })?
         .len();
-    let expected_len = file_len.align_to(
-        block_size
-            .try_into()
-            .with_context(|| "Cannot convert usize to u64")?,
-    );
+    let expected_len = file_len.align_to(block_size as u64);
+
     if file_len == expected_len {
         info!(
             "File {} already aligned to a block size of {} bytes",
             path.as_ref().display(),
             block_size
         );
-    } else {
-        let file = std::fs::File::options()
-            .read(true)
-            .write(true)
-            .open(path.as_ref())
-            .with_context(|| format!("Cannot open file {} to pad", path.as_ref().display()))?;
-        file.set_len(expected_len)
-            .with_context(|| format!("Cannot extend file {}", path.as_ref().display()))?;
-        info!(
-            "File {} successfully zero-padded to align to a block size of {} bytes",
-            path.as_ref().display(),
-            block_size
-        );
+        return Ok(());
     }
+
+    let file = std::fs::File::options()
+        .read(true)
+        .write(true)
+        .open(path.as_ref())
+        .with_context(|| format!("Cannot open file {} to pad", path.as_ref().display()))?;
+    file.set_len(expected_len)
+        .with_context(|| format!("Cannot extend file {}", path.as_ref().display()))?;
+    info!(
+        "File {} successfully zero-padded to align to a block size of {} bytes",
+        path.as_ref().display(),
+        block_size
+    );
+
     Ok(())
 }
 
 #[derive(Args, Debug)]
-#[command(about = "Zero-pad graph files to a length multiple of a read-word type", long_about = None)]
+#[command(about = "Zero-pad graph files to a length multiple of a block size", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
-    /// The read-word type to align to
+    /// The block size to align to
     #[clap(short, long, default_value_t, value_enum)]
     block_size: BlockSize,
 }

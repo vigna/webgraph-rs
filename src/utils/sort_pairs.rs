@@ -53,10 +53,10 @@ impl<T: Copy> Ord for Triple<T> {
     }
 }
 
-use super::{ArcMmapBackend, MmapBackend};
+use super::{ArcMmapHelper, MmapHelper};
 
 pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
-pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapBackend<u32>>>;
+pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
 
 /// A struct that ingests paris of nodes and a generic payload and sort them
 /// in chunks of `batch_size` triples, then dumps them to disk.
@@ -320,8 +320,8 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         len: usize,
         deserializer: D,
     ) -> anyhow::Result<Self> {
-        let stream = <BufBitReader<NE, _>>::new(MemWordReader::new(ArcMmapBackend(Arc::new(
-            MmapBackend::load(
+        let stream = <BufBitReader<NE, _>>::new(MemWordReader::new(ArcMmapHelper(Arc::new(
+            MmapHelper::mmap(
                 file_path.as_ref(),
                 MmapFlags::TRANSPARENT_HUGE_PAGES | MmapFlags::SEQUENTIAL,
             )

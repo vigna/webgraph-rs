@@ -72,8 +72,8 @@ pub fn suffix_path<P: AsRef<Path>, S: AsRef<std::ffi::OsStr>>(path: P, suffix: S
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 
-mod mmap_backend;
-pub use mmap_backend::*;
+mod mmap_helper;
+pub use mmap_helper::*;
 
 mod perm;
 pub use perm::*;

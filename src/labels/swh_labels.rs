@@ -24,7 +24,7 @@ use std::path::Path;
 use sux::traits::IndexedDict;
 
 use crate::graphs::bvgraph::EF;
-use crate::prelude::{MmapBackend, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
+use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 
 pub trait ReaderBuilder {
     /// The type of the reader that we are building
@@ -37,7 +37,7 @@ pub trait ReaderBuilder {
 }
 
 pub struct MmapReaderBuilder {
-    backend: MmapBackend<u32>,
+    backend: MmapHelper<u32>,
 }
 
 impl ReaderBuilder for MmapReaderBuilder {
@@ -63,7 +63,7 @@ impl SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
         Ok(SwhLabels {
             width,
             reader_builder: MmapReaderBuilder {
-                backend: MmapBackend::<u32>::load(&backend_path, MmapFlags::empty())
+                backend: MmapHelper::<u32>::mmap(&backend_path, MmapFlags::empty())
                     .with_context(|| format!("Could not mmap {}", backend_path.display()))?,
             },
 

@@ -88,7 +88,7 @@ fn _test_bvcomp_slow<E: Endianness>() -> Result<()> {
 
                                     let code_reader = DynCodesDecoder::new(
                                         BufBitReader::<BE, _>::new(MemWordReader::<u32, _>::new(
-                                            MmapBackend::load(
+                                            MmapHelper::mmap(
                                                 tmp_path,
                                                 mmap_rs::MmapFlags::empty(),
                                             )?,
