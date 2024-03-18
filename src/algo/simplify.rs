@@ -9,7 +9,7 @@ use crate::labels::Left;
 use crate::traits::SequentialGraph;
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::Result;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use itertools::{Dedup, Itertools};
 use lender::*;
 use tempfile::Builder;

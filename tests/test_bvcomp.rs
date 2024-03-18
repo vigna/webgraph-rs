@@ -13,7 +13,7 @@ const NODES: usize = 325557;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
 use Code::{Delta, Gamma, Unary, Zeta};
 

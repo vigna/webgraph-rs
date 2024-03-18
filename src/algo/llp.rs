@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use crate::traits::*;
 use anyhow::{Context, Result};
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 
 use lender::*;

@@ -11,7 +11,7 @@ use crate::prelude::{BitDeserializer, BitSerializer, LabeledSequentialGraph, Seq
 use crate::traits::graph::UnitLabelGraph;
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use tempfile::Builder;
 

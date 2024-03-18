@@ -11,7 +11,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::{Endianness, BE};
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::BTreeMap;

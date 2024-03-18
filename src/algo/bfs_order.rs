@@ -5,7 +5,7 @@
  */
 
 use crate::traits::RandomAccessGraph;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use std::collections::VecDeque;
 use sux::prelude::BitVec;
 

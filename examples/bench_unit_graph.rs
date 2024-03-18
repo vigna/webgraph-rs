@@ -10,7 +10,7 @@ mod bench_sort_pairs;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::hint::black_box;
 use std::path::PathBuf;

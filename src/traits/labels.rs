@@ -30,7 +30,7 @@ use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
 

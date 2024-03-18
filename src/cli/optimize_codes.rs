@@ -9,7 +9,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::path::PathBuf;
 

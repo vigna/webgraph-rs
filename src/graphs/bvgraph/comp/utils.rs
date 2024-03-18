@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};

@@ -9,7 +9,7 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
