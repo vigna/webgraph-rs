@@ -360,11 +360,11 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
             CodeRead<E> + BitSeek,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
-        self.basename.set_extension("ef");
+        self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
         Ok(BVGraph::new(
@@ -388,9 +388,9 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BVGraphSeq::new(
@@ -439,11 +439,11 @@ impl<
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
             CodeRead<E> + BitSeek,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
-        self.basename.set_extension("ef");
+        self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
         Ok(BVGraph::new(
@@ -497,9 +497,9 @@ impl<
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BVGraphSeq::new(

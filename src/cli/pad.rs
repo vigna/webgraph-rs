@@ -13,6 +13,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::graphs::GRAPH_EXTENSION;
+
 pub const COMMAND_NAME: &str = "pad";
 
 fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
@@ -93,7 +95,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         BlockSize::U128 => size_of::<u128>(),
     };
     let mut graph_filename = args.basename;
-    graph_filename.set_extension("graph");
+    graph_filename.set_extension(GRAPH_EXTENSION);
 
     ensure!(
         graph_filename.is_file(),

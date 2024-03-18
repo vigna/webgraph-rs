@@ -35,7 +35,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         .load()?;
 
     let mut graph_filename = PathBuf::from(basename);
-    graph_filename.set_extension("graph");
+    graph_filename.set_extension(GRAPH_EXTENSION);
 
     let expected_size = graph_filename.metadata()?.len();
     for thread_num in 1..10 {
@@ -55,7 +55,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let found_size = std::fs::File::open(suffix_path(&tmp_basename, ".graph"))?
+        let found_size = std::fs::File::open(tmp_basename.with_extension(GRAPH_EXTENSION))?
             .metadata()?
             .len();
 
@@ -90,8 +90,8 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
 
         pr.done();
         // cancel the file at the end
-        std::fs::remove_file(suffix_path(&tmp_basename, ".graph"))?;
-        std::fs::remove_file(suffix_path(&tmp_basename, ".properties"))?;
+        std::fs::remove_file(tmp_basename.with_extension(GRAPH_EXTENSION))?;
+        std::fs::remove_file(tmp_basename.with_extension(PROPERTIES_EXTENSION))?;
         log::info!("\n");
     }
 

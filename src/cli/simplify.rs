@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::utils::*;
+use super::{append, utils::*};
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -60,7 +60,7 @@ where
 {
     let simplified = args
         .simplified
-        .unwrap_or_else(|| suffix_path(&args.basename, ".simple"));
+        .unwrap_or_else(|| append(&args.basename, "-simple"));
 
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
