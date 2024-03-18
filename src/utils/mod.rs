@@ -51,24 +51,6 @@ pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     }
 }
 
-/// Appends a string to a path
-///
-/// ```
-/// # use std::path::{Path, PathBuf};
-/// # use webgraph::utils::suffix_path;
-///
-/// assert_eq!(
-///     suffix_path(Path::new("/tmp/graph"), "-transposed"),
-///     Path::new("/tmp/graph-transposed").to_owned()
-/// );
-/// ```
-#[inline(always)]
-pub fn suffix_path<P: AsRef<Path>, S: AsRef<std::ffi::OsStr>>(path: P, suffix: S) -> PathBuf {
-    let mut path = path.as_ref().as_os_str().to_owned();
-    path.push(suffix);
-    path.into()
-}
-
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 
