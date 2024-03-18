@@ -4,20 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
 use anyhow::{ensure, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches, ValueEnum};
 use common_traits::UnsignedInt;
 use log::info;
 use std::{
-    ffi::OsString,
     mem::size_of,
     path::{Path, PathBuf},
 };
 
 pub const COMMAND_NAME: &str = "pad";
 
-fn pad(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
+fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
     let file_len = path
         .as_ref()
         .metadata()
@@ -28,7 +26,11 @@ fn pad(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
             )
         })?
         .len();
-    let expected_len = file_len.align_to(block_size);
+    let expected_len = file_len.align_to(
+        block_size
+            .try_into()
+            .with_context(|| "Cannot convert usize to u64")?,
+    );
     if file_len == expected_len {
         info!(
             "File {} already aligned to a block size of {} bytes",
@@ -53,22 +55,27 @@ fn pad(path: impl AsRef<Path>, block_size: u64) -> Result<()> {
 }
 
 #[derive(Args, Debug)]
-#[command(about = "Zero pad graph files to align to the specified size", long_about = None)]
+#[command(about = "Zero-pad graph files to a length multiple of a read-word type", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
-    /// The block size to align to
+    /// The read-word type to align to
     #[clap(short, long, default_value_t, value_enum)]
     block_size: BlockSize,
 }
 
 #[derive(ValueEnum, Clone, Debug, Default)]
 enum BlockSize {
+    /// 1 byte
     U8,
+    /// 2 bytes
     U16,
+    /// 4 bytes
     U32,
+    /// 8 bytes
     #[default]
     U64,
+    /// 16 bytes
     U128,
 }
 
@@ -77,8 +84,8 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    // Parse arguments
     let args = CliArgs::from_arg_matches(submatches)?;
+
     let block_size = match args.block_size {
         BlockSize::U8 => size_of::<u8>(),
         BlockSize::U16 => size_of::<u16>(),
@@ -86,49 +93,21 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         BlockSize::U64 => size_of::<u64>(),
         BlockSize::U128 => size_of::<u128>(),
     };
-    let base_filename = args.basename.file_name().unwrap_or_default();
-    let dir = match args.basename.parent() {
-        Some(d) => {
-            if d.to_str().is_some_and(|s| !s.is_empty()) {
-                d.to_owned()
-            } else {
-                std::env::current_dir().with_context(|| "Cannot read current directory")?
-            }
-        }
-        None => std::env::current_dir().with_context(|| "Cannot read current directory")?,
-    };
-    // dir must be an existing directory and graph_filename must be an existing file
+    let mut graph_filename = args.basename;
+    graph_filename.set_extension("graph");
+
     ensure!(
-        dir.exists(),
-        format!("Directory {} does not exist", dir.display())
+        graph_filename.is_file(),
+        "Cannot find graph file {}",
+        graph_filename.display()
     );
-    ensure!(
-        dir.is_dir(),
-        format!("{} is not a directory", dir.display())
-    );
-    ensure!(
-        suffix_path(dir.join(base_filename), ".graph").is_file(),
+
+    pad(&graph_filename, block_size).with_context(|| {
         format!(
-            "graph file {}.graph not found in {}",
-            base_filename.to_str().unwrap_or(""),
-            dir.display()
+            "Cannot pad file {} to a length multiple of {} bytes",
+            graph_filename.display(),
+            block_size
         )
-    );
-    let paths = std::fs::read_dir(&dir)
-        .with_context(|| format!("Cannot read directory {}", dir.display()))?;
-    for entry in paths {
-        let path = entry.with_context(|| "Cannot read fs entry")?.path();
-        let base_name = path.file_stem().unwrap_or(&OsString::from("")).to_owned();
-        // Pad every file that has the correct base name
-        if base_filename == base_name && path.is_file() {
-            pad(
-                &path,
-                block_size
-                    .try_into()
-                    .with_context(|| "Cannot convert usize to u64")?,
-            )
-            .with_context(|| format!("Cannot pad file {}", path.display()))?;
-        }
-    }
+    })?;
     Ok(())
 }
