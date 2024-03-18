@@ -90,8 +90,8 @@ impl<W> MmapBackend<W> {
         #[cfg(windows)]
         {
             ensure!(
-                mmap_len == file_len,
-                "Cannot mmap a non-aligned file in read-only mode. Use \"webgraph.exe pad BASENAME\" to ensure alignment in graph files."
+                mmap_len <= file_len,
+                "File has insufficient padding for read-word size {}. Use \"webgraph pad BASENAME -b u{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8
             )
         }
         let file = std::fs::File::open(path.as_ref())
@@ -151,10 +151,10 @@ impl<W> MmapBackend<W, MmapMut> {
 
         #[cfg(windows)]
         {
-            if mmap_len - file_len != 0 {
-                // Zero pad the file as CreateFileMappingW does not initialize everything to 0
-                file.set_len(mmap_len as u64)?;
-            }
+            ensure!(
+                mmap_len == file_len,
+                "File has insufficient padding for read-word size {}. Use \"webgraph pad BASENAME -b u{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8
+            )
         }
 
         let mmap = unsafe {
@@ -199,7 +199,12 @@ impl<W> MmapBackend<W, MmapMut> {
         #[cfg(windows)]
         {
             // Zero fill the file as CreateFileMappingW does not initialize everything to 0
-            file.set_len(file_len as u64)?;
+            file.set_len(
+                file_len
+                    .try_into()
+                    .with_context(|| "Cannot convert usize to u64")?,
+            )
+            .with_context(|| "Cannot modify file size")?;
         }
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)
