@@ -85,10 +85,17 @@ impl<W> MmapBackend<W> {
             .len()
             .try_into()
             .with_context(|| "Cannot convert file length to usize")?;
-        let file = std::fs::File::open(path.as_ref())
-            .with_context(|| "Cannot open file for MmapBackend")?;
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
+        #[cfg(windows)]
+        {
+            ensure!(
+                mmap_len <= file_len,
+                "File has insufficient padding for read-word size {}. Use \"webgraph pad BASENAME -b u{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8
+            )
+        }
+        let file = std::fs::File::open(path.as_ref())
+            .with_context(|| "Cannot open file for MmapBackend")?;
 
         let mmap = unsafe {
             // Length must be > 0, or we get a panic.
@@ -142,6 +149,14 @@ impl<W> MmapBackend<W, MmapMut> {
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
 
+        #[cfg(windows)]
+        {
+            ensure!(
+                mmap_len == file_len,
+                "File has insufficient padding for read-word size {}. Use \"webgraph pad BASENAME -b u{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8
+            )
+        }
+
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(mmap_len.max(1))
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
@@ -181,6 +196,16 @@ impl<W> MmapBackend<W, MmapMut> {
                 format!("Cannot create {} new MmapBackend", path.as_ref().display())
             })?;
         let file_len = len * size_of::<W>();
+        #[cfg(windows)]
+        {
+            // Zero fill the file as CreateFileMappingW does not initialize everything to 0
+            file.set_len(
+                file_len
+                    .try_into()
+                    .with_context(|| "Cannot convert usize to u64")?,
+            )
+            .with_context(|| "Cannot modify file size")?;
+        }
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)
                 .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?

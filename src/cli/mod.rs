@@ -15,6 +15,7 @@ pub mod convert;
 pub mod from_csv;
 pub mod llp;
 pub mod optimize_codes;
+pub mod pad;
 pub mod perm;
 pub mod rand_perm;
 pub mod recompress;

@@ -77,6 +77,7 @@ pub fn main() -> Result<()> {
         from_csv,
         llp,
         optimize_codes,
+        pad,
         perm,
         rand_perm,
         recompress,
