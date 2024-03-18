@@ -4,7 +4,7 @@
 [![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph)](https://crates.io/crates/webgraph/reverse_dependencies)
 ![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/webgraph)
-[![](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs).
+[![](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
 [![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
 [![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
 
