@@ -18,6 +18,7 @@ use rand::RngCore;
 use rand::SeedableRng;
 use tempfile::Builder;
 use webgraph::prelude::*;
+
 #[derive(Parser, Debug)]
 #[command(about = "Tests the merge speed of SortPairs", long_about = None)]
 struct Args {
