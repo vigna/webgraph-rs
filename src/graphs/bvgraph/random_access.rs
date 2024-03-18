@@ -6,7 +6,6 @@
  */
 
 use crate::prelude::*;
-use crate::utils::nat2int;
 use bitflags::Flags;
 use dsi_bitstream::traits::BE;
 use lender::IntoLender;

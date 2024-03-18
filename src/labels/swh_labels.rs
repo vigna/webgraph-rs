@@ -17,7 +17,7 @@ use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader},
     traits::{BitRead, BitSeek, BE},
 };
-use epserde::{deser::DeserType, prelude::*};
+use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
 use std::path::Path;

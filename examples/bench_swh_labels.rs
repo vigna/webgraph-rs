@@ -11,7 +11,6 @@ use dsi_progress_logger::*;
 use lender::*;
 use std::hint::black_box;
 use std::path::PathBuf;
-use webgraph::labels::swh_labels::SwhLabels;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]

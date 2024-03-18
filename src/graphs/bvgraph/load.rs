@@ -5,15 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::codecs::MemoryFlags;
 use super::*;
-use crate::graphs::bvgraph::EmptyDict;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
-use epserde::deser::DeserType;
 use epserde::prelude::*;
-use java_properties;
 use sealed::sealed;
 use std::{
     io::BufReader,

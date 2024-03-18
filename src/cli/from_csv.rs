@@ -7,7 +7,6 @@
 
 use super::utils::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
-use crate::labels::Left;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};

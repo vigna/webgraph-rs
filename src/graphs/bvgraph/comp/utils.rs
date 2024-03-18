@@ -19,7 +19,7 @@ use std::thread::ScopedJoinHandle;
 impl BVComp<()> {
     /// Build a BVGraph by compressing an iterator of nodes and successors and
     /// return the length of the produced bitstream (in bits).
-    pub fn single_thread<E: Endianness, L: IntoLender>(
+    pub fn single_thread<E, L>(
         basename: impl AsRef<Path>,
         iter: L,
         compression_flags: CompFlags,
@@ -27,6 +27,7 @@ impl BVComp<()> {
         num_nodes: Option<usize>,
     ) -> Result<usize>
     where
+        E: Endianness,
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,

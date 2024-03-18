@@ -7,11 +7,10 @@
 
 use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
-use dary_heap::{self, PeekMut};
+use dary_heap::PeekMut;
 use dsi_bitstream::prelude::*;
 use log::debug;
 use mmap_rs::MmapFlags;
-use rdst::tuner::*;
 use rdst::*;
 use std::{
     fs::File,
@@ -24,18 +23,6 @@ use std::{
 pub struct Triple<L: Copy> {
     pair: [usize; 2],
     label: L,
-}
-
-struct MyTuner {}
-
-impl Tuner for MyTuner {
-    fn pick_algorithm(&self, p: &TuningParams, _counts: &[usize]) -> Algorithm {
-        if p.input_len >= 500_000 {
-            Algorithm::MtLsb
-        } else {
-            Algorithm::Lsb
-        }
-    }
 }
 
 impl<T: Copy> RadixKey for Triple<T> {

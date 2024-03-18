@@ -17,7 +17,6 @@ use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
-use rayon::slice::ParallelSliceMut;
 use std::collections::HashMap;
 use std::env::temp_dir;
 use std::path::PathBuf;

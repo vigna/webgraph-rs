@@ -8,7 +8,6 @@
 
 use super::utils::*;
 use crate::graphs::arc_list_graph;
-use crate::labels::Left;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};

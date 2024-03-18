@@ -8,8 +8,6 @@ use crate::utils::MmapBackend;
 use anyhow::Result;
 use mmap_rs::{Mmap, MmapFlags, MmapMut};
 use std::path::Path;
-use sux::traits::bit_field_slice::BitFieldSlice;
-use sux::traits::bit_field_slice::BitFieldSliceMut;
 use sux::traits::*;
 
 /// Wrapper for the permutation in the Java format.
