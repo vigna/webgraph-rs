@@ -134,7 +134,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
     // save the nodes
     if !args.csv_args.numeric {
-        let mut file = std::fs::File::create(suffix_path(&args.basename, ".nodes")).unwrap();
+        let mut file = std::fs::File::create(args.basename.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx

@@ -5,8 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::EF;
-use crate::utils::suffix_path;
+use crate::graphs::{EF, bvgraph::{
+    PROPERTIES_EXTENSION,
+    OFFSETS_EXTENSION,
+    EF_EXTENSION,
+}};
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -34,7 +37,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let properties_path = suffix_path(&args.basename, ".properties");
+    let properties_path = args.basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
             "Could not load properties file: {}",
@@ -45,9 +48,9 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Create the offsets file
-    let of_file_path = suffix_path(&args.basename, ".offsets");
+    let of_file_path = args.basename.with_extension(OFFSETS_EXTENSION);
 
-    let ef = EF::mmap(suffix_path(&args.basename, ".ef"), Flags::default())?;
+    let ef = EF::mmap(args.basename.with_extension(EF_EXTENSION), Flags::default())?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)

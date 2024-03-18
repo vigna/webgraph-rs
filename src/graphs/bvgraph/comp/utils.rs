@@ -33,7 +33,7 @@ impl BVComp<()> {
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
     {
         let basename = basename.as_ref();
-        let graph_path = suffix_path(basename, ".graph");
+        let graph_path = basename.with_extension(GRAPH_EXTENSION);
 
         // Compress the graph
         let bit_write = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
@@ -64,7 +64,7 @@ impl BVComp<()> {
 
         let mut real_num_nodes = 0;
         if build_offsets {
-            let offsets_path = suffix_path(basename, ".offsets");
+            let offsets_path = basename.with_extension(OFFSETS_EXTENSION);
             let file = std::fs::File::create(&offsets_path)
                 .with_context(|| format!("Could not create {}", offsets_path.display()))?;
             // create a bit writer on the file
@@ -105,7 +105,7 @@ impl BVComp<()> {
         let properties = compression_flags
             .to_properties::<BE>(real_num_nodes, bvcomp.arcs)
             .context("Could not serialize properties")?;
-        let properties_path = suffix_path(basename, ".properties");
+        let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
         std::fs::write(&properties_path, properties)
             .with_context(|| format!("Could not write {}", properties_path.display()))?;
 
@@ -184,7 +184,7 @@ impl BVComp<()> {
         let tmp_dir = tmp_dir.as_ref();
         let basename = basename.as_ref();
         let mut iter = into_lender.into_lender();
-        let graph_path = suffix_path(basename, ".graph");
+        let graph_path = basename.with_extension(GRAPH_EXTENSION);
         assert_ne!(num_threads, 0);
         let nodes_per_thread = num_nodes / num_threads;
 
@@ -357,7 +357,7 @@ impl BVComp<()> {
             let properties = compression_flags
                 .to_properties::<BE>(num_nodes, total_arcs)
                 .context("Could not serialize properties")?;
-            let properties_path = suffix_path(basename, ".properties");
+            let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
             std::fs::write(&properties_path, properties).with_context(|| {
                 format!(
                     "Could not write properties to {}",

@@ -89,7 +89,7 @@ where
 
     let perm = args
         .perm
-        .unwrap_or_else(|| suffix_path(&args.basename, ".llp"));
+        .unwrap_or_else(|| args.basename.with_extension("llp"));
 
     // load the graph
     let graph = BVGraph::with_basename(&args.basename)
