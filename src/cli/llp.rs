@@ -96,13 +96,18 @@ where
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
-        .load()
-        .with_context(|| format!("Could not load {}", args.basename.display()))?;
+        .load()?;
 
     let deg_cumul = DCF::mmap(
         args.basename.with_extension(DEG_CUMUL_EXTENSION),
         Flags::empty(),
-    )?;
+    )
+    .with_context(|| {
+        format!(
+            "Could not load cumulative degree function for basename {}",
+            args.basename.display()
+        )
+    })?;
 
     // parse the gamma format
     let mut gammas = vec![];
