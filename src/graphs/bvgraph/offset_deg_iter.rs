@@ -85,7 +85,9 @@ impl<D: Decode> OffsetDegIter<D> {
         let degree = self.decoder.read_outdegree() as usize;
         // no edges, we are done!
         if degree == 0 {
-            self.backrefs[self.node_id % self.compression_window] = degree;
+            if self.compression_window != 0 {
+                self.backrefs[self.node_id % self.compression_window] = degree;
+            }
             self.node_id += 1;
             return Ok(degree);
         }
@@ -162,8 +164,9 @@ impl<D: Decode> OffsetDegIter<D> {
                 let _ = self.decoder.read_residual();
             }
         }
-
-        self.backrefs[self.node_id % self.compression_window] = degree;
+        if self.compression_window != 0 {
+            self.backrefs[self.node_id % self.compression_window] = degree;
+        }
         self.node_id += 1;
         Ok(degree)
     }

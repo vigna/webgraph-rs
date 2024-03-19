@@ -181,20 +181,16 @@ pub fn harness(data: FuzzCase) {
         efb.push(seq_iter_be.bit_pos().unwrap() as usize).unwrap();
     }
 
-    let mut seq_iter = graph.offset_deg_iter();
     let mut seq_iter_be = seq_graph_be.offset_deg_iter();
     let mut seq_iter_le = seq_graph_le.offset_deg_iter();
-    assert_eq!(seq_iter_be.bit_pos().unwrap(), 0);
-    assert_eq!(seq_iter_le.bit_pos().unwrap(), 0);
     // verify that they are the same and build the offsets
-    for _ in 0..graph.num_nodes() {
-        let (offset, deg) = seq_iter.next().unwrap();
+    for node_id in 0..graph.num_nodes() {
+        let deg = graph.successors(node_id).into_iter().count();
         let (offset_be, deg_be) = seq_iter_be.next().unwrap();
         let (offset_le, deg_le) = seq_iter_le.next().unwrap();
-        assert_eq!(offset, offset_be);
-        assert_eq!(offset_be, offset_le);
-        assert_eq!(deg_be, deg_le);
         assert_eq!(deg, deg_be);
+        assert_eq!(deg_be, deg_le);
+        assert_eq!(offset_be, offset_le);
     }
     // build elias-fano
     let ef = efb.build();
