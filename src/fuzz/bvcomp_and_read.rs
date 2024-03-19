@@ -71,7 +71,7 @@ pub fn harness(data: FuzzCase) {
         .map(|(src, dst)| (src as usize, dst as usize))
         .collect::<Vec<_>>();
     edges.sort();
-    let graph = VecGraph::from_arc_list(edges);
+    let graph = Left(VecGraph::from_arc_list(edges));
     // Compress in big endian
     let mut codes_data_be = Vec::new();
     {
@@ -84,7 +84,7 @@ pub fn harness(data: FuzzCase) {
             comp_flags.min_interval_length,
             0,
         );
-        bvcomp.extend(graph.iter().map(|(x, _)| x)).unwrap();
+        bvcomp.extend(graph.iter()).unwrap();
         bvcomp.flush().unwrap();
     }
     // Compress in little endian
@@ -99,7 +99,7 @@ pub fn harness(data: FuzzCase) {
             comp_flags.min_interval_length,
             0,
         );
-        bvcomp.extend(graph.iter().map(|(x, _)| x)).unwrap();
+        bvcomp.extend(graph.iter()).unwrap();
         bvcomp.flush().unwrap();
     }
     assert_eq!(codes_data_be.len(), codes_data_le.len());
@@ -168,7 +168,7 @@ pub fn harness(data: FuzzCase) {
         let (node_id_le, succ_le) = seq_iter_le.next().unwrap();
         let succ_be = succ_be.collect::<Vec<_>>();
         let succ_le = succ_le.collect::<Vec<_>>();
-        let succ = succ.map(|(x, _)| x).collect::<Vec<_>>();
+        let succ = succ.into_iter().collect::<Vec<_>>();
         assert_eq!(node_id, node_id_be);
         assert_eq!(node_id_be, node_id_le);
         assert_eq!(
@@ -232,7 +232,7 @@ pub fn harness(data: FuzzCase) {
 
         let true_successors = graph
             .successors(node_id)
-            .map(|(x, _)| x)
+            .into_iter()
             .collect::<Vec<_>>();
         let be_successors = graph_be.successors(node_id).collect::<Vec<_>>();
         let le_successors = graph_le.successors(node_id).collect::<Vec<_>>();

@@ -8,8 +8,8 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
-#libfuzzer-sys = { version = "*", package = "libafl_libfuzzer", features = ["introspection"], git = "https://github.com/AFLplusplus/LibAFL"}
+#libfuzzer-sys = "0.4"
+libfuzzer-sys = { version = "*", package = "libafl_libfuzzer", features = ["introspection"], git = "https://github.com/AFLplusplus/LibAFL"}
 arbitrary = { version = "1", features = ["derive"] }
 
 [dependencies.webgraph]
