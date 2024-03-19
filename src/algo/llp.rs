@@ -45,10 +45,12 @@ pub fn layered_label_propagation(
     num_threads: Option<usize>,
     max_iters: usize,
     chunk_size: usize,
-    granularity: usize,
+    granularity: Option<usize>,
     seed: u64,
 ) -> Result<Box<[usize]>> {
     let num_nodes = graph.num_nodes();
+
+    let granularity = granularity.unwrap_or(((graph.num_arcs() >> 9) as usize).max(1024));
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();

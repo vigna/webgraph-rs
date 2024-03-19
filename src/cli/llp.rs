@@ -38,9 +38,9 @@ struct CliArgs {
     /// The maximum number of updates for a given ɣ.
     max_updates: usize,
 
-    #[arg(short = 'r', long, default_value_t = 1_000)]
+    #[arg(short = 'r', long)]
     /// The size of the chunks each thread processes for the LLP.
-    granularity: usize,
+    granularity: Option<usize>,
 
     #[arg(short, long, default_value_t = 100_000)]
     /// The size of the cnunks each thread processes for the random permutation
