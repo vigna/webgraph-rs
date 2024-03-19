@@ -40,7 +40,7 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation(
     graph: &(impl RandomAccessGraph + Sync),
-    deg_cumul: impl IndexedDict<Input = usize, Output = usize> + Succ,
+    deg_cumul: &(impl IndexedDict<Input = usize, Output = usize> + Succ),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     max_iters: usize,
@@ -158,6 +158,9 @@ pub fn layered_label_propagation(
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
                             let volume = label_store.volume(label);
+                            // here there is a change from the java version as
+                            // curr_label does not have -1 to its volume as
+                            // it is in java, but it should be neglegible
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
@@ -192,6 +195,7 @@ pub fn layered_label_propagation(
                 |delta_obj_func_0, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
                 &thread_pool,
                 granularity,
+                deg_cumul,
                 Some(&mut update_pl),
             );
 
@@ -225,6 +229,7 @@ pub fn layered_label_propagation(
                 graph,
                 perm: &update_perm,
             },
+            deg_cumul,
             None,
         );
         info!("Log-gap cost: {}", cost);
@@ -361,6 +366,7 @@ unsafe impl Sync for LabelStore {}
 fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     thread_pool: &rayon::ThreadPool,
     graph: &G,
+    deg_cumul: &(impl IndexedDict<Input = usize, Output = usize> + Succ),
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
     graph.par_apply(
@@ -387,6 +393,7 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
         |a, b| a + b,
         thread_pool,
         1_000,
+        deg_cumul,
         pr,
     )
 }

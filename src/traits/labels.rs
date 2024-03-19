@@ -33,7 +33,6 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-use log::info;
 use sux::traits::{IndexedDict, Succ};
 
 /// Iteration on nodes and associated labels.
@@ -124,13 +123,84 @@ pub trait SequentialLabeling {
 
     /// Given a labeling, apply `func` to each chunk of nodes of size `granularity`
     /// in parallel, and reduce the results using `reduce`.
+    fn par_node_apply<F, R, T>(
+        &self,
+        func: F,
+        reduce: R,
+        thread_pool: &rayon::ThreadPool,
+        granularity: usize,
+        pl: Option<&mut ProgressLogger>,
+    ) -> T
+    where
+        F: Fn(Range<usize>) -> T + Send + Sync,
+        R: Fn(T, T) -> T + Send + Sync,
+        T: Send + Default,
+    {
+        let pl_lock = pl.map(std::sync::Mutex::new);
+        let num_nodes = self.num_nodes();
+        let num_scoped_threads = thread_pool
+            .current_num_threads()
+            .min(num_nodes / granularity + 1)
+            .max(2)
+            - 1;
+        let next_node = AtomicUsize::new(0);
+
+        thread_pool.scope(|scope| {
+            let mut res = Vec::with_capacity(num_scoped_threads);
+            for _ in 0..num_scoped_threads {
+                // create a channel to receive the result
+                let (tx, rx) = std::sync::mpsc::channel();
+                res.push(rx);
+
+                // create some references so that we can share them across threads
+                let pl_lock_ref = &pl_lock;
+                let next_node_ref = &next_node;
+                let func_ref = &func;
+                let reduce_ref = &reduce;
+
+                scope.spawn(move |_| {
+                    let mut result = T::default();
+                    loop {
+                        // compute the next chunk of nodes to process
+                        let start_pos = next_node_ref.fetch_add(granularity, Ordering::Relaxed);
+                        let end_pos = (start_pos + granularity).min(num_nodes);
+                        // exit if done
+                        if start_pos >= num_nodes {
+                            break;
+                        }
+                        // apply the function and reduce the result
+                        result = reduce_ref(result, func_ref(start_pos..end_pos));
+                        // update the progress logger if specified
+                        if let Some(pl_lock) = pl_lock_ref {
+                            pl_lock
+                                .lock()
+                                .unwrap()
+                                .update_with_count((start_pos..end_pos).len());
+                        }
+                    }
+                    // comunicate back that the thread finished
+                    tx.send(result).unwrap();
+                });
+            }
+
+            // reduce the results
+            let mut result = T::default();
+            for rx in res {
+                result = reduce(result, rx.recv().unwrap());
+            }
+            result
+        })
+    }
+
+    /// Given a labeling, apply `func` to each chunk of nodes of size `granularity`
+    /// in parallel, and reduce the results using `reduce`.
     fn par_apply<F, R, T>(
         &self,
         func: F,
         reduce: R,
         thread_pool: &rayon::ThreadPool,
         granularity: usize,
-        deg_cumul_func: impl IndexedDict<Input = usize, Output = usize> + Succ,
+        _deg_cumul_func: &(impl IndexedDict<Input = usize, Output = usize> + Succ),
         pl: Option<&mut ProgressLogger>,
     ) -> T
     where

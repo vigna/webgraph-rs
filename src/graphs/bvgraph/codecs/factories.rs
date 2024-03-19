@@ -151,6 +151,15 @@ pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
     _marker: core::marker::PhantomData<E>,
 }
 
+impl<E: Endianness, T: AsRef<[u32]>> MemoryFactory<E, T> {
+    pub fn from_data(data: T) -> Self {
+        Self {
+            data,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
 impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
     pub fn new_mem(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let path = path.as_ref();

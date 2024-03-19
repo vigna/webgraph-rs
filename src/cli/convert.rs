@@ -4,7 +4,6 @@
 * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 */
 
-use crate::graphs::bvgraph::{GRAPH_EXTENSION, PROPERTIES_EXTENSION};
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};

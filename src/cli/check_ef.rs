@@ -5,11 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::{EF, bvgraph::{
-    PROPERTIES_EXTENSION,
-    OFFSETS_EXTENSION,
-    EF_EXTENSION,
-}};
+use crate::graphs::{
+    bvgraph::{EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION},
+    EF,
+};
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
