@@ -27,6 +27,13 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     match submatches.subcommand() {
         Some((bvgraph::COMMAND_NAME, sub_m)) => bvgraph::main(sub_m),
         Some((bf_visit::COMMAND_NAME, sub_m)) => bf_visit::main(sub_m),
-        _ => unreachable!(),
+        Some((command_name, _)) => {
+            eprintln!("Unknown command: {:?}", command_name);
+            std::process::exit(1);
+        }
+        None => {
+            eprintln!("No command given for build");
+            std::process::exit(1);
+        }
     }
 }

@@ -30,6 +30,13 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         Some((deg_cef::COMMAND_NAME, sub_m)) => deg_cef::main(sub_m),
         Some((ef::COMMAND_NAME, sub_m)) => ef::main(sub_m),
         Some((offsets::COMMAND_NAME, sub_m)) => offsets::main(sub_m),
-        _ => unreachable!(),
+        Some((command_name, _)) => {
+            eprintln!("Unknown command: {:?}", command_name);
+            std::process::exit(1);
+        }
+        None => {
+            eprintln!("No command given for build");
+            std::process::exit(1);
+        }
     }
 }
