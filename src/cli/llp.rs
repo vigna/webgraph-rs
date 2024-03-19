@@ -125,7 +125,7 @@ where
     // compute the LLP
     let labels = layered_label_propagation(
         &graph,
-        &deg_cumul,
+        &*deg_cumul,
         gammas,
         Some(args.num_cpus.num_cpus),
         args.max_updates,

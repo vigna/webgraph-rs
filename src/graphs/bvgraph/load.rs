@@ -198,9 +198,8 @@ impl LoadMode for LoadMmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        Ok(EF::load_mmap(path, flags.into())
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))?
-            .into())
+        EF::load_mmap(path, flags.into())
+            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
     }
 }
 

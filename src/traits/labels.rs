@@ -33,7 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-use sux::traits::{IndexedDict, Succ};
+use sux::traits::Succ;
 
 /// Iteration on nodes and associated labels.
 ///
@@ -192,15 +192,16 @@ pub trait SequentialLabeling {
         })
     }
 
-    /// Given a labeling, apply `func` to each chunk of nodes of size `granularity`
-    /// in parallel, and reduce the results using `reduce`.
+    /// Given a labeling, apply `func` to each chunk of nodes which total arcs
+    /// cardinality is of size `granularity` in parallel, and reduce the
+    /// results using `reduce`.
     fn par_apply<F, R, T>(
         &self,
         func: F,
         reduce: R,
         thread_pool: &rayon::ThreadPool,
         granularity: usize,
-        _deg_cumul_func: &(impl IndexedDict<Input = usize, Output = usize> + Succ),
+        _deg_cumul_func: &impl Succ<Input = usize, Output = usize>,
         pl: Option<&mut ProgressLogger>,
     ) -> T
     where

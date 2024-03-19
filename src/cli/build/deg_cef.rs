@@ -109,11 +109,6 @@ where
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
-    pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = ef.convert_to().unwrap();
-    pl.done();
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
     pl.start("Building the Index over the zeros in the high-bits...");
     let ef: DCF = ef.convert_to().unwrap();
     pl.done();
