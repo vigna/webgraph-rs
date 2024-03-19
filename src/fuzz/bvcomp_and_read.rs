@@ -73,7 +73,7 @@ pub fn harness(data: FuzzCase) {
     edges.sort();
     let graph = Left(VecGraph::from_arc_list(edges));
     // Compress in big endian
-    let mut codes_data_be = Vec::new();
+    let mut codes_data_be: Vec<u64> = Vec::new();
     {
         let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriterVec::new(&mut codes_data_be));
         let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags);
@@ -88,7 +88,7 @@ pub fn harness(data: FuzzCase) {
         bvcomp.flush().unwrap();
     }
     // Compress in little endian
-    let mut codes_data_le = Vec::new();
+    let mut codes_data_le: Vec<u64> = Vec::new();
     {
         let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut codes_data_le));
         let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags);
@@ -134,7 +134,7 @@ pub fn harness(data: FuzzCase) {
     // test sequential graphs and build the offsets
     let mut efb = EliasFanoBuilder::new(
         graph.num_nodes() + 1,
-        data_be.len() * 8 * core::mem::size_of::<u32>(),
+        (data_be.len() + 1) * 8 * core::mem::size_of::<u32>(),
     );
     let mut offsets = Vec::with_capacity(graph.num_nodes() + 1);
     offsets.push(0);
