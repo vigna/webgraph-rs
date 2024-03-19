@@ -230,10 +230,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(graph.outdegree(node_id), graph_be.outdegree(node_id));
         assert_eq!(graph.outdegree(node_id), graph_le.outdegree(node_id));
 
-        let true_successors = graph
-            .successors(node_id)
-            .into_iter()
-            .collect::<Vec<_>>();
+        let true_successors = graph.successors(node_id).into_iter().collect::<Vec<_>>();
         let be_successors = graph_be.successors(node_id).collect::<Vec<_>>();
         let le_successors = graph_le.successors(node_id).collect::<Vec<_>>();
 
