@@ -470,54 +470,57 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
 // unsafe impl<T, I> SortedIterator for KMergeIters<I, T> {}
 
 #[cfg(test)]
-#[test]
-pub fn test_sort_pairs() -> anyhow::Result<()> {
-    use tempfile::Builder;
+mod tests {
+    use super::*;
+    #[test]
+    fn test_sort_pairs() -> anyhow::Result<()> {
+        use tempfile::Builder;
 
-    #[derive(Clone, Debug)]
-    struct MyDessert;
+        #[derive(Clone, Debug)]
+        struct MyDessert;
 
-    impl BitDeserializer<NE, BitReader> for MyDessert {
-        type DeserType = usize;
-        fn deserialize(
-            &self,
-            bitstream: &mut BitReader,
-        ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
-            bitstream.read_delta().map(|x| x as usize)
+        impl BitDeserializer<NE, BitReader> for MyDessert {
+            type DeserType = usize;
+            fn deserialize(
+                &self,
+                bitstream: &mut BitReader,
+            ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
+                bitstream.read_delta().map(|x| x as usize)
+            }
         }
-    }
 
-    impl BitSerializer<NE, BitWriter> for MyDessert {
-        type SerType = usize;
-        fn serialize(
-            &self,
-            value: &Self::SerType,
-            bitstream: &mut BitWriter,
-        ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
-            bitstream.write_delta(*value as u64)
+        impl BitSerializer<NE, BitWriter> for MyDessert {
+            type SerType = usize;
+            fn serialize(
+                &self,
+                value: &Self::SerType,
+                bitstream: &mut BitWriter,
+            ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
+                bitstream.write_delta(*value as u64)
+            }
         }
-    }
-    let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
-    let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
-    let n = 25;
-    for i in 0..n {
-        sp.push_labeled(i, i + 1, i + 2)?;
-    }
-    let mut iter = sp.iter()?;
-    let mut cloned = iter.clone();
+        let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
+        let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
+        let n = 25;
+        for i in 0..n {
+            sp.push_labeled(i, i + 1, i + 2)?;
+        }
+        let mut iter = sp.iter()?;
+        let mut cloned = iter.clone();
 
-    for _ in 0..n {
-        let (x, y, p) = iter.next().unwrap();
-        println!("{} {} {}", x, y, p);
-        assert_eq!(x + 1, y);
-        assert_eq!(x + 2, p);
-    }
+        for _ in 0..n {
+            let (x, y, p) = iter.next().unwrap();
+            println!("{} {} {}", x, y, p);
+            assert_eq!(x + 1, y);
+            assert_eq!(x + 2, p);
+        }
 
-    for _ in 0..n {
-        let (x, y, p) = cloned.next().unwrap();
-        println!("{} {} {}", x, y, p);
-        assert_eq!(x + 1, y);
-        assert_eq!(x + 2, p);
+        for _ in 0..n {
+            let (x, y, p) = cloned.next().unwrap();
+            println!("{} {} {}", x, y, p);
+            assert_eq!(x + 1, y);
+            assert_eq!(x + 2, p);
+        }
+        Ok(())
     }
-    Ok(())
 }

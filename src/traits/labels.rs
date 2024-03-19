@@ -33,6 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
+use log::info;
 
 /// Iteration on nodes and associated labels.
 ///
@@ -137,15 +138,16 @@ pub trait SequentialLabeling {
     {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
-        let num_cpus = thread_pool
+        let num_scoped_threads = thread_pool
             .current_num_threads()
-            .min(num_nodes / granularity)
-            .max(1);
+            .min(num_nodes / granularity + 1)
+            .max(2)
+            - 1;
         let next_node = AtomicUsize::new(0);
 
         thread_pool.scope(|scope| {
-            let mut res = Vec::with_capacity(num_cpus);
-            for _ in 0..num_cpus {
+            let mut res = Vec::with_capacity(num_scoped_threads);
+            for _ in 0..num_scoped_threads {
                 // create a channel to receive the result
                 let (tx, rx) = std::sync::mpsc::channel();
                 res.push(rx);
@@ -180,6 +182,7 @@ pub trait SequentialLabeling {
                     tx.send(result).unwrap();
                 });
             }
+
             // reduce the results
             let mut result = T::default();
             for rx in res {

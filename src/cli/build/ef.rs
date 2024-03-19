@@ -136,7 +136,7 @@ where
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
 
-    let ef_path = basename.with_extension(GRAPH_EXTENSION);
+    let ef_path = basename.with_extension(EF_EXTENSION);
     let mut ef_file = BufWriter::new(
         File::create(&ef_path)
             .with_context(|| format!("Could not create {}", ef_path.display()))?,

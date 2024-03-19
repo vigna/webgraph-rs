@@ -57,7 +57,7 @@ pub fn layered_label_propagation(
     // build a thread_pool so we avoid having to re-create the threads
     let num_threads = num_threads.unwrap_or_else(num_cpus::get);
     let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
+        .num_threads(num_threads + 1)
         .build()
         .context("Could not create thread pool")?;
 
