@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::{Path, PathBuf};
+//! Miscellaneous utilities.
 
 use rand::Rng;
+use std::path::PathBuf;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
 pub const fn int2nat(x: i64) -> u64 {
@@ -57,8 +58,8 @@ pub(crate) use circular_buffer::*;
 mod mmap_helper;
 pub use mmap_helper::*;
 
-mod perm;
-pub use perm::*;
+mod java_perm;
+pub use java_perm::*;
 
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;

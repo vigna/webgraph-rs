@@ -5,6 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Facilities to sort externally pairs of nodes with an associated payload.
+
+use super::{ArcMmapHelper, MmapHelper};
 use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
 use dary_heap::PeekMut;
@@ -19,6 +22,13 @@ use std::{
     sync::Arc,
 };
 
+pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
+pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
+
+/// An arc expressed as a pair of nodes and the associated payload.
+///
+/// Equality and order are defined only (lexicographically) on the pair of
+/// nodes.
 #[derive(Clone, Debug, Copy)]
 pub struct Triple<L: Copy> {
     pair: [usize; 2],
@@ -53,17 +63,33 @@ impl<T: Copy> Ord for Triple<T> {
     }
 }
 
-use super::{ArcMmapHelper, MmapHelper};
-
-pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
-pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
-
-/// A struct that ingests paris of nodes and a generic payload and sort them
-/// in chunks of `batch_size` triples, then dumps them to disk.
+/// A struct that provides external sorting for pairs of nodes with an
+/// associated payload.
 ///
-/// We require that the bit deserializer is `Clone` because we need
-/// to be able to do the parallel compression of BVGraphs. Thus, it's suggested
-/// that if you have big structures, you wrap them in an [`Arc`](`std::sync::Arc`) or use references.
+/// An instance of this structure ingests pairs of nodes with an associated
+/// payload, sort them in chunks of `batch_size` triples, and dumps them to
+/// disk. Then, a call to [`iter`](SortPairs::iter) returns an iterator that
+/// merges the batches on disk on the fly, returning the triples sorted by
+/// lexicographical order of the pairs of nodes.
+///
+/// The structure accept as type parameter a [`BitSerializer`] and a
+/// [`BitDeserializer`] that are used to serialize and deserialize the payload.
+/// In case they are both `()`, the structure behaves as if there is no payload.
+/// In the first case, you add triples with
+/// [`push_labeled`](SortPairs::push_labeled), in the second case you add
+/// triples with [`push`](SortPairs::push).
+///
+/// The bit deserializer must be [`Clone`] because we need one for each
+/// [`BatchIterator`], and there are possible scenarios in which the
+/// deserializer might not be stateless.
+///
+/// You create a new instance using [`SortPairs::new_labeled`], and
+/// add labelled pairs using [`SortPairs::push_labeled`]. Then you can
+/// iterate over the pairs using [`SortPairs::iter`].
+///
+/// `SortPars<(), ()>` has commodity `new` and `push` methods without
+/// payload. Note however that the [resulting iterator](SortPairs::iter)
+/// is labelled, and returns pairs labeled with `()`.
 
 pub struct SortPairs<
     S: BitSerializer<NE, BitWriter> = (),
@@ -71,9 +97,15 @@ pub struct SortPairs<
 > where
     S::SerType: Send + Sync + Copy,
 {
+    /// A stateful serializer we will pass to batch iterators to serialize
+    /// the labels to a bitstream.
+    serializer: S,
+    /// A stateful deserializer we will pass to batch iterators to deserialize
+    /// the labels from a bitstream.
+    deserializer: D,
     /// The batch size.
     batch_size: usize,
-    /// The length of the last batch might be smaller than [`SortPairs::batch_size`].
+    /// The length of the last batch, which might be smaller than [`SortPairs::batch_size`].
     last_batch_len: usize,
     /// The batch of triples we are currently building.
     batch: Vec<Triple<S::SerType>>,
@@ -81,12 +113,6 @@ pub struct SortPairs<
     dir: PathBuf,
     /// Keeps track of how many batches we created.
     num_batches: usize,
-    /// A stataful serializer we will pass to batch iterators to serialize
-    /// the labels to a bitstream.
-    serializer: S,
-    /// A stataful deserializer we will pass to batch iterators to deserialize
-    /// the labels from a bitstream.
-    deserializer: D,
 }
 
 impl SortPairs<(), ()> {
