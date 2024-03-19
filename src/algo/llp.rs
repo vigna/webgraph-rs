@@ -40,7 +40,7 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation(
     graph: &(impl RandomAccessGraph + Sync),
-    deg_cumul: &impl Succ<Input = usize, Output = usize>,
+    deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     max_iters: usize,
@@ -366,7 +366,7 @@ unsafe impl Sync for LabelStore {}
 fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     thread_pool: &rayon::ThreadPool,
     graph: &G,
-    deg_cumul: &impl Succ<Input = usize, Output = usize>,
+    deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
     graph.par_apply(

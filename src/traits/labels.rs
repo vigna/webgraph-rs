@@ -154,7 +154,7 @@ pub trait SequentialLabeling {
 
                 // create some references so that we can share them across threads
                 let pl_lock_ref = &pl_lock;
-                let next_node_ref = &next_node;
+                let next_node = &next_node;
                 let func_ref = &func;
                 let reduce_ref = &reduce;
 
@@ -162,7 +162,7 @@ pub trait SequentialLabeling {
                     let mut result = T::default();
                     loop {
                         // compute the next chunk of nodes to process
-                        let start_pos = next_node_ref.fetch_add(granularity, Ordering::Relaxed);
+                        let start_pos = next_node.fetch_add(granularity, Ordering::Relaxed);
                         let end_pos = (start_pos + granularity).min(num_nodes);
                         // exit if done
                         if start_pos >= num_nodes {
@@ -201,7 +201,7 @@ pub trait SequentialLabeling {
         reduce: R,
         thread_pool: &rayon::ThreadPool,
         granularity: usize,
-        _deg_cumul_func: &impl Succ<Input = usize, Output = usize>,
+        deg_cumul_func: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
         pl: Option<&mut ProgressLogger>,
     ) -> T
     where
@@ -216,7 +216,7 @@ pub trait SequentialLabeling {
             .min(num_nodes / granularity + 1)
             .max(2)
             - 1;
-        let next_node = AtomicUsize::new(0);
+        let next_node_next_arc = std::sync::Mutex::new((0, 0));
 
         thread_pool.scope(|scope| {
             let mut res = Vec::with_capacity(num_scoped_threads);
@@ -227,20 +227,34 @@ pub trait SequentialLabeling {
 
                 // create some references so that we can share them across threads
                 let pl_lock_ref = &pl_lock;
-                let next_node_ref = &next_node;
+                let next_node_next_arc = &next_node_next_arc;
                 let func_ref = &func;
                 let reduce_ref = &reduce;
 
                 scope.spawn(move |_| {
                     let mut result = T::default();
                     loop {
-                        // compute the next chunk of nodes to process
-                        let start_pos = next_node_ref.fetch_add(granularity, Ordering::Relaxed);
-                        let end_pos = (start_pos + granularity).min(num_nodes);
-                        // exit if done
-                        if start_pos >= num_nodes {
-                            break;
+                        let (start_pos, end_pos);
+                        {
+                            let mut next_node_next_arc = next_node_next_arc.lock().unwrap();
+                            let (mut next_node, mut next_arc) = *next_node_next_arc;
+
+                            if next_node >= num_nodes {
+                                break;
+                            }
+
+                            start_pos = next_node;
+                            let target = next_arc + granularity;
+                            if target >= num_nodes {
+                                next_node = num_nodes;
+                            } else {
+                                (next_node, next_arc) = deg_cumul_func.succ(&target).unwrap();
+                            }
+                            end_pos = next_node;
+                            *next_node_next_arc = (next_node, next_arc);
                         }
+
+                        // exit if done
                         // apply the function and reduce the result
                         result = reduce_ref(result, func_ref(start_pos..end_pos));
                         // update the progress logger if specified
