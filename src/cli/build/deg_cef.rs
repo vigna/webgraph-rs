@@ -95,6 +95,7 @@ where
     // read the graph a write the offsets
     let mut iter = seq_graph.offset_deg_iter();
     let mut cumul_deg = 0;
+    efb.push(0).context("Could not write the first gamma")?;
     for (_new_offset, degree) in iter.by_ref() {
         cumul_deg += degree;
         // write where
