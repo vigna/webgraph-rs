@@ -13,6 +13,7 @@ pub const OFFSETS_EXTENSION: &str = "offsets";
 pub const EF_EXTENSION: &str = "ef";
 pub const LABELS_EXTENSION: &str = "labels";
 pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
+pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
 pub use offset_deg_iter::OffsetDegIter;
@@ -35,8 +36,14 @@ pub use comp::*;
 mod load;
 pub use load::*;
 
-/// The default version of EliasFano we use for the CLI
+/// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
     sux::rank_sel::SelectFixed2<sux::bits::CountBitVec, Vec<u64>, 8>,
+    sux::bits::BitFieldVec,
+>;
+
+/// The default version of EliasFano we use for the cumulative function of degrees.
+pub type DCF = sux::dict::EliasFano<
+    sux::rank_sel::SelectZeroFixed2<sux::bits::CountBitVec, Vec<u64>, 8>,
     sux::bits::BitFieldVec,
 >;

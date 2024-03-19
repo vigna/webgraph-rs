@@ -22,6 +22,8 @@ use std::env::temp_dir;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
+use sux::traits::IndexedDict;
+use sux::traits::Succ;
 
 fn labels_path(gamma_index: usize) -> PathBuf {
     [temp_dir(), format!("labels_{}.bin", gamma_index).into()]
@@ -38,6 +40,7 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation(
     graph: &(impl RandomAccessGraph + Sync),
+    deg_cumul: impl IndexedDict<Input = usize, Output = usize> + Succ,
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     max_iters: usize,

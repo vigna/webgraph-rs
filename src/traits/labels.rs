@@ -34,6 +34,7 @@ use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
 use log::info;
+use sux::traits::{IndexedDict, Succ};
 
 /// Iteration on nodes and associated labels.
 ///
@@ -129,6 +130,7 @@ pub trait SequentialLabeling {
         reduce: R,
         thread_pool: &rayon::ThreadPool,
         granularity: usize,
+        deg_cumul_func: impl IndexedDict<Input = usize, Output = usize> + Succ,
         pl: Option<&mut ProgressLogger>,
     ) -> T
     where

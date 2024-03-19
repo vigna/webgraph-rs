@@ -99,6 +99,11 @@ where
         .load()
         .with_context(|| format!("Could not load {}", args.basename.display()))?;
 
+    let deg_cumul = DCF::mmap(
+        args.basename.with_extension(DEG_CUMUL_EXTENSION),
+        Flags::empty(),
+    )?;
+
     // parse the gamma format
     let mut gammas = vec![];
     for gamma in args.gammas {
@@ -120,6 +125,7 @@ where
     // compute the LLP
     let labels = layered_label_propagation(
         &graph,
+        &deg_cumul,
         gammas,
         Some(args.num_cpus.num_cpus),
         args.max_updates,
