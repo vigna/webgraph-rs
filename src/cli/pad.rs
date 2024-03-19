@@ -71,6 +71,8 @@ enum WordSize {
     /// 8 bytes
     #[default]
     U64,
+    /// 16 bytes
+    U128,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -84,6 +86,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         WordSize::U16 => size_of::<u16>(),
         WordSize::U32 => size_of::<u32>(),
         WordSize::U64 => size_of::<u64>(),
+        WordSize::U128 => size_of::<u128>(),
     };
 
     pad(args.basename.with_extension(GRAPH_EXTENSION), word_size)
