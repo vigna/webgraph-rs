@@ -20,7 +20,7 @@ use sux::prelude::*;
 pub const COMMAND_NAME: &str = "deg_cef";
 
 #[derive(Args, Debug)]
-#[command(about = "Builds the .deg_cef file for a graph, i.e. an elias-fano with the cumulative degrees starting from 0.", long_about = None)]
+#[command(about = "Builds an Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
@@ -62,15 +62,10 @@ where
     })?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
+    let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
 
-    let graph_path = basename.with_extension(GRAPH_EXTENSION);
-    let mut file = File::open(&graph_path)
-        .with_context(|| format!("Could not open {}", graph_path.display()))?;
-    let file_len = 8 * file
-        .seek(std::io::SeekFrom::End(0))
-        .with_context(|| format!("Could not seek in {}", graph_path.display()))?;
-
-    let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
+    // TODO : not +1
+    let mut efb = EliasFanoBuilder::new(num_nodes, num_arcs + 1);
 
     let ef_path = basename.with_extension(DEG_CUMUL_EXTENSION);
     let mut ef_file = BufWriter::new(
@@ -82,20 +77,18 @@ where
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
-    info!(
-        "The offsets file does not exists, reading the graph to build Degrees Cumulative EliasFano"
-    );
+    info!("The offsets file does not exists, reading the graph.");
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&basename)
         .endianness::<E>()
         .load()
         .with_context(|| format!("Could not load graph at {}", basename.display()))?;
     // otherwise directly read the graph
     // progress bar
-    pl.start("Building Degrees Cumulative EliasFano...");
+    pl.start("Building the degree cumulative function...");
     // read the graph a write the offsets
     let mut iter = seq_graph.offset_deg_iter();
     let mut cumul_deg = 0;
-    efb.push(0).context("Could not write the first gamma")?;
+
     for (_new_offset, degree) in iter.by_ref() {
         cumul_deg += degree;
         // write where
@@ -103,28 +96,21 @@ where
         // decode the next nodes so we know where the next node_id starts
         pl.light_update();
     }
-    efb.push(iter.get_pos() as _)
-        .context("Could not write final gamma")?;
-
-    let ef = efb.build();
-
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
-    pl.start("Building the Index over the zeros in the high-bits...");
-    let ef: DCF = ef.convert_to().unwrap();
     pl.done();
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
-    pl.start("Writing to disk...");
-    // serialize and dump the schema to disk
+    let ef = efb.build();
+    let ef: DCF = ef.convert_to().unwrap();
+
+    info!("Writing to disk...");
+
     ef.serialize(&mut ef_file).with_context(|| {
         format!(
-            "Could not serialize Degrees Cumulative EliasFano to {}",
+            "Could not serialize degree cumulative list to {}",
             ef_path.display()
         )
     })?;
 
-    pl.done();
+    info!("Completed.");
+
     Ok(())
 }
