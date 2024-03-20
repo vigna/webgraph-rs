@@ -12,7 +12,7 @@ use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
-use llp::preds::{MaxUpdates, MinGain, MinModified, PredParams};
+use llp::preds::{MaxUpdates, MinGain, MinModified};
 use predicates::prelude::predicate;
 use predicates::prelude::*;
 use rayon::prelude::*;
@@ -39,12 +39,8 @@ struct CliArgs {
     gammas: Vec<String>,
 
     #[arg(short = 'u', long)]
-    /// The maximum number of updates for a given ɣ.
+    /// If specified, the maximum number of updates for a given ɣ.
     max_updates: Option<usize>,
-
-    #[arg(short = 'G', long)]
-    /// The tentative number of arcs used define the size of a parallel job.
-    granularity: Option<usize>,
 
     #[arg(short = 'M', long)]
     /// If true, updates will be stopped when the number of modified nodes is less
@@ -52,12 +48,8 @@ struct CliArgs {
     modified: bool,
 
     #[arg(short = 't', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
-    /// The gain threshold used to stop the computation.
+    /// The gain threshold used to stop the computation (1 to disable).
     gain_threshold: f64,
-
-    #[arg(short, long, default_value_t = 100_000)]
-    /// The chunk size used to localize the random permutation.
-    chunk_size: usize,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -69,6 +61,16 @@ struct CliArgs {
     #[arg(short, long)]
     /// Save the permutation in ε-serde format.
     epserde: bool,
+
+    #[arg(short = 'G', long)]
+    /// The tentative number of arcs used define the size of a parallel job
+    /// (advanced option).
+    granularity: Option<usize>,
+
+    #[arg(short, long, default_value_t = 100_000)]
+    /// The chunk size used to localize the random permutation
+    /// (advanced option).
+    chunk_size: usize,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -135,35 +137,29 @@ where
 
     gammas.sort_by(|a, b| a.total_cmp(b));
 
-    let mut predicate = predicate::always().boxed();
+    let mut predicate = MinGain::try_from(args.gain_threshold)?.boxed();
 
     if let Some(max_updates) = args.max_updates {
-        predicate = predicate.and(MaxUpdates { max_updates }).boxed();
+        predicate = predicate.or(MaxUpdates { max_updates }).boxed();
     }
-
-    predicate = predicate
-        .or(MinGain::try_from(args.gain_threshold)?)
-        .boxed();
 
     if args.modified {
         predicate = predicate.or(MinModified::default()).boxed();
     }
-    let labels = {
-        let graph_ref = &graph;
 
-        // compute the LLP
-        llp::layered_label_propagation(
-            graph_ref,
-            &*deg_cumul,
-            gammas,
-            Some(args.num_cpus.num_cpus),
-            args.chunk_size,
-            args.granularity,
-            args.seed,
-            predicate,
-        )
-        .context("Could not compute the LLP")?
-    };
+    // compute the LLP
+    let labels = llp::layered_label_propagation(
+        &graph,
+        &*deg_cumul,
+        gammas,
+        Some(args.num_cpus.num_cpus),
+        args.chunk_size,
+        args.granularity,
+        args.seed,
+        predicate,
+    )
+    .context("Could not compute the LLP")?;
+
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
     crate::algo::llp::invert_in_place(llp_perm.as_mut_slice());

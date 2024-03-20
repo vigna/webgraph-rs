@@ -44,7 +44,7 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 /// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation<'a, 'b, R: RandomAccessGraph + Sync + 'a>(
+pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
     graph: &'a R,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
@@ -52,11 +52,8 @@ pub fn layered_label_propagation<'a, 'b, R: RandomAccessGraph + Sync + 'a>(
     chunk_size: usize,
     granularity: Option<usize>,
     seed: u64,
-    predicate: impl Predicate<preds::PredParams<'b, R>>,
-) -> Result<Box<[usize]>>
-where
-    'a: 'b,
-{
+    predicate: impl Predicate<preds::PredParams>,
+) -> Result<Box<[usize]>> {
     let num_nodes = graph.num_nodes();
 
     let granularity = granularity.unwrap_or(((graph.num_arcs() >> 9) as usize).max(1024));
@@ -100,6 +97,7 @@ where
     let mut costs = Vec::with_capacity(gammas.len());
 
     gamma_pl.start(format!("Running {} threads", num_threads));
+    info!("Stopping criterion: {predicate}");
 
     for (gamma_index, gamma) in gammas.iter().enumerate() {
         // Reset mutable state for the next gamma
@@ -222,8 +220,9 @@ where
             info!("Gain: {}", gain);
             info!("Modified: {}", modified.load(Ordering::Relaxed),);
 
-            if predicate.eval(&PredParams::<'a, _> {
-                graph,
+            if predicate.eval(&PredParams {
+                num_nodes: graph.num_nodes(),
+                num_arcs: graph.num_arcs(),
                 gain,
                 modified: modified.load(Ordering::Relaxed),
                 update,
