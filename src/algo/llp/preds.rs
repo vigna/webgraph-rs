@@ -12,16 +12,19 @@
 //! such predicates: they evaluate to true if the updates should be stopped.
 //!
 //! You can combine the predicates using the `and` and `or` methods provided by
-//! the [Predicate](Predicate) trait, as in
+//! the [`Predicate`] trait, as in
 //! ```
 //! let mut predicate = MinGain::try_from(0.001)?.boxed();
-//! predicate = predicate.or(MaxUpdates { max_updates }).boxed();
+//! predicate = predicate.or(MaxUpdates::from(max_updates)).boxed();
 //! ```
+
 use anyhow::ensure;
 use predicates::{reflection::PredicateReflection, Predicate};
 use std::fmt::Display;
 
 #[doc(hidden)]
+/// This structure is passed to predicates to provide the
+/// information that is needed to evaluate them.
 pub struct PredParams {
     pub num_nodes: usize,
     pub num_arcs: u64,
@@ -142,5 +145,42 @@ impl PredicateReflection for MinModified {}
 impl Predicate<PredParams> for MinModified {
     fn eval(&self, pred_params: &PredParams) -> bool {
         (pred_params.modified as f64) <= (pred_params.num_nodes as f64).sqrt()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+/// Stop after the number of modified nodes falls below
+/// a specificed percentage of the number of nodes.
+pub struct PercModified {
+    threshold: f64,
+}
+
+impl Display for PercModified {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("(min modified: {}%)", self.threshold * 100.0))
+    }
+}
+
+impl TryFrom<f64> for PercModified {
+    type Error = anyhow::Error;
+    fn try_from(threshold: f64) -> anyhow::Result<Self> {
+        ensure!(
+            threshold >= 0.0,
+            "The percent threshold must be nonnegative"
+        );
+        ensure!(
+            threshold <= 100.0,
+            "The percent threshold must be at most 100"
+        );
+        Ok(PercModified {
+            threshold: threshold / 100.0,
+        })
+    }
+}
+
+impl PredicateReflection for PercModified {}
+impl Predicate<PredParams> for PercModified {
+    fn eval(&self, pred_params: &PredParams) -> bool {
+        (pred_params.modified as f64) <= (pred_params.num_nodes as f64) * self.threshold
     }
 }

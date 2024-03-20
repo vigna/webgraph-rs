@@ -12,7 +12,7 @@ use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
-use llp::preds::{MaxUpdates, MinGain, MinModified};
+use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 
 use predicates::prelude::*;
 use rayon::prelude::*;
@@ -46,6 +46,11 @@ struct CliArgs {
     /// If true, updates will be stopped when the number of modified nodes is less
     /// than the square root of the number of nodes of the graph.
     modified: bool,
+
+    #[arg(short = 'p', long)]
+    /// If true, updates will be stopped when the number of modified nodes is less
+    /// than the specified percentage of the number of nodes of the graph.
+    perc_modified: Option<f64>,
 
     #[arg(short = 't', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
     /// The gain threshold used to stop the computation (1 to disable).
@@ -145,6 +150,10 @@ where
 
     if args.modified {
         predicate = predicate.or(MinModified::default()).boxed();
+    }
+
+    if let Some(perc_modified) = args.perc_modified {
+        predicate = predicate.or(PercModified::try_from(perc_modified)?).boxed();
     }
 
     // compute the LLP
