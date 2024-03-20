@@ -43,7 +43,7 @@ impl<L: Copy + 'static> Ord for Successor<L> {
     }
 }
 
-/// A mutable [`LabelledRandomAccessGraph`] implementation based on a vector of [`BTreeSet`].
+/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of [`BTreeSet`].
 ///
 /// Choosing [`()`](https://doc.rust-lang.org/std/primitive.unit.html)
 /// as the label type will result in a [`RandomAccessGraph`] implementation.
@@ -87,7 +87,7 @@ impl<L: Copy + 'static> VecGraph<L> {
     }
 
     /// Add an arc to the graph and return whether it is a new one.
-    pub fn add_labelled_arc(&mut self, u: usize, v: usize, l: L) -> bool {
+    pub fn add_labeled_arc(&mut self, u: usize, v: usize, l: L) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
             panic!(
@@ -120,8 +120,8 @@ impl<L: Copy + 'static> VecGraph<L> {
         result
     }
 
-    /// Add nodes and labelled successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    pub fn add_labelled_lender<I: IntoLender>(&mut self, iter_nodes: I)
+    /// Add nodes and labeled successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    pub fn add_labeled_lender<I: IntoLender>(&mut self, iter_nodes: I)
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
@@ -129,32 +129,32 @@ impl<L: Copy + 'static> VecGraph<L> {
             self.add_node(node);
             for (v, l) in succ {
                 self.add_node(v);
-                self.add_labelled_arc(node, v, l);
+                self.add_labeled_arc(node, v, l);
             }
         });
     }
 
     /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    pub fn from_labelled_lender<I: IntoLender>(iter_nodes: I) -> Self
+    pub fn from_labeled_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
         let mut g = Self::new();
-        g.add_labelled_lender(iter_nodes);
+        g.add_labeled_lender(iter_nodes);
         g
     }
 
-    /// Add labelled arcs from an [`IntoIterator`].
+    /// Add labeled arcs from an [`IntoIterator`].
     ///
     /// The items must be triples of the form `(usize, usize, l)` specifying
     /// an arc and its label.
     ///
     /// Note that new nodes will be added as needed.
-    pub fn add_labelled_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize, L)>) {
+    pub fn add_labeled_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize, L)>) {
         for (u, v, l) in arcs {
             self.add_node(u);
             self.add_node(v);
-            self.add_labelled_arc(u, v, l);
+            self.add_labeled_arc(u, v, l);
         }
     }
 
@@ -162,9 +162,9 @@ impl<L: Copy + 'static> VecGraph<L> {
     ///
     /// The items must be triples of the form `(usize, usize, l)` specifying
     /// an arc and its label.
-    pub fn from_labelled_arc_list(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
+    pub fn from_labeled_arc_list(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
         let mut g = Self::new();
-        g.add_labelled_arcs(arcs);
+        g.add_labeled_arcs(arcs);
         g
     }
 }
@@ -172,7 +172,7 @@ impl<L: Copy + 'static> VecGraph<L> {
 impl VecGraph<()> {
     /// Add an arc to the graph and return whether it is a new one.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
-        self.add_labelled_arc(u, v, ())
+        self.add_labeled_arc(u, v, ())
     }
 
     /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
@@ -257,7 +257,7 @@ impl<L: Copy + 'static> SequentialLabeling for VecGraph<L> {
     }
 }
 
-impl<L: Copy + 'static> LabelledSequentialGraph<L> for VecGraph<L> {}
+impl<L: Copy + 'static> LabeledSequentialGraph<L> for VecGraph<L> {}
 
 impl<L: Copy + 'static> RandomAccessLabeling for VecGraph<L> {
     type Labels<'succ> = Successors<'succ, L> where L: 'succ;
@@ -277,7 +277,7 @@ impl<L: Copy + 'static> RandomAccessLabeling for VecGraph<L> {
     }
 }
 
-impl<L: Copy + 'static> LabelledRandomAccessGraph<L> for VecGraph<L> {}
+impl<L: Copy + 'static> LabeledRandomAccessGraph<L> for VecGraph<L> {}
 
 #[doc(hidden)]
 #[repr(transparent)]
@@ -302,7 +302,7 @@ impl<'a, L: Copy + 'static> ExactSizeIterator for Successors<'a, L> {
 
 #[test]
 fn test_remove() {
-    let mut g = VecGraph::<_>::from_labelled_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
+    let mut g = VecGraph::<_>::from_labeled_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
     assert!(g.remove_arc(0, 2));
     assert!(!g.remove_arc(0, 2));
 }

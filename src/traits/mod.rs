@@ -5,27 +5,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
+//! Traits used throughout the crate.
 
-This modules contains the traits that are used throughout the crate.
-
-*/
 /**
 
 A support trait that makes it possible to treat a pair (2-tuple) as a trait.
 
-This approach ("traitification") was suggested by
+This approach (“traitification”) was suggested by
 [David Henry Mantilla](https://github.com/danielhenrymantilla/lending-iterator.rs/issues/13#issuecomment-1735475634)
 as a solution to the problem of specifying that a [`Lender`](lender::Lender)
 should return pairs of nodes and successors, and to impose conditions on the two components
-of the pairs. This is not possible directly, as a pair is a type, not a trait. Due to the
-new design of graph iterator trait, this is no longer a problem, but the same issue
-resurfaces in other contexts.
+of the pairs. This is not possible directly, as a pair is a type, not a trait.
 
-For example, [when implementing projections](crate::label::proj) one need
+For example, [when implementing projections](crate::labels::proj) one need
 to specify that the label of a labeling is a pair, and in the case a
 component is `usize`, the associated projection can be seen as a graph.
-To specify these constraints we have to resort to traitification using the [`Pair`] trait.
+To specify these constraints we have to resort to traitification using
+the [`Pair`] trait.
 
 The user should rarely, if ever, interact with this trait. Iterating over an iterator whose output
 has been traitified using [`Pair`] is a bit cumbersome, as the output of the iterator is a [`Pair`]
@@ -37,7 +33,7 @@ pub trait Pair {
     type Left;
     /// The type of the second component of the [`Pair`].
     type Right;
-    /// Turn this [`Pair`] into a pair (i.e., a Rust 2-tuple).
+    /// Turn this [`Pair`] into an actual pair (i.e., a Rust 2-tuple).
     fn into_pair(self) -> (Self::Left, Self::Right);
 }
 

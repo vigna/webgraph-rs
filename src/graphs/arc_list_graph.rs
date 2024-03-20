@@ -8,8 +8,8 @@ use crate::traits::*;
 use core::mem::MaybeUninit;
 use lender::*;
 
-/// An adapter exhibiting a list of labelled
-/// arcs sorted by source as a [labelled sequential graph](LabelledSequentialGraph).
+/// An adapter exhibiting a list of labeled
+/// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
@@ -22,7 +22,7 @@ pub struct ArcListGraph<I: Clone> {
 impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ArcListGraph<I> {
     /// Create a new arc list graph from the given [`IntoIterator`].
     #[inline(always)]
-    pub fn new_labelled(num_nodes: usize, iter: I) -> Self {
+    pub fn new_labeled(num_nodes: usize, iter: I) -> Self {
         Self {
             num_nodes,
             into_iter: iter,
@@ -35,8 +35,8 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
 {
     /// Create a new arc list graph from the given [`IntoIterator`].
     ///
-    /// Note that the resulting graph will be labelled by the unit type `()`.
-    /// To obtain an unlabelled graph, use a [left projection](crate::prelude::proj::Left).
+    /// Note that the resulting graph will be labeled by the unit type `()`.
+    /// To obtain an unlabeled graph, use a [left projection](crate::prelude::proj::Left).
     #[inline(always)]
     pub fn new(num_nodes: usize, iter: impl IntoIterator<IntoIter = I>) -> Self {
         Self {
@@ -193,9 +193,9 @@ fn test() -> anyhow::Result<()> {
         (2, 4, Some(f64::INFINITY)),
         (3, 4, Some(f64::NEG_INFINITY)),
     ];
-    let g = VecGraph::from_labelled_arc_list(arcs.iter().copied());
-    let coo = ArcListGraph::new_labelled(g.num_nodes(), arcs.iter().copied());
-    let g2 = VecGraph::from_labelled_lender(&coo);
+    let g = VecGraph::from_labeled_arc_list(arcs.iter().copied());
+    let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
+    let g2 = VecGraph::from_labeled_lender(&coo);
     assert_eq!(g, g2);
     Ok(())
 }

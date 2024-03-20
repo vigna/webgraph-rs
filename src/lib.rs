@@ -30,7 +30,6 @@ pub mod prelude {
     pub use crate::algo::*;
     pub use crate::graphs::prelude::*;
     pub use crate::labels::*;
-    pub use crate::traits::graph::*;
     pub use crate::traits::*;
     pub use crate::utils::*;
 }

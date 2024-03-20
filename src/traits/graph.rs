@@ -18,16 +18,16 @@ To access the successors of a node, however, you must use
 [`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabeling::labels):
 the latter method is overriden on purpose make its usage on graphs impossible.
 
-In the same vein, a [sequential graph with labels](LabelledSequentialGraph) of type `L` is a
+In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
 [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
 and a [random-access graph with labels](RandomAccessGraph) is a
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`.
 
 Finally, the [zipping of a graph and a labeling](Zip) implements the
-labelled graph traits (sequential or random-access, depending on the labelings).
+labeled graph traits (sequential or random-access, depending on the labelings).
 
 Note that most utilities to manipulate graphs manipulate in fact
-labelled graphs. To use the same utilities on an unlabelled graph
+labeled graphs. To use the same utilities on an unlabeled graph
 you just have to wrap it in a [UnitLabelGraph], which
 is a zero-cost abstraction assigning to each successor the label `()`.
 Usually there is a convenience method doing the wrapping for you.
@@ -103,16 +103,16 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
     }
 }
 
-/// A labelled sequential graph.
+/// A labeled sequential graph.
 ///
-/// A labelled sequential graph is a sequential labeling whose labels are pairs `(usize, L)`.
+/// A labeled sequential graph is a sequential labeling whose labels are pairs `(usize, L)`.
 /// The first coordinate is the successor, the second is the label.
-pub trait LabelledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
+pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
 /// A wrapper associating to each successor the label `()`.
 ///
-/// This wrapper can be used whenever a method requires a labelled graph, but
-/// the graph is actually unlabelled. It is (usually) a zero-cost abstraction.
+/// This wrapper can be used whenever a method requires a labeled graph, but
+/// the graph is actually unlabeled. It is (usually) a zero-cost abstraction.
 ///
 /// If the method returns some graphs derived from the input, it will usually
 /// be necessary to [project the labels away](crate::labels::Left).
@@ -180,17 +180,17 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     }
 }
 
-impl<G: SequentialGraph> LabelledSequentialGraph<()> for UnitLabelGraph<G> {}
+impl<G: SequentialGraph> LabeledSequentialGraph<()> for UnitLabelGraph<G> {}
 
-/// A labelled random-access graph.
+/// A labeled random-access graph.
 ///
-/// A labelled random-access graph is a random-access labeling whose labels are
+/// A labeled random-access graph is a random-access labeling whose labels are
 /// pairs `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
 ///
-/// On such a graph, successors are returned by the [`successors`](LabelledRandomAccessGraph::successors)
+/// On such a graph, successors are returned by the [`successors`](LabeledRandomAccessGraph::successors)
 /// method rather than by the [`labels`](RandomAccessLabeling::labels) method.
-pub trait LabelledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> {
+pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> {
     /// Return pairs given by successors of a node and their labels.
     ///
     /// Note that this is just a convenience alias of the
@@ -207,7 +207,7 @@ pub trait LabelledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)>
     ///
     /// The `where` clause of this override contains an unsatisfiable private
     /// trait bound, which makes calling this method impossible. Use the
-    /// [`LabelledRandomAccessGraph::successors`] method instead.
+    /// [`LabeledRandomAccessGraph::successors`] method instead.
     #[allow(private_bounds)]
     fn labels(&self, _node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_>
     where
@@ -247,4 +247,4 @@ impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     }
 }
 
-impl<G: RandomAccessGraph> LabelledRandomAccessGraph<()> for UnitLabelGraph<G> {}
+impl<G: RandomAccessGraph> LabeledRandomAccessGraph<()> for UnitLabelGraph<G> {}

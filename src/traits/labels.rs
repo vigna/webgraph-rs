@@ -16,13 +16,11 @@ each node of a graph a list of labels. In the [sequential case](SequentialLabeli
 one can obtain a [lender](lender::Lender) that lends pairs given by a node
 and an iterator on the associated labels. In the [random-access case](RandomAccessLabeling),
 instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::successors).
-Labelings can be [zipped together](crate::label::Zip), obtaining a
+Labelings can be [zipped together](crate::labels::Zip), obtaining a
 new labeling whose labels are pairs.
 
 The number of nodes *n* of the graph is returned by [`SequentialLabeling::num_nodes`],
 and nodes identifier are in the interval [0 . . *n*).
-
-
 
 */
 
@@ -38,9 +36,9 @@ use sux::traits::Succ;
 /// Iteration on nodes and associated labels.
 ///
 /// This trait is a [`Lender`] returning pairs given by a `usize` (a node of the
-/// graph) and an [`IntoIterator`], specified by the associated type [`IntoIterator`],
+/// graph) and an [`IntoIterator`], specified by the associated type `IntoIterator`,
 /// over the labels associated with that node,
-/// specified by the associated type [`Label`] (which is forced to be identical
+/// specified by the associated type `Label` (which is forced to be identical
 /// to the associated type `Item` of the [`IntoIterator`]).
 ///
 /// For those types we provide convenience type aliases [`LenderIntoIterator`],
