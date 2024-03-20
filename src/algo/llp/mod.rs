@@ -66,6 +66,7 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 /// usually will not give satisfactory results.
 ///
 /// # Arguments
+///
 /// * `sym_graph` - The symmetric graph to run LLP on.
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
 ///   [par_apply](crate::traits::SequentialLabeling::par_apply).
@@ -73,10 +74,12 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 /// * `num_threads` - The number of threads to use. If `None`, the number of
 /// threads is set to [`num_cpus::get`].
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
-/// an advanced option.
+/// an advanced option: see
+///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `granularity` - The granularity of the parallel processing expressed as
-/// the number of arcs to process at a time. If `None`, the granularity is
-/// computed adaptively.
+///   the number of arcs to process at a time. If `None`, the granularity is
+///   computed adaptively. This is an advanced option: see
+///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `seed` - The seed to use for pseudorandom number generation.
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
