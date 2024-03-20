@@ -31,7 +31,7 @@ where
         .endianness::<E>()
         .load()?;
     let unit = UnitLabelGraph(&graph);
-    let labeled = Zip(
+    let labelled = Zip(
         BVGraph::with_basename(&args.basename)
             .endianness::<E>()
             .load()?,
@@ -83,7 +83,7 @@ where
         pl.start("Zipped-projected graph successors...");
         for x in 0..unit.num_nodes() {
             black_box(x);
-            for (i, _) in labeled.successors(x) {
+            for (i, _) in labelled.successors(x) {
                 black_box(i);
             }
         }

@@ -9,7 +9,7 @@ use core::iter;
 use lender::{IntoLender, Lend, Lender, Lending};
 
 use crate::prelude::{
-    LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
+    LabelledRandomAccessGraph, LabelledSequentialGraph, LenderIntoIter, LenderIntoIterator,
     LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabeling, SequentialGraph,
     SequentialLabeling,
 };
@@ -21,7 +21,7 @@ Zips together two labelings.
 A wrapper tuple struct that zips together two labelings, and provides
 in return a labeling on pairs. It can be used simply to combine labelings
 over the same graph, but, more importantly, to attach a labeling to a graph,
-obtaining a labeled graph. Depending on the traits implemented by the two
+obtaining a labelled graph. Depending on the traits implemented by the two
 component labelings, the resulting labeling will be [sequential](SequentialLabeling)
 or [random-access](RandomAccessLabeling).
 
@@ -156,9 +156,9 @@ impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for 
     }
 }
 
-impl<G: SequentialGraph, L: SequentialLabeling> LabeledSequentialGraph<L::Label> for Zip<G, L> {}
+impl<G: SequentialGraph, L: SequentialLabeling> LabelledSequentialGraph<L::Label> for Zip<G, L> {}
 
-impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::Label>
+impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabelledRandomAccessGraph<L::Label>
     for Zip<G, L>
 {
 }
