@@ -11,9 +11,10 @@ use lender::prelude::*;
 use sux::prelude::*;
 
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
-    thread_pool: &rayon::ThreadPool,
     graph: &G,
+    arc_granularity: usize,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+    thread_pool: &rayon::ThreadPool,
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
     graph.par_apply(
@@ -38,9 +39,9 @@ pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                 .sum::<usize>() as f64
         },
         |a, b| a + b,
-        thread_pool,
-        1_000,
+        arc_granularity,
         deg_cumul,
+        thread_pool,
         pr,
     )
 }

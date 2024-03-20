@@ -205,9 +205,9 @@ pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
                     local_obj_func
                 },
                 |delta_obj_func_0, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
-                &thread_pool,
                 granularity,
                 deg_cumul,
+                &thread_pool,
                 Some(&mut update_pl),
             );
 
@@ -243,13 +243,14 @@ pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
 
         let cost = gap_cost::compute_log_gap_cost(
-            &thread_pool,
             &PermutedGraph {
                 graph,
                 perm: &update_perm,
             },
+            granularity,
             deg_cumul,
-            None,
+            &thread_pool,
+            Some(&mut iter_pl),
         );
         info!("Log-gap cost: {}", cost);
         costs.push(cost);

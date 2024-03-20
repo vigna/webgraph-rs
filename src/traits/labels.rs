@@ -81,10 +81,9 @@ pub type LenderIntoIter<'lend, L> =
 /// The marker traits [`SortedIterator`] and [`SortedLabels`] can be used to
 /// force these properties.
 ///
-/// The iterator returned by [iter](SequentialLabeling::iter) is a [lender](Lender):
+/// The iterator returned by [iter](SequentialLabeling::iter) is a [lender](NodeLabelsLender):
 /// to access the next pair, you must have finished to use the previous one. You
 /// can invoke [`Lender::into_iter`] to get a standard iterator, in general
-
 /// at the cost of some allocation and copying.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialLabeling {
@@ -95,38 +94,37 @@ pub trait SequentialLabeling {
     where
         Self: 'node;
 
-    /// Return the number of nodes in the graph.
+    /// Returns the number of nodes in the graph.
     fn num_nodes(&self) -> usize;
 
-    /// Return the number of arcs in the graph, if available.
+    /// Returns the number of arcs in the graph, if available.
     fn num_arcs_hint(&self) -> Option<u64> {
         None
     }
 
-    /// Return an iterator over the graph.
+    /// Returns an iterator over the labeling.
     ///
-    /// Iterators over the graph return pairs given by a node of the graph
-    /// and an [IntoIterator] over its successors.
+    /// Iterators over the labeling return pairs given by a node of the graph
+    /// and an [`IntoIterator`] over the labels.
     fn iter(&self) -> Self::Iterator<'_> {
         self.iter_from(0)
     }
 
-    /// Return an iterator over the nodes of the graph starting at `from`
-    /// (included).
+    /// Returns an iterator over the labeling starting at `from` (included).
     ///
-    /// Note that if the graph iterator [is not sorted](SortedIterator),
-    /// `from` is not the node id of the first node returned by the iterator,
-    /// but just the starting point of the iteration.
+    /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
+    /// the node id of the first node returned by the iterator, but just the
+    /// starting point of the iteration.
     fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
 
-    /// Given a labeling, apply `func` to each chunk of nodes of size `granularity`
-    /// in parallel, and reduce the results using `reduce`.
+    /// Given a labeling, applies `func` to each chunk of nodes of size
+    /// `node_granularity` in parallel, and reduce the results using `reduce`.
     fn par_node_apply<F, R, T>(
         &self,
         func: F,
         reduce: R,
+        node_granularity: usize,
         thread_pool: &rayon::ThreadPool,
-        granularity: usize,
         pl: Option<&mut ProgressLogger>,
     ) -> T
     where
@@ -138,7 +136,7 @@ pub trait SequentialLabeling {
         let num_nodes = self.num_nodes();
         let num_scoped_threads = thread_pool
             .current_num_threads()
-            .min(num_nodes / granularity + 1)
+            .min(num_nodes / node_granularity + 1)
             .max(2)
             - 1;
         let next_node = AtomicUsize::new(0);
@@ -160,8 +158,8 @@ pub trait SequentialLabeling {
                     let mut result = T::default();
                     loop {
                         // compute the next chunk of nodes to process
-                        let start_pos = next_node.fetch_add(granularity, Ordering::Relaxed);
-                        let end_pos = (start_pos + granularity).min(num_nodes);
+                        let start_pos = next_node.fetch_add(node_granularity, Ordering::Relaxed);
+                        let end_pos = (start_pos + node_granularity).min(num_nodes);
                         // exit if done
                         if start_pos >= num_nodes {
                             break;
@@ -190,16 +188,18 @@ pub trait SequentialLabeling {
         })
     }
 
-    /// Given a labeling, apply `func` to each chunk of nodes which total arcs
-    /// cardinality is of size `granularity` in parallel, and reduce the
-    /// results using `reduce`.
+    /// Given a labeling, applies `func` to each chunk of nodes containing
+    /// approximately `arc_granularity` arcs in parallel, and reduce the results
+    /// using `reduce`. You have to provide the degree cumulative function
+    /// of the graph in a form that makes it possible to compute successors
+    /// (for example, using the suitable `webgraph build` command).
     fn par_apply<F, R, T>(
         &self,
         func: F,
         reduce: R,
-        thread_pool: &rayon::ThreadPool,
-        granularity: usize,
+        arc_granularity: usize,
         deg_cumul_func: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+        thread_pool: &rayon::ThreadPool,
         pl: Option<&mut ProgressLogger>,
     ) -> T
     where
@@ -211,7 +211,7 @@ pub trait SequentialLabeling {
         let num_nodes = self.num_nodes();
         let num_scoped_threads = thread_pool
             .current_num_threads()
-            .min(num_nodes / granularity + 1)
+            .min(num_nodes / arc_granularity + 1)
             .max(2)
             - 1;
         let next_node_next_arc = std::sync::Mutex::new((0, 0));
@@ -246,7 +246,7 @@ pub trait SequentialLabeling {
                             }
 
                             start_pos = next_node;
-                            let target = next_arc + granularity;
+                            let target = next_arc + arc_granularity;
                             if target >= num_arcs {
                                 next_node = num_nodes;
                             } else {
