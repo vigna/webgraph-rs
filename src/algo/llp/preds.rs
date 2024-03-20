@@ -5,27 +5,46 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::RandomAccessGraph;
+use anyhow::ensure;
+use predicates::{reflection::PredicateReflection, Predicate};
 use std::fmt::Display;
 
-use dsi_progress_logger::ProgressLogger;
-use predicates::{reflection::PredicateReflection, Predicate};
-
-use super::{gap_cost::compute_log_gap_cost, RandomAccessGraph, DCF};
-
-pub struct PredParams<'a, R: RandomAccessGraph + Sync> {
-    graph: &'a R,
-    thread_pool: &'a rayon::ThreadPool,
-    deg_cumul: &'a DCF,
-    pl: Option<&'a mut ProgressLogger>,
-    perm: &'a [usize],
-    labels: &'a [usize],
-    modified: usize,
-    update: usize,
+pub struct PredParams<'a, R: RandomAccessGraph + Sync + 'a> {
+    pub graph: &'a R,
+    pub gain: f64,
+    pub modified: usize,
+    pub update: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct MaxUpdates {
-    max_updates: usize,
+    pub max_updates: usize,
+}
+
+impl MaxUpdates {
+    pub const DEFAULT_MAX_UPDATES: usize = usize::MAX;
+}
+
+impl From<Option<usize>> for MaxUpdates {
+    fn from(max_updates: Option<usize>) -> Self {
+        match max_updates {
+            Some(max_updates) => MaxUpdates { max_updates },
+            None => Self::default(),
+        }
+    }
+}
+
+impl From<usize> for MaxUpdates {
+    fn from(max_updates: usize) -> Self {
+        Some(max_updates).into()
+    }
+}
+
+impl Default for MaxUpdates {
+    fn default() -> Self {
+        Self::from(Self::DEFAULT_MAX_UPDATES)
+    }
 }
 
 impl Display for MaxUpdates {
@@ -42,26 +61,67 @@ impl<'a, R: RandomAccessGraph + Sync> Predicate<PredParams<'a, R>> for MaxUpdate
 }
 
 #[derive(Debug, Clone)]
-pub struct MaxLogGapCost {
-    threshold: f64,
+pub struct MinGain {
+    pub threshold: f64,
 }
 
-impl Display for MaxLogGapCost {
+impl MinGain {
+    pub const DEFAULT_THRESHOLD: f64 = 0.001;
+}
+
+impl TryFrom<Option<f64>> for MinGain {
+    type Error = anyhow::Error;
+    fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
+        Ok(match threshold {
+            Some(threshold) => {
+                ensure!(!threshold.is_nan());
+                ensure!(threshold >= 0.0, "The threshold must be nonnegative");
+                MinGain { threshold }
+            }
+            None => Self::default(),
+        })
+    }
+}
+
+impl TryFrom<f64> for MinGain {
+    type Error = anyhow::Error;
+    fn try_from(threshold: f64) -> anyhow::Result<Self> {
+        Some(threshold).try_into()
+    }
+}
+
+impl Default for MinGain {
+    fn default() -> Self {
+        Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
+    }
+}
+
+impl Display for MinGain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as core::fmt::Debug>::fmt(&self, f)
     }
 }
 
-impl PredicateReflection for MaxLogGapCost {}
-impl<'a, R: RandomAccessGraph + Sync> Predicate<PredParams<'a, R>> for MaxLogGapCost {
+impl PredicateReflection for MinGain {}
+impl<'a, R: RandomAccessGraph + Sync> Predicate<PredParams<'a, R>> for MinGain {
     fn eval(&self, pred_params: &PredParams<'a, R>) -> bool {
-        let gap_cost = compute_log_gap_cost(
-            pred_params.thread_pool,
-            pred_params.graph,
-            pred_params.deg_cumul,
-            None, // TODO
-        );
-        gap_cost < self.threshold
+        pred_params.gain < self.threshold
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MinModified {}
+
+impl Display for MinModified {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as core::fmt::Debug>::fmt(&self, f)
+    }
+}
+
+impl PredicateReflection for MinModified {}
+impl<'a, R: RandomAccessGraph + Sync> Predicate<PredParams<'a, R>> for MinModified {
+    fn eval(&self, pred_params: &PredParams<'a, R>) -> bool {
+        (pred_params.modified as f64) <= (pred_params.graph.num_nodes() as f64).sqrt()
     }
 }
 

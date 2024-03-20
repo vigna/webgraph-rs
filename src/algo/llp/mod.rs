@@ -10,6 +10,8 @@ use crate::traits::*;
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
+use llp::preds::PredParams;
+use predicates::Predicate;
 
 use common_traits::UnsignedInt;
 use log::info;
@@ -42,16 +44,19 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 /// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation(
-    graph: &(impl RandomAccessGraph + Sync),
+pub fn layered_label_propagation<'a, 'b, R: RandomAccessGraph + Sync + 'a>(
+    graph: &'a R,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
-    max_iters: Option<usize>,
     chunk_size: usize,
     granularity: Option<usize>,
     seed: u64,
-) -> Result<Box<[usize]>> {
+    predicate: impl Predicate<preds::PredParams<'b, R>>,
+) -> Result<Box<[usize]>>
+where
+    'a: 'b,
+{
     let num_nodes = graph.num_nodes();
 
     let granularity = granularity.unwrap_or(((graph.num_arcs() >> 9) as usize).max(1024));
@@ -110,8 +115,8 @@ pub fn layered_label_propagation(
             .iter()
             .for_each(|x| x.store(true, Ordering::Relaxed));
 
-        for i in 0..max_iters.unwrap_or(usize::MAX) {
-            update_pl.start(format!("Starting update {}...", i));
+        for update in 0.. {
+            update_pl.start(format!("Starting update {}...", update));
 
             update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
             thread_pool.install(|| {
@@ -217,7 +222,13 @@ pub fn layered_label_propagation(
             info!("Gain: {}", gain);
             info!("Modified: {}", modified.load(Ordering::Relaxed),);
 
-            if gain < 0.001 || modified.load(Ordering::Relaxed) == 0 {
+            if predicate.eval(&PredParams::<'a, _> {
+                graph,
+                gain,
+                modified: modified.load(Ordering::Relaxed),
+                update,
+            }) || modified.load(Ordering::Relaxed) == 0
+            {
                 break;
             }
         }
