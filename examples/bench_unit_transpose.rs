@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
-use webgraph::{algo, prelude::*};
+use webgraph::{algo, prelude::*, transform};
 
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labeled transposition on a unit graph.", long_about = None)]
@@ -87,7 +87,7 @@ where
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let mut iter = Left(algo::transpose_labeled(&unit, 10_000_000, (), ())?).iter();
+        let mut iter = Left(transform::transpose_labeled(&unit, 10_000_000, (), ())?).iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {

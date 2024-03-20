@@ -13,7 +13,12 @@ use dsi_progress_logger::prelude::*;
 use itertools::{Dedup, Itertools};
 use lender::*;
 use tempfile::Builder;
-/// Make the graph undirected and remove selfloops
+
+/// Returns a simplified (i.e., undirected and loopless) version of the provided
+/// graph as a [sequential graph](crate::traits::SequentialGraph).
+///
+/// For the meaning of the additional parameter, see
+/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
 #[allow(clippy::type_complexity)]
 pub fn simplify(
     graph: &impl SequentialGraph,

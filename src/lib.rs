@@ -24,6 +24,7 @@ pub mod fuzz;
 pub mod graphs;
 pub mod labels;
 pub mod traits;
+pub mod transform;
 pub mod utils;
 
 pub mod prelude {
@@ -31,5 +32,6 @@ pub mod prelude {
     pub use crate::graphs::prelude::*;
     pub use crate::labels::*;
     pub use crate::traits::*;
+    pub use crate::transform::*;
     pub use crate::utils::*;
 }

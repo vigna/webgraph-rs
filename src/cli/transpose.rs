@@ -67,7 +67,7 @@ where
         .load()?;
 
     // transpose the graph
-    let sorted = crate::algo::transpose(&seq_graph, args.pa.batch_size).unwrap();
+    let sorted = crate::transform::transpose(&seq_graph, args.pa.batch_size).unwrap();
 
     let target_endianness = args.ca.endianess.clone();
     BVComp::parallel_endianness(

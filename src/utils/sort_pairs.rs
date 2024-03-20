@@ -72,6 +72,10 @@ impl<T: Copy> Ord for Triple<T> {
 /// the batches on disk on the fly, returning the triples sorted by
 /// lexicographical order of the pairs of nodes.
 ///
+/// A batch should be as large as possible, given the available memory.
+/// Small batches are inefficient because they requires significantly
+/// more I/O, and more effort during the merge phase.
+///
 /// The structure accept as type parameter a [`BitSerializer`] and a
 /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
 /// In case they are both `()`, the structure behaves as if there is no label.
