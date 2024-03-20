@@ -7,7 +7,7 @@
 
 use anyhow::ensure;
 use predicates::{reflection::PredicateReflection, Predicate};
-use std::fmt::{Display, Write};
+use std::fmt::Display;
 
 pub struct PredParams {
     pub num_nodes: usize,

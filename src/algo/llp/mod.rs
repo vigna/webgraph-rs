@@ -44,8 +44,8 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 /// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
-    graph: &'a R,
+pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
+    graph: &R,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
