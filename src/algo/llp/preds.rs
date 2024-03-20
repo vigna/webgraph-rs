@@ -5,13 +5,64 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::RandomAccessGraph;
+use std::fmt::Display;
 
-pub struct PredParams<'a, R: RandomAccessGraph> {
+use dsi_progress_logger::ProgressLogger;
+use predicates::{reflection::PredicateReflection, Predicate};
+
+use super::{gap_cost::compute_log_gap_cost, RandomAccessGraph, DCF};
+
+pub struct PredParams<'a, R: RandomAccessGraph + Sync> {
     graph: &'a R,
+    thread_pool: &'a rayon::ThreadPool,
+    deg_cumul: &'a DCF,
+    pl: Option<&'a mut ProgressLogger>,
     perm: &'a [usize],
     labels: &'a [usize],
     modified: usize,
+    update: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct MaxUpdates {
+    max_updates: usize,
+}
+
+impl Display for MaxUpdates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as core::fmt::Debug>::fmt(&self, f)
+    }
+}
+
+impl PredicateReflection for MaxUpdates {}
+impl<'a, R: RandomAccessGraph + Sync> Predicate<PredParams<'a, R>> for MaxUpdates {
+    fn eval(&self, pred_params: &PredParams<'a, R>) -> bool {
+        pred_params.update >= self.max_updates
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MaxLogGapCost {
+    threshold: f64,
+}
+
+impl Display for MaxLogGapCost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as core::fmt::Debug>::fmt(&self, f)
+    }
+}
+
+impl PredicateReflection for MaxLogGapCost {}
+impl<'a, R: RandomAccessGraph + Sync> Predicate<PredParams<'a, R>> for MaxLogGapCost {
+    fn eval(&self, pred_params: &PredParams<'a, R>) -> bool {
+        let gap_cost = compute_log_gap_cost(
+            pred_params.thread_pool,
+            pred_params.graph,
+            pred_params.deg_cumul,
+            None, // TODO
+        );
+        gap_cost < self.threshold
+    }
 }
 
 /*
