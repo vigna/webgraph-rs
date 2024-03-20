@@ -1,10 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2024 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 
 use crate::traits::*;
-use sux::prelude::*;
 use dsi_progress_logger::prelude::*;
+use lender::prelude::*;
+use sux::prelude::*;
 
-
-pub fn compute_log_gap_cost<G: SequentialGraph + Sync>(
+pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     thread_pool: &rayon::ThreadPool,
     graph: &G,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),

@@ -124,7 +124,7 @@ where
     gammas.sort_by(|a, b| a.total_cmp(b));
 
     // compute the LLP
-    let labels = layered_label_propagation(
+    let labels = llp::layered_label_propagation(
         &graph,
         &*deg_cumul,
         gammas,
@@ -138,7 +138,7 @@ where
 
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
-    crate::algo::invert_in_place(llp_perm.as_mut_slice());
+    crate::algo::llp::invert_in_place(llp_perm.as_mut_slice());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     log::info!("Saving permutation...");
