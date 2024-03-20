@@ -33,7 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-use sux::traits::Succ;
+use sux::traits::{IndexedDict, Succ};
 
 /// Iteration on nodes and associated labels.
 ///
@@ -217,6 +217,10 @@ pub trait SequentialLabeling {
             .max(2)
             - 1;
         let next_node_next_arc = std::sync::Mutex::new((0, 0));
+        let num_arcs = deg_cumul_func.get(num_nodes as usize);
+        if let Some(num_arcs_hint) = self.num_arcs_hint() {
+            assert_eq!(num_arcs_hint, num_arcs as u64);
+        }
 
         thread_pool.scope(|scope| {
             let mut res = Vec::with_capacity(num_scoped_threads);
@@ -245,7 +249,7 @@ pub trait SequentialLabeling {
 
                             start_pos = next_node;
                             let target = next_arc + granularity;
-                            if target >= num_nodes {
+                            if target >= num_arcs {
                                 next_node = num_nodes;
                             } else {
                                 (next_node, next_arc) = deg_cumul_func.succ(&target).unwrap();
