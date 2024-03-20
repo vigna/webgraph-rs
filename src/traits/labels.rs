@@ -33,7 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-use sux::traits::{IndexedDict, Succ};
+use sux::traits::Succ;
 
 /// Iteration on nodes and associated labels.
 ///
@@ -217,7 +217,7 @@ pub trait SequentialLabeling {
             .max(2)
             - 1;
         let next_node_next_arc = std::sync::Mutex::new((0, 0));
-        let num_arcs = deg_cumul_func.get(num_nodes as usize);
+        let num_arcs = deg_cumul_func.get(num_nodes);
         if let Some(num_arcs_hint) = self.num_arcs_hint() {
             assert_eq!(num_arcs_hint, num_arcs as u64);
         }

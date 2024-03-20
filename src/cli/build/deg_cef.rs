@@ -13,7 +13,7 @@ use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Seek};
+use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use sux::prelude::*;
 

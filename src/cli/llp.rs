@@ -25,36 +25,36 @@ struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
 
-    /// A filename for the LLP permutation. It defaults to "{basename}.llp"
-    perm: Option<PathBuf>,
+    /// A filename for the LLP permutation.
+    perm: PathBuf,
 
     #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string(), "0-0".to_string()])]
-    /// The gammas to use in LLP, separated by commas. The format is given by a integ
-    /// numerator (if missing, assumed to be one),
-    /// a dash, and then a power-of-two exponent for the denominator. For example, -2 is 1/4, and 0-0 is 0.
+    /// The ɣ's to use in LLP, separated by commas. The format is given by a
+    /// integer numerator (if missing, assumed to be one), a dash, and then a
+    /// power-of-two exponent for the denominator. For example, -2 is 1/4, and
+    /// 0-0 is 0.
     gammas: Vec<String>,
 
-    #[arg(short, long, default_value_t = 100)]
+    #[arg(short = 'u', long)]
     /// The maximum number of updates for a given ɣ.
-    max_updates: usize,
+    max_updates: Option<usize>,
 
-    #[arg(short = 'r', long)]
-    /// The size of the chunks each thread processes for the LLP.
+    #[arg(short = 'G', long)]
+    /// The tentative number of arcs used define the size of a parallel job.
     granularity: Option<usize>,
 
     #[arg(short, long, default_value_t = 100_000)]
-    /// The size of the cnunks each thread processes for the random permutation
-    /// at the start of each iteration
+    /// The chunk size used to localize the random permutation.
     chunk_size: usize,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
 
     #[arg(short, long, default_value_t = 0)]
-    /// The seed to use for the prng
+    /// The seed to use for the PRNG.
     seed: u64,
 
-    #[arg(short = 'p', long)]
+    #[arg(short, long)]
     /// Save the permutation in ε-serde format.
     epserde: bool,
 }
@@ -86,10 +86,6 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     let start = std::time::Instant::now();
-
-    let perm = args
-        .perm
-        .unwrap_or_else(|| args.basename.with_extension("llp"));
 
     // load the graph
     let graph = BVGraph::with_basename(&args.basename)
@@ -146,6 +142,8 @@ where
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     log::info!("Saving permutation...");
+
+    let perm = args.perm;
 
     if args.epserde {
         llp_perm

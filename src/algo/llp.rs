@@ -43,7 +43,7 @@ pub fn layered_label_propagation(
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
-    max_iters: usize,
+    max_updates: Option<usize>,
     chunk_size: usize,
     granularity: Option<usize>,
     seed: u64,
@@ -51,8 +51,9 @@ pub fn layered_label_propagation(
     let num_nodes = graph.num_nodes();
     let num_arcs = graph.num_arcs();
 
-    let granularity =
-        granularity.unwrap_or(((num_arcs >> 6 + ((num_arcs + 1).ilog2()) + 1).ilog2()) as usize).max(1024));
+    let granularity = granularity
+        .unwrap_or((num_arcs >> (6 + ((num_arcs + 1).ilog2()) + 1).ilog2()) as usize)
+        .max(1024);
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -105,7 +106,7 @@ pub fn layered_label_propagation(
             .iter()
             .for_each(|x| x.store(true, Ordering::Relaxed));
 
-        for i in 0..max_iters {
+        for i in 0..max_updates.unwrap_or(usize::MAX) {
             update_pl.start(format!("Starting update {}...", i));
 
             update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
