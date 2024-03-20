@@ -75,16 +75,21 @@ pub type LenderIntoIter<'lend, L> =
 /// A labeling that can be accessed sequentially.
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
-/// ascending order, or that the labels of the successors will be returned
-/// in any specified order.
+/// ascending order, or that the labels of the successors will be returned in
+/// any specified order.
 ///
 /// The marker traits [`SortedIterator`] and [`SortedLabels`] can be used to
 /// force these properties.
 ///
-/// The iterator returned by [iter](SequentialLabeling::iter) is a [lender](NodeLabelsLender):
-/// to access the next pair, you must have finished to use the previous one. You
-/// can invoke [`Lender::into_iter`] to get a standard iterator, in general
-/// at the cost of some allocation and copying.
+/// The iterator returned by [iter](SequentialLabeling::iter) is a
+/// [lender](NodeLabelsLender): to access the next pair, you must have finished
+/// to use the previous one. You can invoke [`Lender::into_iter`] to get a
+/// standard iterator, in general at the cost of some allocation and copying.
+///
+/// This trait provides two default methods,
+/// [`par_apply`](SequentialLabeling::par_apply) and
+/// [`par_node_apply`](SequentialLabeling::par_node_apply), that make it easy to
+/// process in parallel the nodes of the labeling.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialLabeling {
     type Label;
@@ -158,10 +163,10 @@ pub trait SequentialLabeling {
                 res.push(rx);
 
                 // create some references so that we can share them across threads
-                let pl_lock_ref = &pl_lock;
+                let pl_lock = &pl_lock;
                 let next_node = &next_node;
-                let func_ref = &func;
-                let reduce_ref = &reduce;
+                let func = &func;
+                let reduce = &reduce;
 
                 scope.spawn(move |_| {
                     let mut result = T::default();
@@ -174,9 +179,9 @@ pub trait SequentialLabeling {
                             break;
                         }
                         // apply the function and reduce the result
-                        result = reduce_ref(result, func_ref(start_pos..end_pos));
+                        result = reduce(result, func(start_pos..end_pos));
                         // update the progress logger if specified
-                        if let Some(pl_lock) = pl_lock_ref {
+                        if let Some(pl_lock) = pl_lock {
                             pl_lock
                                 .lock()
                                 .unwrap()
@@ -249,10 +254,10 @@ pub trait SequentialLabeling {
                 res.push(rx);
 
                 // create some references so that we can share them across threads
-                let pl_lock_ref = &pl_lock;
+                let pl_lock = &pl_lock;
                 let next_node_next_arc = &next_node_next_arc;
-                let func_ref = &func;
-                let reduce_ref = &reduce;
+                let func = &func;
+                let reduce = &reduce;
 
                 scope.spawn(move |_| {
                     let mut result = T::default();
@@ -279,9 +284,9 @@ pub trait SequentialLabeling {
 
                         // exit if done
                         // apply the function and reduce the result
-                        result = reduce_ref(result, func_ref(start_pos..end_pos));
+                        result = reduce(result, func(start_pos..end_pos));
                         // update the progress logger if specified
-                        if let Some(pl_lock) = pl_lock_ref {
+                        if let Some(pl_lock) = pl_lock {
                             pl_lock
                                 .lock()
                                 .unwrap()
