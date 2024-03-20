@@ -282,6 +282,11 @@ pub trait SequentialLabeling {
     }
 }
 
+/// Convenience type alias for the iterator over the labels of a node
+/// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
+pub type Labels<'succ, 'node, S> =
+    <<S as SequentialLabeling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
+
 /// Marker trait for lenders returned by [`SequentialLabeling::iter`]
 /// yielding node ids in ascending order.
 ///
@@ -308,13 +313,13 @@ pub trait RandomAccessLabeling: SequentialLabeling {
     where
         Self: 'succ;
 
-    /// Return the number of arcs in the graph.
+    /// Returns the number of arcs in the graph.
     fn num_arcs(&self) -> u64;
 
-    /// Return the labels associated with a node.
+    /// Returns the labels associated with a node.
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_>;
 
-    /// Return the number of labels associated with a node.
+    /// Returns the number of labels associated with a node.
     fn outdegree(&self, node_id: usize) -> usize;
 }
 
@@ -328,7 +333,6 @@ pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
     pub nodes: core::ops::Range<usize>,
 }
 
-/// We iter on the node ids in a range so it is sorted
 unsafe impl<'a, G: RandomAccessLabeling> SortedIterator for IteratorImpl<'a, G> {}
 
 impl<'node, 'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'node, G> {

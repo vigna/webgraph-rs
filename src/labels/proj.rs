@@ -9,7 +9,7 @@
 Left and right projections.
 
 The two structures in this module, [`Left`] and [`Right`], provide
-projection of a graph whose labels are pairs. In particular,
+projection of a labeling whose labels are pairs. In particular,
 `Left(Zip(g,h))` is the same labeling as `g` and
 `Right(Zip(g,h))` is the same labeling as `h'.
 
