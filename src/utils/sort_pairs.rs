@@ -137,7 +137,7 @@ impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone>
 where
     S::SerType: Send + Sync + Copy,
 {
-    /// Create a new `SortPairs` with labels.
+    /// Creates a new `SortPairs` with labels.
     ///
     /// The `dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances. Please use the

@@ -1,9 +1,8 @@
-
-use std::hint::black_box;
-use rayon::prelude::*;
-use rand::SeedableRng;
-use rand::RngCore;
 use rand::rngs::SmallRng;
+use rand::RngCore;
+use rand::SeedableRng;
+use rayon::prelude::*;
+use std::hint::black_box;
 
 fn main() {
     let mut rng = SmallRng::seed_from_u64(0xbad5eed);
