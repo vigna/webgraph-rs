@@ -80,13 +80,8 @@ fn labels_path(gamma_index: usize) -> PathBuf {
 /// * `seed` - The seed to use for pseudorandom number generation.
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-<<<<<<< HEAD
-pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
-    graph: &R,
-=======
 pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
     sym_graph: &'a R,
->>>>>>> c4c90f8 (Arguments)
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
@@ -96,7 +91,7 @@ pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
     predicate: impl Predicate<preds::PredParams>,
 ) -> Result<Box<[usize]>> {
     let num_nodes = sym_graph.num_nodes();
-
+    let chunk_size = chunk_size.unwrap_or(1_000_000);
     let granularity = granularity.unwrap_or(((sym_graph.num_arcs() >> 9) as usize).max(1024));
 
     // init the permutation with the indices
