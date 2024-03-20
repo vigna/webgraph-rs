@@ -306,10 +306,11 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
     temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
 
     // permute by the devilish function
-    temp_perm.par_sort_by(|&a, &b| {
+    temp_perm.par_sort_unstable_by(|&a, &b| {
         (result[labels[a]].cmp(&result[labels[b]]))
             .then_with(|| labels[a].cmp(&labels[b]))
             .then_with(|| result[a].cmp(&result[b]))
+            .then_with(|| a.cmp(&b))
     });
 
     let mut prev_labels = (result[temp_perm[0]], labels[temp_perm[0]]);
