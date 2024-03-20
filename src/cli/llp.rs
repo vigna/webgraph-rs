@@ -62,10 +62,12 @@ struct CliArgs {
     /// Save the permutation in ε-serde format.
     epserde: bool,
 
+    #[arg(long)]
     /// The tentative number of arcs used define the size of a parallel job
     /// (advanced option).
     granularity: Option<usize>,
 
+    #[arg(long)]
     /// The chunk size used to localize the random permutation
     /// (advanced option).
     chunk_size: Option<usize>,
