@@ -65,7 +65,7 @@ where
     let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
 
     // TODO : not +1
-    let mut efb = EliasFanoBuilder::new(num_nodes, num_arcs + 1);
+    let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs + 1);
 
     let ef_path = basename.with_extension(DEG_CUMUL_EXTENSION);
     let mut ef_file = BufWriter::new(
@@ -89,6 +89,7 @@ where
     let mut iter = seq_graph.offset_deg_iter();
     let mut cumul_deg = 0;
 
+    efb.push(0)?;
     for (_new_offset, degree) in iter.by_ref() {
         cumul_deg += degree;
         // write where
