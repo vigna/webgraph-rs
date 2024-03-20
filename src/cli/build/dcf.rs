@@ -17,7 +17,7 @@ use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use sux::prelude::*;
 
-pub const COMMAND_NAME: &str = "deg_cef";
+pub const COMMAND_NAME: &str = "dcf";
 
 #[derive(Args, Debug)]
 #[command(about = "Builds an Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
@@ -38,17 +38,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => build_deg_cef::<BE>(args),
+        BE::NAME => build_dcf::<BE>(args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => build_deg_cef::<LE>(args),
+        LE::NAME => build_dcf::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_deg_cef<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
