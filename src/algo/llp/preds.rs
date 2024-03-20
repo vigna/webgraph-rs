@@ -12,10 +12,18 @@
 //! such predicates: they evaluate to true if the updates should be stopped.
 //!
 //! You can combine the predicates using the `and` and `or` methods provided by
-//! the [`Predicate`] trait, as in
+//! the [`Predicate`] trait.
+//!
+//! # Examples
 //! ```
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use predicates::prelude::*;
+//! use webgraph::algo::llp::preds::{MinGain, MaxUpdates};
+//!
 //! let mut predicate = MinGain::try_from(0.001)?.boxed();
-//! predicate = predicate.or(MaxUpdates::from(max_updates)).boxed();
+//! predicate = predicate.or(MaxUpdates::from(100)).boxed();
+//! #     Ok(())
+//! # }
 //! ```
 
 use anyhow::ensure;
