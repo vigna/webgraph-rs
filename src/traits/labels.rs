@@ -119,6 +119,15 @@ pub trait SequentialLabeling {
 
     /// Given a labeling, applies `func` to each chunk of nodes of size
     /// `node_granularity` in parallel, and reduce the results using `reduce`.
+    ///
+    /// # Arguments
+    /// * `func` - The function to apply to each chunk of nodes.
+    /// * `reduce` - The function to reduce the results obtained from each
+    ///   chunk.
+    /// * `node_granularity` - The number of nodes to process in each chunk.
+    /// * `thread_pool` - The thread pool to use.
+    /// * `pl` - An optional mutable references to a progress logger.
+
     fn par_node_apply<F, R, T>(
         &self,
         func: F,
@@ -190,15 +199,27 @@ pub trait SequentialLabeling {
 
     /// Given a labeling, applies `func` to each chunk of nodes containing
     /// approximately `arc_granularity` arcs in parallel, and reduce the results
-    /// using `reduce`. You have to provide the degree cumulative function
-    /// of the graph in a form that makes it possible to compute successors
-    /// (for example, using the suitable `webgraph build` command).
+    /// using `reduce`. You have to provide the degree cumulative function of
+    /// the graph (i.e., the sequence 0, *d*₀, *d*₀ + *d*₁, ..., *a*, where *a*
+    /// is the number of arcs in the graph) in a form that makes it possible to
+    /// compute successors (for example, using the suitable `webgraph build`
+    /// command).
+    ///
+    /// # Arguments
+    /// * `func` - The function to apply to each chunk of nodes.
+    /// * `reduce` - The function to reduce the results obtained from each
+    ///   chunk.
+    /// * `arc_granularity` - The tentative number of arcs to process in each
+    ///   chunk.
+    /// * `deg_cumul_func` - The degree cumulative function of the graph.
+    /// * `thread_pool` - The thread pool to use.
+    /// * `pl` - An optional mutable references to a progress logger.
     fn par_apply<F, R, T>(
         &self,
         func: F,
         reduce: R,
         arc_granularity: usize,
-        deg_cumul_func: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+        deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
         thread_pool: &rayon::ThreadPool,
         pl: Option<&mut ProgressLogger>,
     ) -> T
@@ -215,7 +236,7 @@ pub trait SequentialLabeling {
             .max(2)
             - 1;
         let next_node_next_arc = std::sync::Mutex::new((0, 0));
-        let num_arcs = deg_cumul_func.get(num_nodes);
+        let num_arcs = deg_cumul.get(num_nodes);
         if let Some(num_arcs_hint) = self.num_arcs_hint() {
             assert_eq!(num_arcs_hint, num_arcs as u64);
         }
@@ -250,7 +271,7 @@ pub trait SequentialLabeling {
                             if target >= num_arcs {
                                 next_node = num_nodes;
                             } else {
-                                (next_node, next_arc) = deg_cumul_func.succ(&target).unwrap();
+                                (next_node, next_arc) = deg_cumul.succ(&target).unwrap();
                             }
                             end_pos = next_node;
                             *next_node_next_arc = (next_node, next_arc);

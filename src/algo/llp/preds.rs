@@ -5,23 +5,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Predicates implementing stopping conditions.
+//!
+//! The implementation of [layered label propagation](super::llp) requires a
+//! [predicate](Predicate) to stop the algorithm. This module provides a few
+//! such predicates: they evaluate to true if the updates should be stopped.
+//!
+//! You can combine the predicates using the `and` and `or` methods provided by
+//! the [Predicate](Predicate) trait, as in
+//! ```
+//! let mut predicate = MinGain::try_from(0.001)?.boxed();
+//! predicate = predicate.or(MaxUpdates { max_updates }).boxed();
+//! ```
 use anyhow::ensure;
 use predicates::{reflection::PredicateReflection, Predicate};
 use std::fmt::Display;
 
-/// Predicates implementing stopping conditions.
-///
-/// The implementation of [layered label propagation](super::llp) requires a
-/// [predicate](Predicate) to stop the algorithm. This module provides a few
-/// such predicates: they evaluate to true if the updates should be stopped.
-///
-/// You can combine the predicates using the `and` and `or` methods provided by
-/// the [Predicate](Predicate) trait, as in
-/// ```
-/// let mut predicate = MinGain::try_from(0.001)?.boxed();
-/// predicate = predicate.or(MaxUpdates { max_updates }).boxed();
-/// ```
-
+#[doc(hidden)]
 pub struct PredParams {
     pub num_nodes: usize,
     pub num_arcs: u64,

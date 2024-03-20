@@ -5,6 +5,28 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Layered label propagation.
+//!
+//! An implementation of the _layered label propagation_ algorithm described by
+//! Paolo Boldi, Sebastiano Vigna, Marco Rosa, Massimo Santini, and Sebastiano
+//! Vigna in “Layered label propagation: A multiresolution coordinate-free
+//! ordering for compressing social networks”, _Proceedings of the 20th
+//! international conference on World Wide Web_, pages 587–596, ACM, 2011.
+//!
+//! The function [`layered_label_propagation`] returns a permutation of the
+//! provided symmetric graph which will (hopefully) increase locality (see the
+//! paper). Usually, the permutation is fed to [`perm`] to permute the original
+//! graph.
+//!
+//! Note that the graph provided should be _symmetric_ and _loopless_. If this
+//! is not the case, please use [crate::transform::simplify] to generate a
+//! suitable graph.
+//!
+//! # Memory requirements
+//!
+//! LLP requires three `usize` and a boolean per node, plus the memory that is
+//! necessary to load the graph.
+//!
 use crate::prelude::*;
 use crate::traits::*;
 use anyhow::{Context, Result};
@@ -37,26 +59,45 @@ fn labels_path(gamma_index: usize) -> PathBuf {
         .collect()
 }
 
-/// Write the permutation computed by the LLP algorithm inside `perm`,
-/// and return the labels of said permutation.
+/// Runs layered label propagation on the provided symmetric graph and returns
+/// the resulting labels.
 ///
-/// # References
-/// [Layered Label Propagation: A MultiResolution Coordinate-Free Ordering for Compressing Social Networks](https://arxiv.org/pdf/1011.5425.pdf>)
+/// Note that no symmetry check is performed, but in that case the algorithm
+/// usually will not give satisfactory results.
+///
+/// # Arguments
+/// * `sym_graph` - The symmetric graph to run LLP on.
+/// * `deg_cumul` - The degree cumulative distribution of the graph, as in
+///   [par_apply](crate::traits::SequentialLabeling::par_apply).
+/// * `gammas` - The ɣ values to use in the LLP algorithm.
+/// * `num_threads` - The number of threads to use. If `None`, the number of
+/// threads is set to [`num_cpus::get`].
+/// * `chunk_size` - The chunk size used to randomize the permutation. This is
+/// an advanced option.
+/// * `granularity` - The granularity of the parallel processing expressed as
+/// the number of arcs to process at a time. If `None`, the granularity is
+/// computed adaptively.
+/// * `seed` - The seed to use for pseudorandom number generation.
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
+<<<<<<< HEAD
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     graph: &R,
+=======
+pub fn layered_label_propagation<'a, R: RandomAccessGraph + Sync>(
+    sym_graph: &'a R,
+>>>>>>> c4c90f8 (Arguments)
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
-    chunk_size: usize,
+    chunk_size: Option<usize>,
     granularity: Option<usize>,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
 ) -> Result<Box<[usize]>> {
-    let num_nodes = graph.num_nodes();
+    let num_nodes = sym_graph.num_nodes();
 
-    let granularity = granularity.unwrap_or(((graph.num_arcs() >> 9) as usize).max(1024));
+    let granularity = granularity.unwrap_or(((sym_graph.num_arcs() >> 9) as usize).max(1024));
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -129,7 +170,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             // If this iteration modified anything (early stop)
             let modified = AtomicUsize::new(0);
 
-            let delta_obj_func = graph.par_apply(
+            let delta_obj_func = sym_graph.par_apply(
                 |range| {
                     let mut map = HashMap::with_capacity(1024);
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
@@ -142,12 +183,12 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         // set that the node can't change by default and we'll unset later it if it can
                         can_change[node].store(false, Ordering::Relaxed);
 
-                        let successors = graph.successors(node);
+                        let successors = sym_graph.successors(node);
                         // TODO
                         /*if successors.len() == 0 {
                             continue;
                         }*/
-                        if graph.outdegree(node) == 0 {
+                        if sym_graph.outdegree(node) == 0 {
                             continue;
                         }
 
@@ -195,7 +236,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         // and signal that this could change the neighbour nodes
                         if next_label != curr_label {
                             modified.fetch_add(1, Ordering::Relaxed);
-                            for succ in graph.successors(node) {
+                            for succ in sym_graph.successors(node) {
                                 can_change[succ].store(true, Ordering::Relaxed);
                             }
                             label_store.set(node, next_label);
@@ -221,8 +262,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             info!("Modified: {}", modified.load(Ordering::Relaxed),);
 
             if predicate.eval(&PredParams {
-                num_nodes: graph.num_nodes(),
-                num_arcs: graph.num_arcs(),
+                num_nodes: sym_graph.num_nodes(),
+                num_arcs: sym_graph.num_arcs(),
                 gain,
                 modified: modified.load(Ordering::Relaxed),
                 update,
@@ -244,7 +285,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
         let cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
-                graph,
+                graph: sym_graph,
                 perm: &update_perm,
             },
             granularity,
@@ -338,6 +379,7 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
 }
 
 /// Invert the given permutation in place.
+#[doc(hidden)]
 pub fn invert_in_place(perm: &mut [usize]) {
     for n in 0..perm.len() {
         let mut i = perm[n];
