@@ -160,9 +160,9 @@ pub fn layered_label_propagation(
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
                             let volume = label_store.volume(label);
-                            // here there is a change from the java version as
-                            // curr_label does not have -1 to its volume as
-                            // it is in java, but it should be neglegible
+                            // To duplicate the behavior of the Java
+                            // implementation, volume must be  decreased
+                            // by 1 if label is the current label.
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
@@ -181,6 +181,7 @@ pub fn layered_label_propagation(
                         }
                         // randomly break ties
                         let next_label = *majorities.choose(&mut rand).unwrap();
+
                         // if the label changed we need to update the label store
                         // and signal that this could change the neighbour nodes
                         if next_label != curr_label {
@@ -271,7 +272,7 @@ pub fn layered_label_propagation(
     let mut temp_perm = update_perm;
 
     let mut result_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))
-        .context("Could not load labels from best gammar")?
+        .context("Could not load labels from best gamma")?
         .to_vec();
 
     for (i, gamma_index) in gamma_indices.iter().enumerate() {
@@ -297,15 +298,17 @@ pub fn layered_label_propagation(
 fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> Result<usize> {
     // re-init the permutation
     temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
+
     // permute by the devilish function
     temp_perm.par_sort_by(|&a, &b| {
         (result[labels[a]].cmp(&result[labels[b]]))
             .then_with(|| labels[a].cmp(&labels[b]))
             .then_with(|| result[a].cmp(&result[b]))
     });
+
     let mut prev_labels = (result[temp_perm[0]], labels[temp_perm[0]]);
     let mut curr_label = 0;
-    temp_perm[0] = curr_label;
+    result[temp_perm[0]] = curr_label;
 
     for i in 1..temp_perm.len() {
         let curr_labels = (result[temp_perm[i]], labels[temp_perm[i]]);
@@ -381,8 +384,8 @@ fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                     let mut sorted: Vec<_> = succ.into_iter().collect();
                     if !sorted.is_empty() {
                         sorted.sort();
-                        cost +=
-                            ((x as isize - sorted[0] as isize).unsigned_abs() + 1).ilog2() as usize;
+                        cost += (((x as isize - sorted[0] as isize).unsigned_abs() + 1).ilog2())
+                            as usize;
                         cost += sorted
                             .windows(2)
                             .map(|w| (w[1] - w[0]).ilog2() as usize)
