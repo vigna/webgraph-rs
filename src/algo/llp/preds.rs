@@ -9,6 +9,19 @@ use anyhow::ensure;
 use predicates::{reflection::PredicateReflection, Predicate};
 use std::fmt::Display;
 
+/// Predicates implementing stopping conditions.
+///
+/// The implementation of [layered label propagation](super::llp) requires a
+/// [predicate](Predicate) to stop the algorithm. This module provides a few
+/// such predicates: they evaluate to true if the updates should be stopped.
+///
+/// You can combine the predicates using the `and` and `or` methods provided by
+/// the [Predicate](Predicate) trait, as in
+/// ```
+/// let mut predicate = MinGain::try_from(0.001)?.boxed();
+/// predicate = predicate.or(MaxUpdates { max_updates }).boxed();
+/// ```
+
 pub struct PredParams {
     pub num_nodes: usize,
     pub num_arcs: u64,
@@ -17,9 +30,10 @@ pub struct PredParams {
     pub update: usize,
 }
 
+/// Stop after at most the provided number of updates for a given ɣ.
 #[derive(Debug, Clone)]
 pub struct MaxUpdates {
-    pub max_updates: usize,
+    max_updates: usize,
 }
 
 impl MaxUpdates {
@@ -56,13 +70,17 @@ impl Display for MaxUpdates {
 impl PredicateReflection for MaxUpdates {}
 impl Predicate<PredParams> for MaxUpdates {
     fn eval(&self, pred_params: &PredParams) -> bool {
-        pred_params.update >= self.max_updates
+        pred_params.update + 1 >= self.max_updates
     }
 }
 
 #[derive(Debug, Clone)]
+/// Stop if the gain of the objective function is below the given threshold.
+///
+/// The [default threshold](Self::DEFAULT_THRESHOLD) is the same as that
+/// of the Java implementation.
 pub struct MinGain {
-    pub threshold: f64,
+    threshold: f64,
 }
 
 impl MinGain {
@@ -105,11 +123,13 @@ impl Display for MinGain {
 impl PredicateReflection for MinGain {}
 impl Predicate<PredParams> for MinGain {
     fn eval(&self, pred_params: &PredParams) -> bool {
-        pred_params.gain < self.threshold
+        pred_params.gain <= self.threshold
     }
 }
 
 #[derive(Debug, Clone, Default)]
+/// Stop after the number of modified nodes falls below the square root of the
+/// number of nodes.
 pub struct MinModified {}
 
 impl Display for MinModified {

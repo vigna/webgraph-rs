@@ -13,8 +13,9 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use llp::preds::{MaxUpdates, MinGain, MinModified};
-use rayon::prelude::*;
+
 use predicates::prelude::*;
+use rayon::prelude::*;
 use std::io::{BufWriter, Write};
 use std::iter::Iterator;
 use std::path::PathBuf;
@@ -139,7 +140,7 @@ where
     let mut predicate = MinGain::try_from(args.gain_threshold)?.boxed();
 
     if let Some(max_updates) = args.max_updates {
-        predicate = predicate.or(MaxUpdates { max_updates }).boxed();
+        predicate = predicate.or(MaxUpdates::from(max_updates)).boxed();
     }
 
     if args.modified {

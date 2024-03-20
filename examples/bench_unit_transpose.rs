@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
-use webgraph::{algo, prelude::*, transform};
+use webgraph::{prelude::*, transform};
 
 #[derive(Parser, Debug)]
 #[command(about = "Benchmark direct transposition and labeled transposition on a unit graph.", long_about = None)]

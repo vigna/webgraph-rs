@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Algorithmic
+//! Algorithmic utilities.
 
 mod bfs_order;
 pub use bfs_order::BfsOrder;
