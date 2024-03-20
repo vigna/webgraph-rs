@@ -211,7 +211,9 @@ pub fn layered_label_propagation(
             info!("Gain: {}", gain);
             info!("Modified: {}", modified.load(Ordering::Relaxed),);
 
-            if gain < 0.001 || modified.load(Ordering::Relaxed) == 0 {
+            // Note that Java uses 0.001, but that just seems to lead
+            // to long runs with no improvement.
+            if gain < 0.01 || modified.load(Ordering::Relaxed) == 0 {
                 break;
             }
         }
@@ -275,6 +277,8 @@ pub fn layered_label_propagation(
         .context("Could not load labels from best gamma")?
         .to_vec();
 
+    gamma_pl.start("Combining labels...");
+
     for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
         let labels =
@@ -289,7 +293,9 @@ pub fn layered_label_propagation(
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);
+        gamma_pl.update_and_display();
     }
+    gamma_pl.done();
 
     Ok(result_labels.into_boxed_slice())
 }
