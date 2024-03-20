@@ -246,21 +246,18 @@ pub trait SequentialLabeling {
             assert_eq!(num_arcs_hint, num_arcs as u64);
         }
 
+        let (tx, rx) = std::sync::mpsc::channel();
         thread_pool.scope(|scope| {
-            let mut res = Vec::with_capacity(num_scoped_threads);
             for _ in 0..num_scoped_threads {
                 // create a channel to receive the result
-                let (tx, rx) = std::sync::mpsc::channel();
-                res.push(rx);
 
                 // create some references so that we can share them across threads
                 let pl_lock = &pl_lock;
                 let next_node_next_arc = &next_node_next_arc;
                 let func = &func;
-                let reduce = &reduce;
+                let tx = &tx;
 
                 scope.spawn(move |_| {
-                    let mut result = T::default();
                     loop {
                         let (start_pos, end_pos);
                         {
@@ -282,9 +279,9 @@ pub trait SequentialLabeling {
                             *next_node_next_arc = (next_node, next_arc);
                         }
 
-                        // exit if done
                         // apply the function and reduce the result
-                        result = reduce(result, func(start_pos..end_pos));
+                        tx.send(func(start_pos..end_pos)).unwrap();
+
                         // update the progress logger if specified
                         if let Some(pl_lock) = pl_lock {
                             pl_lock
@@ -293,18 +290,11 @@ pub trait SequentialLabeling {
                                 .update_with_count((start_pos..end_pos).len());
                         }
                     }
-                    // comunicate back that the thread finished
-                    tx.send(result).unwrap();
                 });
             }
-
-            // reduce the results
-            let mut result = T::default();
-            for rx in res {
-                result = reduce(result, rx.recv().unwrap());
-            }
-            result
-        })
+        });
+        drop(tx);
+        rx.iter().fold(T::default(), |acc, x| reduce(acc, x))
     }
 }
 

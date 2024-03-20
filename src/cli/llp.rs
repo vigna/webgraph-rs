@@ -119,7 +119,7 @@ where
     )
     .with_context(|| {
         format!(
-            "Could not load cumulative degree function for basename {}",
+            "Could not load degree cumulative function for basename {}",
             args.basename.display()
         )
     })?;
