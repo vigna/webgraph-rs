@@ -256,7 +256,7 @@ pub trait SequentialLabeling {
             }
             drop(tx);
 
-            rx.iter().fold(T::default(), |acc, x| reduce(acc, x))
+            rx.iter().fold(T::default(), reduce)
         })
     }
 }

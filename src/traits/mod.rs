@@ -58,5 +58,5 @@ pub use serde::*;
 pub mod split;
 pub use split::*;
 
-pub mod lender;
-pub use lender::*;
+pub mod lenders;
+pub use lenders::*;

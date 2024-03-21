@@ -38,7 +38,7 @@ use crate::prelude::{Pair, RandomAccessLabeling, SequentialLabeling};
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::labels::{LenderIntoIter, NodeLabelsLender};
+use super::lenders::{LenderIntoIter, NodeLabelsLender};
 
 #[allow(non_camel_case_types)]
 struct this_method_cannot_be_called_use_successors_instead;
