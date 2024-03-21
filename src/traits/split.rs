@@ -5,12 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use lender::{prelude::*, Take};
-
-use super::labels::{RandomAccessLabeling, SequentialLabeling};
-
 pub trait SplitLabeling {
-    type Lender<'a>: Lender
+    type Lender<'a>: lender::Lender
     where
         Self: 'a;
     type IntoIterator<'a>: IntoIterator<Item = Self::Lender<'a>>
@@ -20,7 +16,7 @@ pub trait SplitLabeling {
 }
 
 pub mod seq {
-    use super::*;
+    use crate::prelude::SequentialLabeling;
 
     pub struct Iter<L: lender::Lender> {
         lender: L,
@@ -30,8 +26,8 @@ pub mod seq {
     }
 
     impl<L: lender::Lender + lender::ExactSizeLender> Iter<L> {
-        pub fn new(lender: L, num_nodes: usize, how_many: usize) -> Self {
-            let nodes_per_iter = num_nodes / how_many;
+        pub fn new(lender: L, how_many: usize) -> Self {
+            let nodes_per_iter = lender.len() / how_many;
             Self {
                 lender,
                 nodes_per_iter,
@@ -42,7 +38,7 @@ pub mod seq {
     }
 
     impl<L: lender::Lender + Clone> Iterator for Iter<L> {
-        type Item = Take<L>;
+        type Item = lender::Take<L>;
 
         fn next(&mut self) -> Option<Self::Item> {
             if self.remaining == 0 {
@@ -56,55 +52,50 @@ pub mod seq {
         }
     }
 
-    pub type Lender<'a, S: SequentialLabeling> = Take<<S as SequentialLabeling>::Iterator<'a>>;
-    pub type IntoIterator<'a, S: SequentialLabeling> =
-        Iter<<S as SequentialLabeling>::Iterator<'a>>;
+    pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Iterator<'a>>;
+    pub type IntoIterator<'a, S> = Iter<<S as SequentialLabeling>::Iterator<'a>>;
 }
 
 pub mod ra {
-    use super::*;
-    pub struct SplitIter<L: lender::Lender> {
-        lender: L,
+    use crate::prelude::{RandomAccessLabeling, SequentialLabeling};
+
+    pub struct Iter<'a, R: RandomAccessLabeling> {
+        labeling: &'a R,
         nodes_per_iter: usize,
         how_many: usize,
-        remaining: usize,
+        i: usize,
     }
 
-    pub struct Iter<L: lender::Lender> {
-        lender: L,
-        nodes_per_iter: usize,
-        how_many: usize,
-        remaining: usize,
-    }
-
-    impl<L: lender::Lender + lender::ExactSizeLender> Iter<L> {
-        pub fn new(lender: L, num_nodes: usize, how_many: usize) -> Self {
-            let nodes_per_iter = num_nodes / how_many;
+    impl<'a, R: RandomAccessLabeling> Iter<'a, R> {
+        pub fn new(labeling: &'a R, how_many: usize) -> Self {
+            let nodes_per_iter = labeling.num_nodes() / how_many;
             Self {
-                lender,
+                labeling,
                 nodes_per_iter,
                 how_many,
-                remaining: how_many,
+                i: 0,
             }
         }
     }
 
-    impl<L: lender::Lender + Clone> Iterator for Iter<L> {
-        type Item = Take<L>;
+    impl<'a, R: RandomAccessLabeling> Iterator for Iter<'a, R> {
+        type Item = Lender<'a, R>;
 
         fn next(&mut self) -> Option<Self::Item> {
-            if self.remaining == 0 {
+            use lender::Lender;
+
+            if self.i == self.how_many {
                 return None;
             }
-            if self.remaining != self.how_many {
-                self.lender.advance_by(self.nodes_per_iter).ok()?;
-            }
-            self.remaining -= 1;
-            Some(self.lender.clone().take(self.nodes_per_iter))
+            self.i += 1;
+            Some(
+                self.labeling
+                    .iter_from((self.i - 1) * self.nodes_per_iter)
+                    .take(self.nodes_per_iter),
+            )
         }
     }
 
-    pub type Lender<'a, R: RandomAccessLabeling> = Take<<R as SequentialLabeling>::Iterator<'a>>;
-    pub type IntoIterator<'a, R: RandomAccessLabeling> =
-        Iter<<R as SequentialLabeling>::Iterator<'a>>;
+    pub type Lender<'a, R> = lender::Take<<R as SequentialLabeling>::Iterator<'a>>;
+    pub type IntoIterator<'a, R> = Iter<'a, R>;
 }

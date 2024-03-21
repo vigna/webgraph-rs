@@ -46,6 +46,19 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
     }
 }
 
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SplitLabeling
+    for ArcListGraph<I>
+where
+    <I as std::iter::IntoIterator>::IntoIter: Clone,
+{
+    type Lender<'a> = split::seq::Lender<'a, ArcListGraph<I>> where Self: 'a;
+    type IntoIterator<'a> = split::seq::IntoIterator<'a, ArcListGraph<I>> where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::seq::Iter::new(self.iter(), how_many)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
@@ -104,6 +117,14 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
         }
 
         Some((self.curr_node, Succ { node_iter: self }))
+    }
+}
+
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ExactSizeLender
+    for Iter<L, I>
+{
+    fn len(&self) -> usize {
+        self.num_nodes - self.curr_node.wrapping_add(1)
     }
 }
 

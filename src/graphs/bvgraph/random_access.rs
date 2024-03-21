@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::traits::BE;
-use lender::{ExactSizeLender, IntoLender};
+use lender::IntoLender;
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -45,7 +45,7 @@ where
     type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        split::ra::Iter::new(self.iter(), self.num_nodes(), how_many)
+        split::ra::Iter::new(&self, how_many)
     }
 }
 
