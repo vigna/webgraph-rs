@@ -85,16 +85,18 @@ pub trait SequentialLabeling {
     /// starting point of the iteration
     fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
 
-    /// Given a labeling, applies `func` to each chunk of nodes of size
-    /// `node_granularity` in parallel, and reduce the results using `reduce`.
+    /// Applies `func` to each chunk of nodes of size `node_granularity` in
+    /// parallel, and folds the results using `fold`.
     ///
     /// # Arguments
+    ///
     /// * `func` - The function to apply to each chunk of nodes.
-    /// * `reduce` - The function to reduce the results obtained from each
-    ///   chunk.
+    /// * `fold` - The function to fold the results obtained from each chunk. It
+    ///    will be passed to the [`Iterator::fold`].
     /// * `node_granularity` - The number of nodes to process in each chunk.
-    /// * `thread_pool` - The thread pool to use.
-    /// * `pl` - An optional mutable references to a progress logger.
+    /// * `thread_pool` - The thread pool to use. The maximum level of
+    ///   parallelism is given by the number of threads in the pool.
+    /// * `pl` - An optional mutable reference to a progress logger.
 
     fn par_node_apply<F, R, T, A>(
         &self,
@@ -157,23 +159,25 @@ pub trait SequentialLabeling {
         })
     }
 
-    /// Given a labeling, applies `func` to each chunk of nodes containing
-    /// approximately `arc_granularity` arcs in parallel, and reduce the results
-    /// using `reduce`. You have to provide the degree cumulative function of
-    /// the graph (i.e., the sequence 0, *d*₀, *d*₀ + *d*₁, ..., *a*, where *a*
-    /// is the number of arcs in the graph) in a form that makes it possible to
-    /// compute successors (for example, using the suitable `webgraph build`
-    /// command).
+    /// Applies `func` to each chunk of nodes containing approximately
+    /// `arc_granularity` arcs in parallel, and folds the results using `fold`.
+    /// You have to provide the degree cumulative function of the graph (i.e.,
+    /// the sequence 0, *d*₀, *d*₀ + *d*₁, ..., *a*, where *a* is the number of
+    /// arcs in the graph) in a form that makes it possible to compute
+    /// successors (for example, using the suitable `webgraph build` command).
     ///
     /// # Arguments
+    ///
     /// * `func` - The function to apply to each chunk of nodes.
-    /// * `reduce` - The function to reduce the results obtained from each
-    ///   chunk.
+    /// * `fold` - The function to fold the results obtained from each chunk.
+    ///   It will be passed to the [`Iterator::fold`].
     /// * `arc_granularity` - The tentative number of arcs to process in each
     ///   chunk.
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
-    /// * `thread_pool` - The thread pool to use. The level of parallei
-    /// * `pl` - An optional mutable references to a progress logger.
+    /// * `thread_pool` - The thread pool to use. The maximum level of
+    ///   parallelism is given by the number of threads in the pool.
+    /// * `pl` - An optional mutable reference to a progress logger.
+
     fn par_apply<F, R, T, A>(
         &self,
         func: F,

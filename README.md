@@ -8,47 +8,60 @@
 [![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
 [![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
 
-A Rust implementation of the [WebGraph framework](https://webgraph.di.unimi.it/)
-for graph compression.
+A Rust implementation of the [WebGraph framework] for graph compression.
 
 ## Quick Setup
 
 Assuming you have built all binaries, you will first need a graph in BV format,
-for example downloading it from the [LAW website](http://law.di.unimi.it/). You
-will need the `.graph` file (the bitstream containing a compressed representation
-of the graph), the `.properties` file (metadata) and the `.offsets` file (a
-bitstream containing pointers into the graph bitstream). As a first step, if
-you need random access to the successors of a node, you need
-to build an [Elias--Fano](sux::dict::EliasFano) representation of the
-offsets with the command `build_ef` (this part can be skipped if you just need
-sequential access), which will generate an `.ef` file. Then, to load a graph
-with basename `BASENAME` you need to call
+for example downloading it from the [LAW website]. You will need the `.graph`
+file (the bitstream containing a compressed representation of the graph), the
+`.properties` file (metadata) and the `.offsets` file (a bitstream containing
+pointers into the graph bitstream). As a first step, if you need random access
+to the successors of a node, you need to build an [Elias–Fano] representation of
+the offsets with the command `build_ef` (this part can be skipped if you just
+need sequential access), which will generate an `.ef` file. Then, to load a
+graph with basename `BASENAME` you need to call
 
 ```[ignore]
 let graph = BVGraph::with_basename("BASENAME").load()?;
 ```
 
-The [`with_basename`] method returns a [`LoadConfig`] instance that can be further
-customized, selecting endianness, type of memory access, etc. By default you
-will get big endianness, memory mapping for both the graph and the offsets, and
-dynamic code dispatch.
+The [`with_basename`] method returns a [`LoadConfig`] instance that can be
+further customized, selecting endianness, type of memory access, etc. By default
+you will get big endianness, memory mapping for both the graph and the offsets,
+and dynamic code dispatch.
 
-Once you loaded the [graph](), you can [retrieve the successors of a node]()
-or [iterate on the whole graph]().
+Once you loaded the [graph], you can [retrieve the successors of a node] or
+[iterate on the whole graph].
 
 ## More Options
 
-- By starting from the [`BVGraphSeq`] class you can obtain an instance that
-does not need the `.ef` file, but provides only [iteration]().
+- By starting from the [`BVGraphSeq`] class you can obtain an instance that does
+not need the `.ef` file, but provides only [iteration].
 
-- Graphs can be labeled by [zipping]() then together with a [labeling](). In fact,
+- Graphs can be labeled by [zipping] then together with a [labeling]. In fact,
   graphs are just labelings with `usize` labels.
 
 ## Operating on Graphs
 
-There are many operations available on graphs, such as [`transpose`] or [`simplify`].
+There are many operations available on graphs, such as [`transpose`] and
+[`simplify`]. You can [permute] a graph.
 
 ## Acknowledgments
 
-This software has been partially supported by project SERICS (PE00000014) under the NRRP MUR program funded by the EU - NGEU,
-and by project ANR COREGRAPHIE, grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
+This software has been partially supported by project SERICS (PE00000014) under
+the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
+grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
+
+[`transpose`]: <https://docs.rs/webgraph/latest/webgraph/transform/transpose/index.html>
+[`simplify`]: <https://docs.rs/webgraph/latest/webgraph/transform/simplify/index.html>
+[`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraph.html#method.with_basename>
+[`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraphSeq.html>
+[`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/struct.LoadConfig.html>
+[iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/trait/SequentialLabeling.html#method.iter>
+[iteration]: <https://docs.rs/webgraph/latest/webgraph/trait/SequentialLabeling.html#method.iter>
+[retrieve the successors of a node]: <https://docs.rs/webgraph/latest/webgraph/trait/RandomAccessGraph.html#method.successors>
+[LAW website]: <http://law.di.unimi.it/>
+[Elias–Fano]: <sux::dict::EliasFano>
+[WebGraph framework]: <https://webgraph.di.unimi.it/>
+[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/permute/index.html>
