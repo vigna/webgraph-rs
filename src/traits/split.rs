@@ -52,6 +52,12 @@ pub mod seq {
         }
     }
 
+    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {
+        fn len(&self) -> usize {
+            self.remaining
+        }
+    }
+
     pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Iterator<'a>>;
     pub type IntoIterator<'a, S> = Iter<<S as SequentialLabeling>::Iterator<'a>>;
 }
@@ -93,6 +99,12 @@ pub mod ra {
                     .iter_from((self.i - 1) * self.nodes_per_iter)
                     .take(self.nodes_per_iter),
             )
+        }
+    }
+
+    impl<'a, R: RandomAccessLabeling> ExactSizeIterator for Iter<'a, R> {
+        fn len(&self) -> usize {
+            self.how_many - self.i
         }
     }
 
