@@ -247,7 +247,7 @@ impl BVComp<()> {
                             written_bits += bvcomp.push(successors).unwrap();
                         }];
                         let arcs = bvcomp.arcs;
-                        written_bits += bvcomp.flush().unwrap();
+                        // TODO written_bits += bvcomp.flush().unwrap();
 
                         log::info!(
                             "Finished Compression thread {} and wrote {} bits [{}..{})",
