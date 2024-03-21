@@ -82,12 +82,12 @@ where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
     BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
 {
-    let writer = <DynCodesEncoder<E, _>>::new(
+    let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
         <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(
             tmp_path.as_ref(),
         )?))),
         &compression_flags,
-    );
+    ));
     let mut bvcomp = BVComp::new(
         writer,
         compression_flags.compression_window,
@@ -141,4 +141,102 @@ where
     }
     pl.done();
     Ok(())
+}
+
+pub struct EncoderValidator<E: Encode> {
+    encoder: E,
+    start_nodes: usize,
+    end_nodes: usize,
+    flush: bool,
+    // encoder has to be flushed, while estimator does not
+    is_estimator: bool,
+}
+
+impl<E: Encode> EncoderValidator<E> {
+    pub fn new(encoder: E) -> Self {
+        Self {
+            encoder,
+            start_nodes: 0,
+            end_nodes: 0,
+            flush: false,
+            is_estimator: false,
+        }
+    }
+    pub fn new_estimator(encoder: E) -> Self {
+        Self {
+            encoder,
+            start_nodes: 0,
+            end_nodes: 0,
+            flush: false,
+            is_estimator: true,
+        }
+    }
+}
+
+impl<E: Encode> core::ops::Drop for EncoderValidator<E> {
+    fn drop(&mut self) {
+        assert_eq!(self.start_nodes, self.end_nodes);
+        if !self.is_estimator {
+            assert!(self.flush, "flush not called");
+        }
+    }
+}
+
+impl<E: Encode> Encode for EncoderValidator<E> {
+    type Error = E::Error;
+    fn start_node(&mut self, node: usize) -> std::prelude::v1::Result<usize, Self::Error> {
+        assert_eq!(self.start_nodes, self.end_nodes);
+        self.start_nodes += 1;
+        self.encoder.start_node(node)
+    }
+    fn end_node(&mut self, node: usize) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.end_nodes += 1;
+        assert_eq!(self.start_nodes, self.end_nodes);
+        self.encoder.end_node(node)
+    }
+    fn flush(&mut self) -> std::prelude::v1::Result<usize, Self::Error> {
+        assert!(!self.flush, "flush called twice");
+        self.flush = true;
+        self.encoder.flush()
+    }
+    fn write_outdegree(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_outdegree(value)
+    }
+    fn write_reference_offset(
+        &mut self,
+        value: u64,
+    ) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_reference_offset(value)
+    }
+    fn write_block_count(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_block_count(value)
+    }
+    fn write_block(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_block(value)
+    }
+    fn write_interval_count(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_interval_count(value)
+    }
+    fn write_interval_start(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_interval_start(value)
+    }
+    fn write_interval_len(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_interval_len(value)
+    }
+    fn write_first_residual(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_first_residual(value)
+    }
+    fn write_residual(&mut self, value: u64) -> std::prelude::v1::Result<usize, Self::Error> {
+        self.encoder.write_residual(value)
+    }
+}
+
+impl<E: MeasurableEncoder> MeasurableEncoder for EncoderValidator<E> {
+    type Estimator<'a> = EncoderValidator<E::Estimator<'a>>
+    where
+        Self: 'a;
+
+    fn estimator(&mut self) -> Self::Estimator<'_> {
+        EncoderValidator::new_estimator(self.encoder.estimator())
+    }
 }
