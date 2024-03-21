@@ -150,12 +150,12 @@ pub trait SequentialLabeling {
         let num_nodes = self.num_nodes();
         let num_scoped_threads = thread_pool
             .current_num_threads()
-            .min(num_nodes / node_granularity + 1)
-            .max(2)
-            - 1;
+            .min(num_nodes / node_granularity)
+            .max(1);
+
         let next_node = AtomicUsize::new(0);
 
-        thread_pool.scope(|scope| {
+        thread_pool.in_place_scope(|scope| {
             let mut res = Vec::with_capacity(num_scoped_threads);
             for _ in 0..num_scoped_threads {
                 // create a channel to receive the result
@@ -217,7 +217,7 @@ pub trait SequentialLabeling {
     /// * `arc_granularity` - The tentative number of arcs to process in each
     ///   chunk.
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
-    /// * `thread_pool` - The thread pool to use.
+    /// * `thread_pool` - The thread pool to use. The level of parallei
     /// * `pl` - An optional mutable references to a progress logger.
     fn par_apply<F, R, T>(
         &self,
@@ -235,11 +235,11 @@ pub trait SequentialLabeling {
     {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
+        let num_arcs = self.num_arcs_hint().unwrap();
         let num_scoped_threads = thread_pool
             .current_num_threads()
-            .min(num_nodes / arc_granularity + 1)
-            .max(2)
-            - 1;
+            .min((num_arcs / arc_granularity as u64) as usize)
+            .max(1);
         let next_node_next_arc = std::sync::Mutex::new((0, 0));
         let num_arcs = deg_cumul.get(num_nodes);
         if let Some(num_arcs_hint) = self.num_arcs_hint() {
@@ -247,7 +247,7 @@ pub trait SequentialLabeling {
         }
 
         let (tx, rx) = std::sync::mpsc::channel();
-        thread_pool.scope(|scope| {
+        thread_pool.in_place_scope(|scope| {
             for _ in 0..num_scoped_threads {
                 // create a channel to receive the result
 
@@ -255,7 +255,7 @@ pub trait SequentialLabeling {
                 let pl_lock = &pl_lock;
                 let next_node_next_arc = &next_node_next_arc;
                 let func = &func;
-                let tx = &tx;
+                let tx = tx.clone();
 
                 scope.spawn(move |_| {
                     loop {
@@ -292,9 +292,10 @@ pub trait SequentialLabeling {
                     }
                 });
             }
-        });
-        drop(tx);
-        rx.iter().fold(T::default(), |acc, x| reduce(acc, x))
+            drop(tx);
+
+            rx.iter().fold(T::default(), |acc, x| reduce(acc, x))
+        })
     }
 }
 
