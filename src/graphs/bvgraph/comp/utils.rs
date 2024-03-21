@@ -246,6 +246,9 @@ impl BVComp<()> {
                         for_! [(_node_id, successors) in thread_iter {
                             written_bits += bvcomp.push(successors).unwrap();
                         }];
+                        let arcs = bvcomp.arcs;
+                        written_bits += bvcomp.flush().unwrap();
+
                         log::info!(
                             "Finished Compression thread {} and wrote {} bits [{}..{})",
                             thread_id,
@@ -254,7 +257,7 @@ impl BVComp<()> {
                             nodes_per_thread * (thread_id + 1),
                         );
 
-                        (written_bits, bvcomp.arcs)
+                        (written_bits, arcs)
                     });
                     {
                         *(sub_handles[thread_id]).lock().unwrap() = Some(handle);

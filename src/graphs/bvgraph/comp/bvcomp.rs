@@ -91,6 +91,7 @@ impl Compressor {
         min_interval_length: usize,
     ) -> Result<usize, E::Error> {
         let mut written_bits = 0;
+        written_bits += writer.start_node(curr_node)?;
         // write the outdegree
         written_bits += writer.write_outdegree(self.outdegree as u64)?;
         // write the references
@@ -139,6 +140,7 @@ impl Compressor {
             }
         }
 
+        written_bits += writer.end_node(curr_node)?;
         Ok(written_bits)
     }
 
@@ -445,10 +447,10 @@ impl<E: MeasurableEncoder> BVComp<E> {
         Ok(count)
     }
 
-    /// Consume the compressor return the inner writer after flushing it.
-    pub fn flush(mut self) -> Result<E, E::Error> {
-        self.encoder.flush()?;
-        Ok(self.encoder)
+    /// Consume the compressor return the number of bits written by
+    /// flushing the encoder (0 for instantaneous codes)
+    pub fn flush(mut self) -> Result<usize, E::Error> {
+        self.encoder.flush()
     }
 }
 

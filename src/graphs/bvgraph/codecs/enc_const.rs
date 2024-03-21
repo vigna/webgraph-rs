@@ -98,13 +98,13 @@ impl<
     type Error = <CW as BitWrite<E>>::Error;
 
     #[inline(always)]
-    fn start_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn start_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
-    fn end_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn end_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
@@ -221,13 +221,13 @@ impl<
     type Error = Infallible;
 
     #[inline(always)]
-    fn start_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn start_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
-    fn end_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn end_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]

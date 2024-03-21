@@ -65,7 +65,7 @@ use impl_tools::autoimpl;
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encode {
     type Error: Error + Send + Sync + 'static;
-    fn start_node(node: usize) -> Result<(), Self::Error>;
+    fn start_node(&mut self, node: usize) -> Result<usize, Self::Error>;
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error>;
@@ -76,7 +76,7 @@ pub trait Encode {
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn flush(&mut self) -> Result<usize, Self::Error>;
-    fn end_node(node: usize) -> Result<(), Self::Error>;
+    fn end_node(&mut self, node: usize) -> Result<usize, Self::Error>;
 }
 
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
