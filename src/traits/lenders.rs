@@ -61,6 +61,14 @@ where
     type IntoIterator = <A as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
+impl<'lend, 's, T> NodeLabelsLender<'lend> for lender::Chunk<'s, T>
+where
+    T: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = <T as NodeLabelsLender<'lend>>::Label;
+    type IntoIterator = <T as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
 impl<'lend, L, F, L2> NodeLabelsLender<'lend> for lender::Map<L, F>
 where
     F: for<'all> lender::higher_order::FnMutHKA<
