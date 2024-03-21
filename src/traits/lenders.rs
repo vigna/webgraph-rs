@@ -116,6 +116,15 @@ where
     type IntoIterator = L2;
 }
 
+impl<'lend, L, F> NodeLabelsLender<'lend> for lender::Mutate<L, F>
+where
+    F: FnMut(&mut Lend<'_, L>),
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
 impl<'lend, L> NodeLabelsLender<'lend> for lender::StepBy<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
