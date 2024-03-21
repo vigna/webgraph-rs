@@ -44,6 +44,18 @@ impl<'a, G: SequentialGraph> SequentialLabeling for PermutedGraph<'a, G> {
     }
 }
 
+impl<'b, G: SequentialGraph> SplitLabeling for PermutedGraph<'b, G>
+where
+    for<'a> <G as SequentialLabeling>::Iterator<'a>: Clone + ExactSizeLender,
+{
+    type Lender<'a> = split::seq::Lender<'a, PermutedGraph<'b, G> > where Self: 'a;
+    type IntoIterator<'a> = split::seq::IntoIterator<'a, PermutedGraph<'b, G>> where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::seq::Iter::new(self.iter(), how_many)
+    }
+}
+
 impl<'a, G: SequentialGraph> SequentialGraph for PermutedGraph<'a, G> {}
 
 impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
@@ -56,30 +68,26 @@ impl<'a, 'b, G: SequentialGraph> IntoLender for &'b PermutedGraph<'a, G> {
 }
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
+#[derive(Debug, Clone)]
 pub struct Iter<'node, I> {
     iter: I,
     perm: &'node [usize],
 }
 
-impl<'node, 'succ, I> NodeLabelsLender<'succ> for Iter<'node, I>
-where
-    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+impl<'node, 'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>>
+    NodeLabelsLender<'succ> for Iter<'node, I>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>>;
 }
 
-impl<'node, 'succ, I> Lending<'succ> for Iter<'node, I>
-where
-    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+impl<'node, 'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lending<'succ>
+    for Iter<'node, I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<'a, L> Lender for Iter<'a, L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-{
+impl<'a, L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for Iter<'a, L> {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
@@ -92,6 +100,14 @@ where
                 },
             )
         })
+    }
+}
+
+impl<'a, L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>> ExactSizeLender
+    for Iter<'a, L>
+{
+    fn len(&self) -> usize {
+        self.iter.len()
     }
 }
 
