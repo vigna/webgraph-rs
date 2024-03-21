@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::traits::BE;
-use lender::IntoLender;
+use lender::{ExactSizeLender, IntoLender};
 use std::iter::Iterator;
 use std::path::PathBuf;
 
@@ -34,6 +34,18 @@ impl BVGraph<()> {
             offsets_load_flags: Flags::empty(),
             _marker: std::marker::PhantomData,
         }
+    }
+}
+
+impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
+where
+    for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Clone,
+{
+    type Lender<'a> = split::ra::Lender<'a, BVGraph<F>> where Self: 'a;
+    type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self.iter(), self.num_nodes(), how_many)
     }
 }
 

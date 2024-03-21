@@ -40,7 +40,17 @@ impl BVGraphSeq<()> {
     }
 }
 
-impl<F: SequentialDecoderFactory> SeqSplitMarker for BVGraphSeq<F> {}
+impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
+where
+    for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone,
+{
+    type Lender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
+    type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
+    }
+}
 
 impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     type Label = usize;
