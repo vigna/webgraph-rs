@@ -7,6 +7,6 @@
 
 pub trait SplitIterator {
     type InnerIter: Iterator;
-    type SplitIter: IntoIterator<Item=Self::InnerIter>;
+    type SplitIter: IntoIterator<Item = Self::InnerIter>;
     fn split(self, n: usize) -> Self::SplitIter;
 }

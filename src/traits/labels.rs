@@ -61,6 +61,14 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     type IntoIterator: IntoIterator<Item = Self::Label>;
 }
 
+impl<'lend, L> NodeLabelsLender<'lend> for lender::Take<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
 /// Convenience type alias for the associated type `Label` of a [`NodeLabelsLender`].
 pub type LenderLabel<'lend, L> = <L as NodeLabelsLender<'lend>>::Label;
 
@@ -119,7 +127,7 @@ pub trait SequentialLabeling {
     ///
     /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
     /// the node id of the first node returned by the iterator, but just the
-    /// starting point of the iteration.
+    /// starting point of the iteration
     fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
 
     /// Given a labeling, applies `func` to each chunk of nodes of size
