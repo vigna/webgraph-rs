@@ -11,6 +11,7 @@ use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use std::path::PathBuf;
+use tempfile::Builder;
 
 pub const COMMAND_NAME: &str = "recompress";
 
@@ -39,6 +40,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
+    let dir = Builder::new().prefix("Recompress").tempdir()?;
     let target_endianness = args.ca.endianess.clone();
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(any(
@@ -56,7 +58,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
                 seq_graph.num_nodes(),
                 args.ca.into(),
                 args.num_cpus.num_cpus,
-                temp_dir(args.pa.temp_dir)?,
+                dir,
                 &target_endianness.unwrap_or_else(|| BE::NAME.into()),
             )?;
         }
@@ -75,7 +77,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
                 seq_graph.num_nodes(),
                 args.ca.into(),
                 args.num_cpus.num_cpus,
-                temp_dir(args.pa.temp_dir)?,
+                dir,
                 &target_endianness.unwrap_or_else(|| LE::NAME.into()),
             )?;
         }

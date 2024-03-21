@@ -7,16 +7,15 @@
  */
 
 use super::utils::*;
-use crate::graphs::arc_list_graph;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
-use lender::*;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
+use tempfile::Builder;
 
 pub const COMMAND_NAME: &str = "perm";
 
@@ -56,32 +55,19 @@ fn permute<E: Endianness>(
     args: CliArgs,
     graph: &impl SequentialGraph,
     perm: &[usize],
-    num_nodes: usize,
 ) -> Result<()> {
-    // create a stream where to dump the sorted pairs
-    let mut sort_pairs = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)?)?;
-
-    // dump the paris
-    PermutedGraph { graph, perm }.iter().for_each(|(x, succ)| {
-        succ.into_iter().for_each(|s| {
-            sort_pairs.push(x, s).unwrap();
-        })
-    });
-    // get a graph on the sorted data
-    let edges = sort_pairs
-        .iter()
-        .context("Could not read arcs")?
-        .map(|(src, dst, _)| (src, dst));
-    let g = Left(arc_list_graph::ArcListGraph::new(num_nodes, edges));
+    let g = crate::prelude::permute(graph, perm, args.pa.batch_size)?;
     // compress it
     let target_endianness = args.ca.endianess.clone();
+    let dir = Builder::new().prefix("CompressPermuted").tempdir()?;
+
     BVComp::parallel_endianness(
         args.dest,
         &g,
         g.num_nodes(),
         args.ca.into(),
         args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir)?,
+        dir,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;
 
@@ -128,7 +114,7 @@ where
     if args.epserde {
         let perm = <Vec<usize>>::mmap(&args.perm, deser::Flags::default())
             .with_context(|| format!("Could not mmap permutation from {}", args.perm.display()))?;
-        permute::<E>(args, &graph, perm.as_ref(), num_nodes)
+        permute::<E>(args, &graph, perm.as_ref())
             .context("Could not compute or write permutation")?;
     } else {
         let mut file = BufReader::new(
@@ -150,7 +136,7 @@ where
             perm_pl.light_update();
         }
         perm_pl.done();
-        permute::<E>(args, &graph, perm.as_ref(), num_nodes)
+        permute::<E>(args, &graph, perm.as_ref())
             .context("Could not compute or write permutation")?;
     }
     glob_pl.done();

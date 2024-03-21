@@ -17,6 +17,7 @@ use rayon::prelude::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
+use tempfile::Builder;
 
 pub const COMMAND_NAME: &str = "from-csv";
 
@@ -53,8 +54,9 @@ pub fn cli(command: Command) -> Command {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
+    let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
 
-    let mut group_by = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)?)?;
+    let mut group_by = SortPairs::new(args.pa.batch_size, dir)?;
     let mut nodes = BTreeMap::new();
 
     // read the csv and put it inside the sort pairs
@@ -121,13 +123,14 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     ));
     // compress it
     let target_endianness = args.ca.endianess.clone();
+    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
     BVComp::parallel_endianness(
         &args.basename,
         &g,
         args.num_nodes,
         args.ca.into(),
         args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir)?,
+        dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
     .unwrap();
