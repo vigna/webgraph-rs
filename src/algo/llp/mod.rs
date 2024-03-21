@@ -243,7 +243,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                     }
                     local_obj_func
                 },
-                |delta_obj_func_0, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
+                |delta_obj_func_0: f64, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
                 granularity,
                 deg_cumul,
                 &thread_pool,

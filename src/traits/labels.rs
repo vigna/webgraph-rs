@@ -96,18 +96,19 @@ pub trait SequentialLabeling {
     /// * `thread_pool` - The thread pool to use.
     /// * `pl` - An optional mutable references to a progress logger.
 
-    fn par_node_apply<F, R, T>(
+    fn par_node_apply<F, R, T, A>(
         &self,
         func: F,
-        reduce: R,
+        fold: R,
         node_granularity: usize,
         thread_pool: &rayon::ThreadPool,
         pl: Option<&mut ProgressLogger>,
-    ) -> T
+    ) -> A
     where
         F: Fn(Range<usize>) -> T + Send + Sync,
-        R: Fn(T, T) -> T + Send + Sync,
-        T: Send + Default,
+        R: Fn(A, T) -> A + Send + Sync,
+        T: Send,
+        A: Default + Send,
     {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
@@ -118,21 +119,17 @@ pub trait SequentialLabeling {
 
         let next_node = AtomicUsize::new(0);
 
+        // create a channel to receive the result
+        let (tx, rx) = std::sync::mpsc::channel();
         thread_pool.in_place_scope(|scope| {
-            let mut res = Vec::with_capacity(num_scoped_threads);
             for _ in 0..num_scoped_threads {
-                // create a channel to receive the result
-                let (tx, rx) = std::sync::mpsc::channel();
-                res.push(rx);
-
                 // create some references so that we can share them across threads
                 let pl_lock = &pl_lock;
                 let next_node = &next_node;
                 let func = &func;
-                let reduce = &reduce;
+                let tx = tx.clone();
 
                 scope.spawn(move |_| {
-                    let mut result = T::default();
                     loop {
                         // compute the next chunk of nodes to process
                         let start_pos = next_node.fetch_add(node_granularity, Ordering::Relaxed);
@@ -141,8 +138,9 @@ pub trait SequentialLabeling {
                         if start_pos >= num_nodes {
                             break;
                         }
-                        // apply the function and reduce the result
-                        result = reduce(result, func(start_pos..end_pos));
+                        // apply the function and send the result
+                        tx.send(func(start_pos..end_pos)).unwrap();
+
                         // update the progress logger if specified
                         if let Some(pl_lock) = pl_lock {
                             pl_lock
@@ -151,17 +149,11 @@ pub trait SequentialLabeling {
                                 .update_with_count((start_pos..end_pos).len());
                         }
                     }
-                    // comunicate back that the thread finished
-                    tx.send(result).unwrap();
                 });
             }
+            drop(tx);
 
-            // reduce the results
-            let mut result = T::default();
-            for rx in res {
-                result = reduce(result, rx.recv().unwrap());
-            }
-            result
+            rx.iter().fold(A::default(), fold)
         })
     }
 
@@ -182,19 +174,20 @@ pub trait SequentialLabeling {
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
     /// * `thread_pool` - The thread pool to use. The level of parallei
     /// * `pl` - An optional mutable references to a progress logger.
-    fn par_apply<F, R, T>(
+    fn par_apply<F, R, T, A>(
         &self,
         func: F,
-        reduce: R,
+        fold: R,
         arc_granularity: usize,
         deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
         thread_pool: &rayon::ThreadPool,
         pl: Option<&mut ProgressLogger>,
-    ) -> T
+    ) -> A
     where
         F: Fn(Range<usize>) -> T + Send + Sync,
-        R: Fn(T, T) -> T + Send + Sync,
-        T: Send + Default,
+        R: Fn(A, T) -> A + Send + Sync,
+        T: Send,
+        A: Default + Send,
     {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
@@ -209,11 +202,10 @@ pub trait SequentialLabeling {
             assert_eq!(num_arcs_hint, num_arcs as u64);
         }
 
+        // create a channel to receive the result
         let (tx, rx) = std::sync::mpsc::channel();
         thread_pool.in_place_scope(|scope| {
             for _ in 0..num_scoped_threads {
-                // create a channel to receive the result
-
                 // create some references so that we can share them across threads
                 let pl_lock = &pl_lock;
                 let next_node_next_arc = &next_node_next_arc;
@@ -242,7 +234,7 @@ pub trait SequentialLabeling {
                             *next_node_next_arc = (next_node, next_arc);
                         }
 
-                        // apply the function and reduce the result
+                        // apply the function and send the result
                         tx.send(func(start_pos..end_pos)).unwrap();
 
                         // update the progress logger if specified
@@ -257,7 +249,7 @@ pub trait SequentialLabeling {
             }
             drop(tx);
 
-            rx.iter().fold(T::default(), reduce)
+            rx.iter().fold(A::default(), fold)
         })
     }
 }
