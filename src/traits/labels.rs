@@ -24,7 +24,6 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use super::split::SplitLabeling;
 use super::NodeLabelsLender;
 
 use core::{
@@ -268,7 +267,7 @@ pub trait SequentialLabeling {
             }
             drop(tx);
 
-            rx.iter().fold(T::default(), |acc, x| reduce(acc, x))
+            rx.iter().fold(T::default(), reduce)
         })
     }
 }
