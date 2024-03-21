@@ -11,14 +11,15 @@ fn main() {
             .parse()
             .unwrap(),
     );
+    println!("start");
+    let cap = std::env::var("CAPACITY").unwrap().parse().unwrap();
+    let mut values = vec![1; cap];
+    println!("done :0x{:x}", values.as_ptr() as usize);
 
-    let mut values = vec![1; std::env::var("CAPACITY").unwrap().parse().unwrap()];
-    println!("done");
-
-    for _ in 0..values.capacity() {
-        values.push(black_box(rng.next_u64()));
+    for i in 0..cap {
+        values[i] = black_box(rng.next_u64());
     }
-    println!("filled");
+    println!("filled :0x{:x}", values.as_ptr() as usize);
 
     values.par_sort_unstable();
     println!("sorted");
