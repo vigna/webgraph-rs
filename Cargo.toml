@@ -23,7 +23,7 @@ anyhow = { version = "1.0.79", features=["backtrace"]}
 java-properties = "2.0.0"
 mmap-rs = "0.6.1"
 num_cpus = "1.16.0"
-epserde = "0.4.0"
+epserde = "0.5.0"
 sux = "0.3.1"
 dsi-bitstream = "0.4.0"
 dsi-progress-logger = "0.2.3"
