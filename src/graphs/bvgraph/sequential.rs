@@ -40,6 +40,8 @@ impl BVGraphSeq<()> {
     }
 }
 
+impl<F: SequentialDecoderFactory> SeqSplitMarker for BVGraphSeq<F> {}
+
 impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     type Label = usize;
     type Iterator<'a> = Iter<F::Decoder<'a>>

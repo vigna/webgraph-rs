@@ -78,16 +78,6 @@ pub trait SequentialLabeling {
         self.iter_from(0)
     }
 
-    fn split_iter(&self, how_many: usize) -> impl IntoIterator {
-        let num_nodes = self.num_nodes();
-        let chunk_size = (num_nodes + how_many - 1) / how_many;
-        (0..num_nodes).step_by(chunk_size).map(move |start| {
-            let end = (start + chunk_size).min(num_nodes);
-            let t = self.iter_from(start).take(end - start);
-            t
-        })
-    }
-
     /// Returns an iterator over the labeling starting at `from` (included).
     ///
     /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
