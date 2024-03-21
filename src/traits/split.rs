@@ -8,7 +8,8 @@
 use super::lenders::NodeLabelsLender;
 
 pub trait SplitLabeling {
-    type Lender<'a>: NodeLabelsLender<'a>
+    type Label;
+    type Lender<'a>: NodeLabelsLender<'a, Label = Self::Label>
     where
         Self: 'a;
     type IntoIterator<'a>: IntoIterator<Item = Self::Lender<'a>>
@@ -18,22 +19,16 @@ pub trait SplitLabeling {
 }
 
 pub mod seq {
-    use crate::prelude::{NodeLabelsLender, SequentialLabeling};
+    use crate::prelude::SequentialLabeling;
 
-    pub struct Iter<L: lender::Lender>
-    where
-        for<'a> L: NodeLabelsLender<'a>,
-    {
+    pub struct Iter<L> {
         lender: L,
         nodes_per_iter: usize,
         how_many: usize,
         remaining: usize,
     }
 
-    impl<L: lender::Lender + lender::ExactSizeLender> Iter<L>
-    where
-        for<'a> L: NodeLabelsLender<'a>,
-    {
+    impl<L: lender::ExactSizeLender> Iter<L> {
         pub fn new(lender: L, how_many: usize) -> Self {
             let nodes_per_iter = lender.len() / how_many;
             Self {
@@ -45,10 +40,7 @@ pub mod seq {
         }
     }
 
-    impl<L: lender::Lender + Clone> Iterator for Iter<L>
-    where
-        for<'a> L: NodeLabelsLender<'a>,
-    {
+    impl<L: lender::Lender + Clone> Iterator for Iter<L> {
         type Item = lender::Take<L>;
 
         fn next(&mut self) -> Option<Self::Item> {
@@ -63,10 +55,7 @@ pub mod seq {
         }
     }
 
-    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L>
-    where
-        for<'a> L: NodeLabelsLender<'a>,
-    {
+    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {
         fn len(&self) -> usize {
             self.remaining
         }
