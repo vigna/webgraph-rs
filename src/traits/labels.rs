@@ -24,7 +24,9 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
+use super::split::SplitLabeling;
 use super::NodeLabelsLender;
+
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
@@ -75,6 +77,16 @@ pub trait SequentialLabeling {
     /// and an [`IntoIterator`] over the labels.
     fn iter(&self) -> Self::Iterator<'_> {
         self.iter_from(0)
+    }
+
+    fn split_iter(&self, how_many: usize) -> impl IntoIterator {
+        let num_nodes = self.num_nodes();
+        let chunk_size = (num_nodes + how_many - 1) / how_many;
+        (0..num_nodes).step_by(chunk_size).map(move |start| {
+            let end = (start + chunk_size).min(num_nodes);
+            let t = self.iter_from(start).take(end - start);
+            t
+        })
     }
 
     /// Returns an iterator over the labeling starting at `from` (included).
@@ -256,7 +268,7 @@ pub trait SequentialLabeling {
             }
             drop(tx);
 
-            rx.iter().fold(T::default(), reduce)
+            rx.iter().fold(T::default(), |acc, x| reduce(acc, x))
         })
     }
 }

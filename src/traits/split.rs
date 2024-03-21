@@ -5,8 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-pub trait SplitIterator {
-    type InnerIter: Iterator;
-    type SplitIter: IntoIterator<Item = Self::InnerIter>;
+use lender::prelude::*;
+
+pub trait SplitLabeling {
+    type InnerLender: Lender;
+    type SplitIter: IntoIterator<Item = Self::InnerLender>;
     fn split(self, n: usize) -> Self::SplitIter;
 }
