@@ -8,8 +8,7 @@
 use super::lenders::NodeLabelsLender;
 
 pub trait SplitLabeling {
-    type Label;
-    type Lender<'a>: NodeLabelsLender<'a, Label = Self::Label>
+    type Lender<'a>: NodeLabelsLender<'a>
     where
         Self: 'a;
     type IntoIterator<'a>: IntoIterator<Item = Self::Lender<'a>>
