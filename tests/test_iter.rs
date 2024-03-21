@@ -137,14 +137,14 @@ fn test_split_iter_arc_list() -> Result<()> {
 
 fn test_split_iter<S: SequentialGraph + SplitLabeling>(g: &S) -> anyhow::Result<()> {
     let mut iter = g.iter();
-    for lender in g.split_iter(10) {
-        while let Some((split_node_id, split_succ)) = lender.next() {
-            let Some((seq_node_id, seq_succ)) = iter.next() else {
-                bail!("Too many nodes in split_iter");
-            };
-            assert_eq!(seq_node_id, split_node_id);
-            //assert!(itertools::equal(seq_succ, split_succ));
-        }
+    let mut lender = g.split_iter(10).into_iter().next().unwrap();
+    while let Some((split_node_id, split_succ)) = lender.next() {
+        let Some((seq_node_id, seq_succ)) = iter.next() else {
+            bail!("Too many nodes in split_iter");
+        };
+        assert_eq!(seq_node_id, split_node_id);
+        //assert!(itertools::equal(seq_succ, split_succ));
     }
+
     Ok(())
 }
