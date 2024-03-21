@@ -27,7 +27,7 @@ epserde = "0.4.0"
 #sux = "0.2.0"
 sux = {git = "https://github.com/vigna/sux-rs"}
 dsi-bitstream = "0.4.0"
-dsi-progress-logger = "0.2.2"
+dsi-progress-logger = "0.2.3"
 log = "0.4.20"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.8.1"
