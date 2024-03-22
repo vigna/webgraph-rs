@@ -5,7 +5,28 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Traits and basic implementations to support parallel completion by splitting
+//! the [iterator](SequentialLabeling::Iterator) of a labeling into multiple
+//! iterators.
+
 use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
+
+/// A trait with a single method that splits a labeling into `n` parts which are
+/// thread safe.
+///
+/// Labeling implementing this trait can be analyzed in parallel by calling
+/// [`split_iter`](SplitLabeling::split_iter) to split the labeling
+/// [iterator](SequentialLabeling::Iterator) into `n` parts.
+///
+/// Note that the parts are required to be [`Send`] and [`Sync`], so that they
+/// can be safely shared among threads.
+///
+/// Due to some limitations of the current Rust type system, we cannot provide
+/// blanket implementations for this trait. However, we provide ready-made
+/// implementations for the [sequential](seq) and [random-access](ra) cases. To
+/// use them, you must implement the trait by specifying the associated types
+/// `Lender` and `IntoIterator`, and then just return a [`seq::Iter`] or
+/// [`ra::Iter`] structure.
 
 pub trait SplitLabeling: SequentialLabeling {
     type Lender<'a>: for<'b> NodeLabelsLender<'b, Label = <Self as SequentialLabeling>::Label>
@@ -18,6 +39,31 @@ pub trait SplitLabeling: SequentialLabeling {
         Self: 'a;
     fn split_iter(&self, n: usize) -> Self::IntoIterator<'_>;
 }
+
+/// Ready-made implementation for the sequential case.
+///
+/// This implementation walks through the iterator of a labeling and
+/// clones it at regular intervals. To use it, you have to implement the
+/// trait by specifying the associated types `Lender` and `IntoIterator`
+/// using the [`seq::Lender`] and [`seq::IntoIterator`] types aliases,
+/// and then return a [`seq::Iter`] structure.
+///
+/// # Examples
+///
+/// The code for [`BVGraphSeq`](crate::graph::bvgraph::BVGraphSeq) is:
+/// ```ìgnore
+/// impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
+/// where
+///     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
+/// {
+///     type Lender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
+///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
+///
+///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+///         split::seq::Iter::new(self.iter(), how_many)
+///     }
+/// }
+/// ```
 
 pub mod seq {
     use crate::prelude::SequentialLabeling;
@@ -65,6 +111,31 @@ pub mod seq {
     pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Iterator<'a>>;
     pub type IntoIterator<'a, S> = Iter<<S as SequentialLabeling>::Iterator<'a>>;
 }
+
+/// Ready-made implementation for the random-access case.
+///
+/// This implementation uses the [`iter_from`](SequentialLabeling::iter_from) at
+/// regular intervals. To use it, you have to implement the trait by specifying
+/// the associated types `Lender` and `IntoIterator` using the [`ra::Lender`]
+/// and [`ra::IntoIterator`] types aliases, and then return a [`ra::Iter`]
+/// structure.
+///
+/// # Examples
+///
+/// The code for [`BVGraph`](crate::graph::bvgraph::BVGraph) is
+/// ```ìgnore
+/// impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
+/// where
+///     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
+/// {
+///     type Lender<'a> = split::ra::Lender<'a, BVGraph<F>> where Self: 'a;
+///     type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
+///
+///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+///         split::ra::Iter::new(self, how_many)
+///     }
+/// }
+/// ```
 
 pub mod ra {
     use crate::prelude::{RandomAccessLabeling, SequentialLabeling};

@@ -20,7 +20,7 @@ use std::path::Path;
 ///
 /// Jobs must be ordered by their job id, and must implement [`Eq`] with a
 /// [`usize`] using their job id.
-struct TaskQueue<I: std::iter::Iterator> {
+struct TaskQueue<I: Iterator> {
     iter: I,
     jobs: Vec<Option<I::Item>>,
     next_id: usize,
@@ -30,7 +30,7 @@ trait JobId {
     fn id(&self) -> usize;
 }
 
-impl<I: std::iter::Iterator> TaskQueue<I> {
+impl<I: Iterator> TaskQueue<I> {
     fn new(iter: I) -> Self {
         Self {
             iter,
@@ -40,7 +40,7 @@ impl<I: std::iter::Iterator> TaskQueue<I> {
     }
 }
 
-impl<I: std::iter::Iterator> std::iter::Iterator for TaskQueue<I>
+impl<I: Iterator> Iterator for TaskQueue<I>
 where
     I::Item: JobId + Copy,
 {
@@ -266,7 +266,7 @@ impl BVComp<()> {
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
     >(
         basename: impl AsRef<Path> + Send + Sync,
-        iter: impl std::iter::Iterator<Item = L>,
+        iter: impl Iterator<Item = L>,
         num_nodes: usize,
         compression_flags: CompFlags,
         mut threads: impl AsMut<rayon::ThreadPool>,

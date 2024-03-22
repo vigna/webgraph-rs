@@ -73,7 +73,7 @@ impl SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     }
 }
 
-pub struct Iterator<'a, BR, O> {
+pub struct Iter<'a, BR, O> {
     width: usize,
     reader: BR,
     offsets: &'a MemCase<O>,
@@ -86,7 +86,7 @@ impl<
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
         O: IndexedDict<Input = usize, Output = usize>,
-    > NodeLabelsLender<'succ> for Iterator<'a, BR, O>
+    > NodeLabelsLender<'succ> for Iter<'a, BR, O>
 {
     type Label = Vec<u64>;
     type IntoIterator = SeqLabels<'succ, BR>;
@@ -97,7 +97,7 @@ impl<
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
         O: IndexedDict<Input = usize, Output = usize>,
-    > Lending<'succ> for Iterator<'a, BR, O>
+    > Lending<'succ> for Iter<'a, BR, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
@@ -106,7 +106,7 @@ impl<
         'a,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
         O: IndexedDict<Input = usize, Output = usize>,
-    > Lender for Iterator<'a, BR, O>
+    > Lender for Iter<'a, BR, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -135,7 +135,7 @@ pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     end_pos: u64,
 }
 
-impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqLabels<'a, BR> {
+impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> Iterator for SeqLabels<'a, BR> {
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -152,7 +152,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for SeqL
 impl SequentialLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     type Label = Vec<u64>;
 
-    type Iterator<'node> = Iterator<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
+    type Iterator<'node> = Iter<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
     where
         Self: 'node;
 
@@ -161,7 +161,7 @@ impl SequentialLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>>
     }
 
     fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
-        Iterator {
+        Iter {
             width: self.width,
             offsets: &self.offsets,
             reader: self.reader_builder.get_reader(),
@@ -179,7 +179,7 @@ pub struct RanLabels<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     end_pos: u64,
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> std::iter::Iterator for RanLabels<BR> {
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> Iterator for RanLabels<BR> {
     type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
