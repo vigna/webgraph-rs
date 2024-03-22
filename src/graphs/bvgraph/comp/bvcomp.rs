@@ -89,20 +89,20 @@ impl Compressor {
         curr_node: usize,
         reference_offset: Option<usize>,
         min_interval_length: usize,
-    ) -> Result<usize, E::Error> {
-        let mut written_bits = 0;
-        written_bits += writer.start_node(curr_node)?;
+    ) -> Result<u64, E::Error> {
+        let mut written_bits: u64 = 0;
+        written_bits += writer.start_node(curr_node)? as u64;
         // write the outdegree
-        written_bits += writer.write_outdegree(self.outdegree as u64)?;
+        written_bits += writer.write_outdegree(self.outdegree as u64)? as u64;
         // write the references
         if self.outdegree != 0 {
             if let Some(reference_offset) = reference_offset {
-                written_bits += writer.write_reference_offset(reference_offset as u64)?;
+                written_bits += writer.write_reference_offset(reference_offset as u64)? as u64;
                 if reference_offset != 0 {
-                    written_bits += writer.write_block_count(self.blocks.len() as _)?;
+                    written_bits += writer.write_block_count(self.blocks.len() as _)? as u64;
                     if !self.blocks.is_empty() {
                         for i in 0..self.blocks.len() {
-                            written_bits += writer.write_block((self.blocks[i] - 1) as u64)?;
+                            written_bits += writer.write_block((self.blocks[i] - 1) as u64)? as u64;
                         }
                     }
                 }
@@ -110,21 +110,21 @@ impl Compressor {
         }
         // write the intervals
         if !self.extra_nodes.is_empty() && min_interval_length != Self::NO_INTERVALS {
-            written_bits += writer.write_interval_count(self.left_interval.len() as _)?;
+            written_bits += writer.write_interval_count(self.left_interval.len() as _)? as u64;
 
             if !self.left_interval.is_empty() {
                 written_bits += writer.write_interval_start(int2nat(
                     self.left_interval[0] as i64 - curr_node as i64,
-                ))?;
+                ))? as u64;
                 written_bits += writer
-                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)?;
+                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)? as u64;
                 let mut prev = self.left_interval[0] + self.len_interval[0];
 
                 for i in 1..self.left_interval.len() {
                     written_bits +=
-                        writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
+                        writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)? as u64;
                     written_bits += writer
-                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)?;
+                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)? as u64;
                     prev = self.left_interval[i] + self.len_interval[i];
                 }
             }
@@ -132,15 +132,15 @@ impl Compressor {
         // write the residuals
         if !self.residuals.is_empty() {
             written_bits += writer
-                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?;
+                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))? as u64;
 
             for i in 1..self.residuals.len() {
                 written_bits += writer
-                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?;
+                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)? as u64;
             }
         }
 
-        written_bits += writer.end_node(curr_node)?;
+        written_bits += writer.end_node(curr_node)? as u64;
         Ok(written_bits)
     }
 
@@ -329,7 +329,7 @@ impl<E: MeasurableEncoder> BVComp<E> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -433,7 +433,7 @@ impl<E: MeasurableEncoder> BVComp<E> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<usize>
+    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<u64>
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,

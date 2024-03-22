@@ -39,7 +39,7 @@ impl BVComp<()> {
         compression_flags: CompFlags,
         build_offsets: bool,
         num_nodes: Option<usize>,
-    ) -> Result<usize>
+    ) -> Result<u64>
     where
         E: Endianness,
         L: IntoLender,
@@ -143,7 +143,7 @@ impl BVComp<()> {
         threads: Threads,
         tmp_dir: P,
         endianess: &str,
-    ) -> Result<usize>
+    ) -> Result<u64>
     where
         for<'a> <G as SplitLabeling>::Lender<'a>: Send + Sync,
     {
@@ -189,7 +189,7 @@ impl BVComp<()> {
         compression_flags: CompFlags,
         threads: Threads,
         tmp_dir: impl AsRef<Path>,
-    ) -> Result<usize>
+    ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
@@ -216,7 +216,7 @@ impl BVComp<()> {
         compression_flags: CompFlags,
         threads: Threads,
         tmp_dir: impl AsRef<Path>,
-    ) -> Result<usize>
+    ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
@@ -264,7 +264,7 @@ impl BVComp<()> {
                                 cp_flags.min_interval_length,
                                 node_id,
                             );
-                            let written_bits = bvcomp.push(successors).unwrap();
+                            let written_bits = bvcomp.push(successors).unwrap() as u64;
                             (bvcomp, written_bits)
                         } else {
                             return;
@@ -296,8 +296,8 @@ impl BVComp<()> {
             let mut result_writer =
                 <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
-            let mut total_written_bits = 0;
-            let mut total_arcs = 0;
+            let mut total_written_bits: u64 = 0;
+            let mut total_arcs: u64 = 0;
 
             // glue toghether the bitstreams as they finish, this allows us to do
             // task pipelining for better performance

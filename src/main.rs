@@ -78,7 +78,6 @@ pub fn main() -> Result<()> {
         llp,
         optimize_codes,
         pad,
-        perm,
         rand_perm,
         recompress,
         simplify,

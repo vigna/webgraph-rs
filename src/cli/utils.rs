@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::path::PathBuf;
+
 use crate::graphs::Code;
 use crate::prelude::CompFlags;
 use clap::Args;
@@ -88,6 +90,15 @@ pub struct NumCpusArg {
 /// Shared cli arguments for permutating a graph
 /// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct PermutationArgs {
+    /* TODO!:
+    #[arg(short = 'e', long, default_value_t = false)]
+    /// Load the permutations from ε-serde format instead of the java format, i.e. an array of 64-bit big-endian integers
+    epserde: bool, 
+    */
+
+    /// The path to the permutations to, optionally, apply to the graph.
+    pub permutation: Option<PathBuf>,
+
     #[clap(short = 's', long, default_value_t = 1_000_000)]
     /// The size of a batch.
     pub batch_size: usize,

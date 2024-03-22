@@ -10,6 +10,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
+use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 
@@ -41,81 +42,24 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     let start = std::time::Instant::now();
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let dir = Builder::new().prefix("Recompress").tempdir()?;
+    let permutation = if let Some(path) = args.pa.permutation.as_ref() {
+        Some(JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)?)
+    } else {
+        None
+    };
+
     let target_endianness = args.ca.endianess.clone();
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => {
-            if args.basename.with_extension(EF_EXTENSION).exists() {
-                let seq_graph = BVGraph::with_basename(&args.basename)
-                    .endianness::<BE>()
-                    .load()?;
-
-                BVComp::parallel_endianness(
-                    args.new_basename,
-                    &seq_graph,
-                    seq_graph.num_nodes(),
-                    args.ca.into(),
-                    Threads::Num(args.num_cpus.num_cpus),
-                    dir,
-                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-                )?;
-            } else {
-                log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
-                let seq_graph = BVGraphSeq::with_basename(&args.basename)
-                    .endianness::<BE>()
-                    .load()?;
-
-                BVComp::parallel_endianness(
-                    args.new_basename,
-                    &seq_graph,
-                    seq_graph.num_nodes(),
-                    args.ca.into(),
-                    Threads::Num(args.num_cpus.num_cpus),
-                    dir,
-                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-                )?;
-            }
-        }
+        BE::NAME => compress::<BE>(args, target_endianness, permutation)?,
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => {
-            if args.basename.with_extension(EF_EXTENSION).exists() {
-                let seq_graph = BVGraph::with_basename(&args.basename)
-                    .endianness::<LE>()
-                    .load()?;
-
-                BVComp::parallel_endianness(
-                    args.new_basename,
-                    &seq_graph,
-                    seq_graph.num_nodes(),
-                    args.ca.into(),
-                    Threads::Num(args.num_cpus.num_cpus),
-                    dir,
-                    &target_endianness.unwrap_or_else(|| LE::NAME.into()),
-                )?;
-            } else {
-                log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
-                let seq_graph = BVGraphSeq::with_basename(&args.basename)
-                    .endianness::<LE>()
-                    .load()?;
-
-                BVComp::parallel_endianness(
-                    args.new_basename,
-                    &seq_graph,
-                    seq_graph.num_nodes(),
-                    args.ca.into(),
-                    Threads::Num(args.num_cpus.num_cpus),
-                    dir,
-                    &target_endianness.unwrap_or_else(|| LE::NAME.into()),
-                )?;
-            }
-        }
+        LE::NAME => compress::<LE>(args, target_endianness, permutation)?,
         e => panic!("Unknown endianness: {}", e),
     };
 
@@ -123,5 +67,60 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         "The compression took {:.3} seconds",
         start.elapsed().as_secs_f64()
     );
+    Ok(())
+}
+
+fn compress<E: Endianness + Clone + Send + Sync>(
+    args: CliArgs,
+    target_endianness: Option<String>,
+    permutation: Option<JavaPermutation>,
+) -> Result<()>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+{
+    let dir = Builder::new().prefix("Recompress").tempdir()?;
+
+    if args.basename.with_extension(EF_EXTENSION).exists() {
+        let seq_graph = BVGraph::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
+
+        if let Some(permutation) = permutation {
+            BVComp::parallel_endianness(
+                args.new_basename,
+                &seq_graph,
+                seq_graph.num_nodes(),
+                args.ca.into(),
+                Threads::Num(args.num_cpus.num_cpus),
+                dir,
+                &target_endianness.unwrap_or_else(|| E::NAME.into()),
+            )?;
+        } else {
+            BVComp::parallel_endianness(
+                args.new_basename,
+                &seq_graph,
+                seq_graph.num_nodes(),
+                args.ca.into(),
+                Threads::Num(args.num_cpus.num_cpus),
+                dir,
+                &target_endianness.unwrap_or_else(|| E::NAME.into()),
+            )?;
+        }
+    } else {
+        log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
+        let seq_graph = BVGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
+
+        BVComp::parallel_endianness(
+            args.new_basename,
+            &seq_graph,
+            seq_graph.num_nodes(),
+            args.ca.into(),
+            Threads::Num(args.num_cpus.num_cpus),
+            dir,
+            &target_endianness.unwrap_or_else(|| E::NAME.into()),
+        )?;
+    }
     Ok(())
 }
