@@ -9,7 +9,6 @@ use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::traits::BE;
 use lender::IntoLender;
-use std::iter::Iterator;
 use std::path::PathBuf;
 
 use self::sequential::Iter;

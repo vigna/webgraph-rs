@@ -17,7 +17,6 @@ use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 use predicates::prelude::*;
 use rayon::prelude::*;
 use std::io::{BufWriter, Write};
-use std::iter::Iterator;
 use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "llp";

@@ -8,7 +8,6 @@
 use crate::prelude::*;
 
 use lender::prelude::*;
-use std::iter::Iterator;
 use std::{collections::BTreeSet, mem::MaybeUninit};
 
 #[doc(hidden)]

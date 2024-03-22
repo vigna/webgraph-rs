@@ -7,7 +7,6 @@
 
 use crate::prelude::*;
 use lender::*;
-use std::iter::Iterator;
 use sux::traits::BitFieldSlice;
 
 #[derive(Clone)]
