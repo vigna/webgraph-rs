@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::lenders::NodeLabelsLender;
+use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 
-pub trait SplitLabeling {
-    type Lender<'a>: NodeLabelsLender<'a>
+pub trait SplitLabeling: SequentialLabeling {
+    type Lender<'a>: for<'b> NodeLabelsLender<'b, Label = <Self as SequentialLabeling>::Label>
     where
         Self: 'a;
     type IntoIterator<'a>: IntoIterator<Item = Self::Lender<'a>>

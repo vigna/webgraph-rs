@@ -263,20 +263,22 @@ pub trait SequentialLabeling {
 pub type Labels<'succ, 'node, S> =
     <<S as SequentialLabeling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
-/// Marker trait for lenders returned by [`SequentialLabeling::iter`]
-/// yielding node ids in ascending order.
+/// Marker trait for lenders returned by [`SequentialLabeling::iter`] yielding
+/// node ids in ascending order.
 ///
 /// # Safety
-/// The first element of the pairs returned by the iterator must go from
-/// zero to the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
+///
+/// The first element of the pairs returned by the iterator must go from zero to
+/// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
 pub unsafe trait SortedIterator: Lender {}
 
-/// Marker trait for [`IntoIterator`]s yielding labels in the
-/// order induced by enumerating the successors in ascending order.
+/// Marker trait for [`IntoIterator`]s yielding labels in the order induced by
+/// enumerating the successors in ascending order.
 ///
 /// # Safety
-/// The labels returned by the iterator must be in the order in which
-/// they would be if successors were returned in ascending order.
+///
+/// The labels returned by the iterator must be in the order in which they would
+/// be if successors were returned in ascending order.
 pub unsafe trait SortedLabels: IntoIterator {}
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
