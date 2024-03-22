@@ -12,7 +12,7 @@ use clap::Parser;
 use dsi_bitstream::traits::BitRead;
 use dsi_bitstream::traits::BitWrite;
 use dsi_bitstream::traits::Endianness;
-use dsi_progress_logger::prelude::*;
+use dsi_progress_logger::prelude::{ProgressLogger, ProgressLog};
 use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;

@@ -101,8 +101,7 @@ fn test_split_iter_arc_list() -> Result<()> {
             .flatten(),
     );
 
-    //test_split_iter(&Left(arc_list_graph))
-    Ok(())
+    test_split_iter(&Left(arc_list_graph))
 }
 
 fn test_split_iter<'a, S: SequentialGraph + SplitLabeling>(g: &'a S) -> anyhow::Result<()>
