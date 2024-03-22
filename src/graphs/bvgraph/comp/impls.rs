@@ -236,100 +236,84 @@ impl BVComp<()> {
         let basename = basename.as_ref();
 
         let graph_path = basename.with_extension(GRAPH_EXTENSION);
-        let num_threads = thread_pool.current_num_threads();
-        let nodes_per_thread = num_nodes / num_threads;
 
         let (tx, rx) = std::sync::mpsc::channel();
 
+        let thread_path = |thread_id: usize| tmp_dir.join(format!("{:016x}.bitstream", thread_id));
+
         thread_pool.in_place_scope(|s| {
             let cp_flags = &compression_flags;
-            // spawn a the thread for the last chunk that will spawn all the previous ones
-            // this will be the longest running thread
-            let last_thread_id = num_threads - 1;
-            // handle the case when this is the only available thread
-            let last_file_path = tmp_dir.join(format!("{:016x}.bitstream", last_thread_id));
 
-            log::info!(
-                "Spawning the main compression thread {} writing on {} nodes [{}..{})",
-                last_thread_id,
-                last_file_path.display(),
-                last_thread_id * nodes_per_thread,
-                num_nodes,
-            );
-            for (thread_id, thread_lender) in iter.enumerate() {
-                // the first thread can directly write to the result bitstream
-                let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
-
-                log::info!(
-                    "Spawning compression thread {} writing on {} nodes [{}..{})",
-                    thread_id,
-                    file_path.display(),
-                    nodes_per_thread * thread_id,
-                    nodes_per_thread * (thread_id + 1),
-                );
+            for (thread_id, mut thread_lender) in iter.enumerate() {
+                let file_path = thread_path(thread_id);
                 let tx = tx.clone();
                 // Spawn the thread
                 s.spawn(move |_| {
-                    log::info!("Thread {} started", thread_id,);
-                    let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
-                        BufWriter::new(File::create(&file_path).unwrap()),
-                    ));
-                    let codes_writer = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
-                    let mut bvcomp = BVComp::new(
-                        codes_writer,
-                        cp_flags.compression_window,
-                        cp_flags.max_ref_count,
-                        cp_flags.min_interval_length,
-                        nodes_per_thread * thread_id,
-                    );
-                    let mut written_bits = 0;
-                    for_! [(_node_id, successors) in thread_lender {
-                        written_bits += bvcomp.push(successors).unwrap();
-                    }];
+                    log::info!("Thread {} started", thread_id);
+
+                    let (mut bvcomp, mut written_bits) =
+                        if let Some((node_id, successors)) = thread_lender.next() {
+                            let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
+                                BufWriter::new(File::create(&file_path).unwrap()),
+                            ));
+                            let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
+                            let mut bvcomp = BVComp::new(
+                                codes_encoder,
+                                cp_flags.compression_window,
+                                cp_flags.max_ref_count,
+                                cp_flags.min_interval_length,
+                                node_id,
+                            );
+                            let written_bits = bvcomp.push(successors).unwrap();
+                            (bvcomp, written_bits)
+                        } else {
+                            return;
+                        };
+
+                    written_bits += bvcomp.extend(thread_lender).unwrap();
                     let arcs = bvcomp.arcs;
+                    bvcomp.flush().unwrap();
                     // TODO written_bits += bvcomp.flush().unwrap();
-
                     log::info!(
-                        "Finished Compression thread {} and wrote {} bits [{}..{})",
+                        "Finished Compression thread {} and wrote {} bits",
                         thread_id,
-                        written_bits,
-                        nodes_per_thread * thread_id,
-                        nodes_per_thread * (thread_id + 1),
+                        written_bits
                     );
-
                     tx.send((thread_id, written_bits, arcs)).unwrap()
                 });
-
-                log::info!("Skipping {} nodes from the iterator", nodes_per_thread);
             }
 
             drop(tx);
+
+            let mut result: Vec<_> = rx.iter().collect();
+            result.sort();
+
             // setup the final bitstream from the end, because the first thread
             // already wrote the first chunk
             let file = File::create(&graph_path)
                 .with_context(|| format!("Could not create graph {}", graph_path.display()))?;
 
-            // create hte buffered writer
             let mut result_writer =
                 <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
-            let mut result_len = 0;
+            let mut total_written_bits = 0;
             let mut total_arcs = 0;
+
             // glue toghether the bitstreams as they finish, this allows us to do
             // task pipelining for better performance
-            for (thread_id, written_bits, arcs) in rx {
+            for (thread_id, written_bits, arcs) in result {
                 total_arcs += arcs;
                 // compute the path of the bitstream created by this thread
-                let file_path = tmp_dir.join(format!("{:016x}.bitstream", thread_id));
+                let file_path = thread_path(thread_id);
                 log::info!(
                     "Copying {} [{}..{}) bits from {} to {}",
                     written_bits,
-                    result_len,
-                    result_len + written_bits,
+                    total_written_bits,
+                    total_written_bits + written_bits,
                     file_path.display(),
                     basename.display()
                 );
-                result_len += written_bits;
+                total_written_bits += written_bits;
 
                 let mut reader =
                     <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
@@ -365,15 +349,15 @@ impl BVComp<()> {
             log::info!(
                 "Compressed {} arcs into {} bits for {:.4} bits/arc",
                 total_arcs,
-                result_len,
-                result_len as f64 / total_arcs as f64
+                total_written_bits,
+                total_written_bits as f64 / total_arcs as f64
             );
 
             // cleanup the temp files
             std::fs::remove_dir_all(tmp_dir).with_context(|| {
                 format!("Could not clean temporary directory {}", tmp_dir.display())
             })?;
-            Ok(result_len)
+            Ok(total_written_bits)
         })
     }
 }
