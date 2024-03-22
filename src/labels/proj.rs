@@ -14,12 +14,12 @@ projection of a labeling whose labels are pairs. In particular,
 `Right(Zip(g,h))` is the same labeling as `h'.
 
 */
-use lender::{IntoLender, Lend, Lender, Lending};
-use crate::traits::SplitLabeling;
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
     RandomAccessLabeling, SequentialGraph, SequentialLabeling,
 };
+use crate::traits::SplitLabeling;
+use lender::{IntoLender, Lend, Lender, Lending};
 
 // The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -106,14 +106,14 @@ where
     }
 }
 
-impl<'b, G> SplitLabeling for Left<G>
+impl<G> SplitLabeling for Left<G>
 where
     G: SequentialLabeling + SplitLabeling,
     G::Label: Pair,
 {
     type Lender<'a> = LeftIterator<G::Lender<'a>> where Self: 'a;
     type IntoIterator<'a> = core::iter::Map<
-        <G::IntoIterator<'a> as IntoIterator>::IntoIter, 
+        <G::IntoIterator<'a> as IntoIterator>::IntoIter,
         fn(G::Lender<'a>) -> Self::Lender<'a>
     > where Self: 'a;
 
@@ -255,14 +255,14 @@ where
     }
 }
 
-impl<'b, G> SplitLabeling for Right<G>
+impl<G> SplitLabeling for Right<G>
 where
     G: SequentialLabeling + SplitLabeling,
     G::Label: Pair,
 {
     type Lender<'a> = RightIterator<G::Lender<'a>> where Self: 'a;
     type IntoIterator<'a> = core::iter::Map<
-        <G::IntoIterator<'a> as IntoIterator>::IntoIter, 
+        <G::IntoIterator<'a> as IntoIterator>::IntoIter,
         fn(G::Lender<'a>) -> Self::Lender<'a>
     > where Self: 'a;
 

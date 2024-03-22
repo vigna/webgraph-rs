@@ -45,7 +45,7 @@ where
     type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        split::ra::Iter::new(&self, how_many)
+        split::ra::Iter::new(self, how_many)
     }
 }
 

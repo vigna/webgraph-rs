@@ -287,7 +287,6 @@ impl BVComp<()> {
 
             let mut result: Vec<_> = rx.iter().collect();
             result.sort();
-            dbg!(&result);
 
             // setup the final bitstream from the end, because the first thread
             // already wrote the first chunk

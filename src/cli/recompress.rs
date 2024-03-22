@@ -38,6 +38,7 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
+    let start = std::time::Instant::now();
     let args = CliArgs::from_arg_matches(submatches)?;
 
     let dir = Builder::new().prefix("Recompress").tempdir()?;
@@ -48,41 +49,79 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         BE::NAME => {
-            let seq_graph = BVGraphSeq::with_basename(&args.basename)
-                .endianness::<BE>()
-                .load()?;
+            if args.basename.with_extension(EF_EXTENSION).exists() {
+                let seq_graph = BVGraph::with_basename(&args.basename)
+                    .endianness::<BE>()
+                    .load()?;
 
-            BVComp::parallel_endianness(
-                args.new_basename,
-                &seq_graph,
-                seq_graph.num_nodes(),
-                args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
-                dir,
-                &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-            )?;
+                BVComp::parallel_endianness(
+                    args.new_basename,
+                    &seq_graph,
+                    seq_graph.num_nodes(),
+                    args.ca.into(),
+                    Threads::Num(args.num_cpus.num_cpus),
+                    dir,
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )?;
+            } else {
+                log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
+                let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                    .endianness::<BE>()
+                    .load()?;
+
+                BVComp::parallel_endianness(
+                    args.new_basename,
+                    &seq_graph,
+                    seq_graph.num_nodes(),
+                    args.ca.into(),
+                    Threads::Num(args.num_cpus.num_cpus),
+                    dir,
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )?;
+            }
         }
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         LE::NAME => {
-            let seq_graph = BVGraphSeq::with_basename(&args.basename)
-                .endianness::<LE>()
-                .load()?;
+            if args.basename.with_extension(EF_EXTENSION).exists() {
+                let seq_graph = BVGraph::with_basename(&args.basename)
+                    .endianness::<LE>()
+                    .load()?;
 
-            BVComp::parallel_endianness(
-                args.new_basename,
-                &seq_graph,
-                seq_graph.num_nodes(),
-                args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
-                dir,
-                &target_endianness.unwrap_or_else(|| LE::NAME.into()),
-            )?;
+                BVComp::parallel_endianness(
+                    args.new_basename,
+                    &seq_graph,
+                    seq_graph.num_nodes(),
+                    args.ca.into(),
+                    Threads::Num(args.num_cpus.num_cpus),
+                    dir,
+                    &target_endianness.unwrap_or_else(|| LE::NAME.into()),
+                )?;
+            } else {
+                log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
+                let seq_graph = BVGraphSeq::with_basename(&args.basename)
+                    .endianness::<LE>()
+                    .load()?;
+
+                BVComp::parallel_endianness(
+                    args.new_basename,
+                    &seq_graph,
+                    seq_graph.num_nodes(),
+                    args.ca.into(),
+                    Threads::Num(args.num_cpus.num_cpus),
+                    dir,
+                    &target_endianness.unwrap_or_else(|| LE::NAME.into()),
+                )?;
+            }
         }
         e => panic!("Unknown endianness: {}", e),
     };
 
+    log::info!(
+        "The compression took {:.3} seconds",
+        start.elapsed().as_secs_f64()
+    );
     Ok(())
 }

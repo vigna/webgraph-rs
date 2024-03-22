@@ -12,7 +12,10 @@ use webgraph::prelude::*;
 
 fn logger_init() {
     env_logger::builder()
-    .filter_level(log::LevelFilter::Debug).is_test(true).try_init().unwrap();
+        .filter_level(log::LevelFilter::Debug)
+        .is_test(true)
+        .try_init()
+        .unwrap();
 }
 
 #[test]
