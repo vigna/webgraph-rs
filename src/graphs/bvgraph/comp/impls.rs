@@ -315,7 +315,7 @@ impl BVComp<()> {
                                 BufWriter::new(File::create(&file_path).unwrap()),
                             ));
                             let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
-                            eprintln!("{}", node_id);
+
                             let mut bvcomp = BVComp::new(
                                 codes_encoder,
                                 cp_flags.compression_window,
