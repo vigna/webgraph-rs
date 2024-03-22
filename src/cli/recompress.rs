@@ -94,7 +94,10 @@ where
                 args.pa.batch_size,
                 Threads::Num(args.num_cpus.num_cpus),
             )?;
-            log::warn!("Permuted the graph. It took {:.3} seconds", start.elapsed().as_secs_f64());
+            log::warn!(
+                "Permuted the graph. It took {:.3} seconds",
+                start.elapsed().as_secs_f64()
+            );
             BVComp::parallel_endianness(
                 args.new_basename,
                 &sorted,
@@ -125,7 +128,10 @@ where
             log::warn!("Starting to permute the graph.");
             let start = std::time::Instant::now();
             let permuted = crate::transform::permute(&seq_graph, &permutation, args.pa.batch_size)?;
-            log::warn!("Permuted the graph. It took {:.3} seconds", start.elapsed().as_secs_f64());
+            log::warn!(
+                "Permuted the graph. It took {:.3} seconds",
+                start.elapsed().as_secs_f64()
+            );
 
             BVComp::parallel_endianness(
                 args.new_basename,

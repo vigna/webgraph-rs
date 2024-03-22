@@ -7,8 +7,8 @@
 
 use crate::prelude::*;
 use lender::*;
-use sux::traits::BitFieldSlice;
 use std::iter::Iterator;
+use sux::traits::BitFieldSlice;
 
 #[derive(Clone)]
 /// A wrapper applying a permutation to the iterators of an underlying graph.
@@ -20,7 +20,9 @@ pub struct PermutedGraph<'a, G: SequentialGraph, P: BitFieldSlice<usize> + ?Size
     pub perm: &'a P,
 }
 
-impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling for PermutedGraph<'a, G, P> {
+impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling
+    for PermutedGraph<'a, G, P>
+{
     type Label = usize;
     type Iterator<'b> = Iter<'b, G::Iterator<'b>, P>
         where
@@ -45,7 +47,8 @@ impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling for Per
     }
 }
 
-impl<'b, G: SequentialGraph + SplitLabeling, P: BitFieldSlice<usize> + Send + Sync + Clone> SplitLabeling for PermutedGraph<'b, G, P>
+impl<'b, G: SequentialGraph + SplitLabeling, P: BitFieldSlice<usize> + Send + Sync + Clone>
+    SplitLabeling for PermutedGraph<'b, G, P>
 where
     for<'a> <G as SequentialLabeling>::Iterator<'a>: Clone + ExactSizeLender + Send + Sync,
 {
@@ -59,7 +62,9 @@ where
 
 impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialGraph for PermutedGraph<'a, G, P> {}
 
-impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender for &'b PermutedGraph<'a, G, P> {
+impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender
+    for &'b PermutedGraph<'a, G, P>
+{
     type Lender = <PermutedGraph<'a, G, P> as SequentialLabeling>::Iterator<'b>;
 
     #[inline(always)]
@@ -75,20 +80,33 @@ pub struct Iter<'node, I, P> {
     perm: &'node P,
 }
 
-impl<'node, 'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>>
-    NodeLabelsLender<'succ> for Iter<'node, I, P>
+impl<
+        'node,
+        'succ,
+        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > NodeLabelsLender<'succ> for Iter<'node, I, P>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>, P>;
 }
 
-impl<'node, 'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>> Lending<'succ>
-    for Iter<'node, I, P>
+impl<
+        'node,
+        'succ,
+        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > Lending<'succ> for Iter<'node, I, P>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<'a, L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>> Lender for Iter<'a, L, P> {
+impl<
+        'a,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > Lender for Iter<'a, L, P>
+{
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
@@ -104,8 +122,11 @@ impl<'a, L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFi
     }
 }
 
-impl<'a, L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>> ExactSizeLender
-    for Iter<'a, L, P>
+impl<
+        'a,
+        L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > ExactSizeLender for Iter<'a, L, P>
 {
     fn len(&self) -> usize {
         self.iter.len()
@@ -126,7 +147,9 @@ impl<'a, I: Iterator<Item = usize>, P: BitFieldSlice<usize>> Iterator for Succ<'
     }
 }
 
-impl<'a, I: ExactSizeIterator<Item = usize>, P: BitFieldSlice<usize>> ExactSizeIterator for Succ<'a, I, P> {
+impl<'a, I: ExactSizeIterator<Item = usize>, P: BitFieldSlice<usize>> ExactSizeIterator
+    for Succ<'a, I, P>
+{
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()

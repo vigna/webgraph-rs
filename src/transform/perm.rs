@@ -10,8 +10,8 @@ use crate::prelude::*;
 use anyhow::{ensure, Context, Result};
 use dsi_progress_logger::prelude::*;
 use lender::*;
-use tempfile::Builder;
 use sux::traits::BitFieldSlice;
+use tempfile::Builder;
 
 /// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
 ///
@@ -67,7 +67,7 @@ pub fn permute_split<S, P>(
     perm: &P,
     batch_size: usize,
     mut threads: impl AsMut<rayon::ThreadPool>,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> 
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
     P: BitFieldSlice<usize> + Send + Sync + Clone,
@@ -87,7 +87,10 @@ where
     pool.in_place_scope(|scope| {
         for (thread_id, iter) in pgraph.split_iter(pool.current_num_threads()).enumerate() {
             let tx = tx.clone();
-            let dir = Builder::new().prefix(&format!("Permute_{}", thread_id)).tempdir().expect("Could not create a temporary directory");
+            let dir = Builder::new()
+                .prefix(&format!("Permute_{}", thread_id))
+                .tempdir()
+                .expect("Could not create a temporary directory");
             scope.spawn(move |_| {
                 let mut sorted = SortPairs::new(batch_size, dir).unwrap();
                 for_!( (src, succ) in iter {
@@ -95,7 +98,8 @@ where
                         sorted.push(src, dst).unwrap();
                     }
                 });
-                tx.send(sorted.iter().context("Could not read arcs").unwrap());
+                tx.send(sorted.iter().context("Could not read arcs").unwrap())
+                    .expect("Could not send the sorted pairs");
             });
         }
     });

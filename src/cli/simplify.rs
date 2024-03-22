@@ -59,7 +59,7 @@ fn simplify<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    // TODO!: speed it up by using random access graph if possible 
+    // TODO!: speed it up by using random access graph if possible
     let simplified = args
         .simplified
         .unwrap_or_else(|| append(&args.basename, "-simple"));

@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::utils::MmapHelper;
+use crate::utils::{ArcMmapHelper, MmapHelper};
 use anyhow::Result;
-use mmap_rs::{Mmap, MmapFlags, MmapMut};
+use mmap_rs::{MmapFlags, MmapMut};
 use std::path::Path;
+use std::sync::Arc;
 use sux::traits::*;
 
 /// Maps into memory a file of big-endian 64-bit values, making it accessible as
@@ -19,14 +20,16 @@ use sux::traits::*;
 /// around [`MmapHelper`], and its methods are named accordingly.
 ///
 /// Note that this class is only available on 64-bit platforms.
+///
+/// By default it uses an `Arc<Mmap>` so that it can be cloned.
 #[cfg(target_pointer_width = "64")]
 #[derive(Clone)]
-pub struct JavaPermutation<M = Mmap> {
-    pub perm: MmapHelper<u64, M>,
+pub struct JavaPermutation<M = ArcMmapHelper<u64>> {
+    pub perm: M,
 }
 
 #[cfg(target_pointer_width = "64")]
-impl JavaPermutation<MmapMut> {
+impl JavaPermutation<MmapHelper<u64, MmapMut>> {
     /// Creates and maps a permutation into memory (read/write), overwriting it if it exists.
     ///
     /// # Arguments
@@ -59,7 +62,7 @@ impl JavaPermutation {
     /// - `flags` - The flags to use for the memory mapping.
     pub fn mmap(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         Ok(Self {
-            perm: MmapHelper::mmap(path, flags)?,
+            perm: ArcMmapHelper(Arc::new(MmapHelper::mmap(path, flags)?)),
         })
     }
 }
@@ -74,7 +77,7 @@ impl BitFieldSliceCore<usize> for JavaPermutation {
     }
 }
 
-impl BitFieldSliceCore<usize> for JavaPermutation<MmapMut> {
+impl BitFieldSliceCore<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     fn bit_width(&self) -> usize {
         64
     }
@@ -91,14 +94,14 @@ impl BitFieldSlice<usize> for JavaPermutation {
     }
 }
 
-impl BitFieldSlice<usize> for JavaPermutation<MmapMut> {
+impl BitFieldSlice<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> usize {
         u64::from_be_bytes(self.perm.as_ref().get_unchecked(index).to_ne_bytes()) as usize
     }
 }
 
-impl BitFieldSliceMut<usize> for JavaPermutation<MmapMut> {
+impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn set_unchecked(&mut self, index: usize, value: usize) {
         *self.perm.as_mut().get_unchecked_mut(index) = value as u64;

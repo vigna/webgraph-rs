@@ -117,14 +117,17 @@ impl Compressor {
                     self.left_interval[0] as i64 - curr_node as i64,
                 ))? as u64;
                 written_bits += writer
-                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)? as u64;
+                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)?
+                    as u64;
                 let mut prev = self.left_interval[0] + self.len_interval[0];
 
                 for i in 1..self.left_interval.len() {
-                    written_bits +=
-                        writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)? as u64;
                     written_bits += writer
-                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)? as u64;
+                        .write_interval_start((self.left_interval[i] - prev - 1) as u64)?
+                        as u64;
+                    written_bits += writer
+                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)?
+                        as u64;
                     prev = self.left_interval[i] + self.len_interval[i];
                 }
             }
@@ -132,11 +135,13 @@ impl Compressor {
         // write the residuals
         if !self.residuals.is_empty() {
             written_bits += writer
-                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))? as u64;
+                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?
+                as u64;
 
             for i in 1..self.residuals.len() {
                 written_bits += writer
-                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)? as u64;
+                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?
+                    as u64;
             }
         }
 

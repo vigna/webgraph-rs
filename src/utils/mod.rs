@@ -64,7 +64,6 @@ pub use java_perm::*;
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 
-
 /// An enum to specify the number of threads to use in parallel operations,
 /// either by [`rayon::current_num_threads()`], or by a fixed number, or by a
 /// custom [thread pool](rayon::ThreadPool).
@@ -93,7 +92,7 @@ impl AsMut<rayon::ThreadPool> for Threads {
                     .expect("Failed to create thread pool");
                 *self = Self::Pool(thread_pool);
                 self.as_mut()
-            },
+            }
             Self::Num(num_threads) => {
                 let thread_pool = rayon::ThreadPoolBuilder::new()
                     .num_threads(*num_threads)

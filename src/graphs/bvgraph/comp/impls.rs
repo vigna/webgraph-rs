@@ -141,7 +141,7 @@ impl BVComp<()> {
             for_! ( (_node_id, successors) in iter {
                 let delta = bvcomp.push(successors).context("Could not push successors")?;
                 result += delta;
-                writer.write_gamma(delta as u64).context("Could not write delta")?;
+                writer.write_gamma(delta).context("Could not write delta")?;
                 pl.update();
                 real_num_nodes += 1;
             });
@@ -205,7 +205,9 @@ impl BVComp<()> {
                 // compress the transposed graph
                 Self::parallel_iter::<BigEndian, _>(
                     basename,
-                    graph.split_iter(threads.as_mut().current_num_threads()).into_iter(),
+                    graph
+                        .split_iter(threads.as_mut().current_num_threads())
+                        .into_iter(),
                     num_nodes,
                     compression_flags,
                     threads,
@@ -220,7 +222,9 @@ impl BVComp<()> {
                 // compress the transposed graph
                 Self::parallel_iter::<LittleEndian, _>(
                     basename,
-                    graph.split_iter(threads.as_mut().current_num_threads()).into_iter(),
+                    graph
+                        .split_iter(threads.as_mut().current_num_threads())
+                        .into_iter(),
                     num_nodes,
                     compression_flags,
                     threads,
@@ -245,7 +249,9 @@ impl BVComp<()> {
     {
         Self::parallel_iter(
             basename,
-            graph.split_iter(threads.as_mut().current_num_threads()).into_iter(),
+            graph
+                .split_iter(threads.as_mut().current_num_threads())
+                .into_iter(),
             graph.num_nodes(),
             compression_flags,
             threads,
@@ -305,7 +311,7 @@ impl BVComp<()> {
                                 cp_flags.min_interval_length,
                                 node_id,
                             );
-                            let written_bits = bvcomp.push(successors).unwrap() as u64;
+                            let written_bits = bvcomp.push(successors).unwrap();
                             (bvcomp, written_bits)
                         } else {
                             return;
@@ -369,7 +375,7 @@ impl BVComp<()> {
                             .with_context(|| format!("Could not open {}", file_path.display()))?,
                     )));
                 result_writer
-                    .copy_from(&mut reader, written_bits as u64)
+                    .copy_from(&mut reader, written_bits)
                     .with_context(|| {
                         format!(
                             "Could not copy from {} to {}",
