@@ -4,6 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
+#![cfg(feature = "slow_tests")]
 
 use lender::*;
 use std::{fs::File, io::BufWriter};
@@ -18,73 +19,82 @@ use std::path::Path;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
 use Code::{Delta, Gamma, Unary, Zeta};
 
-#[cfg_attr(feature = "slow_tests", test)]
-#[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
-fn test_bvcomp_slow() -> Result<()> {
-    env_logger::builder()
-        .is_test(true)
-        .filter_level(log::LevelFilter::Info)
-        .try_init()?;
-    _test_bvcomp_slow::<LE>().and(_test_bvcomp_slow::<BE>())
-}
+grid_gen::grid_gen_test!(
+    test_impl,
+    bvcomp_test,
+    generic E: [BigEndian, LittleEndian,],
+    outdegrees: [Unary, Gamma, Delta,],
+    references: [Unary, Gamma, Delta,],
+    blocks: [Unary, Gamma, Delta,],
+    intervals: [Unary, Gamma, Delta,],
+    residuals: [Gamma, Delta,],
+    compression_window: [0, 1, 3, 16,],
+    max_ref_count: [0, 1, 3, 18446744073709551615,],
+    min_interval_length: [0, 1, 3,],
+);
 
-fn _test_bvcomp_slow<E: Endianness>() -> Result<()>
-where
+fn test_impl<E: Endianness>(
+    outdegrees: Code,
+    references: Code,
+    blocks: Code,
+    intervals: Code,
+    residuals: Code,
+    compression_window: usize,
+    max_ref_count: usize,
+    min_interval_length: usize,
+) where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
     BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
 {
-    let tmp_file = NamedTempFile::new()?;
-    let tmp_path = tmp_file.path();
-    let seq_graph = ErdosRenyi::new(100, 0.1, 0);
-    for compression_window in [0, 1, 3, 16] {
-        for max_ref_count in [0, 1, 3, usize::MAX] {
-            for min_interval_length in [0, 1, 3] {
-                for outdegrees in [Unary, Gamma, Delta] {
-                    for references in [Unary, Gamma, Delta] {
-                        for blocks in [Unary, Gamma, Delta] {
-                            for intervals in [Unary, Gamma, Delta] {
-                                for residuals in [Gamma, Delta, Zeta { k: 2 }, Zeta { k: 3 }] {
-                                    eprintln!();
-                                    eprintln!(
-                                        "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",
-                                        outdegrees, references, blocks, intervals, residuals, compression_window, max_ref_count, min_interval_length,
-                                    );
-                                    let compression_flags = CompFlags {
-                                        outdegrees,
-                                        references,
-                                        blocks,
-                                        intervals,
-                                        residuals,
-                                        min_interval_length,
-                                        compression_window,
-                                        max_ref_count,
-                                    };
-
-                                    _test_body::<E, _>(tmp_path, &seq_graph, compression_flags)?;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    std::fs::remove_file(tmp_path)?;
-    Ok(())
+    _test_body::<E>(
+        outdegrees,
+        references,
+        blocks,
+        intervals,
+        residuals,
+        compression_window,
+        max_ref_count,
+        min_interval_length,
+    )
+    .unwrap();
 }
 
-fn _test_body<E: Endianness, P: AsRef<Path>>(
-    tmp_path: P,
-    seq_graph: &impl SequentialGraph,
-    compression_flags: CompFlags,
+fn _test_body<E: Endianness>(
+    outdegrees: Code,
+    references: Code,
+    blocks: Code,
+    intervals: Code,
+    residuals: Code,
+    compression_window: usize,
+    max_ref_count: usize,
+    min_interval_length: usize,
 ) -> Result<()>
 where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
     BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
 {
+    eprintln!();
+    eprintln!(
+        "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",
+        outdegrees, references, blocks, intervals, residuals, compression_window, max_ref_count, min_interval_length,
+    );
+    let compression_flags = CompFlags {
+        outdegrees,
+        references,
+        blocks,
+        intervals,
+        residuals,
+        min_interval_length,
+        compression_window,
+        max_ref_count,
+    };
+    let tmp_file = NamedTempFile::new()?;
+    let tmp_path = tmp_file.path();
+    let seq_graph = ErdosRenyi::new(100, 0.1, 0);
+
     let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
         <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(
-            tmp_path.as_ref(),
+            tmp_path,
         )?))),
         &compression_flags,
     ));
@@ -115,7 +125,7 @@ where
 
     let code_reader = DynCodesDecoder::new(
         BufBitReader::<E, _>::new(MemWordReader::<u32, _>::new(MmapHelper::mmap(
-            tmp_path.as_ref(),
+            tmp_path,
             mmap_rs::MmapFlags::empty(),
         )?)),
         &compression_flags,
@@ -140,6 +150,8 @@ where
         pl.light_update();
     }
     pl.done();
+
+    std::fs::remove_file(tmp_path)?;
     Ok(())
 }
 

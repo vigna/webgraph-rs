@@ -12,6 +12,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use webgraph::prelude::*;
+use tempfile::Builder;
 
 #[test]
 fn test_par_bvcomp() -> Result<()> {
@@ -21,13 +22,23 @@ fn test_par_bvcomp() -> Result<()> {
         .try_init()?;
 
     _test_par_bvcomp("tests/data/cnr-2000")?;
+    Ok(())
+}
+
+#[test]
+fn test_par_bvcomp_hc() -> Result<()> {
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
+
     _test_par_bvcomp("tests/data/cnr-2000-hc")?;
     Ok(())
 }
 
 fn _test_par_bvcomp(basename: &str) -> Result<()> {
     let comp_flags = CompFlags::default();
-    let tmp_basename = PathBuf::from(String::from(basename) + "-par");
+    let dir = Builder::new().prefix(&format!("TestParComp{}", basename.replace("/", "_").replace("-", "_"))).tempdir()?;
 
     // load the graph
     let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
@@ -37,6 +48,8 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
     let mut graph_filename = PathBuf::from(basename);
     graph_filename.set_extension(GRAPH_EXTENSION);
 
+    let result_basename = dir.path().join("graph");
+    
     let expected_size = graph_filename.metadata()?.len();
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
@@ -45,17 +58,17 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         let start = std::time::Instant::now();
         // recompress the graph in parallel
         BVComp::parallel::<BE, _>(
-            &tmp_basename,
+            &result_basename,
             &graph,
             graph.num_nodes(),
             comp_flags,
             thread_num,
-            temp_dir(std::env::temp_dir())?,
+            dir.path(),
         )
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let found_size = std::fs::File::open(tmp_basename.with_extension(GRAPH_EXTENSION))?
+        let found_size = std::fs::File::open(result_basename.with_extension(GRAPH_EXTENSION))?
             .metadata()?
             .len();
 
@@ -67,7 +80,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         }
 
         let comp_graph =
-            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&tmp_basename)
+            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&result_basename)
                 .endianness::<BE>()
                 .load()?;
         let mut iter = comp_graph.iter();
@@ -89,9 +102,6 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         }
 
         pr.done();
-        // cancel the file at the end
-        std::fs::remove_file(tmp_basename.with_extension(GRAPH_EXTENSION))?;
-        std::fs::remove_file(tmp_basename.with_extension(PROPERTIES_EXTENSION))?;
         log::info!("\n");
     }
 
