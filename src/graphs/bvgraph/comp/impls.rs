@@ -14,26 +14,6 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-<<<<<<< HEAD
-pub enum Threads {
-    Default,
-    Num(usize),
-    Pool(rayon::ThreadPool),
-}
-
-/// An enum to specify the number of threads to use in parallel operations,
-/// either by [`rayon::current_num_threads()`], or by a fixed number, or by a
-/// custom [thread pool](rayon::ThreadPool).
-impl Threads {
-    fn num_threads(&self) -> usize {
-        match self {
-            Self::Default => rayon::current_num_threads(),
-            Self::Num(num_threads) => *num_threads,
-            Self::Pool(thread_pool) => thread_pool.current_num_threads(),
-        }
-    }
-}
-
 /// A queue that pulls jobs with ids in a contiguous initial segment of the
 /// natural numbers from an iterator out of order and implement an iterator in
 /// which they can be pulled in order.
@@ -99,8 +79,6 @@ impl JobId for Job {
     }
 }
 
-=======
->>>>>>> 293f594 (refactoring permuted graph)
 impl BVComp<()> {
     /// Compresses s [`NodeLabelsLender`] and returns the lenght in bits of the
     /// graph bitstream.

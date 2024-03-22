@@ -65,6 +65,9 @@ pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 
 
+/// An enum to specify the number of threads to use in parallel operations,
+/// either by [`rayon::current_num_threads()`], or by a fixed number, or by a
+/// custom [thread pool](rayon::ThreadPool).
 pub enum Threads {
     Default,
     Num(usize),
