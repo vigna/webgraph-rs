@@ -31,7 +31,7 @@ pub mod seq {
 
     impl<L: lender::ExactSizeLender> Iter<L> {
         pub fn new(lender: L, how_many: usize) -> Self {
-            let nodes_per_iter = lender.len() / how_many;
+            let nodes_per_iter = lender.len().div_ceil(how_many);
             Self {
                 lender,
                 nodes_per_iter,
@@ -78,7 +78,7 @@ pub mod ra {
 
     impl<'a, R: RandomAccessLabeling> Iter<'a, R> {
         pub fn new(labeling: &'a R, how_many: usize) -> Self {
-            let nodes_per_iter = labeling.num_nodes() / how_many;
+            let nodes_per_iter = labeling.num_nodes().div_ceil(how_many);
             Self {
                 labeling,
                 nodes_per_iter,

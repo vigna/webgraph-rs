@@ -17,7 +17,7 @@ use webgraph::prelude::*;
 fn test_par_bvcomp() -> Result<()> {
     env_logger::builder()
         .is_test(true)
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Debug)
         .try_init()?;
 
     _test_par_bvcomp("tests/data/cnr-2000")?;

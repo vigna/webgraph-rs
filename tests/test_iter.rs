@@ -69,6 +69,15 @@ fn test_split_iter_bv() -> Result<()> {
 }
 
 #[test]
+fn test_split_iter_bvrnd() -> Result<()> {
+    let bvgraph = BVGraph::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
+
+    test_split_iter(&bvgraph)
+}
+
+#[test]
 fn test_split_iter_perm() -> Result<()> {
     let bvgraph_seq = BVGraphSeq::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
@@ -118,5 +127,6 @@ where
             assert!(itertools::equal(seq_succ, split_succ));
         }];
     }
+    assert!(iter.next().is_none(), "Too few nodes in split_iter");
     Ok(())
 }

@@ -11,7 +11,8 @@ use lender::*;
 use webgraph::prelude::*;
 
 fn logger_init() {
-    env_logger::builder().is_test(true).try_init().unwrap();
+    env_logger::builder()
+    .filter_level(log::LevelFilter::Debug).is_test(true).try_init().unwrap();
 }
 
 #[test]
@@ -30,8 +31,10 @@ fn test_transpose() -> Result<()> {
         .load()?;
     let num_nodes = graph.num_nodes();
     // transpose and par compress]
+    log::info!("Transposing");
     let transposed = webgraph::transform::transpose(&graph, BATCH_SIZE)?;
 
+    log::info!("Starting compression");
     BVComp::parallel_graph::<BE>(
         TRANSPOSED_PATH,
         &transposed,

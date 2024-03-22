@@ -51,6 +51,7 @@ impl<E: Endianness, W: BitRead<E>> BitDeserializer<E, W> for Mock {
     }
 }
 
+#[allow(dead_code)] // I have no idea why this happens https://github.com/rust-lang/rust/issues/12327
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
