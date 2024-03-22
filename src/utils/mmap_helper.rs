@@ -29,6 +29,7 @@ use std::{mem::size_of, path::Path, sync::Arc};
 /// is not a multiple of the size of `W`.
 ///
 /// If you need clonable version of this structure, consider using [`ArcMmapHelper`].
+#[derive(Clone)]
 pub struct MmapHelper<W, M = Mmap> {
     /// The underlying memory mapping, [`Mmap`] or [`MmapMut`].
     mmap: M,

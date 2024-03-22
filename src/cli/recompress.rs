@@ -64,7 +64,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     };
 
     log::info!(
-        "The compression took {:.3} seconds",
+        "The re-compression took {:.3} seconds",
         start.elapsed().as_secs_f64()
     );
     Ok(())
@@ -81,15 +81,56 @@ where
     let dir = Builder::new().prefix("Recompress").tempdir()?;
 
     if args.basename.with_extension(EF_EXTENSION).exists() {
-        let seq_graph = BVGraph::with_basename(&args.basename)
+        let graph = BVGraph::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 
         if let Some(permutation) = permutation {
+            log::warn!("Starting to permute the graph.");
+            let start = std::time::Instant::now();
+            let sorted = crate::transform::permute_split(
+                &graph,
+                &permutation,
+                args.pa.batch_size,
+                Threads::Num(args.num_cpus.num_cpus),
+            )?;
+            log::warn!("Permuted the graph. It took {:.3} seconds", start.elapsed().as_secs_f64());
             BVComp::parallel_endianness(
                 args.new_basename,
-                &seq_graph,
-                seq_graph.num_nodes(),
+                &sorted,
+                sorted.num_nodes(),
+                args.ca.into(),
+                Threads::Num(args.num_cpus.num_cpus),
+                dir,
+                &target_endianness.unwrap_or_else(|| E::NAME.into()),
+            )?;
+        } else {
+            BVComp::parallel_endianness(
+                args.new_basename,
+                &graph,
+                graph.num_nodes(),
+                args.ca.into(),
+                Threads::Num(args.num_cpus.num_cpus),
+                dir,
+                &target_endianness.unwrap_or_else(|| E::NAME.into()),
+            )?;
+        }
+    } else {
+        log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
+        let seq_graph = BVGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
+
+        if let Some(permutation) = permutation {
+            log::warn!("Starting to permute the graph.");
+            let start = std::time::Instant::now();
+            let permuted = crate::transform::permute(&seq_graph, &permutation, args.pa.batch_size)?;
+            log::warn!("Permuted the graph. It took {:.3} seconds", start.elapsed().as_secs_f64());
+
+            BVComp::parallel_endianness(
+                args.new_basename,
+                &permuted,
+                permuted.num_nodes(),
                 args.ca.into(),
                 Threads::Num(args.num_cpus.num_cpus),
                 dir,
@@ -106,21 +147,6 @@ where
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
         }
-    } else {
-        log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
-        let seq_graph = BVGraphSeq::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
-
-        BVComp::parallel_endianness(
-            args.new_basename,
-            &seq_graph,
-            seq_graph.num_nodes(),
-            args.ca.into(),
-            Threads::Num(args.num_cpus.num_cpus),
-            dir,
-            &target_endianness.unwrap_or_else(|| E::NAME.into()),
-        )?;
     }
     Ok(())
 }

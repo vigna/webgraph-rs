@@ -63,3 +63,43 @@ pub use java_perm::*;
 
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
+
+
+pub enum Threads {
+    Default,
+    Num(usize),
+    Pool(rayon::ThreadPool),
+}
+
+impl Threads {
+    pub fn num_threads(&self) -> usize {
+        match self {
+            Self::Default => rayon::current_num_threads(),
+            Self::Num(num_threads) => *num_threads,
+            Self::Pool(thread_pool) => thread_pool.current_num_threads(),
+        }
+    }
+}
+
+impl AsMut<rayon::ThreadPool> for Threads {
+    fn as_mut(&mut self) -> &mut rayon::ThreadPool {
+        match self {
+            Self::Default => {
+                let thread_pool = rayon::ThreadPoolBuilder::new()
+                    .build()
+                    .expect("Failed to create thread pool");
+                *self = Self::Pool(thread_pool);
+                self.as_mut()
+            },
+            Self::Num(num_threads) => {
+                let thread_pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(*num_threads)
+                    .build()
+                    .expect("Failed to create thread pool");
+                *self = Self::Pool(thread_pool);
+                self.as_mut()
+            }
+            Self::Pool(thread_pool) => thread_pool,
+        }
+    }
+}

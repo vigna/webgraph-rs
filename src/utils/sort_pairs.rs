@@ -470,6 +470,30 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
     }
 }
 
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::default::Default for KMergeIters<I, T> {
+    fn default() -> Self {
+        KMergeIters {
+            heap: dary_heap::QuaternaryHeap::default(),
+        }
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I, T> {
+    fn sum<J: Iterator<Item = Self>>(iter: J) -> Self {
+        let mut heap = dary_heap::QuaternaryHeap::default();
+        for mut kmerge in iter {
+            heap.extend(kmerge.heap.drain());
+        }
+        KMergeIters { heap }
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::ops::AddAssign for KMergeIters<I, T> {
+    fn add_assign(&mut self, mut rhs: Self) {
+        self.heap.extend(rhs.heap.drain());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

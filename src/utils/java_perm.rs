@@ -20,6 +20,7 @@ use sux::traits::*;
 ///
 /// Note that this class is only available on 64-bit platforms.
 #[cfg(target_pointer_width = "64")]
+#[derive(Clone)]
 pub struct JavaPermutation<M = Mmap> {
     pub perm: MmapHelper<u64, M>,
 }
