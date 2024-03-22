@@ -30,6 +30,64 @@ impl Threads {
     }
 }
 
+struct TaskQueue<I: std::iter::Iterator>
+where
+    I::Item: Eq + Ord + PartialEq<usize>,
+{
+    iter: I,
+    heap: std::collections::BinaryHeap<std::cmp::Reverse<I::Item>>,
+    next_id: usize,
+}
+
+impl<I: std::iter::Iterator> TaskQueue<I>
+where
+    I::Item: Eq + Ord + PartialEq<usize>,
+{
+    fn new(iter: I) -> Self {
+        Self {
+            iter,
+            heap: std::collections::BinaryHeap::new(),
+            next_id: 0,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
+struct Job {
+    job_id: usize,
+    written_bits: u64,
+    num_arcs: u64,
+}
+
+impl PartialEq<usize> for Job {
+    fn eq(&self, other: &usize) -> bool {
+        self.job_id == *other
+    }
+}
+
+impl<I: std::iter::Iterator> std::iter::Iterator for TaskQueue<I>
+where
+    I::Item: Eq + Ord + PartialEq<usize>,
+{
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(top) = self.heap.peek() {
+                if top.0 == self.next_id {
+                    self.next_id += 1;
+                    return Some(self.heap.pop().unwrap().0);
+                }
+            }
+            if let Some(item) = self.iter.next() {
+                self.heap.push(std::cmp::Reverse(item));
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
 impl BVComp<()> {
     /// Compresses s [`NodeLabelsLender`] and returns the lenght in bits of the
     /// graph bitstream.
@@ -257,6 +315,7 @@ impl BVComp<()> {
                                 BufWriter::new(File::create(&file_path).unwrap()),
                             ));
                             let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
+                            eprintln!("{}", node_id);
                             let mut bvcomp = BVComp::new(
                                 codes_encoder,
                                 cp_flags.compression_window,
@@ -271,7 +330,7 @@ impl BVComp<()> {
                         };
 
                     written_bits += bvcomp.extend(thread_lender).unwrap();
-                    let arcs = bvcomp.arcs;
+                    let num_arcs = bvcomp.arcs;
                     bvcomp.flush().unwrap();
                     // TODO written_bits += bvcomp.flush().unwrap();
                     log::info!(
@@ -279,14 +338,16 @@ impl BVComp<()> {
                         thread_id,
                         written_bits
                     );
-                    tx.send((thread_id, written_bits, arcs)).unwrap()
+                    tx.send(Job {
+                        job_id: thread_id,
+                        written_bits,
+                        num_arcs,
+                    })
+                    .unwrap()
                 });
             }
 
             drop(tx);
-
-            let mut result: Vec<_> = rx.iter().collect();
-            result.sort();
 
             // setup the final bitstream from the end, because the first thread
             // already wrote the first chunk
@@ -301,10 +362,16 @@ impl BVComp<()> {
 
             // glue toghether the bitstreams as they finish, this allows us to do
             // task pipelining for better performance
-            for (thread_id, written_bits, arcs) in result {
-                total_arcs += arcs;
+            for Job {
+                job_id,
+                written_bits,
+                num_arcs,
+            } in TaskQueue::new(rx.iter())
+            {
+                dbg!(job_id, written_bits, num_arcs);
+                total_arcs += num_arcs;
                 // compute the path of the bitstream created by this thread
-                let file_path = thread_path(thread_id);
+                let file_path = thread_path(job_id);
                 log::info!(
                     "Copying {} [{}..{}) bits from {} to {}",
                     written_bits,
@@ -332,7 +399,7 @@ impl BVComp<()> {
             }
 
             log::info!("Flushing the merged Compression bitstream");
-            result_writer.flush().unwrap();
+            result_writer.flush()?;
 
             log::info!("Writing the .properties file");
             let properties = compression_flags
