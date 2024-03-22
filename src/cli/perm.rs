@@ -66,7 +66,7 @@ fn permute<E: Endianness>(
         &g,
         g.num_nodes(),
         args.ca.into(),
-        args.num_cpus.num_cpus,
+        Threads::Num(args.num_cpus.num_cpus),
         dir,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;

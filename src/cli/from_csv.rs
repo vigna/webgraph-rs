@@ -7,6 +7,7 @@
 
 use super::utils::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
+use crate::graphs::bvgraph::Threads;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -18,7 +19,6 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
-
 pub const COMMAND_NAME: &str = "from-csv";
 
 #[derive(Args, Debug)]
@@ -129,7 +129,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         &g,
         args.num_nodes,
         args.ca.into(),
-        args.num_cpus.num_cpus,
+        Threads::Num(args.num_cpus.num_cpus),
         dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )

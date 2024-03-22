@@ -44,9 +44,9 @@ impl<'a, G: SequentialGraph> SequentialLabeling for PermutedGraph<'a, G> {
     }
 }
 
-impl<'b, G: SequentialGraph> SplitLabeling for PermutedGraph<'b, G>
+impl<'b, G: SequentialGraph + SplitLabeling> SplitLabeling for PermutedGraph<'b, G>
 where
-    for<'a> <G as SequentialLabeling>::Iterator<'a>: Clone + ExactSizeLender,
+    for<'a> <G as SequentialLabeling>::Iterator<'a>: Clone + ExactSizeLender + Send + Sync,
 {
     type Lender<'a> = split::seq::Lender<'a, PermutedGraph<'b, G> > where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, PermutedGraph<'b, G>> where Self: 'a;

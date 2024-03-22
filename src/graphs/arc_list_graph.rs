@@ -49,7 +49,8 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SplitLabeling
     for ArcListGraph<I>
 where
-    <I as std::iter::IntoIterator>::IntoIter: Clone,
+    <I as std::iter::IntoIterator>::IntoIter: Clone + Send + Sync,
+    L: Send + Sync,
 {
     type Lender<'a> = split::seq::Lender<'a, ArcListGraph<I>> where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, ArcListGraph<I>> where Self: 'a;

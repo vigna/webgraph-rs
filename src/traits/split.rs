@@ -9,6 +9,8 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 
 pub trait SplitLabeling: SequentialLabeling {
     type Lender<'a>: for<'b> NodeLabelsLender<'b, Label = <Self as SequentialLabeling>::Label>
+        + Send
+        + Sync
     where
         Self: 'a;
     type IntoIterator<'a>: IntoIterator<Item = Self::Lender<'a>>

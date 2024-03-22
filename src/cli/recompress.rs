@@ -57,7 +57,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
                 &seq_graph,
                 seq_graph.num_nodes(),
                 args.ca.into(),
-                args.num_cpus.num_cpus,
+                Threads::Num(args.num_cpus.num_cpus),
                 dir,
                 &target_endianness.unwrap_or_else(|| BE::NAME.into()),
             )?;
@@ -76,7 +76,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
                 &seq_graph,
                 seq_graph.num_nodes(),
                 args.ca.into(),
-                args.num_cpus.num_cpus,
+                Threads::Num(args.num_cpus.num_cpus),
                 dir,
                 &target_endianness.unwrap_or_else(|| LE::NAME.into()),
             )?;

@@ -13,8 +13,22 @@ use lender::prelude::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::thread::ScopedJoinHandle;
+
+pub enum Threads {
+    Default,
+    Num(usize),
+    Pool(rayon::ThreadPool),
+}
+
+impl Threads {
+    fn num_threads(&self) -> usize {
+        match self {
+            Self::Default => rayon::current_num_threads(),
+            Self::Num(num_threads) => *num_threads,
+            Self::Pool(thread_pool) => thread_pool.current_num_threads(),
+        }
+    }
+}
 
 impl BVComp<()> {
     /// Build a BVGraph by compressing an iterator of nodes and successors and
@@ -120,18 +134,18 @@ impl BVComp<()> {
     /// A given endianess is enabled only if the corresponding feature is enabled,
     /// `be_bins` for big endian and `le_bins` for little endian, or if neither
     /// features are enabled.
-    pub fn parallel_endianness<
-        P: AsRef<Path>,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Clone + Send,
-    >(
+    pub fn parallel_endianness<P: AsRef<Path>, G: SplitLabeling + SequentialGraph>(
         basename: impl AsRef<Path> + Send + Sync,
-        iter: impl std::iter::Iterator<Item = L>,
+        graph: &G,
         num_nodes: usize,
         compression_flags: CompFlags,
-        thread_pool: &rayon::ThreadPool,
+        threads: Threads,
         tmp_dir: P,
         endianess: &str,
-    ) -> Result<usize> {
+    ) -> Result<usize>
+    where
+        for<'a> <G as SplitLabeling>::Lender<'a>: Send + Sync,
+    {
         match endianess {
             #[cfg(any(
                 feature = "be_bins",
@@ -139,12 +153,12 @@ impl BVComp<()> {
             ))]
             BE::NAME => {
                 // compress the transposed graph
-                Self::parallel::<BigEndian, _>(
+                Self::parallel_iter::<BigEndian, _>(
                     basename,
-                    iter,
+                    graph.split_iter(threads.num_threads()).into_iter(),
                     num_nodes,
                     compression_flags,
-                    thread_pool,
+                    threads,
                     tmp_dir,
                 )
             }
@@ -154,35 +168,70 @@ impl BVComp<()> {
             ))]
             LE::NAME => {
                 // compress the transposed graph
-                Self::parallel::<LittleEndian, _>(
+                Self::parallel_iter::<LittleEndian, _>(
                     basename,
-                    iter,
+                    graph.split_iter(threads.num_threads()).into_iter(),
                     num_nodes,
                     compression_flags,
-                    thread_pool,
+                    threads,
                     tmp_dir,
                 )
             }
             x => anyhow::bail!("Unknown endianness {}", x),
         }
     }
+
     /// Compress an iterator of nodes and successors in parllel and return the
     /// lenght in bits of the produced file
-    pub fn parallel<
-        E: Endianness,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Clone + Send,
-    >(
+    pub fn parallel_graph<E: Endianness>(
         basename: impl AsRef<Path> + Send + Sync,
-        iter: impl std::iter::Iterator<Item = L>,
-        num_nodes: usize,
+        graph: &(impl SequentialGraph + SplitLabeling),
         compression_flags: CompFlags,
-        thread_pool: &rayon::ThreadPool,
+        threads: Threads,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<usize>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
+        Self::parallel_iter(
+            basename,
+            graph.split_iter(threads.num_threads()).into_iter(),
+            graph.num_nodes(),
+            compression_flags,
+            threads,
+            tmp_dir,
+        )
+    }
+
+    /// Compress an iterator of nodes and successors in parllel and return the
+    /// lenght in bits of the produced file
+    pub fn parallel_iter<
+        E: Endianness,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
+    >(
+        basename: impl AsRef<Path> + Send + Sync,
+        iter: impl std::iter::Iterator<Item = L>,
+        num_nodes: usize,
+        compression_flags: CompFlags,
+        threads: Threads,
+        tmp_dir: impl AsRef<Path>,
+    ) -> Result<usize>
+    where
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
+        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
+    {
+        let thread_pool = match threads {
+            Threads::Default => rayon::ThreadPoolBuilder::new()
+                .build()
+                .context("Could not create thread pool")?,
+            Threads::Num(num_threads) => rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .context("Could not create thread pool")?,
+            Threads::Pool(thread_pool) => thread_pool,
+        };
+
         let tmp_dir = tmp_dir.as_ref();
         let basename = basename.as_ref();
 
@@ -251,10 +300,10 @@ impl BVComp<()> {
                     tx.send((thread_id, written_bits, arcs)).unwrap()
                 });
 
-                drop(tx);
                 log::info!("Skipping {} nodes from the iterator", nodes_per_thread);
             }
 
+            drop(tx);
             // setup the final bitstream from the end, because the first thread
             // already wrote the first chunk
             let file = File::create(&graph_path)

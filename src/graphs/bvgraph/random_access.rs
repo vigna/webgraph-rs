@@ -39,7 +39,7 @@ impl BVGraph<()> {
 
 impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
 where
-    for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Clone,
+    for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
 {
     type Lender<'a> = split::ra::Lender<'a, BVGraph<F>> where Self: 'a;
     type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
