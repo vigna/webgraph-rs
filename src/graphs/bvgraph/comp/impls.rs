@@ -20,6 +20,9 @@ pub enum Threads {
     Pool(rayon::ThreadPool),
 }
 
+/// An enum to specify the number of threads to use in parallel operations,
+/// either by [`rayon::current_num_threads()`], or by a fixed number, or by a
+/// custom [thread pool](rayon::ThreadPool).
 impl Threads {
     fn num_threads(&self) -> usize {
         match self {
@@ -30,28 +33,58 @@ impl Threads {
     }
 }
 
-struct TaskQueue<I: std::iter::Iterator>
-where
-    I::Item: Eq + Ord + PartialEq<usize>,
-{
+/// A queue that pulls jobs with ids in a contiguous initial segment of the
+/// natural numbers from an iterator out of order and implement an iterator in
+/// which they can be pulled in order.
+///
+/// Jobs must be ordered by their job id, and must implement [`Eq`] with a
+/// [`usize`] using their job id.
+struct TaskQueue<I: std::iter::Iterator> {
     iter: I,
-    heap: std::collections::BinaryHeap<std::cmp::Reverse<I::Item>>,
+    jobs: Vec<Option<I::Item>>,
     next_id: usize,
 }
 
-impl<I: std::iter::Iterator> TaskQueue<I>
-where
-    I::Item: Eq + Ord + PartialEq<usize>,
-{
+trait JobId {
+    fn id(&self) -> usize;
+}
+
+impl<I: std::iter::Iterator> TaskQueue<I> {
     fn new(iter: I) -> Self {
         Self {
             iter,
-            heap: std::collections::BinaryHeap::new(),
+            jobs: vec![],
             next_id: 0,
         }
     }
 }
 
+impl<I: std::iter::Iterator> std::iter::Iterator for TaskQueue<I>
+where
+    I::Item: JobId + Copy,
+{
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(Some(item)) = self.jobs.get(self.next_id) {
+                self.next_id += 1;
+                return Some(*item);
+            }
+            if let Some(item) = self.iter.next() {
+                let id = item.id();
+                if id >= self.jobs.len() {
+                    self.jobs.resize_with(id + 1, || None);
+                }
+                self.jobs[id] = Some(item);
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+/// A compression job.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 struct Job {
     job_id: usize,
@@ -59,32 +92,9 @@ struct Job {
     num_arcs: u64,
 }
 
-impl PartialEq<usize> for Job {
-    fn eq(&self, other: &usize) -> bool {
-        self.job_id == *other
-    }
-}
-
-impl<I: std::iter::Iterator> std::iter::Iterator for TaskQueue<I>
-where
-    I::Item: Eq + Ord + PartialEq<usize>,
-{
-    type Item = I::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(top) = self.heap.peek() {
-                if top.0 == self.next_id {
-                    self.next_id += 1;
-                    return Some(self.heap.pop().unwrap().0);
-                }
-            }
-            if let Some(item) = self.iter.next() {
-                self.heap.push(std::cmp::Reverse(item));
-            } else {
-                return None;
-            }
-        }
+impl JobId for Job {
+    fn id(&self) -> usize {
+        self.job_id
     }
 }
 
@@ -368,7 +378,6 @@ impl BVComp<()> {
                 num_arcs,
             } in TaskQueue::new(rx.iter())
             {
-                dbg!(job_id, written_bits, num_arcs);
                 total_arcs += num_arcs;
                 // compute the path of the bitstream created by this thread
                 let file_path = thread_path(job_id);
