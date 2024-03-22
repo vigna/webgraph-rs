@@ -31,8 +31,8 @@ impl Threads {
 }
 
 impl BVComp<()> {
-    /// Build a BVGraph by compressing an iterator of nodes and successors and
-    /// return the length of the produced bitstream (in bits).
+    /// Compresses s [`NodeLabelsLender`] and returns the lenght in bits of the
+    /// graph bitstream.
     pub fn single_thread<E, L>(
         basename: impl AsRef<Path>,
         iter: L,
@@ -127,13 +127,14 @@ impl BVComp<()> {
         Ok(result)
     }
 
-    /// A wrapper over [`parallel_compress_sequential_iter`] that takes the
+    /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
     /// endianness as a string.
     ///
-    /// Endianess can only be [`BE::NAME`](BE) or [`LE::NAME`](LE)
-    /// A given endianess is enabled only if the corresponding feature is enabled,
-    /// `be_bins` for big endian and `le_bins` for little endian, or if neither
-    /// features are enabled.
+    /// Endianess can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
+    ///
+    ///  A given endianess is enabled only if the corresponding feature is
+    /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
+    /// neither features are enabled.
     pub fn parallel_endianness<P: AsRef<Path>, G: SplitLabeling + SequentialGraph>(
         basename: impl AsRef<Path> + Send + Sync,
         graph: &G,
@@ -181,8 +182,7 @@ impl BVComp<()> {
         }
     }
 
-    /// Compress an iterator of nodes and successors in parllel and return the
-    /// lenght in bits of the produced file
+    /// Compresses a graph in parallel and returns the lenght in bits of the graph bitstream.
     pub fn parallel_graph<E: Endianness>(
         basename: impl AsRef<Path> + Send + Sync,
         graph: &(impl SequentialGraph + SplitLabeling),
@@ -204,8 +204,8 @@ impl BVComp<()> {
         )
     }
 
-    /// Compress an iterator of nodes and successors in parllel and return the
-    /// lenght in bits of the produced file
+    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the lenght in bits
+    /// of the graph bitstream.
     pub fn parallel_iter<
         E: Endianness,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
