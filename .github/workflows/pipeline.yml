@@ -19,4 +19,4 @@ jobs:
       - name: Copy Cnr-2000 to a new directory
         run: mkdir llp && cp tests/data/cnr-2000.graph ./llp && cp tests/data/cnr-2000.properties ./llp
       - name: Run test pipeline on cnr-2000
-        run: ./pipeline.sh ./llop/cnr-2000
+        run: ./pipeline.sh ./llp/cnr-2000
