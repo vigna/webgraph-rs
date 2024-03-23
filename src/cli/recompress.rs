@@ -76,13 +76,12 @@ fn compress<E: Endianness + Clone + Send + Sync>(
     permutation: Option<JavaPermutation>,
 ) -> Result<()>
 where
-
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     let dir = Builder::new().prefix("Recompress").tempdir()?;
 
     if args.basename.with_extension(EF_EXTENSION).exists() {
-        let graph  = BVGraph::with_basename(&args.basename)
+        let graph = BVGraph::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 
@@ -91,7 +90,20 @@ where
             let start = std::time::Instant::now();
             // TODO!: this type annotation is not needed in the nightly version
             let sorted = crate::transform::permute_split::<
-                BVGraph<DynCodesDecoderFactory<E, MmapHelper<u32>, sux::prelude::EliasFano<sux::prelude::SelectFixed2<sux::prelude::CountBitVec<&[usize]>, &[u64], 8>, sux::prelude::BitFieldVec<usize, &[usize]>>>>,
+                BVGraph<
+                    DynCodesDecoderFactory<
+                        E,
+                        MmapHelper<u32>,
+                        sux::prelude::EliasFano<
+                            sux::prelude::SelectFixed2<
+                                sux::prelude::CountBitVec<&[usize]>,
+                                &[u64],
+                                8,
+                            >,
+                            sux::prelude::BitFieldVec<usize, &[usize]>,
+                        >,
+                    >,
+                >,
                 JavaPermutation,
             >(
                 &graph,
