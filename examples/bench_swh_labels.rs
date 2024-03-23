@@ -12,6 +12,7 @@ use lender::*;
 use std::hint::black_box;
 use std::path::PathBuf;
 use webgraph::prelude::*;
+use webgraph::prelude::swh_labels::SwhLabels;
 
 #[derive(Parser, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
