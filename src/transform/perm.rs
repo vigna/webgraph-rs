@@ -83,6 +83,7 @@ where
 
     let pool = threads.as_mut();
     let (tx, rx) = std::sync::mpsc::channel();
+    let mut dirs = vec![];
 
     pool.in_place_scope(|scope| {
         for (thread_id, iter) in pgraph.split_iter(pool.current_num_threads()).enumerate() {
@@ -91,8 +92,11 @@ where
                 .prefix(&format!("Permute_{}", thread_id))
                 .tempdir()
                 .expect("Could not create a temporary directory");
+            let dir_path = dir.path().to_path_buf();
+            dirs.push(dir);
             scope.spawn(move |_| {
-                let mut sorted = SortPairs::new(batch_size, dir).unwrap();
+                log::debug!("Spawned thread {}", thread_id);
+                let mut sorted = SortPairs::new(batch_size, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         sorted.push(src, dst).unwrap();
@@ -100,13 +104,19 @@ where
                 });
                 tx.send(sorted.iter().context("Could not read arcs").unwrap())
                     .expect("Could not send the sorted pairs");
+                log::debug!("Thread {} finished", thread_id);
             });
         }
     });
 
+    drop(tx);
+
     // get a graph on the sorted data
+    log::debug!("Waiting for threads to finish");
     let edges = rx.iter().sum();
+    log::debug!("All threads finished");
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
 
+    drop(dirs);
     Ok(Left(sorted))
 }

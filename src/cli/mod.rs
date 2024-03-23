@@ -11,11 +11,13 @@ use std::path::{Path, PathBuf};
 
 pub mod ascii_convert;
 pub mod bench;
+pub mod bfs;
 pub mod build;
 pub mod check_ef;
 pub mod convert;
 pub mod from_csv;
 pub mod llp;
+pub mod merge_perms;
 pub mod optimize_codes;
 pub mod pad;
 pub mod rand_perm;

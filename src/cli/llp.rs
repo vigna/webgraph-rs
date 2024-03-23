@@ -190,6 +190,6 @@ where
                 .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
         }
     }
-    log::info!("Completed..");
+    log::info!("Completed in {} seconds", start.elapsed().as_secs_f64());
     Ok(())
 }

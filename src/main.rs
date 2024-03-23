@@ -12,7 +12,7 @@ use webgraph::cli;
 
 pub fn main() -> Result<()> {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(log::LevelFilter::Debug)
         .try_init()?;
 
     let command = Command::new("webgraph")
@@ -71,11 +71,13 @@ pub fn main() -> Result<()> {
         command,
         ascii_convert,
         bench,
+        bfs,
         build,
         check_ef,
         convert,
         from_csv,
         llp,
+        merge_perms,
         optimize_codes,
         pad,
         rand_perm,

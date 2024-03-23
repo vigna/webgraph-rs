@@ -95,6 +95,7 @@ pub struct PermutationArgs {
     /// Load the permutations from ε-serde format instead of the java format, i.e. an array of 64-bit big-endian integers
     epserde: bool,
     */
+    #[clap(long)]
     /// The path to the permutations to, optionally, apply to the graph.
     pub permutation: Option<PathBuf>,
 
