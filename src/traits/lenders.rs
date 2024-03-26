@@ -106,6 +106,15 @@ where
     type IntoIterator = II;
 }
 
+impl<'lend, L, F> NodeLabelsLender<'lend> for lender::Inspect<L, F>
+where
+    F: for<'next> FnMut(&Lend<'next, L>),
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
 impl<'lend, L, F, L2> NodeLabelsLender<'lend> for lender::Map<L, F>
 where
     F: for<'all> lender::higher_order::FnMutHKA<'all, Lend<'all, L>, B = (usize, L2)>,
