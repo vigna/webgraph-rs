@@ -6,7 +6,7 @@
  */
 
 use crate::prelude::*;
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
@@ -69,6 +69,8 @@ where
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
 struct Job {
     job_id: usize,
+    first_node: usize,
+    last_node: usize,
     written_bits: u64,
     num_arcs: u64,
 }
@@ -296,9 +298,11 @@ impl BVComp<()> {
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::info!("Thread {} started", thread_id);
+                    let first_node;
 
                     let (mut bvcomp, mut written_bits) =
                         if let Some((node_id, successors)) = thread_lender.next() {
+                            first_node = node_id;
                             let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
                                 BufWriter::new(File::create(&file_path).unwrap()),
                             ));
@@ -317,7 +321,10 @@ impl BVComp<()> {
                             return;
                         };
 
-                    written_bits += bvcomp.extend(thread_lender).unwrap();
+                    let mut last_node = first_node;
+                    written_bits += bvcomp
+                        .extend(thread_lender.inspect(|(x, _)| last_node = *x))
+                        .unwrap();
                     let num_arcs = bvcomp.arcs;
                     bvcomp.flush().unwrap();
                     // TODO written_bits += bvcomp.flush().unwrap();
@@ -328,6 +335,8 @@ impl BVComp<()> {
                     );
                     tx.send(Job {
                         job_id: thread_id,
+                        first_node,
+                        last_node,
                         written_bits,
                         num_arcs,
                     })
@@ -348,14 +357,26 @@ impl BVComp<()> {
             let mut total_written_bits: u64 = 0;
             let mut total_arcs: u64 = 0;
 
+            let mut next_node = 0;
             // glue toghether the bitstreams as they finish, this allows us to do
             // task pipelining for better performance
             for Job {
                 job_id,
+                first_node,
+                last_node,
                 written_bits,
                 num_arcs,
             } in TaskQueue::new(rx.iter())
             {
+                ensure!(
+                    first_node == next_node,
+                    "Non-adjacent lenders: lender {} has first node {} instead of {}",
+                    job_id,
+                    first_node,
+                    next_node
+                );
+
+                next_node = last_node + 1;
                 total_arcs += num_arcs;
                 // compute the path of the bitstream created by this thread
                 let file_path = thread_path(job_id);
