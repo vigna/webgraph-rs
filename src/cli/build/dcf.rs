@@ -77,7 +77,6 @@ where
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
-    info!("The offsets file does not exists, reading the graph.");
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&basename)
         .endianness::<E>()
         .load()
