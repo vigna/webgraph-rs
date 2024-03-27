@@ -5,12 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::utils::*;
+use super::{append, utils::*};
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 
@@ -21,8 +20,8 @@ pub const COMMAND_NAME: &str = "simplify";
 struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
-    /// The basename of the transposed graph.
-    simplified: PathBuf,
+    /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
+    simplified: Option<PathBuf>,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -41,111 +40,48 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let permutation = if let Some(path) = args.pa.permutation.as_ref() {
-        Some(JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)?)
-    } else {
-        None
-    };
-
-    let target_endianness = args.ca.endianess.clone();
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => simplify::<BE>(args, target_endianness, permutation),
+        BE::NAME => simplify::<BE>(args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => simplify::<LE>(args, target_endianness, permutation),
+        LE::NAME => simplify::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-fn simplify<E: Endianness + 'static + Clone + Send + Sync>(
-    args: CliArgs,
-    target_endianness: Option<String>,
-    permutation: Option<JavaPermutation>,
-) -> Result<()>
+fn simplify<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let dir = Builder::new().prefix("Simplify").tempdir()?;
+    // TODO!: speed it up by using random access graph if possible
+    let simplified = args
+        .simplified
+        .unwrap_or_else(|| append(&args.basename, "-simple"));
 
-    if args.basename.with_extension(EF_EXTENSION).exists() {
-        let graph = BVGraph::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+        .endianness::<E>()
+        .load()?;
 
-        if let Some(permutation) = permutation {
-            let permuted = PermutedGraph {
-                graph: &graph,
-                perm: &permutation,
-            };
-            let simplified = crate::transform::simplify_split(
-                &permuted,
-                args.pa.batch_size,
-                Threads::Num(args.num_cpus.num_cpus),
-            )?;
-            log::debug!("Created simplified graph iter");
-            BVComp::parallel_endianness(
-                args.simplified,
-                &simplified,
-                simplified.num_nodes(),
-                args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
-        } else {
-            let simplified = crate::transform::simplify(&graph, args.pa.batch_size)?;
-            log::debug!("Created simplified graph iter");
-            BVComp::parallel_endianness(
-                args.simplified,
-                &simplified,
-                simplified.num_nodes(),
-                args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
-        }
-    } else {
-        log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
-        let seq_graph = BVGraphSeq::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
+    // transpose the graph
+    let sorted = crate::transform::simplify(&seq_graph, args.pa.batch_size).unwrap();
 
-        if let Some(permutation) = permutation {
-            let permuted = PermutedGraph {
-                graph: &seq_graph,
-                perm: &permutation,
-            };
-            let simplified = crate::transform::simplify(&permuted, args.pa.batch_size)?;
-            log::debug!("Created simplified graph iter");
-            BVComp::parallel_endianness(
-                args.simplified,
-                &simplified,
-                simplified.num_nodes(),
-                args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
-        } else {
-            let simplified = crate::transform::simplify(&seq_graph, args.pa.batch_size)?;
-            log::debug!("Created simplified graph iter");
-            BVComp::parallel_endianness(
-                args.simplified,
-                &simplified,
-                simplified.num_nodes(),
-                args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
-        }
-    }
+    let target_endianness = args.ca.endianess.clone();
+    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
+    BVComp::parallel_endianness(
+        simplified,
+        &sorted,
+        sorted.num_nodes(),
+        args.ca.into(),
+        Threads::Num(args.num_cpus.num_cpus),
+        dir,
+        &target_endianness.unwrap_or_else(|| E::NAME.into()),
+    )?;
+
     Ok(())
 }

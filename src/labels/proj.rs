@@ -177,7 +177,7 @@ where
 {
 }
 
-unsafe impl<I: IntoIterator + SortedLabels> SortedLabels for LeftIntoIterator<I> where I::Item: Pair {}
+unsafe impl<I: SortedLabels> SortedLabels for LeftIntoIter<I> where I::Item: Pair {}
 
 // The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -335,5 +335,4 @@ where
 {
 }
 
-unsafe impl<I: IntoIterator + SortedLabels> SortedLabels for RightIntoIterator<I> where I::Item: Pair
-{}
+unsafe impl<I: SortedLabels> SortedLabels for RightIntoIter<I> where I::Item: Pair {}

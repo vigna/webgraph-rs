@@ -279,7 +279,7 @@ pub unsafe trait SortedIterator: Lender {}
 ///
 /// The labels returned by the iterator must be in the order in which they would
 /// be if successors were returned in ascending order.
-pub unsafe trait SortedLabels: IntoIterator {}
+pub unsafe trait SortedLabels: Iterator {}
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.

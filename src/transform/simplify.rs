@@ -14,6 +14,24 @@ use itertools::{Dedup, Itertools};
 use lender::*;
 use tempfile::Builder;
 
+use super::transpose;
+/*
+/// Returns a simplified (i.e., undirected and loopless) version of the provided
+/// graph as a [sequential graph](crate::traits::SequentialGraph).
+///
+/// For the meaning of the additional parameter, see
+/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+#[allow(clippy::type_complexity)]
+pub fn simplify_sorted<G: SequentialGraph>(
+    graph: G,
+    batch_size: usize,
+) -> Result<UnionGraph<G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>> {
+    Ok(UnionGraph(
+        &graph,
+        transpose(&graph, batch_size).context("Could not transpose the graph")?,
+    ))
+}
+*/
 /// Returns a simplified (i.e., undirected and loopless) version of the provided
 /// graph as a [sequential graph](crate::traits::SequentialGraph).
 ///

@@ -9,14 +9,14 @@ use lender::*;
 
 #[derive(Clone)]
 /// A wrapper exhibiting the union of two graphs.
-pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(G, H);
+pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(pub G, pub H);
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialLabeling for UnionGraph<G, H>
 where
     for<'a> G::Iterator<'a>: SortedIterator,
-    for<'a, 'b> <G::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
     for<'a> H::Iterator<'a>: SortedIterator,
-    for<'a, 'b> <H::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
 {
     type Label = usize;
     type Iterator<'b> = Iter<G::Iterator<'b>, H::Iterator<'b>>
@@ -45,9 +45,9 @@ where
 impl<G: SequentialGraph, H: SequentialGraph> SplitLabeling for UnionGraph<G, H>
 where
     for<'a> G::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> <G::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
     for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> <H::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
 {
     type Lender<'a> = split::seq::Lender<'a, UnionGraph<G, H> > where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, UnionGraph<G, H>> where Self: 'a;
@@ -60,18 +60,18 @@ where
 impl<G: SequentialGraph, H: SequentialGraph> SequentialGraph for UnionGraph<G, H>
 where
     for<'a> G::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> <G::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
     for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> <H::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
 {
 }
 
 impl<'c, G: SequentialGraph, H: SequentialGraph> IntoLender for &'c UnionGraph<G, H>
 where
     for<'a> G::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> <G::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
     for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> <H::Iterator<'a> as NodeLabelsLender<'b>>::IntoIterator: SortedLabels,
+    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
 {
     type Lender = <UnionGraph<G, H> as SequentialLabeling>::Iterator<'c>;
 
@@ -133,6 +133,13 @@ impl<
     }
 }
 
+unsafe impl<
+        L: Lender + for<'a> NodeLabelsLender<'a, Label = usize>,
+        M: Lender + for<'a> NodeLabelsLender<'a, Label = usize>,
+    > SortedIterator for Iter<L, M>
+{
+}
+
 #[derive(Clone)]
 pub struct Succ<I: Iterator<Item = usize>, J: Iterator<Item = usize>> {
     iter0: Option<core::iter::Peekable<I>>,
@@ -167,6 +174,12 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
     }
 }
 
+// TODO
+unsafe impl<I: Iterator<Item = usize> + SortedLabels, J: Iterator<Item = usize> + SortedLabels>
+    SortedLabels for Succ<I, J>
+{
+}
+
 #[cfg(test)]
 mod tests {
     use core::panic;
@@ -197,13 +210,14 @@ mod tests {
                 (4, 0),
                 (5, 1),
                 (5, 2),
+                (6, 6),
             ])),
         ];
         for i in 0..2 {
             // TODO: why borrowing doesn't work? I should be able to do
             // let union = UnionGraph(&g[i], &g[1 - i]);
             let union = UnionGraph(g[i].clone(), g[1 - i].clone());
-            assert_eq!(union.num_nodes(), 6);
+            assert_eq!(union.num_nodes(), 7);
 
             let mut iter = union.iter();
             let Some((x, s)) = iter.next() else { panic!() };
@@ -224,6 +238,9 @@ mod tests {
             let Some((x, s)) = iter.next() else { panic!() };
             assert_eq!(x, 5);
             assert_eq!(s.collect::<Vec<_>>(), vec![1, 2]);
+            let Some((x, s)) = iter.next() else { panic!() };
+            assert_eq!(x, 6);
+            assert_eq!(s.collect::<Vec<_>>(), vec![6]);
             assert!(iter.next().is_none());
         }
         Ok(())

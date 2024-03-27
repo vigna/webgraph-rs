@@ -170,9 +170,4 @@ where
 {
 }
 
-/* TODO
-unsafe impl<I: IntoIterator + SortedLabels, J: IntoIterator + SortedLabels> SortedLabels
-    for std::iter::Zip<I::IntoIter, J::IntoIter>
-{
-}
-*/
+unsafe impl<I: SortedLabels, J: SortedLabels> SortedLabels for core::iter::Zip<I, J> {}
