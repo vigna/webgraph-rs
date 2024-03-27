@@ -86,7 +86,6 @@ where
 pub struct Iter<L, M>(L, M);
 
 impl<
-        'node,
         'succ,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
         M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -97,7 +96,6 @@ impl<
 }
 
 impl<
-        'node,
         'succ,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
         M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -107,7 +105,6 @@ impl<
 }
 
 impl<
-        'a,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
         M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
     > Lender for Iter<L, M>
@@ -127,7 +124,6 @@ impl<
 }
 
 impl<
-        'a,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
         M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
     > ExactSizeLender for Iter<L, M>
