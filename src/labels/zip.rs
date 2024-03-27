@@ -11,7 +11,7 @@ use lender::{IntoLender, Lend, Lender, Lending};
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
     LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabeling, SequentialGraph,
-    SequentialLabeling, SortedIterator, SortedLabels,
+    SequentialLabeling, SortedIterator,
 };
 
 /**

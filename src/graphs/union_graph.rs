@@ -139,21 +139,15 @@ impl<
 
 #[derive(Clone)]
 pub struct Succ<I: Iterator<Item = usize>, J: Iterator<Item = usize>> {
-    iter0: Option<I>,
-    iter1: Option<J>,
-    next0: Option<usize>,
-    next1: Option<usize>,
+    iter0: Option<core::iter::Peekable<I>>,
+    iter1: Option<core::iter::Peekable<J>>,
 }
 
 impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Succ<I, J> {
-    pub fn new(mut iter0: Option<I>, mut iter1: Option<J>) -> Self {
-        let next0 = iter0.as_mut().and_then(|x| x.next());
-        let next1 = iter1.as_mut().and_then(|x| x.next());
+    pub fn new(iter0: Option<I>, iter1: Option<J>) -> Self {
         Self {
-            iter0,
-            iter1,
-            next0,
-            next1,
+            iter0: iter0.map(Iterator::peekable),
+            iter1: iter1.map(Iterator::peekable),
         }
     }
 }
@@ -161,26 +155,16 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let result;
-        (result, self.next0, self.next1) = match (&mut self.next0, &mut self.next1) {
-            (Some(a), Some(b)) => {
-                if *a == *b {
-                    (
-                        Some(*a),
-                        self.iter0.as_mut().unwrap().next(),
-                        self.iter1.as_mut().unwrap().next(),
-                    )
-                } else if *a < *b {
-                    (Some(*a), self.iter0.as_mut().unwrap().next(), Some(*b))
-                } else {
-                    (Some(*b), Some(*a), self.iter1.as_mut().unwrap().next())
-                }
+        let next0 = self.iter0.as_mut().and_then(|iter| iter.peek().copied());
+        let next1 = self.iter1.as_mut().and_then(|iter| iter.peek().copied());
+        match next0.unwrap_or(usize::MAX).cmp(&next1.unwrap_or(usize::MAX)) {
+            std::cmp::Ordering::Greater => self.iter1.as_mut().and_then(Iterator::next),
+            std::cmp::Ordering::Less => self.iter0.as_mut().and_then(Iterator::next),
+            std::cmp::Ordering::Equal => {
+                self.iter0.as_mut().and_then(Iterator::next);
+                self.iter1.as_mut().and_then(Iterator::next)
             }
-            (Some(a), None) => (Some(*a), self.iter0.as_mut().unwrap().next(), None),
-            (None, Some(b)) => (Some(*b), None, self.iter1.as_mut().unwrap().next()),
-            (None, None) => (None, None, None),
-        };
-        result
+        }
     }
 }
 
