@@ -114,15 +114,15 @@ impl<
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        match (self.0.next(), self.1.next()) {
-            (Some((x, a)), Some((y, b))) => {
-                debug_assert_eq!(x, y);
-                Some((x, Succ::new(Some(a.into_iter()), Some(b.into_iter()))))
-            }
-            (Some((x, a)), None) => Some((x, Succ::new(Some(a.into_iter()), None))),
-            (None, Some((y, b))) => Some((y, Succ::new(None, Some(b.into_iter())))),
-            (None, None) => None,
-        }
+        let (node0, iter0) = self.0.next().unzip();
+        let (node1, iter1) = self.1.next().unzip();
+        Some((
+            node0.or(node1)?,
+            Succ::new(
+                iter0.map(IntoIterator::into_iter),
+                iter1.map(IntoIterator::into_iter),
+            ),
+        ))
     }
 }
 
@@ -157,7 +157,10 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
     fn next(&mut self) -> Option<Self::Item> {
         let next0 = self.iter0.as_mut().and_then(|iter| iter.peek().copied());
         let next1 = self.iter1.as_mut().and_then(|iter| iter.peek().copied());
-        match next0.unwrap_or(usize::MAX).cmp(&next1.unwrap_or(usize::MAX)) {
+        match next0
+            .unwrap_or(usize::MAX)
+            .cmp(&next1.unwrap_or(usize::MAX))
+        {
             std::cmp::Ordering::Greater => self.iter1.as_mut().and_then(Iterator::next),
             std::cmp::Ordering::Less => self.iter0.as_mut().and_then(Iterator::next),
             std::cmp::Ordering::Equal => {
