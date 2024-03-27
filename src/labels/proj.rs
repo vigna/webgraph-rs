@@ -16,7 +16,7 @@ projection of a labeling whose labels are pairs. In particular,
 */
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
-    RandomAccessLabeling, SequentialGraph, SequentialLabeling,
+    RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLabels,
 };
 use crate::traits::SplitLabeling;
 use lender::{IntoLender, Lend, Lender, Lending};
@@ -170,6 +170,15 @@ impl<S: SequentialLabeling> SequentialGraph for Left<S> where S::Label: Pair<Lef
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
 
+unsafe impl<L: SortedIterator> SortedIterator for LeftIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
+}
+
+unsafe impl<I: IntoIterator + SortedLabels> SortedLabels for LeftIntoIterator<I> where I::Item: Pair {}
+
 // The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Right<S: SequentialLabeling>(pub S)
@@ -318,3 +327,13 @@ where
 impl<S: SequentialLabeling> SequentialGraph for Right<S> where S::Label: Pair<Right = usize> {}
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}
+
+unsafe impl<L: SortedIterator> SortedIterator for RightIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
+}
+
+unsafe impl<I: IntoIterator + SortedLabels> SortedLabels for RightIntoIterator<I> where I::Item: Pair
+{}

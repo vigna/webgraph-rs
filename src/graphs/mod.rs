@@ -11,6 +11,9 @@ pub mod bvgraph;
 pub use bvgraph::*;
 pub mod permuted_graph;
 
+mod union_graph;
+pub use union_graph::UnionGraph;
+
 pub mod random;
 
 pub mod vec_graph;

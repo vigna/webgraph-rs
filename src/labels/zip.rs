@@ -11,7 +11,7 @@ use lender::{IntoLender, Lend, Lender, Lending};
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
     LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabeling, SequentialGraph,
-    SequentialLabeling,
+    SequentialLabeling, SortedIterator, SortedLabels,
 };
 
 /**
@@ -162,3 +162,17 @@ impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::
     for Zip<G, L>
 {
 }
+
+unsafe impl<L, R> SortedIterator for Iter<L, R>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    R: Lender + for<'next> NodeLabelsLender<'next>,
+{
+}
+
+/* TODO
+unsafe impl<I: IntoIterator + SortedLabels, J: IntoIterator + SortedLabels> SortedLabels
+    for std::iter::Zip<I::IntoIter, J::IntoIter>
+{
+}
+*/
