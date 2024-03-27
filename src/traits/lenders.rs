@@ -7,6 +7,8 @@
  */
 
 use lender::*;
+// missing implementations for [Cloned, Copied, Owned] because they don't
+// implement Lender but Iterator.
 
 /// Iteration on nodes and associated labels.
 ///
@@ -106,6 +108,33 @@ where
     type IntoIterator = II;
 }
 
+impl<'lend, 'this, LL, L, F> NodeLabelsLender<'lend> for lender::FlatMap<'this, LL, F>
+where
+    LL: Lender,
+    L: Lender + for<'next> NodeLabelsLender<'next> + 'lend,
+    F: for<'all> lender::higher_order::FnMutHKA<'all, Lend<'all, LL>, B = L>,
+{
+    type Label = <L as NodeLabelsLender<'lend>>::Label;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
+impl<'lend, 'this, LL, L> NodeLabelsLender<'lend> for lender::Flatten<'this, LL>
+where
+    LL: Lender<Lend = L>,
+    L: Lender + for<'next> NodeLabelsLender<'next> + 'lend,
+{
+    type Label = <L as NodeLabelsLender<'lend>>::Label;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
+impl<'lend, L> NodeLabelsLender<'lend> for lender::Fuse<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
 impl<'lend, L, F> NodeLabelsLender<'lend> for lender::Inspect<L, F>
 where
     F: for<'next> FnMut(&Lend<'next, L>),
@@ -115,27 +144,29 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, L, F, L2> NodeLabelsLender<'lend> for lender::Map<L, F>
+impl<'lend, L, F, II> NodeLabelsLender<'lend> for lender::Map<L, F>
 where
-    F: for<'all> lender::higher_order::FnMutHKA<'all, Lend<'all, L>, B = (usize, L2)>,
-    L2: IntoIterator,
+    F: for<'all> lender::higher_order::FnMutHKA<'all, Lend<'all, L>, B = (usize, II)>,
+    II: IntoIterator,
     L: Lender,
 {
-    type Label = L2::Item;
-    type IntoIterator = L2;
+    type Label = II::Item;
+    type IntoIterator = II;
+}
+
+impl<'lend, L, P, II> NodeLabelsLender<'lend> for lender::MapWhile<L, P>
+where
+    P: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
+    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    L: Lender,
+{
+    type Label = II::Item;
+    type IntoIterator = II;
 }
 
 impl<'lend, L, F> NodeLabelsLender<'lend> for lender::Mutate<L, F>
 where
     F: FnMut(&mut Lend<'_, L>),
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-{
-    type Label = LenderLabel<'lend, L>;
-    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
-}
-
-impl<'lend, L> NodeLabelsLender<'lend> for lender::StepBy<L>
-where
     L: Lender + for<'next> NodeLabelsLender<'next>,
 {
     type Label = LenderLabel<'lend, L>;
@@ -158,7 +189,35 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
+impl<'lend, L, St, F, II> NodeLabelsLender<'lend> for lender::Scan<L, St, F>
+where
+    for<'all> F:
+        lender::higher_order::FnMutHKAOpt<'all, (&'all mut St, Lend<'all, L>), B = (usize, II)>,
+    L: Lender,
+    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+{
+    type Label = II::Item;
+    type IntoIterator = II;
+}
+
 impl<'lend, L> NodeLabelsLender<'lend> for lender::Skip<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
+impl<'lend, L, P> NodeLabelsLender<'lend> for lender::SkipWhile<L, P>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    P: for<'next> FnMut(&Lend<'next, L>) -> bool,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
+}
+
+impl<'lend, L> NodeLabelsLender<'lend> for lender::StepBy<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
 {
