@@ -194,17 +194,31 @@ mod tests {
     fn test_union_graph() -> anyhow::Result<()> {
         use crate::{graphs::vec_graph::VecGraph, prelude::proj::Left};
         let g = [
-            Left(VecGraph::from_arc_list([(0, 1), (1, 2), (2, 0), (2, 1)])),
+            Left(VecGraph::from_arc_list([
+                (0, 1),
+                (0, 3),
+                (1, 2),
+                (2, 0),
+                (2, 2),
+                (2, 4),
+                (3, 4),
+                (3, 5),
+                (4, 1),
+            ])),
             Left(VecGraph::from_arc_list([
                 (1, 2),
                 (1, 3),
+                (2, 1),
+                (2, 3),
+                (2, 3),
                 (4, 0),
                 (5, 1),
                 (5, 2),
             ])),
         ];
         for i in 0..2 {
-            // TODO: why borrowing doesn't work?
+            // TODO: why borrowing doesn't work? I should be able to do
+            // let union = UnionGraph(&g[i], &g[1 - i]);
             let union = UnionGraph(g[i].clone(), g[1 - i].clone());
             assert_eq!(union.num_nodes(), 6);
 
