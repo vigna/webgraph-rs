@@ -213,9 +213,9 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                             //
                             // Note that this is not exactly equivalent to the
                             // behavior of the Java version, as during the
-                            // execution of this loop if another thread
-                            // accessess the volume of the current label it will
-                            // be larger by one WRT the Java version. This
+                            // execution of this loop if another thread reads
+                            // the volume of the current label it will get a
+                            // value larger by one WRT the Java version. This
                             // difference does not seem to effect the outcome,
                             // whereas this compensation has a major effect, in
                             // particular in the initial phases, when the volume
@@ -290,6 +290,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         let labels =
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
 
+        update_pl.expected_updates(Some(num_nodes));
         update_pl.start("Computing log-gap cost...");
 
         let cost = gap_cost::compute_log_gap_cost(
