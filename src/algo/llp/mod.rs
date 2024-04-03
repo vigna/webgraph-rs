@@ -109,7 +109,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     // build a thread_pool so we avoid having to re-create the threads
     let num_threads = num_threads.unwrap_or_else(num_cpus::get);
     let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads + 1)
+        .num_threads(num_threads)
         .stack_size(stack_size)
         .build()
         .context("Could not create thread pool")?;
@@ -362,7 +362,7 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
     });
     let mut prev_labels = (result[temp_perm[0]], labels[temp_perm[0]]);
     let mut curr_label = 0;
-    temp_perm[0] = curr_label;
+    result[temp_perm[0]] = curr_label;
 
     for i in 1..temp_perm.len() {
         let curr_labels = (result[temp_perm[i]], labels[temp_perm[i]]);
