@@ -206,14 +206,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         let mut majorities = vec![];
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
-                            let mut volume = label_store.volume(label);
-                            // here there is a change from the java version as
-                            // curr_label does not have -1 to its volume as
-                            // it is in java, but it should be neglegible
-                            if label == curr_label {
-                                volume -= 1;
-                            }
-
+                            let volume = label_store.volume(label) - (label == curr_label) as usize;
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
