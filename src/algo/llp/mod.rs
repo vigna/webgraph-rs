@@ -115,22 +115,21 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         .context("Could not create thread pool")?;
 
     // init the gamma progress logger
-    let mut gamma_pl = ProgressLogger::default();
-    gamma_pl
-        .display_memory(true)
-        .item_name("gamma")
-        .expected_updates(Some(gammas.len()));
+    let mut gamma_pl = progress_logger!(
+        display_memory = true,
+        item_name = "gamma",
+        expected_updates = Some(gammas.len()),
+    );
 
     // init the iteration progress logger
-    let mut iter_pl = ProgressLogger::default();
-    iter_pl.item_name("update");
+    let mut iter_pl = progress_logger!(item_name = "update");
 
     // init the update progress logger
-    let mut update_pl = ProgressLogger::default();
-    update_pl
-        .item_name("node")
-        .local_speed(true)
-        .expected_updates(Some(num_nodes));
+    let mut update_pl = progress_logger!(
+        item_name = "node",
+        local_speed = true,
+        expected_updates = Some(num_nodes)
+    );
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());

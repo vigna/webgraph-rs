@@ -206,9 +206,10 @@ pub trait SequentialLabeling {
             assert_eq!(num_arcs_hint, num_arcs as u64);
         }
 
-        // create a channel to receive the result
-        let (tx, rx) = std::sync::mpsc::channel();
         thread_pool.in_place_scope(|scope| {
+            // create a channel to receive the result
+            let (tx, rx) = std::sync::mpsc::channel();
+
             for _ in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
                 let pl_lock = &pl_lock;
