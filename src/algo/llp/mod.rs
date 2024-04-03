@@ -125,11 +125,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     let mut iter_pl = progress_logger!(item_name = "update");
 
     // init the update progress logger
-    let mut update_pl = progress_logger!(
-        item_name = "node",
-        local_speed = true,
-        expected_updates = Some(num_nodes)
-    );
+    let mut update_pl = progress_logger!(item_name = "node", local_speed = true);
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
@@ -152,6 +148,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             .for_each(|x| x.store(true, Ordering::Relaxed));
 
         for update in 0.. {
+            update_pl.expected_updates(Some(num_nodes));
             update_pl.start(format!("Starting update {}...", update));
 
             update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
