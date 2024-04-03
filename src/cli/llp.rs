@@ -37,9 +37,9 @@ struct CliArgs {
     /// 0-0 is 0.
     gammas: Vec<String>,
 
-    #[arg(short = 'u', long)]
+    #[arg(short = 'u', long, default_value_t = 100)]
     /// If specified, the maximum number of updates for a given ɣ.
-    max_updates: Option<usize>,
+    max_updates: usize,
 
     #[arg(short = 'M', long)]
     /// If true, updates will be stopped when the number of modified nodes is less
