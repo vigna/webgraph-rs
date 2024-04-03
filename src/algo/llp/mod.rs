@@ -156,6 +156,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             update_pl.start(format!("Starting update {}...", update));
 
             update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
+
+            /* REPR: no shuffle
             thread_pool.install(|| {
                 // parallel shuffle
                 update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
@@ -164,7 +166,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                     chunk.shuffle(&mut rand);
                 });
             });
-
+            */
             // If this iteration modified anything (early stop)
             let modified = AtomicUsize::new(0);
 
@@ -182,10 +184,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         can_change[node].store(false, Ordering::Relaxed);
 
                         let successors = sym_graph.successors(node);
-                        // TODO
-                        /*if successors.len() == 0 {
-                            continue;
-                        }*/
+
                         if sym_graph.outdegree(node) == 0 {
                             continue;
                         }
@@ -208,10 +207,14 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         let mut majorities = vec![];
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
-                            let volume = label_store.volume(label);
+                            let mut volume = label_store.volume(label);
                             // here there is a change from the java version as
                             // curr_label does not have -1 to its volume as
                             // it is in java, but it should be neglegible
+                            if label == curr_label {
+                                volume -= 1;
+                            }
+
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
@@ -228,8 +231,12 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                                 old = val;
                             }
                         }
+                        /*
                         // randomly break ties
                         let next_label = *majorities.choose(&mut rand).unwrap();
+                        */
+                        // REPR: no random choice
+                        let next_label = *majorities.iter().min().unwrap();
                         // if the label changed we need to update the label store
                         // and signal that this could change the neighbour nodes
                         if next_label != curr_label {
