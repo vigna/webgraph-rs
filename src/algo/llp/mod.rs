@@ -207,10 +207,20 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         let mut majorities = vec![];
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
-                            let volume = label_store.volume(label);
-                            // here there is a change from the java version as
-                            // curr_label does not have -1 to its volume as
-                            // it is in java, but it should be neglegible
+                            // The compensation for the current label is
+                            // necessary as we do not decrement its volume, as
+                            // the Java version does.
+                            //
+                            // Note that this is not exactly equivalent to the
+                            // behavior of the Java version, as during the
+                            // execution of this loop if another thread
+                            // accessess the volume of the current label it will
+                            // be larger by one WRT the Java version. This
+                            // difference does not seem to effect the outcome,
+                            // whereas this compensation has a major effect, in
+                            // particular in the initial phases, when the volume
+                            // is one.
+                            let volume = label_store.volume(label) - (label == curr_label) as usize;
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
