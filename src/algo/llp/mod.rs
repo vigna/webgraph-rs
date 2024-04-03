@@ -292,6 +292,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         let labels =
             unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
 
+        iter_pl.start("Computing log-gap cost...");
+
         let cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
                 graph: sym_graph,
@@ -302,6 +304,9 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             &thread_pool,
             Some(&mut iter_pl),
         );
+
+        iter_pl.done();
+
         info!("Log-gap cost: {}", cost);
         costs.push(cost);
 
