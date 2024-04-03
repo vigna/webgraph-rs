@@ -143,9 +143,7 @@ where
 
     let mut predicate = MinGain::try_from(args.gain_threshold)?.boxed();
 
-    if let Some(max_updates) = args.max_updates {
-        predicate = predicate.or(MaxUpdates::from(max_updates)).boxed();
-    }
+    predicate = predicate.or(MaxUpdates::from(args.max_updates)).boxed();
 
     if args.modified {
         predicate = predicate.or(MinModified::default()).boxed();
