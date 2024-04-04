@@ -434,21 +434,21 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 }
 
 /// A structure using a [quaternary heap](dary_heap::QuaternaryHeap) to merge sorted iterators.
-/// 
+///
 /// The iterators must be sorted by the pair of nodes, and the structure will return the triples
 /// sorted by lexicographical order of the pairs of nodes.
-/// 
+///
 /// The structure implements [`Iterator`] and returns triples of the form `(src, dst, label)`.
-/// 
-/// The structure implements [`Default`], [`core::iter::Sum`], 
-/// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`] 
-/// so you can compute different KMergeIters / Iterators / IntoIterators in 
+///
+/// The structure implements [`Default`], [`core::iter::Sum`],
+/// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`]
+/// so you can compute different KMergeIters / Iterators / IntoIterators in
 /// parallel and then merge them using either `+=`, `sum()` or `collect()`:
 /// ```rust
 /// use webgraph::utils::sort_pairs::KMergeIters;
-/// 
+///
 /// let (tx, rx) = std::sync::mpsc::channel();
-/// 
+///
 /// std::thread::scope(|s| {
 ///     for _ in 0..10 {
 ///         let tx = tx.clone();
@@ -465,7 +465,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 /// or with plain iterators:
 /// ```rust
 /// use webgraph::utils::sort_pairs::KMergeIters;
-/// 
+///
 /// let iter = vec![vec![(0, 0, 0), (0, 1, 1)], vec![(1, 0, 1), (1, 1, 2)]];
 /// let merged = iter.into_iter().collect::<KMergeIters<_, usize>>();
 /// ```
@@ -524,25 +524,33 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I> for KMergeIters<I::IntoIter, T> {
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I>
+    for KMergeIters<I::IntoIter, T>
+{
     fn sum<J: Iterator<Item = I>>(iter: J) -> Self {
         KMergeIters::new(iter.map(IntoIterator::into_iter))
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::FromIterator<Self> for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::FromIterator<Self>
+    for KMergeIters<I, T>
+{
     fn from_iter<J: IntoIterator<Item = Self>>(iter: J) -> Self {
         iter.into_iter().sum()
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::FromIterator<I> for KMergeIters<I::IntoIter, T> {
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::FromIterator<I>
+    for KMergeIters<I::IntoIter, T>
+{
     fn from_iter<J: IntoIterator<Item = I>>(iter: J) -> Self {
         KMergeIters::new(iter.into_iter().map(IntoIterator::into_iter))
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::ops::AddAssign<I> for KMergeIters<I::IntoIter, T> {
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::ops::AddAssign<I>
+    for KMergeIters<I::IntoIter, T>
+{
     fn add_assign(&mut self, rhs: I) {
         let mut rhs = rhs.into_iter();
         if let Some((src, dst, label)) = rhs.next() {

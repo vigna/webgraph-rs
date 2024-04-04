@@ -115,7 +115,7 @@ where
     // Load degree cumulative function in THP memory
     let deg_cumul = DCF::load_mmap(
         args.basename.with_extension(DEG_CUMUL_EXTENSION),
-        Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS
+        Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
     )
     .with_context(|| {
         format!(
