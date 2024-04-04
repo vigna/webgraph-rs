@@ -441,8 +441,9 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 /// The structure implements [`Iterator`] and returns triples of the form `(src, dst, label)`.
 /// 
 /// The structure implements [`Default`], [`core::iter::Sum`], 
-/// [`core::ops::AddAssign`] and [`Extend`] so you can compute different 
-/// KMergeIters / Iterators / IntoIterators in parallel and then merge them like:
+/// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`] 
+/// so you can compute different KMergeIters / Iterators / IntoIterators in 
+/// parallel and then merge them using either `+=`, `sum()` or `collect()`:
 /// ```rust
 /// use webgraph::utils::sort_pairs::KMergeIters;
 /// 
@@ -466,7 +467,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 /// use webgraph::utils::sort_pairs::KMergeIters;
 /// 
 /// let iter = vec![vec![(0, 0, 0), (0, 1, 1)], vec![(1, 0, 1), (1, 1, 2)]];
-/// let merged = iter.into_iter().sum::<KMergeIters<_, usize>>();
+/// let merged = iter.into_iter().collect::<KMergeIters<_, usize>>();
 /// ```
 #[derive(Clone, Debug)]
 pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)>, T = ()> {
@@ -526,6 +527,18 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I
 impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I> for KMergeIters<I::IntoIter, T> {
     fn sum<J: Iterator<Item = I>>(iter: J) -> Self {
         KMergeIters::new(iter.map(IntoIterator::into_iter))
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::FromIterator<Self> for KMergeIters<I, T> {
+    fn from_iter<J: IntoIterator<Item = Self>>(iter: J) -> Self {
+        iter.into_iter().sum()
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::FromIterator<I> for KMergeIters<I::IntoIter, T> {
+    fn from_iter<J: IntoIterator<Item = I>>(iter: J) -> Self {
+        KMergeIters::new(iter.into_iter().map(IntoIterator::into_iter))
     }
 }
 
