@@ -433,14 +433,49 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
     }
 }
 
-#[derive(Clone, Debug)]
 /// A structure using a [quaternary heap](dary_heap::QuaternaryHeap) to merge sorted iterators.
+/// 
+/// The iterators must be sorted by the pair of nodes, and the structure will return the triples
+/// sorted by lexicographical order of the pairs of nodes.
+/// 
+/// The structure implements [`Iterator`] and returns triples of the form `(src, dst, label)`.
+/// 
+/// The structure implements [`Default`], [`core::iter::Sum`], 
+/// [`core::ops::AddAssign`] and [`Extend`] so you can compute different 
+/// KMergeIters / Iterators / IntoIterators in parallel and then merge them like:
+/// ```rust
+/// use webgraph::utils::sort_pairs::KMergeIters;
+/// 
+/// let (tx, rx) = std::sync::mpsc::channel();
+/// 
+/// std::thread::scope(|s| {
+///     for _ in 0..10 {
+///         let tx = tx.clone();
+///         s.spawn(move || {
+///             // create a dummy KMergeIters
+///             tx.send(KMergeIters::new(vec![(0..10).map(|j| (j, j, j + j))])).unwrap()
+///         });
+///     }
+/// });
+/// drop(tx);
+/// // merge the KMergeIters
+/// let merged = rx.iter().sum::<KMergeIters<core::iter::Map<core::ops::Range<usize>, _>, usize>>();
+/// ```
+/// or with plain iterators:
+/// ```rust
+/// use webgraph::utils::sort_pairs::KMergeIters;
+/// 
+/// let iter = vec![vec![(0, 0, 0), (0, 1, 1)], vec![(1, 0, 1), (1, 1, 2)]];
+/// let merged = iter.into_iter().sum::<KMergeIters<_, usize>>();
+/// ```
+#[derive(Clone, Debug)]
 pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)>, T = ()> {
     heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
 }
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
-    pub fn new(iters: impl Iterator<Item = I>) -> Self {
+    pub fn new(iters: impl IntoIterator<Item = I>) -> Self {
+        let iters = iters.into_iter();
         let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
             if let Some((src, dst, label)) = iter.next() {
@@ -488,9 +523,48 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I
     }
 }
 
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I> for KMergeIters<I::IntoIter, T> {
+    fn sum<J: Iterator<Item = I>>(iter: J) -> Self {
+        KMergeIters::new(iter.map(IntoIterator::into_iter))
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::ops::AddAssign<I> for KMergeIters<I::IntoIter, T> {
+    fn add_assign(&mut self, rhs: I) {
+        let mut rhs = rhs.into_iter();
+        if let Some((src, dst, label)) = rhs.next() {
+            self.heap.push(HeadTail {
+                head: (src, dst, label),
+                tail: rhs,
+            });
+        }
+    }
+}
+
 impl<T, I: Iterator<Item = (usize, usize, T)>> core::ops::AddAssign for KMergeIters<I, T> {
     fn add_assign(&mut self, mut rhs: Self) {
         self.heap.extend(rhs.heap.drain());
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> Extend<I> for KMergeIters<I::IntoIter, T> {
+    fn extend<J: IntoIterator<Item = I>>(&mut self, iter: J) {
+        self.heap.extend(iter.into_iter().filter_map(|iter| {
+            let mut iter = iter.into_iter();
+            let (src, dst, label) = iter.next()?;
+            Some(HeadTail {
+                head: (src, dst, label),
+                tail: iter,
+            })
+        }));
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> Extend<KMergeIters<I, T>> for KMergeIters<I, T> {
+    fn extend<J: IntoIterator<Item = KMergeIters<I, T>>>(&mut self, iter: J) {
+        for mut kmerge in iter {
+            self.heap.extend(kmerge.heap.drain());
+        }
     }
 }
 
