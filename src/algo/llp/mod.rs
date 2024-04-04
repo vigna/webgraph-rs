@@ -217,7 +217,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                             // whereas this compensation has a major effect, in
                             // particular in the initial phases, when the volume
                             // is one.
-                            let volume = label_store.volume(label) - (label == curr_label) as usize;
+                            let volume = label_store.volume(label);// - (label == curr_label) as usize;
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
