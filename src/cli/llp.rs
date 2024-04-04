@@ -105,16 +105,17 @@ where
 {
     let start = std::time::Instant::now();
 
-    // load the graph
+    // Load the graph in THP memory
     let graph = BVGraph::with_basename(&args.basename)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
         .load()?;
 
-    let deg_cumul = DCF::mmap(
+    // Load degree cumulative function in THP memory
+    let deg_cumul = DCF::load_mmap(
         args.basename.with_extension(DEG_CUMUL_EXTENSION),
-        Flags::empty(),
+        Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS
     )
     .with_context(|| {
         format!(
