@@ -1,10 +1,13 @@
-/// A hasher that mixes 64-bit values.
-/// This is a copy of the hasher used in the Java version of LAW.
-/// It is used to hash the labels in the LLP algorithm.
-/// The Java version uses a `java.util.HashMap` with this hasher.
-/// 
+/*
+ * SPDX-FileCopyrightText: 2024 Tommaso Fontana
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/// A hasher that mixes `usize` values.
+///
 /// This can only be used to hash `usize` values and it's not a general purpose
-/// hasher.
+/// hasher. It is used by the label hash maps.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Mix64 {
     state: u64,
@@ -30,9 +33,7 @@ impl core::hash::Hasher for Mix64 {
     }
 }
 
-
 #[derive(Debug, Clone, Default)]
-
 pub(crate) struct Mix64Builder;
 
 impl core::hash::BuildHasher for Mix64Builder {
