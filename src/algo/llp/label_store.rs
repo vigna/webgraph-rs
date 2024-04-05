@@ -36,9 +36,8 @@ impl LabelStore {
     }
 
     #[inline(always)]
-    pub(crate) fn set(&self, node: usize, new_label: usize) {
-        let old_label = unsafe { core::mem::replace(&mut *self.labels[node].get(), new_label) };
-        self.volumes[old_label].fetch_sub(1, Ordering::Relaxed);
+    pub(crate) fn volume_set(&self, node: usize, new_label: usize) {
+        unsafe { *&mut *self.labels[node].get() = new_label };
         self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
     }
 
@@ -48,8 +47,8 @@ impl LabelStore {
     }
 
     #[inline(always)]
-    pub(crate) fn volume(&self, label: usize) -> usize {
-        self.volumes[label].load(Ordering::Relaxed)
+    pub(crate) fn volume_fetch_sub(&self, label: usize) -> usize {
+        self.volumes[label].fetch_sub(1, Ordering::Relaxed)
     }
 
     pub(crate) fn labels(&self) -> &[usize] {
