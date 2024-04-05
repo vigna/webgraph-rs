@@ -102,7 +102,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
-    let label_store = label_store::LabelStore::new(num_nodes as _);
+    let mut label_store = label_store::LabelStore::new(num_nodes as _);
     let stack_size = std::env::var("RUST_MIN_STACK")
         .map(|value| value.parse().unwrap())
         .unwrap_or(1024 * num_nodes.ilog2_ceil() as usize);
@@ -284,8 +284,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         update_perm.par_sort_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
         invert_in_place(&mut update_perm);
 
-        let labels =
-            unsafe { std::mem::transmute::<&[AtomicUsize], &[usize]>(&label_store.labels) };
+        let labels = label_store.labels();
 
         update_pl.expected_updates(Some(num_nodes));
         update_pl.start("Computing log-gap cost...");
