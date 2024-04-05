@@ -58,7 +58,7 @@ pub trait SequentialLabeling {
     type Label;
     /// The type of [`Lender`] over the successors of a node
     /// returned by [`iter`](SequentialLabeling::iter).
-    type Lender<'node>: for<'all> NodeLabelsLender<'all, Label = Self::Label>
+    type Lender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label>
     where
         Self: 'node;
 

@@ -29,7 +29,7 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 /// [`ra::Iter`] structure.
 
 pub trait SplitLabeling: SequentialLabeling {
-    type SplitLender<'a>: for<'b> NodeLabelsLender<'b, Label = <Self as SequentialLabeling>::Label>
+    type SplitLender<'a>: for<'next> NodeLabelsLender<'next, Label = <Self as SequentialLabeling>::Label>
         + Send
         + Sync
     where

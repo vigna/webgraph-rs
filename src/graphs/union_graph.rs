@@ -134,8 +134,8 @@ impl<
 }
 
 unsafe impl<
-        L: Lender + for<'a> NodeLabelsLender<'a, Label = usize>,
-        M: Lender + for<'a> NodeLabelsLender<'a, Label = usize>,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
     > SortedLender for Iter<L, M>
 {
 }
