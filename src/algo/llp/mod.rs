@@ -51,6 +51,7 @@ use sux::traits::Succ;
 
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
+mod mix64;
 pub mod preds;
 
 fn labels_path(gamma_index: usize) -> PathBuf {
@@ -166,7 +167,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
             let delta_obj_func = sym_graph.par_apply(
                 |range| {
-                    let mut map = HashMap::with_capacity(1024);
+                    let mut map = HashMap::with_capacity_and_hasher(1024, mix64::Mix64::default());
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
                     for &node in &update_perm[range] {
