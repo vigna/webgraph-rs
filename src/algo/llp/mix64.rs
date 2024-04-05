@@ -6,13 +6,13 @@
 /// This can only be used to hash `usize` values and it's not a general purpose
 /// hasher.
 #[derive(Debug, Clone, Default)]
-pub struct Mix64 {
+pub(crate) struct Mix64 {
     state: u64,
 }
 
 impl core::hash::Hasher for Mix64 {
     #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
+    fn write(&mut self, _bytes: &[u8]) {
         unimplemented!()
     }
     #[inline(always)]
@@ -27,5 +27,18 @@ impl core::hash::Hasher for Mix64 {
     #[inline(always)]
     fn finish(&self) -> u64 {
         self.state
+    }
+}
+
+
+#[derive(Debug, Clone, Default)]
+
+pub(crate) struct Mix64Builder;
+
+impl core::hash::BuildHasher for Mix64Builder {
+    type Hasher = Mix64;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        Mix64::default()
     }
 }
