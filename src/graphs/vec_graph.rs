@@ -225,7 +225,7 @@ impl VecGraph<()> {
 }
 
 impl<'a, L: Copy + 'static> IntoLender for &'a VecGraph<L> {
-    type Lender = <VecGraph<L> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <VecGraph<L> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -235,7 +235,7 @@ impl<'a, L: Copy + 'static> IntoLender for &'a VecGraph<L> {
 
 impl<L: Copy + 'static> SequentialLabeling for VecGraph<L> {
     type Label = (usize, L);
-    type Iterator<'a> = IteratorImpl<'a, Self> where Self: 'a;
+    type Lender<'a> = IteratorImpl<'a, Self> where Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -248,7 +248,7 @@ impl<L: Copy + 'static> SequentialLabeling for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         IteratorImpl {
             labeling: self,
             nodes: (from..self.num_nodes()),
@@ -290,7 +290,7 @@ impl<'a, L: Copy + 'static> Iterator for Successors<'a, L> {
     }
 }
 
-unsafe impl<'a, L: Copy + 'static> SortedLabels for Successors<'a, L> {}
+unsafe impl<'a, L: Copy + 'static> SortedIterator for Successors<'a, L> {}
 
 impl<'a, L: Copy + 'static> ExactSizeIterator for Successors<'a, L> {
     #[inline(always)]

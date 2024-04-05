@@ -68,7 +68,7 @@ pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     iter: I::IntoIter,
 }
 
-unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SortedIterator
+unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SortedLender
     for Iter<L, I>
 {
 }
@@ -149,7 +149,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
     for ArcListGraph<I>
 {
     type Label = (usize, L);
-    type Iterator<'node> = Iter<L, I> where Self: 'node;
+    type Lender<'node> = Iter<L, I> where Self: 'node;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -162,7 +162,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         let mut iter = Iter::new(self.num_nodes, self.into_iter.clone().into_iter());
         for _ in 0..from {
             iter.next();

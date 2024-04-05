@@ -56,9 +56,9 @@ use sux::traits::Succ;
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialLabeling {
     type Label;
-    /// The type of the iterator over the successors of a node
-    /// returned by [the iterator on the graph](SequentialGraph::Iterator).
-    type Iterator<'node>: for<'all> NodeLabelsLender<'all, Label = Self::Label>
+    /// The type of [`Lender`] over the successors of a node
+    /// returned by [`iter`](SequentialLabeling::iter).
+    type Lender<'node>: for<'all> NodeLabelsLender<'all, Label = Self::Label>
     where
         Self: 'node;
 
@@ -74,7 +74,7 @@ pub trait SequentialLabeling {
     ///
     /// Iterators over the labeling return pairs given by a node of the graph
     /// and an [`IntoIterator`] over the labels.
-    fn iter(&self) -> Self::Iterator<'_> {
+    fn iter(&self) -> Self::Lender<'_> {
         self.iter_from(0)
     }
 
@@ -83,7 +83,7 @@ pub trait SequentialLabeling {
     /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
     /// the node id of the first node returned by the iterator, but just the
     /// starting point of the iteration
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
+    fn iter_from(&self, from: usize) -> Self::Lender<'_>;
 
     /// Applies `func` to each chunk of nodes of size `node_granularity` in
     /// parallel, and folds the results using `fold`.
@@ -262,7 +262,7 @@ pub trait SequentialLabeling {
 /// Convenience type alias for the iterator over the labels of a node
 /// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
 pub type Labels<'succ, 'node, S> =
-    <<S as SequentialLabeling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
+    <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
 /// Marker trait for lenders returned by [`SequentialLabeling::iter`] yielding
 /// node ids in ascending order.
@@ -271,16 +271,16 @@ pub type Labels<'succ, 'node, S> =
 ///
 /// The first element of the pairs returned by the iterator must go from zero to
 /// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
-pub unsafe trait SortedIterator: Lender {}
+pub unsafe trait SortedLender: Lender {}
 
-/// Marker trait for [`IntoIterator`]s yielding labels in the order induced by
+/// Marker trait for [`Iterator`]s yielding labels in the order induced by
 /// enumerating the successors in ascending order.
 ///
 /// # Safety
 ///
 /// The labels returned by the iterator must be in the order in which they would
 /// be if successors were returned in ascending order.
-pub unsafe trait SortedLabels: Iterator {}
+pub unsafe trait SortedIterator: Iterator {}
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.
@@ -312,7 +312,7 @@ pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
     pub nodes: core::ops::Range<usize>,
 }
 
-unsafe impl<'a, G: RandomAccessLabeling> SortedIterator for IteratorImpl<'a, G> {}
+unsafe impl<'a, G: RandomAccessLabeling> SortedLender for IteratorImpl<'a, G> {}
 
 impl<'node, 'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'node, G> {
     type Label = G::Label;

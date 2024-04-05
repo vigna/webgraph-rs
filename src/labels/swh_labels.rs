@@ -152,7 +152,7 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> Iterator for SeqLabels<'a, B
 impl SequentialLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     type Label = Vec<u64>;
 
-    type Iterator<'node> = Iter<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
+    type Lender<'node> = Iter<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
     where
         Self: 'node;
 
@@ -160,7 +160,7 @@ impl SequentialLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>>
         self.offsets.len() - 1
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         Iter {
             width: self.width,
             offsets: &self.offsets,

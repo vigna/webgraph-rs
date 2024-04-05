@@ -108,8 +108,8 @@ pub mod seq {
         }
     }
 
-    pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Iterator<'a>>;
-    pub type IntoIterator<'a, S> = Iter<<S as SequentialLabeling>::Iterator<'a>>;
+    pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Lender<'a>>;
+    pub type IntoIterator<'a, S> = Iter<<S as SequentialLabeling>::Lender<'a>>;
 }
 
 /// Ready-made implementation for the random-access case.
@@ -183,6 +183,6 @@ pub mod ra {
         }
     }
 
-    pub type Lender<'a, R> = lender::Take<<R as SequentialLabeling>::Iterator<'a>>;
+    pub type Lender<'a, R> = lender::Take<<R as SequentialLabeling>::Lender<'a>>;
     pub type IntoIterator<'a, R> = Iter<'a, R>;
 }

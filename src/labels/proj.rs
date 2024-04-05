@@ -16,7 +16,7 @@ projection of a labeling whose labels are pairs. In particular,
 */
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
-    RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLabels,
+    RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
 };
 use crate::traits::SplitLabeling;
 use lender::{IntoLender, Lend, Lender, Lending};
@@ -98,7 +98,7 @@ impl<'a, S: SequentialLabeling> IntoLender for &'a Left<S>
 where
     S::Label: Pair,
 {
-    type Lender = <Left<S> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <Left<S> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -128,7 +128,7 @@ where
 {
     type Label = <S::Label as Pair>::Left;
 
-    type Iterator<'node> = LeftIterator<S::Iterator<'node>>
+    type Lender<'node> = LeftIterator<S::Lender<'node>>
        where
         Self: 'node;
 
@@ -136,7 +136,7 @@ where
         self.0.num_nodes()
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         LeftIterator(self.0.iter_from(from))
     }
 
@@ -170,14 +170,14 @@ impl<S: SequentialLabeling> SequentialGraph for Left<S> where S::Label: Pair<Lef
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
 
-unsafe impl<L: SortedIterator> SortedIterator for LeftIterator<L>
+unsafe impl<L: SortedLender> SortedLender for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     for<'next> LenderLabel<'next, L>: Pair,
 {
 }
 
-unsafe impl<I: SortedLabels> SortedLabels for LeftIntoIter<I> where I::Item: Pair {}
+unsafe impl<I: SortedIterator> SortedIterator for LeftIntoIter<I> where I::Item: Pair {}
 
 // The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -256,7 +256,7 @@ impl<'a, S: SequentialLabeling> IntoLender for &'a Right<S>
 where
     S::Label: Pair,
 {
-    type Lender = <Right<S> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <Right<S> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -286,7 +286,7 @@ where
 {
     type Label = <S::Label as Pair>::Right;
 
-    type Iterator<'node> = RightIterator<S::Iterator<'node>>
+    type Lender<'node> = RightIterator<S::Lender<'node>>
        where
         Self: 'node;
 
@@ -298,7 +298,7 @@ where
         self.0.num_arcs_hint()
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         RightIterator(self.0.iter_from(from))
     }
 }
@@ -328,11 +328,11 @@ impl<S: SequentialLabeling> SequentialGraph for Right<S> where S::Label: Pair<Ri
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}
 
-unsafe impl<L: SortedIterator> SortedIterator for RightIterator<L>
+unsafe impl<L: SortedLender> SortedLender for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     for<'next> LenderLabel<'next, L>: Pair,
 {
 }
 
-unsafe impl<I: SortedLabels> SortedLabels for RightIntoIter<I> where I::Item: Pair {}
+unsafe impl<I: SortedIterator> SortedIterator for RightIntoIter<I> where I::Item: Pair {}

@@ -71,7 +71,7 @@ pub fn permute_split<S, P>(
 where
     S: SequentialGraph + SplitLabeling,
     P: BitFieldSlice<usize> + Send + Sync + Clone,
-    for<'a> <S as SequentialLabeling>::Iterator<'a>: Send + Sync + Clone + ExactSizeLender,
+    for<'a> <S as SequentialLabeling>::Lender<'a>: Send + Sync + Clone + ExactSizeLender,
 {
     ensure!(perm.len() == graph.num_nodes(),
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.", 

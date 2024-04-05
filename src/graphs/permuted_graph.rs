@@ -23,7 +23,7 @@ impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling
     for PermutedGraph<'a, G, P>
 {
     type Label = usize;
-    type Iterator<'b> = Iter<'b, G::Iterator<'b>, P>
+    type Lender<'b> = Iter<'b, G::Lender<'b>, P>
         where
             Self: 'b;
 
@@ -38,7 +38,7 @@ impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         Iter {
             iter: self.graph.iter_from(from),
             perm: self.perm,
@@ -49,7 +49,7 @@ impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling
 impl<'b, G: SequentialGraph + SplitLabeling, P: BitFieldSlice<usize> + Send + Sync + Clone>
     SplitLabeling for PermutedGraph<'b, G, P>
 where
-    for<'a> <G as SequentialLabeling>::Iterator<'a>: Clone + ExactSizeLender + Send + Sync,
+    for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + Send + Sync,
 {
     type SplitLender<'a> = split::seq::Lender<'a, PermutedGraph<'b, G, P> > where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, PermutedGraph<'b, G, P>> where Self: 'a;
@@ -64,7 +64,7 @@ impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialGraph for Permut
 impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender
     for &'b PermutedGraph<'a, G, P>
 {
-    type Lender = <PermutedGraph<'a, G, P> as SequentialLabeling>::Iterator<'b>;
+    type Lender = <PermutedGraph<'a, G, P> as SequentialLabeling>::Lender<'b>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

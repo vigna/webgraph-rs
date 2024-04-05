@@ -56,7 +56,7 @@ pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 /// Convenience type alias for the iterator over the successors of a node
 /// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
 pub type Successors<'succ, 'node, S> =
-    <<S as SequentialLabeling>::Iterator<'node> as NodeLabelsLender<'succ>>::IntoIterator;
+    <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access
 /// to successor lists.
@@ -170,7 +170,7 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
 
-    type Iterator<'node> = UnitIterator<G::Iterator<'node>>
+    type Lender<'node> = UnitIterator<G::Lender<'node>>
     where
         Self: 'node;
 
@@ -178,7 +178,7 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
         self.0.num_nodes()
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         UnitIterator(self.0.iter_from(from))
     }
 }

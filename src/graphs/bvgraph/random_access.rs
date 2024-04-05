@@ -95,7 +95,7 @@ where
     F: RandomAccessDecoderFactory,
 {
     type Label = usize;
-    type Iterator<'b> = Iter<F::Decoder<'b>>
+    type Lender<'b> = Iter<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -111,7 +111,7 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, start_node: usize) -> Self::Lender<'_> {
         let codes_reader = self.factory.new_decoder(start_node).unwrap();
         // we have to pre-fill the buffer
         let mut backrefs = CircularBuffer::new(self.compression_window + 1);
@@ -297,7 +297,7 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
     }
 }
 
-unsafe impl<D: Decode> SortedLabels for Succ<D> {}
+unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
 impl<D: Decode> Succ<D> {
     /// Create an empty iterator
@@ -371,7 +371,7 @@ impl<D: Decode> Iterator for Succ<D> {
 }
 
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BVGraph<F> {
-    type Lender = <BVGraph<F> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <BVGraph<F> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

@@ -54,7 +54,7 @@ where
 
 impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     type Label = usize;
-    type Iterator<'a> = Iter<F::Decoder<'a>>
+    type Lender<'a> = Iter<F::Decoder<'a>>
     where
         Self: 'a;
 
@@ -70,7 +70,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         let mut iter = Iter::new(
             self.factory.new_decoder().unwrap(),
             self.number_of_nodes,
@@ -89,7 +89,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
 impl<F: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<F> {}
 
 impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
-    type Lender = <BVGraphSeq<F> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <BVGraphSeq<F> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -327,7 +327,7 @@ impl<D: Decode> Lender for Iter<D> {
     }
 }
 
-unsafe impl<D: Decode> SortedIterator for Iter<D> {}
+unsafe impl<D: Decode> SortedLender for Iter<D> {}
 
 impl<D: Decode> ExactSizeLender for Iter<D> {
     fn len(&self) -> usize {

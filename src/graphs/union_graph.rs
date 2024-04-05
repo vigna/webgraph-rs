@@ -13,13 +13,13 @@ pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(pub G, pub H);
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialLabeling for UnionGraph<G, H>
 where
-    for<'a> G::Iterator<'a>: SortedIterator,
-    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
-    for<'a> H::Iterator<'a>: SortedIterator,
-    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
+    for<'a> G::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    for<'a> H::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
     type Label = usize;
-    type Iterator<'b> = Iter<G::Iterator<'b>, H::Iterator<'b>>
+    type Lender<'b> = Iter<G::Lender<'b>, H::Lender<'b>>
         where
             Self: 'b;
 
@@ -34,7 +34,7 @@ where
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         Iter(
             self.0.iter_from(from.min(self.0.num_nodes())),
             self.1.iter_from(from.min(self.1.num_nodes())),
@@ -44,10 +44,10 @@ where
 
 impl<G: SequentialGraph, H: SequentialGraph> SplitLabeling for UnionGraph<G, H>
 where
-    for<'a> G::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
-    for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
+    for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
     type SplitLender<'a> = split::seq::Lender<'a, UnionGraph<G, H> > where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, UnionGraph<G, H>> where Self: 'a;
@@ -59,21 +59,21 @@ where
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialGraph for UnionGraph<G, H>
 where
-    for<'a> G::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
-    for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
+    for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
 }
 
 impl<'c, G: SequentialGraph, H: SequentialGraph> IntoLender for &'c UnionGraph<G, H>
 where
-    for<'a> G::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, G::Iterator<'a>>: SortedLabels,
-    for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
-    for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
+    for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
-    type Lender = <UnionGraph<G, H> as SequentialLabeling>::Iterator<'c>;
+    type Lender = <UnionGraph<G, H> as SequentialLabeling>::Lender<'c>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -136,7 +136,7 @@ impl<
 unsafe impl<
         L: Lender + for<'a> NodeLabelsLender<'a, Label = usize>,
         M: Lender + for<'a> NodeLabelsLender<'a, Label = usize>,
-    > SortedIterator for Iter<L, M>
+    > SortedLender for Iter<L, M>
 {
 }
 
@@ -175,8 +175,8 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
 }
 
 // TODO
-unsafe impl<I: Iterator<Item = usize> + SortedLabels, J: Iterator<Item = usize> + SortedLabels>
-    SortedLabels for Succ<I, J>
+unsafe impl<I: Iterator<Item = usize> + SortedIterator, J: Iterator<Item = usize> + SortedIterator>
+    SortedIterator for Succ<I, J>
 {
 }
 
