@@ -29,12 +29,12 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 /// [`ra::Iter`] structure.
 
 pub trait SplitLabeling: SequentialLabeling {
-    type Lender<'a>: for<'b> NodeLabelsLender<'b, Label = <Self as SequentialLabeling>::Label>
+    type SplitLender<'a>: for<'b> NodeLabelsLender<'b, Label = <Self as SequentialLabeling>::Label>
         + Send
         + Sync
     where
         Self: 'a;
-    type IntoIterator<'a>: IntoIterator<Item = Self::Lender<'a>>
+    type IntoIterator<'a>: IntoIterator<Item = Self::SplitLender<'a>>
     where
         Self: 'a;
     fn split_iter(&self, n: usize) -> Self::IntoIterator<'_>;

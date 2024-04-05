@@ -49,7 +49,7 @@ where
     for<'a> H::Iterator<'a>: SortedIterator + Clone + ExactSizeLender + Send + Sync,
     for<'a, 'b> LenderIntoIter<'b, H::Iterator<'a>>: SortedLabels,
 {
-    type Lender<'a> = split::seq::Lender<'a, UnionGraph<G, H> > where Self: 'a;
+    type SplitLender<'a> = split::seq::Lender<'a, UnionGraph<G, H> > where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, UnionGraph<G, H>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {

@@ -196,7 +196,7 @@ impl BVComp<()> {
         endianess: &str,
     ) -> Result<u64>
     where
-        for<'a> <G as SplitLabeling>::Lender<'a>: Send + Sync,
+        for<'a> <G as SplitLabeling>::SplitLender<'a>: Send + Sync,
     {
         match endianess {
             #[cfg(any(

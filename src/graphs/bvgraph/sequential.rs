@@ -44,7 +44,7 @@ impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
 where
     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
 {
-    type Lender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
+    type SplitLender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {

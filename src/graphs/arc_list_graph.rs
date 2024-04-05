@@ -52,7 +52,7 @@ where
     <I as std::iter::IntoIterator>::IntoIter: Clone + Send + Sync,
     L: Send + Sync,
 {
-    type Lender<'a> = split::seq::Lender<'a, ArcListGraph<I>> where Self: 'a;
+    type SplitLender<'a> = split::seq::Lender<'a, ArcListGraph<I>> where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, ArcListGraph<I>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {

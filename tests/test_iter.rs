@@ -115,7 +115,7 @@ fn test_split_iter_arc_list() -> Result<()> {
 
 fn test_split_iter<'a, S: SequentialGraph + SplitLabeling>(g: &'a S) -> anyhow::Result<()>
 where
-    <S as SplitLabeling>::Lender<'a>: Clone,
+    <S as SplitLabeling>::SplitLender<'a>: Clone,
 {
     let mut iter = g.iter();
     for lender in g.split_iter(10) {

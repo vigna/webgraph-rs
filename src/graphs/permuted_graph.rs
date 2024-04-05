@@ -51,7 +51,7 @@ impl<'b, G: SequentialGraph + SplitLabeling, P: BitFieldSlice<usize> + Send + Sy
 where
     for<'a> <G as SequentialLabeling>::Iterator<'a>: Clone + ExactSizeLender + Send + Sync,
 {
-    type Lender<'a> = split::seq::Lender<'a, PermutedGraph<'b, G, P> > where Self: 'a;
+    type SplitLender<'a> = split::seq::Lender<'a, PermutedGraph<'b, G, P> > where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, PermutedGraph<'b, G, P>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {

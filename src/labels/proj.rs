@@ -111,10 +111,10 @@ where
     G: SequentialLabeling + SplitLabeling,
     G::Label: Pair,
 {
-    type Lender<'a> = LeftIterator<G::Lender<'a>> where Self: 'a;
+    type SplitLender<'a> = LeftIterator<G::SplitLender<'a>> where Self: 'a;
     type IntoIterator<'a> = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn(G::Lender<'a>) -> Self::Lender<'a>
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>
     > where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
@@ -269,10 +269,10 @@ where
     G: SequentialLabeling + SplitLabeling,
     G::Label: Pair,
 {
-    type Lender<'a> = RightIterator<G::Lender<'a>> where Self: 'a;
+    type SplitLender<'a> = RightIterator<G::SplitLender<'a>> where Self: 'a;
     type IntoIterator<'a> = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn(G::Lender<'a>) -> Self::Lender<'a>
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>
     > where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
