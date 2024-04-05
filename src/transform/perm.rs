@@ -82,10 +82,11 @@ where
     let pgraph = PermutedGraph { graph, perm };
 
     let pool = threads.as_mut();
-    let (tx, rx) = std::sync::mpsc::channel();
     let mut dirs = vec![];
 
-    pool.in_place_scope(|scope| {
+    let edges = pool.in_place_scope(|scope| {
+        let (tx, rx) = std::sync::mpsc::channel();
+
         for (thread_id, iter) in pgraph.split_iter(pool.current_num_threads()).enumerate() {
             let tx = tx.clone();
             let dir = Builder::new()
@@ -107,16 +108,16 @@ where
                 log::debug!("Thread {} finished", thread_id);
             });
         }
+        drop(tx);
+
+        // get a graph on the sorted data
+        log::debug!("Waiting for threads to finish");
+        rx.iter().sum()
     });
 
-    drop(tx);
-
-    // get a graph on the sorted data
-    log::debug!("Waiting for threads to finish");
-    let edges = rx.iter().sum();
     log::debug!("All threads finished");
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
-
-    drop(dirs);
-    Ok(Left(sorted))
+    Ok(Left(arc_list_graph::ArcListGraph::new_labeled(
+        graph.num_nodes(),
+        edges,
+    )))
 }

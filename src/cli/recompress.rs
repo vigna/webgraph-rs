@@ -86,7 +86,12 @@ where
             .load()?;
 
         if let Some(permutation) = permutation {
-            log::warn!("Starting to permute the graph.");
+            let batch_size = args
+                .pa
+                .batch_size
+                .unwrap_or(PermutationArgs::batch_size(0.5));
+
+            log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
             // TODO!: this type annotation is not needed in the nightly version
             let sorted = crate::transform::permute_split::<
@@ -108,10 +113,10 @@ where
             >(
                 &graph,
                 &permutation,
-                args.pa.batch_size,
+                batch_size,
                 Threads::Num(args.num_cpus.num_cpus),
             )?;
-            log::warn!(
+            log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
@@ -142,10 +147,15 @@ where
             .load()?;
 
         if let Some(permutation) = permutation {
-            log::warn!("Starting to permute the graph.");
+            let batch_size = args
+                .pa
+                .batch_size
+                .unwrap_or(PermutationArgs::batch_size(0.5));
+
+            log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
-            let permuted = crate::transform::permute(&seq_graph, &permutation, args.pa.batch_size)?;
-            log::warn!(
+            let permuted = crate::transform::permute(&seq_graph, &permutation, batch_size)?;
+            log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );

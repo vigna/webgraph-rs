@@ -11,6 +11,8 @@ use crate::graphs::Code;
 use crate::prelude::CompFlags;
 use clap::Args;
 use clap::ValueEnum;
+use common_traits::UnsignedInt;
+use sysinfo::System;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Our own enum for the codes, this is used to implement ValueEnum here
@@ -87,7 +89,7 @@ pub struct NumCpusArg {
 }
 
 #[derive(Args, Debug)]
-/// Shared cli arguments for permutating a graph
+/// Shared cli arguments for permuting a graph
 /// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct PermutationArgs {
     /* TODO!:
@@ -99,9 +101,23 @@ pub struct PermutationArgs {
     /// The path to the permutations to, optionally, apply to the graph.
     pub permutation: Option<PathBuf>,
 
-    #[clap(short = 's', long, default_value_t = 1_000_000)]
-    /// The size of a batch.
-    pub batch_size: usize,
+    #[clap(short = 'b', long)]
+    /// The size of a batch in pairs. Two times this number of `usize` will be
+    /// allocated to sort pairs. If unspecified, we use half of the available memory.
+    pub batch_size: Option<usize>,
+}
+
+impl PermutationArgs {
+    pub fn batch_size(fraction: f64) -> usize {
+        let mut system = System::new();
+        system.refresh_memory();
+        let num_pairs: usize = (((system.total_memory() as f64) * fraction
+            / (std::mem::size_of::<(usize, usize)>() as f64))
+            as u64)
+            .try_into()
+            .unwrap_or(usize::MAX);
+        num_pairs.align_to(1 << 20) // Round up to MiBs
+    }
 }
 
 #[derive(Args, Debug)]
