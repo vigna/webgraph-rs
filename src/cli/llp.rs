@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use self::llp::preds::MinImprov;
+
 use super::utils::*;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
@@ -54,6 +56,10 @@ struct CliArgs {
     #[arg(short = 't', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
     /// The gain threshold used to stop the computation (1 to disable).
     gain_threshold: f64,
+
+    #[arg(short = 'i', long, default_value_t = MinImprov::DEFAULT_THRESHOLD)]
+    /// The gain improvement threshold used to stop the computation (1 to disable).
+    improv_threshold: f64,
 
     #[clap(flatten)]
     num_cpus: NumCpusArg,
@@ -143,7 +149,9 @@ where
     gammas.sort_by(|a, b| a.total_cmp(b));
 
     let mut predicate = MinGain::try_from(args.gain_threshold)?.boxed();
-
+    predicate = predicate
+        .or(MinImprov::try_from(args.improv_threshold)?)
+        .boxed();
     predicate = predicate.or(MaxUpdates::from(args.max_updates)).boxed();
 
     if args.modified {

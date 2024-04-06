@@ -37,6 +37,7 @@ pub struct PredParams {
     pub num_nodes: usize,
     pub num_arcs: u64,
     pub gain: f64,
+    pub gain_impr: f64,
     pub modified: usize,
     pub update: usize,
 }
@@ -135,6 +136,61 @@ impl PredicateReflection for MinGain {}
 impl Predicate<PredParams> for MinGain {
     fn eval(&self, pred_params: &PredParams) -> bool {
         pred_params.gain <= self.threshold
+    }
+}
+
+#[derive(Debug, Clone)]
+/// Stop if the improvement of the gain of the objective function is below the
+/// given threshold.
+///
+/// This criterion is a second-order version of [`MinGain`]. It is very useful
+/// to avoid a large number of iteration which do not improve the objective
+/// function significantly.
+pub struct MinImprov {
+    threshold: f64,
+}
+
+impl MinImprov {
+    pub const DEFAULT_THRESHOLD: f64 = 0.01;
+}
+
+impl TryFrom<Option<f64>> for MinImprov {
+    type Error = anyhow::Error;
+    fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
+        Ok(match threshold {
+            Some(threshold) => {
+                ensure!(!threshold.is_nan());
+                ensure!(threshold >= 0.0, "The threshold must be nonnegative");
+                MinImprov { threshold }
+            }
+            None => Self::default(),
+        })
+    }
+}
+
+impl TryFrom<f64> for MinImprov {
+    type Error = anyhow::Error;
+    fn try_from(threshold: f64) -> anyhow::Result<Self> {
+        Some(threshold).try_into()
+    }
+}
+
+impl Default for MinImprov {
+    fn default() -> Self {
+        Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
+    }
+}
+
+impl Display for MinImprov {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("(min gain improvement: {})", self.threshold))
+    }
+}
+
+impl PredicateReflection for MinImprov {}
+impl Predicate<PredParams> for MinImprov {
+    fn eval(&self, pred_params: &PredParams) -> bool {
+        pred_params.gain_impr <= self.threshold
     }
 }
 

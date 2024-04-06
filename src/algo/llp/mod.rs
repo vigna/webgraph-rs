@@ -150,6 +150,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             .iter()
             .for_each(|x| x.store(true, Ordering::Relaxed));
 
+        let mut prev_gain = f64::INFINITY;
+
         for update in 0.. {
             update_pl.expected_updates(Some(num_nodes));
             update_pl.start(format!("Starting update {}...", update));
@@ -264,14 +266,18 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
             obj_func += delta_obj_func;
             let gain = delta_obj_func / obj_func;
+            let gain_impr = (prev_gain - gain) / prev_gain;
+            prev_gain = gain;
 
-            info!("Gain: {}", gain);
+            info!("Gain: {gain}");
+            info!("Gain improvement: {gain_impr}");
             info!("Modified: {}", modified.load(Ordering::Relaxed),);
 
             if predicate.eval(&PredParams {
                 num_nodes: sym_graph.num_nodes(),
                 num_arcs: sym_graph.num_arcs(),
                 gain,
+                gain_impr,
                 modified: modified.load(Ordering::Relaxed),
                 update,
             }) || modified.load(Ordering::Relaxed) == 0
