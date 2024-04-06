@@ -37,7 +37,7 @@ impl LabelStore {
 
     #[inline(always)]
     pub(crate) fn volume_set(&self, node: usize, new_label: usize) {
-        unsafe { *&mut *self.labels[node].get() = new_label };
+        unsafe { *self.labels[node].get() = new_label };
         self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
     }
 
