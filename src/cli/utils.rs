@@ -9,6 +9,8 @@ use std::path::PathBuf;
 
 use crate::graphs::Code;
 use crate::prelude::CompFlags;
+use anyhow::anyhow;
+use anyhow::ensure;
 use clap::Args;
 use clap::ValueEnum;
 use common_traits::UnsignedInt;
@@ -101,23 +103,61 @@ pub struct PermutationArgs {
     /// The path to the permutations to, optionally, apply to the graph.
     pub permutation: Option<PathBuf>,
 
-    #[clap(short = 'b', long)]
-    /// The size of a batch in pairs. Two times this number of `usize` will be
-    /// allocated to sort pairs. If unspecified, we use half of the available memory.
-    pub batch_size: Option<usize>,
+    #[clap(short = 'b', long, value_parser = batch_size, default_value = "50%")]
+    /// The number of pairs to be used in batches. Two times this number of
+    /// `usize` will be allocated to sort pairs. You can use the SI and NIST
+    /// multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. You can also use a
+    /// percentage of the available memory by appending a `%` to the number.
+    pub batch_size: usize,
 }
 
-impl PermutationArgs {
-    pub fn batch_size(fraction: f64) -> usize {
+/// Parses a batch size.
+///
+/// This function accepts either a number (possibly followed by a
+/// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
+/// (followed by a `%`) that is interpreted as a percentage of the core
+/// memory. The function returns the number of pairs to be used for batches.
+pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
+    const PREF_SYMS: [(&str, u64); 10] = [
+        ("k", 1E3 as u64),
+        ("m", 1E6 as u64),
+        ("g", 1E9 as u64),
+        ("t", 1E12 as u64),
+        ("p", 1E15 as u64),
+        ("ki", 1 << 10),
+        ("mi", 1 << 20),
+        ("gi", 1 << 30),
+        ("ti", 1 << 40),
+        ("pi", 1 << 50),
+    ];
+    let arg = arg.trim().to_ascii_lowercase();
+    ensure!(!arg.is_empty(), "empty string");
+
+    if arg.ends_with("%") {
+        let perc = arg[..arg.len() - 1].parse::<f64>()?;
+        ensure!(perc >= 0.0 || perc <= 100.0, "percentage out of range");
         let mut system = System::new();
         system.refresh_memory();
-        let num_pairs: usize = (((system.total_memory() as f64) * fraction
+        let num_pairs: usize = (((system.total_memory() as f64) * (perc / 100.0)
             / (std::mem::size_of::<(usize, usize)>() as f64))
             as u64)
-            .try_into()
-            .unwrap_or(usize::MAX);
-        num_pairs.align_to(1 << 20) // Round up to MiBs
+            .try_into()?;
+        return Ok(num_pairs.align_to(1 << 20)); // Round up to MiBs
     }
+
+    arg.chars().position(|c| c.is_alphabetic()).map_or_else(
+        || Ok(arg.parse::<usize>()?),
+        |pos| {
+            let (num, pref_sym) = arg.split_at(pos);
+            let multiplier = PREF_SYMS
+                .iter()
+                .find(|(x, _)| *x == pref_sym)
+                .map(|(_, m)| m)
+                .ok_or(anyhow!("invalid prefix symbol"))?;
+
+            Ok((num.parse::<u64>()? * multiplier).try_into()?)
+        },
+    )
 }
 
 #[derive(Args, Debug)]

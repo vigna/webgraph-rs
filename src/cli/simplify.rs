@@ -69,13 +69,7 @@ where
         .load()?;
 
     // transpose the graph
-    let sorted = crate::transform::simplify(
-        &seq_graph,
-        args.pa
-            .batch_size
-            .unwrap_or(PermutationArgs::batch_size(0.5)),
-    )
-    .unwrap();
+    let sorted = crate::transform::simplify(&seq_graph, args.pa.batch_size).unwrap();
 
     let target_endianness = args.ca.endianess.clone();
     let dir = Builder::new().prefix("CompressSimplified").tempdir()?;

@@ -86,10 +86,7 @@ where
             .load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args
-                .pa
-                .batch_size
-                .unwrap_or(PermutationArgs::batch_size(0.5));
+            let batch_size = args.pa.batch_size;
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
@@ -147,10 +144,7 @@ where
             .load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args
-                .pa
-                .batch_size
-                .unwrap_or(PermutationArgs::batch_size(0.5));
+            let batch_size = args.pa.batch_size;
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();

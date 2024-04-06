@@ -55,12 +55,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
     let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
 
-    let mut group_by = SortPairs::new(
-        args.pa
-            .batch_size
-            .unwrap_or(PermutationArgs::batch_size(0.5)),
-        dir,
-    )?;
+    let mut group_by = SortPairs::new(args.pa.batch_size, dir)?;
     let mut nodes = BTreeMap::new();
 
     // read the csv and put it inside the sort pairs
