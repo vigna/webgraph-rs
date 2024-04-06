@@ -125,6 +125,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     // init the iteration progress logger
     let mut iter_pl = progress_logger!(item_name = "update");
 
+    let hash_map_init = (sym_graph.num_arcs() / sym_graph.num_nodes() as u64).max(16) as usize;
+
     // init the update progress logger
     let mut update_pl = progress_logger!(item_name = "node", local_speed = true);
 
@@ -167,7 +169,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
             let delta_obj_func = sym_graph.par_apply(
                 |range| {
-                    let mut map = HashMap::with_capacity_and_hasher(1024, mix64::Mix64Builder);
+                    
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
                     for &node in &update_perm[range] {
@@ -191,7 +193,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         let curr_label = label_store.label(node);
                         // get the count of how many times a
                         // label appears in the successors
-                        map.clear();
+                        let mut map = HashMap::with_capacity_and_hasher(hash_map_init, mix64::Mix64Builder);
                         for succ in successors {
                             map.entry(label_store.label(succ))
                                 .and_modify(|counter| *counter += 1)
