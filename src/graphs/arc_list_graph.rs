@@ -7,13 +7,14 @@
 use crate::traits::*;
 use core::mem::MaybeUninit;
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// An adapter exhibiting a list of labeled
 /// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
     into_iter: I,
@@ -60,7 +61,7 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
     curr_node: usize,
@@ -173,6 +174,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 }
 
 /// Iter until we found a triple with src different than curr_node
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut Iter<L, I>,
 }

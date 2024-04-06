@@ -15,6 +15,7 @@ use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
+use mem_dbg::{MemDbg, MemSize};
 use sux::traits::IndexedDict;
 
 /// Sequential or random access.
@@ -22,12 +23,12 @@ use sux::traits::IndexedDict;
 #[sealed]
 pub trait Access: 'static {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Sequential {}
 #[sealed]
 impl Access for Sequential {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Random {}
 #[sealed]
 impl Access for Random {}
@@ -40,7 +41,7 @@ pub trait Dispatch: 'static {}
 ///
 /// You have to specify all codes used of the graph. The defaults
 /// are the same as the default parameters of the Java version.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Static<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
@@ -65,7 +66,7 @@ impl<
 /// Dynamic dispatch.
 ///
 /// Parameters are retrieved from the graph properties.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Dynamic {}
 
 #[sealed]
@@ -99,7 +100,7 @@ pub trait LoadMode: 'static {
 ///
 /// Note that you must guarantee that the graph file is padded with enough
 /// zeroes so that it can be read one `u32` at a time.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct File {}
 #[sealed]
 impl LoadMode for File {
@@ -127,7 +128,7 @@ impl LoadMode for File {
 /// The graph and offsets are memory mapped.
 ///
 /// This is the default mode. You can [set memory-mapping flags](Load::flags).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
@@ -152,7 +153,7 @@ impl LoadMode for Mmap {
 }
 
 /// The graph and offsets are loaded into allocated memory.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
@@ -179,7 +180,7 @@ impl LoadMode for LoadMem {
 /// The graph and offsets are loaded into memory obtained via `mmap()`.
 ///
 /// You can [set memory-mapping flags](Load::flags).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {

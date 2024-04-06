@@ -8,6 +8,7 @@
 //! Miscellaneous utilities.
 
 use rand::Rng;
+use mem_dbg::{MemDbg, MemSize};
 use std::path::PathBuf;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
@@ -67,6 +68,7 @@ pub use sort_pairs::SortPairs;
 /// An enum to specify the number of threads to use in parallel operations,
 /// either by [`rayon::current_num_threads()`], or by a fixed number, or by a
 /// custom [thread pool](rayon::ThreadPool).
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub enum Threads {
     Default,
     Num(usize),

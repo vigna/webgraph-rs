@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use mem_dbg::{MemDbg, MemSize};
+
 /// A circular buffer which is used to keep the backreferences both in
 /// sequential reads and compression.
 ///
@@ -16,7 +18,7 @@
 /// which are resolved with modular arithmetic. It is also possible to
 /// [take](CircularBuffer::take) and [replace](CircularBuffer::replace) the
 /// value at a given index.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub(crate) struct CircularBuffer<T: Default> {
     data: Vec<T>,
 }

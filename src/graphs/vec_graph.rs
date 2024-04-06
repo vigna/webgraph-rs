@@ -7,8 +7,10 @@
 
 use crate::prelude::*;
 
+use epserde::Epserde;
 use lender::prelude::*;
 use std::{collections::BTreeSet, mem::MaybeUninit};
+use mem_dbg::{MemDbg, MemSize};
 
 #[doc(hidden)]
 /// A struct containing a successor.
@@ -16,7 +18,7 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 /// By implementing equality and order on the first coordinate only, we
 /// can store the successors of a node and their labels as a
 /// [`BTreeSet`] of pairs `(usize, L)`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, MemDbg, MemSize)]
 struct Successor<L: Copy + 'static>(usize, L);
 
 impl<L: Copy + 'static> PartialEq for Successor<L> {
@@ -47,7 +49,7 @@ impl<L: Copy + 'static> Ord for Successor<L> {
 /// Choosing [`()`](https://doc.rust-lang.org/std/primitive.unit.html)
 /// as the label type will result in a [`RandomAccessGraph`] implementation.
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, MemDbg, MemSize, Epserde)]
 pub struct VecGraph<L: Copy + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,

@@ -13,6 +13,7 @@ use lender::prelude::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use mem_dbg::{MemDbg, MemSize};
 
 /// A queue that pulls jobs with ids in a contiguous initial segment of the
 /// natural numbers from an iterator out of order and implement an iterator in
@@ -20,6 +21,7 @@ use std::path::Path;
 ///
 /// Jobs must be ordered by their job id, and must implement [`Eq`] with a
 /// [`usize`] using their job id.
+#[derive(Debug, Clone, MemDbg, MemSize)]
 struct TaskQueue<I: Iterator> {
     iter: I,
     jobs: Vec<Option<I::Item>>,
@@ -66,7 +68,7 @@ where
 }
 
 /// A compression job.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy, MemDbg, MemSize)]
 struct Job {
     job_id: usize,
     first_node: usize,

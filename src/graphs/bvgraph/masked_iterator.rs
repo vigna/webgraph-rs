@@ -4,8 +4,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
+use mem_dbg::{MemDbg, MemSize};
 
 /// An iterator that filters out blocks of values.
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct MaskedIterator<I> {
     /// The resolved reference node, if present
     parent: Box<I>,

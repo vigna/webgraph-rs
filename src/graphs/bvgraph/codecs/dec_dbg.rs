@@ -5,10 +5,12 @@
  */
 
 use crate::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 
 #[repr(transparent)]
 /// A debug wrapper on a code read that prints the codes it reads
 /// to stderr
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct DebugDecoder<CR: Decode> {
     pub cr: CR,
 }

@@ -9,12 +9,14 @@ use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::traits::BE;
 use lender::IntoLender;
+use mem_dbg::{MemDbg, MemSize};
 use std::path::PathBuf;
 
 use self::sequential::Iter;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct BVGraph<F> {
     factory: F,
     number_of_nodes: usize,

@@ -34,6 +34,8 @@ use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
 use sux::traits::Succ;
+use mem_dbg::{MemDbg, MemSize};
+use epserde::Epserde;
 
 /// A labeling that can be accessed sequentially.
 ///
@@ -307,6 +309,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 ///
 /// Users can implement just random-access primitives and then
 /// use this structure to implement sequential access.
+#[derive(Clone, Debug, PartialEq, Eq, MemDbg, MemSize, Epserde)]
 pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
     pub labeling: &'node G,
     pub nodes: core::ops::Range<usize>,

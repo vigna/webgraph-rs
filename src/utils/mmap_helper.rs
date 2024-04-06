@@ -9,6 +9,7 @@ use anyhow::{ensure, Context, Result};
 use common_traits::UnsignedInt;
 use core::fmt::Debug;
 use mmap_rs::*;
+use mem_dbg::{MemDbg, MemSize};
 use std::{mem::size_of, path::Path, sync::Arc};
 
 /// Helper struct providing convenience methods and type-based [`AsRef`] access
@@ -29,7 +30,7 @@ use std::{mem::size_of, path::Path, sync::Arc};
 /// is not a multiple of the size of `W`.
 ///
 /// If you need clonable version of this structure, consider using [`ArcMmapHelper`].
-#[derive(Clone)]
+#[derive(Clone, MemDbg, MemSize)]
 pub struct MmapHelper<W, M = Mmap> {
     /// The underlying memory mapping, [`Mmap`] or [`MmapMut`].
     mmap: M,

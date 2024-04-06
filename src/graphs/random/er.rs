@@ -4,8 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use epserde::Epserde;
 use lender::{Lend, Lender, Lending};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
+use mem_dbg::{MemDbg, MemSize};
 
 use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
 
@@ -20,7 +22,7 @@ use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
 /// so if you plan to reuse it you should store the result in a more efficient
 /// structure, such as a [`VecGraph`](crate::graphs::prelude::VecGraph). The
 /// same applies if you need random access.
-
+#[derive(Debug, Clone, MemDbg, MemSize, Epserde)]
 pub struct ErdosRenyi {
     n: usize,
     p: f64,
@@ -58,6 +60,7 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Iter {
     n: usize,
     p: f64,

@@ -10,7 +10,9 @@ use std::{
     cell::UnsafeCell,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use mem_dbg::{MemDbg, MemSize};
 
+#[derive(Debug, MemDbg, MemSize)]
 pub(crate) struct LabelStore {
     labels: Box<[UnsafeCell<usize>]>,
     volumes: Box<[AtomicUsize]>,

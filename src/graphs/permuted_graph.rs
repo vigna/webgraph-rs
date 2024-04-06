@@ -8,12 +8,13 @@
 use crate::prelude::*;
 use lender::*;
 use sux::traits::BitFieldSlice;
+use mem_dbg::{MemDbg, MemSize};
 
-#[derive(Clone)]
 /// A wrapper applying a permutation to the iterators of an underlying graph.
 ///
 /// Note that nodes are simply remapped: thus, neither the iterator on the graph
 /// nor the successors are sorted.
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct PermutedGraph<'a, G: SequentialGraph, P: BitFieldSlice<usize> + ?Sized> {
     pub graph: &'a G,
     pub perm: &'a P,
@@ -73,7 +74,7 @@ impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender
 }
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct Iter<'node, I, P> {
     iter: I,
     perm: &'node P,
@@ -132,7 +133,7 @@ impl<
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct Succ<'a, I: Iterator<Item = usize>, P> {
     iter: I,
     perm: &'a P,

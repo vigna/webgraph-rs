@@ -19,15 +19,17 @@ use crate::prelude::{
     RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
 };
 use crate::traits::SplitLabeling;
+use epserde::Epserde;
 use lender::{IntoLender, Lend, Lender, Lending};
+use mem_dbg::{MemDbg, MemSize};
 
 // The projection onto the first component of a pair.
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize)] // TODO!: Epserde
 pub struct Left<S: SequentialLabeling>(pub S)
 where
     S::Label: Pair;
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize, Epserde)]
 pub struct LeftIterator<L>(pub L);
 
 impl<'succ, L> NodeLabelsLender<'succ> for LeftIterator<L>
@@ -47,12 +49,12 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize)] // TODO!: Epserde
 pub struct LeftIntoIterator<I: IntoIterator>(pub I)
 where
     I::Item: Pair;
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize)] // TODO!: Epserde
 pub struct LeftIntoIter<I: Iterator>(pub I)
 where
     I::Item: Pair;
@@ -180,12 +182,12 @@ where
 unsafe impl<I: SortedIterator> SortedIterator for LeftIntoIter<I> where I::Item: Pair {}
 
 // The projection onto the second component of a pair.
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize)] // TODO!: Epserde
 pub struct Right<S: SequentialLabeling>(pub S)
 where
     S::Label: Pair;
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize, Epserde)]
 pub struct RightIterator<L>(pub L);
 
 impl<'succ, L> NodeLabelsLender<'succ> for RightIterator<L>
@@ -205,12 +207,12 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize)] // TODO!: Epserde
 pub struct RightIntoIterator<I: IntoIterator>(pub I)
 where
     I::Item: Pair;
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemDbg, MemSize)] // TODO!: Epserde
 pub struct RightIntoIter<I: Iterator>(pub I)
 where
     I::Item: Pair;

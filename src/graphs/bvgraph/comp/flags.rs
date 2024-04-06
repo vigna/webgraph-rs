@@ -8,8 +8,9 @@
 use anyhow::{bail, ensure, Result};
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
+use mem_dbg::{MemDbg, MemSize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, MemDbg, MemSize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum Code {
     Unary,
@@ -18,7 +19,7 @@ pub enum Code {
     Zeta { k: usize },
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, MemDbg, MemSize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 /// The compression flags for reading or compressing a graph.
 ///

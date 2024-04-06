@@ -22,6 +22,7 @@ use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
 use std::path::Path;
 use sux::traits::IndexedDict;
+use mem_dbg::{MemDbg, MemSize};
 
 use crate::graphs::bvgraph::EF;
 use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
@@ -36,6 +37,7 @@ pub trait ReaderBuilder {
     fn get_reader(&self) -> Self::Reader<'_>;
 }
 
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct MmapReaderBuilder {
     backend: MmapHelper<u32>,
 }
@@ -49,6 +51,7 @@ impl ReaderBuilder for MmapReaderBuilder {
     }
 }
 
+#[derive(Clone, Debug, MemDbg, MemSize, Epserde)]
 pub struct SwhLabels<RB: ReaderBuilder, O: IndexedDict> {
     width: usize,
     reader_builder: RB,
@@ -73,6 +76,7 @@ impl SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     }
 }
 
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct Iter<'a, BR, O> {
     width: usize,
     reader: BR,

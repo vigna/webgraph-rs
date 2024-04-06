@@ -14,11 +14,13 @@ use anyhow::Result;
 use bitflags::Flags;
 use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
+use mem_dbg::{MemDbg, MemSize};
 use lender::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmaped file.
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct BVGraphSeq<F> {
     factory: F,
     number_of_nodes: usize,

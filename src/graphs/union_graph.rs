@@ -6,9 +6,10 @@
 
 use crate::prelude::*;
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 
-#[derive(Clone)]
 /// A wrapper exhibiting the union of two graphs.
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(pub G, pub H);
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialLabeling for UnionGraph<G, H>
@@ -82,7 +83,7 @@ where
 }
 
 #[doc(hidden)]
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct Iter<L, M>(L, M);
 
 impl<
@@ -140,7 +141,7 @@ unsafe impl<
 {
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct Succ<I: Iterator<Item = usize>, J: Iterator<Item = usize>> {
     iter0: Option<core::iter::Peekable<I>>,
     iter1: Option<core::iter::Peekable<J>>,

@@ -12,8 +12,9 @@ use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
+use mem_dbg::{MemDbg, MemSize};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
@@ -133,6 +134,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decode for DynCodesDecoder<E, CR> {
     }
 }
 
+#[derive(MemDbg, MemSize)]
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,

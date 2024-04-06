@@ -9,9 +9,11 @@ use super::{CodeWrite, Encode, MeasurableEncoder};
 use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
+use mem_dbg::{MemDbg, MemSize};
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     /// The code writer used by to output the compressed data.
     code_writer: CW,
@@ -180,7 +182,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct DynCodesEstimator {
     len_outdegree: fn(u64) -> usize,
     len_reference_offset: fn(u64) -> usize,

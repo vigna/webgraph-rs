@@ -7,12 +7,13 @@
 
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
+use mem_dbg::{MemDbg, MemSize};
 
 use super::{const_codes, CodeWrite, Encode, MeasurableEncoder};
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
-#[derive(Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct ConstCodesEncoder<
     E: Endianness,
     CW: CodeWrite<E>,
@@ -173,7 +174,7 @@ impl<
 }
 
 #[repr(transparent)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct ConstCodesEstimator<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },

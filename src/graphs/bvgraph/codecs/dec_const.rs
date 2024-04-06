@@ -13,6 +13,7 @@ use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
+use mem_dbg::{MemDbg, MemSize};
 
 /// Temporary constants while const enum generics are not stable
 pub mod const_codes {
@@ -38,7 +39,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesReader`]  with compile-time defined codes
-#[derive(Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct ConstCodesDecoder<
     E: Endianness,
     CR: CodeRead<E>,
@@ -184,6 +185,7 @@ impl<
     }
 }
 
+#[derive(MemDbg, MemSize)] // TODO!: add Clone and Debug
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
