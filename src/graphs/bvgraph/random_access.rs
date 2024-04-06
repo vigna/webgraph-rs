@@ -264,6 +264,23 @@ where
     }
 }
 
+impl<F: RandomAccessDecoderFactory> BVGraph<F>
+where
+    for<'a> F::Decoder<'a>: Decode,
+{
+    #[inline(always)]
+    /// Create an iterator specialized in the degrees of the nodes.
+    /// This is slightly faster because it can avoid decoding some of the nodes
+    /// and completely skip the merging step.
+    pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
+        OffsetDegIter::new(
+            self.factory.new_decoder(0).unwrap(),
+            self.number_of_nodes,
+            self.compression_window,
+            self.min_interval_length,
+        )
+    }
+}
 impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
