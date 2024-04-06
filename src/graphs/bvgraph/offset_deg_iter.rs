@@ -41,6 +41,12 @@ impl<D: Decode + BitSeek> Iterator for OffsetDegIter<D> {
     }
 }
 
+impl<D: Decode + BitSeek> ExactSizeIterator for OffsetDegIter<D> {
+    fn len(&self) -> usize {
+        self.number_of_nodes - self.node_id
+    }
+}
+
 impl<D: Decode> OffsetDegIter<D> {
     /// Create a new iterator over the degrees of the graph.
     pub fn new(
