@@ -251,3 +251,21 @@ where
     type Label = II::Item;
     type IntoIterator = II;
 }
+
+impl<'lend, I, J> NodeLabelsLender<'lend> for lender::FromIter<I> 
+where
+    I: Iterator<Item = (usize, J)>,
+    J: IntoIterator,
+{
+    type Label = J::Item;
+    type IntoIterator = J;
+}
+
+impl<'lend, S, F, J> NodeLabelsLender<'lend> for lender::FromFn<S, F> 
+where
+    F: for<'all> lender::higher_order::FnMutHKAOpt<'all, &'all mut S, B=(usize, J)>,
+    J: IntoIterator,
+{
+    type Label = J::Item;
+    type IntoIterator = J;
+}
