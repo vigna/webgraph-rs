@@ -429,7 +429,7 @@ impl<'a, T> UnsafeSlice<'a, T> {
     /// This method makes it possible to write in the slice
     /// without borrowing the slice mutably.
     ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// It is UB if two threads write to the same index without
     /// synchronization.

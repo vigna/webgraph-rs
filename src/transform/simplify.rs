@@ -103,6 +103,7 @@ where
     S: SequentialGraph + SplitLabeling,
 {
     let pool = threads.as_mut();
+    let num_threads = pool.current_num_threads();
     let (tx, rx) = std::sync::mpsc::channel();
 
     let mut dirs = vec![];
@@ -110,7 +111,7 @@ where
     pool.in_place_scope(|scope| {
         let mut thread_id = 0;
         #[allow(clippy::explicit_counter_loop)] // enumerate requires some extra bounds here
-        for iter in graph.split_iter(pool.current_num_threads()) {
+        for iter in graph.split_iter(num_threads) {
             let tx = tx.clone();
             let dir = Builder::new()
                 .prefix(&format!("Simplify{}", thread_id))
@@ -120,7 +121,7 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {}", thread_id);
-                let mut sorted = SortPairs::new(batch_size, dir_path).unwrap();
+                let mut sorted = SortPairs::new(batch_size / num_threads, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         if src != dst {

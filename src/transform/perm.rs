@@ -82,12 +82,13 @@ where
     let pgraph = PermutedGraph { graph, perm };
 
     let pool = threads.as_mut();
+    let num_threads = pool.current_num_threads();
     let mut dirs = vec![];
 
     let edges = pool.in_place_scope(|scope| {
         let (tx, rx) = std::sync::mpsc::channel();
 
-        for (thread_id, iter) in pgraph.split_iter(pool.current_num_threads()).enumerate() {
+        for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
             let tx = tx.clone();
             let dir = Builder::new()
                 .prefix(&format!("Permute_{}", thread_id))
@@ -97,7 +98,7 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {}", thread_id);
-                let mut sorted = SortPairs::new(batch_size, dir_path).unwrap();
+                let mut sorted = SortPairs::new(batch_size / num_threads, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         sorted.push(src, dst).unwrap();
