@@ -293,12 +293,29 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
         iter_pl.done();
 
-        update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
-        // create sorted clusters by contiguous labels
-        update_perm.par_sort_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
-        invert_in_place(&mut update_perm);
+        // We temporarily use the update permutation to compute the sorting
+        // permutation of the labels.
+        let perm = &mut update_perm;
+        perm.par_iter_mut()
+            .enumerate()
+            .with_min_len(1024)
+            .for_each(|(i, x)| *x = i);
+        // Sort by label
+        perm.par_sort_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
 
+        // Save labels
         let labels = label_store.labels();
+        let mut file =
+            std::fs::File::create(labels_path(gamma_index)).context("Could not write labels")?;
+        labels
+            .serialize(&mut file)
+            .context("Could not serialize labels")?;
+
+        // We temporarily use the label array from the label store to compute
+        // the inverse permutation. It will be reinitialized at the next
+        // iteration anyway.
+        let inv_perm = labels;
+        invert_permutation(perm, inv_perm);
 
         update_pl.expected_updates(Some(num_nodes));
         update_pl.start("Computing log-gap cost...");
@@ -306,7 +323,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         let cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
                 graph: sym_graph,
-                perm: &update_perm,
+                perm: &inv_perm,
             },
             granularity,
             deg_cumul,
@@ -318,13 +335,6 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
         info!("Log-gap cost: {}", cost);
         costs.push(cost);
-
-        // storing the perms
-        let mut file =
-            std::fs::File::create(labels_path(gamma_index)).context("Could not write labels")?;
-        labels
-            .serialize(&mut file)
-            .context("Could not serialize labels")?;
 
         gamma_pl.update_and_display();
     }
@@ -401,38 +411,8 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
     Ok(curr_label + 1)
 }
 
-/// Invert the given permutation in place.
-#[doc(hidden)]
-pub fn invert_in_place(perm: &mut [usize]) {
-    for n in 0..perm.len() {
-        let mut i = perm[n];
-        if (i as isize) < 0 {
-            perm[n] = !i;
-        } else if i != n {
-            let mut k = n;
-            loop {
-                let j = perm[i];
-                perm[i] = !k;
-                if j == n {
-                    perm[n] = i;
-                    break;
-                }
-                k = i;
-                i = j;
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-fn test_invert_in_place() {
-    use rand::prelude::SliceRandom;
-    let mut v = (0..1000).collect::<Vec<_>>();
-    v.shuffle(&mut rand::thread_rng());
-    let mut w = v.clone();
-    invert_in_place(&mut w);
-    for i in 0..v.len() {
-        assert_eq!(w[v[i]], i);
+pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
+    for (i, &x) in perm.iter().enumerate() {
+        inv_perm[x] = i;
     }
 }

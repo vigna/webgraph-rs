@@ -14,6 +14,7 @@ use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
+use llp::invert_permutation;
 use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 
 use predicates::prelude::*;
@@ -178,7 +179,9 @@ where
 
     let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
-    crate::algo::llp::invert_in_place(llp_perm.as_mut_slice());
+
+    let mut llp_inv_perm = vec![0; llp_perm.len()];
+    invert_permutation(llp_perm.as_ref(), llp_inv_perm.as_mut());
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     log::info!("Saving permutation...");
@@ -186,14 +189,14 @@ where
     let perm = args.perm;
 
     if args.epserde {
-        llp_perm
+        llp_inv_perm
             .store(&perm)
             .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
     } else {
         let mut file = std::fs::File::create(&perm)
             .with_context(|| format!("Could not create permutation at {}", perm.display()))?;
         let mut buf = BufWriter::new(&mut file);
-        for word in llp_perm.into_iter() {
+        for word in llp_inv_perm.into_iter() {
             buf.write_all(&word.to_be_bytes())
                 .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
         }
