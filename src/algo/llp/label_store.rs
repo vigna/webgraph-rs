@@ -51,6 +51,12 @@ impl LabelStore {
         self.volumes[node].load(Ordering::Relaxed)
     }
 
+    /// Updates the label of a node.
+    ///
+    /// By passing explicitly the old label, we can internalize the test
+    /// for `old_label != new_label`. However, if the `old_label` is not
+    /// the current label of the node, the volumes will be updated
+    /// incorrectly.
     #[inline(always)]
     pub(crate) fn update(&self, node: usize, old_label: usize, new_label: usize) {
         if old_label != new_label {

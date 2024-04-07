@@ -42,6 +42,7 @@ use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::env::temp_dir;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -94,6 +95,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
 ) -> Result<Box<[usize]>> {
+    const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
     let granularity = granularity.unwrap_or(((sym_graph.num_arcs() >> 9) as usize).max(1024));
@@ -151,7 +153,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             .for_each(|c| c.store(true, Ordering::Relaxed));
 
         let mut obj_func = 0.0;
-        let mut prev_gain = f64::INFINITY;
+        let mut prev_gain = f64::MAX;
+        let mut improv_window: VecDeque<_> = vec![1.0; IMPROV_WINDOW].into();
 
         for update in 0.. {
             update_pl.expected_updates(Some(num_nodes));
@@ -269,16 +272,20 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             let gain = delta_obj_func / obj_func;
             let gain_impr = (prev_gain - gain) / prev_gain;
             prev_gain = gain;
+            improv_window.pop_front();
+            improv_window.push_back(gain_impr);
+            let avg_gain_impr = improv_window.iter().sum::<f64>() / IMPROV_WINDOW as f64;
 
             info!("Gain: {gain}");
             info!("Gain improvement: {gain_impr}");
+            info!("Average gain improvement: {avg_gain_impr}");
             info!("Modified: {}", modified.load(Ordering::Relaxed),);
 
             if predicate.eval(&PredParams {
                 num_nodes: sym_graph.num_nodes(),
                 num_arcs: sym_graph.num_arcs(),
                 gain,
-                gain_impr,
+                avg_gain_impr,
                 modified: modified.load(Ordering::Relaxed),
                 update,
             }) || modified.load(Ordering::Relaxed) == 0
