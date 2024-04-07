@@ -269,7 +269,7 @@ where
     for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
-    /// Create an iterator specialized in the degrees of the nodes.
+    /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
