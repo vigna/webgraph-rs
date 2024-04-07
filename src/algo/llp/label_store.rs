@@ -52,19 +52,11 @@ impl LabelStore {
     }
 
     /// Updates the label of a node.
-    ///
-    /// By passing explicitly the old label, we can internalize the test
-    /// for `old_label != new_label`. However, if the `old_label` is not
-    /// the current label of the node, the volumes will be updated
-    /// incorrectly.
     #[inline(always)]
-    pub(crate) fn update(&self, node: usize, old_label: usize, new_label: usize) {
-        if old_label != new_label {
-            debug_assert!(self.label(node) == old_label);
-            unsafe { *&mut *self.labels[node].get() = new_label };
-            self.volumes[old_label].fetch_sub(1, Ordering::Relaxed);
-            self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
-        }
+    pub(crate) fn update(&self, node: usize, new_label: usize) {
+        let old_label = unsafe { core::mem::replace(&mut *self.labels[node].get(), new_label) };
+        self.volumes[old_label].fetch_sub(1, Ordering::Relaxed);
+        self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn labels(&self) -> &[usize] {

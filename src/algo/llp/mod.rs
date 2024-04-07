@@ -213,19 +213,16 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         let mut majorities = vec![];
                         // compute the most entropic label
                         for (&label, &count) in map.iter() {
-                            // The compensation for the current label is
-                            // necessary as we do not decrement its volume, as
-                            // the Java version does.
+                            // For replication of the results of the Java
+                            // version, one needs to decrement the volume of
+                            // the current value the Java version does
+                            // (see the commented code below).
                             //
                             // Note that this is not exactly equivalent to the
                             // behavior of the Java version, as during the
                             // execution of this loop if another thread reads
                             // the volume of the current label it will get a
-                            // value larger by one WRT the Java version. This
-                            // difference does not seem to effect the outcome,
-                            // whereas this compensation has a major effect, in
-                            // particular in the initial phases, when the volume
-                            // is one.
+                            // value larger by one WRT the Java version.
                             let volume = label_store.volume(label); // - (label == curr_label) as usize;
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
@@ -252,7 +249,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                             for succ in sym_graph.successors(node) {
                                 can_change[succ].store(true, Ordering::Relaxed);
                             }
-                            label_store.update(node, curr_label, next_label);
+                            label_store.update(node, next_label);
                         }
                         local_obj_func += max - old;
                     }
