@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use rayon::prelude::*;
 use std::{
     cell::UnsafeCell,
     sync::atomic::{AtomicUsize, Ordering},
@@ -29,16 +30,15 @@ impl LabelStore {
     }
 
     pub(crate) fn init(&mut self) {
-        for l in 0..self.labels.len() {
-            *self.labels[l].get_mut() = l;
-            self.volumes[l].store(1, Ordering::Relaxed);
-        }
-    }
-
-    #[inline(always)]
-    pub(crate) fn volume_set(&self, node: usize, new_label: usize) {
-        unsafe { *self.labels[node].get() = new_label };
-        self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
+        self.volumes
+            .par_iter()
+            .with_min_len(1024)
+            .for_each(|v| v.store(1, Ordering::Relaxed));
+        self.labels
+            .par_iter_mut()
+            .enumerate()
+            .with_min_len(1024)
+            .for_each(|(i, l)| *l.get_mut() = i);
     }
 
     #[inline(always)]
@@ -47,8 +47,18 @@ impl LabelStore {
     }
 
     #[inline(always)]
-    pub(crate) fn volume_fetch_sub(&self, label: usize) -> usize {
-        self.volumes[label].fetch_sub(1, Ordering::Relaxed)
+    pub(crate) fn volume(&self, node: usize) -> usize {
+        self.volumes[node].load(Ordering::Relaxed)
+    }
+
+    #[inline(always)]
+    pub(crate) fn update(&self, node: usize, old_label: usize, new_label: usize) {
+        if old_label != new_label {
+            debug_assert!(self.label(node) == old_label);
+            unsafe { *&mut *self.labels[node].get() = new_label };
+            self.volumes[old_label].fetch_sub(1, Ordering::Relaxed);
+            self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     pub(crate) fn labels(&self) -> &[usize] {

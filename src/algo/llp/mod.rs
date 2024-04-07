@@ -144,12 +144,13 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             gamma_index + 1,
             gammas.len(),
         ));
-        let mut obj_func = 0.0;
         label_store.init();
         can_change
-            .iter()
-            .for_each(|x| x.store(true, Ordering::Relaxed));
+            .par_iter()
+            .with_min_len(1024)
+            .for_each(|c| c.store(true, Ordering::Relaxed));
 
+        let mut obj_func = 0.0;
         let mut prev_gain = f64::INFINITY;
 
         for update in 0.. {
@@ -174,7 +175,11 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
                     for &node in &update_perm[range] {
-                        // if the node can't change we can skip it
+                        // Note that here we are using a heuristic optimization:
+                        // if no neighbor has changed, the label of a node
+                        // cannot change. If gamma != 0, this is not necessarily
+                        // true, as a node might need to change its value just
+                        // because of a change of volume of the adjacent labels.
                         if !can_change[node].load(Ordering::Relaxed) {
                             continue;
                         }
@@ -182,18 +187,14 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                         can_change[node].store(false, Ordering::Relaxed);
 
                         let successors = sym_graph.successors(node);
-                        // TODO
-                        /*if successors.len() == 0 {
-                            continue;
-                        }*/
                         if sym_graph.outdegree(node) == 0 {
                             continue;
                         }
 
                         // get the label of this node
                         let curr_label = label_store.label(node);
-                        // get the count of how many times a
-                        // label appears in the successors
+
+                        // compute the frequency of successor labels
                         let mut map =
                             HashMap::with_capacity_and_hasher(hash_map_init, mix64::Mix64Builder);
                         for succ in successors {
@@ -222,7 +223,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                             // whereas this compensation has a major effect, in
                             // particular in the initial phases, when the volume
                             // is one.
-                            let volume = label_store.volume_fetch_sub(label); // - (label == curr_label) as usize;
+                            let volume = label_store.volume(label); // - (label == curr_label) as usize;
                             let val = (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
 
                             if max == val {
@@ -248,7 +249,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                             for succ in sym_graph.successors(node) {
                                 can_change[succ].store(true, Ordering::Relaxed);
                             }
-                            label_store.volume_set(node, next_label);
+                            label_store.update(node, curr_label, next_label);
                         }
                         local_obj_func += max - old;
                     }
