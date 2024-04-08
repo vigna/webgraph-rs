@@ -14,6 +14,7 @@ use dsi_bitstream::prelude::*;
 /// This iterator is faster than scanning the graph. In particular, it can be
 /// used to build the offsets of a graph or to enumerate the graph degrees when
 /// the offsets are not available.
+#[derive(Debug, Clone)]
 pub struct OffsetDegIter<D: Decode> {
     number_of_nodes: usize,
     compression_window: usize,

@@ -9,6 +9,7 @@ use crate::prelude::*;
 #[repr(transparent)]
 /// A debug wrapper on a code read that prints the codes it reads
 /// to stderr
+#[derive(Debug, Clone)]
 pub struct DebugDecoder<CR: Decode> {
     pub cr: CR,
 }

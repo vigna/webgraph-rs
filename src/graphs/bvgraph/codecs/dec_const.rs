@@ -38,7 +38,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesReader`]  with compile-time defined codes
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ConstCodesDecoder<
     E: Endianness,
     CR: CodeRead<E>,

@@ -15,6 +15,7 @@ use self::sequential::Iter;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
+#[derive(Debug, Clone)]
 pub struct BVGraph<F> {
     factory: F,
     number_of_nodes: usize,
@@ -285,6 +286,7 @@ impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
+#[derive(Debug, Clone)]
 pub struct Succ<D: Decode> {
     reader: D,
     /// The number of values left

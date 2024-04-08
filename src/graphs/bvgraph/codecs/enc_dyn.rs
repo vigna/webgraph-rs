@@ -12,6 +12,7 @@ use std::convert::Infallible;
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
+#[derive(Debug, Clone)]
 pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     /// The code writer used by to output the compressed data.
     code_writer: CW,
@@ -180,7 +181,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynCodesEstimator {
     len_outdegree: fn(u64) -> usize,
     len_reference_offset: fn(u64) -> usize,

@@ -9,7 +9,7 @@ use crate::prelude::*;
 use lender::*;
 use sux::traits::BitFieldSlice;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 /// A wrapper applying a permutation to the iterators of an underlying graph.
 ///
 /// Note that nodes are simply remapped: thus, neither the iterator on the graph
@@ -132,7 +132,7 @@ impl<
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Succ<'a, I: Iterator<Item = usize>, P> {
     iter: I,
     perm: &'a P,

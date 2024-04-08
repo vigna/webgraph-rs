@@ -47,7 +47,7 @@ pub trait BitReaderFactory<E: Endianness> {
     fn new_reader(&self) -> Self::BitReader<'_>;
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
     path: Box<Path>,
     _marker: core::marker::PhantomData<E>,
@@ -145,7 +145,7 @@ impl From<MemoryFlags> for epserde::deser::Flags {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
     data: M,
     _marker: core::marker::PhantomData<E>,
@@ -238,6 +238,7 @@ impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M>
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }

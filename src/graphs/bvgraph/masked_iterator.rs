@@ -6,6 +6,7 @@
  */
 
 /// An iterator that filters out blocks of values.
+#[derive(Debug, Clone)]
 pub struct MaskedIterator<I> {
     /// The resolved reference node, if present
     parent: Box<I>,

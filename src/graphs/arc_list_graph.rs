@@ -13,7 +13,7 @@ use lender::*;
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
     into_iter: I,
@@ -60,7 +60,7 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
     curr_node: usize,

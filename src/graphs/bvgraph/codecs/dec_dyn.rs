@@ -13,7 +13,7 @@ use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,

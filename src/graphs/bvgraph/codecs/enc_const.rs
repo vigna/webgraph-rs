@@ -12,7 +12,7 @@ use super::{const_codes, CodeWrite, Encode, MeasurableEncoder};
 
 #[repr(transparent)]
 /// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ConstCodesEncoder<
     E: Endianness,
     CW: CodeWrite<E>,
@@ -173,7 +173,7 @@ impl<
 }
 
 #[repr(transparent)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ConstCodesEstimator<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },

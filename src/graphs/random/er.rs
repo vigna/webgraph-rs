@@ -20,7 +20,7 @@ use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
 /// so if you plan to reuse it you should store the result in a more efficient
 /// structure, such as a [`VecGraph`](crate::graphs::prelude::VecGraph). The
 /// same applies if you need random access.
-
+#[derive(Debug, Clone)]
 pub struct ErdosRenyi {
     n: usize,
     p: f64,
@@ -58,6 +58,7 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Iter {
     n: usize,
     p: f64,

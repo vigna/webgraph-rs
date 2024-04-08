@@ -10,6 +10,7 @@ use core::cmp::Ordering;
 use lender::prelude::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
+#[derive(Debug, Clone)]
 pub struct BVComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours

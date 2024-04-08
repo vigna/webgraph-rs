@@ -7,7 +7,7 @@
 use crate::prelude::*;
 use lender::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 /// A wrapper exhibiting the union of two graphs.
 pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(pub G, pub H);
 
@@ -140,7 +140,7 @@ unsafe impl<
 {
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Succ<I: Iterator<Item = usize>, J: Iterator<Item = usize>> {
     iter0: Option<core::iter::Peekable<I>>,
     iter1: Option<core::iter::Peekable<J>>,
