@@ -19,7 +19,7 @@ $WEBGRAPH build dcf $GRAPH-simplified
 # Step5: Run LLP to get the final permutation
 $WEBGRAPH llp $GRAPH-simplified $GRAPH.llp
 # Step6: Merge the two permutations
-$WEBGRAPH merge_perms $GRAPH.merged_perm $GRAPH.bfs $GRAPH.llp
+$WEBGRAPH merge-perms $GRAPH.merged_perm $GRAPH.bfs $GRAPH.llp
 # Step7: Apply both permutations to the original graph
 $WEBGRAPH recompress $GRAPH $GRAPH-final --permutation $GRAPH.merged_perm
 # Step8: Create the final Elias Fano
