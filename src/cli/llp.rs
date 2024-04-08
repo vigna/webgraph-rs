@@ -114,6 +114,10 @@ where
     let start = std::time::Instant::now();
 
     // Load the graph in THP memory
+    log::info!(
+        "Loading graph {} in THP memory...",
+        args.basename.to_string_lossy()
+    );
     let graph = BVGraph::with_basename(&args.basename)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
@@ -121,6 +125,7 @@ where
         .load()?;
 
     // Load degree cumulative function in THP memory
+    log::info!("Loading DCF in THP memory...");
     let deg_cumul = DCF::load_mmap(
         args.basename.with_extension(DEG_CUMUL_EXTENSION),
         Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
