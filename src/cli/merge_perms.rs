@@ -14,7 +14,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use sux::traits::BitFieldSlice;
 
-pub const COMMAND_NAME: &str = "merge_perms";
+pub const COMMAND_NAME: &str = "merge-perms";
 
 #[derive(Args, Debug)]
 #[command(about = "Merge multiple permutations into a single one", long_about = None)]
