@@ -133,7 +133,7 @@ pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
     let arg = arg.trim().to_ascii_lowercase();
     ensure!(!arg.is_empty(), "empty string");
 
-    if arg.ends_with("%") {
+    if arg.ends_with('%') {
         let perc = arg[..arg.len() - 1].parse::<f64>()?;
         ensure!(perc >= 0.0 || perc <= 100.0, "percentage out of range");
         let mut system = System::new();
