@@ -141,7 +141,7 @@ unsafe impl<
 {
 }
 
-#[derive(Clone, Debug, MemDbg, MemSize)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct Succ<I: Iterator<Item = usize>, J: Iterator<Item = usize>> {
     iter0: Option<core::iter::Peekable<I>>,
     iter1: Option<core::iter::Peekable<J>>,

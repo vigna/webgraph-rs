@@ -174,7 +174,7 @@ impl<
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone, Default, MemDbg, MemSize)]
 pub struct ConstCodesEstimator<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },

@@ -225,14 +225,8 @@ impl VecGraph<()> {
     }
 }
 
-<<<<<<< HEAD
-impl<'a, L: Copy + 'static> IntoLender for &'a VecGraph<L> {
-    type Lender = <VecGraph<L> as SequentialLabeling>::Lender<'a>;
-=======
 impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
-    type Lender = <VecGraph<L> as SequentialLabeling>::Iterator<'a>;
->>>>>>> 2501fb5 (Relax Copy constraint on VecGraph labels)
-
+    type Lender = <VecGraph<L> as SequentialLabeling>::Lender<'a>;
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
         self.iter()
@@ -296,11 +290,7 @@ impl<'a, L: Clone + 'static> Iterator for Successors<'a, L> {
     }
 }
 
-<<<<<<< HEAD
-unsafe impl<'a, L: Copy + 'static> SortedIterator for Successors<'a, L> {}
-=======
-unsafe impl<'a, L: Clone + 'static> SortedLabels for Successors<'a, L> {}
->>>>>>> 2501fb5 (Relax Copy constraint on VecGraph labels)
+unsafe impl<'a, L: Clone + 'static> SortedIterator for Successors<'a, L> {}
 
 impl<'a, L: Clone + 'static> ExactSizeIterator for Successors<'a, L> {
     #[inline(always)]
