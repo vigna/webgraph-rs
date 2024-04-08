@@ -160,7 +160,7 @@ where
 
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
-#[derive(Clone)]
+#[derive(Clone, Debug, MemDbg, MemSize)]
 pub struct Iter<D: Decode> {
     pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,

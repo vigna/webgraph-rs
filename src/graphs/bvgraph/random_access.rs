@@ -287,6 +287,7 @@ impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
 /// The iterator returend from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
+#[derive(Clone, Debug, MemSize, MemDbg)]
 pub struct Succ<D: Decode> {
     reader: D,
     /// The number of values left

@@ -23,12 +23,12 @@ use sux::traits::IndexedDict;
 #[sealed]
 pub trait Access: 'static {}
 
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct Sequential {}
 #[sealed]
 impl Access for Sequential {}
 
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct Random {}
 #[sealed]
 impl Access for Random {}
@@ -66,7 +66,7 @@ impl<
 /// Dynamic dispatch.
 ///
 /// Parameters are retrieved from the graph properties.
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct Dynamic {}
 
 #[sealed]
@@ -100,7 +100,7 @@ pub trait LoadMode: 'static {
 ///
 /// Note that you must guarantee that the graph file is padded with enough
 /// zeroes so that it can be read one `u32` at a time.
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct File {}
 #[sealed]
 impl LoadMode for File {
@@ -128,7 +128,7 @@ impl LoadMode for File {
 /// The graph and offsets are memory mapped.
 ///
 /// This is the default mode. You can [set memory-mapping flags](Load::flags).
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
@@ -153,7 +153,7 @@ impl LoadMode for Mmap {
 }
 
 /// The graph and offsets are loaded into allocated memory.
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
@@ -180,7 +180,7 @@ impl LoadMode for LoadMem {
 /// The graph and offsets are loaded into memory obtained via `mmap()`.
 ///
 /// You can [set memory-mapping flags](Load::flags).
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
@@ -205,7 +205,7 @@ impl LoadMode for LoadMmap {
 }
 
 #[doc(hidden)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode> {
     pub(crate) basename: PathBuf,
     pub(crate) graph_load_flags: MemoryFlags,
