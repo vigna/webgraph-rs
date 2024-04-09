@@ -142,6 +142,7 @@ pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
             / (std::mem::size_of::<(usize, usize)>() as f64))
             as u64)
             .try_into()?;
+        // TODO: try_align_to when available
         return Ok(num_pairs.align_to(1 << 20)); // Round up to MiBs
     }
 
