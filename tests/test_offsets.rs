@@ -50,5 +50,17 @@ fn test_offsets() -> Result<()> {
         assert_eq!(rand_succ, seq_succ.collect::<Vec<_>>());
     }
 
+    for (i, (offset, outdegree)) in graph.offset_deg_iter().enumerate() {
+        assert_eq!(offset, ef_offsets.get(i) as _);
+        assert_eq!(outdegree, graph.outdegree(i));
+    }
+
+    for start_node in 0..100 {
+        for (i, (offset, outdegree)) in graph.offset_deg_iter_from(start_node).enumerate() {
+            assert_eq!(offset, ef_offsets.get(start_node + i) as _);
+            assert_eq!(outdegree, graph.outdegree(start_node + i));
+        }
+    }
+
     Ok(())
 }

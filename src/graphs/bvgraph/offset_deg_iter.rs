@@ -63,7 +63,27 @@ impl<D: Decode> OffsetDegIter<D> {
             min_interval_length,
             node_id: 0,
             decoder,
-            backrefs: vec![0; compression_window + 1],
+            backrefs: vec![0; compression_window],
+        }
+    }
+
+    /// Create a new iterator over the degrees of the graph at a given node
+    pub fn new_from(
+        decoder: D,
+        number_of_nodes: usize,
+        compression_window: usize,
+        min_interval_length: usize,
+        node_id: usize,
+        backrefs: Vec<usize>,
+    ) -> Self {
+        debug_assert_eq!(backrefs.len(), compression_window);
+        Self {
+            number_of_nodes,
+            compression_window,
+            min_interval_length,
+            node_id,
+            decoder,
+            backrefs,
         }
     }
 

@@ -282,6 +282,24 @@ where
             self.min_interval_length,
         )
     }
+
+    #[inline(always)]
+    /// Creates an iterator specialized in the degrees of the nodes starting
+    /// from a given node.
+    pub fn offset_deg_iter_from(&self, node: usize) -> OffsetDegIter<F::Decoder<'_>> {
+        let mut backrefs = vec![0; self.compression_window];
+        for node_id in node.saturating_sub(self.compression_window)..node {
+            backrefs[node_id % self.compression_window] = self.outdegree(node_id);
+        }
+        OffsetDegIter::new_from(
+            self.factory.new_decoder(node).unwrap(),
+            self.number_of_nodes,
+            self.compression_window,
+            self.min_interval_length,
+            node,
+            backrefs,
+        )
+    }
 }
 impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
