@@ -5,6 +5,7 @@ set -e
 
 GRAPH="$1" # the graph basename is the first argument
 WEBGRAPH="cargo run --release --"
+export RUSTFLAGS="-C target-cpu=native ${RUSTFLAGS}"
 
 # Step 1: Create the Elias Fano
 $WEBGRAPH build ef $GRAPH
@@ -17,7 +18,7 @@ $WEBGRAPH build ef $GRAPH-simplified
 # Step4: Create the Degrees Cumulative Function
 $WEBGRAPH build dcf $GRAPH-simplified
 # Step5: Run LLP to get the final permutation
-$WEBGRAPH llp $GRAPH-simplified $GRAPH.llp
+$WEBGRAPH llp $GRAPH-simplified $GRAPH.llp | tee llp.log
 # Step6: Merge the two permutations
 $WEBGRAPH merge-perms $GRAPH.merged_perm $GRAPH.bfs $GRAPH.llp
 # Step7: Apply both permutations to the original graph
