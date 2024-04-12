@@ -158,7 +158,13 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
         for update in 0.. {
             update_pl.expected_updates(Some(num_nodes));
-            update_pl.start(format!("Starting update {}...", update));
+            update_pl.start(format!(
+                "Starting update {} (for gamma={}, {}/{})...",
+                update,
+                gamma,
+                gamma_index + 1,
+                gammas.len()
+            ));
 
             update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
             thread_pool.install(|| {
