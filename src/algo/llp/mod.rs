@@ -43,23 +43,16 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::env::temp_dir;
-use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use sux::traits::IndexedDict;
 use sux::traits::Succ;
+use tempfile::tempdir;
 
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
 mod mix64;
 pub mod preds;
-
-fn labels_path(gamma_index: usize) -> PathBuf {
-    [temp_dir(), format!("labels_{}.bin", gamma_index).into()]
-        .iter()
-        .collect()
-}
 
 /// Runs layered label propagation on the provided symmetric graph and returns
 /// the resulting labels.
@@ -95,6 +88,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
 ) -> Result<Box<[usize]>> {
+    let work_dir = tempdir().context("Could not create temporary directory")?;
+    let labels_path = |gamma_index| work_dir.path().join(format!("labels_{gamma_index}.bin"));
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
