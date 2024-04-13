@@ -27,6 +27,12 @@ pub fn main() -> Result<()> {
                         .required(true)
                         .value_parser(value_parser!(Shell)),
                 ),
+        )
+        .after_help(
+            "Environment (noteworthy environment variables used):
+  RUST_MIN_SIZE: minimum thread stack size (in bytes)
+  TMPDIR: where to store temporary files (potentially very large ones)
+",
         );
 
     macro_rules! impl_dispatch {
