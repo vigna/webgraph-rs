@@ -54,14 +54,14 @@ impl<F> BVGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    /// Create a new BVGraph from the given parameters.
+    /// Creates a new BVGraph from the given parameters.
     ///
     /// # Arguments
     /// - `reader_factory`: backend that can create objects that allows
     /// us to read the bitstream of the graph to decode the edges.
     /// - `offsets`: the bit offset at which we will have to start for decoding
     /// the edges of each node. (This is needed for the random accesses,
-    /// [`BVGraphSequential`] does not need them)
+    /// [`BVGraphSeq`] does not need them)
     /// - `min_interval_length`: the minimum size of the intervals we are going
     /// to decode.
     /// - `compression_window`: the maximum distance between two nodes that
@@ -338,7 +338,7 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
 unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
 impl<D: Decode> Succ<D> {
-    /// Create an empty iterator
+    /// Creates an empty iterator
     fn new(reader: D) -> Self {
         Self {
             reader,

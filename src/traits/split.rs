@@ -6,7 +6,7 @@
  */
 
 //! Traits and basic implementations to support parallel completion by splitting
-//! the [iterator](SequentialLabeling::Iterator) of a labeling into multiple
+//! the [iterator](SequentialLabeling::Lender) of a labeling into multiple
 //! iterators.
 
 use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
@@ -16,7 +16,7 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 ///
 /// Labeling implementing this trait can be analyzed in parallel by calling
 /// [`split_iter`](SplitLabeling::split_iter) to split the labeling
-/// [iterator](SequentialLabeling::Iterator) into `n` parts.
+/// [iterator](SequentialLabeling::Lender) into `n` parts.
 ///
 /// Note that the parts are required to be [`Send`] and [`Sync`], so that they
 /// can be safely shared among threads.
@@ -50,7 +50,7 @@ pub trait SplitLabeling: SequentialLabeling {
 ///
 /// # Examples
 ///
-/// The code for [`BVGraphSeq`](crate::graph::bvgraph::BVGraphSeq) is:
+/// The code for [`BVGraphSeq`](crate::graphs::bvgraph::sequential::BVGraphSeq) is:
 /// ```ìgnore
 /// impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
 /// where
@@ -125,7 +125,7 @@ pub mod seq {
 ///
 /// # Examples
 ///
-/// The code for [`BVGraph`](crate::graph::bvgraph::BVGraph) is
+/// The code for [`BVGraph`](crate::graphs::bvgraph::random_access::BVGraph) is
 /// ```ìgnore
 /// impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
 /// where

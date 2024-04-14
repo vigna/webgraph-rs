@@ -102,7 +102,7 @@ where
     }
 }
 
-/// A wrapper over a generic [`Decoder`] that keeps track of how much
+/// A wrapper over a generic [`Decode`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
 #[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct StatsDecoder<'a, F: SequentialDecoderFactory> {

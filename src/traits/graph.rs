@@ -49,8 +49,8 @@ struct this_method_cannot_be_called_use_successors_instead;
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
 /// ascending order, or the successors of a node will be returned in ascending
-/// order. The marker traits [`SortedIterator`](super::labels::SortedIterator)
-/// and [`SortedLabels`](super::labels::SortedLabels) can be used to force these
+/// order. The marker traits [`SortedLender`](super::labels::SortedLender) and
+/// [`SortedIterator`](super::labels::SortedIterator) can be used to force these
 /// properties.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}

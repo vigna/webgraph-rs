@@ -12,7 +12,7 @@ use mem_dbg::{MemDbg, MemSize};
 use super::{const_codes, CodeWrite, Encode, MeasurableEncoder};
 
 #[repr(transparent)]
-/// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
+/// An implementation of [`MeasurableEncoder`] with compile time defined codes
 #[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct ConstCodesEncoder<
     E: Endianness,
@@ -62,7 +62,7 @@ impl<
         const K: u64,
     > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Creates a new [`ConstCodesWriter`] with the given [`CodeWrite`] implementation
+    /// Creates a new [`ConstCodesEncoder`] with the given [`CodeWrite`] implementation.
     pub fn new(code_writer: CW) -> Self {
         Self {
             code_writer,

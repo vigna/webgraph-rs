@@ -38,7 +38,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 }
 
 #[repr(transparent)]
-/// An implementation of [`BVGraphCodesReader`]  with compile-time defined codes
+/// An implementation of [`Decode`]  with compile-time defined codes.
 #[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct ConstCodesDecoder<
     E: Endianness,
@@ -91,7 +91,7 @@ impl<
         const K: usize,
     > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Create a new [`ConstCodesReader`] from a [`CodeRead`] implementation
+    /// Creates a new [`ConstCodesEncoder`] from a [`CodeRead`] implementation.
     /// and a [`CompFlags`] struct
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
@@ -218,7 +218,7 @@ impl<
         const K: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Create a new builder from the given data and compression flags.
+    /// Creates a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");

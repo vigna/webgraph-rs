@@ -21,7 +21,7 @@ pub struct ArcListGraph<I: Clone> {
 }
 
 impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ArcListGraph<I> {
-    /// Create a new arc list graph from the given [`IntoIterator`].
+    /// Creates a new arc list graph from the given [`IntoIterator`].
     #[inline(always)]
     pub fn new_labeled(num_nodes: usize, iter: I) -> Self {
         Self {
@@ -34,7 +34,7 @@ impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 impl<I: Iterator<Item = (usize, usize)> + Clone>
     ArcListGraph<std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>
 {
-    /// Create a new arc list graph from the given [`IntoIterator`].
+    /// Creates a new arc list graph from the given [`IntoIterator`].
     ///
     /// Note that the resulting graph will be labeled by the unit type `()`.
     /// To obtain an unlabeled graph, use a [left projection](crate::prelude::proj::Left).

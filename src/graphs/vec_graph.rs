@@ -71,7 +71,7 @@ impl<L: Clone + 'static> VecGraph<L> {
         }
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
