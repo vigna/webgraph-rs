@@ -8,10 +8,10 @@
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
-use super::{const_codes, CodeWrite, Encode, MeasurableEncoder};
+use super::{const_codes, CodeWrite, Encode, EncodeAndEstimate};
 
 #[repr(transparent)]
-/// An implementation of [`MeasurableEncoder`] with compile time defined codes
+/// An implementation of [`EncodeAndEstimate`] with compile time defined codes
 #[derive(Debug, Clone)]
 pub struct ConstCodesEncoder<
     E: Endianness,
@@ -162,7 +162,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > MeasurableEncoder
+    > EncodeAndEstimate
     for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Estimator<'a> = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>

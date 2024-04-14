@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{CodeWrite, Encode, MeasurableEncoder};
+use super::{CodeWrite, Encode, EncodeAndEstimate};
 use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
@@ -169,7 +169,7 @@ where
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> MeasurableEncoder for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: CodeWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
