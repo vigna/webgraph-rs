@@ -85,7 +85,16 @@ default you will get big endianness, memory mapping for both the graph and the
 offsets, and dynamic code dispatch.
 
 Once you load the graph, you can [retrieve the successors of a node] or
-[iterate on the whole graph].
+[iterate on the whole graph]. In particular, using the handy [`for_`] macro,
+you can write an iteration on the graph as
+
+```[ignore]
+for_!((src, succ) in graph {
+    for dst in succ {
+        [do something with the arc src -> dst]
+    }
+});
+```
 
 ## More Options
 
@@ -121,3 +130,4 @@ grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
 [permute]: <https://docs.rs/webgraph/latest/webgraph/transform/permute/index.html>
 [ε-serde]: <nttps://crates.io/crates/epserde/>
+[`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>
