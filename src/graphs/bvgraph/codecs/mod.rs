@@ -46,7 +46,7 @@ impl<E: Endianness, T> CodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + 
 /// a sum of traits.
 impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
-/// Methods to decode the component of a [`BVGraph`].
+/// Methods to decode the component of a [`super::BVGraph`] or [`super::BVGraphSeq`].
 pub trait Decode {
     fn read_outdegree(&mut self) -> u64;
     fn read_reference_offset(&mut self) -> u64;
@@ -61,7 +61,7 @@ pub trait Decode {
 
 use impl_tools::autoimpl;
 
-/// Methods to encode the component of a [`BVGraph`].
+/// Methods to encode the component of a [`super::BVGraph`] or [`super::BVGraphSeq`].
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encode {
     type Error: Error + Send + Sync + 'static;
@@ -100,7 +100,7 @@ pub trait RandomAccessDecoderFactory {
     where
         Self: 'a;
 
-    /// Create a new reader starting at the given node.
+    /// Creates a new reader starting at the given node.
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>>;
 }
 
@@ -112,6 +112,6 @@ pub trait SequentialDecoderFactory {
     where
         Self: 'a;
 
-    /// Create a new reader starting at the given node.
+    /// Creates a new reader starting at the given node.
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>>;
 }

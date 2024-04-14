@@ -32,7 +32,7 @@ pub trait ReaderBuilder {
     where
         Self: 'a;
 
-    /// Create a new reader at bit-offset `offset`
+    /// Creates a new reader at bit-offset `offset`
     fn get_reader(&self) -> Self::Reader<'_>;
 }
 

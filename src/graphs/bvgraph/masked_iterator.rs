@@ -26,7 +26,7 @@ impl<I: Iterator<Item = usize>> ExactSizeIterator for MaskedIterator<I> {
 }
 
 impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIterator<I> {
-    /// Create a new iterator that filters out blocks of values.
+    /// Creates a new iterator that filters out blocks of values.
     /// The blocks of even index are copy blocks, the blocks of odd index are
     /// skip blocks.
     /// If the number of blocks is odd, a last copy block to the end is added.

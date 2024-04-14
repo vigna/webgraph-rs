@@ -99,7 +99,7 @@ impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
 }
 
 impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
-    /// Create a new sequential graph from a codes reader builder
+    /// Creates a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
         codes_reader_builder: F,
@@ -179,7 +179,7 @@ impl<D: Decode + BitSeek> Iter<D> {
 }
 
 impl<D: Decode> Iter<D> {
-    /// Create a new iterator from a codes reader
+    /// Creates a new iterator from a codes reader
     pub fn new(
         decoder: D,
         number_of_nodes: usize,

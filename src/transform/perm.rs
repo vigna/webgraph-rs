@@ -15,8 +15,11 @@ use tempfile::Builder;
 
 /// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
 ///
-/// This assumes that the permutation is bijective.
-/// For the meaning of the additional parameter, see
+/// Note that if the graph is [splittable](SplitLabeling),
+/// [`permute_split`] will be much faster.
+///
+/// This assumes that the permutation is bijective. For the meaning of the
+/// additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
 #[allow(clippy::type_complexity)]
 pub fn permute(
@@ -56,10 +59,14 @@ pub fn permute(
     Ok(Left(sorted))
 }
 
-/// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
+/// Returns a [sequential](crate::traits::SequentialGraph) permuted graph
+/// startgin from a [splittable](SplitLabeling) graph.
 ///
-/// This assumes that the permutation is bijective.
-/// For the meaning of the additional parameter, see
+/// Note that if the graph is not [splittable](SplitLabeling) you must use
+/// [`permute`], albeit it will be slower.
+///
+/// This assumes that the permutation is bijective. For the meaning of the
+/// additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
 #[allow(clippy::type_complexity)]
 pub fn permute_split<S, P>(

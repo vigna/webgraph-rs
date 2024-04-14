@@ -15,7 +15,7 @@ A *labeling* is the basic storage unit for graph data. It associates to
 each node of a graph a list of labels. In the [sequential case](SequentialLabeling),
 one can obtain a [lender](lender::Lender) that lends pairs given by a node
 and an iterator on the associated labels. In the [random-access case](RandomAccessLabeling),
-instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::successors).
+instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::labels).
 Labelings can be [zipped together](crate::labels::Zip), obtaining a
 new labeling whose labels are pairs.
 
@@ -37,17 +37,18 @@ use sux::traits::Succ;
 
 /// A labeling that can be accessed sequentially.
 ///
-/// Note that there is no guarantee that the iterator will return nodes in
-/// ascending order, or that the labels of the successors will be returned in
-/// any specified order.
-///
-/// The marker traits [`SortedIterator`] and [`SortedLabels`] can be used to
-/// force these properties.
-///
 /// The iterator returned by [iter](SequentialLabeling::iter) is a
 /// [lender](NodeLabelsLender): to access the next pair, you must have finished
-/// to use the previous one. You can invoke [`Lender::into_iter`] to get a
-/// standard iterator, in general at the cost of some allocation and copying.
+/// to use the previous one. You can invoke [`Lender::copied`] to get a standard
+/// iterator, at the cost of some allocation and copying.
+///
+/// Note that there is no guarantee that the lender will return nodes in
+/// ascending order, or that the iterators on labels will return them in any
+/// specified order.
+///
+/// The marker traits [`SortedLender`] and [`SortedIterator`] can be used to
+/// force these properties. Note that [`SortedIterator`] implies that successors
+/// are returned in ascending order, and labels are returned in the same order.
 ///
 /// This trait provides two default methods,
 /// [`par_apply`](SequentialLabeling::par_apply) and

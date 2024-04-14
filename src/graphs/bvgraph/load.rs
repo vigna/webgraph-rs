@@ -76,8 +76,8 @@ impl Dispatch for Dynamic {}
 /// The load mode is the way the graph data is accessed. Each load mode has
 /// a corresponding strategy to access the graph and the offsets.
 ///
-/// You can set both modes with [`Load::mode`], or set them separately with
-/// [`Load::graph_mode`] and [`Load::offsets_mode`].
+/// You can set both modes with [`LoadConfig::mode`], or set them separately with
+/// [`LoadConfig::graph_mode`] and [`LoadConfig::offsets_mode`].
 #[sealed]
 pub trait LoadMode: 'static {
     type Factory<E: Endianness>: BitReaderFactory<E>;
@@ -126,7 +126,7 @@ impl LoadMode for File {
 
 /// The graph and offsets are memory mapped.
 ///
-/// This is the default mode. You can [set memory-mapping flags](Load::flags).
+/// This is the default mode. You can [set memory-mapping flags](LoadConfig::flags).
 #[derive(Debug, Clone)]
 pub struct Mmap {}
 #[sealed]
@@ -178,7 +178,7 @@ impl LoadMode for LoadMem {
 
 /// The graph and offsets are loaded into memory obtained via `mmap()`.
 ///
-/// You can [set memory-mapping flags](Load::flags).
+/// You can [set memory-mapping flags](LoadConfig::flags).
 #[derive(Debug, Clone)]
 pub struct LoadMmap {}
 #[sealed]

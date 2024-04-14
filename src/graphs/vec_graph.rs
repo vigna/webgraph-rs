@@ -62,7 +62,7 @@ impl<L: Copy + 'static> core::default::Default for VecGraph<L> {
 }
 
 impl<L: Copy + 'static> VecGraph<L> {
-    /// Create a new empty graph.
+    /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -70,7 +70,7 @@ impl<L: Copy + 'static> VecGraph<L> {
         }
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,

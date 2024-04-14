@@ -15,11 +15,11 @@
 //!
 //! The function [`layered_label_propagation`] returns a permutation of the
 //! provided symmetric graph which will (hopefully) increase locality (see the
-//! paper). Usually, the permutation is fed to [`perm`] to permute the original
-//! graph.
+//! paper). Usually, the permutation is fed to [`permute`] to permute the
+//! original graph.
 //!
 //! Note that the graph provided should be _symmetric_ and _loopless_. If this
-//! is not the case, please use [crate::transform::simplify] to generate a
+//! is not the case, please use [`simplify`] to generate a
 //! suitable graph.
 //!
 //! # Memory requirements
@@ -430,7 +430,7 @@ impl<'a, T> UnsafeSlice<'a, T> {
     /// This method makes it possible to write in the slice
     /// without borrowing the slice mutably.
     ///
-    /// # Safety
+    /// # Undefined Behavior
     ///
     /// It is UB if two threads write to the same index without
     /// synchronization.
