@@ -29,7 +29,6 @@ use std::{mem::size_of, path::Path, sync::Arc};
 /// On the contrary, [`mmap_mut`](MmapHelper::mmap_mut) will always refuse to
 /// map a file whose length is not a multiple of the size of `W`.
 ///
-<<<<<<< HEAD
 /// If you need clonable version of this structure, consider using
 /// [`ArcMmapHelper`].
 #[derive(Clone, MemDbg, MemSize)]

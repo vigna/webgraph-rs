@@ -304,7 +304,7 @@ impl Compressor {
     }
 }
 
-impl<E: MeasurableEncoder> BVComp<E> {
+impl<E: EncodeAndEstimate> BVComp<E> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 

@@ -80,7 +80,7 @@ pub trait Encode {
 }
 
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
-pub trait MeasurableEncoder: Encode {
+pub trait EncodeAndEstimate: Encode {
     /// An associated encoder that returns
     /// integers estimating the amount of space used by each
     /// operation of this measurable encoder.
