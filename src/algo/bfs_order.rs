@@ -13,7 +13,7 @@ use sux::prelude::BitVec;
 pub struct BfsOrder<'a, G: RandomAccessGraph> {
     graph: &'a G,
     pl: ProgressLogger,
-    visited: BitVec,
+    seen: BitVec,
     queue: VecDeque<usize>,
     /// If the queue is empty, resume the BFS from that node.
     ///
@@ -34,7 +34,7 @@ impl<'a, G: RandomAccessGraph> BfsOrder<'a, G> {
         BfsOrder {
             graph,
             pl,
-            visited: BitVec::new(num_nodes),
+            seen: BitVec::new(num_nodes),
             queue: VecDeque::new(),
             start: 0,
         }
@@ -48,23 +48,23 @@ impl<'a, G: RandomAccessGraph> Iterator for BfsOrder<'a, G> {
         self.pl.light_update();
         let current_node = match self.queue.pop_front() {
             None => {
-                while self.visited[self.start] {
+                while self.seen[self.start] {
                     self.start += 1;
                     if self.start >= self.graph.num_nodes() {
                         self.pl.done();
                         return None;
                     }
                 }
-                self.visited.set(self.start, true);
+                self.seen.set(self.start, true);
                 self.start
             }
             Some(node) => node,
         };
 
         for succ in self.graph.successors(current_node) {
-            if !self.visited[succ] {
+            if !self.seen[succ] {
                 self.queue.push_back(succ);
-                self.visited.set(succ as _, true);
+                self.seen.set(succ as _, true);
             }
         }
 
