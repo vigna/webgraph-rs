@@ -16,7 +16,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "bfs";
 
 #[derive(Args, Debug)]
-#[command(about = "Compute a permutation wuith the BFS order", long_about = None)]
+#[command(about = "Compute a permutation with the BFS order", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
