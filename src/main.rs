@@ -30,7 +30,7 @@ pub fn main() -> Result<()> {
         )
         .after_help(
             "Environment (noteworthy environment variables used):
-  RUST_MIN_SIZE: minimum thread stack size (in bytes)
+  RUST_MIN_STACK: minimum thread stack size (in bytes)
   TMPDIR: where to store temporary files (potentially very large ones)
 ",
         );
