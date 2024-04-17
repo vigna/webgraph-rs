@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2024 Stefano Zacchiroli
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -10,6 +11,28 @@ use clap_complete::shells::Shell;
 
 use webgraph::cli;
 
+mod build_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+
+    pub fn version_string() -> String {
+        format!(
+            "{}
+git info: {} {} {}
+build info: built for {} with {}",
+            PKG_VERSION,
+            GIT_VERSION.unwrap_or(""),
+            GIT_COMMIT_HASH.unwrap_or(""),
+            match GIT_DIRTY {
+                None => "",
+                Some(true) => "(dirty)",
+                Some(false) => "(clean)",
+            },
+            TARGET,
+            RUSTC_VERSION
+        )
+    }
+}
+
 pub fn main() -> Result<()> {
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
@@ -17,6 +40,7 @@ pub fn main() -> Result<()> {
 
     let command = Command::new("webgraph")
         .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")
+        .version(build_info::version_string())
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
