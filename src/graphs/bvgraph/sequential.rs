@@ -18,7 +18,7 @@ use lender::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
-/// and this allows us to have a single place where to store the mmaped file.
+/// and this allows us to have a single place where to store the mmapped file.
 #[derive(Debug, Clone)]
 pub struct BVGraphSeq<F> {
     factory: F,
@@ -262,7 +262,7 @@ impl<D: Decode> Iter<D> {
             // read the number of intervals
             let number_of_intervals = self.decoder.read_interval_count() as usize;
             if number_of_intervals != 0 {
-                // pre-allocate with capacity for efficency
+                // pre-allocate with capacity for efficiency
                 let node_id_offset = nat2int(self.decoder.read_interval_start());
                 let mut start = (node_id as i64 + node_id_offset) as usize;
                 let mut delta = self.decoder.read_interval_len() as usize;
@@ -286,7 +286,7 @@ impl<D: Decode> Iter<D> {
         // decode the extra nodes if needed
         let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
-            // pre-allocate with capacity for efficency
+            // pre-allocate with capacity for efficiency
             let node_id_offset = nat2int(self.decoder.read_first_residual());
             let mut extra = (node_id as i64 + node_id_offset) as usize;
             results.push(extra);

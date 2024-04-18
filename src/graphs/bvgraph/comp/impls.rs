@@ -82,7 +82,7 @@ impl JobId for Job {
 }
 
 impl BVComp<()> {
-    /// Compresses s [`NodeLabelsLender`] and returns the lenght in bits of the
+    /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
     /// graph bitstream.
     pub fn single_thread<E, L>(
         basename: impl AsRef<Path>,
@@ -181,9 +181,9 @@ impl BVComp<()> {
     /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
     /// endianness as a string.
     ///
-    /// Endianess can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
+    /// Endianness can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
     ///
-    ///  A given endianess is enabled only if the corresponding feature is
+    ///  A given endianness is enabled only if the corresponding feature is
     /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
     /// neither features are enabled.
     pub fn parallel_endianness<P: AsRef<Path>, G: SplitLabeling + SequentialGraph>(
@@ -193,12 +193,12 @@ impl BVComp<()> {
         compression_flags: CompFlags,
         mut threads: impl AsMut<rayon::ThreadPool>,
         tmp_dir: P,
-        endianess: &str,
+        endianness: &str,
     ) -> Result<u64>
     where
         for<'a> <G as SplitLabeling>::SplitLender<'a>: Send + Sync,
     {
-        match endianess {
+        match endianness {
             #[cfg(any(
                 feature = "be_bins",
                 not(any(feature = "be_bins", feature = "le_bins"))
@@ -237,7 +237,7 @@ impl BVComp<()> {
         }
     }
 
-    /// Compresses a graph in parallel and returns the lenght in bits of the graph bitstream.
+    /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
     pub fn parallel_graph<E: Endianness>(
         basename: impl AsRef<Path> + Send + Sync,
         graph: &(impl SequentialGraph + SplitLabeling),
@@ -261,7 +261,7 @@ impl BVComp<()> {
         )
     }
 
-    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the lenght in bits
+    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
     /// of the graph bitstream.
     pub fn parallel_iter<
         E: Endianness,
@@ -358,7 +358,7 @@ impl BVComp<()> {
             let mut total_arcs: u64 = 0;
 
             let mut next_node = 0;
-            // glue toghether the bitstreams as they finish, this allows us to do
+            // glue together the bitstreams as they finish, this allows us to do
             // task pipelining for better performance
             for Job {
                 job_id,

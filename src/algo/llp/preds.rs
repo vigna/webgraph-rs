@@ -216,7 +216,7 @@ impl Predicate<PredParams> for MinModified {
 
 #[derive(Debug, Clone, Default)]
 /// Stop after the number of modified nodes falls below
-/// a specificed percentage of the number of nodes.
+/// a specified percentage of the number of nodes.
 pub struct PercModified {
     threshold: f64,
 }

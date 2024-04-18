@@ -71,7 +71,7 @@ where
     // transpose the graph
     let sorted = crate::transform::transpose(&seq_graph, args.pa.batch_size).unwrap();
 
-    let target_endianness = args.ca.endianess.clone();
+    let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressTransposed").tempdir()?;
     BVComp::parallel_endianness(
         transposed,
