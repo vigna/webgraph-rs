@@ -35,7 +35,7 @@ pub mod build_info {
         format!(
             "{}
 git info: {} {} {}
-build info: built for {} with {}",
+build info: built on {} for {} with {}",
             PKG_VERSION,
             GIT_VERSION.unwrap_or(""),
             GIT_COMMIT_HASH.unwrap_or(""),
@@ -44,6 +44,7 @@ build info: built for {} with {}",
                 Some(true) => "(dirty)",
                 Some(false) => "(clean)",
             },
+            BUILT_TIME_UTC,
             TARGET,
             RUSTC_VERSION
         )
