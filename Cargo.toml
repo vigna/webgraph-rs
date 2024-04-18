@@ -55,7 +55,7 @@ sysinfo = "0.30.8"
 mem_dbg = "0.1.5"
 
 [build-dependencies]
-built = { version = "0.7", features= ["git2"] }
+built = { version = "0.7", features= ["chrono", "git2"] }
 
 [profile.release] # Used for the examples
 opt-level = 3             # like --release
