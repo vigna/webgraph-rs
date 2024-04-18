@@ -165,9 +165,9 @@ pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
 /// Shared cli arguments for compression
 /// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct CompressArgs {
-    /// The endianess of the graph to write
+    /// The endianness of the graph to write
     #[clap(short = 'E', long)]
-    pub endianess: Option<String>,
+    pub endianness: Option<String>,
 
     /// The compression windows
     #[clap(short = 'w', long, default_value_t = 7)]

@@ -111,7 +111,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     pl.done();
     log::info!("Arcs read: {}", line_id);
 
-    // conver the iter to a graph
+    // convert the iter to a graph
     let g = Left(ArcListGraph::new(
         args.num_nodes,
         group_by
@@ -121,7 +121,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             .dedup(),
     ));
     // compress it
-    let target_endianness = args.ca.endianess.clone();
+    let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
     BVComp::parallel_endianness(
         &args.basename,

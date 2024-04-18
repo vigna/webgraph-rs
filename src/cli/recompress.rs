@@ -48,7 +48,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         None
     };
 
-    let target_endianness = args.ca.endianess.clone();
+    let target_endianness = args.ca.endianness.clone();
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(any(
             feature = "be_bins",

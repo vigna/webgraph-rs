@@ -16,7 +16,7 @@ as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `usize`.
 To access the successors of a node, however, you must use
 [`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabeling::labels):
-the latter method is overriden on purpose make its usage on graphs impossible.
+the latter method is overridden on purpose make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
 [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
@@ -69,7 +69,7 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
     /// Returns the successors of a node.
     ///
     /// Note that this is just a convenience alias of the
-    /// [`RandomAccessLabeling::labels`] method, which is overriden in this
+    /// [`RandomAccessLabeling::labels`] method, which is overridden in this
     /// trait by an unimplemented, uncallable version.
     /// This approach avoids that users might call `labels` expecting to get
     /// just the labels associated with a node.
@@ -198,7 +198,7 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
     /// Returns pairs given by successors of a node and their labels.
     ///
     /// Note that this is just a convenience alias of the
-    /// [`RandomAccessLabeling::labels`] method, which is overriden in this
+    /// [`RandomAccessLabeling::labels`] method, which is overridden in this
     /// trait by an unimplemented, deprecated version to make its use impossible.
     /// This approach avoids that users might call `labels` expecting to get
     /// just the labels associated with a node.
