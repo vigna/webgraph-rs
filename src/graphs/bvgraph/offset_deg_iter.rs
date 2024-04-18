@@ -167,7 +167,7 @@ impl<D: Decode> OffsetDegIter<D> {
             // read the number of intervals
             let number_of_intervals = self.decoder.read_interval_count() as usize;
             if number_of_intervals != 0 {
-                // pre-allocate with capacity for efficency
+                // pre-allocate with capacity for efficiency
                 let _ = self.decoder.read_interval_start();
                 let mut delta = self.decoder.read_interval_len() as usize;
                 delta += self.min_interval_length;
@@ -186,7 +186,7 @@ impl<D: Decode> OffsetDegIter<D> {
 
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
-            // pre-allocate with capacity for efficency
+            // pre-allocate with capacity for efficiency
             let _ = self.decoder.read_first_residual();
             for _ in 1..nodes_left_to_decode {
                 let _ = self.decoder.read_residual();

@@ -234,7 +234,7 @@ impl Compressor {
         let mut copying = true;
 
         while j < curr_list.len() && k < ref_list.len() {
-            // First case: we are currectly copying entries from the reference list
+            // First case: we are currently copying entries from the reference list
             if copying {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {

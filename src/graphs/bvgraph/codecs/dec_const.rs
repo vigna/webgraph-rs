@@ -27,7 +27,7 @@ pub mod const_codes {
     pub const ZETA: usize = 3;
 }
 
-/// Temporary convertion function while const enum generics are not stable
+/// Temporary conversion function while const enum generics are not stable
 pub(crate) fn code_to_const(code: Code) -> Result<usize> {
     Ok(match code {
         Code::Unary => const_codes::UNARY,

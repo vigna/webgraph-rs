@@ -210,7 +210,7 @@ where
             // read the number of intervals
             let number_of_intervals = result.reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
-                // pre-allocate with capacity for efficency
+                // pre-allocate with capacity for efficiency
                 result.intervals = Vec::with_capacity(number_of_intervals + 1);
                 let node_id_offset = nat2int(result.reader.read_interval_start());
 
@@ -303,7 +303,7 @@ where
 }
 impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
-/// The iterator returend from [`BVGraph`] that returns the successors of a
+/// The iterator returned from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
 #[derive(Clone, Debug, MemSize, MemDbg)]
 pub struct Succ<D: Decode> {

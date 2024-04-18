@@ -10,7 +10,7 @@ use mem_dbg::{MemDbg, MemSize};
 /// A circular buffer which is used to keep the backreferences both in
 /// sequential reads and compression.
 ///
-/// For efficency reasons, we re-use the allocated buffers to avoid pressure
+/// For efficiency reasons, we reuse the allocated buffers to avoid pressure
 /// over the allocator.
 ///
 /// This structure implements [`Index`](std::ops::Index) and

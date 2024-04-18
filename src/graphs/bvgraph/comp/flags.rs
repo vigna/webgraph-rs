@@ -171,7 +171,7 @@ impl CompFlags {
     }
 
     /// Convert the decoded `.properties` file into a `CompFlags` struct.
-    /// Also check that the endiannes is correct.
+    /// Also check that the endianness is correct.
     pub fn from_properties<E: Endianness>(map: &HashMap<String, String>) -> Result<Self> {
         // Default values, same as the Java class
         let endianness = map
