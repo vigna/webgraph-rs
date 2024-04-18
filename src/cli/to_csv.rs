@@ -54,7 +54,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn to_csv<E: Endianness + 'static>(basename: &str, sep: &str) -> Result<()>
+pub fn to_csv<E: Endianness + 'static>(basename: &str, sep: &str) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

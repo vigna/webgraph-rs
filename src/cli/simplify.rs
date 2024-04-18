@@ -17,7 +17,7 @@ pub const COMMAND_NAME: &str = "simplify";
 
 #[derive(Args, Debug)]
 #[command(about = "Simplify a BVGraph, i.e. make it undirected and remove duplicates and selfloops", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
     /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
@@ -55,7 +55,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn simplify<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn simplify<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

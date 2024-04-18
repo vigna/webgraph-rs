@@ -22,7 +22,7 @@ pub const COMMAND_NAME: &str = "from-csv";
 
 #[derive(Args, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the dst.
     basename: PathBuf,
 
@@ -52,7 +52,10 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
+    from_csv(CliArgs::from_arg_matches(submatches)?)
+}
+
+pub fn from_csv(args: CliArgs) -> Result<()> {
     let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
 
     let mut group_by = SortPairs::new(args.pa.batch_size, dir)?;

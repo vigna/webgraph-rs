@@ -18,7 +18,7 @@ pub const COMMAND_NAME: &str = "merge-perms";
 
 #[derive(Args, Debug)]
 #[command(about = "Merge multiple permutations into a single one", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     result_path: PathBuf,
 
@@ -35,7 +35,10 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
+    merge_perms(CliArgs::from_arg_matches(submatches)?)
+}
+
+pub fn merge_perms(args: CliArgs) -> Result<()> {
     let start = std::time::Instant::now();
 
     if args.epserde {
