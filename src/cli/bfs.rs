@@ -17,7 +17,7 @@ pub const COMMAND_NAME: &str = "bfs";
 
 #[derive(Args, Debug)]
 #[command(about = "Compute a permutation with the BFS order", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
 
@@ -41,17 +41,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => bfs_impl::<BE>(args),
+        BE::NAME => bfs::<BE>(args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => bfs_impl::<LE>(args),
+        LE::NAME => bfs::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-fn bfs_impl<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
+pub fn bfs<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

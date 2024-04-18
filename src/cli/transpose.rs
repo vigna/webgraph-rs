@@ -17,7 +17,7 @@ pub const COMMAND_NAME: &str = "transpose";
 
 #[derive(Args, Debug)]
 #[command(about = "Transpose a BVGraph", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
     /// The basename of the transposed graph. Defaults to `basename` + `-t`.
@@ -55,7 +55,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
