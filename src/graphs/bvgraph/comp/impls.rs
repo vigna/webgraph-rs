@@ -358,7 +358,7 @@ impl BVComp<()> {
             let mut total_arcs: u64 = 0;
 
             let mut next_node = 0;
-            // glue toghether the bitstreams as they finish, this allows us to do
+            // glue together the bitstreams as they finish, this allows us to do
             // task pipelining for better performance
             for Job {
                 job_id,
@@ -368,6 +368,14 @@ impl BVComp<()> {
                 num_arcs,
             } in TaskQueue::new(rx.iter())
             {
+                if num_arcs == 0 {
+                    log::warn!(
+                        "Lender {} (nodes from {} to {}) has no arcs",
+                        job_id,
+                        first_node,
+                        last_node
+                    );
+                }
                 ensure!(
                     first_node == next_node,
                     "Non-adjacent lenders: lender {} has first node {} instead of {}",
