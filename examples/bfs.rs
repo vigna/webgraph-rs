@@ -7,7 +7,6 @@
 use std::collections::VecDeque;
 
 use clap::Parser;
-use sux::bits::BitVec;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]

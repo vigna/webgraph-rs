@@ -5,7 +5,6 @@
  */
 
 use clap::Parser;
-use dsi_bitstream::traits::LE;
 use lender::for_;
 use webgraph::graphs::BVGraphSeq;
 
