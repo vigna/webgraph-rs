@@ -1,6 +1,5 @@
 /*
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
- * SPDX-FileCopyrightText: 2024 Stefano Zacchiroli
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -9,29 +8,7 @@ use anyhow::Result;
 use clap::{value_parser, Command};
 use clap_complete::shells::Shell;
 
-use webgraph::cli;
-
-mod build_info {
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
-
-    pub fn version_string() -> String {
-        format!(
-            "{}
-git info: {} {} {}
-build info: built for {} with {}",
-            PKG_VERSION,
-            GIT_VERSION.unwrap_or(""),
-            GIT_COMMIT_HASH.unwrap_or(""),
-            match GIT_DIRTY {
-                None => "",
-                Some(true) => "(dirty)",
-                Some(false) => "(clean)",
-            },
-            TARGET,
-            RUSTC_VERSION
-        )
-    }
-}
+use webgraph::{build_info, cli};
 
 pub fn main() -> Result<()> {
     env_logger::builder()
