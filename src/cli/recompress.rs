@@ -18,7 +18,7 @@ pub const COMMAND_NAME: &str = "recompress";
 
 #[derive(Args, Debug)]
 #[command(about = "Recompress a BVGraph", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
     /// The basename for the newly compressed graph.
@@ -70,7 +70,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn compress<E: Endianness + Clone + Send + Sync>(
+pub fn compress<E: Endianness + Clone + Send + Sync>(
     args: CliArgs,
     target_endianness: Option<String>,
     permutation: Option<JavaPermutation>,

@@ -18,7 +18,7 @@ use crate::graphs::GRAPH_EXTENSION;
 
 pub const COMMAND_NAME: &str = "pad";
 
-fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
+pub fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
     let path = path.as_ref();
     let file_len = path
         .metadata()

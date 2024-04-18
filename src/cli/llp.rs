@@ -26,7 +26,7 @@ pub const COMMAND_NAME: &str = "llp";
 
 #[derive(Args, Debug)]
 #[command(about = "Performs an LLP round.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
 
@@ -97,17 +97,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => llp_impl::<BE>(args),
+        BE::NAME => llp::<BE>(args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => llp_impl::<LE>(args),
+        LE::NAME => llp::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-fn llp_impl<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
+pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

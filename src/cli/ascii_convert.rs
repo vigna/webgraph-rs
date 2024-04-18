@@ -44,7 +44,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn ascii_convert<E: Endianness + 'static>(basename: &str) -> Result<()>
+pub fn ascii_convert<E: Endianness + 'static>(basename: &str) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

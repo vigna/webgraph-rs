@@ -24,7 +24,7 @@ pub const COMMAND_NAME: &str = "check-ef";
 
 #[derive(Args, Debug)]
 #[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
 }
@@ -34,8 +34,10 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
+    check_ef(CliArgs::from_arg_matches(submatches)?)
+}
 
+pub fn check_ef(args: CliArgs) -> Result<()> {
     let properties_path = args.basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
