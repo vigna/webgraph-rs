@@ -6,6 +6,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/*!
+
+The [main iteration trait](NodeLabelsLender), convenience types and associated implementations.
+
+The implementations in this module have the effect that most of the methods of a [`Lender`]
+(e.g., [`lender::Map`]) will return a [`NodeLabelsLender`] when applied to a [`NodeLabelsLender`].
+Without the implementations, one would obtain a normal [`Lender`], which would not be usable
+as an argument, say, of [`BVComp::extend`](crate::graphs::bvgraph::BVComp::extend).
+
+*/
 use lender::*;
 // missing implementations for [Cloned, Copied, Owned] because they don't
 // implement Lender but Iterator.
@@ -13,24 +23,67 @@ use lender::*;
 /// Iteration on nodes and associated labels.
 ///
 /// This trait is a [`Lender`] returning pairs given by a `usize` (a node of the
-/// graph) and an [`IntoIterator`], specified by the associated type `IntoIterator`,
-/// over the labels associated with that node,
-/// specified by the associated type `Label` (which is forced to be identical
-/// to the associated type `Item` of the [`IntoIterator`]).
+/// graph) and an [`IntoIterator`], specified by the associated type
+/// `IntoIterator`, over the labels associated with that node, specified by the
+/// associated type `Label` (which is forced to be identical to the associated
+/// type `Item` of the [`IntoIterator`]).
 ///
 /// For those types we provide convenience type aliases [`LenderIntoIterator`],
 /// [`LenderIntoIter`], and [`LenderLabel`].
 ///
-/// ## Propagation of implicit bounds
+/// # Extension of [`Lender`] methods
+///
+/// Methods defined on [`Lender`], such as [`Lender::zip`], normally would
+/// return a [`Lender`], but not a [`NodeLabelsLender`]. However, the module
+/// [`lenders`](super::lenders) contains implementations that automatically turn
+/// such as a [`Lender`] into a [`NodeLabelsLender`] whenever it makes sense.
+///
+/// Thus, for example, one can take two graphs and merge easily the first half
+/// of the first one and the second half of the second one:
+/// ```rust
+/// use webgraph::prelude::*;
+/// use webgraph::graphs::random::ErdosRenyi;
+/// use lender::*;
+/// use itertools::Itertools;  
+///  
+/// // First random graph
+/// let g = ErdosRenyi::new(100, 0.1, 0);
+/// // Second random graph
+/// let h = ErdosRenyi::new(100, 0.1, 1);
+/// let mut v = VecGraph::new();
+/// // Put first half of the first random graph in v
+/// v.add_lender(g.iter().take(50));
+/// // Put second half of the second random graph in v
+/// v.add_lender(h.iter().skip(50));
+/// let v = Left(v);
+///
+/// let mut iter = v.iter();
+/// for i in 0..50 {
+///     itertools::assert_equal(v.successors(i), iter.next().unwrap().1);
+/// }
+/// let mut iter = h.iter().skip(50);
+/// for i in 50..100 {
+///     itertools::assert_equal(v.successors(i), iter.next().unwrap().1);
+/// }
+/// ```
+/// [`VecGraph::add_lender`](crate::graphs::vec_graph::VecGraph::add_lender)
+/// takes a [`NodeLabelsLender`] as an argument, but the implementations in the
+/// module [`lenders`](super::lenders) makes the result of [`Lender::take`] and
+/// [`Lender::skip`] a [`NodeLabelsLender`].
+///
+/// # Propagation of implicit bounds
 ///
 /// The definition of this trait emerged from a [discussion on the Rust language
 /// forum](https://users.rust-lang.org/t/more-help-for-more-complex-lifetime-situation/103821/10).
-/// The purpose of the trait is to propagate the implicit
-/// bound appearing in the definition [`Lender`] to the iterator returned
-/// by the associated type [`IntoIterator`]. In this way, one can return iterators
-/// depending on the internal state of the labeling. Without this additional trait, it
-/// would be possible to return iterators whose state depends on the state of
-/// the lender, but not on the state of the labeling.
+/// The purpose of the trait is to propagate the implicit bound appearing in the
+/// definition [`Lender`] to the iterator returned by the associated type
+/// [`IntoIterator`]. In this way, one can return iterators depending on the
+/// internal state of the labeling. Without this additional trait, it would be
+/// possible to return iterators whose state depends on the state of the lender,
+/// but not on the state of the labeling.
+///
+/// [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph) is the main
+/// motivation for this trait.
 pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
     Lender + Lending<'lend, __ImplBound, Lend = (usize, Self::IntoIterator)>
 {

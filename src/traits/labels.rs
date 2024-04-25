@@ -13,7 +13,7 @@ in random-access fashion.
 
 A *labeling* is the basic storage unit for graph data. It associates to
 each node of a graph a list of labels. In the [sequential case](SequentialLabeling),
-one can obtain a [lender](lender::Lender) that lends pairs given by a node
+one can obtain a [lender](SequentialLabeling::iter) that lends pairs given by a node
 and an iterator on the associated labels. In the [random-access case](RandomAccessLabeling),
 instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::labels).
 Labelings can be [zipped together](crate::labels::Zip), obtaining a

@@ -20,8 +20,10 @@ the latter method is overridden on purpose make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
 [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
-and a [random-access graph with labels](RandomAccessGraph) is a
+and a [random-access graph with labels](LabeledRandomAccessGraph) is a
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`.
+Also in this case, access the successors of a node and their labels, you must use
+[`LabeledRandomAccessGraph::successors`].
 
 Finally, the [zipping of a graph and a labeling](Zip) implements the
 labeled graph traits (sequential or random-access, depending on the labelings).
