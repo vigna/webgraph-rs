@@ -53,18 +53,18 @@ techniques. More precisely, it is currently made of:
 You are welcome to use and improve WebGraph for your research work! If you find
 our software useful for research, please cite the following papers in your own:
 
-- [“The WebGraph Framework I: Compression
-  Techniques”](http://vigna.di.unimi.it/papers.php#BoVWFI), by Paolo Boldi and
-  Sebastiano Vigna, in _Proc. of the 13th international conference on World
-  Wide Web, WWW 2004, pages 595-602, ACM. [DOI
-  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752)
-  
 - [“WebGraph: The Next Generation (Is in
   Rust)”](http://vigna.di.unimi.it/papers.php#FVZWNG), by Tommaso Fontana,
   Sebastiano Vigna, and Stefano Zacchiroli, in WWW '24: Companion Proceedings
   of the ACM on Web Conference 2024, pages 686-689.  [DOI
   10.1145/3589335.3651581](https://dl.acm.org/doi/10.1145/3589335.3651581)
 
+- [“The WebGraph Framework I: Compression
+  Techniques”](http://vigna.di.unimi.it/papers.php#BoVWFI), by Paolo Boldi and
+  Sebastiano Vigna, in _Proc. of the 13th international conference on World
+  Wide Web, WWW 2004, pages 595-602, ACM. [DOI
+  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752)
+  
 ## Quick Setup
 
 Assuming you have built all binaries, you will first need a graph in BV format,
