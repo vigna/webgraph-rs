@@ -48,14 +48,24 @@ techniques. More precisely, it is currently made of:
 - [Data sets](http://law.di.unimi.it/datasets.php) for large graph (e.g.,
   billions of links).
 
- You are welcome to use and improve WebGraph! If you find our software useful
- for your research, please quote our papers [“The WebGraph Framework I:
-   Compression Techniques”](http://vigna.di.unimi.it/papers.php#BoVWFI), by
-   Paolo Boldi and Sebastiano Vigna, in _Proc&#46; of the Thirteenth
-   World&ndash;Wide Web Conference_, pages 595–601, 2004, ACM Press, and
-   [“WebGraph: The Next Generation (Is in
-   Rust)”](http://vigna.di.unimi.it/papers.php#FVZWNGIR), by Tommaso Fontana,
-   Sebastiano Vigna, and Stefano Zacchiroli, in _Companion..._.
+
+## Citation
+
+You are welcome to use and improve WebGraph for your research work! If you find
+our software useful for research, please cite the following papers in your own:
+
+- [“WebGraph: The Next Generation (Is in
+  Rust)”](http://vigna.di.unimi.it/papers.php#FVZWNGIR), by Tommaso Fontana,
+  Sebastiano Vigna, and Stefano Zacchiroli, in WWW '24: Companion Proceedings
+  of the ACM on Web Conference 2024, pages 686-689.  [DOI
+  10.1145/3589335.3651581](https://dl.acm.org/doi/10.1145/3589335.3651581)
+
+- [“The WebGraph Framework I: Compression
+  Techniques”](http://vigna.di.unimi.it/papers.php#BoVWFI), by Paolo Boldi and
+  Sebastiano Vigna, in _Proc. of the 13th international conference on World
+  Wide Web, WWW 2004, pages 595-602, ACM. [DOI
+  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752)
+
   
 ## Quick Setup
 
