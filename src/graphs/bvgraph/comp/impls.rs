@@ -368,6 +368,14 @@ impl BVComp<()> {
                 num_arcs,
             } in TaskQueue::new(rx.iter())
             {
+                if num_arcs == 0 {
+                    log::warn!(
+                        "Lender {} (nodes from {} to {}) has no arcs",
+                        job_id,
+                        first_node,
+                        last_node
+                    );
+                }
                 ensure!(
                     first_node == next_node,
                     "Non-adjacent lenders: lender {} has first node {} instead of {}",
