@@ -23,16 +23,17 @@ or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
 decoupling the choice of encoder from the underlying support.
 
 */
-use anyhow::{ensure, Context};
+use anyhow::{ensure, Context, Result};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader, WordAdapter},
     traits::Endianness,
 };
+use rayon::prelude::*;
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Seek, SeekFrom},
     marker::PhantomData,
     path::Path,
 };
@@ -167,8 +168,6 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
             .metadata()
             .with_context(|| format!("Could not stat {}", path.display()))?
             .len() as usize;
-        let mut file = std::fs::File::open(path)
-            .with_context(|| format!("Could not open {}", path.display()))?;
         let capacity = file_len.align_to(16);
 
         // SAFETY: the entire vector will be filled with data read from the file,
@@ -181,8 +180,8 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
             )
         };
 
-        file.read_exact(&mut bytes[..file_len])
-            .with_context(|| format!("Could not read {}", path.display()))?;
+        par_read_exact(path, &mut bytes[..file_len])?;
+
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors and full-vector initialization.
         bytes[file_len..].fill(0);
@@ -201,16 +200,13 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
             .metadata()
             .with_context(|| format!("Could not stat {}", path.display()))?
             .len() as usize;
-        let mut file = std::fs::File::open(path)
-            .with_context(|| format!("Could not open {}", path.display()))?;
         let capacity = file_len.align_to(16);
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
             .with_flags(flags.into())
             .map_mut()
             .context("Could not create anonymous mmap")?;
-        file.read_exact(&mut mmap[..file_len])
-            .with_context(|| format!("Could not read {}", path.display()))?;
+        par_read_exact(path, &mut mmap[..file_len])?;
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors.
         mmap[file_len..].fill(0);
@@ -274,4 +270,31 @@ impl<E: Endianness> BitReaderFactory<E> for MmapHelper<u32> {
     fn new_reader(&self) -> Self::BitReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
     }
+}
+
+fn par_read_exact(path: impl AsRef<Path>, bytes: &mut [u8]) -> Result<()> {
+    let path = path.as_ref();
+    let file_len = bytes.len();
+    let num_chunks = 64; // Arbitrary
+    let chunk_size = file_len.div_ceil(num_chunks);
+    let chunks: Vec<_> = bytes.chunks_mut(chunk_size).collect();
+
+    chunks
+        .into_par_iter()
+        .enumerate()
+        .try_for_each(|(chunk_id, chunk)| -> Result<()> {
+            let mut file = std::fs::File::open(path)
+                .with_context(|| format!("Could not open {}", path.display()))?;
+            file.seek(SeekFrom::Start(
+                (chunk_id * chunk_size)
+                    .try_into()
+                    .expect("File size overflowed isize"),
+            ))
+            .with_context(|| format!("Could not seek chunk {} in {}", chunk_id, path.display()))?;
+            file.read_exact(&mut chunk[..]).with_context(|| {
+                format!("Could not read chunk {}: {}", chunk_id, path.display())
+            })?;
+            Ok(())
+        })?;
+    Ok(())
 }
