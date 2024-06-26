@@ -45,7 +45,6 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
-use sux::traits::IndexedDict;
 use sux::traits::Succ;
 use tempfile::tempdir;
 

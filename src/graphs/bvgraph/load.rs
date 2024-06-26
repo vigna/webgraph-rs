@@ -15,7 +15,7 @@ use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
-use sux::traits::IndexedDict;
+use sux::traits::IndexedSeq;
 
 /// Sequential or random access.
 #[doc(hidden)]
@@ -87,7 +87,7 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: IndexedDict<Input = usize, Output = usize>;
+    type Offsets: IndexedSeq<Input = usize, Output = usize>;
 
     fn load_offsets<P: AsRef<Path>>(
         offsets: P,

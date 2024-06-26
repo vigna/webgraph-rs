@@ -89,7 +89,7 @@ where
             for _node_id in 0..num_nodes {
                 // write where
                 offset += reader.read_gamma().context("Could not read gamma")?;
-                efb.push(offset as _).context("Could not write offset")?;
+                efb.push(offset as _);
                 // decode the next nodes so we know where the next node_id starts
                 pl.light_update();
             }
@@ -98,7 +98,9 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: EF = ef.convert_to().unwrap();
+            let ef: crate::graphs::bvgraph::EF = unsafe{ef.map_high_bits(|bits| 
+                sux::rank_sel::SelectAdapt::new(bits, 3)
+            )};
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -167,7 +169,7 @@ where
         for _node_id in 0..num_nodes + 1 {
             // write where
             offset += reader.read_gamma().context("Could not read gamma")?;
-            efb.push(offset as _).context("Could not write gamma")?;
+            efb.push(offset as _);
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
         }
@@ -184,12 +186,11 @@ where
         let mut iter = seq_graph.offset_deg_iter();
         for (new_offset, _degree) in iter.by_ref() {
             // write where
-            efb.push(new_offset as _).context("Could not write gamma")?;
+            efb.push(new_offset as _);
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
         }
-        efb.push(iter.get_pos() as _)
-            .context("Could not write final gamma")?;
+        efb.push(iter.get_pos() as _);
     }
     pl.done();
 
@@ -198,7 +199,9 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = ef.convert_to().unwrap();
+    let ef: crate::graphs::bvgraph::EF = unsafe{ef.map_high_bits(|bits| 
+        sux::rank_sel::SelectAdapt::new(bits, 3)
+    )};
     pl.done();
 
     let mut pl = ProgressLogger::default();

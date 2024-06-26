@@ -38,12 +38,16 @@ pub use load::*;
 
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
-    sux::rank_sel::SelectFixed2<sux::bits::CountBitVec, Vec<u64>, 8>,
-    sux::bits::BitFieldVec,
+    sux::rank_sel::SelectAdapt<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>>,
+    sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
 
 /// The default version of EliasFano we use for the cumulative function of degrees.
 pub type DCF = sux::dict::EliasFano<
-    sux::rank_sel::SelectZeroFixed2<sux::bits::CountBitVec, Vec<u64>, 8>,
-    sux::bits::BitFieldVec,
+    sux::rank_sel::SelectZeroAdapt<
+        sux::rank_sel::SelectAdapt<
+            sux::bits::BitVec<Box<[usize]>>, 
+        Box<[usize]>>, 
+    Box<[usize]>>,
+    sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
