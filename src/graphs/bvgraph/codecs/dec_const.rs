@@ -12,8 +12,8 @@ use anyhow::bail;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
-use sux::traits::IndexedDict;
 use mem_dbg::{MemDbg, MemSize};
+use sux::traits::IndexedSeq;
 
 /// Temporary constants while const enum generics are not stable
 pub mod const_codes {
@@ -189,7 +189,7 @@ impl<
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
-    OFF: IndexedDict<Input = usize, Output = usize>,
+    OFF: IndexedSeq<Input = usize, Output = usize>,
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
     const BLOCKS: usize = { const_codes::GAMMA },
@@ -209,7 +209,7 @@ pub struct ConstCodesDecoderFactory<
 impl<
         E: Endianness,
         F: BitReaderFactory<E>,
-        OFF: IndexedDict<Input = usize, Output = usize>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -246,7 +246,7 @@ impl<
 impl<
         E: Endianness,
         F: BitReaderFactory<E>,
-        OFF: IndexedDict<Input = usize, Output = usize>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,

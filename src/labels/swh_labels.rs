@@ -21,8 +21,8 @@ use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
 use std::path::Path;
-use sux::traits::IndexedDict;
 use mem_dbg::{MemDbg, MemSize};
+use sux::traits::IndexedSeq;
 
 use crate::graphs::bvgraph::EF;
 use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
@@ -52,7 +52,7 @@ impl ReaderBuilder for MmapReaderBuilder {
 }
 
 #[derive(Clone, Debug, MemDbg, MemSize, Epserde)]
-pub struct SwhLabels<RB: ReaderBuilder, O: IndexedDict> {
+pub struct SwhLabels<RB: ReaderBuilder, O: IndexedSeq> {
     width: usize,
     reader_builder: RB,
     offsets: MemCase<O>,
@@ -89,7 +89,7 @@ impl<
         'a,
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
-        O: IndexedDict<Input = usize, Output = usize>,
+        O: IndexedSeq<Input = usize, Output = usize>,
     > NodeLabelsLender<'succ> for Iter<'a, BR, O>
 {
     type Label = Vec<u64>;
@@ -100,7 +100,7 @@ impl<
         'a,
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
-        O: IndexedDict<Input = usize, Output = usize>,
+        O: IndexedSeq<Input = usize, Output = usize>,
     > Lending<'succ> for Iter<'a, BR, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
@@ -109,7 +109,7 @@ impl<
 impl<
         'a,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
-        O: IndexedDict<Input = usize, Output = usize>,
+        O: IndexedSeq<Input = usize, Output = usize>,
     > Lender for Iter<'a, BR, O>
 {
     #[inline(always)]
