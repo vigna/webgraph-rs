@@ -57,14 +57,14 @@ where
     ///
     /// # Arguments
     /// - `reader_factory`: backend that can create objects that allows
-    /// us to read the bitstream of the graph to decode the edges.
+    ///   us to read the bitstream of the graph to decode the edges.
     /// - `offsets`: the bit offset at which we will have to start for decoding
-    /// the edges of each node. (This is needed for the random accesses,
-    /// [`BVGraphSeq`] does not need them)
+    ///   the edges of each node. (This is needed for the random accesses,
+    ///   [`BVGraphSeq`] does not need them)
     /// - `min_interval_length`: the minimum size of the intervals we are going
-    /// to decode.
+    ///   to decode.
     /// - `compression_window`: the maximum distance between two nodes that
-    /// reference each other.
+    ///   reference each other.
     /// - `number_of_nodes`: the number of nodes in the graph.
     /// - `number_of_arcs`: the number of arcs in the graph.
     ///

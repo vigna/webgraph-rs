@@ -16,34 +16,34 @@ provides simple ways to manage very large graphs, exploiting modern compression
 techniques. More precisely, it is currently made of:
 
 - A set of simple codes, called ζ _codes_, which are particularly suitable for
- storing web graphs (or, in general, integers with a power-law distribution in a
- certain exponent range).
+  storing web graphs (or, in general, integers with a power-law distribution in a
+  certain exponent range).
 
 - Algorithms for compressing web graphs that exploit gap compression and
- differential compression (à la
- [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
- intervalisation, and ζ codes to provide a high compression ratio (see [our
- datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
- by several parameters, which provide different tradeoffs between access speed
- and compression ratio.
+  differential compression (à la
+  [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
+  intervalisation, and ζ codes to provide a high compression ratio (see [our
+  datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
+  by several parameters, which provide different tradeoffs between access speed
+  and compression ratio.
 
 - Algorithms for accessing a compressed graph without actually decompressing
- it, using lazy techniques that delay the decompression until it is actually
- necessary.
+  it, using lazy techniques that delay the decompression until it is actually
+  necessary.
 
 - Algorithms for analysing very large graphs, such as {@link
- it.unimi.dsi.webgraph.algo.HyperBall}, which has been used to show that
- Facebook has just [four degrees of
- separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
+  it.unimi.dsi.webgraph.algo.HyperBall}, which has been used to show that
+  Facebook has just [four degrees of
+  separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
 
 - A [Java implementation](http://webgraph.di.unimi.it/) of the algorithms above,
   now in maintenance mode.
 
 - This crate, providing a complete, documented implementation of the algorithms
   above in Rust. It is free software distributed under either the  [GNU Lesser
- General Public License
- 2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
- Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+  General Public License
+  2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
+  Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 - [Data sets](http://law.di.unimi.it/datasets.php) for large graph (e.g.,
   billions of links).
@@ -107,7 +107,7 @@ for_!((src, succ) in graph {
 ## More Options
 
 - By starting from the [`BVGraphSeq`] class you can obtain an instance that does
-not need the `BASENAME.ef` file, but provides only [iteration].
+  not need the `BASENAME.ef` file, but provides only [iteration].
 
 - Graphs can be labeled by [zipping] them together with a [labeling]. In fact,
   graphs are just labelings with `usize` labels.
