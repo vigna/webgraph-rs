@@ -67,9 +67,9 @@ pub mod preds;
 ///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
 /// * `num_threads` - The number of threads to use. If `None`, the number of
-/// threads is set to [`num_cpus::get`].
+///   threads is set to [`num_cpus::get`].
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
-/// an advanced option: see
+///   an advanced option: see
 ///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `granularity` - The granularity of the parallel processing expressed as
 ///   the number of arcs to process at a time. If `None`, the granularity is

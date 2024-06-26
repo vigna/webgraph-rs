@@ -11,6 +11,7 @@ use clap_complete::shells::Shell;
 use webgraph::{build_info, cli};
 
 pub fn main() -> Result<()> {
+    let start = std::time::Instant::now();
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
         .try_init()?;
@@ -92,5 +93,50 @@ pub fn main() -> Result<()> {
         simplify,
         to_csv,
         transpose
-    )
+    )?;
+
+    log::info!(
+        "The command took {}",
+        pretty_print_elapsed(start.elapsed().as_secs_f64())
+    );
+
+    Ok(())
+}
+
+/// Pretty print the elapsed seconds in a human readable format.
+fn pretty_print_elapsed(elapsed: f64) -> String {
+    let mut result = String::new();
+    let mut elapsed_seconds = elapsed as u64;
+    let weeks = elapsed_seconds / (60 * 60 * 24 * 7);
+    elapsed_seconds %= 60 * 60 * 24 * 7;
+    let days = elapsed_seconds / (60 * 60 * 24);
+    elapsed_seconds %= 60 * 60 * 24;
+    let hours = elapsed_seconds / (60 * 60);
+    elapsed_seconds %= 60 * 60;
+    let minutes = elapsed_seconds / 60;
+    //elapsed_seconds %= 60;
+
+    match weeks {
+        0 => {}
+        1 => result.push_str("1 week "),
+        _ => result.push_str(&format!("{} weeks ", weeks)),
+    }
+    match days {
+        0 => {}
+        1 => result.push_str("1 day "),
+        _ => result.push_str(&format!("{} days ", days)),
+    }
+    match hours {
+        0 => {}
+        1 => result.push_str("1 hour "),
+        _ => result.push_str(&format!("{} hours ", hours)),
+    }
+    match minutes {
+        0 => {}
+        1 => result.push_str("1 minute "),
+        _ => result.push_str(&format!("{} minutes ", minutes)),
+    }
+
+    result.push_str(&format!("{:.3} seconds ({}s)", elapsed % 60.0, elapsed));
+    result
 }

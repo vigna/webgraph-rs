@@ -14,7 +14,7 @@ Implementations of the [`BitReaderFactory`] trait can be used to create
 bit readers accessing a graph data using different techniques.
 - [`FileFactory`] uses a [std::fs::File] to create a bit reader.
 - [`MemoryFactory`] creates bit readers from a slice of memory,
-either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
+  either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
 - [`MmapHelper`] can be used to create a bit reader from a memory-mapped file.
 
 Any factory can be plugged either into a
