@@ -31,8 +31,8 @@ pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
 /// nodes.
 #[derive(Clone, Debug, Copy)]
 pub struct Triple<L: Copy> {
-    pair: [usize; 2],
-    label: L,
+    pub pair: [usize; 2],
+    pub label: L,
 }
 
 impl<T: Copy> RadixKey for Triple<T> {
