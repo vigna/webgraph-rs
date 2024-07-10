@@ -10,10 +10,11 @@ use core::cmp::Ordering;
 use lender::prelude::*;
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
+#[derive(Debug, Clone)]
 pub struct BVComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
-    backrefs: CircularBufferVec,
+    backrefs: CircularBuffer<Vec<usize>>,
     /// The ring-buffer that stores how many recursion steps are needed to
     /// decode the last `compression_window` nodes, this is used for
     /// `max_ref_count` which is used to modulate the compression / decoding
@@ -26,12 +27,12 @@ pub struct BVComp<E> {
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
-    /// The minimum length of sequences that will be compressed as a (start, len)
-    min_interval_length: usize,
     /// The number of previous nodes that will be considered during the compression
     compression_window: usize,
     /// The maximum recursion depth that will be used to decompress a node
     max_ref_count: usize,
+    /// The minimum length of sequences that will be compressed as a (start, len)
+    min_interval_length: usize,
     /// The current node we are compressing
     curr_node: usize,
     /// The first node we are compressing, this is needed because during
@@ -66,7 +67,7 @@ impl Compressor {
     /// counter-intuitive
     const NO_INTERVALS: usize = 0;
 
-    /// Create a new empty compressor
+    /// Creates a new empty compressor
     fn new() -> Self {
         Compressor {
             outdegree: 0,
@@ -83,25 +84,26 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<E: Encoder>(
+    fn write<E: Encode>(
         &self,
         writer: &mut E,
         curr_node: usize,
         reference_offset: Option<usize>,
         min_interval_length: usize,
-    ) -> Result<usize, E::Error> {
-        let mut written_bits = 0;
+    ) -> Result<u64, E::Error> {
+        let mut written_bits: u64 = 0;
+        written_bits += writer.start_node(curr_node)? as u64;
         // write the outdegree
-        written_bits += writer.write_outdegree(self.outdegree as u64)?;
+        written_bits += writer.write_outdegree(self.outdegree as u64)? as u64;
         // write the references
         if self.outdegree != 0 {
             if let Some(reference_offset) = reference_offset {
-                written_bits += writer.write_reference_offset(reference_offset as u64)?;
+                written_bits += writer.write_reference_offset(reference_offset as u64)? as u64;
                 if reference_offset != 0 {
-                    written_bits += writer.write_block_count(self.blocks.len() as _)?;
+                    written_bits += writer.write_block_count(self.blocks.len() as _)? as u64;
                     if !self.blocks.is_empty() {
                         for i in 0..self.blocks.len() {
-                            written_bits += writer.write_block((self.blocks[i] - 1) as u64)?;
+                            written_bits += writer.write_block((self.blocks[i] - 1) as u64)? as u64;
                         }
                     }
                 }
@@ -109,21 +111,24 @@ impl Compressor {
         }
         // write the intervals
         if !self.extra_nodes.is_empty() && min_interval_length != Self::NO_INTERVALS {
-            written_bits += writer.write_interval_count(self.left_interval.len() as _)?;
+            written_bits += writer.write_interval_count(self.left_interval.len() as _)? as u64;
 
             if !self.left_interval.is_empty() {
                 written_bits += writer.write_interval_start(int2nat(
                     self.left_interval[0] as i64 - curr_node as i64,
-                ))?;
+                ))? as u64;
                 written_bits += writer
-                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)?;
+                    .write_interval_len((self.len_interval[0] - min_interval_length) as u64)?
+                    as u64;
                 let mut prev = self.left_interval[0] + self.len_interval[0];
 
                 for i in 1..self.left_interval.len() {
-                    written_bits +=
-                        writer.write_interval_start((self.left_interval[i] - prev - 1) as u64)?;
                     written_bits += writer
-                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)?;
+                        .write_interval_start((self.left_interval[i] - prev - 1) as u64)?
+                        as u64;
+                    written_bits += writer
+                        .write_interval_len((self.len_interval[i] - min_interval_length) as u64)?
+                        as u64;
                     prev = self.left_interval[i] + self.len_interval[i];
                 }
             }
@@ -131,14 +136,17 @@ impl Compressor {
         // write the residuals
         if !self.residuals.is_empty() {
             written_bits += writer
-                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?;
+                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?
+                as u64;
 
             for i in 1..self.residuals.len() {
                 written_bits += writer
-                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?;
+                    .write_residual((self.residuals[i] - self.residuals[i - 1] - 1) as u64)?
+                    as u64;
             }
         }
 
+        written_bits += writer.end_node(curr_node)? as u64;
         Ok(written_bits)
     }
 
@@ -225,7 +233,7 @@ impl Compressor {
         let mut copying = true;
 
         while j < curr_list.len() && k < ref_list.len() {
-            // First case: we are currectly copying entries from the reference list
+            // First case: we are currently copying entries from the reference list
             if copying {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {
@@ -295,20 +303,20 @@ impl Compressor {
     }
 }
 
-impl<E: MeasurableEncoder> BVComp<E> {
+impl<E: EncodeAndEstimate> BVComp<E> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
-    /// Create a new BVGraph compressor.
+    /// Creates a new BVGraph compressor.
     pub fn new(
         encoder: E,
         compression_window: usize,
-        min_interval_length: usize,
         max_ref_count: usize,
+        min_interval_length: usize,
         start_node: usize,
     ) -> Self {
         BVComp {
-            backrefs: CircularBufferVec::new(compression_window + 1),
+            backrefs: CircularBuffer::new(compression_window + 1),
             ref_counts: CircularBuffer::new(compression_window + 1),
             encoder,
             min_interval_length,
@@ -327,13 +335,14 @@ impl<E: MeasurableEncoder> BVComp<E> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<usize> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
             let mut succ_vec = self.backrefs.take(self.curr_node);
+            succ_vec.clear();
             succ_vec.extend(succ_iter);
-            self.backrefs.push(self.curr_node, succ_vec);
+            self.backrefs.replace(self.curr_node, succ_vec);
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];
@@ -430,7 +439,7 @@ impl<E: MeasurableEncoder> BVComp<E> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<usize>
+    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<u64>
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -444,10 +453,10 @@ impl<E: MeasurableEncoder> BVComp<E> {
         Ok(count)
     }
 
-    /// Consume the compressor return the inner writer after flushing it.
-    pub fn flush(mut self) -> Result<E, E::Error> {
-        self.encoder.flush()?;
-        Ok(self.encoder)
+    /// Consume the compressor return the number of bits written by
+    /// flushing the encoder (0 for instantaneous codes)
+    pub fn flush(mut self) -> Result<usize, E::Error> {
+        self.encoder.flush()
     }
 }
 
@@ -587,7 +596,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
@@ -603,9 +612,9 @@ mod test {
 
         let mut seq_iter = Iter::new(
             codes_reader,
+            seq_graph.num_nodes(),
             compression_window,
             min_interval_length,
-            seq_graph.num_nodes(),
         );
         // Check that the graph is the same
         let mut iter = seq_graph.iter().enumerate();
@@ -644,7 +653,7 @@ mod test {
 
         let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, min_interval_length, 3, 0);
+        let mut bvcomp = BVComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
@@ -658,9 +667,9 @@ mod test {
 
         let mut seq_iter = Iter::new(
             codes_reader,
+            seq_graph.num_nodes(),
             compression_window,
             min_interval_length,
-            seq_graph.num_nodes(),
         );
         // Check that the graph is the same
         let mut iter = seq_graph.iter().enumerate();

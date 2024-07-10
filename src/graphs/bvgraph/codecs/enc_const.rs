@@ -8,11 +8,11 @@
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
-use super::{const_codes, CodeWrite, Encoder, MeasurableEncoder};
+use super::{const_codes, CodeWrite, Encode, EncodeAndEstimate};
 
 #[repr(transparent)]
-/// An implementation of [`BVGraphCodesWriter`] with compile time defined codes
-#[derive(Clone)]
+/// An implementation of [`EncodeAndEstimate`] with compile time defined codes
+#[derive(Debug, Clone)]
 pub struct ConstCodesEncoder<
     E: Endianness,
     CW: CodeWrite<E>,
@@ -61,7 +61,7 @@ impl<
         const K: u64,
     > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Creates a new [`ConstCodesWriter`] with the given [`CodeWrite`] implementation
+    /// Creates a new [`ConstCodesEncoder`] with the given [`CodeWrite`] implementation.
     pub fn new(code_writer: CW) -> Self {
         Self {
             code_writer,
@@ -93,19 +93,18 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder
-    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encode for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = <CW as BitWrite<E>>::Error;
 
     #[inline(always)]
-    fn start_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn start_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
-    fn end_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn end_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
@@ -149,7 +148,7 @@ impl<
         select_code_write!(self, RESIDUALS, K, value)
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<usize, Self::Error> {
         self.code_writer.flush()
     }
 }
@@ -163,7 +162,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > MeasurableEncoder
+    > EncodeAndEstimate
     for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Estimator<'a> = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
@@ -174,7 +173,7 @@ impl<
 }
 
 #[repr(transparent)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ConstCodesEstimator<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },
@@ -217,18 +216,18 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: u64,
-    > Encoder for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encode for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     type Error = Infallible;
 
     #[inline(always)]
-    fn start_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn start_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
-    fn end_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn end_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
@@ -272,7 +271,7 @@ impl<
         select_code_mock_write!(RESIDUALS, K, value)
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+    fn flush(&mut self) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 }

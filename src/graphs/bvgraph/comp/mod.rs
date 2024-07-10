@@ -8,7 +8,7 @@
 mod bvcomp;
 pub use bvcomp::*;
 
-mod util;
+mod impls;
 
 mod flags;
 pub use flags::*;

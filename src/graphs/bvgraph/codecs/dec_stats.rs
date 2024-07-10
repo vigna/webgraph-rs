@@ -100,7 +100,7 @@ where
     }
 }
 
-/// A wrapper over a generic [`Decoder`] that keeps track of how much
+/// A wrapper over a generic [`Decode`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
 pub struct StatsDecoder<'a, F: SequentialDecoderFactory> {
     factory: &'a StatsDecoderFactory<F>,
@@ -130,7 +130,7 @@ impl<'a, F: SequentialDecoderFactory> StatsDecoder<'a, F> {
     }
 }
 
-impl<'a, F: SequentialDecoderFactory> Decoder for StatsDecoder<'a, F> {
+impl<'a, F: SequentialDecoderFactory> Decode for StatsDecoder<'a, F> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats

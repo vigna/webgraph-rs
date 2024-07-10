@@ -5,13 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{CodeWrite, Encoder, MeasurableEncoder};
+use super::{CodeWrite, Encode, EncodeAndEstimate};
 use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
+#[derive(Debug, Clone)]
 pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     /// The code writer used by to output the compressed data.
     code_writer: CW,
@@ -106,20 +107,20 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> Encoder for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: CodeWrite<E>> Encode for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
     type Error = <CW as BitWrite<E>>::Error;
 
     #[inline(always)]
-    fn start_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn start_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
-    fn end_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn end_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
@@ -163,12 +164,12 @@ where
         (self.write_residual)(&mut self.code_writer, value)
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<usize, Self::Error> {
         self.code_writer.flush()
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> MeasurableEncoder for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: CodeWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
@@ -180,7 +181,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynCodesEstimator {
     len_outdegree: fn(u64) -> usize,
     len_reference_offset: fn(u64) -> usize,
@@ -229,17 +230,17 @@ impl DynCodesEstimator {
     }
 }
 
-impl Encoder for DynCodesEstimator {
+impl Encode for DynCodesEstimator {
     type Error = Infallible;
 
     #[inline(always)]
-    fn start_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn start_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
-    fn end_node(_node: usize) -> Result<(), Self::Error> {
-        Ok(())
+    fn end_node(&mut self, _node: usize) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 
     #[inline(always)]
@@ -283,7 +284,7 @@ impl Encoder for DynCodesEstimator {
         Ok((self.len_residual)(value))
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
+    fn flush(&mut self) -> Result<usize, Self::Error> {
+        Ok(0)
     }
 }

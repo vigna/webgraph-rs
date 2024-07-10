@@ -26,7 +26,7 @@ pub mod const_codes {
     pub const ZETA: usize = 3;
 }
 
-/// Temporary convertion function while const enum generics are not stable
+/// Temporary conversion function while const enum generics are not stable
 pub(crate) fn code_to_const(code: Code) -> Result<usize> {
     Ok(match code {
         Code::Unary => const_codes::UNARY,
@@ -37,8 +37,8 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 }
 
 #[repr(transparent)]
-/// An implementation of [`BVGraphCodesReader`]  with compile-time defined codes
-#[derive(Clone)]
+/// An implementation of [`Decode`]  with compile-time defined codes.
+#[derive(Debug, Clone)]
 pub struct ConstCodesDecoder<
     E: Endianness,
     CR: CodeRead<E>,
@@ -90,7 +90,7 @@ impl<
         const K: usize,
     > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Create a new [`ConstCodesReader`] from a [`CodeRead`] implementation
+    /// Creates a new [`ConstCodesEncoder`] from a [`CodeRead`] implementation.
     /// and a [`CompFlags`] struct
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
@@ -140,8 +140,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
         const K: usize,
-    > Decoder
-    for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Decode for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
@@ -217,7 +216,7 @@ impl<
         const K: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Create a new builder from the given data and compression flags.
+    /// Creates a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
             bail!("Code for outdegrees does not match");

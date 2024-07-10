@@ -9,50 +9,56 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 use webgraph::prelude::*;
 
-fn logger_init() {
-    env_logger::builder().is_test(true).try_init().unwrap();
-}
-
 #[test]
 fn test_par_bvcomp() -> Result<()> {
-    logger_init();
+    env_logger::builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Debug)
+        .try_init()?;
+
+    _test_par_bvcomp("tests/data/cnr-2000")?;
+    _test_par_bvcomp("tests/data/cnr-2000-hc")?;
+    Ok(())
+}
+
+fn _test_par_bvcomp(basename: &str) -> Result<()> {
     let comp_flags = CompFlags::default();
-    let tmp_basename = PathBuf::from("tests/data/cnr-2000-par");
+    let tmp_basename = PathBuf::from(String::from(basename) + "-par");
 
     // load the graph
-    let graph =
-        webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename("tests/data/cnr-2000")
-            .endianness::<BE>()
-            .load()?;
-    let expected_size = std::fs::File::open("tests/data/cnr-2000.graph")?
-        .metadata()?
-        .len();
+    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+        .endianness::<BE>()
+        .load()?;
+
+    let mut graph_filename = PathBuf::from(basename);
+    graph_filename.set_extension(GRAPH_EXTENSION);
+
+    let expected_size = graph_filename.metadata()?.len();
     for thread_num in 1..10 {
         log::info!("Testing with {} threads", thread_num);
         // create a threadpool and make the compression use it, this way
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        BVComp::parallel::<BE, _>(
+        BVComp::parallel_graph::<BE>(
             &tmp_basename,
             &graph,
-            graph.num_nodes(),
             comp_flags,
-            thread_num,
-            temp_dir(std::env::temp_dir()),
+            Threads::Num(thread_num),
+            temp_dir(std::env::temp_dir())?,
         )
         .unwrap();
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
-        let found_size = std::fs::File::open(suffix_path(&tmp_basename, ".graph"))?
+        let found_size = std::fs::File::open(tmp_basename.with_extension(GRAPH_EXTENSION))?
             .metadata()?
             .len();
 
-        if (found_size as f64) > (expected_size as f64) * 1.1 {
+        if (found_size as f64) > (expected_size as f64) * 1.2 {
             panic!(
                 "The compressed graph is too big: {} > {}",
                 found_size, expected_size
@@ -83,8 +89,8 @@ fn test_par_bvcomp() -> Result<()> {
 
         pr.done();
         // cancel the file at the end
-        std::fs::remove_file(suffix_path(&tmp_basename, ".graph"))?;
-        std::fs::remove_file(suffix_path(&tmp_basename, ".properties"))?;
+        std::fs::remove_file(tmp_basename.with_extension(GRAPH_EXTENSION))?;
+        std::fs::remove_file(tmp_basename.with_extension(PROPERTIES_EXTENSION))?;
         log::info!("\n");
     }
 

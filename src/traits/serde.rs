@@ -12,7 +12,7 @@ use dsi_bitstream::prelude::*;
 pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
     /// The type that implementations of this trait can serialize.
     type SerType;
-    /// Serialize the given value to a [`CodeWrite`].
+    /// Serializes the given value to a [`BitWrite`](dsi_bitstream::traits::BitWrite).
     fn serialize(&self, value: &Self::SerType, bitstream: &mut BW) -> Result<usize, BW::Error>;
 }
 
@@ -21,7 +21,7 @@ pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
 pub trait BitDeserializer<E: Endianness, BR: BitRead<E>> {
     /// The type that implementations of this trait can deserialized.
     type DeserType;
-    /// Deserialize the given value from a [`CodeRead`].
+    /// Deserializes the given value from a [`BitRead`](dsi_bitstream::traits::BitRead).
     fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error>;
 }
 

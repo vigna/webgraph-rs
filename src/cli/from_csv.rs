@@ -7,23 +7,22 @@
 
 use super::utils::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
-use crate::labels::Left;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::{Endianness, BE};
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
-
+use tempfile::Builder;
 pub const COMMAND_NAME: &str = "from-csv";
 
 #[derive(Args, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the dst.
     basename: PathBuf,
 
@@ -53,9 +52,13 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
+    from_csv(CliArgs::from_arg_matches(submatches)?)
+}
 
-    let mut group_by = SortPairs::new(args.pa.batch_size, temp_dir(&args.pa.temp_dir)).unwrap();
+pub fn from_csv(args: CliArgs) -> Result<()> {
+    let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
+
+    let mut group_by = SortPairs::new(args.pa.batch_size, dir)?;
     let mut nodes = BTreeMap::new();
 
     // read the csv and put it inside the sort pairs
@@ -111,7 +114,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     pl.done();
     log::info!("Arcs read: {}", line_id);
 
-    // conver the iter to a graph
+    // convert the iter to a graph
     let g = Left(ArcListGraph::new(
         args.num_nodes,
         group_by
@@ -121,21 +124,22 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             .dedup(),
     ));
     // compress it
-    let target_endianness = args.ca.endianess.clone();
+    let target_endianness = args.ca.endianness.clone();
+    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
     BVComp::parallel_endianness(
         &args.basename,
         &g,
         args.num_nodes,
         args.ca.into(),
-        args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
+        Threads::Num(args.num_cpus.num_cpus),
+        dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
     .unwrap();
 
     // save the nodes
     if !args.csv_args.numeric {
-        let mut file = std::fs::File::create(suffix_path(&args.basename, ".nodes")).unwrap();
+        let mut file = std::fs::File::create(args.basename.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx

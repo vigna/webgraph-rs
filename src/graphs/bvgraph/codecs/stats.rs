@@ -11,7 +11,7 @@ fn len_golomb(value: u64, b: u64) -> usize {
     (value / b) as usize + 1 + len_minimal_binary(value % b, b)
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Debug)]
 /// Keeps track of the space needed to store a stream of integers using different codes.
 ///
 /// This structure can be used to determine empirically which code

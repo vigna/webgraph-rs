@@ -11,7 +11,7 @@ use lender::{IntoLender, Lend, Lender, Lending};
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
     LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph, RandomAccessLabeling, SequentialGraph,
-    SequentialLabeling,
+    SequentialLabeling, SortedIterator, SortedLender,
 };
 
 /**
@@ -107,7 +107,7 @@ where
 }
 
 impl<'a, L: SequentialLabeling, R: SequentialLabeling> IntoLender for &'a Zip<L, R> {
-    type Lender = <Zip<L, R> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <Zip<L, R> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -118,7 +118,7 @@ impl<'a, L: SequentialLabeling, R: SequentialLabeling> IntoLender for &'a Zip<L,
 impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L, R> {
     type Label = (L::Label, R::Label);
 
-    type Iterator<'node> = Iter<L::Iterator<'node>, R::Iterator<'node>>
+    type Lender<'node> = Iter<L::Lender<'node>, R::Lender<'node>>
         where
         Self: 'node;
 
@@ -127,7 +127,7 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
         self.0.num_nodes()
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         Iter(self.0.iter_from(from), self.1.iter_from(from))
     }
 }
@@ -162,3 +162,12 @@ impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::
     for Zip<G, L>
 {
 }
+
+unsafe impl<L, R> SortedLender for Iter<L, R>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    R: Lender + for<'next> NodeLabelsLender<'next>,
+{
+}
+
+unsafe impl<I: SortedIterator, J: SortedIterator> SortedIterator for core::iter::Zip<I, J> {}

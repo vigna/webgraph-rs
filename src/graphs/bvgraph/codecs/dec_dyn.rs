@@ -13,7 +13,7 @@ use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedDict;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
@@ -90,7 +90,7 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> Decoder for DynCodesDecoder<E, CR> {
+impl<E: Endianness, CR: CodeRead<E>> Decode for DynCodesDecoder<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         (self.read_outdegree)(&mut self.code_reader)
@@ -194,7 +194,7 @@ where
         self.compression_flags
     }
 
-    /// Create a new builder from the data and the compression flags.
+    /// Creates a new builder from the data and the compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         macro_rules! select_code {
             ($code:expr) => {

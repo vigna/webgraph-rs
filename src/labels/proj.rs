@@ -9,17 +9,17 @@
 Left and right projections.
 
 The two structures in this module, [`Left`] and [`Right`], provide
-projection of a graph whose labels are pairs. In particular,
+projection of a labeling whose labels are pairs. In particular,
 `Left(Zip(g,h))` is the same labeling as `g` and
 `Right(Zip(g,h))` is the same labeling as `h'.
 
 */
-use lender::{IntoLender, Lend, Lender, Lending};
-
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
-    RandomAccessLabeling, SequentialGraph, SequentialLabeling,
+    RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
 };
+use crate::traits::SplitLabeling;
+use lender::{IntoLender, Lend, Lender, Lending};
 
 // The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -98,11 +98,27 @@ impl<'a, S: SequentialLabeling> IntoLender for &'a Left<S>
 where
     S::Label: Pair,
 {
-    type Lender = <Left<S> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <Left<S> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
         self.iter()
+    }
+}
+
+impl<G> SplitLabeling for Left<G>
+where
+    G: SequentialLabeling + SplitLabeling,
+    G::Label: Pair,
+{
+    type SplitLender<'a> = LeftIterator<G::SplitLender<'a>> where Self: 'a;
+    type IntoIterator<'a> = core::iter::Map<
+        <G::IntoIterator<'a> as IntoIterator>::IntoIter,
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>
+    > where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        self.0.split_iter(how_many).into_iter().map(LeftIterator)
     }
 }
 
@@ -112,7 +128,7 @@ where
 {
     type Label = <S::Label as Pair>::Left;
 
-    type Iterator<'node> = LeftIterator<S::Iterator<'node>>
+    type Lender<'node> = LeftIterator<S::Lender<'node>>
        where
         Self: 'node;
 
@@ -120,7 +136,7 @@ where
         self.0.num_nodes()
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         LeftIterator(self.0.iter_from(from))
     }
 
@@ -153,6 +169,15 @@ where
 impl<S: SequentialLabeling> SequentialGraph for Left<S> where S::Label: Pair<Left = usize> {}
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
+
+unsafe impl<L: SortedLender> SortedLender for LeftIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
+}
+
+unsafe impl<I: SortedIterator> SortedIterator for LeftIntoIter<I> where I::Item: Pair {}
 
 // The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -231,11 +256,27 @@ impl<'a, S: SequentialLabeling> IntoLender for &'a Right<S>
 where
     S::Label: Pair,
 {
-    type Lender = <Right<S> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <Right<S> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
         self.iter()
+    }
+}
+
+impl<G> SplitLabeling for Right<G>
+where
+    G: SequentialLabeling + SplitLabeling,
+    G::Label: Pair,
+{
+    type SplitLender<'a> = RightIterator<G::SplitLender<'a>> where Self: 'a;
+    type IntoIterator<'a> = core::iter::Map<
+        <G::IntoIterator<'a> as IntoIterator>::IntoIter,
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>
+    > where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        self.0.split_iter(how_many).into_iter().map(RightIterator)
     }
 }
 
@@ -245,7 +286,7 @@ where
 {
     type Label = <S::Label as Pair>::Right;
 
-    type Iterator<'node> = RightIterator<S::Iterator<'node>>
+    type Lender<'node> = RightIterator<S::Lender<'node>>
        where
         Self: 'node;
 
@@ -257,7 +298,7 @@ where
         self.0.num_arcs_hint()
     }
 
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         RightIterator(self.0.iter_from(from))
     }
 }
@@ -286,3 +327,12 @@ where
 impl<S: SequentialLabeling> SequentialGraph for Right<S> where S::Label: Pair<Right = usize> {}
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}
+
+unsafe impl<L: SortedLender> SortedLender for RightIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
+}
+
+unsafe impl<I: SortedIterator> SortedIterator for RightIntoIter<I> where I::Item: Pair {}

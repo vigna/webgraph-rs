@@ -14,8 +14,8 @@ Implementations of the [`BitReaderFactory`] trait can be used to create
 bit readers accessing a graph data using different techniques.
 - [`FileFactory`] uses a [std::fs::File] to create a bit reader.
 - [`MemoryFactory`] creates bit readers from a slice of memory,
-either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
-- [`MmapBackend`] can be used to create a bit reader from a memory-mapped file.
+  either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
+- [`MmapHelper`] can be used to create a bit reader from a memory-mapped file.
 
 Any factory can be plugged either into a
 [`SequentialDecoderFactory`](super::SequentialDecoderFactory)
@@ -38,7 +38,7 @@ use std::{
 };
 use sux::traits::IndexedDict;
 
-use crate::utils::MmapBackend;
+use crate::utils::MmapHelper;
 
 pub trait BitReaderFactory<E: Endianness> {
     type BitReader<'a>
@@ -47,7 +47,7 @@ pub trait BitReaderFactory<E: Endianness> {
     fn new_reader(&self) -> Self::BitReader<'_>;
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
     path: Box<Path>,
     _marker: core::marker::PhantomData<E>,
@@ -80,7 +80,7 @@ impl<E: Endianness> BitReaderFactory<E> for FileFactory<E> {
 }
 
 bitflags! {
-    /// Flags for [`MemoryFactory`] and [`MmapBackend`].
+    /// Flags for [`MemoryFactory`] and [`MmapHelper`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct MemoryFlags: u32 {
         /// Suggest to map a region using transparent huge pages.
@@ -145,10 +145,19 @@ impl From<MemoryFlags> for epserde::deser::Flags {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
     data: M,
     _marker: core::marker::PhantomData<E>,
+}
+
+impl<E: Endianness, T: AsRef<[u32]>> MemoryFactory<E, T> {
+    pub fn from_data(data: T) -> Self {
+        Self {
+            data,
+            _marker: core::marker::PhantomData,
+        }
+    }
 }
 
 impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
@@ -185,7 +194,7 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
     }
 }
 
-impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
+impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
     pub fn new_mmap(path: impl AsRef<Path>, flags: MemoryFlags) -> anyhow::Result<Self> {
         let path = path.as_ref();
         let file_len = path
@@ -208,7 +217,7 @@ impl<E: Endianness> MemoryFactory<E, MmapBackend<u32>> {
 
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: MmapBackend::try_from(
+            data: MmapHelper::try_from(
                 mmap.make_read_only()
                     .map_err(|(_, err)| err)
                     .context("Could not make memory read-only")?,
@@ -229,6 +238,7 @@ impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M>
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
@@ -258,7 +268,7 @@ impl<I, O> Default for EmptyDict<I, O> {
     }
 }
 
-impl<E: Endianness> BitReaderFactory<E> for MmapBackend<u32> {
+impl<E: Endianness> BitReaderFactory<E> for MmapHelper<u32> {
     type BitReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 
     fn new_reader(&self) -> Self::BitReader<'_> {

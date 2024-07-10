@@ -9,8 +9,12 @@ use std::path::PathBuf;
 
 use crate::graphs::Code;
 use crate::prelude::CompFlags;
+use anyhow::anyhow;
+use anyhow::ensure;
 use clap::Args;
 use clap::ValueEnum;
+use common_traits::UnsignedInt;
+use sysinfo::System;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Our own enum for the codes, this is used to implement ValueEnum here
@@ -87,27 +91,83 @@ pub struct NumCpusArg {
 }
 
 #[derive(Args, Debug)]
-/// Shared cli arguments for permutating a graph
+/// Shared cli arguments for permuting a graph
 /// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct PermutationArgs {
-    #[clap(short = 's', long, default_value_t = 1_000_000)]
-    /// The size of a batch.
-    pub batch_size: usize,
+    /* TODO!:
+    #[arg(short = 'e', long, default_value_t = false)]
+    /// Load the permutations from ε-serde format instead of the java format, i.e. an array of 64-bit big-endian integers
+    epserde: bool,
+    */
+    #[clap(long)]
+    /// The path to the permutations to, optionally, apply to the graph.
+    pub permutation: Option<PathBuf>,
 
-    /// Directory where of the **MANY LARGE** temporary files.
-    /// If not passed it creates a random folder inside either
-    /// the env var `TMPDIR` or `/tmp` if the env var is not specified.
-    #[arg(short = 't', long, default_value = std::env::temp_dir().into_os_string())]
-    pub temp_dir: PathBuf,
+    #[clap(short = 'b', long, value_parser = batch_size, default_value = "50%")]
+    /// The number of pairs to be used in batches. Two times this number of
+    /// `usize` will be allocated to sort pairs. You can use the SI and NIST
+    /// multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. You can also use a
+    /// percentage of the available memory by appending a `%` to the number.
+    pub batch_size: usize,
+}
+
+/// Parses a batch size.
+///
+/// This function accepts either a number (possibly followed by a
+/// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
+/// (followed by a `%`) that is interpreted as a percentage of the core
+/// memory. The function returns the number of pairs to be used for batches.
+pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
+    const PREF_SYMS: [(&str, u64); 10] = [
+        ("k", 1E3 as u64),
+        ("m", 1E6 as u64),
+        ("g", 1E9 as u64),
+        ("t", 1E12 as u64),
+        ("p", 1E15 as u64),
+        ("ki", 1 << 10),
+        ("mi", 1 << 20),
+        ("gi", 1 << 30),
+        ("ti", 1 << 40),
+        ("pi", 1 << 50),
+    ];
+    let arg = arg.trim().to_ascii_lowercase();
+    ensure!(!arg.is_empty(), "empty string");
+
+    if arg.ends_with('%') {
+        let perc = arg[..arg.len() - 1].parse::<f64>()?;
+        ensure!(perc >= 0.0 || perc <= 100.0, "percentage out of range");
+        let mut system = System::new();
+        system.refresh_memory();
+        let num_pairs: usize = (((system.total_memory() as f64) * (perc / 100.0)
+            / (std::mem::size_of::<(usize, usize)>() as f64))
+            as u64)
+            .try_into()?;
+        // TODO: try_align_to when available
+        return Ok(num_pairs.align_to(1 << 20)); // Round up to MiBs
+    }
+
+    arg.chars().position(|c| c.is_alphabetic()).map_or_else(
+        || Ok(arg.parse::<usize>()?),
+        |pos| {
+            let (num, pref_sym) = arg.split_at(pos);
+            let multiplier = PREF_SYMS
+                .iter()
+                .find(|(x, _)| *x == pref_sym)
+                .map(|(_, m)| m)
+                .ok_or(anyhow!("invalid prefix symbol"))?;
+
+            Ok((num.parse::<u64>()? * multiplier).try_into()?)
+        },
+    )
 }
 
 #[derive(Args, Debug)]
 /// Shared cli arguments for compression
 /// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
 pub struct CompressArgs {
-    /// The endianess of the graph to write
+    /// The endianness of the graph to write
     #[clap(short = 'E', long)]
-    pub endianess: Option<String>,
+    pub endianness: Option<String>,
 
     /// The compression windows
     #[clap(short = 'w', long, default_value_t = 7)]
@@ -115,9 +175,9 @@ pub struct CompressArgs {
     /// The minimum interval length
     #[clap(short = 'l', long, default_value_t = 4)]
     pub min_interval_length: usize,
-    /// The maximum recursion depth for references
+    /// The maximum recursion depth for references (-1 for infinite recursion depth)
     #[clap(short = 'c', long, default_value_t = 3)]
-    pub max_ref_count: usize,
+    pub max_ref_count: isize,
 
     #[arg(value_enum)]
     #[clap(long, default_value = "gamma")]
@@ -150,7 +210,10 @@ impl From<CompressArgs> for CompFlags {
             residuals: value.residuals.into(),
             min_interval_length: value.min_interval_length,
             compression_window: value.compression_window,
-            max_ref_count: value.max_ref_count,
+            max_ref_count: match value.max_ref_count {
+                -1 => usize::MAX,
+                _ => value.max_ref_count as usize,
+            },
         }
     }
 }

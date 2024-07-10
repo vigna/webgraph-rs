@@ -9,7 +9,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::path::PathBuf;
 
@@ -17,7 +17,7 @@ pub const COMMAND_NAME: &str = "optimize-codes";
 
 #[derive(Args, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
 }
@@ -44,10 +44,11 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn optimize_codes<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn optimize_codes<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
+    // TODO!: speed it up by using random access graph if possible
     let graph = BVGraphSeq::with_basename(args.basename)
         .endianness::<E>()
         .load()?

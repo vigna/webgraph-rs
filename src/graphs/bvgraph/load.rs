@@ -5,18 +5,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::codecs::MemoryFlags;
 use super::*;
-use crate::graphs::bvgraph::EmptyDict;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
-use epserde::deser::DeserType;
 use epserde::prelude::*;
-use java_properties;
 use sealed::sealed;
-use std::io::*;
-use std::path::{Path, PathBuf};
+use std::{
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 use sux::traits::IndexedDict;
 
 /// Sequential or random access.
@@ -78,8 +76,8 @@ impl Dispatch for Dynamic {}
 /// The load mode is the way the graph data is accessed. Each load mode has
 /// a corresponding strategy to access the graph and the offsets.
 ///
-/// You can set both modes with [`Load::mode`], or set them separately with
-/// [`Load::graph_mode`] and [`Load::offsets_mode`].
+/// You can set both modes with [`LoadConfig::mode`], or set them separately with
+/// [`LoadConfig::graph_mode`] and [`LoadConfig::offsets_mode`].
 #[sealed]
 pub trait LoadMode: 'static {
     type Factory<E: Endianness>: BitReaderFactory<E>;
@@ -119,32 +117,37 @@ impl LoadMode for File {
         offsets: P,
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        Ok(EF::load_full(offsets)?.into())
+        let path = offsets.as_ref();
+        Ok(EF::load_full(path)
+            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))?
+            .into())
     }
 }
 
 /// The graph and offsets are memory mapped.
 ///
-/// This is the default mode. You can [set memory-mapping flags](Load::flags).
+/// This is the default mode. You can [set memory-mapping flags](LoadConfig::flags).
 #[derive(Debug, Clone)]
 pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
-    type Factory<E: Endianness> = MmapBackend<u32>;
+    type Factory<E: Endianness> = MmapHelper<u32>;
     type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
         flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        MmapBackend::load(graph, flags.into())
+        MmapHelper::mmap(graph, flags.into())
     }
 
     fn load_offsets<P: AsRef<Path>>(
         offsets: P,
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        EF::mmap(offsets, flags.into())
+        let path = offsets.as_ref();
+        EF::mmap(path, flags.into())
+            .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
     }
 }
 
@@ -167,18 +170,20 @@ impl LoadMode for LoadMem {
         offsets: P,
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        EF::load_mem(offsets)
+        let path = offsets.as_ref();
+        EF::load_mem(path)
+            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
     }
 }
 
 /// The graph and offsets are loaded into memory obtained via `mmap()`.
 ///
-/// You can [set memory-mapping flags](Load::flags).
+/// You can [set memory-mapping flags](LoadConfig::flags).
 #[derive(Debug, Clone)]
 pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
-    type Factory<E: Endianness> = MemoryFactory<E, MmapBackend<u32>>;
+    type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
     type Offsets = DeserType<'static, EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
@@ -192,7 +197,9 @@ impl LoadMode for LoadMmap {
         offsets: P,
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
-        EF::load_mmap(offsets, flags.into())
+        let path = offsets.as_ref();
+        EF::load_mmap(path, flags.into())
+            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
     }
 }
 
@@ -355,19 +362,19 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
             CodeRead<E> + BitSeek,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
-        self.basename.set_extension("ef");
+        self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
         Ok(BVGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
-            comp_flags.min_interval_length,
-            comp_flags.compression_window,
             num_nodes,
             num_arcs,
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
@@ -383,17 +390,17 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BVGraphSeq::new(
             DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
-            comp_flags.compression_window,
-            comp_flags.min_interval_length,
             num_nodes,
             Some(num_arcs),
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
@@ -434,19 +441,19 @@ impl<
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
             CodeRead<E> + BitSeek,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
-        self.basename.set_extension("ef");
+        self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
         Ok(BVGraph::new(
             ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,
-            comp_flags.min_interval_length,
-            comp_flags.compression_window,
             num_nodes,
             num_arcs,
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
@@ -492,9 +499,9 @@ impl<
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
     {
-        self.basename.set_extension("properties");
+        self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
-        self.basename.set_extension("graph");
+        self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BVGraphSeq::new(
@@ -503,17 +510,17 @@ impl<
                 MemCase::from(EmptyDict::default()),
                 comp_flags,
             )?,
-            comp_flags.compression_window,
-            comp_flags.min_interval_length,
             num_nodes,
             Some(num_arcs),
+            comp_flags.compression_window,
+            comp_flags.min_interval_length,
         ))
     }
 }
 
 /// Read the .properties file and return the endianness
 pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
-    let path = suffix_path(basename.as_ref(), ".properties");
+    let path = basename.as_ref().with_extension(PROPERTIES_EXTENSION);
     let f = std::fs::File::open(&path)
         .with_context(|| format!("Cannot open property file {}", path.display()))?;
     let map = java_properties::read(BufReader::new(f))

@@ -14,23 +14,24 @@ use dsi_bitstream::prelude::*;
 /// This iterator is faster than scanning the graph. In particular, it can be
 /// used to build the offsets of a graph or to enumerate the graph degrees when
 /// the offsets are not available.
-pub struct OffsetDegIter<D: Decoder> {
+#[derive(Debug, Clone)]
+pub struct OffsetDegIter<D: Decode> {
+    number_of_nodes: usize,
+    compression_window: usize,
+    min_interval_length: usize,
+    node_id: usize,
     decoder: D,
     backrefs: Vec<usize>,
-    node_id: usize,
-    min_interval_length: usize,
-    compression_window: usize,
-    number_of_nodes: usize,
 }
 
-impl<D: Decoder + BitSeek> OffsetDegIter<D> {
+impl<D: Decode + BitSeek> OffsetDegIter<D> {
     /// Get the current bit offset in the bitstream.
     pub fn get_pos(&mut self) -> u64 {
         self.decoder.bit_pos().unwrap()
     }
 }
 
-impl<D: Decoder + BitSeek> Iterator for OffsetDegIter<D> {
+impl<D: Decode + BitSeek> Iterator for OffsetDegIter<D> {
     type Item = (u64, usize);
     fn next(&mut self) -> Option<(u64, usize)> {
         if self.node_id >= self.number_of_nodes {
@@ -41,21 +42,47 @@ impl<D: Decoder + BitSeek> Iterator for OffsetDegIter<D> {
     }
 }
 
-impl<D: Decoder> OffsetDegIter<D> {
-    /// Create a new iterator over the degrees of the graph.
+impl<D: Decode + BitSeek> ExactSizeIterator for OffsetDegIter<D> {
+    fn len(&self) -> usize {
+        self.number_of_nodes - self.node_id
+    }
+}
+
+impl<D: Decode> OffsetDegIter<D> {
+    /// Creates a new iterator over the degrees of the graph.
     pub fn new(
         decoder: D,
-        min_interval_length: usize,
-        compression_window: usize,
         number_of_nodes: usize,
+        compression_window: usize,
+        min_interval_length: usize,
     ) -> Self {
         Self {
-            decoder,
-            backrefs: vec![0; compression_window + 1],
-            node_id: 0,
-            min_interval_length,
-            compression_window,
             number_of_nodes,
+            compression_window,
+            min_interval_length,
+            node_id: 0,
+            decoder,
+            backrefs: vec![0; compression_window],
+        }
+    }
+
+    /// Create a new iterator over the degrees of the graph at a given node
+    pub fn new_from(
+        decoder: D,
+        number_of_nodes: usize,
+        compression_window: usize,
+        min_interval_length: usize,
+        node_id: usize,
+        backrefs: Vec<usize>,
+    ) -> Self {
+        debug_assert_eq!(backrefs.len(), compression_window);
+        Self {
+            number_of_nodes,
+            compression_window,
+            min_interval_length,
+            node_id,
+            decoder,
+            backrefs,
         }
     }
 
@@ -66,7 +93,7 @@ impl<D: Decoder> OffsetDegIter<D> {
     }
 
     /// Convert the decoder to another one.
-    pub fn map_decoder<D2: Decoder, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
+    pub fn map_decoder<D2: Decode, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
         OffsetDegIter {
             decoder: f(self.decoder),
             backrefs: self.backrefs,
@@ -85,7 +112,9 @@ impl<D: Decoder> OffsetDegIter<D> {
         let degree = self.decoder.read_outdegree() as usize;
         // no edges, we are done!
         if degree == 0 {
-            self.backrefs[self.node_id % self.compression_window] = degree;
+            if self.compression_window != 0 {
+                self.backrefs[self.node_id % self.compression_window] = degree;
+            }
             self.node_id += 1;
             return Ok(degree);
         }
@@ -137,7 +166,7 @@ impl<D: Decoder> OffsetDegIter<D> {
             // read the number of intervals
             let number_of_intervals = self.decoder.read_interval_count() as usize;
             if number_of_intervals != 0 {
-                // pre-allocate with capacity for efficency
+                // pre-allocate with capacity for efficiency
                 let _ = self.decoder.read_interval_start();
                 let mut delta = self.decoder.read_interval_len() as usize;
                 delta += self.min_interval_length;
@@ -156,14 +185,15 @@ impl<D: Decoder> OffsetDegIter<D> {
 
         // decode the extra nodes if needed
         if nodes_left_to_decode != 0 {
-            // pre-allocate with capacity for efficency
+            // pre-allocate with capacity for efficiency
             let _ = self.decoder.read_first_residual();
             for _ in 1..nodes_left_to_decode {
                 let _ = self.decoder.read_residual();
             }
         }
-
-        self.backrefs[self.node_id % self.compression_window] = degree;
+        if self.compression_window != 0 {
+            self.backrefs[self.node_id % self.compression_window] = degree;
+        }
         self.node_id += 1;
         Ok(degree)
     }

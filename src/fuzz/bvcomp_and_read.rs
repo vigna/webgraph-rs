@@ -7,6 +7,8 @@
 use crate::prelude::*;
 use arbitrary::Arbitrary;
 use dsi_bitstream::prelude::*;
+use epserde::prelude::*;
+use lender::prelude::*;
 use sux::prelude::*;
 
 #[derive(Clone, Debug, arbitrary::Arbitrary)]
@@ -63,38 +65,41 @@ pub struct FuzzCase {
 pub fn harness(data: FuzzCase) {
     let comp_flags = data.compression_flags.into();
     // convert the edges to a graph
-    let edges = data
+    let mut edges = data
         .edges
         .into_iter()
         .map(|(src, dst)| (src as usize, dst as usize))
         .collect::<Vec<_>>();
-    let graph = VecGraph::from_arc_list(&edges);
+    edges.sort();
+    let graph = Left(VecGraph::from_arc_list(edges));
     // Compress in big endian
-    let mut codes_data_be = Vec::new();
+    let mut codes_data_be: Vec<u64> = Vec::new();
     {
-        let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriter::new(&mut codes_data_be));
-        let codes_writer = <DynamicCodesWriter<BE, _>>::new(bit_writer, &comp_flags);
+        let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriterVec::new(&mut codes_data_be));
+        let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags);
         let mut bvcomp = BVComp::new(
             codes_writer,
             comp_flags.compression_window,
-            comp_flags.min_interval_length,
             comp_flags.max_ref_count,
+            comp_flags.min_interval_length,
+            0,
         );
-        bvcomp.extend(graph.iter_nodes()).unwrap();
+        bvcomp.extend(graph.iter()).unwrap();
         bvcomp.flush().unwrap();
     }
     // Compress in little endian
-    let mut codes_data_le = Vec::new();
+    let mut codes_data_le: Vec<u64> = Vec::new();
     {
-        let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriter::new(&mut codes_data_le));
-        let codes_writer = <DynamicCodesWriter<LE, _>>::new(bit_writer, &comp_flags);
+        let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut codes_data_le));
+        let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags);
         let mut bvcomp = BVComp::new(
             codes_writer,
             comp_flags.compression_window,
-            comp_flags.min_interval_length,
             comp_flags.max_ref_count,
+            comp_flags.min_interval_length,
+            0,
         );
-        bvcomp.extend(graph.iter_nodes()).unwrap();
+        bvcomp.extend(graph.iter()).unwrap();
         bvcomp.flush().unwrap();
     }
     assert_eq!(codes_data_be.len(), codes_data_le.len());
@@ -113,41 +118,49 @@ pub fn harness(data: FuzzCase) {
         )
     };
     // create code reader builders
-    let codes_reader_be =
-        <DynCodesDecoderFactory<BE, _>>::new(data_be, comp_flags.clone()).unwrap();
-    let codes_reader_le =
-        <DynCodesDecoderFactory<LE, _>>::new(data_le, comp_flags.clone()).unwrap();
+    let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
+        MemoryFactory::from_data(data_be),
+        MemCase::from(EmptyDict::default()),
+        comp_flags.clone(),
+    )
+    .unwrap();
+    let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
+        MemoryFactory::from_data(data_le),
+        MemCase::from(EmptyDict::default()),
+        comp_flags.clone(),
+    )
+    .unwrap();
 
     // test sequential graphs and build the offsets
     let mut efb = EliasFanoBuilder::new(
-        (graph.num_nodes() + 1),
-        (data_be.len() * 8 * core::mem::size_of::<u32>()),
+        graph.num_nodes() + 1,
+        (data_be.len() + 1) * 8 * core::mem::size_of::<u32>(),
     );
     let mut offsets = Vec::with_capacity(graph.num_nodes() + 1);
     offsets.push(0);
     efb.push(0).unwrap();
 
     // create seq graphs
-    let seq_graph_be = BVGraphSequential::new(
+    let seq_graph_be = BVGraphSeq::new(
         codes_reader_be,
-        comp_flags.compression_window,
-        comp_flags.min_interval_length,
         graph.num_nodes(),
         Some(graph.num_arcs()),
+        comp_flags.compression_window,
+        comp_flags.min_interval_length,
     );
-    let seq_graph_le = BVGraphSequential::new(
+    let seq_graph_le = BVGraphSeq::new(
         codes_reader_le,
-        comp_flags.compression_window,
-        comp_flags.min_interval_length,
         graph.num_nodes(),
         Some(graph.num_arcs()),
+        comp_flags.compression_window,
+        comp_flags.min_interval_length,
     );
     // create seq iters
-    let mut seq_iter = graph.iter_nodes();
-    let mut seq_iter_be = seq_graph_be.iter_nodes();
-    let mut seq_iter_le = seq_graph_le.iter_nodes();
-    assert_eq!(seq_iter_be.get_pos(), 0);
-    assert_eq!(seq_iter_le.get_pos(), 0);
+    let mut seq_iter = graph.iter();
+    let mut seq_iter_be = seq_graph_be.iter();
+    let mut seq_iter_le = seq_graph_le.iter();
+    assert_eq!(seq_iter_be.bit_pos().unwrap(), 0);
+    assert_eq!(seq_iter_le.bit_pos().unwrap(), 0);
     // verify that they are the same and build the offsets
     for _ in 0..graph.num_nodes() {
         let (node_id, succ) = seq_iter.next().unwrap();
@@ -155,14 +168,29 @@ pub fn harness(data: FuzzCase) {
         let (node_id_le, succ_le) = seq_iter_le.next().unwrap();
         let succ_be = succ_be.collect::<Vec<_>>();
         let succ_le = succ_le.collect::<Vec<_>>();
-        let succ = succ.collect::<Vec<_>>();
+        let succ = succ.into_iter().collect::<Vec<_>>();
         assert_eq!(node_id, node_id_be);
         assert_eq!(node_id_be, node_id_le);
-        assert_eq!(seq_iter_be.get_pos(), seq_iter_le.get_pos());
+        assert_eq!(
+            seq_iter_be.bit_pos().unwrap(),
+            seq_iter_le.bit_pos().unwrap()
+        );
         assert_eq!(succ_be, succ_le);
         assert_eq!(succ, succ_be);
-        offsets.push(seq_iter_be.get_pos());
-        efb.push(seq_iter_be.get_pos() as u64).unwrap();
+        offsets.push(seq_iter_be.bit_pos().unwrap());
+        efb.push(seq_iter_be.bit_pos().unwrap() as usize).unwrap();
+    }
+
+    let mut seq_iter_be = seq_graph_be.offset_deg_iter();
+    let mut seq_iter_le = seq_graph_le.offset_deg_iter();
+    // verify that they are the same and build the offsets
+    for node_id in 0..graph.num_nodes() {
+        let deg = graph.successors(node_id).into_iter().count();
+        let (offset_be, deg_be) = seq_iter_be.next().unwrap();
+        let (offset_le, deg_le) = seq_iter_le.next().unwrap();
+        assert_eq!(deg, deg_be);
+        assert_eq!(deg_be, deg_le);
+        assert_eq!(offset_be, offset_le);
     }
     // build elias-fano
     let ef = efb.build();
@@ -170,31 +198,37 @@ pub fn harness(data: FuzzCase) {
     // verify that elias-fano has the right values
     assert_eq!(IndexedDict::len(&ef), offsets.len());
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(ef.get(i as usize) as usize, *offset);
+        assert_eq!(ef.get(i as usize) as u64, *offset);
     }
 
     // create code reader builders
-    let codes_reader_be =
-        <DynCodesDecoderFactory<BE, _>>::new(data_be, comp_flags.clone()).unwrap();
-    let codes_reader_le =
-        <DynCodesDecoderFactory<LE, _>>::new(data_le, comp_flags.clone()).unwrap();
+    let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
+        MemoryFactory::from_data(data_be),
+        MemCase::from(ef.clone()),
+        comp_flags.clone(),
+    )
+    .unwrap();
+    let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
+        MemoryFactory::from_data(data_le),
+        MemCase::from(ef.clone()),
+        comp_flags.clone(),
+    )
+    .unwrap();
 
     // Create the two bvgraphs
-    let graph_be: BVGraph<_, _> = BVGraph::new(
+    let graph_be: BVGraph<_> = BVGraph::new(
         codes_reader_be,
-        encase_mem(ef.clone()),
-        comp_flags.min_interval_length,
-        comp_flags.compression_window,
         graph.num_nodes(),
         graph.num_arcs(),
+        comp_flags.compression_window,
+        comp_flags.min_interval_length,
     );
-    let graph_le: BVGraph<_, _> = BVGraph::new(
+    let graph_le: BVGraph<_> = BVGraph::new(
         codes_reader_le,
-        encase_mem(ef),
-        comp_flags.min_interval_length,
-        comp_flags.compression_window,
         graph.num_nodes(),
         graph.num_arcs(),
+        comp_flags.compression_window,
+        comp_flags.min_interval_length,
     );
 
     // Compare the three graphs
@@ -208,7 +242,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(graph.outdegree(node_id), graph_be.outdegree(node_id));
         assert_eq!(graph.outdegree(node_id), graph_le.outdegree(node_id));
 
-        let true_successors = graph.successors(node_id).collect::<Vec<_>>();
+        let true_successors = graph.successors(node_id).into_iter().collect::<Vec<_>>();
         let be_successors = graph_be.successors(node_id).collect::<Vec<_>>();
         let le_successors = graph_le.successors(node_id).collect::<Vec<_>>();
 

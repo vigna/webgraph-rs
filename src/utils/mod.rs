@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::{Path, PathBuf};
+//! Miscellaneous utilities.
 
 use rand::Rng;
+use std::path::PathBuf;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
 pub const fn int2nat(x: i64) -> u64 {
@@ -29,8 +30,8 @@ pub const fn nat2int(x: u64) -> i64 {
     ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
 }
 
-/// Create a new random dir inside the given folder
-pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> PathBuf {
+/// Creates a new random dir inside the given folder
+pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     let mut base = base.as_ref().to_owned();
     const ALPHABET: &[u8] = b"0123456789abcdef";
     let mut rnd = rand::thread_rng();
@@ -44,39 +45,63 @@ pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> PathBuf {
         base.push(&random_str);
 
         if !base.exists() {
-            std::fs::create_dir(&base).unwrap();
-            return base;
+            std::fs::create_dir(&base)?;
+            return Ok(base);
         }
         base.pop();
     }
 }
 
-/// Appends a string to a path
-///
-/// ```
-/// # use std::path::{Path, PathBuf};
-/// # use webgraph::utils::suffix_path;
-///
-/// assert_eq!(
-///     suffix_path(Path::new("/tmp/graph"), "-transposed"),
-///     Path::new("/tmp/graph-transposed").to_owned()
-/// );
-/// ```
-#[inline(always)]
-pub fn suffix_path<P: AsRef<Path>, S: AsRef<std::ffi::OsStr>>(path: P, suffix: S) -> PathBuf {
-    let mut path = path.as_ref().as_os_str().to_owned();
-    path.push(suffix);
-    path.into()
-}
-
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 
-mod mmap_backend;
-pub use mmap_backend::*;
+mod mmap_helper;
+pub use mmap_helper::*;
 
-mod perm;
-pub use perm::*;
+mod java_perm;
+pub use java_perm::*;
 
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
+
+/// An enum to specify the number of threads to use in parallel operations,
+/// either by [`rayon::current_num_threads()`], or by a fixed number, or by a
+/// custom [thread pool](rayon::ThreadPool).
+pub enum Threads {
+    Default,
+    Num(usize),
+    Pool(rayon::ThreadPool),
+}
+
+impl Threads {
+    pub fn num_threads(&self) -> usize {
+        match self {
+            Self::Default => rayon::current_num_threads(),
+            Self::Num(num_threads) => *num_threads,
+            Self::Pool(thread_pool) => thread_pool.current_num_threads(),
+        }
+    }
+}
+
+impl AsMut<rayon::ThreadPool> for Threads {
+    fn as_mut(&mut self) -> &mut rayon::ThreadPool {
+        match self {
+            Self::Default => {
+                let thread_pool = rayon::ThreadPoolBuilder::new()
+                    .build()
+                    .expect("Failed to create thread pool");
+                *self = Self::Pool(thread_pool);
+                self.as_mut()
+            }
+            Self::Num(num_threads) => {
+                let thread_pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(*num_threads)
+                    .build()
+                    .expect("Failed to create thread pool");
+                *self = Self::Pool(thread_pool);
+                self.as_mut()
+            }
+            Self::Pool(thread_pool) => thread_pool,
+        }
+    }
+}

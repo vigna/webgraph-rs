@@ -11,10 +11,14 @@ pub mod bvgraph;
 pub use bvgraph::*;
 pub mod permuted_graph;
 
-pub mod vec_graph;
+mod union_graph;
+pub use union_graph::UnionGraph;
 
+pub mod random;
+
+pub mod vec_graph;
 pub mod prelude {
     pub use super::bvgraph::*;
-    pub use super::permuted_graph::*;
-    pub use super::vec_graph::*;
+    pub use super::permuted_graph::PermutedGraph;
+    pub use super::vec_graph::VecGraph;
 }

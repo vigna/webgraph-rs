@@ -8,7 +8,6 @@
 use crate::prelude::*;
 
 use lender::prelude::*;
-use std::iter::Iterator;
 use std::{collections::BTreeSet, mem::MaybeUninit};
 
 #[doc(hidden)]
@@ -63,7 +62,7 @@ impl<L: Clone + 'static> core::default::Default for VecGraph<L> {
 }
 
 impl<L: Clone + 'static> VecGraph<L> {
-    /// Create a new empty graph.
+    /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -71,7 +70,7 @@ impl<L: Clone + 'static> VecGraph<L> {
         }
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
@@ -226,7 +225,7 @@ impl VecGraph<()> {
 }
 
 impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
-    type Lender = <VecGraph<L> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <VecGraph<L> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -236,7 +235,7 @@ impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
 
 impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
     type Label = (usize, L);
-    type Iterator<'a> = IteratorImpl<'a, Self> where Self: 'a;
+    type Lender<'a> = IteratorImpl<'a, Self> where Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -249,7 +248,7 @@ impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         IteratorImpl {
             labeling: self,
             nodes: (from..self.num_nodes()),
@@ -291,7 +290,7 @@ impl<'a, L: Clone + 'static> Iterator for Successors<'a, L> {
     }
 }
 
-unsafe impl<'a, L: Clone + 'static> SortedLabels for Successors<'a, L> {}
+unsafe impl<'a, L: Clone + 'static> SortedIterator for Successors<'a, L> {}
 
 impl<'a, L: Clone + 'static> ExactSizeIterator for Successors<'a, L> {
     #[inline(always)]

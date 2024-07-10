@@ -9,7 +9,7 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
@@ -57,10 +57,9 @@ where
     let seq_graph = BVGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
-    // Create the offsets file
-    let target = suffix_path(&args.basename, ".offsets");
-    let file = std::fs::File::create(&target)
-        .with_context(|| format!("Could not create {}", target.display()))?;
+    let offsets = args.basename.with_extension(OFFSETS_EXTENSION);
+    let file = std::fs::File::create(&offsets)
+        .with_context(|| format!("Could not create {}", offsets.display()))?;
     // create a bit writer on the file
     let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
         BufWriter::with_capacity(1 << 20, file),

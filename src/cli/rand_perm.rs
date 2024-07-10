@@ -18,7 +18,7 @@ pub const COMMAND_NAME: &str = "rand-perm";
 
 #[derive(Args, Debug)]
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     source: PathBuf,
     /// The permutation.
@@ -51,7 +51,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn rand_perm<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn rand_perm<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

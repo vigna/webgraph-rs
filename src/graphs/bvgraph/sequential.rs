@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::utils::nat2int;
-use crate::utils::CircularBufferVec;
+use crate::utils::CircularBuffer;
 use anyhow::Result;
 use bitflags::Flags;
 use dsi_bitstream::traits::BitSeek;
@@ -18,7 +18,8 @@ use lender::*;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
-/// and this allows us to have a single place where to store the mmaped file.
+/// and this allows us to have a single place where to store the mmapped file.
+#[derive(Debug, Clone)]
 pub struct BVGraphSeq<F> {
     factory: F,
     number_of_nodes: usize,
@@ -40,9 +41,21 @@ impl BVGraphSeq<()> {
     }
 }
 
+impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
+where
+    for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
+{
+    type SplitLender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
+    type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::seq::Iter::new(self.iter(), how_many)
+    }
+}
+
 impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     type Label = usize;
-    type Iterator<'a> = Iter<F::Decoder<'a>>
+    type Lender<'a> = Iter<F::Decoder<'a>>
     where
         Self: 'a;
 
@@ -58,12 +71,12 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     }
 
     #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         let mut iter = Iter::new(
             self.factory.new_decoder().unwrap(),
+            self.number_of_nodes,
             self.compression_window,
             self.min_interval_length,
-            self.number_of_nodes,
         );
 
         for _ in 0..from {
@@ -77,7 +90,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
 impl<F: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<F> {}
 
 impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
-    type Lender = <BVGraphSeq<F> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <BVGraphSeq<F> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -86,21 +99,21 @@ impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
 }
 
 impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
-    /// Create a new sequential graph from a codes reader builder
+    /// Creates a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
         codes_reader_builder: F,
-        compression_window: usize,
-        min_interval_length: usize,
         number_of_nodes: usize,
         number_of_arcs: Option<u64>,
+        compression_window: usize,
+        min_interval_length: usize,
     ) -> Self {
         Self {
             factory: codes_reader_builder,
-            compression_window,
-            min_interval_length,
             number_of_nodes,
             number_of_arcs,
+            compression_window,
+            min_interval_length,
         }
     }
 
@@ -128,35 +141,35 @@ impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
 
 impl<F: SequentialDecoderFactory> BVGraphSeq<F>
 where
-    for<'a> F::Decoder<'a>: Decoder,
+    for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
-    /// Create an iterator specialized in the degrees of the nodes.
+    /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
         OffsetDegIter::new(
             self.factory.new_decoder().unwrap(),
-            self.min_interval_length,
-            self.compression_window,
             self.number_of_nodes,
+            self.compression_window,
+            self.min_interval_length,
         )
     }
 }
 
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
-#[derive(Clone)]
-pub struct Iter<D: Decoder> {
-    pub(crate) decoder: D,
-    pub(crate) backrefs: CircularBufferVec,
+#[derive(Debug, Clone)]
+pub struct Iter<D: Decode> {
+    pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,
     pub(crate) min_interval_length: usize,
-    pub(crate) number_of_nodes: usize,
+    pub(crate) decoder: D,
+    pub(crate) backrefs: CircularBuffer<Vec<usize>>,
     pub(crate) current_node: usize,
 }
 
-impl<D: Decoder + BitSeek> Iter<D> {
+impl<D: Decode + BitSeek> Iter<D> {
     #[inline(always)]
     /// Forward the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
@@ -165,20 +178,20 @@ impl<D: Decoder + BitSeek> Iter<D> {
     }
 }
 
-impl<D: Decoder> Iter<D> {
-    /// Create a new iterator from a codes reader
+impl<D: Decode> Iter<D> {
+    /// Creates a new iterator from a codes reader
     pub fn new(
         decoder: D,
+        number_of_nodes: usize,
         compression_window: usize,
         min_interval_length: usize,
-        number_of_nodes: usize,
     ) -> Self {
         Self {
-            decoder,
-            backrefs: CircularBufferVec::new(compression_window + 1),
+            number_of_nodes,
             compression_window,
             min_interval_length,
-            number_of_nodes,
+            decoder,
+            backrefs: CircularBuffer::new(compression_window + 1),
             current_node: 0,
         }
     }
@@ -186,8 +199,9 @@ impl<D: Decoder> Iter<D> {
     /// Get the successors of the next node in the stream
     pub fn next_successors(&mut self) -> Result<&[usize]> {
         let mut res = self.backrefs.take(self.current_node);
+        res.clear();
         self.get_successors_iter_priv(self.current_node, &mut res)?;
-        let res = self.backrefs.push(self.current_node, res);
+        let res = self.backrefs.replace(self.current_node, res);
         self.current_node += 1;
         Ok(res)
     }
@@ -248,7 +262,7 @@ impl<D: Decoder> Iter<D> {
             // read the number of intervals
             let number_of_intervals = self.decoder.read_interval_count() as usize;
             if number_of_intervals != 0 {
-                // pre-allocate with capacity for efficency
+                // pre-allocate with capacity for efficiency
                 let node_id_offset = nat2int(self.decoder.read_interval_start());
                 let mut start = (node_id as i64 + node_id_offset) as usize;
                 let mut delta = self.decoder.read_interval_len() as usize;
@@ -272,7 +286,7 @@ impl<D: Decoder> Iter<D> {
         // decode the extra nodes if needed
         let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
-            // pre-allocate with capacity for efficency
+            // pre-allocate with capacity for efficiency
             let node_id_offset = nat2int(self.decoder.read_first_residual());
             let mut extra = (node_id as i64 + node_id_offset) as usize;
             results.push(extra);
@@ -288,34 +302,35 @@ impl<D: Decoder> Iter<D> {
     }
 }
 
-impl<'succ, D: Decoder> NodeLabelsLender<'succ> for Iter<D> {
+impl<'succ, D: Decode> NodeLabelsLender<'succ> for Iter<D> {
     type Label = usize;
     type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Label>>;
 }
 
-impl<'succ, D: Decoder> Lending<'succ> for Iter<D> {
+impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<D: Decoder> Lender for Iter<D> {
+impl<D: Decode> Lender for Iter<D> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes as _ {
             return None;
         }
         let mut res = self.backrefs.take(self.current_node);
+        res.clear();
         self.get_successors_iter_priv(self.current_node, &mut res)
             .unwrap();
 
-        let res = self.backrefs.push(self.current_node, res);
+        let res = self.backrefs.replace(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
         Some((node_id, res.iter().copied()))
     }
 }
 
-unsafe impl<D: Decoder> SortedIterator for Iter<D> {}
+unsafe impl<D: Decode> SortedLender for Iter<D> {}
 
-impl<D: Decoder> ExactSizeLender for Iter<D> {
+impl<D: Decode> ExactSizeLender for Iter<D> {
     fn len(&self) -> usize {
         self.number_of_nodes - self.current_node
     }

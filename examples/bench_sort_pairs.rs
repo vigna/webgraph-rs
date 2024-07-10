@@ -12,12 +12,13 @@ use clap::Parser;
 use dsi_bitstream::traits::BitRead;
 use dsi_bitstream::traits::BitWrite;
 use dsi_bitstream::traits::Endianness;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::{ProgressLog, ProgressLogger};
 use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;
 use tempfile::Builder;
 use webgraph::prelude::*;
+
 #[derive(Parser, Debug)]
 #[command(about = "Tests the merge speed of SortPairs", long_about = None)]
 struct Args {
@@ -50,14 +51,13 @@ impl<E: Endianness, W: BitRead<E>> BitDeserializer<E, W> for Mock {
     }
 }
 
+#[allow(dead_code)] // I have no idea why this happens https://github.com/rust-lang/rust/issues/12327
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
 
     let dir = Builder::new().prefix("bench_sort_pairs").tempdir()?;
 
@@ -83,7 +83,6 @@ pub fn main() -> Result<()> {
             pl.light_update();
         }
         pl.done();
-        return Ok(());
     } else {
         let mut sp = SortPairs::new(args.batch, dir.path())?;
 

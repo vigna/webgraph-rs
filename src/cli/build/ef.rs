@@ -9,7 +9,7 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
 use std::fs::File;
@@ -56,11 +56,12 @@ pub fn build_eliasfano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
+    let basename = args.basename;
     if let Some(num_nodes) = args.n {
         // Horribly temporary duplicated code for the case of label offsets.
-        let of_file_path = suffix_path(&args.basename, ".labeloffsets");
+        let of_file_path = basename.with_extension(LABELOFFSETS_EXTENSION);
         if of_file_path.exists() {
-            let labels_path = suffix_path(&args.basename, ".labels");
+            let labels_path = basename.with_extension(LABELS_EXTENSION);
             let mut file = File::open(&labels_path)
                 .with_context(|| format!("Could not open {}", labels_path.display()))?;
             let file_len = 8 * file
@@ -104,7 +105,7 @@ where
             pl.display_memory(true);
             pl.start("Writing to disk...");
             // serialize and dump the schema to disk
-            let ef_path = suffix_path(&args.basename, ".ef");
+            let ef_path = basename.with_extension(EF_EXTENSION);
             let mut ef_file = BufWriter::new(
                 File::create(&ef_path)
                     .with_context(|| format!("Could not create {}", ef_path.display()))?,
@@ -116,7 +117,7 @@ where
         }
     }
 
-    let properties_path = suffix_path(&args.basename, ".properties");
+    let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
             "Could not open properties file: {}",
@@ -126,7 +127,7 @@ where
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
-    let graph_path = suffix_path(&args.basename, ".graph");
+    let graph_path = basename.with_extension(GRAPH_EXTENSION);
     let mut file = File::open(&graph_path)
         .with_context(|| format!("Could not open {}", graph_path.display()))?;
     let file_len = 8 * file
@@ -135,14 +136,14 @@ where
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
 
-    let ef_path = suffix_path(&args.basename, ".ef");
+    let ef_path = basename.with_extension(EF_EXTENSION);
     let mut ef_file = BufWriter::new(
         File::create(&ef_path)
             .with_context(|| format!("Could not create {}", ef_path.display()))?,
     );
 
     // Create the offsets file
-    let of_file_path = suffix_path(&args.basename, ".offsets");
+    let of_file_path = basename.with_extension(OFFSETS_EXTENSION);
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
@@ -172,11 +173,10 @@ where
         }
     } else {
         info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-        let seq_graph =
-            crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
-                .endianness::<E>()
-                .load()
-                .with_context(|| format!("Could not load graph at {}", args.basename.display()))?;
+        let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&basename)
+            .endianness::<E>()
+            .load()
+            .with_context(|| format!("Could not load graph at {}", basename.display()))?;
         // otherwise directly read the graph
         // progress bar
         pl.start("Building EliasFano...");

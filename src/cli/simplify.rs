@@ -5,18 +5,19 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::utils::*;
+use super::{append, utils::*};
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use std::path::PathBuf;
+use tempfile::Builder;
 
 pub const COMMAND_NAME: &str = "simplify";
 
 #[derive(Args, Debug)]
 #[command(about = "Simplify a BVGraph, i.e. make it undirected and remove duplicates and selfloops", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     basename: PathBuf,
     /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
@@ -54,29 +55,31 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn simplify<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn simplify<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
+    // TODO!: speed it up by using random access graph if possible
     let simplified = args
         .simplified
-        .unwrap_or_else(|| suffix_path(&args.basename, ".simple"));
+        .unwrap_or_else(|| append(&args.basename, "-simple"));
 
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
 
     // transpose the graph
-    let sorted = crate::algo::simplify(&seq_graph, args.pa.batch_size).unwrap();
+    let sorted = crate::transform::simplify(&seq_graph, args.pa.batch_size).unwrap();
 
-    let target_endianness = args.ca.endianess.clone();
+    let target_endianness = args.ca.endianness.clone();
+    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
     BVComp::parallel_endianness(
         simplified,
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
-        args.num_cpus.num_cpus,
-        temp_dir(args.pa.temp_dir),
+        Threads::Num(args.num_cpus.num_cpus),
+        dir,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;
 

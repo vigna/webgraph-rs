@@ -8,7 +8,7 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use log::info;
 use std::fs::File;
 use std::io::BufWriter;
@@ -37,7 +37,7 @@ macro_rules! impl_convert {
             <$dst>::NAME
         );
 
-        let properties_path = suffix_path(&$args.src_basename, ".properties");
+        let properties_path = $args.src_basename.with_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<$src>(&properties_path)?;
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)
@@ -59,7 +59,7 @@ macro_rules! impl_convert {
                 properties_path.display()
             )
         })?;
-        let target_graph_path = suffix_path(&$args.dst_basename, ".graph");
+        let target_graph_path = $args.dst_basename.with_extension(GRAPH_EXTENSION);
         let writer = <BufBitWriter<$dst, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
             File::create(&target_graph_path)
                 .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
@@ -106,12 +106,12 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 }
 
 /// A decoder that encodes the read values using the given encoder.
-pub struct Converter<D: Decoder, E: Encoder> {
+pub struct Converter<D: Decode, E: Encode> {
     decoder: D,
     encoder: E,
 }
 
-impl<D: Decoder, E: Encoder> Decoder for Converter<D, E> {
+impl<D: Decode, E: Encode> Decode for Converter<D, E> {
     // TODO: implement correctly start_node/end_node
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {

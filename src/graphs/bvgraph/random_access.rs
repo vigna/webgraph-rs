@@ -6,29 +6,22 @@
  */
 
 use crate::prelude::*;
-use crate::utils::nat2int;
 use bitflags::Flags;
 use dsi_bitstream::traits::BE;
 use lender::IntoLender;
-use std::iter::Iterator;
 use std::path::PathBuf;
 
 use self::sequential::Iter;
 
 /// BVGraph is an highly compressed graph format that can be traversed
 /// sequentially or randomly without having to decode the whole graph.
+#[derive(Debug, Clone)]
 pub struct BVGraph<F> {
-    /// Backend that can create objects that allows us to read the bitstream of
-    /// the graph to decode the edges.
     factory: F,
-    /// The minimum size of the intervals we are going to decode.
-    min_interval_length: usize,
-    /// The maximum distance between two nodes that reference each other.
-    compression_window: usize,
-    /// The number of nodes in the graph.
     number_of_nodes: usize,
-    /// The number of arcs in the graph.
     number_of_arcs: u64,
+    compression_window: usize,
+    min_interval_length: usize,
 }
 
 impl BVGraph<()> {
@@ -44,38 +37,50 @@ impl BVGraph<()> {
     }
 }
 
+impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
+where
+    for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
+{
+    type SplitLender<'a> = split::ra::Lender<'a, BVGraph<F>> where Self: 'a;
+    type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
+    }
+}
+
 impl<F> BVGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    /// Create a new BVGraph from the given parameters.
+    /// Creates a new BVGraph from the given parameters.
     ///
     /// # Arguments
     /// - `reader_factory`: backend that can create objects that allows
-    /// us to read the bitstream of the graph to decode the edges.
+    ///   us to read the bitstream of the graph to decode the edges.
     /// - `offsets`: the bit offset at which we will have to start for decoding
-    /// the edges of each node. (This is needed for the random accesses,
-    /// [`BVGraphSequential`] does not need them)
+    ///   the edges of each node. (This is needed for the random accesses,
+    ///   [`BVGraphSeq`] does not need them)
     /// - `min_interval_length`: the minimum size of the intervals we are going
-    /// to decode.
+    ///   to decode.
     /// - `compression_window`: the maximum distance between two nodes that
-    /// reference each other.
+    ///   reference each other.
     /// - `number_of_nodes`: the number of nodes in the graph.
     /// - `number_of_arcs`: the number of arcs in the graph.
     ///
     pub fn new(
         factory: F,
-        min_interval_length: usize,
-        compression_window: usize,
         number_of_nodes: usize,
         number_of_arcs: u64,
+        compression_window: usize,
+        min_interval_length: usize,
     ) -> Self {
         Self {
             factory,
-            min_interval_length,
-            compression_window,
             number_of_nodes,
             number_of_arcs,
+            compression_window,
+            min_interval_length,
         }
     }
 
@@ -91,7 +96,7 @@ where
     F: RandomAccessDecoderFactory,
 {
     type Label = usize;
-    type Iterator<'b> = Iter<F::Decoder<'b>>
+    type Lender<'b> = Iter<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -107,13 +112,13 @@ where
     }
 
     /// Return a fast sequential iterator over the nodes of the graph and their successors.
-    fn iter_from(&self, start_node: usize) -> Self::Iterator<'_> {
+    fn iter_from(&self, start_node: usize) -> Self::Lender<'_> {
         let codes_reader = self.factory.new_decoder(start_node).unwrap();
         // we have to pre-fill the buffer
-        let mut backrefs = CircularBufferVec::new(self.compression_window + 1);
+        let mut backrefs = CircularBuffer::new(self.compression_window + 1);
 
         for node_id in start_node.saturating_sub(self.compression_window)..start_node {
-            backrefs.push(node_id, self.successors(node_id).collect());
+            backrefs.replace(node_id, self.successors(node_id).collect());
         }
 
         Iter {
@@ -204,7 +209,7 @@ where
             // read the number of intervals
             let number_of_intervals = result.reader.read_interval_count() as usize;
             if number_of_intervals != 0 {
-                // pre-allocate with capacity for efficency
+                // pre-allocate with capacity for efficiency
                 result.intervals = Vec::with_capacity(number_of_intervals + 1);
                 let node_id_offset = nat2int(result.reader.read_interval_start());
 
@@ -260,11 +265,47 @@ where
     }
 }
 
+impl<F: RandomAccessDecoderFactory> BVGraph<F>
+where
+    for<'a> F::Decoder<'a>: Decode,
+{
+    #[inline(always)]
+    /// Creates an iterator specialized in the degrees of the nodes.
+    /// This is slightly faster because it can avoid decoding some of the nodes
+    /// and completely skip the merging step.
+    pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
+        OffsetDegIter::new(
+            self.factory.new_decoder(0).unwrap(),
+            self.number_of_nodes,
+            self.compression_window,
+            self.min_interval_length,
+        )
+    }
+
+    #[inline(always)]
+    /// Creates an iterator specialized in the degrees of the nodes starting
+    /// from a given node.
+    pub fn offset_deg_iter_from(&self, node: usize) -> OffsetDegIter<F::Decoder<'_>> {
+        let mut backrefs = vec![0; self.compression_window];
+        for node_id in node.saturating_sub(self.compression_window)..node {
+            backrefs[node_id % self.compression_window] = self.outdegree(node_id);
+        }
+        OffsetDegIter::new_from(
+            self.factory.new_decoder(node).unwrap(),
+            self.number_of_nodes,
+            self.compression_window,
+            self.min_interval_length,
+            node,
+            backrefs,
+        )
+    }
+}
 impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
 
-/// The iterator returend from [`BVGraph`] that returns the successors of a
+/// The iterator returned from [`BVGraph`] that returns the successors of a
 /// node in sorted order.
-pub struct Succ<D: Decoder> {
+#[derive(Debug, Clone)]
+pub struct Succ<D: Decode> {
     reader: D,
     /// The number of values left
     size: usize,
@@ -286,17 +327,17 @@ pub struct Succ<D: Decoder> {
     next_interval_node: usize,
 }
 
-impl<D: Decoder> ExactSizeIterator for Succ<D> {
+impl<D: Decode> ExactSizeIterator for Succ<D> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-unsafe impl<D: Decoder> SortedLabels for Succ<D> {}
+unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
-impl<D: Decoder> Succ<D> {
-    /// Create an empty iterator
+impl<D: Decode> Succ<D> {
+    /// Creates an empty iterator
     fn new(reader: D) -> Self {
         Self {
             reader,
@@ -312,7 +353,7 @@ impl<D: Decoder> Succ<D> {
     }
 }
 
-impl<D: Decoder> Iterator for Succ<D> {
+impl<D: Decode> Iterator for Succ<D> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -367,7 +408,7 @@ impl<D: Decoder> Iterator for Succ<D> {
 }
 
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BVGraph<F> {
-    type Lender = <BVGraph<F> as SequentialLabeling>::Iterator<'a>;
+    type Lender = <BVGraph<F> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

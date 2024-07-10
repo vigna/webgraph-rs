@@ -13,198 +13,275 @@ in random-access fashion.
 
 A *labeling* is the basic storage unit for graph data. It associates to
 each node of a graph a list of labels. In the [sequential case](SequentialLabeling),
-one can obtain a [lender](lender::Lender) that lends pairs given by a node
+one can obtain a [lender](SequentialLabeling::iter) that lends pairs given by a node
 and an iterator on the associated labels. In the [random-access case](RandomAccessLabeling),
-instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::successors).
-Labelings can be [zipped together](crate::label::Zip), obtaining a
+instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::labels).
+Labelings can be [zipped together](crate::labels::Zip), obtaining a
 new labeling whose labels are pairs.
 
 The number of nodes *n* of the graph is returned by [`SequentialLabeling::num_nodes`],
 and nodes identifier are in the interval [0 . . *n*).
 
-
-
 */
+
+use super::NodeLabelsLender;
 
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-
-/// Iteration on nodes and associated labels.
-///
-/// This trait is a [`Lender`] returning pairs given by a `usize` (a node of the
-/// graph) and an [`IntoIterator`], specified by the associated type [`IntoIterator`],
-/// over the labels associated with that node,
-/// specified by the associated type [`Label`] (which is forced to be identical
-/// to the associated type `Item` of the [`IntoIterator`]).
-///
-/// For those types we provide convenience type aliases [`LenderIntoIterator`],
-/// [`LenderIntoIter`], and [`LenderLabel`].
-///
-/// ## Propagation of implicit bounds
-///
-/// The definition of this trait emerged from a [discussion on the Rust language
-/// forum](https://users.rust-lang.org/t/more-help-for-more-complex-lifetime-situation/103821/10).
-/// The purpose of the trait is to propagate the implicit
-/// bound appearing in the definition [`Lender`] to the iterator returned
-/// by the associated type [`IntoIterator`]. In this way, one can return iterators
-/// depending on the internal state of the labeling. Without this additional trait, it
-/// would be possible to return iterators whose state depends on the state of
-/// the lender, but not on the state of the labeling.
-pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
-    Lender + Lending<'lend, __ImplBound, Lend = (usize, Self::IntoIterator)>
-{
-    type Label;
-    type IntoIterator: IntoIterator<Item = Self::Label>;
-}
-
-/// Convenience type alias for the associated type `Label` of a [`NodeLabelsLender`].
-pub type LenderLabel<'lend, L> = <L as NodeLabelsLender<'lend>>::Label;
-
-/// Convenience type alias for the associated type `IntoIterator` of a [`NodeLabelsLender`].
-pub type LenderIntoIterator<'lend, L> = <L as NodeLabelsLender<'lend>>::IntoIterator;
-
-/// Convenience type alias for the [`Iterator`] returned by the `IntoIterator`
-/// associated type of a [`NodeLabelsLender`].
-pub type LenderIntoIter<'lend, L> =
-    <<L as NodeLabelsLender<'lend>>::IntoIterator as IntoIterator>::IntoIter;
+use sux::traits::Succ;
 
 /// A labeling that can be accessed sequentially.
 ///
-/// Note that there is no guarantee that the iterator will return nodes in
-/// ascending order, or that the labels of the successors will be returned
-/// in any specified order.
+/// The iterator returned by [iter](SequentialLabeling::iter) is a
+/// [lender](NodeLabelsLender): to access the next pair, you must have finished
+/// to use the previous one. You can invoke [`Lender::copied`] to get a standard
+/// iterator, at the cost of some allocation and copying.
 ///
-/// The marker traits [`SortedIterator`] and [`SortedLabels`] can be used to
-/// force these properties.
+/// Note that there is no guarantee that the lender will return nodes in
+/// ascending order, or that the iterators on labels will return them in any
+/// specified order.
 ///
-/// The iterator returned by [iter](SequentialLabeling::iter) is a [lender](Lender):
-/// to access the next pair, you must have finished to use the previous one. You
-/// can invoke [`Lender::into_iter`] to get a standard iterator, in general
-
-/// at the cost of some allocation and copying.
+/// The marker traits [`SortedLender`] and [`SortedIterator`] can be used to
+/// force these properties. Note that [`SortedIterator`] implies that successors
+/// are returned in ascending order, and labels are returned in the same order.
+///
+/// This trait provides two default methods,
+/// [`par_apply`](SequentialLabeling::par_apply) and
+/// [`par_node_apply`](SequentialLabeling::par_node_apply), that make it easy to
+/// process in parallel the nodes of the labeling.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
 pub trait SequentialLabeling {
     type Label;
-    /// The type of the iterator over the successors of a node
-    /// returned by [the iterator on the graph](SequentialGraph::Iterator).
-    type Iterator<'node>: for<'all> NodeLabelsLender<'all, Label = Self::Label>
+    /// The type of [`Lender`] over the successors of a node
+    /// returned by [`iter`](SequentialLabeling::iter).
+    type Lender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label>
     where
         Self: 'node;
 
-    /// Return the number of nodes in the graph.
+    /// Returns the number of nodes in the graph.
     fn num_nodes(&self) -> usize;
 
-    /// Return the number of arcs in the graph, if available.
+    /// Returns the number of arcs in the graph, if available.
     fn num_arcs_hint(&self) -> Option<u64> {
         None
     }
 
-    /// Return an iterator over the graph.
+    /// Returns an iterator over the labeling.
     ///
-    /// Iterators over the graph return pairs given by a node of the graph
-    /// and an [IntoIterator] over its successors.
-    fn iter(&self) -> Self::Iterator<'_> {
+    /// Iterators over the labeling return pairs given by a node of the graph
+    /// and an [`IntoIterator`] over the labels.
+    fn iter(&self) -> Self::Lender<'_> {
         self.iter_from(0)
     }
 
-    /// Return an iterator over the nodes of the graph starting at `from`
-    /// (included).
+    /// Returns an iterator over the labeling starting at `from` (included).
     ///
-    /// Note that if the graph iterator [is not sorted](SortedIterator),
-    /// `from` is not the node id of the first node returned by the iterator,
-    /// but just the starting point of the iteration.
-    fn iter_from(&self, from: usize) -> Self::Iterator<'_>;
+    /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
+    /// the node id of the first node returned by the iterator, but just the
+    /// starting point of the iteration
+    fn iter_from(&self, from: usize) -> Self::Lender<'_>;
 
-    /// Given a labeling, apply `func` to each chunk of nodes of size `granularity`
-    /// in parallel, and reduce the results using `reduce`.
-    fn par_apply<F, R, T>(
+    /// Applies `func` to each chunk of nodes of size `node_granularity` in
+    /// parallel, and folds the results using `fold`.
+    ///
+    /// # Arguments
+    ///
+    /// * `func` - The function to apply to each chunk of nodes.
+    /// * `fold` - The function to fold the results obtained from each chunk. It
+    ///    will be passed to the [`Iterator::fold`].
+    /// * `node_granularity` - The number of nodes to process in each chunk.
+    /// * `thread_pool` - The thread pool to use. The maximum level of
+    ///   parallelism is given by the number of threads in the pool.
+    /// * `pl` - An optional mutable reference to a progress logger.
+
+    fn par_node_apply<F, R, T, A>(
         &self,
         func: F,
-        reduce: R,
+        fold: R,
+        node_granularity: usize,
         thread_pool: &rayon::ThreadPool,
-        granularity: usize,
         pl: Option<&mut ProgressLogger>,
-    ) -> T
+    ) -> A
     where
         F: Fn(Range<usize>) -> T + Send + Sync,
-        R: Fn(T, T) -> T + Send + Sync,
-        T: Send + Default,
+        R: Fn(A, T) -> A + Send + Sync,
+        T: Send,
+        A: Default + Send,
     {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
-        let num_cpus = thread_pool
+        let num_scoped_threads = thread_pool
             .current_num_threads()
-            .min(num_nodes / granularity)
+            .min(num_nodes / node_granularity)
             .max(1);
+
         let next_node = AtomicUsize::new(0);
 
-        thread_pool.scope(|scope| {
-            let mut res = Vec::with_capacity(num_cpus);
-            for _ in 0..num_cpus {
-                // create a channel to receive the result
-                let (tx, rx) = std::sync::mpsc::channel();
-                res.push(rx);
-
+        // create a channel to receive the result
+        let (tx, rx) = std::sync::mpsc::channel();
+        thread_pool.in_place_scope(|scope| {
+            for _ in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
-                let pl_lock_ref = &pl_lock;
-                let next_node_ref = &next_node;
-                let func_ref = &func;
-                let reduce_ref = &reduce;
+                let pl_lock = &pl_lock;
+                let next_node = &next_node;
+                let func = &func;
+                let tx = tx.clone();
 
                 scope.spawn(move |_| {
-                    let mut result = T::default();
                     loop {
                         // compute the next chunk of nodes to process
-                        let start_pos = next_node_ref.fetch_add(granularity, Ordering::Relaxed);
-                        let end_pos = (start_pos + granularity).min(num_nodes);
+                        let start_pos = next_node.fetch_add(node_granularity, Ordering::Relaxed);
+                        let end_pos = (start_pos + node_granularity).min(num_nodes);
                         // exit if done
                         if start_pos >= num_nodes {
                             break;
                         }
-                        // apply the function and reduce the result
-                        result = reduce_ref(result, func_ref(start_pos..end_pos));
+                        // apply the function and send the result
+                        tx.send(func(start_pos..end_pos)).unwrap();
+
                         // update the progress logger if specified
-                        if let Some(pl_lock) = pl_lock_ref {
+                        if let Some(pl_lock) = pl_lock {
                             pl_lock
                                 .lock()
                                 .unwrap()
                                 .update_with_count((start_pos..end_pos).len());
                         }
                     }
-                    // comunicate back that the thread finished
-                    tx.send(result).unwrap();
                 });
             }
-            // reduce the results
-            let mut result = T::default();
-            for rx in res {
-                result = reduce(result, rx.recv().unwrap());
+            drop(tx);
+
+            rx.iter().fold(A::default(), fold)
+        })
+    }
+
+    /// Applies `func` to each chunk of nodes containing approximately
+    /// `arc_granularity` arcs in parallel, and folds the results using `fold`.
+    /// You have to provide the degree cumulative function of the graph (i.e.,
+    /// the sequence 0, *d*₀, *d*₀ + *d*₁, ..., *a*, where *a* is the number of
+    /// arcs in the graph) in a form that makes it possible to compute
+    /// successors (for example, using the suitable `webgraph build` command).
+    ///
+    /// # Arguments
+    ///
+    /// * `func` - The function to apply to each chunk of nodes.
+    /// * `fold` - The function to fold the results obtained from each chunk.
+    ///   It will be passed to the [`Iterator::fold`].
+    /// * `arc_granularity` - The tentative number of arcs to process in each
+    ///   chunk.
+    /// * `deg_cumul_func` - The degree cumulative function of the graph.
+    /// * `thread_pool` - The thread pool to use. The maximum level of
+    ///   parallelism is given by the number of threads in the pool.
+    /// * `pl` - An optional mutable reference to a progress logger.
+
+    fn par_apply<F, R, T, A>(
+        &self,
+        func: F,
+        fold: R,
+        arc_granularity: usize,
+        deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+        thread_pool: &rayon::ThreadPool,
+        pl: Option<&mut ProgressLogger>,
+    ) -> A
+    where
+        F: Fn(Range<usize>) -> T + Send + Sync,
+        R: Fn(A, T) -> A + Send + Sync,
+        T: Send,
+        A: Default + Send,
+    {
+        let pl_lock = pl.map(std::sync::Mutex::new);
+        let num_nodes = self.num_nodes();
+        let num_arcs = self.num_arcs_hint().unwrap();
+        let num_scoped_threads = thread_pool
+            .current_num_threads()
+            .min((num_arcs / arc_granularity as u64) as usize)
+            .max(1);
+        let next_node_next_arc = std::sync::Mutex::new((0, 0));
+        let num_arcs = deg_cumul.get(num_nodes);
+        if let Some(num_arcs_hint) = self.num_arcs_hint() {
+            assert_eq!(num_arcs_hint, num_arcs as u64);
+        }
+
+        thread_pool.in_place_scope(|scope| {
+            // create a channel to receive the result
+            let (tx, rx) = std::sync::mpsc::channel();
+
+            for _ in 0..num_scoped_threads {
+                // create some references so that we can share them across threads
+                let pl_lock = &pl_lock;
+                let next_node_next_arc = &next_node_next_arc;
+                let func = &func;
+                let tx = tx.clone();
+
+                scope.spawn(move |_| {
+                    loop {
+                        let (start_pos, end_pos);
+                        {
+                            let mut next_node_next_arc = next_node_next_arc.lock().unwrap();
+                            let (mut next_node, mut next_arc) = *next_node_next_arc;
+
+                            if next_node >= num_nodes {
+                                break;
+                            }
+
+                            start_pos = next_node;
+                            let target = next_arc + arc_granularity;
+                            if target >= num_arcs {
+                                next_node = num_nodes;
+                            } else {
+                                (next_node, next_arc) = deg_cumul.succ(&target).unwrap();
+                            }
+                            end_pos = next_node;
+                            *next_node_next_arc = (next_node, next_arc);
+                        }
+
+                        // apply the function and send the result
+                        tx.send(func(start_pos..end_pos)).unwrap();
+
+                        // update the progress logger if specified
+                        if let Some(pl_lock) = pl_lock {
+                            pl_lock
+                                .lock()
+                                .unwrap()
+                                .update_with_count((start_pos..end_pos).len());
+                        }
+                    }
+                });
             }
-            result
+            drop(tx);
+
+            rx.iter().fold(A::default(), fold)
         })
     }
 }
 
-/// Marker trait for lenders returned by [`SequentialLabeling::iter`]
-/// yielding node ids in ascending order.
-///
-/// # Safety
-/// The first element of the pairs returned by the iterator must go from
-/// zero to the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
-pub unsafe trait SortedIterator: Lender {}
+/// Convenience type alias for the iterator over the labels of a node
+/// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
+pub type Labels<'succ, 'node, S> =
+    <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
-/// Marker trait for [`IntoIterator`]s yielding labels in the
-/// order induced by enumerating the successors in ascending order.
+/// Marker trait for lenders returned by [`SequentialLabeling::iter`] yielding
+/// node ids in ascending order.
 ///
 /// # Safety
-/// The labels returned by the iterator must be in the order in which
-/// they would be if successors were returned in ascending order.
-pub unsafe trait SortedLabels: IntoIterator {}
+///
+/// The first element of the pairs returned by the iterator must go from zero to
+/// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
+pub unsafe trait SortedLender: Lender {}
+
+/// Marker trait for [`Iterator`]s yielding labels in the order induced by
+/// enumerating the successors in ascending order.
+///
+/// # Safety
+///
+/// The labels returned by the iterator must be in the order in which they would
+/// be if successors were returned in ascending order.
+pub unsafe trait SortedIterator: Iterator {}
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.
@@ -216,13 +293,13 @@ pub trait RandomAccessLabeling: SequentialLabeling {
     where
         Self: 'succ;
 
-    /// Return the number of arcs in the graph.
+    /// Returns the number of arcs in the graph.
     fn num_arcs(&self) -> u64;
 
-    /// Return the labels associated with a node.
+    /// Returns the labels associated with a node.
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_>;
 
-    /// Return the number of labels associated with a node.
+    /// Returns the number of labels associated with a node.
     fn outdegree(&self, node_id: usize) -> usize;
 }
 
@@ -236,8 +313,7 @@ pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
     pub nodes: core::ops::Range<usize>,
 }
 
-/// We iter on the node ids in a range so it is sorted
-unsafe impl<'a, G: RandomAccessLabeling> SortedIterator for IteratorImpl<'a, G> {}
+unsafe impl<'a, G: RandomAccessLabeling> SortedLender for IteratorImpl<'a, G> {}
 
 impl<'node, 'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'node, G> {
     type Label = G::Label;

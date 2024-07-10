@@ -10,6 +10,7 @@ use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 pub enum Code {
     Unary,
     Gamma,
@@ -169,7 +170,7 @@ impl CompFlags {
     }
 
     /// Convert the decoded `.properties` file into a `CompFlags` struct.
-    /// Also check that the endiannes is correct.
+    /// Also check that the endianness is correct.
     pub fn from_properties<E: Endianness>(map: &HashMap<String, String>) -> Result<Self> {
         // Default values, same as the Java class
         let endianness = map
@@ -222,7 +223,7 @@ impl CompFlags {
                 }
             }
         }
-        if let Some(compression_window) = map.get("compressionwindow") {
+        if let Some(compression_window) = map.get("windowsize") {
             cf.compression_window = compression_window.parse()?;
         }
         if let Some(min_interval_length) = map.get("minintervallength") {

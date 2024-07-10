@@ -8,12 +8,12 @@
 
 use crate::prelude::*;
 use anyhow::Result;
-use bitvec::*;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
+use sux::prelude::BitVec;
 
 pub const COMMAND_NAME: &str = "bf-visit";
 
@@ -80,7 +80,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     let num_nodes = graph.num_nodes();
-    let mut visited = bitvec![0; num_nodes];
+    let mut seen = BitVec::new(num_nodes);
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default();
@@ -91,19 +91,19 @@ fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     pl.start("Visiting graph...");
 
     for start in 0..num_nodes {
-        if visited[start] {
+        if seen[start] {
             continue;
         }
         queue.push_back(start as _);
-        visited.set(start, true);
+        seen.set(start, true);
 
         while !queue.is_empty() {
             pl.light_update();
             let current_node = queue.pop_front().unwrap();
             for succ in graph.successors(current_node) {
-                if !visited[succ] {
+                if !seen[succ] {
                     queue.push_back(succ);
-                    visited.set(succ as _, true);
+                    seen.set(succ as _, true);
                 }
             }
         }

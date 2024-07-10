@@ -7,6 +7,7 @@
 use anyhow::Result;
 use clap::{ArgMatches, Command};
 
+pub mod dcf;
 pub mod ef;
 pub mod offsets;
 
@@ -18,6 +19,7 @@ pub fn cli(command: Command) -> Command {
         .subcommand_required(true)
         .arg_required_else_help(true)
         .allow_external_subcommands(true);
+    let sub_command = dcf::cli(sub_command);
     let sub_command = ef::cli(sub_command);
     let sub_command = offsets::cli(sub_command);
     command.subcommand(sub_command)
@@ -25,8 +27,16 @@ pub fn cli(command: Command) -> Command {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     match submatches.subcommand() {
+        Some((dcf::COMMAND_NAME, sub_m)) => dcf::main(sub_m),
         Some((ef::COMMAND_NAME, sub_m)) => ef::main(sub_m),
         Some((offsets::COMMAND_NAME, sub_m)) => offsets::main(sub_m),
-        _ => unreachable!(),
+        Some((command_name, _)) => {
+            eprintln!("Unknown command: {:?}", command_name);
+            std::process::exit(1);
+        }
+        None => {
+            eprintln!("No command given for build");
+            std::process::exit(1);
+        }
     }
 }

@@ -7,11 +7,11 @@
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::hint::black_box;
 use std::path::PathBuf;
-use webgraph::labels::swh_labels::SwhLabels;
+use webgraph::prelude::swh_labels::SwhLabels;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -24,11 +24,9 @@ struct Args {
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
-    stderrlog::new()
-        .verbosity(2)
-        .timestamp(stderrlog::Timestamp::Second)
-        .init()
-        .unwrap();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .try_init()?;
 
     let labels = SwhLabels::load_from_file(7, &args.basename)?;
 

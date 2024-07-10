@@ -10,7 +10,7 @@ use crate::traits::SequentialLabeling;
 use anyhow::Result;
 use clap::{Arg, ArgMatches, Command};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 
 pub const COMMAND_NAME: &str = "ascii-convert";
@@ -44,7 +44,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn ascii_convert<E: Endianness + 'static>(basename: &str) -> Result<()>
+pub fn ascii_convert<E: Endianness + 'static>(basename: &str) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {

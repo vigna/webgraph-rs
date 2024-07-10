@@ -5,13 +5,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Facilities to sort externally pairs of nodes with an associated label.
+
+use super::{ArcMmapHelper, MmapHelper};
 use crate::traits::{BitDeserializer, BitSerializer};
 use anyhow::{anyhow, Context};
-use dary_heap::{self, PeekMut};
+use dary_heap::PeekMut;
 use dsi_bitstream::prelude::*;
 use log::debug;
 use mmap_rs::MmapFlags;
-use rdst::tuner::*;
 use rdst::*;
 use std::{
     fs::File,
@@ -20,22 +22,17 @@ use std::{
     sync::Arc,
 };
 
+pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
+pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
+
+/// An arc expressed as a pair of nodes and the associated label.
+///
+/// Equality and order are defined only (lexicographically) on the pair of
+/// nodes.
 #[derive(Clone, Debug, Copy)]
 pub struct Triple<L: Copy> {
     pair: [usize; 2],
     label: L,
-}
-
-struct MyTuner {}
-
-impl Tuner for MyTuner {
-    fn pick_algorithm(&self, p: &TuningParams, _counts: &[usize]) -> Algorithm {
-        if p.input_len >= 500_000 {
-            Algorithm::MtLsb
-        } else {
-            Algorithm::Lsb
-        }
-    }
 }
 
 impl<T: Copy> RadixKey for Triple<T> {
@@ -66,17 +63,39 @@ impl<T: Copy> Ord for Triple<T> {
     }
 }
 
-use super::{ArcMmapBackend, MmapBackend};
-
-pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
-pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapBackend<u32>>>;
-
-/// A struct that ingests paris of nodes and a generic payload and sort them
-/// in chunks of `batch_size` triples, then dumps them to disk.
+/// A struct that provides external sorting for pairs of nodes with an
+/// associated label.
 ///
-/// We require that the bit deserializer is `Clone` because we need
-/// to be able to do the parallel compression of BVGraphs. Thus, it's suggested
-/// that if you have big structures, you wrap them in an [`Arc`](`std::sync::Arc`) or use references.
+/// An instance of this structure ingests pairs of nodes with an associated
+/// label, sort them in chunks of `batch_size` triples, and dumps them to disk.
+/// Then, a call to [`iter`](SortPairs::iter) returns an iterator that merges
+/// the batches on disk on the fly, returning the triples sorted by
+/// lexicographical order of the pairs of nodes.
+///
+/// A batch should be as large as possible, given the available memory.
+/// Small batches are inefficient because they requires significantly
+/// more I/O, and more effort during the merge phase.
+///
+/// The structure accept as type parameter a [`BitSerializer`] and a
+/// [`BitDeserializer`] that are used to serialize and deserialize the labels.
+/// In case they are both `()`, the structure behaves as if there is no label.
+///
+/// The bit deserializer must be [`Clone`] because we need one for each
+/// [`BatchIterator`], and there are possible scenarios in which the
+/// deserializer might be stateful.
+///
+/// You create a new instance using [`SortPairs::new_labeled`], and add labeled
+/// pairs using [`SortPairs::push_labeled`]. Then you can iterate over the pairs
+/// using [`SortPairs::iter`].
+///
+/// `SortPars<(), ()>` has commodity [`SortPairs::new`] and [`SortPairs::push`]
+/// methods without labels. Note however that the [resulting
+/// iterator](SortPairs::iter) is labeled, and returns pairs labeled with `()`.
+///
+/// Note that batches must be deleted manually using
+/// [`SortPairs::delete_batches`] after usage, unless you stored them in a
+/// self-deleting temporary directory, such as those created by the
+/// [`tempfile`](https://crates.io/crates/tempfile) crate.
 
 pub struct SortPairs<
     S: BitSerializer<NE, BitWriter> = (),
@@ -86,31 +105,33 @@ pub struct SortPairs<
 {
     /// The batch size.
     batch_size: usize,
-    /// The length of the last batch might be smaller than [`SortPairs::batch_size`].
+    /// Where we are going to store the batches.
+    dir: PathBuf,
+    /// A stateful serializer we will pass to batch iterators to serialize
+    /// the labels to a bitstream.
+    serializer: S,
+    /// A stateful deserializer we will pass to batch iterators to deserialize
+    /// the labels from a bitstream.
+    deserializer: D,
+    /// Keeps track of how many batches we created.
+    num_batches: usize,
+    /// The length of the last batch, which might be smaller than [`SortPairs::batch_size`].
     last_batch_len: usize,
     /// The batch of triples we are currently building.
     batch: Vec<Triple<S::SerType>>,
-    /// Where we are going to store the batches.
-    dir: PathBuf,
-    /// Keeps track of how many batches we created.
-    num_batches: usize,
-    /// A stataful serializer we will pass to batch iterators to serialize
-    /// the labels to a bitstream.
-    serializer: S,
-    /// A stataful deserializer we will pass to batch iterators to deserialize
-    /// the labels from a bitstream.
-    deserializer: D,
 }
 
 impl SortPairs<(), ()> {
-    /// Create a new `SortPairs` with a given batch size
+    /// Creates a new `SortPairs` without labels.
     ///
-    /// The `dir` must be empty, and in particular it **must not** be shared
-    /// with other `SortPairs` instances.
+    /// The `dir` must be empty, and in particular it must not be shared
+    /// with other `SortPairs` instances. Please use the
+    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
+    /// a suitable directory.
     pub fn new<P: AsRef<Path>>(batch_size: usize, dir: P) -> anyhow::Result<Self> {
         Self::new_labeled(batch_size, dir, (), ())
     }
-    /// Add a triple to the graph.
+    /// Adds a unlabeled pair to the graph.
     pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
         self.push_labeled(x, y, ())
     }
@@ -120,10 +141,12 @@ impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone>
 where
     S::SerType: Send + Sync + Copy,
 {
-    /// Create a new `SortPairs` with a given batch size
+    /// Creates a new `SortPairs` with labels.
     ///
-    /// The `dir` must be empty, and in particular it **must not** be shared
-    /// with other `SortPairs` instances.
+    /// The `dir` must be empty, and in particular it must not be shared
+    /// with other `SortPairs` instances. Please use the
+    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
+    /// a suitable directory.
     pub fn new_labeled<P: AsRef<Path>>(
         batch_size: usize,
         dir: P,
@@ -138,17 +161,17 @@ where
         } else {
             Ok(SortPairs {
                 batch_size,
+                serializer,
+                dir: dir.to_owned(),
+                deserializer,
+                num_batches: 0,
                 last_batch_len: 0,
                 batch: Vec::with_capacity(batch_size),
-                dir: dir.to_owned(),
-                num_batches: 0,
-                serializer,
-                deserializer,
             })
         }
     }
 
-    /// Add a triple to the graph.
+    /// Adds a labeled pair to the graph.
     pub fn push_labeled(&mut self, x: usize, y: usize, t: S::SerType) -> anyhow::Result<()> {
         self.batch.push(Triple {
             pair: [x, y],
@@ -160,14 +183,14 @@ where
         Ok(())
     }
 
-    /// Dump the current batch to disk
+    /// Dumps the current batch to disk
     fn dump(&mut self) -> anyhow::Result<()> {
         // This method must be idempotent as it is called by `iter`
         if self.batch.is_empty() {
             return Ok(());
         }
 
-        // create a batch file where to dump
+        // Creates a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
         BatchIterator::new_from_vec_labeled(
             batch_name,
@@ -181,7 +204,7 @@ where
         Ok(())
     }
 
-    /// Cancel all the files that were created
+    /// Cancels all the files that were created.
     pub fn delete_batches(&mut self) -> anyhow::Result<()> {
         for i in 0..self.num_batches {
             let batch_name = self.dir.join(format!("{:06x}", i));
@@ -195,6 +218,7 @@ where
         Ok(())
     }
 
+    /// Returns an iterator over the labeled pairs, lexicographically sorted.
     pub fn iter(&mut self) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
@@ -212,8 +236,7 @@ where
     }
 }
 
-/// An iterator that can read the batch files generated by [`SortPairs`] and
-/// iterate over the triples
+/// An iterator that can read the batch files generated by [`SortPairs`].
 pub struct BatchIterator<D: BitDeserializer<NE, BitReader> = ()> {
     stream: BitReader,
     len: usize,
@@ -224,8 +247,8 @@ pub struct BatchIterator<D: BitDeserializer<NE, BitReader> = ()> {
 }
 
 impl BatchIterator<()> {
-    /// Sort the given triples in memory, dump them in `file_path` and return an iterator
-    /// over them
+    /// Sorts the given unlabeled pairs in memory, dumps them in `file_path` and
+    /// return an iterator over them.
     #[inline]
     pub fn new_from_vec<P: AsRef<Path>>(
         file_path: P,
@@ -233,8 +256,8 @@ impl BatchIterator<()> {
     ) -> anyhow::Result<Self> {
         Self::new_from_vec_labeled(file_path, unsafe { core::mem::transmute(batch) }, &(), ())
     }
-    /// Dump the given triples in `file_path` and return an iterator
-    /// over them, assuming they are already sorted
+    /// Dumps the given triples in `file_path` and returns an iterator over
+    /// them, assuming they are already sorted.
     pub fn new_from_vec_sorted<P: AsRef<Path>>(
         file_path: P,
         batch: &[(usize, usize)],
@@ -246,16 +269,11 @@ impl BatchIterator<()> {
             (),
         )
     }
-
-    /// Create a new iterator over the triples previously serialized in `file_path`
-    pub fn new<P: AsRef<std::path::Path>>(file_path: P, len: usize) -> anyhow::Result<Self> {
-        Self::new_labeled(file_path, len, ())
-    }
 }
 
 impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
-    /// Sort the given triples in memory, dump them in `file_path` and return an iterator
-    /// over them
+    /// Sort the given labeled pairs in memory, dump them in `file_path` and
+    /// return an iterator over them.
     #[inline]
     pub fn new_from_vec_labeled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
@@ -272,8 +290,8 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         Self::new_from_vec_sorted_labeled(file_path, batch, serializer, deserializer)
     }
 
-    /// Dump the given triples in `file_path` and return an iterator
-    /// over them, assuming they are already sorted
+    /// Dumps the given labeled pairs in `file_path` and returns an iterator
+    /// over them, assuming they are already sorted.
     pub fn new_from_vec_sorted_labeled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
         batch: &[Triple<S::SerType>],
@@ -294,16 +312,16 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
                 )
             })?,
         );
-        // createa bitstream to write to the file
+        // create a bitstream to write to the file
         let mut stream = <BufBitWriter<NE, _>>::new(<WordAdapter<usize, _>>::new(file));
-        // Dump the triples to the bitstream
+        // dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
         for Triple {
             pair: [src, dst],
-            label: payload,
+            label,
         } in batch.iter()
         {
-            // write the src gap as gamma
+            // write the source gap as gamma
             stream
                 .write_gamma((src - prev_src) as _)
                 .with_context(|| format!("Could not write {} after {}", src, prev_src))?;
@@ -311,14 +329,14 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
                 // Reset prev_y
                 prev_dst = 0;
             }
-            // write the dst gap as gamma
+            // write the destination gap as gamma
             stream
                 .write_gamma((dst - prev_dst) as _)
                 .with_context(|| format!("Could not write {} after {}", dst, prev_dst))?;
-            // write the payload
+            // write the label
             serializer
-                .serialize(payload, &mut stream)
-                .context("Could not serialize payload")?;
+                .serialize(label, &mut stream)
+                .context("Could not serialize label")?;
             (prev_src, prev_dst) = (*src, *dst);
         }
         // flush the stream and reset the buffer
@@ -327,14 +345,14 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         Self::new_labeled(file_path, batch.len(), deserializer)
     }
 
-    /// Create a new iterator over the triples previously serialized in `file_path`
+    /// Creates a new iterator over the triples previously serialized in `file_path`.
     pub fn new_labeled<P: AsRef<std::path::Path>>(
         file_path: P,
         len: usize,
         deserializer: D,
     ) -> anyhow::Result<Self> {
-        let stream = <BufBitReader<NE, _>>::new(MemWordReader::new(ArcMmapBackend(Arc::new(
-            MmapBackend::load(
+        let stream = <BufBitReader<NE, _>>::new(MemWordReader::new(ArcMmapHelper(Arc::new(
+            MmapHelper::mmap(
                 file_path.as_ref(),
                 MmapFlags::TRANSPARENT_HUGE_PAGES | MmapFlags::SEQUENTIAL,
             )
@@ -364,8 +382,6 @@ impl<D: BitDeserializer<NE, BitReader> + Clone> Clone for BatchIterator<D> {
     }
 }
 
-//unsafe impl<D: BitDeserializer> SortedIterator for BatchIterator<D> {}
-
 impl<D: BitDeserializer<NE, BitReader>> Iterator for BatchIterator<D> {
     type Item = (usize, usize, D::DeserType);
     fn next(&mut self) -> Option<Self::Item> {
@@ -378,17 +394,17 @@ impl<D: BitDeserializer<NE, BitReader>> Iterator for BatchIterator<D> {
             self.prev_dst = 0;
         }
         let dst = self.prev_dst + self.stream.read_gamma().unwrap() as usize;
-        let payload = self.deserializer.deserialize(&mut self.stream).unwrap();
+        let label = self.deserializer.deserialize(&mut self.stream).unwrap();
         self.prev_src = src;
         self.prev_dst = dst;
         self.current += 1;
-        Some((src, dst, payload))
+        Some((src, dst, label))
     }
 }
 
 #[derive(Clone, Debug)]
-/// Private struct that can be used to sort triples based only on the nodes and
-/// ignoring the payload
+/// Private struct that can be used to sort triples based only on the pair of
+/// nodes and ignoring the label.
 struct HeadTail<T, I: Iterator<Item = (usize, usize, T)>> {
     head: (usize, usize, T),
     tail: I,
@@ -417,19 +433,55 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
     }
 }
 
+/// A structure using a [quaternary heap](dary_heap::QuaternaryHeap) to merge sorted iterators.
+///
+/// The iterators must be sorted by the pair of nodes, and the structure will return the triples
+/// sorted by lexicographical order of the pairs of nodes.
+///
+/// The structure implements [`Iterator`] and returns triples of the form `(src, dst, label)`.
+///
+/// The structure implements [`Default`], [`core::iter::Sum`],
+/// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`]
+/// so you can compute different KMergeIters / Iterators / IntoIterators in
+/// parallel and then merge them using either `+=`, `sum()` or `collect()`:
+/// ```rust
+/// use webgraph::utils::sort_pairs::KMergeIters;
+///
+/// let (tx, rx) = std::sync::mpsc::channel();
+///
+/// std::thread::scope(|s| {
+///     for _ in 0..10 {
+///         let tx = tx.clone();
+///         s.spawn(move || {
+///             // create a dummy KMergeIters
+///             tx.send(KMergeIters::new(vec![(0..10).map(|j| (j, j, j + j))])).unwrap()
+///         });
+///     }
+/// });
+/// drop(tx);
+/// // merge the KMergeIters
+/// let merged = rx.iter().sum::<KMergeIters<core::iter::Map<core::ops::Range<usize>, _>, usize>>();
+/// ```
+/// or with plain iterators:
+/// ```rust
+/// use webgraph::utils::sort_pairs::KMergeIters;
+///
+/// let iter = vec![vec![(0, 0, 0), (0, 1, 1)], vec![(1, 0, 1), (1, 1, 2)]];
+/// let merged = iter.into_iter().collect::<KMergeIters<_, usize>>();
+/// ```
 #[derive(Clone, Debug)]
-/// Merge K different sorted iterators
 pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)>, T = ()> {
     heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
 }
 
 impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
-    pub fn new(iters: impl Iterator<Item = I>) -> Self {
+    pub fn new(iters: impl IntoIterator<Item = I>) -> Self {
+        let iters = iters.into_iter();
         let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
-            if let Some((src, dst, payload)) = iter.next() {
+            if let Some((src, dst, label)) = iter.next() {
                 heap.push(HeadTail {
-                    head: (src, dst, payload),
+                    head: (src, dst, label),
                     tail: iter,
                 });
             }
@@ -447,64 +499,148 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
 
         match head_tail.tail.next() {
             None => Some(PeekMut::pop(head_tail).head),
-            Some((src, dst, payload)) => {
-                Some(std::mem::replace(&mut head_tail.head, (src, dst, payload)))
+            Some((src, dst, label)) => {
+                Some(std::mem::replace(&mut head_tail.head, (src, dst, label)))
             }
         }
     }
 }
 
-// unsafe impl<T, I> SortedIterator for KMergeIters<I, T> {}
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::default::Default for KMergeIters<I, T> {
+    fn default() -> Self {
+        KMergeIters {
+            heap: dary_heap::QuaternaryHeap::default(),
+        }
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I, T> {
+    fn sum<J: Iterator<Item = Self>>(iter: J) -> Self {
+        let mut heap = dary_heap::QuaternaryHeap::default();
+        for mut kmerge in iter {
+            heap.extend(kmerge.heap.drain());
+        }
+        KMergeIters { heap }
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I>
+    for KMergeIters<I::IntoIter, T>
+{
+    fn sum<J: Iterator<Item = I>>(iter: J) -> Self {
+        KMergeIters::new(iter.map(IntoIterator::into_iter))
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::FromIterator<Self>
+    for KMergeIters<I, T>
+{
+    fn from_iter<J: IntoIterator<Item = Self>>(iter: J) -> Self {
+        iter.into_iter().sum()
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::FromIterator<I>
+    for KMergeIters<I::IntoIter, T>
+{
+    fn from_iter<J: IntoIterator<Item = I>>(iter: J) -> Self {
+        KMergeIters::new(iter.into_iter().map(IntoIterator::into_iter))
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::ops::AddAssign<I>
+    for KMergeIters<I::IntoIter, T>
+{
+    fn add_assign(&mut self, rhs: I) {
+        let mut rhs = rhs.into_iter();
+        if let Some((src, dst, label)) = rhs.next() {
+            self.heap.push(HeadTail {
+                head: (src, dst, label),
+                tail: rhs,
+            });
+        }
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> core::ops::AddAssign for KMergeIters<I, T> {
+    fn add_assign(&mut self, mut rhs: Self) {
+        self.heap.extend(rhs.heap.drain());
+    }
+}
+
+impl<T, I: IntoIterator<Item = (usize, usize, T)>> Extend<I> for KMergeIters<I::IntoIter, T> {
+    fn extend<J: IntoIterator<Item = I>>(&mut self, iter: J) {
+        self.heap.extend(iter.into_iter().filter_map(|iter| {
+            let mut iter = iter.into_iter();
+            let (src, dst, label) = iter.next()?;
+            Some(HeadTail {
+                head: (src, dst, label),
+                tail: iter,
+            })
+        }));
+    }
+}
+
+impl<T, I: Iterator<Item = (usize, usize, T)>> Extend<KMergeIters<I, T>> for KMergeIters<I, T> {
+    fn extend<J: IntoIterator<Item = KMergeIters<I, T>>>(&mut self, iter: J) {
+        for mut kmerge in iter {
+            self.heap.extend(kmerge.heap.drain());
+        }
+    }
+}
 
 #[cfg(test)]
-#[test]
-pub fn test_sort_pairs() -> anyhow::Result<()> {
-    use tempfile::Builder;
+mod tests {
+    use super::*;
+    #[test]
+    fn test_sort_pairs() -> anyhow::Result<()> {
+        use tempfile::Builder;
 
-    #[derive(Clone, Debug)]
-    struct MyDessert;
+        #[derive(Clone, Debug)]
+        struct MyDessert;
 
-    impl BitDeserializer<NE, BitReader> for MyDessert {
-        type DeserType = usize;
-        fn deserialize(
-            &self,
-            bitstream: &mut BitReader,
-        ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
-            bitstream.read_delta().map(|x| x as usize)
+        impl BitDeserializer<NE, BitReader> for MyDessert {
+            type DeserType = usize;
+            fn deserialize(
+                &self,
+                bitstream: &mut BitReader,
+            ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
+                bitstream.read_delta().map(|x| x as usize)
+            }
         }
-    }
 
-    impl BitSerializer<NE, BitWriter> for MyDessert {
-        type SerType = usize;
-        fn serialize(
-            &self,
-            value: &Self::SerType,
-            bitstream: &mut BitWriter,
-        ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
-            bitstream.write_delta(*value as u64)
+        impl BitSerializer<NE, BitWriter> for MyDessert {
+            type SerType = usize;
+            fn serialize(
+                &self,
+                value: &Self::SerType,
+                bitstream: &mut BitWriter,
+            ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
+                bitstream.write_delta(*value as u64)
+            }
         }
-    }
-    let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
-    let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
-    let n = 25;
-    for i in 0..n {
-        sp.push_labeled(i, i + 1, i + 2)?;
-    }
-    let mut iter = sp.iter()?;
-    let mut cloned = iter.clone();
+        let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
+        let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
+        let n = 25;
+        for i in 0..n {
+            sp.push_labeled(i, i + 1, i + 2)?;
+        }
+        let mut iter = sp.iter()?;
+        let mut cloned = iter.clone();
 
-    for _ in 0..n {
-        let (x, y, p) = iter.next().unwrap();
-        println!("{} {} {}", x, y, p);
-        assert_eq!(x + 1, y);
-        assert_eq!(x + 2, p);
-    }
+        for _ in 0..n {
+            let (x, y, p) = iter.next().unwrap();
+            println!("{} {} {}", x, y, p);
+            assert_eq!(x + 1, y);
+            assert_eq!(x + 2, p);
+        }
 
-    for _ in 0..n {
-        let (x, y, p) = cloned.next().unwrap();
-        println!("{} {} {}", x, y, p);
-        assert_eq!(x + 1, y);
-        assert_eq!(x + 2, p);
+        for _ in 0..n {
+            let (x, y, p) = cloned.next().unwrap();
+            println!("{} {} {}", x, y, p);
+            assert_eq!(x + 1, y);
+            assert_eq!(x + 2, p);
+        }
+        Ok(())
     }
-    Ok(())
 }

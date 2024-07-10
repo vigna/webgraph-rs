@@ -10,7 +10,7 @@ use crate::traits::SequentialLabeling;
 use anyhow::Result;
 use clap::{Arg, ArgMatches, Command};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::*;
+use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::io::Write;
 
@@ -54,7 +54,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-fn to_csv<E: Endianness + 'static>(basename: &str, sep: &str) -> Result<()>
+pub fn to_csv<E: Endianness + 'static>(basename: &str, sep: &str) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
