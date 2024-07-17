@@ -33,6 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
+use std::borrow::Borrow;
 use sux::traits::Succ;
 use mem_dbg::{MemDbg, MemSize};
 use epserde::Epserde;
@@ -106,7 +107,7 @@ pub trait SequentialLabeling {
         func: F,
         fold: R,
         node_granularity: usize,
-        thread_pool: &rayon::ThreadPool,
+        thread_pool: impl Borrow<rayon::ThreadPool>,
         pl: Option<&mut ProgressLogger>,
     ) -> A
     where
@@ -118,6 +119,7 @@ pub trait SequentialLabeling {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_scoped_threads = thread_pool
+            .borrow()
             .current_num_threads()
             .min(num_nodes / node_granularity)
             .max(1);
@@ -126,7 +128,7 @@ pub trait SequentialLabeling {
 
         // create a channel to receive the result
         let (tx, rx) = std::sync::mpsc::channel();
-        thread_pool.in_place_scope(|scope| {
+        thread_pool.borrow().in_place_scope(|scope| {
             for _ in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
                 let pl_lock = &pl_lock;
@@ -187,7 +189,7 @@ pub trait SequentialLabeling {
         fold: R,
         arc_granularity: usize,
         deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
-        thread_pool: &rayon::ThreadPool,
+        thread_pool: impl Borrow<rayon::ThreadPool>,
         pl: Option<&mut ProgressLogger>,
     ) -> A
     where
@@ -196,6 +198,7 @@ pub trait SequentialLabeling {
         T: Send,
         A: Default + Send,
     {
+        let thread_pool = thread_pool.borrow();
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_arcs = self.num_arcs_hint().unwrap();

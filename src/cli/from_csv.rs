@@ -131,7 +131,10 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
         &g,
         args.num_nodes,
         args.ca.into(),
-        Threads::Num(args.num_cpus.num_cpus),
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(args.num_cpus.num_cpus)
+            .build()
+            .expect("Failed to create thread pool"),
         dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
