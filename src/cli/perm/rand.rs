@@ -20,13 +20,13 @@ pub const COMMAND_NAME: &str = "rand-perm";
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    source: PathBuf,
+    pub src: PathBuf,
     /// The permutation.
-    perm: PathBuf,
+    pub dst: PathBuf,
 
     #[arg(short = 'e', long)]
     /// Load the permutation from ε-serde format.
-    epserde: bool,
+    pub epserde: bool,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -36,7 +36,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.source)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -55,26 +55,26 @@ pub fn rand_perm<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.source)
+    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()
-        .with_context(|| format!("Could not read graph from {}", args.source.display()))?;
+        .with_context(|| format!("Could not read graph from {}", args.src.display()))?;
 
     let mut rng = rand::thread_rng();
     let mut perm = (0..graph.num_nodes()).collect::<Vec<_>>();
     perm.shuffle(&mut rng);
 
     if args.epserde {
-        perm.store(&args.perm)
-            .with_context(|| format!("Could not store permutation to {}", args.perm.display()))?;
+        perm.store(&args.dst)
+            .with_context(|| format!("Could not store permutation to {}", args.dst.display()))?;
     } else {
         let mut file =
-            std::io::BufWriter::new(std::fs::File::create(&args.perm).with_context(|| {
-                format!("Could not create permutation at {}", args.perm.display())
+            std::io::BufWriter::new(std::fs::File::create(&args.dst).with_context(|| {
+                format!("Could not create permutation at {}", args.dst.display())
             })?);
         for perm in perm {
             file.write_all(&perm.to_be_bytes()).with_context(|| {
-                format!("Could not write permutation to {}", args.perm.display())
+                format!("Could not write permutation to {}", args.dst.display())
             })?;
         }
     }

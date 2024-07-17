@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::utils::*;
+use crate::cli::common::*;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -21,18 +21,22 @@ pub const COMMAND_NAME: &str = "recompress";
 #[command(about = "Recompress a BVGraph", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
     /// The basename for the newly compressed graph.
-    new_basename: PathBuf,
+    pub dst: PathBuf,
 
     #[clap(flatten)]
-    num_cpus: NumCpusArg,
+    pub num_threads: NumThreadsArg,
+
+    #[clap(long)]
+    /// The path to the permutations to, optionally, apply to the graph.
+    pub permutation: Option<PathBuf>,
 
     #[clap(flatten)]
-    pa: PermutationArgs,
+    pub batch_size: BatchSizeArg,
 
     #[clap(flatten)]
-    ca: CompressArgs,
+    pub ca: CompressArgs,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -43,14 +47,14 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     let start = std::time::Instant::now();
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let permutation = if let Some(path) = args.pa.permutation.as_ref() {
+    let permutation = if let Some(path) = args.permutation.as_ref() {
         Some(JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)?)
     } else {
         None
     };
 
     let target_endianness = args.ca.endianness.clone();
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -82,17 +86,15 @@ where
     let dir = Builder::new().prefix("Recompress").tempdir()?;
 
     let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_cpus.num_cpus)
+        .num_threads(args.num_threads.num_threads)
         .build()
         .expect("Failed to create thread pool");
 
-    if args.basename.with_extension(EF_EXTENSION).exists() {
-        let graph = BVGraph::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
+    if args.src.with_extension(EF_EXTENSION).exists() {
+        let graph = BVGraph::with_basename(&args.src).endianness::<E>().load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.pa.batch_size;
+            let batch_size = args.batch_size.batch_size;
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
@@ -112,7 +114,7 @@ where
                 start.elapsed().as_secs_f64()
             );
             BVComp::parallel_endianness(
-                args.new_basename,
+                args.dst,
                 &sorted,
                 sorted.num_nodes(),
                 args.ca.into(),
@@ -122,7 +124,7 @@ where
             )?;
         } else {
             BVComp::parallel_endianness(
-                args.new_basename,
+                args.dst,
                 &graph,
                 graph.num_nodes(),
                 args.ca.into(),
@@ -133,12 +135,12 @@ where
         }
     } else {
         log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
-        let seq_graph = BVGraphSeq::with_basename(&args.basename)
+        let seq_graph = BVGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.pa.batch_size;
+            let batch_size = args.batch_size.batch_size;
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
@@ -149,7 +151,7 @@ where
             );
 
             BVComp::parallel_endianness(
-                args.new_basename,
+                args.dst,
                 &permuted,
                 permuted.num_nodes(),
                 args.ca.into(),
@@ -159,7 +161,7 @@ where
             )?;
         } else {
             BVComp::parallel_endianness(
-                args.new_basename,
+                args.dst,
                 &seq_graph,
                 seq_graph.num_nodes(),
                 args.ca.into(),

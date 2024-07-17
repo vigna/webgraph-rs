@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2024 Matteo Dell'Acqua
  * SPDX-FileCopyrightText: 2024 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2024 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -17,40 +18,6 @@ use std::{
 use crate::graphs::GRAPH_EXTENSION;
 
 pub const COMMAND_NAME: &str = "pad";
-
-pub fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
-    let path = path.as_ref();
-    let file_len = path
-        .metadata()
-        .with_context(|| format!("Cannot extract metadata from file {}", path.display()))?
-        .len();
-
-    let padded_len = file_len.align_to(block_size as u64);
-
-    if file_len == padded_len {
-        info!(
-            "The length of file {} is already a multiple of {}",
-            path.display(),
-            block_size
-        );
-        return Ok(());
-    }
-
-    let file = std::fs::File::options()
-        .read(true)
-        .write(true)
-        .open(path)
-        .with_context(|| format!("Cannot open file {} to pad", path.display()))?;
-    file.set_len(padded_len)
-        .with_context(|| format!("Cannot pad file {}", path.display()))?;
-    info!(
-        "File {} successfully zero-padded to a length multiple of {}",
-        path.display(),
-        block_size
-    );
-
-    Ok(())
-}
 
 #[derive(Args, Debug)]
 #[command(about = "Zero-pad graph files to a length multiple of a word size", long_about = None)]
@@ -90,4 +57,38 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     };
 
     pad(args.basename.with_extension(GRAPH_EXTENSION), word_size)
+}
+
+pub fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
+    let path = path.as_ref();
+    let file_len = path
+        .metadata()
+        .with_context(|| format!("Cannot extract metadata from file {}", path.display()))?
+        .len();
+
+    let padded_len = file_len.align_to(block_size as u64);
+
+    if file_len == padded_len {
+        info!(
+            "The length of file {} is already a multiple of {}",
+            path.display(),
+            block_size
+        );
+        return Ok(());
+    }
+
+    let file = std::fs::File::options()
+        .read(true)
+        .write(true)
+        .open(path)
+        .with_context(|| format!("Cannot open file {} to pad", path.display()))?;
+    file.set_len(padded_len)
+        .with_context(|| format!("Cannot pad file {}", path.display()))?;
+    info!(
+        "File {} successfully zero-padded to a length multiple of {}",
+        path.display(),
+        block_size
+    );
+
+    Ok(())
 }

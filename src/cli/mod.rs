@@ -9,22 +9,16 @@
 
 use std::path::{Path, PathBuf};
 
-pub mod ascii_convert;
+pub mod analyze;
 pub mod bench;
-pub mod bfs;
 pub mod build;
-pub mod check_ef;
-pub mod convert;
-pub mod from_csv;
-pub mod llp;
-pub mod merge_perms;
-pub mod optimize_codes;
-pub mod pad;
-pub mod rand_perm;
-pub mod recompress;
-pub mod simplify;
-pub mod to_csv;
-pub mod transpose;
+pub mod check;
+pub mod common;
+pub mod from;
+pub mod perm;
+pub mod run;
+pub mod to;
+pub mod trasform;
 pub mod utils;
 
 /// Appends a string to the filename of a path.

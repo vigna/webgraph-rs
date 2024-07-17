@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::path::PathBuf;
+//! Command line interface structs and functions shared by multiple subcommands.
 
 use crate::graphs::Code;
 use crate::prelude::CompFlags;
@@ -68,7 +68,7 @@ pub struct CSVArgs {
 
     #[arg(long, default_value_t = ',')]
     /// The index of the column containing the source node str.
-    pub csv_separator: char,
+    pub separator: char,
 
     #[arg(long, default_value_t = 0)]
     /// The index of the column containing the source node str.
@@ -84,25 +84,16 @@ pub struct CSVArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct NumCpusArg {
+pub struct NumThreadsArg {
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1))]
-    /// The number of cores to use
-    pub num_cpus: usize,
+    /// The number of threads to use
+    pub num_threads: usize,
 }
 
 #[derive(Args, Debug)]
 /// Shared cli arguments for permuting a graph
 /// Reference on how to use it: <https://stackoverflow.com/questions/75514455/how-to-parse-common-subcommand-arguments-with-clap-in-rust>
-pub struct PermutationArgs {
-    /* TODO!:
-    #[arg(short = 'e', long, default_value_t = false)]
-    /// Load the permutations from ε-serde format instead of the java format, i.e. an array of 64-bit big-endian integers
-    epserde: bool,
-    */
-    #[clap(long)]
-    /// The path to the permutations to, optionally, apply to the graph.
-    pub permutation: Option<PathBuf>,
-
+pub struct BatchSizeArg {
     #[clap(short = 'b', long, value_parser = batch_size, default_value = "50%")]
     /// The number of pairs to be used in batches. Two times this number of
     /// `usize` will be allocated to sort pairs. You can use the SI and NIST
@@ -173,10 +164,10 @@ pub struct CompressArgs {
     #[clap(short = 'w', long, default_value_t = 7)]
     pub compression_window: usize,
     /// The minimum interval length
-    #[clap(short = 'l', long, default_value_t = 4)]
+    #[clap(short = 'i', long, default_value_t = 4)]
     pub min_interval_length: usize,
     /// The maximum recursion depth for references (-1 for infinite recursion depth)
-    #[clap(short = 'c', long, default_value_t = 3)]
+    #[clap(short = 'r', long, default_value_t = 3)]
     pub max_ref_count: isize,
 
     #[arg(value_enum)]

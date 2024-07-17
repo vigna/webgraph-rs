@@ -21,13 +21,13 @@ pub const COMMAND_NAME: &str = "bf-visit";
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
     /// Static dispatch (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
-    _static: bool,
+    pub _static: bool,
     /// Static dispatch (default BVGraph parameters).
     #[arg(short = 'r', long, default_value_t = 1)]
-    repeats: usize,
+    pub repeats: usize,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -37,12 +37,12 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let config = BVGraph::with_basename(&args.basename)
+    let config = BVGraph::with_basename(&args.src)
         .mode::<Mmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
 
     for _ in 0..args.repeats {
-        match get_endianness(&args.basename)?.as_str() {
+        match get_endianness(&args.src)?.as_str() {
             #[cfg(any(
                 feature = "be_bins",
                 not(any(feature = "be_bins", feature = "le_bins"))

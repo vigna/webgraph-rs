@@ -8,57 +8,53 @@
 use crate::graphs::bvgraph::{get_endianness, CodeRead};
 use crate::traits::SequentialLabeling;
 use anyhow::Result;
-use clap::{Arg, ArgMatches, Command};
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::io::Write;
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "to-csv";
 
+#[derive(Args, Debug)]
+#[command(about = "Dumps a graph as an COO arc list, i.e. for each arc write '{src},{dst}\\n`", long_about = None)]
+pub struct CliArgs {
+    /// The basename of the graph.
+    pub src: PathBuf,
+
+    #[arg(long, default_value_t = ',')]
+    /// The character used to separate the fields in the CSV.
+    pub separator: char,
+}
+
 pub fn cli(command: Command) -> Command {
-    command.subcommand(
-        Command::new(COMMAND_NAME)
-            .about("Dumps a graph as an COO arc list.")
-            .long_about(None)
-            .arg(
-                Arg::new("basename")
-                    .help("The basename of the graph")
-                    .required(true),
-            )
-            .arg(
-                Arg::new("csv_separator")
-                    .long("csv-separator")
-                    .help("The character used to separate the fields in the CSV")
-                    .default_value(","),
-            ),
-    )
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let basename = submatches.get_one::<String>("basename").unwrap();
-    let sep = submatches.get_one::<String>("csv-separator").unwrap();
+    let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => to_csv::<BE>(basename, sep),
+        BE::NAME => to_csv::<BE>(args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => to_csv::<LE>(basename, sep),
+        LE::NAME => to_csv::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn to_csv<E: Endianness + 'static>(basename: &str, sep: &str) -> Result<()>
+pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?;
     let num_nodes = graph.num_nodes();
@@ -73,7 +69,7 @@ where
 
     for_! ( (src, succ) in graph.iter() {
         for dst in succ {
-            writeln!(stdout, "{}{}{}", src, sep, dst)?;
+            writeln!(stdout, "{}{}{}", src, args.separator, dst)?;
         }
         pl.light_update();
     });

@@ -13,13 +13,13 @@ use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "optimize-codes";
+pub const COMMAND_NAME: &str = "codes";
 
 #[derive(Args, Debug)]
 #[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -29,7 +29,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -49,7 +49,7 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
-    let graph = BVGraphSeq::with_basename(args.basename)
+    let graph = BVGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?
         .map_factory(StatsDecoderFactory::new);

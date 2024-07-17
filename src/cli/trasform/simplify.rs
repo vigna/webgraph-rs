@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{append, utils::*};
+use crate::cli::{append, common::*};
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -19,18 +19,18 @@ pub const COMMAND_NAME: &str = "simplify";
 #[command(about = "Simplify a BVGraph, i.e. make it undirected and remove duplicates and selfloops", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
     /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
-    simplified: Option<PathBuf>,
+    pub dst: Option<PathBuf>,
 
     #[clap(flatten)]
-    num_cpus: NumCpusArg,
+    pub num_threads: NumThreadsArg,
 
     #[clap(flatten)]
-    pa: PermutationArgs,
+    pub batch_size: BatchSizeArg,
 
     #[clap(flatten)]
-    ca: CompressArgs,
+    pub ca: CompressArgs,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -40,7 +40,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -60,16 +60,14 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
-    let simplified = args
-        .simplified
-        .unwrap_or_else(|| append(&args.basename, "-simple"));
+    let simplified = args.dst.unwrap_or_else(|| append(&args.src, "-simple"));
 
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
 
     // transpose the graph
-    let sorted = crate::transform::simplify(&seq_graph, args.pa.batch_size).unwrap();
+    let sorted = crate::transform::simplify(&seq_graph, args.batch_size.batch_size).unwrap();
 
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
@@ -79,7 +77,7 @@ where
         sorted.num_nodes(),
         args.ca.into(),
         rayon::ThreadPoolBuilder::new()
-            .num_threads(args.num_cpus.num_cpus)
+            .num_threads(args.num_threads.num_threads)
             .build()
             .expect("Failed to create thread pool"),
         dir,

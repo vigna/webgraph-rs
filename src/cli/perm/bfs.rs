@@ -19,14 +19,14 @@ pub const COMMAND_NAME: &str = "bfs";
 #[command(about = "Compute a permutation with the BFS order", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
 
     /// A filename for the LLP permutation.
-    perm: PathBuf,
+    pub perm: PathBuf,
 
     #[arg(short, long)]
     /// Save the permutation in ε-serde format.
-    epserde: bool,
+    pub epserde: bool,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -36,7 +36,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -56,7 +56,7 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // load the graph
-    let graph = BVGraph::with_basename(&args.basename)
+    let graph = BVGraph::with_basename(&args.src)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()

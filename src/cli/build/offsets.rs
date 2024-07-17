@@ -23,7 +23,7 @@ pub const COMMAND_NAME: &str = "offsets";
 
 pub struct CliArgs {
     /// The basename of the graph.
-    pub basename: PathBuf,
+    pub src: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -33,7 +33,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -54,10 +54,10 @@ where
     for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
-    let seq_graph = BVGraphSeq::with_basename(&args.basename)
+    let seq_graph = BVGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
-    let offsets = args.basename.with_extension(OFFSETS_EXTENSION);
+    let offsets = args.src.with_extension(OFFSETS_EXTENSION);
     let file = std::fs::File::create(&offsets)
         .with_context(|| format!("Could not create {}", offsets.display()))?;
     // create a bit writer on the file
