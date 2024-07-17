@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::borrow::Borrow;
+
 use crate::graphs::{arc_list_graph, UnionGraph};
 use crate::labels::Left;
 use crate::traits::{SequentialGraph, SplitLabeling};
@@ -97,12 +99,12 @@ pub fn simplify(
 pub fn simplify_split<S>(
     graph: &S,
     batch_size: usize,
-    mut threads: impl AsMut<rayon::ThreadPool>,
+    threads: impl Borrow<rayon::ThreadPool>,
 ) -> Result<Left<arc_list_graph::ArcListGraph<itertools::Dedup<KMergeIters<BatchIterator<()>, ()>>>>>
 where
     S: SequentialGraph + SplitLabeling,
 {
-    let pool = threads.as_mut();
+    let pool = threads.borrow();
     let num_threads = pool.current_num_threads();
     let (tx, rx) = std::sync::mpsc::channel();
 

@@ -49,7 +49,10 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
             &tmp_basename,
             &graph,
             comp_flags,
-            Threads::Num(thread_num),
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(thread_num)
+                .build()
+                .expect("Failed to create thread pool"),
             temp_dir(std::env::temp_dir())?,
         )
         .unwrap();

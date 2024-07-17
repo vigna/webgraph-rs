@@ -80,6 +80,11 @@ where
 {
     let dir = Builder::new().prefix("Recompress").tempdir()?;
 
+    let thread_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(args.num_cpus.num_cpus)
+        .build()
+        .expect("Failed to create thread pool");
+
     if args.basename.with_extension(EF_EXTENSION).exists() {
         let graph = BVGraph::with_basename(&args.basename)
             .endianness::<E>()
@@ -107,12 +112,7 @@ where
                     >,
                 >,
                 JavaPermutation,
-            >(
-                &graph,
-                &permutation,
-                batch_size,
-                Threads::Num(args.num_cpus.num_cpus),
-            )?;
+            >(&graph, &permutation, batch_size, &thread_pool)?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
@@ -122,7 +122,7 @@ where
                 &sorted,
                 sorted.num_nodes(),
                 args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
+                &thread_pool,
                 dir,
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
@@ -132,7 +132,7 @@ where
                 &graph,
                 graph.num_nodes(),
                 args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
+                &thread_pool,
                 dir,
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
@@ -159,7 +159,7 @@ where
                 &permuted,
                 permuted.num_nodes(),
                 args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
+                &thread_pool,
                 dir,
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
@@ -169,7 +169,7 @@ where
                 &seq_graph,
                 seq_graph.num_nodes(),
                 args.ca.into(),
-                Threads::Num(args.num_cpus.num_cpus),
+                &thread_pool,
                 dir,
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
