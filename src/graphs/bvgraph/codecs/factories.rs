@@ -188,7 +188,7 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
         bytes[file_len..].fill(0);
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: unsafe { std::mem::transmute(bytes.into_boxed_slice()) },
+            data: unsafe { std::mem::transmute::<Box<[u8]>, Box<[u32]>>(bytes.into_boxed_slice()) },
             _marker: core::marker::PhantomData,
         })
     }

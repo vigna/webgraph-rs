@@ -254,7 +254,12 @@ impl BatchIterator<()> {
         file_path: P,
         batch: &mut [(usize, usize)],
     ) -> anyhow::Result<Self> {
-        Self::new_from_vec_labeled(file_path, unsafe { core::mem::transmute(batch) }, &(), ())
+        Self::new_from_vec_labeled(
+            file_path,
+            unsafe { core::mem::transmute::<&mut [(usize, usize)], &mut [Triple<()>]>(batch) },
+            &(),
+            (),
+        )
     }
     /// Dumps the given triples in `file_path` and returns an iterator over
     /// them, assuming they are already sorted.
@@ -264,7 +269,7 @@ impl BatchIterator<()> {
     ) -> anyhow::Result<Self> {
         Self::new_from_vec_sorted_labeled(
             file_path,
-            unsafe { core::mem::transmute(batch) },
+            unsafe { core::mem::transmute::<&[(usize, usize)], &[Triple<()>]>(batch) },
             &(),
             (),
         )
