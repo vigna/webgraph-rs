@@ -20,14 +20,14 @@ pub const COMMAND_NAME: &str = "merge-perms";
 #[command(about = "Merge multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    result_path: PathBuf,
+    pub dst: PathBuf,
 
     /// Filenames of the permutations to merge (in order of application).
-    perm: Vec<PathBuf>,
+    pub perms: Vec<PathBuf>,
 
     #[arg(short, long)]
     /// Save the permutation in ε-serde format.
-    epserde: bool,
+    pub epserde: bool,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -43,7 +43,7 @@ pub fn merge_perms(args: CliArgs) -> Result<()> {
 
     if args.epserde {
         let mut perm = Vec::new();
-        for path in args.perm {
+        for path in args.perms {
             let p = <Vec<usize>>::mmap(&path, Flags::RANDOM_ACCESS)?;
             perm.push(p);
         }
@@ -61,11 +61,11 @@ pub fn merge_perms(args: CliArgs) -> Result<()> {
             }
             merged.push(v);
         }
-        merged.store(&args.result_path)?;
+        merged.store(&args.dst)?;
     } else {
-        let mut writer = BufWriter::new(std::fs::File::create(&args.result_path)?);
+        let mut writer = BufWriter::new(std::fs::File::create(&args.dst)?);
         let mut perm = Vec::new();
-        for path in args.perm {
+        for path in args.perms {
             let p = JavaPermutation::mmap(&path, MmapFlags::RANDOM_ACCESS)?;
             perm.push(p);
         }

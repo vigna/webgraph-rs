@@ -26,7 +26,7 @@ pub const COMMAND_NAME: &str = "check-ef";
 #[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -38,7 +38,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 }
 
 pub fn check_ef(args: CliArgs) -> Result<()> {
-    let properties_path = args.basename.with_extension(PROPERTIES_EXTENSION);
+    let properties_path = args.src.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
             "Could not load properties file: {}",
@@ -49,9 +49,9 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Create the offsets file
-    let of_file_path = args.basename.with_extension(OFFSETS_EXTENSION);
+    let of_file_path = args.src.with_extension(OFFSETS_EXTENSION);
 
-    let ef = EF::mmap(args.basename.with_extension(EF_EXTENSION), Flags::default())?;
+    let ef = EF::mmap(args.src.with_extension(EF_EXTENSION), Flags::default())?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
@@ -85,7 +85,7 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
         .expected_updates(Some(num_nodes));
 
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.basename)
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
         .endianness::<BE>()
         .load()?;
     // otherwise directly read the graph

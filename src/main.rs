@@ -75,25 +75,7 @@ pub fn main() -> Result<()> {
         }};
     }
 
-    impl_dispatch!(
-        command,
-        ascii_convert,
-        bench,
-        bfs,
-        build,
-        check_ef,
-        convert,
-        from_csv,
-        llp,
-        merge_perms,
-        optimize_codes,
-        pad,
-        rand_perm,
-        recompress,
-        simplify,
-        to_csv,
-        transpose
-    )?;
+    impl_dispatch!(command, analyze, bench, build, check, from, perm, run, to, trasform, utils)?;
 
     log::info!(
         "The command took {}",

@@ -23,31 +23,31 @@ pub const COMMAND_NAME: &str = "bvgraph";
 #[command(about = "Benchmarks the Rust BVGraph implementation.", long_about = None)]
 struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
 
     /// Perform a random-access test on this number of randomly chosen nodes.
     #[arg(short, long)]
-    random: Option<usize>,
+    pub random: Option<usize>,
 
     /// The number of repeats.
     #[arg(short = 'R', long, default_value = "10")]
-    repeats: usize,
+    pub repeats: usize,
 
     /// In random-access test, test just access to the first successor.
     #[arg(short = 'f', long)]
-    first: bool,
+    pub first: bool,
 
     /// Static dispatch for speed tests (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
-    _static: bool,
+    pub _static: bool,
 
     /// Test sequential high-speed offset/degree scanning.
     #[arg(short = 'd', long)]
-    degrees: bool,
+    pub degrees: bool,
 
     /// Do not test speed, but check that the sequential and random-access successor lists are the same.
     #[arg(short = 'c', long)]
-    check: bool,
+    pub check: bool,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -57,7 +57,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -137,11 +137,9 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     if args.check {
-        let graph = BVGraph::with_basename(&args.basename)
-            .endianness::<E>()
-            .load()?;
+        let graph = BVGraph::with_basename(&args.src).endianness::<E>().load()?;
 
-        let seq_graph = BVGraphSeq::with_basename(&args.basename)
+        let seq_graph = BVGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
@@ -155,7 +153,7 @@ where
             assert_eq!(succ.collect_vec(), seq_succ.collect_vec());
         }];
     } else if args.degrees {
-        let seq_graph = BVGraphSeq::with_basename(&args.basename)
+        let seq_graph = BVGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
@@ -181,7 +179,7 @@ where
         ) {
             (Some(samples), true) => {
                 bench_random(
-                    BVGraph::with_basename(&args.basename)
+                    BVGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Dynamic>()
                         .mode::<Mmap>()
@@ -194,7 +192,7 @@ where
             }
             (Some(samples), false) => {
                 bench_random(
-                    BVGraph::with_basename(&args.basename)
+                    BVGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Static>()
                         .mode::<Mmap>()
@@ -207,7 +205,7 @@ where
             }
             (None, true) => {
                 bench_seq(
-                    BVGraphSeq::with_basename(&args.basename)
+                    BVGraphSeq::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Dynamic>()
                         .mode::<Mmap>()
@@ -218,7 +216,7 @@ where
             }
             (None, false) => {
                 bench_seq(
-                    BVGraphSeq::with_basename(&args.basename)
+                    BVGraphSeq::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Static>()
                         .mode::<Mmap>()

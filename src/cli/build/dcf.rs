@@ -23,7 +23,7 @@ pub const COMMAND_NAME: &str = "dcf";
 #[command(about = "Builds an Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub basename: PathBuf,
+    pub src: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -33,7 +33,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -52,7 +52,7 @@ pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let basename = args.basename;
+    let basename = args.src;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::utils::*;
+use crate::cli::common::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
 use crate::prelude::*;
 use anyhow::Result;
@@ -24,27 +24,27 @@ pub const COMMAND_NAME: &str = "from-csv";
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the dst.
-    basename: PathBuf,
+    pub src: PathBuf,
 
     #[arg(long)]
     /// The number of nodes in the graph
-    num_nodes: usize,
+    pub num_nodes: usize,
 
     #[arg(long)]
     /// The number of arcs in the graph
-    num_arcs: Option<usize>,
+    pub num_arcs: Option<usize>,
 
     #[clap(flatten)]
-    csv_args: CSVArgs,
+    pub csv_args: CSVArgs,
 
     #[clap(flatten)]
-    num_cpus: NumCpusArg,
+    pub num_threads: NumThreadsArg,
 
     #[clap(flatten)]
-    pa: PermutationArgs,
+    pub batch_size: BatchSizeArg,
 
     #[clap(flatten)]
-    ca: CompressArgs,
+    pub ca: CompressArgs,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -58,7 +58,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn from_csv(args: CliArgs) -> Result<()> {
     let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
 
-    let mut group_by = SortPairs::new(args.pa.batch_size, dir)?;
+    let mut group_by = SortPairs::new(args.batch_size.batch_size, dir)?;
     let mut nodes = BTreeMap::new();
 
     // read the csv and put it inside the sort pairs
@@ -89,7 +89,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
         }
 
         // split the csv line into the args
-        let vals = line.split(args.csv_args.csv_separator).collect::<Vec<_>>();
+        let vals = line.split(args.csv_args.separator).collect::<Vec<_>>();
         let src = vals[0];
         let dst = vals[1];
 
@@ -127,12 +127,12 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
     BVComp::parallel_endianness(
-        &args.basename,
+        &args.src,
         &g,
         args.num_nodes,
         args.ca.into(),
         rayon::ThreadPoolBuilder::new()
-            .num_threads(args.num_cpus.num_cpus)
+            .num_threads(args.num_threads.num_threads)
             .build()
             .expect("Failed to create thread pool"),
         dir,
@@ -142,7 +142,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
 
     // save the nodes
     if !args.csv_args.numeric {
-        let mut file = std::fs::File::create(args.basename.with_extension("nodes")).unwrap();
+        let mut file = std::fs::File::create(args.src.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx
