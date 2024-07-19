@@ -10,10 +10,10 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use mem_dbg::{MemDbg, MemSize};
 use std::path::{Path, PathBuf};
 
 /// A queue that pulls jobs with ids in a contiguous initial segment of the
@@ -71,7 +71,7 @@ where
 }
 
 /// A compression job.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy, MemDbg, MemSize)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, MemDbg, MemSize)]
 struct Job {
     job_id: usize,
     first_node: usize,

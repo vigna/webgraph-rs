@@ -174,7 +174,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 }
 
 /// Iter until we found a triple with src different than curr_node
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(MemDbg, MemSize)]
 pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut Iter<L, I>,
 }

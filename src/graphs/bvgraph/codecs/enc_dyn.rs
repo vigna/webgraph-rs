@@ -8,12 +8,12 @@
 use super::{CodeWrite, Encode, EncodeAndEstimate};
 use crate::{graphs::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
+use mem_dbg::{MemDbg, MemDbgImpl, MemSize, SizeFlags};
 use std::convert::Infallible;
-use mem_dbg::{MemDbg, MemSize};
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
 pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     /// The code writer used by to output the compressed data.
     code_writer: CW,
@@ -29,6 +29,182 @@ pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     write_first_residual: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_residual: fn(&mut CW, u64) -> WriteResult<E, CW>,
     _marker: core::marker::PhantomData<E>,
+}
+
+impl<E: Endianness, CW: CodeWrite<E> + MemSize> MemSize for DynCodesEncoder<E, CW> {
+    fn mem_size(&self, flags: SizeFlags) -> usize {
+        self.code_writer.mem_size(flags)
+            + self.estimator.mem_size(flags)
+            + core::mem::size_of::<fn(&mut CW, u64) -> WriteResult<E, CW>>() * 9
+    }
+}
+
+impl<E: Endianness, CW: CodeWrite<E> + MemDbgImpl> MemDbgImpl for DynCodesEncoder<E, CW> {
+    fn _mem_dbg_rec_on(
+        &self,
+        writer: &mut impl core::fmt::Write,
+        total_size: usize,
+        max_depth: usize,
+        prefix: &mut String,
+        _is_last: bool,
+        flags: mem_dbg::DbgFlags,
+    ) -> core::fmt::Result {
+        let mut id_sizes: Vec<(usize, usize)> = vec![];
+        id_sizes.push((0, core::mem::offset_of!(Self, code_writer)));
+        id_sizes.push((1, core::mem::offset_of!(Self, estimator)));
+        id_sizes.push((2, core::mem::offset_of!(Self, write_outdegree)));
+        id_sizes.push((3, core::mem::offset_of!(Self, write_reference_offset)));
+        id_sizes.push((4, core::mem::offset_of!(Self, write_block_count)));
+        id_sizes.push((5, core::mem::offset_of!(Self, write_block)));
+        id_sizes.push((6, core::mem::offset_of!(Self, write_interval_count)));
+        id_sizes.push((7, core::mem::offset_of!(Self, write_interval_start)));
+        id_sizes.push((8, core::mem::offset_of!(Self, write_interval_len)));
+        id_sizes.push((9, core::mem::offset_of!(Self, write_first_residual)));
+        id_sizes.push((10, core::mem::offset_of!(Self, write_residual)));
+        id_sizes.push((11, core::mem::offset_of!(Self, _marker)));
+
+        let n = id_sizes.len();
+        id_sizes.push((n, core::mem::size_of::<Self>()));
+        // Sort by offset
+        id_sizes.sort_by_key(|x| x.1);
+        // Compute padded sizes
+        for i in 0..n {
+            id_sizes[i].1 = id_sizes[i + 1].1 - id_sizes[i].1;
+        }
+        // Put the candle back unless the user requested otherwise
+        if !flags.contains(mem_dbg::DbgFlags::RUST_LAYOUT) {
+            id_sizes.sort_by_key(|x| x.0);
+        }
+
+        for (i, (field_idx, padded_size)) in id_sizes.into_iter().enumerate().take(n) {
+            match field_idx {
+                0 => self.code_writer._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("code_writer"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                1 => self.estimator._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("estimator"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                // replace the func pointers with usizes
+                2 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_outdegree"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                3 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_outdegree"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                4 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_reference_offset"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                5 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_block_count"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                6 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_blocks"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                7 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_interval_count"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                8 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_interval_start"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                9 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_interval_len"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                10 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("read_first_residual"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                // the marker
+                11 => self._marker._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("_marker"),
+                    i == n - 1,
+                    padded_size,
+                    flags,
+                )?,
+                _ => unreachable!(),
+            }
+        }
+        Ok(())
+    }
 }
 
 fn write_zeta2<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {

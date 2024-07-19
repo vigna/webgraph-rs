@@ -6,8 +6,8 @@
 
 use epserde::Epserde;
 use lender::{Lend, Lender, Lending};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
 use mem_dbg::{MemDbg, MemSize};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
 

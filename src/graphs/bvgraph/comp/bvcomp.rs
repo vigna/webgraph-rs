@@ -11,7 +11,7 @@ use lender::prelude::*;
 use mem_dbg::{MemDbg, MemSize};
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
-#[derive(Default, Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct BVComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
@@ -62,6 +62,19 @@ struct Compressor {
     residuals: Vec<usize>,
 }
 
+impl core::default::Default for Compressor {
+    fn default() -> Self {
+        Self {
+            outdegree: 0,
+            blocks: Vec::with_capacity(1024),
+            extra_nodes: Vec::with_capacity(1024),
+            left_interval: Vec::with_capacity(1024),
+            len_interval: Vec::with_capacity(1024),
+            residuals: Vec::with_capacity(1024),
+        }
+    }
+}
+
 impl Compressor {
     /// Constant used only to make the code more readable.
     /// When min_interval_length is 0, we don't use intervals, which might be
@@ -70,14 +83,7 @@ impl Compressor {
 
     /// Creates a new empty compressor
     fn new() -> Self {
-        Compressor {
-            outdegree: 0,
-            blocks: Vec::with_capacity(1024),
-            extra_nodes: Vec::with_capacity(1024),
-            left_interval: Vec::with_capacity(1024),
-            len_interval: Vec::with_capacity(1024),
-            residuals: Vec::with_capacity(1024),
-        }
+        Compressor::default()
     }
 
     /// Writes the current node to the bitstream, this dumps the internal

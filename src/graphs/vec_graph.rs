@@ -7,10 +7,9 @@
 
 use crate::prelude::*;
 
-use epserde::Epserde;
 use lender::prelude::*;
-use std::{collections::BTreeSet, mem::MaybeUninit};
 use mem_dbg::{MemDbg, MemSize};
+use std::{collections::BTreeSet, mem::MaybeUninit};
 
 #[doc(hidden)]
 /// A struct containing a successor.
@@ -48,7 +47,7 @@ impl<L: Clone + 'static> Ord for Successor<L> {
 ///
 /// Choosing [`()`](https://doc.rust-lang.org/std/primitive.unit.html)
 /// as the label type will result in a [`RandomAccessGraph`] implementation.
-#[derive(Clone, Debug, PartialEq, Eq, MemDbg, MemSize, Epserde)]
+#[derive(Clone, Debug, PartialEq, Eq)] // TODO!: MemDbg, MemSize, Epserde
 pub struct VecGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,

@@ -19,7 +19,7 @@ pub const COMMAND_NAME: &str = "bf-visit";
 
 #[derive(Args, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
     /// Static dispatch (default BVGraph parameters).

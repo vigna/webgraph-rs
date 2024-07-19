@@ -30,7 +30,7 @@ use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader, WordAdapter},
     traits::Endianness,
 };
-use mem_dbg::{MemDbg, MemSize};
+use mem_dbg::{MemDbg, MemDbgImpl, MemSize, SizeFlags};
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -102,6 +102,26 @@ bitflags! {
         /// This flag is only a suggestion, and it is ignored if the kernel does
         /// not support it. It is mainly useful to support `madvise()` on Linux.
         const RANDOM_ACCESS = 1 << 2;
+    }
+}
+
+impl MemSize for MemoryFlags {
+    fn mem_size(&self, _flags: SizeFlags) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
+
+impl MemDbgImpl for MemoryFlags {
+    fn _mem_dbg_rec_on(
+        &self,
+        _writer: &mut impl core::fmt::Write,
+        _total_size: usize,
+        _max_depth: usize,
+        _prefix: &mut String,
+        _is_last: bool,
+        _flags: mem_dbg::DbgFlags,
+    ) -> core::fmt::Result {
+        Ok(())
     }
 }
 

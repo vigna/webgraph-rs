@@ -19,9 +19,9 @@ use dsi_bitstream::{
 };
 use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
+use mem_dbg::{MemDbg, MemSize};
 use mmap_rs::MmapFlags;
 use std::path::Path;
-use mem_dbg::{MemDbg, MemSize};
 use sux::traits::IndexedSeq;
 
 use crate::graphs::bvgraph::EF;
@@ -37,7 +37,7 @@ pub trait ReaderBuilder {
     fn get_reader(&self) -> Self::Reader<'_>;
 }
 
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, MemDbg, MemSize)] // TODO!: Clone
 pub struct MmapReaderBuilder {
     backend: MmapHelper<u32>,
 }
@@ -51,7 +51,7 @@ impl ReaderBuilder for MmapReaderBuilder {
     }
 }
 
-#[derive(Clone, Debug, MemDbg, MemSize, Epserde)]
+#[derive(Debug, MemDbg, MemSize)] // TODO!: Clone, Epserde
 pub struct SwhLabels<RB: ReaderBuilder, O: IndexedSeq> {
     width: usize,
     reader_builder: RB,

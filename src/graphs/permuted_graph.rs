@@ -7,8 +7,8 @@
 
 use crate::prelude::*;
 use lender::*;
-use sux::traits::BitFieldSlice;
 use mem_dbg::{MemDbg, MemSize};
+use sux::traits::BitFieldSlice;
 
 /// A wrapper applying a permutation to the iterators of an underlying graph.
 ///

@@ -8,8 +8,8 @@
 use anyhow::{ensure, Context, Result};
 use common_traits::UnsignedInt;
 use core::fmt::Debug;
-use mmap_rs::*;
 use mem_dbg::{MemDbg, MemSize};
+use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
 
 /// Helper struct providing convenience methods and type-based [`AsRef`] access

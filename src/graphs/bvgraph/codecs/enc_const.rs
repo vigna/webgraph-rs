@@ -6,8 +6,8 @@
  */
 
 use dsi_bitstream::prelude::*;
-use std::convert::Infallible;
 use mem_dbg::{MemDbg, MemSize};
+use std::convert::Infallible;
 
 use super::{const_codes, CodeWrite, Encode, EncodeAndEstimate};
 

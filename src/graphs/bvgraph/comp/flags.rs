@@ -7,8 +7,8 @@
 
 use anyhow::{bail, ensure, Result};
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
-use std::collections::HashMap;
 use mem_dbg::{MemDbg, MemSize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, MemDbg, MemSize)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]

@@ -14,8 +14,8 @@ use anyhow::Result;
 use bitflags::Flags;
 use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
-use mem_dbg::{MemDbg, MemSize};
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators

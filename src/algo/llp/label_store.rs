@@ -5,12 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use mem_dbg::{MemDbg, MemSize};
 use rayon::prelude::*;
 use std::{
     cell::UnsafeCell,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use mem_dbg::{MemDbg, MemSize};
 
 #[derive(Debug, MemDbg, MemSize)]
 pub(crate) struct LabelStore {

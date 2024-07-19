@@ -10,12 +10,12 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 use sealed::sealed;
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
-use mem_dbg::{MemDbg, MemSize};
 use sux::traits::IndexedSeq;
 
 /// Sequential or random access.

@@ -7,12 +7,12 @@
 
 use crate::prelude::*;
 use dsi_bitstream::prelude::CodesStats;
-use std::sync::Mutex;
 use mem_dbg::{MemDbg, MemSize};
+use std::sync::Mutex;
 
 /// A struct that keeps track of how much bits each piece would take
 /// using different codes for compression.
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone, Default, MemDbg, MemSize)]
 pub struct DecoderStats {
     /// The statistics for the outdegrees values
     pub outdegrees: CodesStats,
@@ -51,7 +51,7 @@ impl DecoderStats {
 /// A wrapper that keeps track of how much bits each piece would take using
 /// different codes for compressions for a [`SequentialDecoderFactory`]
 /// implementation and returns the stats.
-// TODO!: add #[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, MemDbg, MemSize)]
 pub struct StatsDecoderFactory<F: SequentialDecoderFactory> {
     factory: F,
     glob_stats: Mutex<DecoderStats>,

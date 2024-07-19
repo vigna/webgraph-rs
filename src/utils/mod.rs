@@ -8,7 +8,6 @@
 //! Miscellaneous utilities.
 
 use rand::Rng;
-use mem_dbg::{MemDbg, MemSize};
 use std::path::PathBuf;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>

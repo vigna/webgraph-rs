@@ -37,9 +37,9 @@ Usually there is a convenience method doing the wrapping for you.
 */
 
 use crate::prelude::{Pair, RandomAccessLabeling, SequentialLabeling};
+use epserde::Epserde;
 use impl_tools::autoimpl;
 use lender::*;
-use epserde::Epserde;
 use mem_dbg::{MemDbg, MemSize};
 
 use super::lenders::{LenderIntoIter, NodeLabelsLender};
