@@ -12,7 +12,8 @@ use tempfile::NamedTempFile;
 const NODES: usize = 325557;
 
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::impls::*;
+use dsi_bitstream::traits::*;
 use dsi_progress_logger::prelude::*;
 use std::path::Path;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
