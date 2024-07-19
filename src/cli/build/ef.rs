@@ -98,9 +98,8 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: crate::graphs::bvgraph::EF = unsafe{ef.map_high_bits(|bits| 
-                sux::rank_sel::SelectAdapt::new(bits, 3)
-            )};
+            let ef: crate::graphs::bvgraph::EF =
+                unsafe { ef.map_high_bits(|bits| sux::rank_sel::SelectAdapt::new(bits, 3)) };
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -199,9 +198,8 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: crate::graphs::bvgraph::EF = unsafe{ef.map_high_bits(|bits| 
-        sux::rank_sel::SelectAdapt::new(bits, 3)
-    )};
+    let ef: crate::graphs::bvgraph::EF =
+        unsafe { ef.map_high_bits(|bits| sux::rank_sel::SelectAdapt::new(bits, 3)) };
     pl.done();
 
     let mut pl = ProgressLogger::default();

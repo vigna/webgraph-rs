@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 use super::super::*;
 use anyhow::bail;
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::traits::*;
 use epserde::deser::MemCase;
 use mem_dbg::{MemDbg, MemSize};
 use sux::traits::IndexedSeq;

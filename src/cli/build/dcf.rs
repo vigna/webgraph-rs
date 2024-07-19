@@ -99,9 +99,11 @@ where
     pl.done();
 
     let ef = efb.build();
-    let ef: DCF = unsafe{ef.map_high_bits(|bits| 
-        sux::rank_sel::SelectZeroAdapt::new(sux::rank_sel::SelectAdapt::new(bits, 3), 3)
-    )};
+    let ef: DCF = unsafe {
+        ef.map_high_bits(|bits| {
+            sux::rank_sel::SelectZeroAdapt::new(sux::rank_sel::SelectAdapt::new(bits, 3), 3)
+        })
+    };
 
     info!("Writing to disk...");
 

@@ -45,9 +45,8 @@ pub type EF = sux::dict::EliasFano<
 /// The default version of EliasFano we use for the cumulative function of degrees.
 pub type DCF = sux::dict::EliasFano<
     sux::rank_sel::SelectZeroAdapt<
-        sux::rank_sel::SelectAdapt<
-            sux::bits::BitVec<Box<[usize]>>, 
-        Box<[usize]>>, 
-    Box<[usize]>>,
+        sux::rank_sel::SelectAdapt<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>>,
+        Box<[usize]>,
+    >,
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
