@@ -17,12 +17,12 @@ use sux::traits::BitFieldSlice;
 pub const COMMAND_NAME: &str = "merge";
 
 #[derive(Args, Debug)]
-#[command(about = "Merge multiple permutations into a single one", long_about = None)]
+#[command(about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The path of the resulting permutation.
     pub dst: PathBuf,
 
-    /// Filenames of the permutations to merge (in order of application).
+    /// Filenames of the permutations to compose (in order of application).
     pub perms: Vec<PathBuf>,
 
     #[arg(short, long)]
@@ -31,7 +31,7 @@ pub struct CliArgs {
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

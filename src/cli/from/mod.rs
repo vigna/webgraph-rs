@@ -18,7 +18,7 @@ pub fn cli(command: Command) -> Command {
         .arg_required_else_help(true)
         .allow_external_subcommands(true);
     let sub_command = csv::cli(sub_command);
-    command.subcommand(sub_command)
+    command.subcommand(sub_command.display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

@@ -15,10 +15,10 @@ use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 
-pub const COMMAND_NAME: &str = "recompress";
+pub const COMMAND_NAME: &str = "bvgraph";
 
 #[derive(Args, Debug)]
-#[command(about = "Recompress a BVGraph", long_about = None)]
+#[command(about = "Recompress a BVGraph using possibly different compression options.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -40,7 +40,7 @@ pub struct CliArgs {
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

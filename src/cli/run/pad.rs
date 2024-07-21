@@ -20,17 +20,17 @@ use crate::graphs::GRAPH_EXTENSION;
 pub const COMMAND_NAME: &str = "pad";
 
 #[derive(Args, Debug)]
-#[command(about = "Zero-pad graph files to a length multiple of a word size", long_about = None)]
-struct CliArgs {
+#[command(about = "Zero-pad graph files to a length multiple of a word size. This is needed to mmap graphs on Windows.", long_about = None)]
+pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub basename: PathBuf,
     /// The block size to align to
     #[clap(value_enum)]
-    word_size: WordSize,
+    pub word_size: WordSize,
 }
 
 #[derive(ValueEnum, Clone, Debug, Default)]
-enum WordSize {
+pub enum WordSize {
     /// 2 bytes
     U16,
     /// 4 bytes
@@ -43,7 +43,7 @@ enum WordSize {
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

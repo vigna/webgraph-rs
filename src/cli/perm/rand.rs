@@ -19,7 +19,8 @@ pub const COMMAND_NAME: &str = "rand";
 #[derive(Args, Debug)]
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph, it will be used to get the number of nodes
+    /// as the number of elements in the permutation.
     pub src: PathBuf,
     /// The permutation.
     pub dst: PathBuf,
@@ -30,7 +31,7 @@ pub struct CliArgs {
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

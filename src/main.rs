@@ -5,8 +5,7 @@
  */
 
 use anyhow::Result;
-use clap::{value_parser, Command};
-use clap_complete::shells::Shell;
+use clap::Command;
 
 use webgraph::{build_info, cli};
 
@@ -21,15 +20,6 @@ pub fn main() -> Result<()> {
         .version(build_info::version_string())
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .subcommand(
-            Command::new("generate-completions")
-                .about("Generates shell completions.")
-                .arg(
-                    clap::Arg::new("shell")
-                        .required(true)
-                        .value_parser(value_parser!(Shell)),
-                ),
-        )
         .after_help(
             "Environment (noteworthy environment variables used):
   RUST_MIN_STACK: minimum thread stack size (in bytes)
@@ -39,10 +29,11 @@ pub fn main() -> Result<()> {
 
     macro_rules! impl_dispatch {
         ($command:expr, $($module:ident),*) => {{
-            let command = $command;
+            let command = cli::build::cli($command);
             $(
                 let command = cli::$module::cli(command);
             )*
+            let command = command.display_order(0); // sort args alphabetically
             let mut completion_command = command.clone();
             let matches = command.get_matches();
             let subcommand = matches.subcommand();
@@ -52,16 +43,7 @@ pub fn main() -> Result<()> {
                 return Ok(());
             }
             match subcommand.unwrap() {
-                ("generate-completions", sub_m) => {
-                    let shell = sub_m.get_one::<Shell>("shell").unwrap();
-                    clap_complete::generate(
-                        *shell,
-                        &mut completion_command,
-                        "bvgraph",
-                        &mut std::io::stdout(),
-                    );
-                    return Ok(());
-                },
+                (cli::build::COMMAND_NAME, sub_m) => cli::build::main(sub_m, &mut completion_command),
                 $(
                     (cli::$module::COMMAND_NAME, sub_m) => cli::$module::main(sub_m),
                 )*
@@ -75,7 +57,7 @@ pub fn main() -> Result<()> {
         }};
     }
 
-    impl_dispatch!(command, analyze, bench, build, check, from, perm, run, to, trasform, utils)?;
+    impl_dispatch!(command, analyze, bench, check, from, perm, run, to, transform)?;
 
     log::info!(
         "The command took {}",

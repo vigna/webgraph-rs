@@ -18,8 +18,7 @@ pub mod from;
 pub mod perm;
 pub mod run;
 pub mod to;
-pub mod trasform;
-pub mod utils;
+pub mod transform;
 
 /// Appends a string to the filename of a path.
 ///

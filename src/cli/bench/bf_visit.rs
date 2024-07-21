@@ -19,7 +19,7 @@ pub const COMMAND_NAME: &str = "bf-visit";
 
 #[derive(Args, Debug)]
 #[command(about = "Breadth-first visits a graph.", long_about = None)]
-struct CliArgs {
+pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
     /// Static dispatch (default BVGraph parameters).
@@ -31,7 +31,7 @@ struct CliArgs {
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

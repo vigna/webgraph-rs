@@ -24,7 +24,7 @@ pub fn cli(command: Command) -> Command {
     let sub_command = bvgraph::cli(sub_command);
     let sub_command = csv::cli(sub_command);
     let sub_command = endianness::cli(sub_command);
-    command.subcommand(sub_command)
+    command.subcommand(sub_command.display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {

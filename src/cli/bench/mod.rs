@@ -20,13 +20,13 @@ pub fn cli(command: Command) -> Command {
         .allow_external_subcommands(true);
     let sub_command = bvgraph::cli(sub_command);
     let sub_command = bf_visit::cli(sub_command);
-    command.subcommand(sub_command)
+    command.subcommand(sub_command.display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     match submatches.subcommand() {
-        Some((bvgraph::COMMAND_NAME, sub_m)) => bvgraph::main(sub_m),
         Some((bf_visit::COMMAND_NAME, sub_m)) => bf_visit::main(sub_m),
+        Some((bvgraph::COMMAND_NAME, sub_m)) => bvgraph::main(sub_m),
         Some((command_name, _)) => {
             eprintln!("Unknown command: {:?}", command_name);
             std::process::exit(1);
