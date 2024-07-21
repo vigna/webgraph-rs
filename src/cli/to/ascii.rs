@@ -14,7 +14,7 @@ use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "ascii-convert";
+pub const COMMAND_NAME: &str = "ascii";
 
 #[derive(Args, Debug)]
 #[command(about = "Dumps a graph in ASCII format, that is, a line for each node with its successors separated by tabs.", long_about = None)]

@@ -20,7 +20,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use sux::prelude::*;
 
-pub const COMMAND_NAME: &str = "check-ef";
+pub const COMMAND_NAME: &str = "ef";
 
 #[derive(Args, Debug)]
 #[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]

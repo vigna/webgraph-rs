@@ -10,7 +10,7 @@ use clap::{ArgMatches, Command};
 pub mod simplify;
 pub mod transpose;
 
-pub const COMMAND_NAME: &str = "trasform";
+pub const COMMAND_NAME: &str = "transform";
 
 pub fn cli(command: Command) -> Command {
     let sub_command = Command::new(COMMAND_NAME)

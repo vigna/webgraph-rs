@@ -15,7 +15,7 @@ use lender::*;
 use std::io::Write;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "to-csv";
+pub const COMMAND_NAME: &str = "csv";
 
 #[derive(Args, Debug)]
 #[command(about = "Dumps a graph as an COO arc list, i.e. for each arc write '{src},{dst}\\n`", long_about = None)]

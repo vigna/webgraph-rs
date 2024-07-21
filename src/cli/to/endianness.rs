@@ -14,7 +14,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "convert";
+pub const COMMAND_NAME: &str = "endianness";
 
 #[derive(Args, Debug)]
 #[command(about = "Invert the endianness of a BVGraph, this can be done using recompress but this is faster.", long_about = None)]

@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
-pub const COMMAND_NAME: &str = "from-csv";
+pub const COMMAND_NAME: &str = "csv";
 
 #[derive(Args, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]

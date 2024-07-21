@@ -14,7 +14,7 @@ use rand::prelude::SliceRandom;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "rand-perm";
+pub const COMMAND_NAME: &str = "rand";
 
 #[derive(Args, Debug)]
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]
