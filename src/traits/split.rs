@@ -51,7 +51,7 @@ pub trait SplitLabeling: SequentialLabeling {
 /// # Examples
 ///
 /// The code for [`BVGraphSeq`](crate::graphs::bvgraph::sequential::BVGraphSeq) is:
-/// ```ìgnore
+/// ```ignore
 /// impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
 /// where
 ///     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
@@ -123,7 +123,7 @@ pub mod seq {
 /// # Examples
 ///
 /// The code for [`BVGraph`](crate::graphs::bvgraph::random_access::BVGraph) is
-/// ```ìgnore
+/// ```ignore
 /// impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
 /// where
 ///     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,

@@ -11,7 +11,7 @@
 A Rust implementation of the [WebGraph framework] for graph compression.
 
 WebGraph is a framework for graph compression aimed at studying web graphs, but
-currently being applied to several other type of graphs. It
+currently being applied to several other types of graphs. It
 provides simple ways to manage very large graphs, exploiting modern compression
 techniques. More precisely, it is currently made of:
 
@@ -22,7 +22,7 @@ techniques. More precisely, it is currently made of:
 - Algorithms for compressing web graphs that exploit gap compression and
   differential compression (à la
   [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
-  intervalisation, and ζ codes to provide a high compression ratio (see [our
+  intervali<ation, and ζ codes to provide a high compression ratio (see [our
   datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
   by several parameters, which provide different tradeoffs between access speed
   and compression ratio.
@@ -31,7 +31,7 @@ techniques. More precisely, it is currently made of:
   it, using lazy techniques that delay the decompression until it is actually
   necessary.
 
-- Algorithms for analysing very large graphs, such as {@link
+- Algorithms for analyzing very large graphs, such as {@link
   it.unimi.dsi.webgraph.algo.HyperBall}, which has been used to show that
   Facebook has just [four degrees of
   separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
@@ -45,7 +45,7 @@ techniques. More precisely, it is currently made of:
   2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
   Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
-- [Data sets](http://law.di.unimi.it/datasets.php) for large graph (e.g.,
+- [Data sets](http://law.di.unimi.it/datasets.php) for large graphs (e.g.,
   billions of links).
 
 ## Citation
@@ -114,8 +114,8 @@ for_!((src, succ) in graph {
 
 ## Operating on Graphs
 
-There are many operations available on graphs, such as [`transpose`] and
-[`simplify`]. You can [permute] a graph.
+There are many operations available on graphs, such as [transpose] and
+[simplify], and [permute].
 
 ## Acknowledgments
 
@@ -123,8 +123,9 @@ This software has been partially supported by project SERICS (PE00000014) under
 the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
 grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 
-[`transpose`]: <https://docs.rs/webgraph/latest/webgraph/transform/transpose/index.html>
-[`simplify`]: <https://docs.rs/webgraph/latest/webgraph/transform/simplify/index.html>
+[transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/transpose/index.html>
+[simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/simplify/index.html>
+[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/perm/index.html>
 [`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraph.html#method.with_basename>
 [`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraphSeq.html>
 [`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/struct.LoadConfig.html>
@@ -136,6 +137,5 @@ grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 [LAW website]: <http://law.di.unimi.it/>
 [Elias–Fano]: <sux::dict::EliasFano>
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
-[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/permute/index.html>
 [ε-serde]: <nttps://crates.io/crates/epserde/>
 [`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>
