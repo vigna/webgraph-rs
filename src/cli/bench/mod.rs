@@ -14,7 +14,7 @@ pub const COMMAND_NAME: &str = "bench";
 
 pub fn cli(command: Command) -> Command {
     let sub_command = Command::new(COMMAND_NAME)
-        .about("A Few benchmark utilities.")
+        .about("A few benchmark utilities.")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .allow_external_subcommands(true);
