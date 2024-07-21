@@ -11,7 +11,7 @@ use super::super::*;
 use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
-use sux::traits::IndexedDict;
+use sux::traits::{IndexedDict, IndexedSeq};
 
 #[derive(Debug, Clone)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
@@ -136,7 +136,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decode for DynCodesDecoder<E, CR> {
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
-    OFF: IndexedDict<Input = usize, Output = usize>,
+    OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
     factory: F,
@@ -159,7 +159,7 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
@@ -235,7 +235,7 @@ where
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,

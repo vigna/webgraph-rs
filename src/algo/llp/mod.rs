@@ -93,7 +93,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
-    let granularity = granularity.unwrap_or(((sym_graph.num_arcs() >> 9) as usize).max(1024));
+    let granularity = granularity.unwrap_or(Ord::max((sym_graph.num_arcs() >> 9) as usize, 1024));
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -122,7 +122,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     // init the iteration progress logger
     let mut iter_pl = progress_logger!(item_name = "update");
 
-    let hash_map_init = (sym_graph.num_arcs() / sym_graph.num_nodes() as u64).max(16) as usize;
+    let hash_map_init = Ord::max(sym_graph.num_arcs() / sym_graph.num_nodes() as u64, 16) as usize;
 
     // init the update progress logger
     let mut update_pl = progress_logger!(item_name = "node", local_speed = true);

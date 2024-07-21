@@ -10,6 +10,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
+use epserde::deser::DeserializeInner;
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
@@ -103,14 +104,7 @@ where
                     DynCodesDecoderFactory<
                         E,
                         MmapHelper<u32>,
-                        sux::prelude::EliasFano<
-                            sux::prelude::SelectFixed2<
-                                sux::prelude::CountBitVec<&[usize]>,
-                                &[u64],
-                                8,
-                            >,
-                            sux::prelude::BitFieldVec<usize, &[usize]>,
-                        >,
+                        <EF as DeserializeInner>::DeserType<'_>,
                     >,
                 >,
                 JavaPermutation,

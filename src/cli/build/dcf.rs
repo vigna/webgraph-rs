@@ -88,18 +88,22 @@ where
     let mut iter = seq_graph.offset_deg_iter();
     let mut cumul_deg = 0;
 
-    efb.push(0)?;
+    efb.push(0);
     for (_new_offset, degree) in iter.by_ref() {
         cumul_deg += degree;
         // write where
-        efb.push(cumul_deg as _).context("Could not write gamma")?;
+        efb.push(cumul_deg as _);
         // decode the next nodes so we know where the next node_id starts
         pl.light_update();
     }
     pl.done();
 
     let ef = efb.build();
-    let ef: DCF = ef.convert_to().unwrap();
+    let ef: DCF = unsafe {
+        ef.map_high_bits(|bits| {
+            SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(bits))
+        })
+    };
 
     info!("Writing to disk...");
 

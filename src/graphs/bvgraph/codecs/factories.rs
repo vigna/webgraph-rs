@@ -36,7 +36,7 @@ use std::{
     marker::PhantomData,
     path::Path,
 };
-use sux::traits::IndexedDict;
+use sux::traits::{IndexedDict, IndexedSeq, Types};
 
 use crate::utils::MmapHelper;
 
@@ -243,10 +243,12 @@ pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
 
-impl<I, O> IndexedDict for EmptyDict<I, O> {
+impl<I, O> Types for EmptyDict<I, O> {
     type Input = usize;
     type Output = usize;
+}
 
+impl<I, O> IndexedSeq for EmptyDict<I, O> {
     fn get(&self, _key: Self::Input) -> Self::Output {
         panic!();
     }
