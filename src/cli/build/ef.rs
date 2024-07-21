@@ -98,8 +98,7 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: EF =
-                unsafe { ef.map_high_bits(|bits| SelectAdaptConst::<_, _, 12, 4>::new(bits)) };
+            let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -198,7 +197,7 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = unsafe { ef.map_high_bits(|bits| SelectAdaptConst::<_, _, 12, 4>::new(bits)) };
+    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
     pl.done();
 
     let mut pl = ProgressLogger::default();

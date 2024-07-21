@@ -11,7 +11,7 @@ use super::super::*;
 use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
-use sux::traits::{IndexedDict, IndexedSeq};
+use sux::traits::IndexedSeq;
 
 #[derive(Debug, Clone)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {

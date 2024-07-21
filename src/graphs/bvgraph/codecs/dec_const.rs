@@ -12,7 +12,6 @@ use anyhow::bail;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
-use sux::traits::IndexedDict;
 use sux::traits::IndexedSeq;
 
 /// Temporary constants while const enum generics are not stable

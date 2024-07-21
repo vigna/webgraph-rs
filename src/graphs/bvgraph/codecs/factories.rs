@@ -36,7 +36,7 @@ use std::{
     marker::PhantomData,
     path::Path,
 };
-use sux::traits::{IndexedDict, IndexedSeq, Types};
+use sux::traits::{IndexedSeq, Types};
 
 use crate::utils::MmapHelper;
 

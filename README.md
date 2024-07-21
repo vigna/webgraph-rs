@@ -83,7 +83,7 @@ named `BASENAME.ef`.
 
 Then, to load the graph you need to call
 
-```[ignore]
+```ignore
 let graph = BVGraph::with_basename("BASENAME").load()?;
 ```
 
@@ -96,7 +96,7 @@ Once you load the graph, you can [retrieve the successors of a node] or
 [iterate on the whole graph]. In particular, using the handy [`for_`] macro,
 you can write an iteration on the graph as
 
-```[ignore]
+```ignore
 for_!((src, succ) in graph {
     for dst in succ {
         [do something with the arc src -> dst]
