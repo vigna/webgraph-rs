@@ -7,7 +7,7 @@
 
 //! Command line interface structs and functions shared by multiple subcommands.
 
-use crate::graphs::Code;
+use crate::graphs::bvgraph::Code;
 use crate::prelude::CompFlags;
 use anyhow::anyhow;
 use anyhow::ensure;

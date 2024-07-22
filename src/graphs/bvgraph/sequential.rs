@@ -49,7 +49,7 @@ where
     type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), how_many)
+        split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
     }
 }
 
@@ -79,9 +79,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
             self.min_interval_length,
         );
 
-        for _ in 0..from {
-            iter.next();
-        }
+        let _ = iter.advance_by(from);
 
         iter
     }
@@ -304,7 +302,8 @@ impl<D: Decode> Iter<D> {
 
 impl<'succ, D: Decode> NodeLabelsLender<'succ> for Iter<D> {
     type Label = usize;
-    type IntoIterator = std::iter::Copied<std::slice::Iter<'succ, Self::Label>>;
+    type IntoIterator =
+        crate::traits::labels::SortedIter<std::iter::Copied<std::slice::Iter<'succ, Self::Label>>>;
 }
 
 impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
@@ -324,7 +323,9 @@ impl<D: Decode> Lender for Iter<D> {
         let res = self.backrefs.replace(self.current_node, res);
         let node_id = self.current_node;
         self.current_node += 1;
-        Some((node_id, res.iter().copied()))
+        Some((node_id, unsafe {
+            crate::traits::labels::SortedIter::new(res.iter().copied())
+        }))
     }
 }
 

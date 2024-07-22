@@ -6,7 +6,9 @@
 
 use std::borrow::Borrow;
 
-use crate::graphs::{arc_list_graph, UnionGraph};
+use crate::graphs::{
+    arc_list_graph, no_selfloops_graph::NoSelfLoopsGraph, union_graph::UnionGraph,
+};
 use crate::labels::Left;
 use crate::traits::{SequentialGraph, SplitLabeling};
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
@@ -27,12 +29,15 @@ use super::transpose;
 pub fn simplify_sorted<G: SequentialGraph>(
     graph: &G,
     batch_size: usize,
-) -> Result<UnionGraph<&G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>>
-{
-    Ok(UnionGraph(
+) -> Result<
+    NoSelfLoopsGraph<
+        UnionGraph<&G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>,
+    >,
+> {
+    Ok(NoSelfLoopsGraph(UnionGraph(
         graph,
         transpose(graph, batch_size).context("Could not transpose the graph")?,
-    ))
+    )))
 }
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided

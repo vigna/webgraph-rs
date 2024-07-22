@@ -75,9 +75,9 @@ pub mod seq {
         remaining: usize,
     }
 
-    impl<L: lender::ExactSizeLender> Iter<L> {
-        pub fn new(lender: L, how_many: usize) -> Self {
-            let nodes_per_iter = lender.len().div_ceil(how_many);
+    impl<L: lender::Lender> Iter<L> {
+        pub fn new(lender: L, number_of_nodes: usize, how_many: usize) -> Self {
+            let nodes_per_iter = number_of_nodes.div_ceil(how_many);
             Self {
                 lender,
                 nodes_per_iter,

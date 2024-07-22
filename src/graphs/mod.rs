@@ -6,19 +6,17 @@
  */
 
 pub mod arc_list_graph;
-
 pub mod bvgraph;
-pub use bvgraph::*;
+pub mod no_selfloops_graph;
 pub mod permuted_graph;
-
-mod union_graph;
-pub use union_graph::UnionGraph;
-
 pub mod random;
-
+pub mod union_graph;
 pub mod vec_graph;
+
 pub mod prelude {
     pub use super::bvgraph::*;
+    pub use super::no_selfloops_graph::NoSelfLoopsGraph;
     pub use super::permuted_graph::PermutedGraph;
+    pub use super::union_graph::UnionGraph;
     pub use super::vec_graph::VecGraph;
 }

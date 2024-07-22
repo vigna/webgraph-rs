@@ -277,6 +277,40 @@ pub type Labels<'succ, 'node, S> =
 /// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
 pub unsafe trait SortedLender: Lender {}
 
+/// A wrapper to attach `SortedLender` to a lender. This is needed when
+/// the lender is not directly a `SortedLender`, but it is known that it
+/// returns elements in sorted order.
+pub struct SortedLend<L> {
+    lender: L,
+}
+
+impl<L> SortedLend<L> {
+    /// # Safety
+    /// This is unsafe as the propose of this struct is to attach an unsafe
+    /// trait to a struct that does not implement it.
+    pub unsafe fn new(lender: L) -> Self {
+        Self { lender }
+    }
+}
+
+unsafe impl<L: Lender> SortedLender for SortedLend<L> {}
+
+impl<'succ, L: Lender> Lending<'succ> for SortedLend<L> {
+    type Lend = <L as Lending<'succ>>::Lend;
+}
+
+impl<L: Lender> Lender for SortedLend<L> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
+        self.lender.next()
+    }
+}
+
+impl<L: ExactSizeLender> ExactSizeLender for SortedLend<L> {
+    fn len(&self) -> usize {
+        self.lender.len()
+    }
+}
+
 /// Marker trait for [`Iterator`]s yielding labels in the order induced by
 /// enumerating the successors in ascending order.
 ///
@@ -285,6 +319,39 @@ pub unsafe trait SortedLender: Lender {}
 /// The labels returned by the iterator must be in the order in which they would
 /// be if successors were returned in ascending order.
 pub unsafe trait SortedIterator: Iterator {}
+
+/// A wrapper to attach `SortedIterator` to an iterator. This is needed when
+/// the iterator is not directly a `SortedIterator`, but it is known that it
+/// returns elements in sorted order, e.g. like iterating on a vector that was
+/// sorted.
+pub struct SortedIter<I> {
+    iter: I,
+}
+
+impl<I> SortedIter<I> {
+    /// # Safety
+    /// This is unsafe as the propose of this struct is to attach an unsafe
+    /// trait to a struct that does not implement it.
+    pub unsafe fn new(iter: I) -> Self {
+        Self { iter }
+    }
+}
+
+unsafe impl<I: Iterator> SortedIterator for SortedIter<I> {}
+
+impl<I: Iterator> Iterator for SortedIter<I> {
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<I: ExactSizeIterator> ExactSizeIterator for SortedIter<I> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.

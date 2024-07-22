@@ -437,7 +437,7 @@ impl BVComp<()> {
 
                 log::info!(
                     "Copying offsets {} [{}..{}) bits from {} to {}",
-                    written_bits,
+                    offsets_written_bits,
                     total_offsets_written_bits,
                     total_offsets_written_bits + offsets_written_bits,
                     chunk_offsets_path.display(),
