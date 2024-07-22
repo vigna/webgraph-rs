@@ -59,6 +59,8 @@ pub fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
+    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
+
     // TODO!: speed it up by using random access graph if possible
     let transposed = args.dst.unwrap_or_else(|| append(&args.src, "-t"));
 
@@ -76,10 +78,7 @@ where
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(args.num_threads.num_threads)
-            .build()
-            .expect("Failed to create thread pool"),
+        thread_pool,
         dir,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;

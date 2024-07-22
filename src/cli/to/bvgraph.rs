@@ -85,10 +85,7 @@ where
 {
     let dir = Builder::new().prefix("Recompress").tempdir()?;
 
-    let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_threads.num_threads)
-        .build()
-        .expect("Failed to create thread pool");
+    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 
     if args.src.with_extension(EF_EXTENSION).exists() {
         let graph = BVGraph::with_basename(&args.src).endianness::<E>().load()?;

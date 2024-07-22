@@ -126,15 +126,13 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     // compress it
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
+    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
     BVComp::parallel_endianness(
         &args.src,
         &g,
         args.num_nodes,
         args.ca.into(),
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(args.num_threads.num_threads)
-            .build()
-            .expect("Failed to create thread pool"),
+        thread_pool,
         dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )

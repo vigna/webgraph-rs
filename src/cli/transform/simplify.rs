@@ -76,10 +76,7 @@ where
     // TODO!: speed it up by using random access graph if possible
     let simplified = args.dst.unwrap_or_else(|| append(&args.src, "-simple"));
 
-    let thread_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_threads.num_threads)
-        .build()
-        .expect("Failed to create thread pool");
+    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 

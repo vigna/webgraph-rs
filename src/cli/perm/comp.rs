@@ -14,7 +14,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use sux::traits::BitFieldSlice;
 
-pub const COMMAND_NAME: &str = "merge";
+pub const COMMAND_NAME: &str = "comp";
 
 #[derive(Args, Debug)]
 #[command(about = "Compose multiple permutations into a single one", long_about = None)]
