@@ -19,7 +19,7 @@ jobs:
       - name: Run clippy
         run: cargo clippy #-- -Dclippy::all -Dclippy::cargo
       - name: Run tests
-        run: cargo test --verbose
+        run: RUST_BACKTRACE=full cargo test --verbose
 
   coverage:
     needs: build
