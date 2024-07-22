@@ -348,6 +348,7 @@ impl BVComp<()> {
 
                     let num_arcs = bvcomp.arcs;
                     bvcomp.flush().unwrap();
+                    offsets_writer.flush().unwrap();
 
                     log::info!(
                         "Finished Compression thread {} and wrote {} bits for the graph and {} bits for the offsets",
