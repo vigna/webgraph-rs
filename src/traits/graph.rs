@@ -39,6 +39,7 @@ Usually there is a convenience method doing the wrapping for you.
 use crate::prelude::{Pair, RandomAccessLabeling, SequentialLabeling};
 use impl_tools::autoimpl;
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 
 use super::lenders::{LenderIntoIter, NodeLabelsLender};
 
@@ -121,12 +122,13 @@ pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 ///
 /// If the method returns some graphs derived from the input, it will usually be
 /// necessary to [project the labels away](crate::labels::Left).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, MemSize, MemDbg)]
 #[repr(transparent)]
 pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 
 #[doc(hidden)]
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy, MemSize, MemDbg)]
 pub struct UnitIterator<L>(L);
 
 impl<'succ, L> NodeLabelsLender<'succ> for UnitIterator<L>
@@ -159,6 +161,7 @@ where
 
 #[doc(hidden)]
 #[repr(transparent)]
+#[derive(Clone, Copy, Debug, MemSize, MemDbg)]
 pub struct UnitSuccessors<I>(I);
 
 impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {

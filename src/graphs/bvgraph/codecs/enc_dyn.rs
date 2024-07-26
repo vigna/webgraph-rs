@@ -8,6 +8,7 @@
 use super::{CodeWrite, Encode, EncodeAndEstimate};
 use crate::{graphs::bvgraph::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
+use mem_dbg::{MemDbg, MemDbgImpl, MemSize, SizeFlags};
 use std::convert::Infallible;
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
@@ -21,13 +22,186 @@ pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
     write_outdegree: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_reference_offset: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_block_count: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_block: fn(&mut CW, u64) -> WriteResult<E, CW>,
+    write_blocks: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_interval_count: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_interval_start: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_interval_len: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_first_residual: fn(&mut CW, u64) -> WriteResult<E, CW>,
     write_residual: fn(&mut CW, u64) -> WriteResult<E, CW>,
     _marker: core::marker::PhantomData<E>,
+}
+
+/// Manual impl because of generic lifetime function pointers are not supported
+/// yet by the derive macro
+impl<E: Endianness, CW: CodeWrite<E>> MemSize for DynCodesEncoder<E, CW>
+where
+    CW: MemSize,
+{
+    fn mem_size(&self, flags: SizeFlags) -> usize {
+        self.code_writer.mem_size(flags)
+            + self.estimator.mem_size(flags)
+            + core::mem::size_of::<usize>() * 9
+    }
+}
+
+impl<E: Endianness, CW: CodeWrite<E>> MemDbgImpl for DynCodesEncoder<E, CW>
+where
+    CW: MemDbg,
+{
+    fn _mem_dbg_rec_on(
+        &self,
+        writer: &mut impl core::fmt::Write,
+        total_size: usize,
+        max_depth: usize,
+        prefix: &mut String,
+        _is_last: bool,
+        flags: mem_dbg::DbgFlags,
+    ) -> core::fmt::Result {
+        let mut id_sizes: Vec<(usize, usize)> = vec![];
+        id_sizes.push((0, core::mem::offset_of!(Self, code_writer)));
+        id_sizes.push((1, core::mem::offset_of!(Self, estimator)));
+        id_sizes.push((2, core::mem::offset_of!(Self, write_outdegree)));
+        id_sizes.push((3, core::mem::offset_of!(Self, write_reference_offset)));
+        id_sizes.push((4, core::mem::offset_of!(Self, write_block_count)));
+        id_sizes.push((5, core::mem::offset_of!(Self, write_blocks)));
+        id_sizes.push((6, core::mem::offset_of!(Self, write_interval_count)));
+        id_sizes.push((7, core::mem::offset_of!(Self, write_interval_start)));
+        id_sizes.push((8, core::mem::offset_of!(Self, write_interval_len)));
+        id_sizes.push((9, core::mem::offset_of!(Self, write_first_residual)));
+        id_sizes.push((10, core::mem::offset_of!(Self, write_residual)));
+
+        let n = id_sizes.len();
+        id_sizes.push((n, core::mem::size_of::<Self>()));
+        // Sort by offset
+        id_sizes.sort_by_key(|x| x.1);
+        // Compute padded sizes
+        for i in 0..n {
+            id_sizes[i].1 = id_sizes[i + 1].1 - id_sizes[i].1;
+        }
+        // Put the candle back unless the user requested otherwise
+        if !flags.contains(mem_dbg::DbgFlags::RUST_LAYOUT) {
+            id_sizes.sort_by_key(|x| x.0);
+        }
+
+        for (i, (field_idx, padded_size)) in id_sizes.into_iter().enumerate().take(n) {
+            let is_last = i == n - 1;
+            match field_idx {
+                0 => self.code_writer._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("code_writer"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                1 => self.estimator._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("estimator"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                // replace the fn pointers with usizes
+                2 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_outdegree"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                3 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_reference_offset"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                4 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_block_count"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                5 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_blocks"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                6 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_interval_count"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                7 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_interval_start"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                8 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_interval_len"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                9 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_first_residual"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                10 => 0_usize._mem_dbg_depth_on(
+                    writer,
+                    total_size,
+                    max_depth,
+                    prefix,
+                    Some("write_residual"),
+                    is_last,
+                    padded_size,
+                    flags,
+                )?,
+                _ => unreachable!(),
+            }
+        }
+        Ok(())
+    }
 }
 
 fn write_zeta2<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
@@ -79,7 +253,7 @@ impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
             write_outdegree: Self::select_code(cf.outdegrees),
             write_reference_offset: Self::select_code(cf.references),
             write_block_count: Self::select_code(cf.blocks),
-            write_block: Self::select_code(cf.blocks),
+            write_blocks: Self::select_code(cf.blocks),
             write_interval_count: Self::select_code(cf.intervals),
             write_interval_start: Self::select_code(cf.intervals),
             write_interval_len: Self::select_code(cf.intervals),
@@ -139,7 +313,7 @@ where
     }
     #[inline(always)]
     fn write_block(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_block)(&mut self.code_writer, value)
+        (self.write_blocks)(&mut self.code_writer, value)
     }
 
     #[inline(always)]
@@ -181,7 +355,7 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct DynCodesEstimator {
     len_outdegree: fn(u64) -> usize,
     len_reference_offset: fn(u64) -> usize,

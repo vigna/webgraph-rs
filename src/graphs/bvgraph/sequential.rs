@@ -15,11 +15,13 @@ use bitflags::Flags;
 use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
 use lender::*;
+use mem_dbg::MemDbg;
+use mem_dbg::MemSize;
 
 /// A sequential BVGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmapped file.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct BVGraphSeq<F> {
     factory: F,
     number_of_nodes: usize,
@@ -157,7 +159,7 @@ where
 
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct Iter<D: Decode> {
     pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,

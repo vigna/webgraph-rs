@@ -10,8 +10,9 @@ use std::marker::PhantomData;
 use super::super::*;
 use anyhow::bail;
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::traits::{BitSeek, Endianness};
 use epserde::deser::MemCase;
+use mem_dbg::{MemDbg, MemSize};
 use sux::traits::IndexedSeq;
 
 /// Temporary constants while const enum generics are not stable
@@ -38,7 +39,7 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 
 #[repr(transparent)]
 /// An implementation of [`Decode`]  with compile-time defined codes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct ConstCodesDecoder<
     E: Endianness,
     CR: CodeRead<E>,
@@ -184,6 +185,7 @@ impl<
     }
 }
 
+#[derive(Debug, MemSize, MemDbg)]
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,

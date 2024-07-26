@@ -7,6 +7,7 @@
 
 use crate::utils::{ArcMmapHelper, MmapHelper};
 use anyhow::Result;
+use mem_dbg::{MemDbg, MemSize};
 use mmap_rs::{MmapFlags, MmapMut};
 use std::path::Path;
 use std::sync::Arc;
@@ -23,7 +24,7 @@ use sux::traits::*;
 ///
 /// By default it uses an `Arc<Mmap>` so that it can be cloned.
 #[cfg(target_pointer_width = "64")]
-#[derive(Clone)]
+#[derive(Clone, Debug, MemSize, MemDbg)]
 pub struct JavaPermutation<M = ArcMmapHelper<u64>> {
     pub perm: M,
 }

@@ -7,13 +7,14 @@
 use crate::traits::*;
 use core::mem::MaybeUninit;
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// An adapter exhibiting a list of labeled
 /// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
 ///
 /// If for every source the arcs are sorted by destination, the
 /// successors of the graph will be sorted.
-#[derive(Clone)]
+#[derive(Clone, Debug, MemSize, MemDbg)]
 pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
     into_iter: I,
@@ -60,7 +61,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, MemSize, MemDbg)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
     curr_node: usize,
@@ -173,8 +174,22 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 }
 
 /// Iter until we found a triple with src different than curr_node
+#[derive(MemSize, MemDbg)]
 pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut Iter<L, I>,
+}
+
+/// Manual Implementation of debug because the derive doesn't work here.
+impl<'succ, L, I> core::fmt::Debug for Succ<'succ, L, I>
+where
+    I: IntoIterator<Item = (usize, usize, L)>,
+    &'succ mut Iter<L, I>: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Succ")
+            .field("node_iter", &self.node_iter)
+            .finish()
+    }
 }
 
 impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'a, L, I> {

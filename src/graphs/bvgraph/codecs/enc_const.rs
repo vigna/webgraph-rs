@@ -6,13 +6,14 @@
  */
 
 use dsi_bitstream::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 use std::convert::Infallible;
 
 use super::{const_codes, CodeWrite, Encode, EncodeAndEstimate};
 
 #[repr(transparent)]
 /// An implementation of [`EncodeAndEstimate`] with compile time defined codes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct ConstCodesEncoder<
     E: Endianness,
     CW: CodeWrite<E>,
@@ -173,7 +174,7 @@ impl<
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, MemSize, MemDbg)]
 pub struct ConstCodesEstimator<
     const OUTDEGREES: usize = { const_codes::GAMMA },
     const REFERENCES: usize = { const_codes::UNARY },

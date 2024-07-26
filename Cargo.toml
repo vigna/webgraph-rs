@@ -25,7 +25,7 @@ mmap-rs = "0.6.1"
 num_cpus = "1.16.0"
 epserde = "0.6.1"
 sux = "0.4.0"
-dsi-bitstream = "0.4.0"
+dsi-bitstream = {git="https://github.com/vigna/dsi-bitstream-rs.git"} # "0.4.0"
 dsi-progress-logger = "0.2.4"
 log = "0.4.20"
 rand = { version = "0.8.5", features = ["small_rng"] }
@@ -41,6 +41,7 @@ bitflags = "2.4.2"
 dary_heap = "0.3.6"
 rdst = { version  ="0.20.12", features = ["multi-threaded"] }
 sealed = "0.5.0"
+mem_dbg = {version = "0.2.2", features = ["rand", "mmap-rs"]}
 
 # Cli
 clap = { version = "4.4.18", features = ["derive", "string"], optional = true }

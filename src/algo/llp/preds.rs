@@ -27,12 +27,14 @@
 //! ```
 
 use anyhow::ensure;
+use mem_dbg::{MemDbg, MemSize};
 use predicates::{reflection::PredicateReflection, Predicate};
 use std::fmt::Display;
 
 #[doc(hidden)]
 /// This structure is passed to predicates to provide the
 /// information that is needed to evaluate them.
+#[derive(Debug, Clone, Copy, MemSize, MemDbg)]
 pub struct PredParams {
     pub num_nodes: usize,
     pub num_arcs: u64,
@@ -43,7 +45,7 @@ pub struct PredParams {
 }
 
 /// Stop after at most the provided number of updates for a given ɣ.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, MemSize, MemDbg)]
 pub struct MaxUpdates {
     max_updates: usize,
 }
@@ -86,7 +88,7 @@ impl Predicate<PredParams> for MaxUpdates {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, MemSize, MemDbg)]
 /// Stop if the gain of the objective function is below the given threshold.
 ///
 /// The [default threshold](Self::DEFAULT_THRESHOLD) is the same as that
@@ -139,7 +141,7 @@ impl Predicate<PredParams> for MinGain {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, MemSize, MemDbg)]
 /// Stop if the average improvement of the gain of the objective function on
 /// a window of ten updates is below the given threshold.
 ///
@@ -196,7 +198,7 @@ impl Predicate<PredParams> for MinAvgImprov {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default, MemSize, MemDbg)]
 /// Stop after the number of modified nodes falls below the square root of the
 /// number of nodes.
 pub struct MinModified {}
@@ -214,7 +216,7 @@ impl Predicate<PredParams> for MinModified {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default, MemSize, MemDbg)]
 /// Stop after the number of modified nodes falls below
 /// a specified percentage of the number of nodes.
 pub struct PercModified {

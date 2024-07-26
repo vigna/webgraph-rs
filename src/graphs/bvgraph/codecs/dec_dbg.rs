@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use mem_dbg::{MemDbg, MemSize};
+
 use crate::prelude::*;
 
 #[repr(transparent)]
 /// A debug wrapper on a code read that prints the codes it reads
 /// to stderr
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct DebugDecoder<CR: Decode> {
     pub cr: CR,
 }

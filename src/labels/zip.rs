@@ -7,6 +7,7 @@
 use core::iter;
 
 use lender::{IntoLender, Lend, Lender, Lending};
+use mem_dbg::{MemDbg, MemSize};
 
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
@@ -33,7 +34,7 @@ which does not perform length checks. For extra safety, consider using
 
 */
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemSize, MemDbg)]
 pub struct Zip<L: SequentialLabeling, R: SequentialLabeling>(pub L, pub R);
 
 impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
@@ -69,7 +70,7 @@ impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, MemSize, MemDbg)]
 pub struct Iter<L, R>(L, R);
 
 impl<'succ, L, R> NodeLabelsLender<'succ> for Iter<L, R>

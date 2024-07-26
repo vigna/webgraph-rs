@@ -6,8 +6,10 @@
 
 use crate::prelude::*;
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
+#[repr(transparent)]
 /// A wrapper that removes self-loops from a graph. Since we don't know how many
 /// self-loops there are, we can't provide an exact number of arcs or outdegree
 /// for each node. Therefore, we can't implement random access to the successors.
@@ -62,7 +64,8 @@ impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
 }
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
+#[repr(transparent)]
 pub struct Iter<I> {
     iter: I,
 }
@@ -109,7 +112,7 @@ impl<L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>> Exa
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct Succ<I: Iterator<Item = usize>> {
     src: usize,
     iter: I,

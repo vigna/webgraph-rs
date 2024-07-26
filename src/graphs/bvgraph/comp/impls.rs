@@ -10,6 +10,7 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -21,6 +22,7 @@ use std::path::{Path, PathBuf};
 ///
 /// Jobs must be ordered by their job id, and must implement [`Eq`] with a
 /// [`usize`] using their job id.
+#[derive(Debug, MemSize, MemDbg)]
 struct TaskQueue<I: Iterator> {
     iter: I,
     jobs: Vec<Option<I::Item>>,
@@ -69,7 +71,7 @@ where
 }
 
 /// A compression job.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, MemSize, MemDbg)]
 struct Job {
     job_id: usize,
     first_node: usize,

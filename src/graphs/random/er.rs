@@ -5,6 +5,7 @@
  */
 
 use lender::{Lend, Lender, Lending};
+use mem_dbg::{MemDbg, MemSize};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
@@ -20,7 +21,7 @@ use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
 /// so if you plan to reuse it you should store the result in a more efficient
 /// structure, such as a [`VecGraph`](crate::graphs::prelude::VecGraph). The
 /// same applies if you need random access.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct ErdosRenyi {
     n: usize,
     p: f64,
@@ -58,7 +59,7 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct Iter {
     n: usize,
     p: f64,

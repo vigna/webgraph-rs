@@ -8,6 +8,7 @@
 use anyhow::{ensure, Context, Result};
 use common_traits::UnsignedInt;
 use core::fmt::Debug;
+use mem_dbg::{MemDbg, MemSize};
 use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
 
@@ -30,7 +31,7 @@ use std::{mem::size_of, path::Path, sync::Arc};
 ///
 /// If you need clonable version of this structure, consider using
 /// [`ArcMmapHelper`].
-#[derive(Clone)]
+#[derive(Clone, MemSize, MemDbg)]
 pub struct MmapHelper<W, M = Mmap> {
     /// The underlying memory mapping, [`Mmap`] or [`MmapMut`].
     mmap: M,
@@ -251,7 +252,7 @@ impl<W> AsMut<[W]> for MmapHelper<W, MmapMut> {
 ///
 /// This newtype contains a read-only [`MmapHelper`] wrapped in an [`Arc`],
 /// making it possible to clone it.
-#[derive(Clone)]
+#[derive(Clone, MemSize, MemDbg)]
 pub struct ArcMmapHelper<W>(pub Arc<MmapHelper<W>>);
 
 impl<W: Debug> Debug for ArcMmapHelper<W> {

@@ -30,6 +30,7 @@ use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader, WordAdapter},
     traits::Endianness,
 };
+use mem_dbg::{MemDbg, MemDbgImpl, MemSize, SizeFlags};
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -47,7 +48,7 @@ pub trait BitReaderFactory<E: Endianness> {
     fn new_reader(&self) -> Self::BitReader<'_>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct FileFactory<E: Endianness> {
     path: Box<Path>,
     _marker: core::marker::PhantomData<E>,
@@ -104,6 +105,17 @@ bitflags! {
     }
 }
 
+/// Bitflags actually create two different structs so if we derive MemSize
+/// for MemoryFlags it will not be derived for the other struct, so we need
+/// to implement it manually.
+impl MemSize for MemoryFlags {
+    fn mem_size(&self, _flags: SizeFlags) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
+/// See memsize impl
+impl MemDbgImpl for MemoryFlags {}
+
 /// Empty flags.
 impl core::default::Default for MemoryFlags {
     fn default() -> Self {
@@ -145,7 +157,7 @@ impl From<MemoryFlags> for epserde::deser::Flags {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct MemoryFactory<E: Endianness, M: AsRef<[u32]>> {
     data: M,
     _marker: core::marker::PhantomData<E>,
@@ -238,7 +250,7 @@ impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M>
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }

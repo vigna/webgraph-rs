@@ -8,9 +8,10 @@
 use crate::prelude::*;
 use core::cmp::Ordering;
 use lender::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// A BVGraph compressor, this is used to compress a graph into a BVGraph
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct BVComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
@@ -42,7 +43,7 @@ pub struct BVComp<E> {
     pub arcs: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, MemSize, MemDbg)]
 /// Compute how to encode the successors of a node, given a reference node.
 /// This could be a function, but we made it a struct so we can reuse the
 /// allocations for performance reasons

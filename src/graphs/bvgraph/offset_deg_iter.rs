@@ -8,13 +8,14 @@
 use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// Fast iterator over the offsets and degrees of a [`BVGraph`].
 ///
 /// This iterator is faster than scanning the graph. In particular, it can be
 /// used to build the offsets of a graph or to enumerate the graph degrees when
 /// the offsets are not available.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct OffsetDegIter<D: Decode> {
     number_of_nodes: usize,
     compression_window: usize,

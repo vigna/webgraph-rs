@@ -19,6 +19,7 @@ use dsi_bitstream::{
 };
 use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
+use mem_dbg::{MemDbg, MemSize};
 use mmap_rs::MmapFlags;
 use std::path::Path;
 use sux::traits::IndexedSeq;
@@ -36,6 +37,8 @@ pub trait ReaderBuilder {
     fn get_reader(&self) -> Self::Reader<'_>;
 }
 
+#[derive(Debug, MemSize, MemDbg)]
+#[repr(transparent)]
 pub struct MmapReaderBuilder {
     backend: MmapHelper<u32>,
 }
@@ -49,6 +52,7 @@ impl ReaderBuilder for MmapReaderBuilder {
     }
 }
 
+#[derive(Debug, MemSize, MemDbg)]
 pub struct SwhLabels<RB: ReaderBuilder, O: IndexedSeq> {
     width: usize,
     reader_builder: RB,
@@ -73,6 +77,7 @@ impl SwhLabels<MmapReaderBuilder, DeserType<'static, EF>> {
     }
 }
 
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct Iter<'a, BR, O> {
     width: usize,
     reader: BR,
@@ -129,6 +134,7 @@ impl<
     }
 }
 
+#[derive(Debug, MemSize, MemDbg)]
 pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     width: usize,
     reader: &'a mut BR,
@@ -172,7 +178,7 @@ impl SequentialLabeling for SwhLabels<MmapReaderBuilder, DeserType<'static, EF>>
 }
 
 // TODO: avoid duplicate implementation for labels
-
+#[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct RanLabels<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
     width: usize,
     reader: BR,

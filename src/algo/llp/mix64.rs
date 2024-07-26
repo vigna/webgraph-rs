@@ -4,11 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use mem_dbg::{MemDbg, MemSize};
+
 /// A hasher that mixes `usize` values.
 ///
 /// This can only be used to hash `usize` values and it's not a general purpose
 /// hasher. It is used by the label hash maps.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, MemSize, MemDbg)]
 pub(crate) struct Mix64 {
     state: u64,
 }
@@ -33,7 +35,7 @@ impl core::hash::Hasher for Mix64 {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, MemSize, MemDbg)]
 pub(crate) struct Mix64Builder;
 
 impl core::hash::BuildHasher for Mix64Builder {

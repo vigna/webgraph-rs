@@ -67,7 +67,9 @@ pub trait SplitLabeling: SequentialLabeling {
 
 pub mod seq {
     use crate::prelude::SequentialLabeling;
+    use mem_dbg::{MemDbg, MemSize};
 
+    #[derive(Clone, Debug, Copy, MemSize, MemDbg)]
     pub struct Iter<L> {
         lender: L,
         nodes_per_iter: usize,
@@ -138,8 +140,11 @@ pub mod seq {
 /// ```
 
 pub mod ra {
+    use mem_dbg::{MemDbg, MemSize};
+
     use crate::prelude::{RandomAccessLabeling, SequentialLabeling};
 
+    #[derive(Debug, Clone, Copy, MemSize, MemDbg)]
     pub struct Iter<'a, R: RandomAccessLabeling> {
         labeling: &'a R,
         nodes_per_iter: usize,

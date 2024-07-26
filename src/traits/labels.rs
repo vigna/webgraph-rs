@@ -33,6 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
+use mem_dbg::{MemDbg, MemSize};
 use std::borrow::Borrow;
 use sux::traits::Succ;
 
@@ -280,6 +281,7 @@ pub unsafe trait SortedLender: Lender {}
 /// A wrapper to attach `SortedLender` to a lender. This is needed when
 /// the lender is not directly a `SortedLender`, but it is known that it
 /// returns elements in sorted order.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, MemSize, MemDbg)]
 pub struct SortedLend<L> {
     lender: L,
 }
@@ -324,6 +326,7 @@ pub unsafe trait SortedIterator: Iterator {}
 /// the iterator is not directly a `SortedIterator`, but it is known that it
 /// returns elements in sorted order, e.g. like iterating on a vector that was
 /// sorted.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, MemSize, MemDbg)]
 pub struct SortedIter<I> {
     iter: I,
 }
@@ -378,6 +381,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 ///
 /// Users can implement just random-access primitives and then
 /// use this structure to implement sequential access.
+#[derive(Clone, Debug, MemSize, MemDbg)]
 pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
     pub labeling: &'node G,
     pub nodes: core::ops::Range<usize>,
