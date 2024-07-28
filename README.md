@@ -7,6 +7,7 @@
 [![](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
 [![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
 [![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
+[![Coverage Status](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
 
 A Rust implementation of the [WebGraph framework] for graph compression.
 
