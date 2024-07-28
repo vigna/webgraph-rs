@@ -9,19 +9,19 @@ use dsi_bitstream::prelude::*;
 use mem_dbg::{MemDbg, MemSize};
 use std::convert::Infallible;
 
-use super::{const_codes, CodeWrite, Encode, EncodeAndEstimate};
+use super::{bv_const_codes, BVCodeWrite, Encode, EncodeAndEstimate};
 
 #[repr(transparent)]
 /// An implementation of [`EncodeAndEstimate`] with compile time defined codes
 #[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct ConstCodesEncoder<
     E: Endianness,
-    CW: CodeWrite<E>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
+    CW: BVCodeWrite<E>,
+    const OUTDEGREES: usize = { bv_const_codes::GAMMA },
+    const REFERENCES: usize = { bv_const_codes::UNARY },
+    const BLOCKS: usize = { bv_const_codes::GAMMA },
+    const INTERVALS: usize = { bv_const_codes::GAMMA },
+    const RESIDUALS: usize = { bv_const_codes::ZETA },
     const K: u64 = 3,
 > {
     code_writer: CW,
@@ -30,7 +30,7 @@ pub struct ConstCodesEncoder<
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E> + BitSeek,
+        CW: BVCodeWrite<E> + BitSeek,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -53,7 +53,7 @@ impl<
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E>,
+        CW: BVCodeWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -74,12 +74,12 @@ impl<
 macro_rules! select_code_write {
     ($self:ident, $code:expr, $k: expr, $value:expr) => {
         match $code {
-            const_codes::UNARY => $self.code_writer.write_unary($value),
-            const_codes::GAMMA => $self.code_writer.write_gamma($value),
-            const_codes::DELTA => $self.code_writer.write_delta($value),
-            const_codes::ZETA if $k == 1 => $self.code_writer.write_gamma($value),
-            const_codes::ZETA if $k == 3 => $self.code_writer.write_zeta3($value),
-            const_codes::ZETA => $self.code_writer.write_zeta($value, K),
+            bv_const_codes::UNARY => $self.code_writer.write_unary($value),
+            bv_const_codes::GAMMA => $self.code_writer.write_gamma($value),
+            bv_const_codes::DELTA => $self.code_writer.write_delta($value),
+            bv_const_codes::ZETA if $k == 1 => $self.code_writer.write_gamma($value),
+            bv_const_codes::ZETA if $k == 3 => $self.code_writer.write_zeta3($value),
+            bv_const_codes::ZETA => $self.code_writer.write_zeta($value, K),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         }
     };
@@ -87,7 +87,7 @@ macro_rules! select_code_write {
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E>,
+        CW: BVCodeWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -156,7 +156,7 @@ impl<
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E>,
+        CW: BVCodeWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -176,11 +176,11 @@ impl<
 #[repr(transparent)]
 #[derive(Debug, Clone, Default, MemSize, MemDbg)]
 pub struct ConstCodesEstimator<
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
+    const OUTDEGREES: usize = { bv_const_codes::GAMMA },
+    const REFERENCES: usize = { bv_const_codes::UNARY },
+    const BLOCKS: usize = { bv_const_codes::GAMMA },
+    const INTERVALS: usize = { bv_const_codes::GAMMA },
+    const RESIDUALS: usize = { bv_const_codes::ZETA },
     const K: u64 = 3,
 >;
 
@@ -201,10 +201,10 @@ impl<
 macro_rules! select_code_mock_write {
     ( $code:expr, $k: expr, $value:expr) => {
         Ok(match $code {
-            const_codes::UNARY => $value as usize + 1,
-            const_codes::GAMMA => len_gamma($value),
-            const_codes::DELTA => len_delta($value),
-            const_codes::ZETA => len_zeta($value, K),
+            bv_const_codes::UNARY => $value as usize + 1,
+            bv_const_codes::GAMMA => len_gamma($value),
+            bv_const_codes::DELTA => len_delta($value),
+            bv_const_codes::ZETA => len_zeta($value, K),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         })
     };

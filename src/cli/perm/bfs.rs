@@ -53,7 +53,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn bfs<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: BVCodeRead<E> + BitSeek,
 {
     // load the graph
     let graph = BVGraph::with_basename(&args.src)

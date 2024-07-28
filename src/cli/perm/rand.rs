@@ -54,7 +54,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn rand_perm<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: BVCodeRead<E> + BitSeek,
 {
     let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
         .endianness::<E>()

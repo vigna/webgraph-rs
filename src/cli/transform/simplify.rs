@@ -71,7 +71,7 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
 
 pub fn simplify<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: BVCodeRead<E> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
     let simplified = args.dst.unwrap_or_else(|| append(&args.src, "-simple"));

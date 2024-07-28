@@ -35,16 +35,16 @@ use dsi_bitstream::{
 use std::error::Error;
 
 /// A trait combining the codes used by [`DynCodesDecoder`] and [`ConstCodesDecoder`].
-pub trait CodeRead<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
+pub trait BVCodeRead<E: Endianness>: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
 /// A trait combining the codes used by [`DynCodesEncoder`] and [`ConstCodesEncoder`].
-pub trait CodeWrite<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
+pub trait BVCodeWrite<E: Endianness>: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
 /// Blanket implementation so we can consider [`CodeRead`] just as an alias for
 /// a sum of traits.
-impl<E: Endianness, T> CodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
+impl<E: Endianness, T> BVCodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + ZetaRead<E> {}
 /// Blanket implementation so we can consider [`CodeWrite`] just as an alias for
 /// a sum of traits.
-impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
+impl<E: Endianness, T> BVCodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
 /// Methods to decode the component of a [`super::BVGraph`] or [`super::BVGraphSeq`].
 pub trait Decode {

@@ -81,7 +81,7 @@ pub fn compress<E: Endianness + Clone + Send + Sync>(
     permutation: Option<JavaPermutation>,
 ) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: BVCodeRead<E> + BitSeek,
 {
     let dir = Builder::new().prefix("Recompress").tempdir()?;
 

@@ -31,8 +31,8 @@ fn test_bvcomp_slow() -> Result<()> {
 
 fn _test_bvcomp_slow<E: Endianness>() -> Result<()>
 where
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BVCodeWrite<E>,
+    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: BVCodeRead<E>,
 {
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
@@ -80,8 +80,8 @@ fn _test_body<E: Endianness, P: AsRef<Path>>(
     compression_flags: CompFlags,
 ) -> Result<()>
 where
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BVCodeWrite<E>,
+    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: BVCodeRead<E>,
 {
     let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
         <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(

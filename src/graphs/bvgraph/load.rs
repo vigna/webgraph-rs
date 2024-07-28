@@ -42,11 +42,11 @@ pub trait Dispatch: 'static {}
 /// are the same as the default parameters of the Java version.
 #[derive(Debug, Clone)]
 pub struct Static<
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
+    const OUTDEGREES: usize = { bv_const_codes::GAMMA },
+    const REFERENCES: usize = { bv_const_codes::UNARY },
+    const BLOCKS: usize = { bv_const_codes::GAMMA },
+    const INTERVALS: usize = { bv_const_codes::GAMMA },
+    const RESIDUALS: usize = { bv_const_codes::ZETA },
     const K: usize = 3,
 > {}
 
@@ -360,7 +360,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
     ) -> anyhow::Result<BVGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
-            CodeRead<E> + BitSeek,
+            BVCodeRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -388,7 +388,8 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         BVGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
+            BVCodeRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -439,7 +440,7 @@ impl<
     >
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
-            CodeRead<E> + BitSeek,
+            BVCodeRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -497,7 +498,8 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
+            BVCodeRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;

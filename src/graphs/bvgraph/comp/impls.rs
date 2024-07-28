@@ -103,7 +103,7 @@ impl BVComp<()> {
         E: Endianness,
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: BVCodeWrite<E>,
     {
         let basename = basename.as_ref();
         let graph_path = basename.with_extension(GRAPH_EXTENSION);
@@ -254,7 +254,7 @@ impl BVComp<()> {
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: BVCodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         Self::parallel_iter(
@@ -283,7 +283,7 @@ impl BVComp<()> {
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: BVCodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         let thread_pool = threads.borrow();

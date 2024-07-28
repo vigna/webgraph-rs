@@ -46,7 +46,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn optimize_codes<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: BVCodeRead<E> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
     let graph = BVGraphSeq::with_basename(args.src)

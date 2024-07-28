@@ -57,7 +57,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: BVCodeRead<E> + BitSeek,
 {
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 

@@ -16,7 +16,7 @@ use mem_dbg::{MemDbg, MemSize};
 use sux::traits::IndexedSeq;
 
 /// Temporary constants while const enum generics are not stable
-pub mod const_codes {
+pub mod bv_const_codes {
     /// The int associated to UNARY code
     pub const UNARY: usize = 0;
     /// The int associated to GAMMA code
@@ -30,10 +30,10 @@ pub mod const_codes {
 /// Temporary conversion function while const enum generics are not stable
 pub(crate) fn code_to_const(code: Code) -> Result<usize> {
     Ok(match code {
-        Code::Unary => const_codes::UNARY,
-        Code::Gamma => const_codes::GAMMA,
-        Code::Zeta { k: _ } => const_codes::ZETA,
-        Code::Delta => const_codes::DELTA,
+        Code::Unary => bv_const_codes::UNARY,
+        Code::Gamma => bv_const_codes::GAMMA,
+        Code::Zeta { k: _ } => bv_const_codes::ZETA,
+        Code::Delta => bv_const_codes::DELTA,
     })
 }
 
@@ -42,12 +42,12 @@ pub(crate) fn code_to_const(code: Code) -> Result<usize> {
 #[derive(Debug, Clone, MemSize, MemDbg)]
 pub struct ConstCodesDecoder<
     E: Endianness,
-    CR: CodeRead<E>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
+    CR: BVCodeRead<E>,
+    const OUTDEGREES: usize = { bv_const_codes::GAMMA },
+    const REFERENCES: usize = { bv_const_codes::UNARY },
+    const BLOCKS: usize = { bv_const_codes::GAMMA },
+    const INTERVALS: usize = { bv_const_codes::GAMMA },
+    const RESIDUALS: usize = { bv_const_codes::ZETA },
     const K: usize = 3,
 > {
     /// The inner codes reader we will dispatch to
@@ -59,7 +59,7 @@ pub struct ConstCodesDecoder<
 
 impl<
         E: Endianness,
-        CR: CodeRead<E> + BitSeek,
+        CR: BVCodeRead<E> + BitSeek,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -82,7 +82,7 @@ impl<
 
 impl<
         E: Endianness,
-        CR: CodeRead<E>,
+        CR: BVCodeRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -121,12 +121,12 @@ impl<
 macro_rules! select_code_read {
     ($self:ident, $code:expr, $k: expr) => {
         match $code {
-            const_codes::UNARY => $self.code_reader.read_unary().unwrap(),
-            const_codes::GAMMA => $self.code_reader.read_gamma().unwrap(),
-            const_codes::DELTA => $self.code_reader.read_delta().unwrap(),
-            const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma().unwrap(),
-            const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3().unwrap(),
-            const_codes::ZETA => $self.code_reader.read_zeta(K as u64).unwrap(),
+            bv_const_codes::UNARY => $self.code_reader.read_unary().unwrap(),
+            bv_const_codes::GAMMA => $self.code_reader.read_gamma().unwrap(),
+            bv_const_codes::DELTA => $self.code_reader.read_delta().unwrap(),
+            bv_const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma().unwrap(),
+            bv_const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3().unwrap(),
+            bv_const_codes::ZETA => $self.code_reader.read_zeta(K as u64).unwrap(),
             _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
         }
     };
@@ -134,7 +134,7 @@ macro_rules! select_code_read {
 
 impl<
         E: Endianness,
-        CR: CodeRead<E>,
+        CR: BVCodeRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -190,11 +190,11 @@ pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
+    const OUTDEGREES: usize = { bv_const_codes::GAMMA },
+    const REFERENCES: usize = { bv_const_codes::UNARY },
+    const BLOCKS: usize = { bv_const_codes::GAMMA },
+    const INTERVALS: usize = { bv_const_codes::GAMMA },
+    const RESIDUALS: usize = { bv_const_codes::ZETA },
     const K: usize = 3,
 > {
     /// The owned data
@@ -256,7 +256,7 @@ impl<
     > RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: BVCodeRead<E> + BitSeek,
 {
     type Decoder<'a> =
         ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
@@ -296,7 +296,7 @@ impl<
         K,
     >
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: BVCodeRead<E>,
 {
     type Decoder<'a> =
         ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>

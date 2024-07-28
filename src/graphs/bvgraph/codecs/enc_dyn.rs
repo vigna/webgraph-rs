@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{CodeWrite, Encode, EncodeAndEstimate};
+use super::{BVCodeWrite, Encode, EncodeAndEstimate};
 use crate::{graphs::bvgraph::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use mem_dbg::{MemDbg, MemDbgImpl, MemSize, SizeFlags};
@@ -14,7 +14,7 @@ use std::convert::Infallible;
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
 #[derive(Debug, Clone)]
-pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
+pub struct DynCodesEncoder<E: Endianness, CW: BVCodeWrite<E>> {
     /// The code writer used by to output the compressed data.
     code_writer: CW,
     /// The estimator for this encoder.
@@ -33,7 +33,7 @@ pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
 
 /// Manual impl because of generic lifetime function pointers are not supported
 /// yet by the derive macro
-impl<E: Endianness, CW: CodeWrite<E>> MemSize for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: BVCodeWrite<E>> MemSize for DynCodesEncoder<E, CW>
 where
     CW: MemSize,
 {
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> MemDbgImpl for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: BVCodeWrite<E>> MemDbgImpl for DynCodesEncoder<E, CW>
 where
     CW: MemDbg,
 {
@@ -204,27 +204,27 @@ where
     }
 }
 
-fn write_zeta2<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
+fn write_zeta2<E: Endianness, CW: BVCodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
     CW::write_zeta(cw, x, 2)
 }
 
-fn write_zeta4<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
+fn write_zeta4<E: Endianness, CW: BVCodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
     CW::write_zeta(cw, x, 4)
 }
 
-fn write_zeta5<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
+fn write_zeta5<E: Endianness, CW: BVCodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
     CW::write_zeta(cw, x, 5)
 }
 
-fn write_zeta6<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
+fn write_zeta6<E: Endianness, CW: BVCodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
     CW::write_zeta(cw, x, 6)
 }
 
-fn write_zeta7<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
+fn write_zeta7<E: Endianness, CW: BVCodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
     CW::write_zeta(cw, x, 7)
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
+impl<E: Endianness, CW: BVCodeWrite<E>> DynCodesEncoder<E, CW> {
     #[allow(clippy::type_complexity)]
     fn select_code(code: Code) -> fn(&mut CW, u64) -> WriteResult<E, CW> {
         match code {
@@ -265,7 +265,7 @@ impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynCodesEncoder<E, CW> {
+impl<E: Endianness, CW: BVCodeWrite<E> + BitSeek + Clone> BitSeek for DynCodesEncoder<E, CW> {
     type Error = <CW as BitSeek>::Error;
 
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
@@ -281,7 +281,7 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> Encode for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: BVCodeWrite<E>> Encode for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
@@ -343,7 +343,7 @@ where
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: BVCodeWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
