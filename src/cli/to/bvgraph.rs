@@ -6,6 +6,7 @@
  */
 
 use crate::cli::common::*;
+use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -46,6 +47,8 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let start = std::time::Instant::now();
     let args = CliArgs::from_arg_matches(submatches)?;
+
+    create_parent_dir(&args.dst)?;
 
     let permutation = if let Some(path) = args.permutation.as_ref() {
         Some(JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)?)

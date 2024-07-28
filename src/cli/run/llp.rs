@@ -9,6 +9,7 @@
 use self::llp::preds::MinAvgImprov;
 
 use crate::cli::common::NumThreadsArg;
+use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -91,6 +92,8 @@ pub fn cli(command: Command) -> Command {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
+
+    create_parent_dir(&args.perm)?;
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(

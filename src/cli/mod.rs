@@ -8,7 +8,7 @@
 //! Command line interface structs and functions, organized by subcommands.
 
 use crate::build_info;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Command;
 use std::path::{Path, PathBuf};
 
@@ -51,6 +51,20 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     filename.push(s.as_ref());
     path_buf.push(filename);
     path_buf
+}
+
+/// Create all the parent directories of the given file path.
+pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
+    // ensure that the dst directory exists
+    if let Some(partent_dir) = file_path.as_ref().parent() {
+        std::fs::create_dir_all(partent_dir).with_context(|| {
+            format!(
+                "Failed to create the directory {:?}",
+                partent_dir.to_string_lossy()
+            )
+        })?;
+    }
+    Ok(())
 }
 
 /// The entrypoint of the command line interface.

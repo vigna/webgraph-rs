@@ -4,6 +4,7 @@
 * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 */
 
+use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -83,6 +84,8 @@ macro_rules! impl_convert {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
+
+    create_parent_dir(&args.dst_basename)?;
 
     match get_endianness(&args.src_basename)?.as_str() {
         #[cfg(any(

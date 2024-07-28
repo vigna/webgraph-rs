@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::{append, common::*};
+use crate::cli::{append, common::*, create_parent_dir};
 use crate::graphs::union_graph::UnionGraph;
 use crate::prelude::*;
 use anyhow::Result;
@@ -49,6 +49,10 @@ pub fn cli(command: Command) -> Command {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
+
+    if let Some(dst) = &args.dst {
+        create_parent_dir(dst)?;
+    }
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(

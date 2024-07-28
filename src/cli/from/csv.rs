@@ -6,6 +6,7 @@
  */
 
 use crate::cli::common::*;
+use crate::cli::create_parent_dir;
 use crate::graphs::arc_list_graph::ArcListGraph;
 use crate::prelude::*;
 use anyhow::Result;
@@ -24,7 +25,7 @@ pub const COMMAND_NAME: &str = "csv";
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the dst.
-    pub src: PathBuf,
+    pub dst: PathBuf,
 
     #[arg(long)]
     /// The number of nodes in the graph
@@ -123,12 +124,15 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
             .map(|(src, dst, _)| (src, dst))
             .dedup(),
     ));
+
+    create_parent_dir(&args.dst)?;
+
     // compress it
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
     BVComp::parallel_endianness(
-        &args.src,
+        &args.dst,
         &g,
         args.num_nodes,
         args.ca.into(),
@@ -140,7 +144,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
 
     // save the nodes
     if !args.csv_args.numeric {
-        let mut file = std::fs::File::create(args.src.with_extension("nodes")).unwrap();
+        let mut file = std::fs::File::create(args.dst.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx

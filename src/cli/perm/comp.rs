@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{ensure, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -40,6 +41,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn merge_perms(args: CliArgs) -> Result<()> {
     let start = std::time::Instant::now();
+
+    create_parent_dir(&args.dst)?;
 
     if args.epserde {
         let mut perm = Vec::new();
