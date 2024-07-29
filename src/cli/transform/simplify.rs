@@ -22,8 +22,8 @@ pub const COMMAND_NAME: &str = "simplify";
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
-    /// The basename of the transposed graph. Defaults to `basename` + `.simple`.
-    pub dst: Option<PathBuf>,
+    /// The basename of the simplified graph.
+    pub dst: PathBuf,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -50,9 +50,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    if let Some(dst) = &args.dst {
-        create_parent_dir(dst)?;
-    }
+    create_parent_dir(&args.dst)?;
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
@@ -78,8 +76,6 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
-    let simplified = args.dst.unwrap_or_else(|| append(&args.src, "-simple"));
-
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
@@ -118,7 +114,7 @@ where
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
                     BVComp::parallel_endianness(
-                        simplified,
+                        &args.dst,
                         &sorted,
                         num_nodes,
                         args.ca.into(),
@@ -162,7 +158,7 @@ where
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
             BVComp::parallel_endianness(
-                simplified,
+                &args.dst,
                 &sorted,
                 num_nodes,
                 args.ca.into(),
@@ -198,7 +194,7 @@ where
                 )?;
 
                 BVComp::parallel_endianness(
-                    simplified,
+                    &args.dst,
                     &sorted,
                     graph.num_nodes(),
                     args.ca.into(),
@@ -227,7 +223,7 @@ where
                 crate::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
 
             BVComp::parallel_endianness(
-                simplified,
+                &args.dst,
                 &sorted,
                 sorted.num_nodes(),
                 args.ca.into(),
@@ -257,7 +253,7 @@ where
                 )?;
 
                 BVComp::parallel_endianness(
-                    simplified,
+                    &args.dst,
                     &sorted,
                     graph.num_nodes(),
                     args.ca.into(),
@@ -281,7 +277,7 @@ where
                 crate::transform::simplify(&seq_graph, args.batch_size.batch_size).unwrap();
 
             BVComp::parallel_endianness(
-                simplified,
+                &args.dst,
                 &sorted,
                 seq_graph.num_nodes(),
                 args.ca.into(),

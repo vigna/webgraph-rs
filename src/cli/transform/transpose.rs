@@ -20,8 +20,8 @@ pub const COMMAND_NAME: &str = "transpose";
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
-    /// The basename of the transposed graph. Defaults to `basename` + `-t`.
-    pub dst: Option<PathBuf>,
+    /// The basename of the transposed graph.
+    pub dst: PathBuf,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -40,9 +40,8 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    if let Some(dst) = &args.dst {
-        create_parent_dir(dst)?;
-    }
+    create_parent_dir(&args.dst)?;
+    
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
@@ -66,8 +65,6 @@ where
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 
     // TODO!: speed it up by using random access graph if possible
-    let transposed = args.dst.unwrap_or_else(|| append(&args.src, "-t"));
-
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
@@ -78,7 +75,7 @@ where
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("CompressTransposed").tempdir()?;
     BVComp::parallel_endianness(
-        transposed,
+        &args.dst,
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
