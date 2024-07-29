@@ -19,18 +19,18 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "bvgraph";
 
 #[derive(Args, Debug)]
-#[command(about = "Recompress a BVGraph using possibly different compression options.", long_about = None)]
+#[command(about = "Recompresses a BVGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the source graph.
     pub src: PathBuf,
-    /// The basename for the newly compressed graph.
+    /// The basename of the destination graph.
     pub dst: PathBuf,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
     #[clap(long)]
-    /// The path to the permutations to, optionally, apply to the graph.
+    /// The path to an optional permutation to be applied to the graph.
     pub permutation: Option<PathBuf>,
 
     #[clap(flatten)]

@@ -26,7 +26,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "llp";
 
 #[derive(Args, Debug)]
-#[command(about = "Performs an LLP round.", long_about = None)]
+#[command(about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,

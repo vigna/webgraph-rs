@@ -24,7 +24,7 @@ pub const COMMAND_NAME: &str = "pad";
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
-    /// The block size to align to
+    /// The word size to pad to.
     #[clap(value_enum)]
     pub word_size: WordSize,
 }

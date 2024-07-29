@@ -17,7 +17,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "ascii";
 
 #[derive(Args, Debug)]
-#[command(about = "Dumps a graph in ASCII format, that is, a line for each node with its successors separated by tabs.", long_about = None)]
+#[command(about = "Dumps a graph in ASCII format: a line for each node with successors separated by tabs.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
