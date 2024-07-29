@@ -20,7 +20,7 @@ pub const COMMAND_NAME: &str = "rand";
 pub struct CliArgs {
     /// The number of elements in the permutation.
     pub len: usize,
-    /// The permutation.
+    /// The random permutation in binary big-endian format.
     pub dst: PathBuf,
 
     #[arg(short = 'e', long)]

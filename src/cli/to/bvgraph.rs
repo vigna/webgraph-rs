@@ -30,7 +30,7 @@ pub struct CliArgs {
     pub num_threads: NumThreadsArg,
 
     #[clap(long)]
-    /// The path to an optional permutation to be applied to the graph.
+    /// The path to an optional permutation in binary big-endian format to be applied to the graph.
     pub permutation: Option<PathBuf>,
 
     #[clap(flatten)]

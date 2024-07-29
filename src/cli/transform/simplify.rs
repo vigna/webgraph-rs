@@ -40,7 +40,7 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 
     #[arg(long)]
-    /// The path to permutation to optionally apply to the graph.
+    /// The path to an optional permutation in binary big-endian format to apply to the graph.
     pub permutation: Option<PathBuf>,
 }
 

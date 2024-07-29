@@ -20,10 +20,10 @@ pub const COMMAND_NAME: &str = "comp";
 #[derive(Args, Debug)]
 #[command(about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
-    /// The filename of the resulting permutation.
+    /// The filename of the resulting permutation in binary big-endian format.
     pub dst: PathBuf,
 
-    /// Filenames of the permutations to compose (in order of application).
+    /// Filenames of the permutations in binary big-endian format to compose (in order of application).
     pub perms: Vec<PathBuf>,
 
     #[arg(short, long)]

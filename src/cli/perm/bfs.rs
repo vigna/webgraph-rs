@@ -22,7 +22,7 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 
-    /// The filename of the permutation.
+    /// The filename of the permutation in binary big-endian format.
     pub perm: PathBuf,
 
     #[arg(short, long)]

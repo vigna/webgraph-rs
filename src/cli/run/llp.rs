@@ -31,8 +31,12 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 
-    /// A filename for the LLP permutation.
+    /// A filename for the LLP permutation in binary big-endian format.
     pub perm: PathBuf,
+
+    #[arg(short, long)]
+    /// Save the permutation in ε-serde format.
+    pub epserde: bool,
 
     #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string()])]
     /// The ɣ's to use in LLP, separated by commas. The format is given by a
@@ -70,10 +74,6 @@ pub struct CliArgs {
     #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the PRNG.
     pub seed: u64,
-
-    #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    pub epserde: bool,
 
     #[arg(long)]
     /// The tentative number of arcs used define the size of a parallel job
