@@ -16,7 +16,7 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "transpose";
 
 #[derive(Args, Debug)]
-#[command(about = "Transpose a BVGraph", long_about = None)]
+#[command(about = "Transposes a BVGraph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -41,7 +41,6 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
     create_parent_dir(&args.dst)?;
-    
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(

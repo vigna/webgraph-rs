@@ -23,7 +23,7 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
     /// Static dispatch (default BVGraph parameters).
-    #[arg(short = 's', long = "static")]
+    #[arg(short = 'S', long = "static")]
     pub _static: bool,
     /// Number of repeats (usually to warm up the cache or memory mapping).
     #[arg(short = 'R', long, default_value_t = 1)]

@@ -18,12 +18,17 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "simplify";
 
 #[derive(Args, Debug)]
-#[command(about = "Simplify a BVGraph, i.e. make it undirected and remove duplicates and selfloops", long_about = None)]
+#[command(about = "Makes a BVGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
     /// The basename of the simplified graph.
     pub dst: PathBuf,
+
+    #[arg(long)]
+    /// The basename of a pre-computed transposed version of the source graph, which
+    /// will be use to speed up the simplification.
+    pub transposed: Option<PathBuf>,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -37,10 +42,6 @@ pub struct CliArgs {
     #[arg(long)]
     /// The path to permutation to optionally apply to the graph.
     pub permutation: Option<PathBuf>,
-
-    #[arg(long)]
-    /// The path to the pre-computed transposed version of the src graph
-    pub transposed: Option<PathBuf>,
 }
 
 pub fn cli(command: Command) -> Command {

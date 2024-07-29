@@ -38,7 +38,7 @@ pub struct CliArgs {
     pub first: bool,
 
     /// Static dispatch for speed tests (default BVGraph parameters).
-    #[arg(short = 's', long = "static")]
+    #[arg(short = 'S', long = "static")]
     pub _static: bool,
 
     /// Test sequential high-speed offset/degree scanning.
