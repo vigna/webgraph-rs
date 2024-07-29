@@ -18,12 +18,12 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "endianness";
 
 #[derive(Args, Debug)]
-#[command(about = "Invert the endianness of a BVGraph, this can be done using recompress but this is faster.", long_about = None)]
+#[command(about = "Inverts the endianness of a BVGraph.", long_about = None)]
 struct CliArgs {
-    /// The basename of the graph.
-    src_basename: PathBuf,
-    /// The basename for the newly compressed graph.
-    dst_basename: PathBuf,
+    /// The basename of the source graph.
+    src: PathBuf,
+    /// The basename of the destination graph.
+    dst: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -38,17 +38,17 @@ macro_rules! impl_convert {
             <$dst>::NAME
         );
 
-        let properties_path = $args.src_basename.with_extension(PROPERTIES_EXTENSION);
+        let properties_path = $args.src.with_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<$src>(&properties_path)?;
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)
             .item_name("node")
             .expected_updates(Some(num_arcs as usize));
 
-        let seq_graph = BVGraphSeq::with_basename(&$args.src_basename)
+        let seq_graph = BVGraphSeq::with_basename(&$args.src)
             .endianness::<$src>()
             .load()
-            .with_context(|| format!("Could not load graph {}", $args.src_basename.display()))?;
+            .with_context(|| format!("Could not load graph {}", $args.src.display()))?;
         // build the encoder with the opposite endianness
         std::fs::write(
             &properties_path,
@@ -60,7 +60,7 @@ macro_rules! impl_convert {
                 properties_path.display()
             )
         })?;
-        let target_graph_path = $args.dst_basename.with_extension(GRAPH_EXTENSION);
+        let target_graph_path = $args.dst.with_extension(GRAPH_EXTENSION);
         let writer = <BufBitWriter<$dst, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
             File::create(&target_graph_path)
                 .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
@@ -85,9 +85,9 @@ macro_rules! impl_convert {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    create_parent_dir(&args.dst_basename)?;
+    create_parent_dir(&args.dst)?;
 
-    match get_endianness(&args.src_basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))

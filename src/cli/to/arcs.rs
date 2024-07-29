@@ -18,13 +18,13 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "csv";
 
 #[derive(Args, Debug)]
-#[command(about = "Dumps a graph as an COO arc list, i.e. for each arc write '{src},{dst}\\n`", long_about = None)]
+#[command(about = "Dumps a graph as an ASCII list of arcs to stdout.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 
     #[arg(long, default_value_t = ',')]
-    /// The character used to separate the fields in the CSV.
+    /// The separator between source and target nodes.
     pub separator: char,
 }
 
