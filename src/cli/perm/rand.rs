@@ -58,4 +58,3 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
     Ok(())
 }
-
