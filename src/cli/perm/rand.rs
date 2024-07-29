@@ -6,10 +6,8 @@
  */
 
 use crate::cli::create_parent_dir;
-use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::prelude::*;
 use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
@@ -20,9 +18,8 @@ pub const COMMAND_NAME: &str = "rand";
 #[derive(Args, Debug)]
 #[command(about = "Create a random permutation for a given graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph, it will be used to get the number of nodes
-    /// as the number of elements in the permutation.
-    pub src: PathBuf,
+    /// The number of elements in the permutation.
+    pub len: usize,
     /// The permutation.
     pub dst: PathBuf,
 
@@ -40,32 +37,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
     create_parent_dir(&args.dst)?;
 
-    match get_endianness(&args.src)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        BE::NAME => rand_perm::<BE>(args),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
-        LE::NAME => rand_perm::<LE>(args),
-        e => panic!("Unknown endianness: {}", e),
-    }
-}
-
-pub fn rand_perm<E: Endianness + 'static>(args: CliArgs) -> Result<()>
-where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
-{
-    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
-        .endianness::<E>()
-        .load()
-        .with_context(|| format!("Could not read graph from {}", args.src.display()))?;
-
     let mut rng = rand::thread_rng();
-    let mut perm = (0..graph.num_nodes()).collect::<Vec<_>>();
+    let mut perm = (0..args.len).collect::<Vec<_>>();
     perm.shuffle(&mut rng);
 
     if args.epserde {
@@ -85,3 +58,4 @@ where
 
     Ok(())
 }
+
