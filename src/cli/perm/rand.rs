@@ -16,7 +16,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "rand";
 
 #[derive(Args, Debug)]
-#[command(about = "Create a random permutation for a given graph.", long_about = None)]
+#[command(about = "Create a random permutation.", long_about = None)]
 pub struct CliArgs {
     /// The number of elements in the permutation.
     pub len: usize,
@@ -24,7 +24,7 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(short = 'e', long)]
-    /// Load the permutation from ε-serde format.
+    /// Store the permutation in ε-serde format.
     pub epserde: bool,
 }
 
