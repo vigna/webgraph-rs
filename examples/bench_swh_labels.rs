@@ -11,7 +11,7 @@ use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::hint::black_box;
 use std::path::PathBuf;
-use webgraph::prelude::swh_labels::SwhLabels;
+use webgraph::prelude::bitstream::BitStream;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -28,7 +28,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .try_init()?;
 
-    let labels = SwhLabels::load_from_file(7, &args.basename)?;
+    let labels = BitStream::load_from_file(7, &args.basename)?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
