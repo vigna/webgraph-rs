@@ -27,7 +27,7 @@ pub struct CliArgs {
     pub perms: Vec<PathBuf>,
 
     #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
+    /// Load and store permutations in ε-serde format.
     pub epserde: bool,
 }
 
