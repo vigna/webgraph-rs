@@ -66,33 +66,32 @@ impl From<PrivCode> for Code {
 }
 
 #[derive(Args, Debug)]
-/// Shared CLI arguments for reading CSV files.
-pub struct CSVArgs {
+/// Shared CLI arguments for reading files containing arcs.
+pub struct ArcsArgs {
     #[arg(long, default_value_t = '#')]
-    /// Ignore lines that start with this symbol
+    /// Ignore lines that start with this symbol.
     pub line_comment_simbol: char,
 
     #[arg(long, default_value_t = 0)]
-    /// How many lines to skip, ignoring comment lines
+    /// How many lines to skip, ignoring comment lines.
     pub lines_to_skip: usize,
 
     #[arg(long)]
-    /// How many lines to parse,
-    /// after skipping the first lines_to_skip
-    /// and ignoring comment lines
+    /// How many lines to parse, after skipping the first lines_to_skip and
+    /// ignoring comment lines.
     pub max_lines: Option<usize>,
 
     #[arg(long, default_value_t = ',')]
-    /// The index of the column containing the source node str.
+    /// The column separator.
     pub separator: char,
 
     #[arg(long, default_value_t = 0)]
-    /// The index of the column containing the source node str.
-    pub src_column: usize,
+    /// The index of the column containing the source node of an arc.
+    pub source_column: usize,
 
     #[arg(long, default_value_t = 1)]
-    /// The index of the column containing the source node str.
-    pub dst_column: usize,
+    /// The index of the column containing the target node of an arc.
+    pub target_column: usize,
 
     #[arg(long, default_value_t = false)]
     /// If src and dst are already valid node_ids.

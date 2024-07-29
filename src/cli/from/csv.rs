@@ -15,14 +15,14 @@ use dsi_bitstream::prelude::{Endianness, BE};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
 pub const COMMAND_NAME: &str = "csv";
 
 #[derive(Args, Debug)]
-#[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
+#[command(about = "Creates a new BVGraph from a list of arcs.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub dst: PathBuf,
@@ -36,7 +36,7 @@ pub struct CliArgs {
     pub num_arcs: Option<usize>,
 
     #[clap(flatten)]
-    pub csv_args: CSVArgs,
+    pub csv_args: ArcsArgs,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -60,7 +60,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
 
     let mut group_by = SortPairs::new(args.batch_size.batch_size, dir)?;
-    let mut nodes = BTreeMap::new();
+    let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
     let stdin = std::io::stdin();
