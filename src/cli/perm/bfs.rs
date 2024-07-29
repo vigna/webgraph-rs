@@ -17,12 +17,12 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "bfs";
 
 #[derive(Args, Debug)]
-#[command(about = "Compute a permutation with the BFS order", long_about = None)]
+#[command(about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 
-    /// A filename for the LLP permutation.
+    /// The filename of the permutation.
     pub perm: PathBuf,
 
     #[arg(short, long)]

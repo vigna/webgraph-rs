@@ -20,7 +20,7 @@ use sux::prelude::*;
 pub const COMMAND_NAME: &str = "ef";
 
 #[derive(Args, Debug)]
-#[command(about = "Check that the '.ef' file (and `.offsets` if present) is coherent with the graph.", long_about = None)]
+#[command(about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,

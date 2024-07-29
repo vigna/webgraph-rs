@@ -93,6 +93,10 @@ further customized, selecting endianness, type of memory access, and so on. By
 default you will get big endianness, memory mapping for both the graph and the
 offsets, and dynamic code dispatch.
 
+Note that on Windows memory mapping requires that the length of the graph file
+is a multiple of the internal bit buffer. You can use the CLI command `run pad
+u32` to ensure that your graph file is properly padded.
+
 Once you load the graph, you can [retrieve the successors of a node] or
 [iterate on the whole graph]. In particular, using the handy [`for_`] macro,
 you can write an iteration on the graph as
@@ -104,6 +108,11 @@ for_!((src, succ) in graph {
     }
 });
 ```
+
+## Command–Line Interface
+
+We provide a command-line interface to perform various operations on graphs. The
+CLI is the main method of the library, so it can be executed with `cargo run`.
 
 ## More Options
 

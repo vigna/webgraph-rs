@@ -19,7 +19,7 @@ use std::{
 pub const COMMAND_NAME: &str = "offsets";
 
 #[derive(Args, Debug)]
-#[command(about = "Builds the .offsets file for a graph.", long_about = None)]
+#[command(about = "Builds the offsets file of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,

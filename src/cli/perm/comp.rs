@@ -20,7 +20,7 @@ pub const COMMAND_NAME: &str = "comp";
 #[derive(Args, Debug)]
 #[command(about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
-    /// The path of the resulting permutation.
+    /// The filename of the resulting permutation.
     pub dst: PathBuf,
 
     /// Filenames of the permutations to compose (in order of application).

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::common::*;
 use crate::cli::create_parent_dir;
+use crate::cli::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
 use crate::prelude::*;
 use anyhow::Result;
@@ -24,15 +24,15 @@ pub const COMMAND_NAME: &str = "csv";
 #[derive(Args, Debug)]
 #[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the dst.
+    /// The basename of the graph.
     pub dst: PathBuf,
 
     #[arg(long)]
-    /// The number of nodes in the graph
+    /// The number of nodes in the graph.
     pub num_nodes: usize,
 
     #[arg(long)]
-    /// The number of arcs in the graph
+    /// The number of arcs in the graph; if specified, it will be used to estimate the progress.
     pub num_arcs: Option<usize>,
 
     #[clap(flatten)]

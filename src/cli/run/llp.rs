@@ -8,8 +8,8 @@
 
 use self::llp::preds::MinAvgImprov;
 
-use crate::cli::common::NumThreadsArg;
 use crate::cli::create_parent_dir;
+use crate::cli::NumThreadsArg;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};

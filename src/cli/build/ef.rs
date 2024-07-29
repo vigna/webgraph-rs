@@ -20,7 +20,7 @@ use sux::prelude::*;
 pub const COMMAND_NAME: &str = "ef";
 
 #[derive(Args, Debug)]
-#[command(about = "Builds the .ef file for a graph.", long_about = None)]
+#[command(about = "Builds the Elias-Fano representation of the offsets of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,

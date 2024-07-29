@@ -25,7 +25,7 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 
-    /// Perform a random-access test on this number of randomly chosen nodes.
+    /// Perform a random-access test on this number of randomly selected nodes.
     #[arg(short, long)]
     pub random: Option<usize>,
 
@@ -33,7 +33,7 @@ pub struct CliArgs {
     #[arg(short = 'R', long, default_value = "10")]
     pub repeats: usize,
 
-    /// In random-access test, test just access to the first successor.
+    /// In random-access tests, test just access to the first successor.
     #[arg(short = 'f', long)]
     pub first: bool,
 

@@ -18,15 +18,15 @@ use sux::prelude::BitVec;
 pub const COMMAND_NAME: &str = "bf-visit";
 
 #[derive(Args, Debug)]
-#[command(about = "Breadth-first visits a graph.", long_about = None)]
+#[command(about = "Benchmarks a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
     /// Static dispatch (default BVGraph parameters).
     #[arg(short = 's', long = "static")]
     pub _static: bool,
-    /// Static dispatch (default BVGraph parameters).
-    #[arg(short = 'r', long, default_value_t = 1)]
+    /// Number of repeats (usually to warm up the cache or memory mapping).
+    #[arg(short = 'R', long, default_value_t = 1)]
     pub repeats: usize,
 }
 
