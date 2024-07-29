@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
-pub const COMMAND_NAME: &str = "csv";
+pub const COMMAND_NAME: &str = "arcs";
 
 #[derive(Args, Debug)]
 #[command(
@@ -38,7 +38,7 @@ pub struct CliArgs {
     pub num_arcs: Option<usize>,
 
     #[clap(flatten)]
-    pub csv_args: ArcsArgs,
+    pub arcs_args: ArcsArgs,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -69,41 +69,41 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("lines")
-        .expected_updates(args.csv_args.max_lines.or(args.num_arcs));
+        .expected_updates(args.arcs_args.max_lines.or(args.num_arcs));
     pl.start("Reading arcs CSV");
 
     let mut iter = stdin.lock().lines();
     // skip the first few lines
-    for _ in 0..args.csv_args.lines_to_skip {
+    for _ in 0..args.arcs_args.lines_to_skip {
         iter.next().unwrap().unwrap();
     }
     let mut line_id = 0;
     for line in iter {
         // break if we reached the end
-        if let Some(max_lines) = args.csv_args.max_lines {
+        if let Some(max_lines) = args.arcs_args.max_lines {
             if line_id > max_lines {
                 break;
             }
         }
         let line = line.unwrap();
         // skip comment
-        if line.trim().starts_with(args.csv_args.line_comment_simbol) {
+        if line.trim().starts_with(args.arcs_args.line_comment_simbol) {
             continue;
         }
 
         // split the csv line into the args
-        let vals = line.split(args.csv_args.separator).collect::<Vec<_>>();
+        let vals = line.split(args.arcs_args.separator).collect::<Vec<_>>();
         let src = vals[0];
         let dst = vals[1];
 
         // parse if exact, or build a node list
-        let src_id = if args.csv_args.exact {
+        let src_id = if args.arcs_args.exact {
             src.parse::<usize>().unwrap()
         } else {
             let node_id = nodes.len();
             *nodes.entry(src.to_string()).or_insert(node_id)
         };
-        let dst_id = if args.csv_args.exact {
+        let dst_id = if args.arcs_args.exact {
             dst.parse::<usize>().unwrap()
         } else {
             let node_id = nodes.len();
@@ -145,7 +145,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     .unwrap();
 
     // save the nodes
-    if !args.csv_args.exact {
+    if !args.arcs_args.exact {
         let mut file = std::fs::File::create(args.dst.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
