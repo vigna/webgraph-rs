@@ -34,7 +34,7 @@ where
     S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
-    let dir = Builder::new().prefix("Transpose").tempdir()?;
+    let dir = Builder::new().prefix("transpose_").tempdir()?;
     let mut sorted = SortPairs::new_labeled(batch_size, dir.path(), serializer, deserializer)?;
 
     let mut pl = progress_logger!(

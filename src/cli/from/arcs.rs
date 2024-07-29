@@ -59,7 +59,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 }
 
 pub fn from_csv(args: CliArgs) -> Result<()> {
-    let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
+    let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
     let mut group_by = SortPairs::new(args.batch_size.batch_size, dir)?;
     let mut nodes = HashMap::new();
@@ -131,7 +131,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
 
     // compress it
     let target_endianness = args.ca.endianness.clone();
-    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
+    let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
     BVComp::parallel_endianness(
         &args.dst,

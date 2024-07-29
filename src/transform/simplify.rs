@@ -67,7 +67,7 @@ pub fn simplify(
         >,
     >,
 > {
-    let dir = Builder::new().prefix("simplify-").tempdir()?;
+    let dir = Builder::new().prefix("simplify_").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();
@@ -121,7 +121,7 @@ where
         for iter in graph.split_iter(num_threads) {
             let tx = tx.clone();
             let dir = Builder::new()
-                .prefix(&format!("Simplify{}", thread_id))
+                .prefix(&format!("simplify_split_{}_", thread_id))
                 .tempdir()
                 .expect("Could not create a temporary directory");
             let dir_path = dir.path().to_path_buf();

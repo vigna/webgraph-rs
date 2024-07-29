@@ -624,7 +624,7 @@ mod tests {
                 bitstream.write_delta(*value as u64)
             }
         }
-        let dir = Builder::new().prefix("test_sort_pairs-").tempdir()?;
+        let dir = Builder::new().prefix("test_sort_pairs_").tempdir()?;
         let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
         let n = 25;
         for i in 0..n {

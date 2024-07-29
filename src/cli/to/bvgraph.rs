@@ -86,7 +86,7 @@ pub fn compress<E: Endianness + Clone + Send + Sync>(
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let dir = Builder::new().prefix("Recompress").tempdir()?;
+    let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 

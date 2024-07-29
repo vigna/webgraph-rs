@@ -81,7 +81,7 @@ where
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
-    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
+    let dir = Builder::new().prefix("transform_simplify_").tempdir()?;
 
     match (args.permutation, args.transposed) {
         // load the transposed graph and use it to directly compress the graph

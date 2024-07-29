@@ -33,7 +33,7 @@ pub fn permute(
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.", 
         perm.len(), graph.num_nodes(),
     );
-    let dir = Builder::new().prefix("Permute").tempdir()?;
+    let dir = Builder::new().prefix("permute_").tempdir()?;
 
     // create a stream where to dump the sorted pairs
     let mut sorted = SortPairs::new(batch_size, dir)?;
@@ -100,7 +100,7 @@ where
         for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
             let tx = tx.clone();
             let dir = Builder::new()
-                .prefix(&format!("Permute_{}", thread_id))
+                .prefix(&format!("permute_split_{}_", thread_id))
                 .tempdir()
                 .expect("Could not create a temporary directory");
             let dir_path = dir.path().to_path_buf();
