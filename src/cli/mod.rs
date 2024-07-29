@@ -94,8 +94,8 @@ pub struct ArcsArgs {
     pub target_column: usize,
 
     #[arg(long, default_value_t = false)]
-    /// If src and dst are already valid node_ids.
-    pub numeric: bool,
+    /// Source and destinations are node identifiers.
+    pub exact: bool,
 }
 
 /// Shared CLI arguments for commands that specify a number of threads.

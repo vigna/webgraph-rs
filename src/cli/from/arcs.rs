@@ -22,7 +22,9 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "csv";
 
 #[derive(Args, Debug)]
-#[command(about = "Creates a new BVGraph from a list of arcs.", long_about = None)]
+#[command(
+    about = "Creates a new BVGraph from a list of arcs. Each arc is specified by a pair of labels, and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers."
+)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub dst: PathBuf,
@@ -94,14 +96,14 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
         let src = vals[0];
         let dst = vals[1];
 
-        // parse if numeric, or build a node list
-        let src_id = if args.csv_args.numeric {
+        // parse if exact, or build a node list
+        let src_id = if args.csv_args.exact {
             src.parse::<usize>().unwrap()
         } else {
             let node_id = nodes.len();
             *nodes.entry(src.to_string()).or_insert(node_id)
         };
-        let dst_id = if args.csv_args.numeric {
+        let dst_id = if args.csv_args.exact {
             dst.parse::<usize>().unwrap()
         } else {
             let node_id = nodes.len();
@@ -143,7 +145,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     .unwrap();
 
     // save the nodes
-    if !args.csv_args.numeric {
+    if !args.csv_args.exact {
         let mut file = std::fs::File::create(args.dst.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
