@@ -97,7 +97,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         let mut offsets_reader =
             <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
                 std::fs::File::open(&offsets_path)
-                    .expect(&format!("Could not open {}", offsets_path.display())),
+                    .unwrap_or_else(|_| panic!("Could not open {}", offsets_path.display())),
             )));
 
         let mut pr = ProgressLogger::default();

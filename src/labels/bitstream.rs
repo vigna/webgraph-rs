@@ -156,11 +156,11 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>, D: BitDeserializer<BE, BR>> 
     type Item = D::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.reader.bit_pos().unwrap() >= self.end_pos {
+        if self.reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
             Some(self.bit_deser.deserialize(self.reader).unwrap())
-        };
+        }
     }
 }
 
@@ -203,11 +203,11 @@ impl<R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> Iterator for RanLabels
     type Item = <D as BitDeserializer<dsi_bitstream::traits::BigEndian, R>>::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.reader.bit_pos().unwrap() >= self.end_pos {
+        if self.reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
             self.deserializer.deserialize(&mut self.reader).ok()
-        };
+        }
     }
 }
 

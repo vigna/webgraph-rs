@@ -9,7 +9,7 @@ use anyhow::Result;
 use bitstream::{MmapReaderSupplier, Supply};
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
-use dsi_bitstream::traits::{BitRead, BitSeek, BE};
+use dsi_bitstream::traits::{BitRead, BE};
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::hint::black_box;
@@ -18,7 +18,7 @@ use webgraph::prelude::bitstream::BitStream;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(about = "Breadth-first visits a graph.", long_about = None)]
+#[command(about = "Benchmarks a sequential scan of labels stored as a bitstream.", long_about = None)]
 struct Args {
     /// The basename of the graph.
     basename: PathBuf,
