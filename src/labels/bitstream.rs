@@ -19,7 +19,7 @@ use dsi_bitstream::{
 use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
-use std::path::Path;
+use std::{ops::Deref, path::Path};
 use sux::traits::{IndexedSeq, Types};
 
 use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
@@ -46,21 +46,21 @@ impl Supply for MmapReaderSupplier<BE> {
     }
 }
 
-pub struct BitStream<E: Endianness, RS: Supply, D, O>
+pub struct BitStream<E: Endianness, S: Supply, D, O>
 where
-    for<'a> RS::Item<'a>: BitRead<E> + BitSeek,
-    for<'a> D: BitDeserializer<E, RS::Item<'a>>,
+    for<'a> S::Item<'a>: BitRead<E> + BitSeek,
+    for<'a> D: BitDeserializer<E, S::Item<'a>>,
 {
-    reader_supplier: RS,
+    reader_supplier: S,
     bit_deser: D,
     offsets: O,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, RS: Supply, D, O> BitStream<E, RS, D, O>
+impl<E: Endianness, S: Supply, D, O> BitStream<E, S, D, O>
 where
-    for<'a> RS::Item<'a>: BitRead<E> + BitSeek,
-    for<'a> D: BitDeserializer<E, RS::Item<'a>>,
+    for<'a> S::Item<'a>: BitRead<E> + BitSeek,
+    for<'a> D: BitDeserializer<E, S::Item<'a>>,
 {
     /// Creates a new labeling using the given suppliers and offsets.
     ///
@@ -72,7 +72,7 @@ where
     /// * `bit_deser_supplier`: A supplier of deserializers for the labels.
     ///
     /// * `offsets`: An indexed sequence of offsets into the bitstream.
-    pub fn new(reader_supplier: RS, bit_deser: D, offsets: O) -> Self {
+    pub fn new(reader_supplier: S, bit_deser: D, offsets: O) -> Self {
         Self {
             reader_supplier,
             bit_deser,
@@ -117,7 +117,7 @@ impl<
         'succ,
         BR: BitRead<BE> + BitSeek,
         D: BitDeserializer<BE, BR>,
-        O: IndexedSeq + Types<Input = usize, Output = usize>,
+        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
     > NodeLabelsLender<'succ> for Iter<'a, 'b, BR, D, O>
 {
     type Label = D::DeserType;
@@ -130,7 +130,7 @@ impl<
         'succ,
         BR: BitRead<BE> + BitSeek,
         D: BitDeserializer<BE, BR>,
-        O: IndexedSeq + Types<Input = usize, Output = usize>,
+        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
     > Lending<'succ> for Iter<'a, 'b, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
@@ -141,7 +141,7 @@ impl<
         'b,
         BR: BitRead<BE> + BitSeek,
         D: BitDeserializer<BE, BR>,
-        O: IndexedSeq + Types<Input = usize, Output = usize>,
+        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
     > Lender for Iter<'a, 'b, BR, D, O>
 {
     #[inline(always)]
@@ -183,14 +183,14 @@ impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for Seq
     }
 }
 
-impl<L, RS: Supply, D, O: IndexedSeq<Input = usize, Output = usize>> SequentialLabeling
-    for BitStream<BE, RS, D, O>
+impl<L, S: Supply, D, O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>>
+    SequentialLabeling for BitStream<BE, S, D, O>
 where
-    for<'a> RS::Item<'a>: BitRead<BE> + BitSeek,
-    for<'a> D: BitDeserializer<BE, <RS as Supply>::Item<'a>, DeserType = L>,
+    for<'a> S::Item<'a>: BitRead<BE> + BitSeek,
+    for<'a> D: BitDeserializer<BE, S::Item<'a>, DeserType = L>,
 {
     type Label = L;
-    type Lender<'node> = Iter<'node, 'node, RS::Item<'node>, D, O>
+    type Lender<'node> = Iter<'node, 'node, S::Item<'node>, D, O>
     where
         Self: 'node;
 
@@ -211,14 +211,14 @@ where
 
 // TODO: avoid duplicate implementation for labels
 
-pub struct RanLabels<'a, R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> {
-    reader: R,
+pub struct RanLabels<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> {
+    reader: BR,
     deserializer: &'a D,
     end_pos: u64,
 }
 
-impl<'a, R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> Iterator for RanLabels<'a, R, D> {
-    type Item = <D as BitDeserializer<dsi_bitstream::traits::BigEndian, R>>::DeserType;
+impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for RanLabels<'a, BR, D> {
+    type Item = <D as BitDeserializer<dsi_bitstream::traits::BigEndian, BR>>::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.reader.bit_pos().unwrap() >= self.end_pos {
@@ -229,13 +229,13 @@ impl<'a, R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> Iterator for RanLa
     }
 }
 
-impl<L, RS: Supply, D, O: IndexedSeq + Types<Input = usize, Output = usize>> RandomAccessLabeling
-    for BitStream<BE, RS, D, O>
+impl<L, S: Supply, D, O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>>
+    RandomAccessLabeling for BitStream<BE, S, D, O>
 where
-    for<'a> RS::Item<'a>: BitRead<BE> + BitSeek,
-    for<'a> D: BitDeserializer<BE, <RS as Supply>::Item<'a>, DeserType = L>,
+    for<'a> S::Item<'a>: BitRead<BE> + BitSeek,
+    for<'a> D: BitDeserializer<BE, S::Item<'a>, DeserType = L>,
 {
-    type Labels<'succ> = RanLabels<'succ, RS::Item<'succ>, D> where Self: 'succ;
+    type Labels<'succ> = RanLabels<'succ, S::Item<'succ>, D> where Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
         todo!();

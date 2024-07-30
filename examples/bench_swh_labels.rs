@@ -6,12 +6,10 @@
  */
 
 use anyhow::Result;
-use bitstream::{MmapReaderSupplier, Supply};
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
 use dsi_bitstream::traits::{BitRead, BitSeek, BE};
 use dsi_progress_logger::prelude::*;
-use lender::*;
 use std::hint::black_box;
 use std::path::PathBuf;
 use webgraph::prelude::bitstream::BitStream;
