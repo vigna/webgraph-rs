@@ -28,6 +28,14 @@ struct SwhDeserializer<BR, const WIDTH: usize> {
     _marker: std::marker::PhantomData<BR>,
 }
 
+impl<BR, const WIDTH: usize> SwhDeserializer<BR, WIDTH> {
+    pub fn new() -> Self {
+        Self {
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
 impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>, const WIDTH: usize> BitDeserializer<BE, BR>
     for SwhDeserializer<BR, WIDTH>
 {
@@ -46,28 +54,6 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>, const WIDTH: usize> BitDeseriali
     }
 }
 
-struct SwhDeserializerSupplier<BR, const WIDTH: usize> {
-    _marker: std::marker::PhantomData<BR>,
-}
-
-impl<BR, const WIDTH: usize> SwhDeserializerSupplier<BR, WIDTH> {
-    pub fn new() -> Self {
-        Self {
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<BR, const WIDTH: usize> Supply for SwhDeserializerSupplier<BR, WIDTH> {
-    type Item<'a> = SwhDeserializer<BR, WIDTH> where BR: 'a;
-
-    fn request(&self) -> Self::Item<'_> {
-        SwhDeserializer {
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -75,7 +61,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .try_init()?;
 
-    let labels = BitStream::load_from_file(&args.basename, SwhDeserializerSupplier::<_, 7>::new())?;
+    let labels = BitStream::mmap(&args.basename, SwhDeserializer::<_, 7>::new())?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
