@@ -6,7 +6,7 @@
  */
 
 use anyhow::Result;
-use bitstream::Supply;
+use bitstream::{MmapReaderSupplier, Supply};
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
 use dsi_bitstream::traits::{BitRead, BitSeek, BE};
@@ -24,18 +24,20 @@ struct Args {
     basename: PathBuf,
 }
 
-struct SwhDeserializer<BR> {
+struct SwhDeserializer {
     width: usize,
-    _marker: std::marker::PhantomData<BR>,
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
+impl<'a> BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>> for SwhDeserializer {
     type DeserType = Vec<u64>;
 
     fn deserialize(
         &self,
-        bitstream: &mut BR,
-    ) -> std::result::Result<Self::DeserType, <BR as BitRead<BE>>::Error> {
+        bitstream: &mut <MmapReaderSupplier<BE> as Supply>::Item<'a>,
+    ) -> std::result::Result<
+        Self::DeserType,
+        <<MmapReaderSupplier<BE> as Supply>::Item<'a> as BitRead<BE>>::Error,
+    > {
         let num_labels = bitstream.read_gamma().unwrap() as usize;
         let mut labels = Vec::with_capacity(num_labels);
         for _ in 0..num_labels {
@@ -45,28 +47,21 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhD
     }
 }
 
-struct SwhDeserializerSupplier<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
+struct SwhDeserializerSupplier {
     width: usize,
-    _marker: std::marker::PhantomData<BR>,
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> SwhDeserializerSupplier<BR> {
+impl SwhDeserializerSupplier {
     pub fn new(width: usize) -> Self {
-        Self {
-            width,
-            _marker: std::marker::PhantomData,
-        }
+        Self { width }
     }
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> Supply for SwhDeserializerSupplier<BR> {
-    type Item<'a> = SwhDeserializer<BR> where BR: 'a;
+impl Supply for SwhDeserializerSupplier {
+    type Item<'a> = SwhDeserializer;
 
     fn request(&self) -> Self::Item<'_> {
-        SwhDeserializer {
-            width: self.width,
-            _marker: std::marker::PhantomData,
-        }
+        SwhDeserializer { width: self.width }
     }
 }
 
