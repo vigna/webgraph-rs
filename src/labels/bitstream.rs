@@ -47,10 +47,10 @@ impl Supply for MmapReaderSupplier<BE> {
     }
 }
 
-pub struct BitStream<E: Endianness, RS: Supply, DS: Supply, O: IndexedSeq>
+pub struct BitStream<E: Endianness, L, RS: Supply, DS: Supply, O: IndexedSeq>
 where
     for<'a> RS::Item<'a>: BitRead<E> + BitSeek,
-    for<'a> DS::Item<'a>: BitDeserializer<E, RS::Item<'a>>,
+    for<'a> DS::Item<'a>: BitDeserializer<E, RS::Item<'a>, DeserType = L>,
 {
     reader_supplier: RS,
     bit_deser_supplier: DS,
@@ -58,9 +58,10 @@ where
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<DS: Supply> BitStream<BE, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
+impl<L, DS: Supply> BitStream<BE, L, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    for<'a> DS::Item<'a>: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
+    for<'a> DS::Item<'a>:
+        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>, DeserType = L>,
 {
     pub fn load_from_file(path: impl AsRef<Path>, bit_deser_supplier: DS) -> Result<Self> {
         let path = path.as_ref();
@@ -80,21 +81,23 @@ where
     }
 }
 
-pub struct Iter<'a, BR, D, O> {
+pub struct Iter<'a, L, BR, D, O> {
     reader: BR,
     bit_deser: D,
     offsets: &'a MemCase<O>,
     next_node: usize,
     num_nodes: usize,
+    _marker: std::marker::PhantomData<L>,
 }
 
 impl<
         'a,
         'succ,
+        L,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
-        D: BitDeserializer<BE, BR>,
+        D: BitDeserializer<BE, BR, DeserType = L>,
         O: IndexedSeq<Input = usize, Output = usize>,
-    > NodeLabelsLender<'succ> for Iter<'a, BR, D, O>
+    > NodeLabelsLender<'succ> for Iter<'a, L, BR, D, O>
 {
     type Label = D::DeserType;
     type IntoIterator = SeqLabels<'succ, BR, D>;
@@ -103,20 +106,22 @@ impl<
 impl<
         'a,
         'succ,
+        L,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
-        D: BitDeserializer<BE, BR>,
+        D: BitDeserializer<BE, BR, DeserType = L>,
         O: IndexedSeq<Input = usize, Output = usize>,
-    > Lending<'succ> for Iter<'a, BR, D, O>
+    > Lending<'succ> for Iter<'a, L, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<
         'a,
+        L,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
-        D: BitDeserializer<BE, BR>,
+        D: BitDeserializer<BE, BR, DeserType = L>,
         O: IndexedSeq<Input = usize, Output = usize>,
-    > Lender for Iter<'a, BR, D, O>
+    > Lender for Iter<'a, L, BR, D, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -159,16 +164,14 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>, D: BitDeserializer<BE, BR>> 
     }
 }
 
-impl<DS: Supply + 'static> SequentialLabeling
-    for BitStream<BE, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
+impl<L, DS: Supply> SequentialLabeling
+    for BitStream<BE, L, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    for<'a> DS::Item<'a>: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
+    for<'a> DS::Item<'a>:
+        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>, DeserType = L>,
 {
-    type Label = <<DS as Supply>::Item<'static> as BitDeserializer<
-        BE,
-        <MmapReaderSupplier<BE> as Supply>::Item<'static>,
-    >>::DeserType;
-    type Lender<'node> = Iter<'node, <MmapReaderSupplier<BE> as Supply>::Item<'node>, <DS as Supply>::Item<'node>, <EF as DeserializeInner>::DeserType<'node>>
+    type Label = L;
+    type Lender<'node> = Iter<'node, L, <MmapReaderSupplier<BE> as Supply>::Item<'node>, <DS as Supply>::Item<'node>, <EF as DeserializeInner>::DeserType<'node>>
     where
         Self: 'node;
 
@@ -183,6 +186,7 @@ where
             bit_deser: self.bit_deser_supplier.request(),
             next_node: from,
             num_nodes: self.num_nodes(),
+            _marker: std::marker::PhantomData,
         }
     }
 }
@@ -228,10 +232,11 @@ impl<R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> Iterator for RanLabels
     }
 }
 
-impl<DS: Supply + 'static> RandomAccessLabeling
-    for BitStream<BE, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
+impl<L, DS: Supply + 'static> RandomAccessLabeling
+    for BitStream<BE, L, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    for<'a> DS::Item<'a>: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
+    for<'a> DS::Item<'a>:
+        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>, DeserType = L>,
 {
     type Labels<'succ> = RanLabels<<MmapReaderSupplier<BE> as Supply>::Item<'succ>, <DS as Supply>::Item<'succ>> where Self: 'succ;
 
