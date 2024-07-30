@@ -26,60 +26,53 @@ use sux::traits::IndexedSeq;
 use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use crate::{graphs::bvgraph::EF, prelude::BitDeserializer};
 
-pub trait ReaderBuilder<E: Endianness> {
-    /// The type of the reader that we are building.
-    type Reader<'a>: BitRead<E> + BitSeek + 'a
+pub trait Supply {
+    type Item<'a>
     where
         Self: 'a;
-
-    /// Creates a new reader.
-    fn get_reader(&self) -> Self::Reader<'_>;
+    fn request(&self) -> Self::Item<'_>;
 }
 
-pub struct MmapReaderBuilder<E: Endianness> {
+pub struct MmapReaderSupplier<E: Endianness> {
     backend: MmapHelper<u32>,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness> ReaderBuilder<E> for MmapReaderBuilder<E>
-where
-    for<'a> Self::Reader<'a>: BitRead<E> + BitSeek,
-{
-    type Reader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>
+impl Supply for MmapReaderSupplier<BE> {
+    type Item<'a> = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
     where Self: 'a;
 
-    fn get_reader(&self) -> Self::Reader<'_> {
-        BufBitReader::<E, _>::new(MemWordReader::new(self.backend.as_ref()))
+    fn request(&self) -> Self::Item<'_> {
+        BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
     }
 }
 
-pub struct BitStream<E: Endianness, RB: ReaderBuilder<E>, D, O: IndexedSeq>
+pub struct BitStream<E: Endianness, RS: Supply, DS: Supply, O: IndexedSeq>
 where
-    for<'a> RB::Reader<'a>: BitRead<E> + BitSeek,
-    D: for<'a> BitDeserializer<E, RB::Reader<'a>>,
+    for<'a> RS::Item<'a>: BitRead<E> + BitSeek,
+    for<'a> DS::Item<'a>: BitDeserializer<E, RS::Item<'a>>,
 {
-    width: usize,
-    reader_builder: RB,
+    reader_supplier: RS,
+    bit_deser_supplier: DS,
     offsets: MemCase<O>,
-    _marker: std::marker::PhantomData<(E, D)>,
+    _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, D> BitStream<E, MmapReaderBuilder<E>, D, DeserType<'static, EF>>
+impl<DS: Supply> BitStream<BE, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    D: for<'a> BitDeserializer<E, <MmapReaderBuilder<E> as ReaderBuilder<E>>::Reader<'a>>,
-    for<'a> <MmapReaderBuilder<E> as ReaderBuilder<E>>::Reader<'a>: BitRead<E> + BitSeek,
+    for<'a> DS::Item<'a>: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
 {
-    pub fn load_from_file(width: usize, path: impl AsRef<Path>) -> Result<Self> {
+    pub fn load_from_file(path: impl AsRef<Path>, bit_deser_supplier: DS) -> Result<Self> {
         let path = path.as_ref();
         let backend_path = path.with_extension("labels");
         let offsets_path = path.with_extension("ef");
         Ok(BitStream {
-            width,
-            reader_builder: MmapReaderBuilder {
+            reader_supplier: MmapReaderSupplier {
                 backend: MmapHelper::<u32>::mmap(&backend_path, MmapFlags::empty())
                     .with_context(|| format!("Could not mmap {}", backend_path.display()))?,
+                _marker: std::marker::PhantomData,
             },
-
+            bit_deser_supplier,
             offsets: EF::mmap(&offsets_path, Flags::empty())
                 .with_context(|| format!("Could not parse {}", offsets_path.display()))?,
             _marker: std::marker::PhantomData,
@@ -87,9 +80,9 @@ where
     }
 }
 
-pub struct Iter<'a, BR, O> {
-    width: usize,
+pub struct Iter<'a, BR, D, O> {
     reader: BR,
+    bit_deser: D,
     offsets: &'a MemCase<O>,
     next_node: usize,
     num_nodes: usize,
@@ -99,19 +92,21 @@ impl<
         'a,
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
+        D: BitDeserializer<BE, BR>,
         O: IndexedSeq<Input = usize, Output = usize>,
-    > NodeLabelsLender<'succ> for Iter<'a, BR, O>
+    > NodeLabelsLender<'succ> for Iter<'a, BR, D, O>
 {
-    type Label = Vec<u64>;
-    type IntoIterator = SeqLabels<'succ, BR>;
+    type Label = D::DeserType;
+    type IntoIterator = SeqLabels<'succ, BR, D>;
 }
 
 impl<
         'a,
         'succ,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
+        D: BitDeserializer<BE, BR>,
         O: IndexedSeq<Input = usize, Output = usize>,
-    > Lending<'succ> for Iter<'a, BR, O>
+    > Lending<'succ> for Iter<'a, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
@@ -119,8 +114,9 @@ impl<
 impl<
         'a,
         BR: BitRead<BE> + BitSeek + GammaRead<BE>,
+        D: BitDeserializer<BE, BR>,
         O: IndexedSeq<Input = usize, Output = usize>,
-    > Lender for Iter<'a, BR, O>
+    > Lender for Iter<'a, BR, D, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -133,8 +129,8 @@ impl<
         let res = (
             self.next_node,
             SeqLabels {
-                width: self.width,
                 reader: &mut self.reader,
+                bit_deser: &mut self.bit_deser,
                 end_pos: self.offsets.get(self.next_node + 1) as u64,
             },
         );
@@ -143,35 +139,36 @@ impl<
     }
 }
 
-pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
-    width: usize,
+pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>, D: BitDeserializer<BE, BR>> {
     reader: &'a mut BR,
+    bit_deser: &'a mut D,
     end_pos: u64,
 }
 
-impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>> Iterator for SeqLabels<'a, BR> {
-    type Item = Vec<u64>;
+impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>, D: BitDeserializer<BE, BR>> Iterator
+    for SeqLabels<'a, BR, D>
+{
+    type Item = D::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.reader.bit_pos().unwrap() >= self.end_pos {
-            return None;
-        }
-        let num_labels = self.reader.read_gamma().unwrap() as usize;
-        Some(Vec::from_iter(
-            (0..num_labels).map(|_| self.reader.read_bits(self.width).unwrap()),
-        ))
+        return if self.reader.bit_pos().unwrap() >= self.end_pos {
+            None
+        } else {
+            Some(self.bit_deser.deserialize(self.reader).unwrap())
+        };
     }
 }
 
-impl<E: Endianness, D> SequentialLabeling
-    for BitStream<E, MmapReaderBuilder<E>, D, DeserType<'static, EF>>
+impl<DS: Supply + 'static> SequentialLabeling
+    for BitStream<BE, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    D: for<'a> BitDeserializer<E, <MmapReaderBuilder<E> as ReaderBuilder<E>>::Reader<'a>>,
-    for<'a> <MmapReaderBuilder<E> as ReaderBuilder<E>>::Reader<'a>: BitRead<E> + BitSeek,
+    for<'a> DS::Item<'a>: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
 {
-    type Label = Vec<u64>;
-
-    type Lender<'node> = Iter<'node, <MmapReaderBuilder as ReaderBuilder>::Reader<'node>, <EF as DeserializeInner>::DeserType<'node>>
+    type Label = <<DS as Supply>::Item<'static> as BitDeserializer<
+        BE,
+        <MmapReaderSupplier<BE> as Supply>::Item<'static>,
+    >>::DeserType;
+    type Lender<'node> = Iter<'node, <MmapReaderSupplier<BE> as Supply>::Item<'node>, <DS as Supply>::Item<'node>, <EF as DeserializeInner>::DeserType<'node>>
     where
         Self: 'node;
 
@@ -181,9 +178,9 @@ where
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         Iter {
-            width: self.width,
             offsets: &self.offsets,
-            reader: self.reader_builder.get_reader(),
+            reader: self.reader_supplier.request(),
+            bit_deser: self.bit_deser_supplier.request(),
             next_node: from,
             num_nodes: self.num_nodes(),
         }
@@ -192,62 +189,65 @@ where
 
 // TODO: avoid duplicate implementation for labels
 
-struct SwhDeserializer<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE> + 'a> {}
+struct SwhDeserializer<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
+    width: usize,
+    _marker: std::marker::PhantomData<BR>,
+}
 
-impl BitDeserializer<BE, BR> for SwhDeserializer<'_, BR> {
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
     type DeserType = Vec<u64>;
 
     fn deserialize(
         &self,
         bitstream: &mut BR,
-    ) -> std::result::Result<Self::DeserType, <BR as BitRead>::Error> {
-        let num_labels = self.reader.read_gamma().unwrap() as usize;
-        let labels = Vec::with_capacity(num_labels);
+    ) -> std::result::Result<Self::DeserType, <BR as BitRead<BE>>::Error> {
+        let num_labels = bitstream.read_gamma().unwrap() as usize;
+        let mut labels = Vec::with_capacity(num_labels);
         for _ in 0..num_labels {
-            labels.push(self.reader.read_bits(self.width)?);
+            labels.push(bitstream.read_bits(self.width)?);
         }
         Ok(labels)
     }
 }
 
-pub struct RanLabels<D: BitDeserializer> {
-    width: usize,
+pub struct RanLabels<R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> {
+    reader: R,
     deserializer: D,
     end_pos: u64,
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> Iterator for RanLabels<BR> {
-    type Item = Vec<u64>;
+impl<R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> Iterator for RanLabels<R, D> {
+    type Item = <D as BitDeserializer<dsi_bitstream::traits::BigEndian, R>>::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
         return if self.reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
-            self.deserializer.deserialize(self.reader).ok()
+            self.deserializer.deserialize(&mut self.reader).ok()
         };
     }
 }
 
-impl<E: Endianness, D> RandomAccessLabeling
-    for BitStream<E, MmapReaderBuilder<E>, D, DeserType<'static, EF>>
+impl<DS: Supply + 'static> RandomAccessLabeling
+    for BitStream<BE, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    D: for<'a> BitDeserializer<E, <MmapReaderBuilder<E> as ReaderBuilder<E>>::Reader<'a>>,
-    for<'a> <MmapReaderBuilder<E> as ReaderBuilder<E>>::Reader<'a>: BitRead<E> + BitSeek,
+    for<'a> DS::Item<'a>: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
 {
-    type Labels<'succ> = RanLabels<<MmapReaderBuilder as ReaderBuilder>::Reader<'succ>> where Self: 'succ;
+    type Labels<'succ> = RanLabels<<MmapReaderSupplier<BE> as Supply>::Item<'succ>, <DS as Supply>::Item<'succ>> where Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
         todo!();
     }
 
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        let mut reader = self.reader_builder.get_reader();
+        let mut reader = self.reader_supplier.request();
         reader
             .set_bit_pos(self.offsets.get(node_id) as u64)
             .unwrap();
+        let bit_deser = self.bit_deser_supplier.request();
         RanLabels {
-            width: self.width,
             reader,
+            deserializer: bit_deser,
             end_pos: self.offsets.get(node_id + 1) as u64,
         }
     }
