@@ -6,7 +6,10 @@
  */
 
 use anyhow::Result;
+use bitstream::Supply;
 use clap::Parser;
+use dsi_bitstream::codes::GammaRead;
+use dsi_bitstream::traits::{BitRead, BitSeek, BE};
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::hint::black_box;
@@ -21,6 +24,49 @@ struct Args {
     basename: PathBuf,
 }
 
+struct SwhDeserializer<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
+    width: usize,
+    _marker: std::marker::PhantomData<BR>,
+}
+
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
+    type DeserType = Vec<u64>;
+
+    fn deserialize(
+        &self,
+        bitstream: &mut BR,
+    ) -> std::result::Result<Self::DeserType, <BR as BitRead<BE>>::Error> {
+        let num_labels = bitstream.read_gamma().unwrap() as usize;
+        let mut labels = Vec::with_capacity(num_labels);
+        for _ in 0..num_labels {
+            labels.push(bitstream.read_bits(self.width)?);
+        }
+        Ok(labels)
+    }
+}
+
+struct SwhDeserializerSupplier<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
+    width: usize,
+    _marker: std::marker::PhantomData<BR>,
+}
+
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> SwhDeserializerSupplier<BR> {
+    pub fn new(width: usize) -> Self {
+        Self {
+            width,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> Supply for SwhDeserializerSupplier<BR> {
+    type Item<'a> = SwhDeserializer<BR> where BR: 'a;
+
+    fn request(&self) -> Self::Item<'_> {
+        todo!()
+    }
+}
+
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -28,7 +74,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .try_init()?;
 
-    let labels = BitStream::load_from_file(7, &args.basename)?;
+    let labels = BitStream::load_from_file(&args.basename, SwhDeserializerSupplier::new(7))?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();

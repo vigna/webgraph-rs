@@ -193,27 +193,6 @@ where
 
 // TODO: avoid duplicate implementation for labels
 
-struct SwhDeserializer<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
-    width: usize,
-    _marker: std::marker::PhantomData<BR>,
-}
-
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
-    type DeserType = Vec<u64>;
-
-    fn deserialize(
-        &self,
-        bitstream: &mut BR,
-    ) -> std::result::Result<Self::DeserType, <BR as BitRead<BE>>::Error> {
-        let num_labels = bitstream.read_gamma().unwrap() as usize;
-        let mut labels = Vec::with_capacity(num_labels);
-        for _ in 0..num_labels {
-            labels.push(bitstream.read_bits(self.width)?);
-        }
-        Ok(labels)
-    }
-}
-
 pub struct RanLabels<R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> {
     reader: R,
     deserializer: D,
