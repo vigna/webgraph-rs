@@ -50,7 +50,7 @@ impl Supply for MmapReaderSupplier<BE> {
 pub struct BitStream<E: Endianness, L, RS: Supply, DS: Supply, O: IndexedSeq>
 where
     for<'a> RS::Item<'a>: BitRead<E> + BitSeek,
-    for<'a> DS::Item<'a>: BitDeserializer<E, RS::Item<'a>, DeserType = L>,
+    for<'a, 'b> DS::Item<'a>: BitDeserializer<E, RS::Item<'b>, DeserType = L>,
 {
     reader_supplier: RS,
     bit_deser_supplier: DS,
@@ -60,8 +60,8 @@ where
 
 impl<L, DS: Supply> BitStream<BE, L, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    for<'a> DS::Item<'a>:
-        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>, DeserType = L>,
+    for<'a, 'b> DS::Item<'a>:
+        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'b>, DeserType = L>,
 {
     pub fn load_from_file(path: impl AsRef<Path>, bit_deser_supplier: DS) -> Result<Self> {
         let path = path.as_ref();
@@ -167,8 +167,8 @@ impl<'a, BR: BitRead<BE> + BitSeek + GammaRead<BE>, D: BitDeserializer<BE, BR>> 
 impl<L, DS: Supply> SequentialLabeling
     for BitStream<BE, L, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    for<'a> DS::Item<'a>:
-        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>, DeserType = L>,
+    for<'a, 'b> DS::Item<'a>:
+        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'b>, DeserType = L>,
 {
     type Label = L;
     type Lender<'node> = Iter<'node, L, <MmapReaderSupplier<BE> as Supply>::Item<'node>, <DS as Supply>::Item<'node>, <EF as DeserializeInner>::DeserType<'node>>
@@ -211,11 +211,11 @@ impl<R: BitRead<BE> + BitSeek, D: BitDeserializer<BE, R>> Iterator for RanLabels
     }
 }
 
-impl<L, DS: Supply + 'static> RandomAccessLabeling
+impl<L, DS: Supply> RandomAccessLabeling
     for BitStream<BE, L, MmapReaderSupplier<BE>, DS, DeserType<'static, EF>>
 where
-    for<'a> DS::Item<'a>:
-        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>, DeserType = L>,
+    for<'a, 'b> DS::Item<'a>:
+        BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'b>, DeserType = L>,
 {
     type Labels<'succ> = RanLabels<<MmapReaderSupplier<BE> as Supply>::Item<'succ>, <DS as Supply>::Item<'succ>> where Self: 'succ;
 

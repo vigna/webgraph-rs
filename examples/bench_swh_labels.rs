@@ -24,7 +24,7 @@ struct Args {
     basename: PathBuf,
 }
 
-struct SwhDeserializer<BR: BitRead<BE> + BitSeek + GammaRead<BE>> {
+struct SwhDeserializer<BR> {
     width: usize,
     _marker: std::marker::PhantomData<BR>,
 }
@@ -63,7 +63,10 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> Supply for SwhDeserializerSuppli
     type Item<'a> = SwhDeserializer<BR> where BR: 'a;
 
     fn request(&self) -> Self::Item<'_> {
-        todo!()
+        SwhDeserializer {
+            width: self.width,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 
