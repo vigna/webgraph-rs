@@ -22,21 +22,27 @@ struct Args {
     basename: PathBuf,
 }
 
-struct SwhDeserializer<BR, const WIDTH: usize> {
+/// A [`BitDeserializer`] for the labels stored in the bitstream.
+///
+/// Labels are deserialized as a sequence of `u64` values, each of which is
+/// `width` bits wide. The length of the sequence is read using a [γ
+/// code](GammaRead), and then each value is obtained by reading `width` bits.
+struct SwhDeserializer<BR> {
+    width: usize,
     _marker: std::marker::PhantomData<BR>,
 }
 
-impl<BR, const WIDTH: usize> SwhDeserializer<BR, WIDTH> {
-    pub fn new() -> Self {
+impl<BR> SwhDeserializer<BR> {
+    /// Creates a new [`SwhDeserializer`] with the given width.
+    pub fn new(width: usize) -> Self {
         Self {
+            width,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>, const WIDTH: usize> BitDeserializer<BE, BR>
-    for SwhDeserializer<BR, WIDTH>
-{
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
     type DeserType = Vec<u64>;
 
     fn deserialize(
@@ -46,7 +52,7 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>, const WIDTH: usize> BitDeseriali
         let num_labels = bitstream.read_gamma().unwrap() as usize;
         let mut labels = Vec::with_capacity(num_labels);
         for _ in 0..num_labels {
-            labels.push(bitstream.read_bits(WIDTH)?);
+            labels.push(bitstream.read_bits(self.width)?);
         }
         Ok(labels)
     }
@@ -59,7 +65,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .try_init()?;
 
-    let labels = BitStream::mmap(&args.basename, SwhDeserializer::<_, 7>::new())?;
+    let labels = BitStream::mmap(&args.basename, SwhDeserializer::new(7))?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();
