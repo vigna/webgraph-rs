@@ -13,14 +13,13 @@
 
 use anyhow::{Context, Result};
 use dsi_bitstream::{
-    codes::params::DefaultReadParams,
     impls::{BufBitReader, MemWordReader},
     traits::{BitRead, BitSeek, Endianness, BE},
 };
 use epserde::prelude::*;
 use lender::{Lend, Lender, Lending};
 use mmap_rs::MmapFlags;
-use std::{ops::Deref, path::Path};
+use std::path::Path;
 use sux::traits::{IndexedSeq, Types};
 
 use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
