@@ -9,7 +9,7 @@ use anyhow::Result;
 use bitstream::{MmapReaderSupplier, Supply};
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
-use dsi_bitstream::traits::{BitRead, BE};
+use dsi_bitstream::traits::{BitRead, BitSeek, BE};
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::hint::black_box;
@@ -24,20 +24,18 @@ struct Args {
     basename: PathBuf,
 }
 
-struct SwhDeserializer {
+struct SwhDeserializer<BR> {
     width: usize,
+    _marker: std::marker::PhantomData<BR>,
 }
 
-impl<'a> BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>> for SwhDeserializer {
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
     type DeserType = Vec<u64>;
 
     fn deserialize(
         &self,
-        bitstream: &mut <MmapReaderSupplier<BE> as Supply>::Item<'a>,
-    ) -> std::result::Result<
-        Self::DeserType,
-        <<MmapReaderSupplier<BE> as Supply>::Item<'a> as BitRead<BE>>::Error,
-    > {
+        bitstream: &mut BR,
+    ) -> std::result::Result<Self::DeserType, <BR as BitRead<BE>>::Error> {
         let num_labels = bitstream.read_gamma().unwrap() as usize;
         let mut labels = Vec::with_capacity(num_labels);
         for _ in 0..num_labels {
@@ -47,21 +45,28 @@ impl<'a> BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>> for S
     }
 }
 
-struct SwhDeserializerSupplier {
+struct SwhDeserializerSupplier<BR> {
     width: usize,
+    _marker: std::marker::PhantomData<BR>,
 }
 
-impl SwhDeserializerSupplier {
+impl<BR> SwhDeserializerSupplier<BR> {
     pub fn new(width: usize) -> Self {
-        Self { width }
+        Self {
+            width,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 
-impl Supply for SwhDeserializerSupplier {
-    type Item<'a> = SwhDeserializer;
+impl<BR> Supply for SwhDeserializerSupplier<BR> {
+    type Item<'a> = SwhDeserializer<BR> where BR: 'a;
 
     fn request(&self) -> Self::Item<'_> {
-        SwhDeserializer { width: self.width }
+        SwhDeserializer {
+            width: self.width,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 

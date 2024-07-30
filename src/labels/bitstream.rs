@@ -13,6 +13,7 @@ Label format of the SWH graph.
 
 use anyhow::{Context, Result};
 use dsi_bitstream::{
+    codes::params::DefaultReadParams,
     impls::{BufBitReader, MemWordReader},
     traits::{BitRead, BitSeek, Endianness, BE},
 };
