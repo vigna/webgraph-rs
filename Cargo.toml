@@ -1,6 +1,6 @@
 [package]
 name = "webgraph"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
 repository = "https://github.com/vigna/webgraph-rs/"
