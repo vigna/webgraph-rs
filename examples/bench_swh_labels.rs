@@ -27,22 +27,18 @@ struct Args {
 /// Labels are deserialized as a sequence of `u64` values, each of which is
 /// `width` bits wide. The length of the sequence is read using a [γ
 /// code](GammaRead), and then each value is obtained by reading `width` bits.
-struct SwhDeserializer<BR> {
+struct SwhDeserializer {
     width: usize,
-    _marker: std::marker::PhantomData<BR>,
 }
 
-impl<BR> SwhDeserializer<BR> {
+impl SwhDeserializer {
     /// Creates a new [`SwhDeserializer`] with the given width.
     pub fn new(width: usize) -> Self {
-        Self {
-            width,
-            _marker: std::marker::PhantomData,
-        }
+        Self { width }
     }
 }
 
-impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer<BR> {
+impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhDeserializer {
     type DeserType = Vec<u64>;
 
     fn deserialize(
