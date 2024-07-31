@@ -131,7 +131,10 @@ There are many operations available on graphs, such as [transpose],
 
 This software has been partially supported by project SERICS (PE00000014) under
 the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
-grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
+grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche. Views and
+opinions expressed are however those of the authors only and do not necessarily
+reflect those of the European Union or the Italian MUR. Neither the European
+Union nor the Italian MUR can be held responsible for them
 
 [transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html>
 [simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html>
