@@ -15,7 +15,7 @@
 
 use crate::prelude::BitDeserializer;
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
-use dsi_bitstream::traits::{BitRead, BitSeek, Endianness, BE};
+use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
 use lender::*;
 use std::ops::Deref;
 use sux::traits::{IndexedSeq, Types};
@@ -68,35 +68,38 @@ where
     }
 }
 
-pub struct Iter<'a, 'b, BR, D, O> {
+pub struct Iter<'a, 'b, E, BR, D, O> {
     reader: BR,
     bit_deser: &'a D,
     offsets: &'b O,
     next_node: usize,
     num_nodes: usize,
+    _marker: std::marker::PhantomData<E>,
 }
 
 impl<
         'a,
         'b,
         'succ,
-        BR: BitRead<BE> + BitSeek,
-        D: BitDeserializer<BE, BR>,
+        E: Endianness,
+        BR: BitRead<E> + BitSeek,
+        D: BitDeserializer<E, BR>,
         O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > NodeLabelsLender<'succ> for Iter<'a, 'b, BR, D, O>
+    > NodeLabelsLender<'succ> for Iter<'a, 'b, E, BR, D, O>
 {
     type Label = D::DeserType;
-    type IntoIterator = SeqLabels<'succ, BR, D>;
+    type IntoIterator = SeqLabels<'succ, E, BR, D>;
 }
 
 impl<
         'a,
         'b,
         'succ,
-        BR: BitRead<BE> + BitSeek,
-        D: BitDeserializer<BE, BR>,
+        E: Endianness,
+        BR: BitRead<E> + BitSeek,
+        D: BitDeserializer<E, BR>,
         O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > Lending<'succ> for Iter<'a, 'b, BR, D, O>
+    > Lending<'succ> for Iter<'a, 'b, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
@@ -104,10 +107,11 @@ impl<
 impl<
         'a,
         'b,
-        BR: BitRead<BE> + BitSeek,
-        D: BitDeserializer<BE, BR>,
+        E: Endianness,
+        BR: BitRead<E> + BitSeek,
+        D: BitDeserializer<E, BR>,
         O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > Lender for Iter<'a, 'b, BR, D, O>
+    > Lender for Iter<'a, 'b, E, BR, D, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -123,6 +127,7 @@ impl<
                 reader: &mut self.reader,
                 bit_deser: self.bit_deser,
                 end_pos: self.offsets.get(self.next_node + 1) as u64,
+                _marker: std::marker::PhantomData,
             },
         );
         self.next_node += 1;
@@ -130,13 +135,16 @@ impl<
     }
 }
 
-pub struct SeqLabels<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> {
+pub struct SeqLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
     reader: &'a mut BR,
     bit_deser: &'a D,
     end_pos: u64,
+    _marker: std::marker::PhantomData<E>,
 }
 
-impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for SeqLabels<'a, BR, D> {
+impl<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
+    for SeqLabels<'a, E, BR, D>
+{
     type Item = D::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -148,14 +156,19 @@ impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for Seq
     }
 }
 
-impl<L, S: Supply, D, O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>>
-    SequentialLabeling for BitStreamLabeling<BE, S, D, O>
+impl<
+        L,
+        E: Endianness,
+        S: Supply,
+        D,
+        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
+    > SequentialLabeling for BitStreamLabeling<E, S, D, O>
 where
-    for<'a> S::Item<'a>: BitRead<BE> + BitSeek,
-    for<'a> D: BitDeserializer<BE, S::Item<'a>, DeserType = L>,
+    for<'a> S::Item<'a>: BitRead<E> + BitSeek,
+    for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
     type Label = L;
-    type Lender<'node> = Iter<'node, 'node, S::Item<'node>, D, O>
+    type Lender<'node> = Iter<'node, 'node, E, S::Item<'node>, D, O>
     where
         Self: 'node;
 
@@ -170,20 +183,24 @@ where
             bit_deser: &self.bit_deser,
             next_node: from,
             num_nodes: self.num_nodes(),
+            _marker: std::marker::PhantomData,
         }
     }
 }
 
 // TODO: avoid duplicate implementation for labels
 
-pub struct RanLabels<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> {
+pub struct RanLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
     reader: BR,
     deserializer: &'a D,
     end_pos: u64,
+    _marker: std::marker::PhantomData<E>,
 }
 
-impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for RanLabels<'a, BR, D> {
-    type Item = <D as BitDeserializer<dsi_bitstream::traits::BigEndian, BR>>::DeserType;
+impl<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
+    for RanLabels<'a, E, BR, D>
+{
+    type Item = <D as BitDeserializer<E, BR>>::DeserType;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.reader.bit_pos().unwrap() >= self.end_pos {
@@ -194,13 +211,18 @@ impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for Ran
     }
 }
 
-impl<L, S: Supply, D, O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>>
-    RandomAccessLabeling for BitStreamLabeling<BE, S, D, O>
+impl<
+        L,
+        E: Endianness,
+        S: Supply,
+        D,
+        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
+    > RandomAccessLabeling for BitStreamLabeling<E, S, D, O>
 where
-    for<'a> S::Item<'a>: BitRead<BE> + BitSeek,
-    for<'a> D: BitDeserializer<BE, S::Item<'a>, DeserType = L>,
+    for<'a> S::Item<'a>: BitRead<E> + BitSeek,
+    for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
-    type Labels<'succ> = RanLabels<'succ, S::Item<'succ>, D> where Self: 'succ;
+    type Labels<'succ> = RanLabels<'succ, E, S::Item<'succ>, D> where Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
         todo!();
@@ -215,6 +237,7 @@ where
             reader,
             deserializer: &self.bit_deser,
             end_pos: self.offsets.get(node_id + 1) as u64,
+            _marker: std::marker::PhantomData,
         }
     }
 
