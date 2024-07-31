@@ -13,8 +13,6 @@ use std::path::PathBuf;
 
 use self::sequential::Iter;
 
-/// BVGraph is an highly compressed graph format that can be traversed
-/// sequentially or randomly without having to decode the whole graph.
 #[derive(Debug, Clone)]
 pub struct BVGraph<F> {
     factory: F,
@@ -25,6 +23,7 @@ pub struct BVGraph<F> {
 }
 
 impl BVGraph<()> {
+    /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap> {

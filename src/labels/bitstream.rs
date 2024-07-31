@@ -7,24 +7,23 @@
 
 //! Basic skeleton for a simple bitstream-based implementation of a labeling.
 //!
-//! Labels are stored as a bitstream, and are deserialized using a [custom deserializer](BitDeserializer).
-//! An [`IndexedSeq`] provides pointers into the bitstream. Both sequential
-//! and random access are provided.
+//! Labels are stored as a bitstream, and are deserialized using a [custom
+//! deserializer](BitDeserializer). An [`IndexedSeq`] provides pointers into the
+//! bitstream. Both sequential and random access are provided.
+//!
+//! See the examples for a complete implementation based on memory mapping.
 
-use anyhow::{Context, Result};
-use dsi_bitstream::{
-    impls::{BufBitReader, MemWordReader},
-    traits::{BitRead, BitSeek, Endianness, BE},
-};
-use epserde::prelude::*;
-use lender::{Lend, Lender, Lending};
-use mmap_rs::MmapFlags;
-use std::{ops::Deref, path::Path};
+use crate::prelude::BitDeserializer;
+use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
+use dsi_bitstream::traits::{BitRead, BitSeek, Endianness, BE};
+use lender::*;
+use std::ops::Deref;
 use sux::traits::{IndexedSeq, Types};
 
-use crate::prelude::{MmapHelper, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
-use crate::{graphs::bvgraph::EF, prelude::BitDeserializer};
-
+/// A basic supplier trait.
+///
+/// This trait is used to supply readers on the bitstream containing the labels.
+/// It will probably be replaced by a more general supplier trait in the future.
 pub trait Supply {
     type Item<'a>
     where
@@ -32,7 +31,8 @@ pub trait Supply {
     fn request(&self) -> Self::Item<'_>;
 }
 
-pub struct BitStream<E: Endianness, S: Supply, D, O>
+/// A labeling based on a bitstream of labels and an indexed sequence of offsets.
+pub struct BitStreamLabeling<E: Endianness, S: Supply, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
@@ -43,7 +43,7 @@ where
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, S: Supply, D, O> BitStream<E, S, D, O>
+impl<E: Endianness, S: Supply, D, O> BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
@@ -149,7 +149,7 @@ impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for Seq
 }
 
 impl<L, S: Supply, D, O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>>
-    SequentialLabeling for BitStream<BE, S, D, O>
+    SequentialLabeling for BitStreamLabeling<BE, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<BE> + BitSeek,
     for<'a> D: BitDeserializer<BE, S::Item<'a>, DeserType = L>,
@@ -195,7 +195,7 @@ impl<'a, BR: BitRead<BE> + BitSeek, D: BitDeserializer<BE, BR>> Iterator for Ran
 }
 
 impl<L, S: Supply, D, O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>>
-    RandomAccessLabeling for BitStream<BE, S, D, O>
+    RandomAccessLabeling for BitStreamLabeling<BE, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<BE> + BitSeek,
     for<'a> D: BitDeserializer<BE, S::Item<'a>, DeserType = L>,

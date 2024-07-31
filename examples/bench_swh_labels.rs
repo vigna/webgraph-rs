@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(clippy::type_complexity)]
+
 use anyhow::{Context, Result};
 use bitstream::Supply;
 use clap::Parser;
@@ -17,7 +19,7 @@ use lender::*;
 use mmap_rs::MmapFlags;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
-use webgraph::prelude::bitstream::BitStream;
+use webgraph::prelude::bitstream::BitStreamLabeling;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -79,14 +81,14 @@ impl Supply for MmapReaderSupplier<BE> {
 pub fn mmap<D>(
     path: impl AsRef<Path>,
     bit_deser: D,
-) -> Result<BitStream<BE, MmapReaderSupplier<BE>, D, MemCase<DeserType<'static, EF>>>>
+) -> Result<BitStreamLabeling<BE, MmapReaderSupplier<BE>, D, MemCase<DeserType<'static, EF>>>>
 where
     for<'a> D: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
 {
     let path = path.as_ref();
     let labels_path = path.with_extension("labels");
     let ef_path = path.with_extension("ef");
-    Ok(BitStream::new(
+    Ok(BitStreamLabeling::new(
         MmapReaderSupplier {
             backend: MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
                 .with_context(|| format!("Could not mmap {}", labels_path.display()))?,

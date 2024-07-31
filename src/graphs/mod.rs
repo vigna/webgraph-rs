@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Implementations of graphs.
+
 pub mod arc_list_graph;
 pub mod bvgraph;
 pub mod no_selfloops_graph;

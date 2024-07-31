@@ -5,6 +5,20 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! An implementation of the BV format.
+//!
+//! The format has been described by Paolo Boldi and Sebastiano Vigna in "[The
+//! WebGraph Framework I: Compression
+//! Techniques](https://dl.acm.org/doi/10.1145/988672.988752)", *Proc. of the
+//! Thirteenth World–Wide Web Conference*, pages 595–601, 2004, ACM Press.
+//!
+//! The implementation is compatible with the [Java
+//! implementation](http://webgraph.di.unimi.it/), but it provides also a
+//! little-endian version, too.
+//!
+//! The main access point to the implementation is [`BVGraph::with_basename`],
+//! which provides a [`LoadConfig`] that can be further customized.
+
 use crate::traits::*;
 
 pub const GRAPH_EXTENSION: &str = "graph";
