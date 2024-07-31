@@ -16,7 +16,7 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "transpose";
 
 #[derive(Args, Debug)]
-#[command(about = "Transposes a BVGraph.", long_about = None)]
+#[command(about = "Transposes a BvGraph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -64,7 +64,7 @@ where
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 
     // TODO!: speed it up by using random access graph if possible
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
+    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
 
@@ -73,7 +73,7 @@ where
 
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
-    BVComp::parallel_endianness(
+    BvComp::parallel_endianness(
         &args.dst,
         &sorted,
         sorted.num_nodes(),

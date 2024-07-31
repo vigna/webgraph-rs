@@ -16,11 +16,11 @@ use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
 use lender::*;
 
-/// A sequential BVGraph that can be read from a `codes_reader_builder`.
+/// A sequential BvGraph that can be read from a `codes_reader_builder`.
 /// The builder is needed because we should be able to create multiple iterators
 /// and this allows us to have a single place where to store the mmapped file.
 #[derive(Debug, Clone)]
-pub struct BVGraphSeq<F> {
+pub struct BvGraphSeq<F> {
     factory: F,
     number_of_nodes: usize,
     number_of_arcs: Option<u64>,
@@ -28,7 +28,7 @@ pub struct BVGraphSeq<F> {
     min_interval_length: usize,
 }
 
-impl BVGraphSeq<()> {
+impl BvGraphSeq<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap> {
@@ -41,19 +41,19 @@ impl BVGraphSeq<()> {
     }
 }
 
-impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
+impl<F: SequentialDecoderFactory> SplitLabeling for BvGraphSeq<F>
 where
     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
-    type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
+    type SplitLender<'a> = split::seq::Lender<'a, BvGraphSeq<F>> where Self: 'a;
+    type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
     }
 }
 
-impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
+impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     type Label = usize;
     type Lender<'a> = Iter<F::Decoder<'a>>
     where
@@ -85,10 +85,10 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BVGraphSeq<F> {
     }
 }
 
-impl<F: SequentialDecoderFactory> SequentialGraph for BVGraphSeq<F> {}
+impl<F: SequentialDecoderFactory> SequentialGraph for BvGraphSeq<F> {}
 
-impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
-    type Lender = <BVGraphSeq<F> as SequentialLabeling>::Lender<'a>;
+impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
+    type Lender = <BvGraphSeq<F> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -96,7 +96,7 @@ impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BVGraphSeq<F> {
     }
 }
 
-impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
+impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     /// Creates a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
@@ -116,12 +116,12 @@ impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
     }
 
     #[inline(always)]
-    pub fn map_factory<F1, F0>(self, map_func: F0) -> BVGraphSeq<F1>
+    pub fn map_factory<F1, F0>(self, map_func: F0) -> BvGraphSeq<F1>
     where
         F0: FnOnce(F) -> F1,
         F1: SequentialDecoderFactory,
     {
-        BVGraphSeq {
+        BvGraphSeq {
             factory: map_func(self.factory),
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
@@ -137,7 +137,7 @@ impl<F: SequentialDecoderFactory> BVGraphSeq<F> {
     }
 }
 
-impl<F: SequentialDecoderFactory> BVGraphSeq<F>
+impl<F: SequentialDecoderFactory> BvGraphSeq<F>
 where
     for<'a> F::Decoder<'a>: Decode,
 {

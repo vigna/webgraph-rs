@@ -18,7 +18,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "endianness";
 
 #[derive(Args, Debug)]
-#[command(about = "Inverts the endianness of a BVGraph.", long_about = None)]
+#[command(about = "Inverts the endianness of a BvGraph.", long_about = None)]
 struct CliArgs {
     /// The basename of the source graph.
     src: PathBuf,
@@ -45,7 +45,7 @@ macro_rules! impl_convert {
             .item_name("node")
             .expected_updates(Some(num_arcs as usize));
 
-        let seq_graph = BVGraphSeq::with_basename(&$args.src)
+        let seq_graph = BvGraphSeq::with_basename(&$args.src)
             .endianness::<$src>()
             .load()
             .with_context(|| format!("Could not load graph {}", $args.src.display()))?;

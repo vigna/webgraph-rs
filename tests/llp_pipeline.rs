@@ -97,12 +97,12 @@ fn llp_pipeline() -> Result<()> {
     ])?;
 
     // Load the created graph, and check that it is the same as the original
-    let original = webgraph::graphs::bvgraph::BVGraph::with_basename(TEST_GRAPH)
+    let original = webgraph::graphs::bvgraph::BvGraph::with_basename(TEST_GRAPH)
         .endianness::<BigEndian>()
         .load()?;
 
     let final_graph =
-        webgraph::graphs::bvgraph::BVGraph::with_basename(&format!("{}-final", basename))
+        webgraph::graphs::bvgraph::BvGraph::with_basename(&format!("{}-final", basename))
             .endianness::<BigEndian>()
             .load()?;
 

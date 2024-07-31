@@ -54,7 +54,7 @@ pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.src)
+    let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?;
     let num_nodes = graph.num_nodes();
@@ -65,7 +65,7 @@ where
     pl.display_memory(true)
         .item_name("nodes")
         .expected_updates(Some(num_nodes));
-    pl.start("Reading BVGraph");
+    pl.start("Reading BvGraph");
 
     for_! ( (src, succ) in graph.iter() {
         for dst in succ {

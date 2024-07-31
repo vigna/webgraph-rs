@@ -357,7 +357,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<BVGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
+    ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
             CodeRead<E> + BitSeek,
@@ -369,7 +369,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
-        Ok(BVGraph::new(
+        Ok(BvGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
             num_nodes,
             num_arcs,
@@ -385,7 +385,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BVGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
+        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
@@ -395,7 +395,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
-        Ok(BVGraphSeq::new(
+        Ok(BvGraphSeq::new(
             DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
             num_nodes,
             Some(num_arcs),
@@ -423,7 +423,7 @@ impl<
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BVGraph<
+        BvGraph<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
@@ -448,7 +448,7 @@ impl<
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
 
-        Ok(BVGraph::new(
+        Ok(BvGraph::new(
             ConstCodesDecoderFactory::new(factory, offsets, comp_flags)?,
             num_nodes,
             num_arcs,
@@ -482,7 +482,7 @@ impl<
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BVGraphSeq<
+        BvGraphSeq<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
@@ -504,7 +504,7 @@ impl<
         self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
-        Ok(BVGraphSeq::new(
+        Ok(BvGraphSeq::new(
             ConstCodesDecoderFactory::new(
                 factory,
                 MemCase::from(EmptyDict::default()),

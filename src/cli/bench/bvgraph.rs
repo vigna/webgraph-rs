@@ -20,7 +20,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "bvgraph";
 
 #[derive(Args, Debug)]
-#[command(about = "Benchmarks the Rust BVGraph implementation.", long_about = None)]
+#[command(about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -37,7 +37,7 @@ pub struct CliArgs {
     #[arg(short = 'f', long)]
     pub first: bool,
 
-    /// Static dispatch for speed tests (default BVGraph parameters).
+    /// Static dispatch for speed tests (default BvGraph parameters).
     #[arg(short = 'S', long = "static")]
     pub _static: bool,
 
@@ -137,9 +137,9 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     if args.check {
-        let graph = BVGraph::with_basename(&args.src).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
-        let seq_graph = BVGraphSeq::with_basename(&args.src)
+        let seq_graph = BvGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
@@ -153,7 +153,7 @@ where
             assert_eq!(succ.collect_vec(), seq_succ.collect_vec());
         }];
     } else if args.degrees {
-        let seq_graph = BVGraphSeq::with_basename(&args.src)
+        let seq_graph = BvGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
@@ -179,7 +179,7 @@ where
         ) {
             (Some(samples), true) => {
                 bench_random(
-                    BVGraph::with_basename(&args.src)
+                    BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Dynamic>()
                         .mode::<Mmap>()
@@ -192,7 +192,7 @@ where
             }
             (Some(samples), false) => {
                 bench_random(
-                    BVGraph::with_basename(&args.src)
+                    BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Static>()
                         .mode::<Mmap>()
@@ -205,7 +205,7 @@ where
             }
             (None, true) => {
                 bench_seq(
-                    BVGraphSeq::with_basename(&args.src)
+                    BvGraphSeq::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Dynamic>()
                         .mode::<Mmap>()
@@ -216,7 +216,7 @@ where
             }
             (None, false) => {
                 bench_seq(
-                    BVGraphSeq::with_basename(&args.src)
+                    BvGraphSeq::with_basename(&args.src)
                         .endianness::<E>()
                         .dispatch::<Static>()
                         .mode::<Mmap>()

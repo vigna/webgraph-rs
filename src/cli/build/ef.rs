@@ -173,7 +173,7 @@ where
         }
     } else {
         info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-        let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&basename)
+        let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
             .endianness::<E>()
             .load()
             .with_context(|| format!("Could not load graph at {}", basename.display()))?;

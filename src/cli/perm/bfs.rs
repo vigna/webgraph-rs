@@ -59,7 +59,7 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // load the graph
-    let graph = BVGraph::with_basename(&args.src)
+    let graph = BvGraph::with_basename(&args.src)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()

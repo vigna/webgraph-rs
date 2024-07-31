@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use self::sequential::Iter;
 
 #[derive(Debug, Clone)]
-pub struct BVGraph<F> {
+pub struct BvGraph<F> {
     factory: F,
     number_of_nodes: usize,
     number_of_arcs: u64,
@@ -22,7 +22,7 @@ pub struct BVGraph<F> {
     min_interval_length: usize,
 }
 
-impl BVGraph<()> {
+impl BvGraph<()> {
     /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
@@ -36,30 +36,30 @@ impl BVGraph<()> {
     }
 }
 
-impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
+impl<F: RandomAccessDecoderFactory> SplitLabeling for BvGraph<F>
 where
     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
 {
-    type SplitLender<'a> = split::ra::Lender<'a, BVGraph<F>> where Self: 'a;
-    type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
+    type SplitLender<'a> = split::ra::Lender<'a, BvGraph<F>> where Self: 'a;
+    type IntoIterator<'a> = split::ra::IntoIterator<'a, BvGraph<F>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::ra::Iter::new(self, how_many)
     }
 }
 
-impl<F> BVGraph<F>
+impl<F> BvGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    /// Creates a new BVGraph from the given parameters.
+    /// Creates a new BvGraph from the given parameters.
     ///
     /// # Arguments
     /// - `reader_factory`: backend that can create objects that allows
     ///   us to read the bitstream of the graph to decode the edges.
     /// - `offsets`: the bit offset at which we will have to start for decoding
     ///   the edges of each node. (This is needed for the random accesses,
-    ///   [`BVGraphSeq`] does not need them)
+    ///   [`BvGraphSeq`] does not need them)
     /// - `min_interval_length`: the minimum size of the intervals we are going
     ///   to decode.
     /// - `compression_window`: the maximum distance between two nodes that
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<F> SequentialLabeling for BVGraph<F>
+impl<F> SequentialLabeling for BvGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
@@ -131,9 +131,9 @@ where
     }
 }
 
-impl<F> SequentialGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
+impl<F> SequentialGraph for BvGraph<F> where F: RandomAccessDecoderFactory {}
 
-impl<F> RandomAccessLabeling for BVGraph<F>
+impl<F> RandomAccessLabeling for BvGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
@@ -264,7 +264,7 @@ where
     }
 }
 
-impl<F: RandomAccessDecoderFactory> BVGraph<F>
+impl<F: RandomAccessDecoderFactory> BvGraph<F>
 where
     for<'a> F::Decoder<'a>: Decode,
 {
@@ -299,9 +299,9 @@ where
         )
     }
 }
-impl<F> RandomAccessGraph for BVGraph<F> where F: RandomAccessDecoderFactory {}
+impl<F> RandomAccessGraph for BvGraph<F> where F: RandomAccessDecoderFactory {}
 
-/// The iterator returned from [`BVGraph`] that returns the successors of a
+/// The iterator returned from [`BvGraph`] that returns the successors of a
 /// node in sorted order.
 #[derive(Debug, Clone)]
 pub struct Succ<D: Decode> {
@@ -406,8 +406,8 @@ impl<D: Decode> Iterator for Succ<D> {
     }
 }
 
-impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BVGraph<F> {
-    type Lender = <BVGraph<F> as SequentialLabeling>::Lender<'a>;
+impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BvGraph<F> {
+    type Lender = <BvGraph<F> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {

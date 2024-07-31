@@ -22,7 +22,7 @@ pub const COMMAND_NAME: &str = "bf-visit";
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
-    /// Static dispatch (default BVGraph parameters).
+    /// Static dispatch (default BvGraph parameters).
     #[arg(short = 'S', long = "static")]
     pub _static: bool,
     /// Number of repeats (usually to warm up the cache or memory mapping).
@@ -37,7 +37,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let config = BVGraph::with_basename(&args.src)
+    let config = BvGraph::with_basename(&args.src)
         .mode::<Mmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
 

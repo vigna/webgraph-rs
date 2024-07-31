@@ -13,7 +13,7 @@ use webgraph::{graphs::arc_list_graph::ArcListGraph, prelude::*};
 
 #[test]
 fn test_iter_nodes() -> Result<()> {
-    let bvgraph = BVGraph::with_basename("tests/data/cnr-2000")
+    let bvgraph = BvGraph::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 
@@ -34,7 +34,7 @@ fn test_iter_nodes() -> Result<()> {
 
 #[test]
 fn test_iter_nodes_from() -> Result<()> {
-    let bvgraph = BVGraph::with_basename("tests/data/cnr-2000")
+    let bvgraph = BvGraph::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 
@@ -61,7 +61,7 @@ fn test_iter_nodes_from() -> Result<()> {
 
 #[test]
 fn test_split_iter_bv() -> Result<()> {
-    let bvgraph_seq = BVGraphSeq::with_basename("tests/data/cnr-2000")
+    let bvgraph_seq = BvGraphSeq::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 
@@ -70,7 +70,7 @@ fn test_split_iter_bv() -> Result<()> {
 
 #[test]
 fn test_split_iter_bvrnd() -> Result<()> {
-    let bvgraph = BVGraph::with_basename("tests/data/cnr-2000")
+    let bvgraph = BvGraph::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 
@@ -79,7 +79,7 @@ fn test_split_iter_bvrnd() -> Result<()> {
 
 #[test]
 fn test_split_iter_perm() -> Result<()> {
-    let bvgraph_seq = BVGraphSeq::with_basename("tests/data/cnr-2000")
+    let bvgraph_seq = BvGraphSeq::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 
@@ -96,7 +96,7 @@ fn test_split_iter_perm() -> Result<()> {
 
 #[test]
 fn test_split_iter_arc_list() -> Result<()> {
-    let bvgraph_seq = BVGraphSeq::with_basename("tests/data/cnr-2000")
+    let bvgraph_seq = BvGraphSeq::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
 

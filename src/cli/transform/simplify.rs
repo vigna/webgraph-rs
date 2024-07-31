@@ -18,7 +18,7 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "simplify";
 
 #[derive(Args, Debug)]
-#[command(about = "Makes a BVGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
+#[command(about = "Makes a BvGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -99,12 +99,12 @@ where
                     log::info!("Both .ef files found, using simplify split");
 
                     let graph =
-                        crate::graphs::bvgraph::random_access::BVGraph::with_basename(&args.src)
+                        crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                             .endianness::<E>()
                             .load()?;
                     let num_nodes = graph.num_nodes();
                     let graph_t =
-                        crate::graphs::bvgraph::random_access::BVGraph::with_basename(&t_path)
+                        crate::graphs::bvgraph::random_access::BvGraph::with_basename(&t_path)
                             .endianness::<E>()
                             .load()?;
 
@@ -114,7 +114,7 @@ where
 
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
-                    BVComp::parallel_endianness(
+                    BvComp::parallel_endianness(
                         &args.dst,
                         &sorted,
                         num_nodes,
@@ -139,12 +139,12 @@ where
             }
 
             let seq_graph =
-                crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
+                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
                     .load()?;
             let num_nodes = seq_graph.num_nodes();
             let seq_graph_t =
-                crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&t_path)
+                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&t_path)
                     .endianness::<E>()
                     .load()?;
 
@@ -158,7 +158,7 @@ where
 
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 &args.dst,
                 &sorted,
                 num_nodes,
@@ -179,7 +179,7 @@ where
             if std::fs::metadata(args.src.with_extension(".ef")).is_ok_and(|x| x.is_file()) {
                 log::info!(".ef file found, using simplify split");
                 let graph =
-                    crate::graphs::bvgraph::random_access::BVGraph::with_basename(&args.src)
+                    crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .load()?;
 
@@ -194,7 +194,7 @@ where
                     &thread_pool,
                 )?;
 
-                BVComp::parallel_endianness(
+                BvComp::parallel_endianness(
                     &args.dst,
                     &sorted,
                     graph.num_nodes(),
@@ -210,7 +210,7 @@ where
             no_ef_warn(&args.src);
 
             let seq_graph =
-                crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
+                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
                     .load()?;
 
@@ -223,7 +223,7 @@ where
             let sorted =
                 crate::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
 
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 &args.dst,
                 &sorted,
                 sorted.num_nodes(),
@@ -243,7 +243,7 @@ where
                 log::info!(".ef file found, using simplify split");
 
                 let graph =
-                    crate::graphs::bvgraph::random_access::BVGraph::with_basename(&args.src)
+                    crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .load()?;
 
@@ -253,7 +253,7 @@ where
                     &thread_pool,
                 )?;
 
-                BVComp::parallel_endianness(
+                BvComp::parallel_endianness(
                     &args.dst,
                     &sorted,
                     graph.num_nodes(),
@@ -269,7 +269,7 @@ where
             no_ef_warn(&args.src);
 
             let seq_graph =
-                crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
+                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
                     .load()?;
 
@@ -277,7 +277,7 @@ where
             let sorted =
                 crate::transform::simplify(&seq_graph, args.batch_size.batch_size).unwrap();
 
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 &args.dst,
                 &sorted,
                 seq_graph.num_nodes(),

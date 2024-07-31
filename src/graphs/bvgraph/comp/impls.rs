@@ -87,7 +87,7 @@ impl JobId for Job {
     }
 }
 
-impl BVComp<()> {
+impl BvComp<()> {
     /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
     /// graph bitstream.
     pub fn single_thread<E, L>(
@@ -118,7 +118,7 @@ impl BVComp<()> {
 
         let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags);
 
-        let mut bvcomp = BVComp::new(
+        let mut bvcomp = BvComp::new(
             codes_writer,
             compression_flags.compression_window,
             compression_flags.max_ref_count,
@@ -326,7 +326,7 @@ impl BVComp<()> {
                             ));
                             let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
 
-                            bvcomp = BVComp::new(
+                            bvcomp = BvComp::new(
                                 codes_encoder,
                                 cp_flags.compression_window,
                                 cp_flags.max_ref_count,

@@ -13,7 +13,7 @@ The [main iteration trait](NodeLabelsLender), convenience types and associated i
 The implementations in this module have the effect that most of the methods of a [`Lender`]
 (e.g., [`lender::Map`]) will return a [`NodeLabelsLender`] when applied to a [`NodeLabelsLender`].
 Without the implementations, one would obtain a normal [`Lender`], which would not be usable
-as an argument, say, of [`BVComp::extend`](crate::graphs::bvgraph::BVComp::extend).
+as an argument, say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
 */
 use lender::*;

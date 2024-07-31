@@ -82,7 +82,7 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
         .item_name("offset")
         .expected_updates(Some(num_nodes));
 
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
+    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<BE>()
         .load()?;
     // otherwise directly read the graph

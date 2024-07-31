@@ -46,7 +46,7 @@ impl<E: Endianness, T> CodeRead<E> for T where T: GammaRead<E> + DeltaRead<E> + 
 /// a sum of traits.
 impl<E: Endianness, T> CodeWrite<E> for T where T: GammaWrite<E> + DeltaWrite<E> + ZetaWrite<E> {}
 
-/// Methods to decode the component of a [`super::BVGraph`] or [`super::BVGraphSeq`].
+/// Methods to decode the component of a [`super::BvGraph`] or [`super::BvGraphSeq`].
 pub trait Decode {
     fn read_outdegree(&mut self) -> u64;
     fn read_reference_offset(&mut self) -> u64;
@@ -61,7 +61,7 @@ pub trait Decode {
 
 use impl_tools::autoimpl;
 
-/// Methods to encode the component of a [`super::BVGraph`] or [`super::BVGraphSeq`].
+/// Methods to encode the component of a [`super::BvGraph`] or [`super::BvGraphSeq`].
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encode {
     type Error: Error + Send + Sync + 'static;

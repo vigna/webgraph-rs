@@ -50,14 +50,14 @@ pub trait SplitLabeling: SequentialLabeling {
 ///
 /// # Examples
 ///
-/// The code for [`BVGraphSeq`](crate::graphs::bvgraph::sequential::BVGraphSeq) is:
+/// The code for [`BvGraphSeq`](crate::graphs::bvgraph::sequential::BvGraphSeq) is:
 /// ```ignore
-/// impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
+/// impl<F: SequentialDecoderFactory> SplitLabeling for BvGraphSeq<F>
 /// where
 ///     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
 /// {
-///     type Lender<'a> = split::seq::Lender<'a, BVGraphSeq<F>> where Self: 'a;
-///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BVGraphSeq<F>> where Self: 'a;
+///     type Lender<'a> = split::seq::Lender<'a, BvGraphSeq<F>> where Self: 'a;
+///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
 ///
 ///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
 ///         split::seq::Iter::new(self.iter(), how_many)
@@ -122,14 +122,14 @@ pub mod seq {
 ///
 /// # Examples
 ///
-/// The code for [`BVGraph`](crate::graphs::bvgraph::random_access::BVGraph) is
+/// The code for [`BvGraph`](crate::graphs::bvgraph::random_access::BvGraph) is
 /// ```ignore
-/// impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
+/// impl<F: RandomAccessDecoderFactory> SplitLabeling for BvGraph<F>
 /// where
 ///     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
 /// {
-///     type Lender<'a> = split::ra::Lender<'a, BVGraph<F>> where Self: 'a;
-///     type IntoIterator<'a> = split::ra::IntoIterator<'a, BVGraph<F>> where Self: 'a;
+///     type Lender<'a> = split::ra::Lender<'a, BvGraph<F>> where Self: 'a;
+///     type IntoIterator<'a> = split::ra::IntoIterator<'a, BvGraph<F>> where Self: 'a;
 ///
 ///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
 ///         split::ra::Iter::new(self, how_many)

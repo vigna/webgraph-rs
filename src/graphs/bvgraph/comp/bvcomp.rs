@@ -9,9 +9,9 @@ use crate::prelude::*;
 use core::cmp::Ordering;
 use lender::prelude::*;
 
-/// A BVGraph compressor, this is used to compress a graph into a BVGraph
+/// A BvGraph compressor, this is used to compress a graph into a BvGraph
 #[derive(Debug, Clone)]
-pub struct BVComp<E> {
+pub struct BvComp<E> {
     /// The ring-buffer that stores the neighbours of the last
     /// `compression_window` neighbours
     backrefs: CircularBuffer<Vec<usize>>,
@@ -303,11 +303,11 @@ impl Compressor {
     }
 }
 
-impl<E: EncodeAndEstimate> BVComp<E> {
+impl<E: EncodeAndEstimate> BvComp<E> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
-    /// Creates a new BVGraph compressor.
+    /// Creates a new BvGraph compressor.
     pub fn new(
         encoder: E,
         compression_window: usize,
@@ -315,7 +315,7 @@ impl<E: EncodeAndEstimate> BVComp<E> {
         min_interval_length: usize,
         start_node: usize,
     ) -> Self {
-        BVComp {
+        BvComp {
             backrefs: CircularBuffer::new(compression_window + 1),
             ref_counts: CircularBuffer::new(compression_window + 1),
             encoder,
@@ -576,7 +576,7 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = BVGraphSeq::with_basename("tests/data/cnr-2000")
+        let seq_graph = BvGraphSeq::with_basename("tests/data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
@@ -596,7 +596,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
+        let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
@@ -639,7 +639,7 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = BVGraphSeq::with_basename("tests/data/cnr-2000")
+        let seq_graph = BvGraphSeq::with_basename("tests/data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
@@ -653,7 +653,7 @@ mod test {
 
         let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
 
-        let mut bvcomp = BVComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
+        let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;

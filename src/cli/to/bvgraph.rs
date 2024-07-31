@@ -19,7 +19,7 @@ use tempfile::Builder;
 pub const COMMAND_NAME: &str = "bvgraph";
 
 #[derive(Args, Debug)]
-#[command(about = "Recompresses a BVGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
+#[command(about = "Recompresses a BvGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the source graph.
     pub src: PathBuf,
@@ -91,7 +91,7 @@ where
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 
     if args.src.with_extension(EF_EXTENSION).exists() {
-        let graph = BVGraph::with_basename(&args.src).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
         if let Some(permutation) = permutation {
             let batch_size = args.batch_size.batch_size;
@@ -100,7 +100,7 @@ where
             let start = std::time::Instant::now();
             // TODO!: this type annotation is not needed in the nightly version
             let sorted = crate::transform::permute_split::<
-                BVGraph<
+                BvGraph<
                     DynCodesDecoderFactory<
                         E,
                         MmapHelper<u32>,
@@ -113,7 +113,7 @@ where
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 args.dst,
                 &sorted,
                 sorted.num_nodes(),
@@ -123,7 +123,7 @@ where
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
         } else {
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 args.dst,
                 &graph,
                 graph.num_nodes(),
@@ -135,7 +135,7 @@ where
         }
     } else {
         log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
-        let seq_graph = BVGraphSeq::with_basename(&args.src)
+        let seq_graph = BvGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
@@ -150,7 +150,7 @@ where
                 start.elapsed().as_secs_f64()
             );
 
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 args.dst,
                 &permuted,
                 permuted.num_nodes(),
@@ -160,7 +160,7 @@ where
                 &target_endianness.unwrap_or_else(|| E::NAME.into()),
             )?;
         } else {
-            BVComp::parallel_endianness(
+            BvComp::parallel_endianness(
                 args.dst,
                 &seq_graph,
                 seq_graph.num_nodes(),

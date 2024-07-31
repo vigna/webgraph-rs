@@ -53,7 +53,7 @@ where
     for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
-    let seq_graph = BVGraphSeq::with_basename(&args.src)
+    let seq_graph = BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
     let offsets = args.src.with_extension(OFFSETS_EXTENSION);

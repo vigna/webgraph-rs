@@ -49,7 +49,7 @@ pub fn ascii_convert<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.src)
+    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?;
 

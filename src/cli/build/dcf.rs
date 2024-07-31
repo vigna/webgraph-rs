@@ -77,7 +77,7 @@ where
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&basename)
+    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
         .endianness::<E>()
         .load()
         .with_context(|| format!("Could not load graph at {}", basename.display()))?;

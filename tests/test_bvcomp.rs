@@ -88,7 +88,7 @@ where
         )?))),
         &compression_flags,
     ));
-    let mut bvcomp = BVComp::new(
+    let mut bvcomp = BvComp::new(
         writer,
         compression_flags.compression_window,
         compression_flags.max_ref_count,

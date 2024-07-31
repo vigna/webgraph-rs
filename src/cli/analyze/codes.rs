@@ -49,7 +49,7 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
-    let graph = BVGraphSeq::with_basename(args.src)
+    let graph = BvGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?
         .map_factory(StatsDecoderFactory::new);

@@ -77,7 +77,7 @@ pub fn harness(data: FuzzCase) {
     {
         let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriterVec::new(&mut codes_data_be));
         let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags);
-        let mut bvcomp = BVComp::new(
+        let mut bvcomp = BvComp::new(
             codes_writer,
             comp_flags.compression_window,
             comp_flags.max_ref_count,
@@ -92,7 +92,7 @@ pub fn harness(data: FuzzCase) {
     {
         let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut codes_data_le));
         let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags);
-        let mut bvcomp = BVComp::new(
+        let mut bvcomp = BvComp::new(
             codes_writer,
             comp_flags.compression_window,
             comp_flags.max_ref_count,
@@ -141,14 +141,14 @@ pub fn harness(data: FuzzCase) {
     efb.push(0);
 
     // create seq graphs
-    let seq_graph_be = BVGraphSeq::new(
+    let seq_graph_be = BvGraphSeq::new(
         codes_reader_be,
         graph.num_nodes(),
         Some(graph.num_arcs()),
         comp_flags.compression_window,
         comp_flags.min_interval_length,
     );
-    let seq_graph_le = BVGraphSeq::new(
+    let seq_graph_le = BvGraphSeq::new(
         codes_reader_le,
         graph.num_nodes(),
         Some(graph.num_arcs()),
@@ -217,14 +217,14 @@ pub fn harness(data: FuzzCase) {
     .unwrap();
 
     // Create the two bvgraphs
-    let graph_be: BVGraph<_> = BVGraph::new(
+    let graph_be: BvGraph<_> = BvGraph::new(
         codes_reader_be,
         graph.num_nodes(),
         graph.num_arcs(),
         comp_flags.compression_window,
         comp_flags.min_interval_length,
     );
-    let graph_le: BVGraph<_> = BVGraph::new(
+    let graph_le: BvGraph<_> = BvGraph::new(
         codes_reader_le,
         graph.num_nodes(),
         graph.num_arcs(),

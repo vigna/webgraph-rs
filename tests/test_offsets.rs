@@ -16,7 +16,7 @@ use webgraph::prelude::*;
 #[test]
 fn test_offsets() -> Result<()> {
     // load the graph
-    let graph = BVGraph::with_basename("tests/data/cnr-2000")
+    let graph = BvGraph::with_basename("tests/data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     // Read the offsets gammas

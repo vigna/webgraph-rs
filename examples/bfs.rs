@@ -21,8 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This line will load a big-endian graph (the default). To load
     // a little-endian graph, you need
     //
-    // let graph = BVGraph::with_basename(&args.basename).endianness::<LE>().load()?;
-    let graph = BVGraph::with_basename(&args.basename).load()?;
+    // let graph = BvGraph::with_basename(&args.basename).endianness::<LE>().load()?;
+    let graph = BvGraph::with_basename(&args.basename).load()?;
     let num_nodes = graph.num_nodes();
     let mut seen = vec![false; num_nodes];
     let mut queue = VecDeque::new();

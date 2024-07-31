@@ -31,7 +31,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
     let tmp_basename = PathBuf::from(String::from(basename) + "-par");
 
     // load the graph
-    let graph = webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+    let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(basename)
         .endianness::<BE>()
         .load()?;
 
@@ -45,7 +45,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        BVComp::parallel_graph::<BE>(
+        BvComp::parallel_graph::<BE>(
             &tmp_basename,
             &graph,
             comp_flags,
@@ -70,7 +70,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         }
 
         let comp_graph =
-            webgraph::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&tmp_basename)
+            webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&tmp_basename)
                 .endianness::<BE>()
                 .load()?;
         let mut iter = comp_graph.iter();

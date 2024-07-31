@@ -121,7 +121,7 @@ where
         "Loading graph {} in THP memory...",
         args.src.to_string_lossy()
     );
-    let graph = BVGraph::with_basename(&args.src)
+    let graph = BvGraph::with_basename(&args.src)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()

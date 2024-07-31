@@ -13,7 +13,7 @@ pub const COMMAND_NAME: &str = "analyze";
 
 pub fn cli(command: Command) -> Command {
     let sub_command = Command::new(COMMAND_NAME)
-        .about("Compute statistics on a BVGraph.")
+        .about("Compute statistics on a BvGraph.")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .allow_external_subcommands(true);

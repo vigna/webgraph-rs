@@ -9,7 +9,7 @@ use super::*;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
-/// Fast iterator over the offsets and degrees of a [`BVGraph`].
+/// Fast iterator over the offsets and degrees of a [`BvGraph`].
 ///
 /// This iterator is faster than scanning the graph. In particular, it can be
 /// used to build the offsets of a graph or to enumerate the graph degrees when

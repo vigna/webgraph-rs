@@ -23,7 +23,7 @@ pub const COMMAND_NAME: &str = "arcs";
 
 #[derive(Args, Debug)]
 #[command(
-    about = "Creates a new BVGraph from a list of arcs. Each arc is specified by a pair of labels, and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers."
+    about = "Creates a new BvGraph from a list of arcs. Each arc is specified by a pair of labels, and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers."
 )]
 pub struct CliArgs {
     /// The basename of the graph.
@@ -133,7 +133,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
-    BVComp::parallel_endianness(
+    BvComp::parallel_endianness(
         &args.dst,
         &g,
         args.num_nodes,

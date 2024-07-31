@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! An implementation of the BV format.
+//! An implementation of the Bv format.
 //!
 //! The format has been described by Paolo Boldi and Sebastiano Vigna in "[The
 //! WebGraph Framework I: Compression
@@ -16,7 +16,7 @@
 //! implementation](http://webgraph.di.unimi.it/), but it provides also a
 //! little-endian version, too.
 //!
-//! The main access point to the implementation is [`BVGraph::with_basename`],
+//! The main access point to the implementation is [`BvGraph::with_basename`],
 //! which provides a [`LoadConfig`] that can be further customized.
 
 use crate::traits::*;
@@ -33,10 +33,10 @@ mod offset_deg_iter;
 pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
-pub use sequential::BVGraphSeq;
+pub use sequential::BvGraphSeq;
 
 pub mod random_access;
-pub use random_access::BVGraph;
+pub use random_access::BvGraph;
 
 mod masked_iterator;
 pub use masked_iterator::MaskedIterator;

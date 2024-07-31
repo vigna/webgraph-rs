@@ -11,8 +11,8 @@ use webgraph::graphs::bvgraph;
 
 #[test]
 fn test_hc() -> Result<()> {
-    let norm = bvgraph::BVGraphSeq::with_basename("tests/data/cnr-2000").load()?;
-    let hc = bvgraph::BVGraphSeq::with_basename("tests/data/cnr-2000-hc").load()?;
+    let norm = bvgraph::BvGraphSeq::with_basename("tests/data/cnr-2000").load()?;
+    let hc = bvgraph::BvGraphSeq::with_basename("tests/data/cnr-2000-hc").load()?;
 
     let mut norm_iter = norm.into_lender();
     let mut hc_iter = hc.into_lender();

@@ -6,7 +6,7 @@
 
 use clap::Parser;
 use lender::for_;
-use webgraph::graphs::bvgraph::BVGraphSeq;
+use webgraph::graphs::bvgraph::BvGraphSeq;
 
 #[derive(Parser, Debug)]
 #[command(about = "Prints the arcs of a graph", long_about = None)]
@@ -20,8 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This line will load a big-endian graph (the default). To load
     // a little-endian graph, you need
     //
-    // let graph = BVGraphSeq::with_basename(&args.basename).endianness::<LE>().load()?;
-    let graph = BVGraphSeq::with_basename(&args.basename).load()?;
+    // let graph = BvGraphSeq::with_basename(&args.basename).endianness::<LE>().load()?;
+    let graph = BvGraphSeq::with_basename(&args.basename).load()?;
 
     for_!((src, succ) in graph {
         for dst in succ {
