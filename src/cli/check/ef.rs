@@ -57,12 +57,11 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
-        info!("The offsets file exists, reading it to build Elias-Fano");
         let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
         // create a bit reader on the file
         let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
         // progress bar
-        pl.start("Translating offsets to EliasFano...");
+        pl.start("Checking offsets file against Elias-Fano...");
         // read the graph a write the offsets
         let mut offset = 0;
         for node_id in 0..num_nodes + 1 {
@@ -74,6 +73,8 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
         }
+    } else {
+        info!("No offsets file, checking against graph file only");
     }
 
     let mut pl = ProgressLogger::default();
@@ -81,13 +82,12 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
         .item_name("offset")
         .expected_updates(Some(num_nodes));
 
-    info!("The offsets file does not exists, reading the graph to build Elias-Fano");
     let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(&args.src)
         .endianness::<BE>()
         .load()?;
     // otherwise directly read the graph
     // progress bar
-    pl.start("Building EliasFano...");
+    pl.start("Checking graph against Elias-Fano...");
     // read the graph a write the offsets
     for (node, (new_offset, _degree)) in seq_graph.offset_deg_iter().enumerate() {
         // decode the next nodes so we know where the next node_id starts
