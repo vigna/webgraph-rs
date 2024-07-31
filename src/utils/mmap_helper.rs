@@ -105,8 +105,8 @@ impl<W> MmapHelper<W> {
         {
             ensure!(
                 mmap_len == file_len,
-                "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME u{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8
-            )
+                "File has insufficient padding for word size {}. Use \"webgraph run pad BASENAME u{}\" to ensure sufficient padding.", size_of::<W>() * 8, size_of::<W>() * 8
+            );
         }
         let file = std::fs::File::open(path.as_ref())
             .with_context(|| "Cannot open file for MmapHelper")?;
