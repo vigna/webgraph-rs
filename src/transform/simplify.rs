@@ -10,7 +10,7 @@ use crate::graphs::{
     arc_list_graph, no_selfloops_graph::NoSelfLoopsGraph, union_graph::UnionGraph,
 };
 use crate::labels::Left;
-use crate::traits::{SequentialGraph, SplitLabeling};
+use crate::traits::{SequentialGraph, SortedIterator, SortedLender, SplitLabeling};
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
@@ -21,12 +21,14 @@ use tempfile::Builder;
 use super::transpose;
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided
-/// graph as a [sequential graph](crate::traits::SequentialGraph).
+/// sorted (both on nodes and successors) graph as a [sequential
+/// graph](crate::traits::SequentialGraph).
 ///
-/// For the meaning of the additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// This method exploits the fact that the input graph is already sorted,
+/// sorting half the number of arcs of
+/// [`simplify`](crate::transform::simplify::simplify).
 #[allow(clippy::type_complexity)]
-pub fn simplify_sorted<G: SequentialGraph>(
+pub fn simplify_sorted<G: SequentialGraph + SortedLender + SortedIterator>(
     graph: &G,
     batch_size: usize,
 ) -> Result<
@@ -42,6 +44,9 @@ pub fn simplify_sorted<G: SequentialGraph>(
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided
 /// graph as a [sequential graph](crate::traits::SequentialGraph).
+///
+/// Note that if the graph is sorted (both on nodes and successors), it is
+/// recommended to use [`simplify_sorted`](crate::transform::simplify::simplify_sorted).
 ///
 /// For the meaning of the additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
@@ -97,6 +102,8 @@ pub fn simplify(
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided
 /// graph as a [sequential graph](crate::traits::SequentialGraph).
+///
+/// This method uses splitting to sort in parallel different parts of the graph.
 ///
 /// For the meaning of the additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).

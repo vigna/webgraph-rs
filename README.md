@@ -22,7 +22,7 @@ techniques. More precisely, it is currently made of:
 
 - Algorithms for compressing web graphs that exploit gap compression and
   differential compression (à la
-  [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
+  [LINK](https://ieeexplore.ieee.org/document/999950)),
   intervalization, and ζ codes to provide a high compression ratio (see [our
   datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
   by several parameters, which provide different tradeoffs between access speed
@@ -57,13 +57,13 @@ our software useful for research, please cite the following papers in your own:
 - “[WebGraph: The Next Generation (Is in
   Rust)](http://vigna.di.unimi.it/papers.php#FVZWNG)”, by Tommaso Fontana,
   Sebastiano Vigna, and Stefano Zacchiroli, in _WWW '24: Companion Proceedings
-  of the ACM on Web Conference 2024_, pages 686-689 [DOI
+  of the ACM on Web Conference 2024_, pages 686–689. [DOI
   10.1145/3589335.3651581](https://dl.acm.org/doi/10.1145/3589335.3651581).
 
 - “[The WebGraph Framework I: Compression
   Techniques](http://vigna.di.unimi.it/papers.php#BoVWFI)”, by Paolo Boldi and
   Sebastiano Vigna, in _Proc. of the 13th international conference on World
-  Wide Web_, WWW 2004, pages 595-602, ACM [DOI
+  Wide Web_, WWW 2004, pages 595–602, ACM. [DOI
   10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752).
   
 ## Quick Setup
