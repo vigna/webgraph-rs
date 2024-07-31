@@ -203,7 +203,11 @@ impl LoadMode for LoadMmap {
     }
 }
 
-#[doc(hidden)]
+/// A load configuration for a [`BvGraph`]/[`BvGraphSeq`].
+///
+/// A basic configuration is returned by
+/// [`BvGraph::with_basename`]/[`BvGraphSeq::with_basename`]. The configuration
+/// can then be customized using the methods of this struct.
 #[derive(Debug, Clone)]
 pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode> {
     pub(crate) basename: PathBuf,

@@ -23,7 +23,7 @@ techniques. More precisely, it is currently made of:
 - Algorithms for compressing web graphs that exploit gap compression and
   differential compression (à la
   [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
-  intervali<ation, and ζ codes to provide a high compression ratio (see [our
+  intervalization, and ζ codes to provide a high compression ratio (see [our
   datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
   by several parameters, which provide different tradeoffs between access speed
   and compression ratio.
@@ -32,9 +32,9 @@ techniques. More precisely, it is currently made of:
   it, using lazy techniques that delay the decompression until it is actually
   necessary.
 
-- Algorithms for analyzing very large graphs, such as {@link
-  it.unimi.dsi.webgraph.algo.HyperBall}, which has been used to show that
-  Facebook has just [four degrees of
+- Algorithms for analyzing very large graphs, such as
+  [HyperBall](https://dl.acm.org/doi/10.5555/2606262.2606545), which has been
+  used to show that Facebook has just [four degrees of
   separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
 
 - A [Java implementation](http://webgraph.di.unimi.it/) of the algorithms above,
@@ -54,25 +54,25 @@ techniques. More precisely, it is currently made of:
 You are welcome to use and improve WebGraph for your research work! If you find
 our software useful for research, please cite the following papers in your own:
 
-- [“WebGraph: The Next Generation (Is in
-  Rust)”](http://vigna.di.unimi.it/papers.php#FVZWNG), by Tommaso Fontana,
-  Sebastiano Vigna, and Stefano Zacchiroli, in WWW '24: Companion Proceedings
-  of the ACM on Web Conference 2024, pages 686-689.  [DOI
-  10.1145/3589335.3651581](https://dl.acm.org/doi/10.1145/3589335.3651581)
+- “[WebGraph: The Next Generation (Is in
+  Rust)](http://vigna.di.unimi.it/papers.php#FVZWNG)”, by Tommaso Fontana,
+  Sebastiano Vigna, and Stefano Zacchiroli, in _WWW '24: Companion Proceedings
+  of the ACM on Web Conference 2024_, pages 686-689 [DOI
+  10.1145/3589335.3651581](https://dl.acm.org/doi/10.1145/3589335.3651581).
 
-- [“The WebGraph Framework I: Compression
-  Techniques”](http://vigna.di.unimi.it/papers.php#BoVWFI), by Paolo Boldi and
+- “[The WebGraph Framework I: Compression
+  Techniques](http://vigna.di.unimi.it/papers.php#BoVWFI)”, by Paolo Boldi and
   Sebastiano Vigna, in _Proc. of the 13th international conference on World
-  Wide Web, WWW 2004, pages 595-602, ACM. [DOI
-  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752)
+  Wide Web_, WWW 2004, pages 595-602, ACM [DOI
+  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752).
   
 ## Quick Setup
 
 Assuming you have built all binaries, you will first need a graph in BV format,
 for example downloading it from the [LAW website]. For a graph with basename
-BASENAME, you will need the `BASENAME.graph` file (the bitstream containing a
+`BASENAME`, you will need the `BASENAME.graph` file (the bitstream containing a
 compressed representation of the graph), the `BASENAME.properties` file
-(metadata) and the `BASENAME.offsets` file (a bitstream containing pointers into
+(metadata), and the `BASENAME.offsets` file (a bitstream containing pointers into
 the graph bitstream).
 
 As a first step, if you need random access to the successors of a node, you need
@@ -124,7 +124,7 @@ CLI is the main method of the library, so it can be executed with `cargo run`.
 
 ## Operating on Graphs
 
-There are many operations available on graphs, such as [transpose] and
+There are many operations available on graphs, such as [transpose],
 [simplify], and [permute].
 
 ## Acknowledgments
@@ -133,17 +133,17 @@ This software has been partially supported by project SERICS (PE00000014) under
 the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
 grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 
-[transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/transpose/index.html>
-[simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/simplify/index.html>
-[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/perm/index.html>
-[`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraph.html#method.with_basename>
-[`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraphSeq.html>
-[`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/struct.LoadConfig.html>
-[iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/trait/SequentialLabeling.html#method.iter>
-[zipping]: <https://docs.rs/webgraph/latest/webgraph/struct/Zip.html>
-[labeling]: <https://docs.rs/webgraph/latest/webgraph/trait/SequentialLabeling.html>
-[iteration]: <https://docs.rs/webgraph/latest/webgraph/trait/SequentialLabeling.html#method.iter>
-[retrieve the successors of a node]: <https://docs.rs/webgraph/latest/webgraph/trait/RandomAccessGraph.html#method.successors>
+[transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html>
+[simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html>
+[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html>
+[`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename>
+[`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html>
+[`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html>
+[iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
+[zipping]: <https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html>
+[labeling]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html>
+[iteration]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
+[retrieve the successors of a node]: <https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors>
 [LAW website]: <http://law.di.unimi.it/>
 [Elias–Fano]: <sux::dict::EliasFano>
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
