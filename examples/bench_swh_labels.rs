@@ -5,14 +5,18 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use bitstream::Supply;
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
-use dsi_bitstream::traits::{BitRead, BitSeek, BE};
+use dsi_bitstream::impls::{BufBitReader, MemWordReader};
+use dsi_bitstream::traits::{BitRead, BitSeek, Endianness, BE};
 use dsi_progress_logger::prelude::*;
+use epserde::deser::{DeserType, Deserialize, Flags, MemCase};
 use lender::*;
+use mmap_rs::MmapFlags;
 use std::hint::black_box;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use webgraph::prelude::bitstream::BitStream;
 use webgraph::prelude::*;
 
@@ -58,6 +62,42 @@ impl<BR: BitRead<BE> + BitSeek + GammaRead<BE>> BitDeserializer<BE, BR> for SwhD
     }
 }
 
+pub struct MmapReaderSupplier<E: Endianness> {
+    backend: MmapHelper<u32>,
+    _marker: std::marker::PhantomData<E>,
+}
+
+impl Supply for MmapReaderSupplier<BE> {
+    type Item<'a> = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+    where Self: 'a;
+
+    fn request(&self) -> Self::Item<'_> {
+        BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
+    }
+}
+
+pub fn mmap<D>(
+    path: impl AsRef<Path>,
+    bit_deser: D,
+) -> Result<BitStream<BE, MmapReaderSupplier<BE>, D, MemCase<DeserType<'static, EF>>>>
+where
+    for<'a> D: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
+{
+    let path = path.as_ref();
+    let labels_path = path.with_extension("labels");
+    let ef_path = path.with_extension("ef");
+    Ok(BitStream::new(
+        MmapReaderSupplier {
+            backend: MmapHelper::<u32>::mmap(&labels_path, MmapFlags::empty())
+                .with_context(|| format!("Could not mmap {}", labels_path.display()))?,
+            _marker: std::marker::PhantomData,
+        },
+        bit_deser,
+        EF::mmap(&ef_path, Flags::empty())
+            .with_context(|| format!("Could not parse {}", ef_path.display()))?,
+    ))
+}
+
 pub fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -65,7 +105,7 @@ pub fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .try_init()?;
 
-    let labels = BitStream::mmap(&args.basename, SwhDeserializer::new(args.width))?;
+    let labels = mmap(&args.basename, SwhDeserializer::new(args.width))?;
 
     for _ in 0..10 {
         let mut pl = ProgressLogger::default();

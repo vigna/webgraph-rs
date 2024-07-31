@@ -32,20 +32,6 @@ pub trait Supply {
     fn request(&self) -> Self::Item<'_>;
 }
 
-pub struct MmapReaderSupplier<E: Endianness> {
-    backend: MmapHelper<u32>,
-    _marker: std::marker::PhantomData<E>,
-}
-
-impl Supply for MmapReaderSupplier<BE> {
-    type Item<'a> = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-    where Self: 'a;
-
-    fn request(&self) -> Self::Item<'_> {
-        BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))
-    }
-}
-
 pub struct BitStream<E: Endianness, S: Supply, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
@@ -79,27 +65,6 @@ where
             offsets,
             _marker: std::marker::PhantomData,
         }
-    }
-}
-
-impl<D> BitStream<BE, MmapReaderSupplier<BE>, D, MemCase<DeserType<'static, EF>>>
-where
-    for<'a> D: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
-{
-    pub fn mmap(path: impl AsRef<Path>, bit_deser: D) -> Result<Self> {
-        let path = path.as_ref();
-        let backend_path = path.with_extension("labels");
-        let offsets_path = path.with_extension("ef");
-        Ok(BitStream::new(
-            MmapReaderSupplier {
-                backend: MmapHelper::<u32>::mmap(&backend_path, MmapFlags::empty())
-                    .with_context(|| format!("Could not mmap {}", backend_path.display()))?,
-                _marker: std::marker::PhantomData,
-            },
-            bit_deser,
-            EF::mmap(&offsets_path, Flags::empty())
-                .with_context(|| format!("Could not parse {}", offsets_path.display()))?,
-        ))
     }
 }
 
