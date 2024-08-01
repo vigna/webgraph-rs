@@ -33,6 +33,7 @@ use core::{
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
+use std::borrow::Borrow;
 use sux::traits::Succ;
 
 /// A labeling that can be accessed sequentially.
@@ -104,7 +105,7 @@ pub trait SequentialLabeling {
         func: F,
         fold: R,
         node_granularity: usize,
-        thread_pool: &rayon::ThreadPool,
+        thread_pool: impl Borrow<rayon::ThreadPool>,
         pl: Option<&mut ProgressLogger>,
     ) -> A
     where
@@ -116,6 +117,7 @@ pub trait SequentialLabeling {
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_scoped_threads = thread_pool
+            .borrow()
             .current_num_threads()
             .min(num_nodes / node_granularity)
             .max(1);
@@ -124,7 +126,7 @@ pub trait SequentialLabeling {
 
         // create a channel to receive the result
         let (tx, rx) = std::sync::mpsc::channel();
-        thread_pool.in_place_scope(|scope| {
+        thread_pool.borrow().in_place_scope(|scope| {
             for _ in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
                 let pl_lock = &pl_lock;
@@ -185,7 +187,7 @@ pub trait SequentialLabeling {
         fold: R,
         arc_granularity: usize,
         deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
-        thread_pool: &rayon::ThreadPool,
+        thread_pool: impl Borrow<rayon::ThreadPool>,
         pl: Option<&mut ProgressLogger>,
     ) -> A
     where
@@ -194,6 +196,7 @@ pub trait SequentialLabeling {
         T: Send,
         A: Default + Send,
     {
+        let thread_pool = thread_pool.borrow();
         let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_arcs = self.num_arcs_hint().unwrap();
@@ -274,6 +277,40 @@ pub type Labels<'succ, 'node, S> =
 /// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
 pub unsafe trait SortedLender: Lender {}
 
+/// A wrapper to attach `SortedLender` to a lender. This is needed when
+/// the lender is not directly a `SortedLender`, but it is known that it
+/// returns elements in sorted order.
+pub struct SortedLend<L> {
+    lender: L,
+}
+
+impl<L> SortedLend<L> {
+    /// # Safety
+    /// This is unsafe as the propose of this struct is to attach an unsafe
+    /// trait to a struct that does not implement it.
+    pub unsafe fn new(lender: L) -> Self {
+        Self { lender }
+    }
+}
+
+unsafe impl<L: Lender> SortedLender for SortedLend<L> {}
+
+impl<'succ, L: Lender> Lending<'succ> for SortedLend<L> {
+    type Lend = <L as Lending<'succ>>::Lend;
+}
+
+impl<L: Lender> Lender for SortedLend<L> {
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
+        self.lender.next()
+    }
+}
+
+impl<L: ExactSizeLender> ExactSizeLender for SortedLend<L> {
+    fn len(&self) -> usize {
+        self.lender.len()
+    }
+}
+
 /// Marker trait for [`Iterator`]s yielding labels in the order induced by
 /// enumerating the successors in ascending order.
 ///
@@ -282,6 +319,39 @@ pub unsafe trait SortedLender: Lender {}
 /// The labels returned by the iterator must be in the order in which they would
 /// be if successors were returned in ascending order.
 pub unsafe trait SortedIterator: Iterator {}
+
+/// A wrapper to attach `SortedIterator` to an iterator. This is needed when
+/// the iterator is not directly a `SortedIterator`, but it is known that it
+/// returns elements in sorted order, e.g. like iterating on a vector that was
+/// sorted.
+pub struct SortedIter<I> {
+    iter: I,
+}
+
+impl<I> SortedIter<I> {
+    /// # Safety
+    /// This is unsafe as the propose of this struct is to attach an unsafe
+    /// trait to a struct that does not implement it.
+    pub unsafe fn new(iter: I) -> Self {
+        Self { iter }
+    }
+}
+
+unsafe impl<I: Iterator> SortedIterator for SortedIter<I> {}
+
+impl<I: Iterator> Iterator for SortedIter<I> {
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<I: ExactSizeIterator> ExactSizeIterator for SortedIter<I> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.

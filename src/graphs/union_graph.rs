@@ -44,33 +44,33 @@ where
 
 impl<G: SequentialGraph, H: SequentialGraph> SplitLabeling for UnionGraph<G, H>
 where
-    for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a> G::Lender<'a>: SortedLender + Clone + Send + Sync,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-    for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a> H::Lender<'a>: SortedLender + Clone + Send + Sync,
     for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, UnionGraph<G, H> > where Self: 'a;
+    type SplitLender<'a> = split::seq::Lender<'a, UnionGraph<G, H>> where Self: 'a;
     type IntoIterator<'a> = split::seq::IntoIterator<'a, UnionGraph<G, H>> where Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), how_many)
+        split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
     }
 }
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialGraph for UnionGraph<G, H>
 where
-    for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a> G::Lender<'a>: SortedLender + Clone,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-    for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a> H::Lender<'a>: SortedLender + Clone,
     for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
 }
 
 impl<'c, G: SequentialGraph, H: SequentialGraph> IntoLender for &'c UnionGraph<G, H>
 where
-    for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a> G::Lender<'a>: SortedLender + Clone,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-    for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + Send + Sync,
+    for<'a> H::Lender<'a>: SortedLender + Clone,
     for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
     type Lender = <UnionGraph<G, H> as SequentialLabeling>::Lender<'c>;
@@ -174,7 +174,6 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
     }
 }
 
-// TODO
 unsafe impl<I: Iterator<Item = usize> + SortedIterator, J: Iterator<Item = usize> + SortedIterator>
     SortedIterator for Succ<I, J>
 {

@@ -6,7 +6,7 @@
 
 use clap::Parser;
 use lender::for_;
-use webgraph::graphs::BVGraphSeq;
+use webgraph::graphs::bvgraph::BVGraphSeq;
 
 #[derive(Parser, Debug)]
 #[command(about = "Prints the arcs of a graph", long_about = None)]

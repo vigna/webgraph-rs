@@ -51,7 +51,7 @@ pub trait SplitLabeling: SequentialLabeling {
 /// # Examples
 ///
 /// The code for [`BVGraphSeq`](crate::graphs::bvgraph::sequential::BVGraphSeq) is:
-/// ```ìgnore
+/// ```ignore
 /// impl<F: SequentialDecoderFactory> SplitLabeling for BVGraphSeq<F>
 /// where
 ///     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
@@ -75,9 +75,9 @@ pub mod seq {
         remaining: usize,
     }
 
-    impl<L: lender::ExactSizeLender> Iter<L> {
-        pub fn new(lender: L, how_many: usize) -> Self {
-            let nodes_per_iter = lender.len().div_ceil(how_many);
+    impl<L: lender::Lender> Iter<L> {
+        pub fn new(lender: L, number_of_nodes: usize, how_many: usize) -> Self {
+            let nodes_per_iter = number_of_nodes.div_ceil(how_many);
             Self {
                 lender,
                 nodes_per_iter,
@@ -123,7 +123,7 @@ pub mod seq {
 /// # Examples
 ///
 /// The code for [`BVGraph`](crate::graphs::bvgraph::random_access::BVGraph) is
-/// ```ìgnore
+/// ```ignore
 /// impl<F: RandomAccessDecoderFactory> SplitLabeling for BVGraph<F>
 /// where
 ///     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,

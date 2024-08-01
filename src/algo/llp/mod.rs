@@ -45,7 +45,6 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
-use sux::traits::IndexedDict;
 use sux::traits::Succ;
 use tempfile::tempdir;
 
@@ -67,9 +66,9 @@ pub mod preds;
 ///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
 /// * `num_threads` - The number of threads to use. If `None`, the number of
-/// threads is set to [`num_cpus::get`].
+///   threads is set to [`num_cpus::get`].
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
-/// an advanced option: see
+///   an advanced option: see
 ///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `granularity` - The granularity of the parallel processing expressed as
 ///   the number of arcs to process at a time. If `None`, the granularity is
@@ -93,7 +92,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
-    let granularity = granularity.unwrap_or(((sym_graph.num_arcs() >> 9) as usize).max(1024));
+    let granularity = granularity.unwrap_or(Ord::max((sym_graph.num_arcs() >> 9) as usize, 1024));
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -122,7 +121,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     // init the iteration progress logger
     let mut iter_pl = progress_logger!(item_name = "update");
 
-    let hash_map_init = (sym_graph.num_arcs() / sym_graph.num_nodes() as u64).max(16) as usize;
+    let hash_map_init = Ord::max(sym_graph.num_arcs() / sym_graph.num_nodes() as u64, 16) as usize;
 
     // init the update progress logger
     let mut update_pl = progress_logger!(item_name = "node", local_speed = true);

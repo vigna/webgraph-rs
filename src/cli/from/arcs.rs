@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::utils::*;
+use crate::cli::create_parent_dir;
+use crate::cli::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
 use crate::prelude::*;
 use anyhow::Result;
@@ -14,41 +15,43 @@ use dsi_bitstream::prelude::{Endianness, BE};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
-pub const COMMAND_NAME: &str = "from-csv";
+pub const COMMAND_NAME: &str = "arcs";
 
 #[derive(Args, Debug)]
-#[command(about = "Compress a CSV graph from stdin into webgraph. This does not support any form of escaping.", long_about = None)]
+#[command(
+    about = "Creates a new BVGraph from a list of arcs. Each arc is specified by a pair of labels, and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers."
+)]
 pub struct CliArgs {
-    /// The basename of the dst.
-    basename: PathBuf,
+    /// The basename of the graph.
+    pub dst: PathBuf,
 
     #[arg(long)]
-    /// The number of nodes in the graph
-    num_nodes: usize,
+    /// The number of nodes in the graph.
+    pub num_nodes: usize,
 
     #[arg(long)]
-    /// The number of arcs in the graph
-    num_arcs: Option<usize>,
+    /// The number of arcs in the graph; if specified, it will be used to estimate the progress.
+    pub num_arcs: Option<usize>,
 
     #[clap(flatten)]
-    csv_args: CSVArgs,
+    pub arcs_args: ArcsArgs,
 
     #[clap(flatten)]
-    num_cpus: NumCpusArg,
+    pub num_threads: NumThreadsArg,
 
     #[clap(flatten)]
-    pa: PermutationArgs,
+    pub batch_size: BatchSizeArg,
 
     #[clap(flatten)]
-    ca: CompressArgs,
+    pub ca: CompressArgs,
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
@@ -56,51 +59,51 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 }
 
 pub fn from_csv(args: CliArgs) -> Result<()> {
-    let dir = Builder::new().prefix("FromCsvPairs").tempdir()?;
+    let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
-    let mut group_by = SortPairs::new(args.pa.batch_size, dir)?;
-    let mut nodes = BTreeMap::new();
+    let mut group_by = SortPairs::new(args.batch_size.batch_size, dir)?;
+    let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
     let stdin = std::io::stdin();
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("lines")
-        .expected_updates(args.csv_args.max_lines.or(args.num_arcs));
+        .expected_updates(args.arcs_args.max_lines.or(args.num_arcs));
     pl.start("Reading arcs CSV");
 
     let mut iter = stdin.lock().lines();
     // skip the first few lines
-    for _ in 0..args.csv_args.lines_to_skip {
+    for _ in 0..args.arcs_args.lines_to_skip {
         iter.next().unwrap().unwrap();
     }
     let mut line_id = 0;
     for line in iter {
         // break if we reached the end
-        if let Some(max_lines) = args.csv_args.max_lines {
+        if let Some(max_lines) = args.arcs_args.max_lines {
             if line_id > max_lines {
                 break;
             }
         }
         let line = line.unwrap();
         // skip comment
-        if line.trim().starts_with(args.csv_args.line_comment_simbol) {
+        if line.trim().starts_with(args.arcs_args.line_comment_simbol) {
             continue;
         }
 
         // split the csv line into the args
-        let vals = line.split(args.csv_args.csv_separator).collect::<Vec<_>>();
+        let vals = line.split(args.arcs_args.separator).collect::<Vec<_>>();
         let src = vals[0];
         let dst = vals[1];
 
-        // parse if numeric, or build a node list
-        let src_id = if args.csv_args.numeric {
+        // parse if exact, or build a node list
+        let src_id = if args.arcs_args.exact {
             src.parse::<usize>().unwrap()
         } else {
             let node_id = nodes.len();
             *nodes.entry(src.to_string()).or_insert(node_id)
         };
-        let dst_id = if args.csv_args.numeric {
+        let dst_id = if args.arcs_args.exact {
             dst.parse::<usize>().unwrap()
         } else {
             let node_id = nodes.len();
@@ -123,23 +126,27 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
             .map(|(src, dst, _)| (src, dst))
             .dedup(),
     ));
+
+    create_parent_dir(&args.dst)?;
+
     // compress it
     let target_endianness = args.ca.endianness.clone();
-    let dir = Builder::new().prefix("CompressSimplified").tempdir()?;
+    let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
+    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
     BVComp::parallel_endianness(
-        &args.basename,
+        &args.dst,
         &g,
         args.num_nodes,
         args.ca.into(),
-        Threads::Num(args.num_cpus.num_cpus),
+        thread_pool,
         dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )
     .unwrap();
 
     // save the nodes
-    if !args.csv_args.numeric {
-        let mut file = std::fs::File::create(args.basename.with_extension("nodes")).unwrap();
+    if !args.arcs_args.exact {
+        let mut file = std::fs::File::create(args.dst.with_extension("nodes")).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx

@@ -8,47 +8,48 @@
 use crate::graphs::bvgraph::{get_endianness, CodeRead};
 use crate::traits::SequentialLabeling;
 use anyhow::Result;
-use clap::{Arg, ArgMatches, Command};
+use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
+use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "ascii-convert";
+pub const COMMAND_NAME: &str = "ascii";
+
+#[derive(Args, Debug)]
+#[command(about = "Dumps a graph in ASCII format: a line for each node with successors separated by tabs.", long_about = None)]
+pub struct CliArgs {
+    /// The basename of the graph.
+    pub src: PathBuf,
+}
 
 pub fn cli(command: Command) -> Command {
-    command
-        .subcommand(
-            Command::new(COMMAND_NAME)
-                .about("Dumps a graph in ascii format, i.e. a line for each node with its successors separated by tabs.")
-                .long_about(None)
-                .arg(Arg::new("basename")
-                    .help("The basename of the graph")
-                    .required(true))
-        )
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let basename = submatches.get_one::<String>("basename").unwrap();
-    match get_endianness(basename)?.as_str() {
+    let args = CliArgs::from_arg_matches(submatches)?;
+
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => ascii_convert::<BE>(basename),
+        BE::NAME => ascii_convert::<BE>(args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => ascii_convert::<LE>(basename),
+        LE::NAME => ascii_convert::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn ascii_convert<E: Endianness + 'static>(basename: &str) -> Result<()>
+pub fn ascii_convert<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(basename)
+    let seq_graph = crate::graphs::bvgraph::sequential::BVGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?;
 

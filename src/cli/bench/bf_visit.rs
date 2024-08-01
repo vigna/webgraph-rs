@@ -18,31 +18,31 @@ use sux::prelude::BitVec;
 pub const COMMAND_NAME: &str = "bf-visit";
 
 #[derive(Args, Debug)]
-#[command(about = "Breadth-first visits a graph.", long_about = None)]
-struct CliArgs {
+#[command(about = "Benchmarks a breadth-first visit.", long_about = None)]
+pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
     /// Static dispatch (default BVGraph parameters).
-    #[arg(short = 's', long = "static")]
-    _static: bool,
-    /// Static dispatch (default BVGraph parameters).
-    #[arg(short = 'r', long, default_value_t = 1)]
-    repeats: usize,
+    #[arg(short = 'S', long = "static")]
+    pub _static: bool,
+    /// Number of repeats (usually to warm up the cache or memory mapping).
+    #[arg(short = 'R', long, default_value_t = 1)]
+    pub repeats: usize,
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    let config = BVGraph::with_basename(&args.basename)
+    let config = BVGraph::with_basename(&args.src)
         .mode::<Mmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS);
 
     for _ in 0..args.repeats {
-        match get_endianness(&args.basename)?.as_str() {
+        match get_endianness(&args.src)?.as_str() {
             #[cfg(any(
                 feature = "be_bins",
                 not(any(feature = "be_bins", feature = "le_bins"))

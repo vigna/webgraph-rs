@@ -6,7 +6,7 @@
  */
 
 use super::{CodeWrite, Encode, EncodeAndEstimate};
-use crate::{graphs::Code, prelude::CompFlags};
+use crate::{graphs::bvgraph::Code, prelude::CompFlags};
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 

@@ -20,10 +20,10 @@ use sux::prelude::*;
 pub const COMMAND_NAME: &str = "ef";
 
 #[derive(Args, Debug)]
-#[command(about = "Builds the .ef file for a graph.", long_about = None)]
+#[command(about = "Builds the Elias-Fano representation of the offsets of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub basename: PathBuf,
+    pub src: PathBuf,
     /// The number of elements to be inserted in the Elias-Fano
     /// starting from a label offset file. It is usually one more than
     /// the number of nodes in the graph.
@@ -31,13 +31,13 @@ pub struct CliArgs {
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -56,7 +56,7 @@ pub fn build_eliasfano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let basename = args.basename;
+    let basename = args.src;
     if let Some(num_nodes) = args.n {
         // Horribly temporary duplicated code for the case of label offsets.
         let of_file_path = basename.with_extension(LABELOFFSETS_EXTENSION);
@@ -89,7 +89,7 @@ where
             for _node_id in 0..num_nodes {
                 // write where
                 offset += reader.read_gamma().context("Could not read gamma")?;
-                efb.push(offset as _).context("Could not write offset")?;
+                efb.push(offset as _);
                 // decode the next nodes so we know where the next node_id starts
                 pl.light_update();
             }
@@ -98,7 +98,7 @@ where
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
             pl.start("Building the Index over the ones in the high-bits...");
-            let ef: EF = ef.convert_to().unwrap();
+            let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
             pl.done();
 
             let mut pl = ProgressLogger::default();
@@ -167,7 +167,7 @@ where
         for _node_id in 0..num_nodes + 1 {
             // write where
             offset += reader.read_gamma().context("Could not read gamma")?;
-            efb.push(offset as _).context("Could not write gamma")?;
+            efb.push(offset as _);
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
         }
@@ -184,12 +184,11 @@ where
         let mut iter = seq_graph.offset_deg_iter();
         for (new_offset, _degree) in iter.by_ref() {
             // write where
-            efb.push(new_offset as _).context("Could not write gamma")?;
+            efb.push(new_offset as _);
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
         }
-        efb.push(iter.get_pos() as _)
-            .context("Could not write final gamma")?;
+        efb.push(iter.get_pos() as _);
     }
     pl.done();
 
@@ -198,7 +197,7 @@ where
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = ef.convert_to().unwrap();
+    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
     pl.done();
 
     let mut pl = ProgressLogger::default();

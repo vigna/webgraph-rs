@@ -95,7 +95,6 @@ pub trait EncodeAndEstimate: Encode {
 /// A trait providing decoders with random access.
 #[autoimpl(for<T: trait + ?Sized> & T, Box<T>)]
 pub trait RandomAccessDecoderFactory {
-    /// The type of the reader that we are building
     type Decoder<'a>: Decode + 'a
     where
         Self: 'a;
@@ -107,7 +106,6 @@ pub trait RandomAccessDecoderFactory {
 /// A trait providing decoders on the whole graph.
 #[autoimpl(for<T: trait + ?Sized> & T, Box<T>)]
 pub trait SequentialDecoderFactory {
-    /// The type xof the reader that we are building
     type Decoder<'a>: Decode + 'a
     where
         Self: 'a;

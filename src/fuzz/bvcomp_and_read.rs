@@ -138,7 +138,7 @@ pub fn harness(data: FuzzCase) {
     );
     let mut offsets = Vec::with_capacity(graph.num_nodes() + 1);
     offsets.push(0);
-    efb.push(0).unwrap();
+    efb.push(0);
 
     // create seq graphs
     let seq_graph_be = BVGraphSeq::new(
@@ -178,7 +178,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(succ_be, succ_le);
         assert_eq!(succ, succ_be);
         offsets.push(seq_iter_be.bit_pos().unwrap());
-        efb.push(seq_iter_be.bit_pos().unwrap() as usize).unwrap();
+        efb.push(seq_iter_be.bit_pos().unwrap() as usize);
     }
 
     let mut seq_iter_be = seq_graph_be.offset_deg_iter();
@@ -194,9 +194,10 @@ pub fn harness(data: FuzzCase) {
     }
     // build elias-fano
     let ef = efb.build();
+    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
 
     // verify that elias-fano has the right values
-    assert_eq!(IndexedDict::len(&ef), offsets.len());
+    assert_eq!(ef.len(), offsets.len());
     for (i, offset) in offsets.iter().enumerate() {
         assert_eq!(ef.get(i as usize) as u64, *offset);
     }

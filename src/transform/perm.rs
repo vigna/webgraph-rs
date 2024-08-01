@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::borrow::Borrow;
+
 use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::{BatchIterator, KMergeIters};
 use crate::prelude::*;
@@ -31,7 +33,7 @@ pub fn permute(
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.", 
         perm.len(), graph.num_nodes(),
     );
-    let dir = Builder::new().prefix("Permute").tempdir()?;
+    let dir = Builder::new().prefix("permute_").tempdir()?;
 
     // create a stream where to dump the sorted pairs
     let mut sorted = SortPairs::new(batch_size, dir)?;
@@ -73,7 +75,7 @@ pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
     batch_size: usize,
-    mut threads: impl AsMut<rayon::ThreadPool>,
+    threads: impl Borrow<rayon::ThreadPool>,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
@@ -88,7 +90,7 @@ where
     // get a premuted view
     let pgraph = PermutedGraph { graph, perm };
 
-    let pool = threads.as_mut();
+    let pool = threads.borrow();
     let num_threads = pool.current_num_threads();
     let mut dirs = vec![];
 
@@ -98,7 +100,7 @@ where
         for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
             let tx = tx.clone();
             let dir = Builder::new()
-                .prefix(&format!("Permute_{}", thread_id))
+                .prefix(&format!("permute_split_{}_", thread_id))
                 .tempdir()
                 .expect("Could not create a temporary directory");
             let dir_path = dir.path().to_path_buf();

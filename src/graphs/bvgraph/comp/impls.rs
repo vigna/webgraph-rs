@@ -10,9 +10,10 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
+use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A queue that pulls jobs with ids in a contiguous initial segment of the
 /// natural numbers from an iterator out of order and implement an iterator in
@@ -42,15 +43,17 @@ impl<I: Iterator> TaskQueue<I> {
 
 impl<I: Iterator> Iterator for TaskQueue<I>
 where
-    I::Item: JobId + Copy,
+    I::Item: JobId,
 {
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(Some(item)) = self.jobs.get(self.next_id) {
-                self.next_id += 1;
-                return Some(*item);
+            if let Some(item) = self.jobs.get_mut(self.next_id) {
+                if item.is_some() {
+                    self.next_id += 1;
+                    return item.take();
+                }
             }
             if let Some(item) = self.iter.next() {
                 let id = item.id();
@@ -66,12 +69,15 @@ where
 }
 
 /// A compression job.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 struct Job {
     job_id: usize,
     first_node: usize,
     last_node: usize,
+    chunk_graph_path: PathBuf,
     written_bits: u64,
+    chunk_offsets_path: PathBuf,
+    offsets_written_bits: u64,
     num_arcs: u64,
 }
 
@@ -191,7 +197,7 @@ impl BVComp<()> {
         graph: &G,
         num_nodes: usize,
         compression_flags: CompFlags,
-        mut threads: impl AsMut<rayon::ThreadPool>,
+        threads: impl Borrow<rayon::ThreadPool>,
         tmp_dir: P,
         endianness: &str,
     ) -> Result<u64>
@@ -208,7 +214,7 @@ impl BVComp<()> {
                 Self::parallel_iter::<BigEndian, _>(
                     basename,
                     graph
-                        .split_iter(threads.as_mut().current_num_threads())
+                        .split_iter(threads.borrow().current_num_threads())
                         .into_iter(),
                     num_nodes,
                     compression_flags,
@@ -225,7 +231,7 @@ impl BVComp<()> {
                 Self::parallel_iter::<LittleEndian, _>(
                     basename,
                     graph
-                        .split_iter(threads.as_mut().current_num_threads())
+                        .split_iter(threads.borrow().current_num_threads())
                         .into_iter(),
                     num_nodes,
                     compression_flags,
@@ -242,7 +248,7 @@ impl BVComp<()> {
         basename: impl AsRef<Path> + Send + Sync,
         graph: &(impl SequentialGraph + SplitLabeling),
         compression_flags: CompFlags,
-        mut threads: impl AsMut<rayon::ThreadPool>,
+        threads: impl Borrow<rayon::ThreadPool>,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
@@ -252,7 +258,7 @@ impl BVComp<()> {
         Self::parallel_iter(
             basename,
             graph
-                .split_iter(threads.as_mut().current_num_threads())
+                .split_iter(threads.borrow().current_num_threads())
                 .into_iter(),
             graph.num_nodes(),
             compression_flags,
@@ -271,19 +277,19 @@ impl BVComp<()> {
         iter: impl Iterator<Item = L>,
         num_nodes: usize,
         compression_flags: CompFlags,
-        mut threads: impl AsMut<rayon::ThreadPool>,
+        threads: impl Borrow<rayon::ThreadPool>,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        let thread_pool = threads.as_mut();
-
+        let thread_pool = threads.borrow();
         let tmp_dir = tmp_dir.as_ref();
         let basename = basename.as_ref();
 
         let graph_path = basename.with_extension(GRAPH_EXTENSION);
+        let offsets_path = basename.with_extension(OFFSETS_EXTENSION);
 
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -293,51 +299,71 @@ impl BVComp<()> {
             let cp_flags = &compression_flags;
 
             for (thread_id, mut thread_lender) in iter.enumerate() {
-                let file_path = thread_path(thread_id);
+                let tmp_path = thread_path(thread_id);
+                let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
+                let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let tx = tx.clone();
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::info!("Thread {} started", thread_id);
                     let first_node;
+                    let mut bvcomp;
+                    let mut offsets_writer;
+                    let mut written_bits;
+                    let mut offsets_written_bits;
 
-                    let (mut bvcomp, mut written_bits) =
-                        if let Some((node_id, successors)) = thread_lender.next() {
+                    match thread_lender.next() {
+                        None => return,
+                        Some((node_id, successors)) => {
                             first_node = node_id;
+
+                            offsets_writer = <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(
+                                BufWriter::new(File::create(&chunk_offsets_path).unwrap()),
+                            ));
+
                             let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
-                                BufWriter::new(File::create(&file_path).unwrap()),
+                                BufWriter::new(File::create(&chunk_graph_path).unwrap()),
                             ));
                             let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
 
-                            let mut bvcomp = BVComp::new(
+                            bvcomp = BVComp::new(
                                 codes_encoder,
                                 cp_flags.compression_window,
                                 cp_flags.max_ref_count,
                                 cp_flags.min_interval_length,
                                 node_id,
                             );
-                            let written_bits = bvcomp.push(successors).unwrap();
-                            (bvcomp, written_bits)
-                        } else {
-                            return;
-                        };
+                            written_bits = bvcomp.push(successors).unwrap();
+                            offsets_written_bits = offsets_writer.write_gamma(written_bits).unwrap() as u64;
+                        }
+                    };
 
                     let mut last_node = first_node;
-                    written_bits += bvcomp
-                        .extend(thread_lender.inspect(|(x, _)| last_node = *x))
-                        .unwrap();
+                    let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
+                    for_! ( (_, succ) in iter_nodes {
+                        let node_bits = bvcomp.push(succ.into_iter()).unwrap();
+                        written_bits += node_bits;
+                        offsets_written_bits += offsets_writer.write_gamma(node_bits).unwrap() as u64;
+                    });
+
                     let num_arcs = bvcomp.arcs;
                     bvcomp.flush().unwrap();
-                    // TODO written_bits += bvcomp.flush().unwrap();
+                    offsets_writer.flush().unwrap();
+
                     log::info!(
-                        "Finished Compression thread {} and wrote {} bits",
+                        "Finished Compression thread {} and wrote {} bits for the graph and {} bits for the offsets",
                         thread_id,
-                        written_bits
+                        written_bits,
+                        offsets_written_bits,
                     );
                     tx.send(Job {
                         job_id: thread_id,
                         first_node,
                         last_node,
+                        chunk_graph_path,
                         written_bits,
+                        chunk_offsets_path,
+                        offsets_written_bits,
                         num_arcs,
                     })
                     .unwrap()
@@ -346,15 +372,19 @@ impl BVComp<()> {
 
             drop(tx);
 
-            // setup the final bitstream from the end, because the first thread
-            // already wrote the first chunk
             let file = File::create(&graph_path)
                 .with_context(|| format!("Could not create graph {}", graph_path.display()))?;
-
-            let mut result_writer =
+            let mut graph_writer =
                 <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
+            let file = File::create(&offsets_path)
+                .with_context(|| format!("Could not create offsets {}", offsets_path.display()))?;
+            let mut offsets_writer =
+                <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
+            offsets_writer.write_gamma(0)?;
+
             let mut total_written_bits: u64 = 0;
+            let mut total_offsets_written_bits: u64 = 0;
             let mut total_arcs: u64 = 0;
 
             let mut next_node = 0;
@@ -364,7 +394,10 @@ impl BVComp<()> {
                 job_id,
                 first_node,
                 last_node,
+                chunk_graph_path,
                 written_bits,
+                chunk_offsets_path,
+                offsets_written_bits,
                 num_arcs,
             } in TaskQueue::new(rx.iter())
             {
@@ -378,36 +411,60 @@ impl BVComp<()> {
 
                 next_node = last_node + 1;
                 total_arcs += num_arcs;
-                // compute the path of the bitstream created by this thread
-                let file_path = thread_path(job_id);
                 log::info!(
                     "Copying {} [{}..{}) bits from {} to {}",
                     written_bits,
                     total_written_bits,
                     total_written_bits + written_bits,
-                    file_path.display(),
-                    basename.display()
+                    chunk_graph_path.display(),
+                    graph_path.display()
                 );
                 total_written_bits += written_bits;
 
                 let mut reader =
                     <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-                        File::open(&file_path)
-                            .with_context(|| format!("Could not open {}", file_path.display()))?,
+                        File::open(&chunk_graph_path)
+                            .with_context(|| format!("Could not open {}", chunk_graph_path.display()))?,
                     )));
-                result_writer
+                graph_writer
                     .copy_from(&mut reader, written_bits)
                     .with_context(|| {
                         format!(
                             "Could not copy from {} to {}",
-                            file_path.display(),
+                            chunk_graph_path.display(),
                             graph_path.display()
+                        )
+                    })?;
+
+                log::info!(
+                    "Copying offsets {} [{}..{}) bits from {} to {}",
+                    offsets_written_bits,
+                    total_offsets_written_bits,
+                    total_offsets_written_bits + offsets_written_bits,
+                    chunk_offsets_path.display(),
+                    offsets_path.display()
+                );
+                total_offsets_written_bits += offsets_written_bits;
+
+                let mut reader =
+                    <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
+                        File::open(&chunk_offsets_path)
+                            .with_context(|| format!("Could not open {}", chunk_offsets_path.display()))?,
+                    )));
+                offsets_writer
+                    .copy_from(&mut reader, offsets_written_bits)
+                    .with_context(|| {
+                        format!(
+                            "Could not copy from {} to {}",
+                            chunk_offsets_path.display(),
+                            offsets_path.display()
                         )
                     })?;
             }
 
-            log::info!("Flushing the merged Compression bitstream");
-            result_writer.flush()?;
+            log::info!("Flushing the merged bitstreams");
+            graph_writer.flush()?;
+            offsets_writer.flush()?;
 
             log::info!("Writing the .properties file");
             let properties = compression_flags
@@ -426,6 +483,11 @@ impl BVComp<()> {
                 total_arcs,
                 total_written_bits,
                 total_written_bits as f64 / total_arcs as f64
+            );
+            log::info!(
+                "Created offsets file with {} bits for {:.4} bits/node",
+                total_offsets_written_bits,
+                total_offsets_written_bits as f64 / num_nodes as f64
             );
 
             // cleanup the temp files

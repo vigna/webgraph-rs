@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -16,27 +17,29 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "bfs";
 
 #[derive(Args, Debug)]
-#[command(about = "Compute a permutation with the BFS order", long_about = None)]
+#[command(about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
 
-    /// A filename for the LLP permutation.
-    perm: PathBuf,
+    /// The filename of the permutation in binary big-endian format.
+    pub perm: PathBuf,
 
     #[arg(short, long)]
     /// Save the permutation in ε-serde format.
-    epserde: bool,
+    pub epserde: bool,
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    create_parent_dir(&args.perm)?;
+
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -56,7 +59,7 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
     // load the graph
-    let graph = BVGraph::with_basename(&args.basename)
+    let graph = BVGraph::with_basename(&args.src)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()

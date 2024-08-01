@@ -20,20 +20,20 @@ use sux::prelude::*;
 pub const COMMAND_NAME: &str = "dcf";
 
 #[derive(Args, Debug)]
-#[command(about = "Builds an Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
+#[command(about = "Builds the Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub basename: PathBuf,
+    pub src: PathBuf,
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -52,7 +52,7 @@ pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    let basename = args.basename;
+    let basename = args.src;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
@@ -88,18 +88,22 @@ where
     let mut iter = seq_graph.offset_deg_iter();
     let mut cumul_deg = 0;
 
-    efb.push(0)?;
+    efb.push(0);
     for (_new_offset, degree) in iter.by_ref() {
         cumul_deg += degree;
         // write where
-        efb.push(cumul_deg as _).context("Could not write gamma")?;
+        efb.push(cumul_deg as _);
         // decode the next nodes so we know where the next node_id starts
         pl.light_update();
     }
     pl.done();
 
     let ef = efb.build();
-    let ef: DCF = ef.convert_to().unwrap();
+    let ef: DCF = unsafe {
+        ef.map_high_bits(|bits| {
+            SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(bits))
+        })
+    };
 
     info!("Writing to disk...");
 

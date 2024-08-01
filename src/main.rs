@@ -5,92 +5,9 @@
  */
 
 use anyhow::Result;
-use clap::{value_parser, Command};
-use clap_complete::shells::Shell;
-
-use webgraph::{build_info, cli};
+use webgraph::cli::main as cli_main;
 
 pub fn main() -> Result<()> {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .try_init()?;
-
-    let command = Command::new("webgraph")
-        .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")
-        .version(build_info::version_string())
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .subcommand(
-            Command::new("generate-completions")
-                .about("Generates shell completions.")
-                .arg(
-                    clap::Arg::new("shell")
-                        .required(true)
-                        .value_parser(value_parser!(Shell)),
-                ),
-        )
-        .after_help(
-            "Environment (noteworthy environment variables used):
-  RUST_MIN_STACK: minimum thread stack size (in bytes)
-  TMPDIR: where to store temporary files (potentially very large ones)
-",
-        );
-
-    macro_rules! impl_dispatch {
-        ($command:expr, $($module:ident),*) => {{
-            let command = $command;
-            $(
-                let command = cli::$module::cli(command);
-            )*
-            let mut completion_command = command.clone();
-            let matches = command.get_matches();
-            let subcommand = matches.subcommand();
-            // if no command is specified, print the help message
-            if subcommand.is_none() {
-                completion_command.print_help().unwrap();
-                return Ok(());
-            }
-            match subcommand.unwrap() {
-                ("generate-completions", sub_m) => {
-                    let shell = sub_m.get_one::<Shell>("shell").unwrap();
-                    clap_complete::generate(
-                        *shell,
-                        &mut completion_command,
-                        "bvgraph",
-                        &mut std::io::stdout(),
-                    );
-                    return Ok(());
-                },
-                $(
-                    (cli::$module::COMMAND_NAME, sub_m) => cli::$module::main(sub_m),
-                )*
-                (command_name, _) => {
-                    // this shouldn't happen as clap should catch this
-                    eprintln!("Unknown command: {:?}", command_name);
-                    completion_command.print_help().unwrap();
-                    std::process::exit(1);
-                }
-            }
-        }};
-    }
-
-    impl_dispatch!(
-        command,
-        ascii_convert,
-        bench,
-        bfs,
-        build,
-        check_ef,
-        convert,
-        from_csv,
-        llp,
-        merge_perms,
-        optimize_codes,
-        pad,
-        rand_perm,
-        recompress,
-        simplify,
-        to_csv,
-        transpose
-    )
+    // Call the main function of the CLI with cli args
+    cli_main(std::env::args_os())
 }

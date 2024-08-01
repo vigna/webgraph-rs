@@ -8,7 +8,8 @@
 
 use self::llp::preds::MinAvgImprov;
 
-use super::utils::*;
+use crate::cli::create_parent_dir;
+use crate::cli::NumThreadsArg;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -25,74 +26,76 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "llp";
 
 #[derive(Args, Debug)]
-#[command(about = "Performs an LLP round.", long_about = None)]
+#[command(about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    basename: PathBuf,
+    pub src: PathBuf,
 
-    /// A filename for the LLP permutation.
-    perm: PathBuf,
+    /// A filename for the LLP permutation in binary big-endian format.
+    pub perm: PathBuf,
+
+    #[arg(short, long)]
+    /// Save the permutation in ε-serde format.
+    pub epserde: bool,
 
     #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string()])]
     /// The ɣ's to use in LLP, separated by commas. The format is given by a
     /// integer numerator (if missing, assumed to be one), a dash, and then a
     /// power-of-two exponent for the denominator. For example, -2 is 1/4, and
     /// 0-0 is 0.
-    gammas: Vec<String>,
+    pub gammas: Vec<String>,
 
     #[arg(short = 'u', long, default_value_t = 100)]
     /// If specified, the maximum number of updates for a given ɣ.
-    max_updates: usize,
+    pub max_updates: usize,
 
     #[arg(short = 'M', long)]
     /// If true, updates will be stopped when the number of modified nodes is less
     /// than the square root of the number of nodes of the graph.
-    modified: bool,
+    pub modified: bool,
 
     #[arg(short = 'p', long)]
     /// If true, updates will be stopped when the number of modified nodes is less
     /// than the specified percentage of the number of nodes of the graph.
-    perc_modified: Option<f64>,
+    pub perc_modified: Option<f64>,
 
     #[arg(short = 't', long, default_value_t = MinGain::DEFAULT_THRESHOLD)]
     /// The gain threshold used to stop the computation (0 to disable).
-    gain_threshold: f64,
+    pub gain_threshold: f64,
 
     #[arg(short = 'i', long, default_value_t = MinAvgImprov::DEFAULT_THRESHOLD)]
     /// The threshold on the average (over the last ten updates) gain
     /// improvement used to stop the computation (-Inf to disable).
-    improv_threshold: f64,
+    pub improv_threshold: f64,
 
     #[clap(flatten)]
-    num_cpus: NumCpusArg,
+    pub num_threads: NumThreadsArg,
 
     #[arg(short, long, default_value_t = 0)]
     /// The seed to use for the PRNG.
-    seed: u64,
-
-    #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    epserde: bool,
+    pub seed: u64,
 
     #[arg(long)]
     /// The tentative number of arcs used define the size of a parallel job
     /// (advanced option).
-    granularity: Option<usize>,
+    pub granularity: Option<usize>,
 
     #[arg(long)]
     /// The chunk size used to localize the random permutation
     /// (advanced option).
-    chunk_size: Option<usize>,
+    pub chunk_size: Option<usize>,
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    match get_endianness(&args.basename)?.as_str() {
+    create_parent_dir(&args.perm)?;
+
+    match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
@@ -116,9 +119,9 @@ where
     // Load the graph in THP memory
     log::info!(
         "Loading graph {} in THP memory...",
-        args.basename.to_string_lossy()
+        args.src.to_string_lossy()
     );
-    let graph = BVGraph::with_basename(&args.basename)
+    let graph = BVGraph::with_basename(&args.src)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
@@ -127,13 +130,13 @@ where
     // Load degree cumulative function in THP memory
     log::info!("Loading DCF in THP memory...");
     let deg_cumul = DCF::load_mmap(
-        args.basename.with_extension(DEG_CUMUL_EXTENSION),
+        args.src.with_extension(DEG_CUMUL_EXTENSION),
         Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
     )
     .with_context(|| {
         format!(
             "Could not load degree cumulative function for basename {}",
-            args.basename.display()
+            args.src.display()
         )
     })?;
 
@@ -174,7 +177,7 @@ where
         &graph,
         &*deg_cumul,
         gammas,
-        Some(args.num_cpus.num_cpus),
+        Some(args.num_threads.num_threads),
         args.chunk_size,
         args.granularity,
         args.seed,

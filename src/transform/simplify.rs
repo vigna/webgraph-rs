@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::{arc_list_graph, UnionGraph};
+use std::borrow::Borrow;
+
+use crate::graphs::{
+    arc_list_graph, no_selfloops_graph::NoSelfLoopsGraph, union_graph::UnionGraph,
+};
 use crate::labels::Left;
 use crate::traits::{SequentialGraph, SplitLabeling};
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
@@ -25,12 +29,15 @@ use super::transpose;
 pub fn simplify_sorted<G: SequentialGraph>(
     graph: &G,
     batch_size: usize,
-) -> Result<UnionGraph<&G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>>
-{
-    Ok(UnionGraph(
+) -> Result<
+    NoSelfLoopsGraph<
+        UnionGraph<&G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>,
+    >,
+> {
+    Ok(NoSelfLoopsGraph(UnionGraph(
         graph,
         transpose(graph, batch_size).context("Could not transpose the graph")?,
-    ))
+    )))
 }
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided
@@ -60,7 +67,7 @@ pub fn simplify(
         >,
     >,
 > {
-    let dir = Builder::new().prefix("simplify-").tempdir()?;
+    let dir = Builder::new().prefix("simplify_").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     let mut pl = ProgressLogger::default();
@@ -97,12 +104,12 @@ pub fn simplify(
 pub fn simplify_split<S>(
     graph: &S,
     batch_size: usize,
-    mut threads: impl AsMut<rayon::ThreadPool>,
+    threads: impl Borrow<rayon::ThreadPool>,
 ) -> Result<Left<arc_list_graph::ArcListGraph<itertools::Dedup<KMergeIters<BatchIterator<()>, ()>>>>>
 where
     S: SequentialGraph + SplitLabeling,
 {
-    let pool = threads.as_mut();
+    let pool = threads.borrow();
     let num_threads = pool.current_num_threads();
     let (tx, rx) = std::sync::mpsc::channel();
 
@@ -114,7 +121,7 @@ where
         for iter in graph.split_iter(num_threads) {
             let tx = tx.clone();
             let dir = Builder::new()
-                .prefix(&format!("Simplify{}", thread_id))
+                .prefix(&format!("simplify_split_{}_", thread_id))
                 .tempdir()
                 .expect("Could not create a temporary directory");
             let dir_path = dir.path().to_path_buf();

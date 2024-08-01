@@ -7,45 +7,46 @@
 [![](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
 [![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
 [![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
+[![Coverage Status](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
 
 A Rust implementation of the [WebGraph framework] for graph compression.
 
 WebGraph is a framework for graph compression aimed at studying web graphs, but
-currently being applied to several other type of graphs. It
+currently being applied to several other types of graphs. It
 provides simple ways to manage very large graphs, exploiting modern compression
 techniques. More precisely, it is currently made of:
 
 - A set of simple codes, called ζ _codes_, which are particularly suitable for
- storing web graphs (or, in general, integers with a power-law distribution in a
- certain exponent range).
+  storing web graphs (or, in general, integers with a power-law distribution in a
+  certain exponent range).
 
 - Algorithms for compressing web graphs that exploit gap compression and
- differential compression (à la
- [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
- intervalisation, and ζ codes to provide a high compression ratio (see [our
- datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
- by several parameters, which provide different tradeoffs between access speed
- and compression ratio.
+  differential compression (à la
+  [LINK](http://www.hpl.hp.com/techreports/Compaq-DEC/SRC-RR-175.html)),
+  intervali<ation, and ζ codes to provide a high compression ratio (see [our
+  datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
+  by several parameters, which provide different tradeoffs between access speed
+  and compression ratio.
 
 - Algorithms for accessing a compressed graph without actually decompressing
- it, using lazy techniques that delay the decompression until it is actually
- necessary.
+  it, using lazy techniques that delay the decompression until it is actually
+  necessary.
 
-- Algorithms for analysing very large graphs, such as {@link
- it.unimi.dsi.webgraph.algo.HyperBall}, which has been used to show that
- Facebook has just [four degrees of
- separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
+- Algorithms for analyzing very large graphs, such as {@link
+  it.unimi.dsi.webgraph.algo.HyperBall}, which has been used to show that
+  Facebook has just [four degrees of
+  separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
 
 - A [Java implementation](http://webgraph.di.unimi.it/) of the algorithms above,
   now in maintenance mode.
 
 - This crate, providing a complete, documented implementation of the algorithms
   above in Rust. It is free software distributed under either the  [GNU Lesser
- General Public License
- 2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
- Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+  General Public License
+  2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
+  Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
-- [Data sets](http://law.di.unimi.it/datasets.php) for large graph (e.g.,
+- [Data sets](http://law.di.unimi.it/datasets.php) for large graphs (e.g.,
   billions of links).
 
 ## Citation
@@ -83,7 +84,7 @@ named `BASENAME.ef`.
 
 Then, to load the graph you need to call
 
-```[ignore]
+```ignore
 let graph = BVGraph::with_basename("BASENAME").load()?;
 ```
 
@@ -92,11 +93,15 @@ further customized, selecting endianness, type of memory access, and so on. By
 default you will get big endianness, memory mapping for both the graph and the
 offsets, and dynamic code dispatch.
 
+Note that on Windows memory mapping requires that the length of the graph file
+is a multiple of the internal bit buffer. You can use the CLI command `run pad
+u32` to ensure that your graph file is properly padded.
+
 Once you load the graph, you can [retrieve the successors of a node] or
 [iterate on the whole graph]. In particular, using the handy [`for_`] macro,
 you can write an iteration on the graph as
 
-```[ignore]
+```ignore
 for_!((src, succ) in graph {
     for dst in succ {
         [do something with the arc src -> dst]
@@ -104,18 +109,23 @@ for_!((src, succ) in graph {
 });
 ```
 
+## Command–Line Interface
+
+We provide a command-line interface to perform various operations on graphs. The
+CLI is the main method of the library, so it can be executed with `cargo run`.
+
 ## More Options
 
 - By starting from the [`BVGraphSeq`] class you can obtain an instance that does
-not need the `BASENAME.ef` file, but provides only [iteration].
+  not need the `BASENAME.ef` file, but provides only [iteration].
 
 - Graphs can be labeled by [zipping] them together with a [labeling]. In fact,
   graphs are just labelings with `usize` labels.
 
 ## Operating on Graphs
 
-There are many operations available on graphs, such as [`transpose`] and
-[`simplify`]. You can [permute] a graph.
+There are many operations available on graphs, such as [transpose] and
+[simplify], and [permute].
 
 ## Acknowledgments
 
@@ -123,8 +133,9 @@ This software has been partially supported by project SERICS (PE00000014) under
 the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
 grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 
-[`transpose`]: <https://docs.rs/webgraph/latest/webgraph/transform/transpose/index.html>
-[`simplify`]: <https://docs.rs/webgraph/latest/webgraph/transform/simplify/index.html>
+[transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/transpose/index.html>
+[simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/simplify/index.html>
+[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/perm/index.html>
 [`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraph.html#method.with_basename>
 [`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/struct.BVGraphSeq.html>
 [`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/struct.LoadConfig.html>
@@ -136,6 +147,5 @@ grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 [LAW website]: <http://law.di.unimi.it/>
 [Elias–Fano]: <sux::dict::EliasFano>
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
-[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/permute/index.html>
 [ε-serde]: <nttps://crates.io/crates/epserde/>
 [`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>

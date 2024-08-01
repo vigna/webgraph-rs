@@ -11,9 +11,9 @@ use super::super::*;
 use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
-use sux::traits::IndexedDict;
+use sux::traits::IndexedSeq;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) code_reader: CR,
     pub(crate) read_outdegree: fn(&mut CR) -> u64,
@@ -26,6 +26,25 @@ pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
     pub(crate) read_first_residual: fn(&mut CR) -> u64,
     pub(crate) read_residual: fn(&mut CR) -> u64,
     pub(crate) _marker: core::marker::PhantomData<E>,
+}
+
+/// manual implementation to avoid the `E: Clone` bound
+impl<E: Endianness, CR: CodeRead<E> + Clone> Clone for DynCodesDecoder<E, CR> {
+    fn clone(&self) -> Self {
+        Self {
+            code_reader: self.code_reader.clone(),
+            read_outdegree: self.read_outdegree,
+            read_reference_offset: self.read_reference_offset,
+            read_block_count: self.read_block_count,
+            read_block: self.read_block,
+            read_interval_count: self.read_interval_count,
+            read_interval_start: self.read_interval_start,
+            read_interval_len: self.read_interval_len,
+            read_first_residual: self.read_first_residual,
+            read_residual: self.read_residual,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<E: Endianness, CR: CodeRead<E>> DynCodesDecoder<E, CR> {
@@ -136,7 +155,7 @@ impl<E: Endianness, CR: CodeRead<E>> Decode for DynCodesDecoder<E, CR> {
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
-    OFF: IndexedDict<Input = usize, Output = usize>,
+    OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
     factory: F,
@@ -159,7 +178,7 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
@@ -235,7 +254,7 @@ where
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedDict<Input = usize, Output = usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,

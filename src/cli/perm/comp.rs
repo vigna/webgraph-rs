@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{ensure, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -14,24 +15,24 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use sux::traits::BitFieldSlice;
 
-pub const COMMAND_NAME: &str = "merge-perms";
+pub const COMMAND_NAME: &str = "comp";
 
 #[derive(Args, Debug)]
-#[command(about = "Merge multiple permutations into a single one", long_about = None)]
+#[command(about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
-    result_path: PathBuf,
+    /// The filename of the resulting permutation in binary big-endian format.
+    pub dst: PathBuf,
 
-    /// Filenames of the permutations to merge (in order of application).
-    perm: Vec<PathBuf>,
+    /// Filenames of the permutations in binary big-endian format to compose (in order of application).
+    pub perms: Vec<PathBuf>,
 
     #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    epserde: bool,
+    /// Load and store permutations in ε-serde format.
+    pub epserde: bool,
 }
 
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)))
+    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
@@ -41,9 +42,11 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn merge_perms(args: CliArgs) -> Result<()> {
     let start = std::time::Instant::now();
 
+    create_parent_dir(&args.dst)?;
+
     if args.epserde {
         let mut perm = Vec::new();
-        for path in args.perm {
+        for path in args.perms {
             let p = <Vec<usize>>::mmap(&path, Flags::RANDOM_ACCESS)?;
             perm.push(p);
         }
@@ -61,11 +64,11 @@ pub fn merge_perms(args: CliArgs) -> Result<()> {
             }
             merged.push(v);
         }
-        merged.store(&args.result_path)?;
+        merged.store(&args.dst)?;
     } else {
-        let mut writer = BufWriter::new(std::fs::File::create(&args.result_path)?);
+        let mut writer = BufWriter::new(std::fs::File::create(&args.dst)?);
         let mut perm = Vec::new();
-        for path in args.perm {
+        for path in args.perms {
             let p = JavaPermutation::mmap(&path, MmapFlags::RANDOM_ACCESS)?;
             perm.push(p);
         }

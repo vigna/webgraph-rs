@@ -14,7 +14,7 @@ Implementations of the [`BitReaderFactory`] trait can be used to create
 bit readers accessing a graph data using different techniques.
 - [`FileFactory`] uses a [std::fs::File] to create a bit reader.
 - [`MemoryFactory`] creates bit readers from a slice of memory,
-either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
+  either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
 - [`MmapHelper`] can be used to create a bit reader from a memory-mapped file.
 
 Any factory can be plugged either into a
@@ -36,7 +36,7 @@ use std::{
     marker::PhantomData,
     path::Path,
 };
-use sux::traits::IndexedDict;
+use sux::traits::{IndexedSeq, Types};
 
 use crate::utils::MmapHelper;
 
@@ -188,7 +188,7 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
         bytes[file_len..].fill(0);
         Ok(Self {
             // Safety: the length is a multiple of 16.
-            data: unsafe { std::mem::transmute(bytes.into_boxed_slice()) },
+            data: unsafe { std::mem::transmute::<Box<[u8]>, Box<[u32]>>(bytes.into_boxed_slice()) },
             _marker: core::marker::PhantomData,
         })
     }
@@ -243,10 +243,12 @@ pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
 
-impl<I, O> IndexedDict for EmptyDict<I, O> {
+impl<I, O> Types for EmptyDict<I, O> {
     type Input = usize;
     type Output = usize;
+}
 
+impl<I, O> IndexedSeq for EmptyDict<I, O> {
     fn get(&self, _key: Self::Input) -> Self::Output {
         panic!();
     }
