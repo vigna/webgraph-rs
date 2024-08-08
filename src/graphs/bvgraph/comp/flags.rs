@@ -88,8 +88,8 @@ impl CompFlags {
 
     pub fn to_properties<E: Endianness>(&self, num_nodes: usize, num_arcs: u64) -> Result<String> {
         let mut s = String::new();
-        s.push_str("#BvGraph properties\n");
-        s.push_str("graphclass=it.unimi.dsi.webgraph.BvGraph\n");
+        s.push_str("#BVGraph properties\n");
+        s.push_str("graphclass=it.unimi.dsi.webgraph.BVGraph\n");
 
         if core::any::TypeId::of::<E>() == core::any::TypeId::of::<BigEndian>() {
             s.push_str("version=0\n");
