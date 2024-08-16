@@ -90,8 +90,12 @@ where
     where
         Self: 'a;
 
+    type Error<'a> = <F as SequentialDecoderFactory>::Error<'a>
+    where
+        Self: 'a;
+
     #[inline(always)]
-    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
+    fn new_decoder(&self) -> Result<Self::Decoder<'_>, Self::Error<'_>> {
         Ok(StatsDecoder::new(
             self,
             self.factory.new_decoder()?,

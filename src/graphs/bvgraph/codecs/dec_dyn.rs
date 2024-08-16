@@ -8,10 +8,19 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
+
+#[derive(thiserror::Error, Debug)]
+pub enum DynCodesDecoderError {
+    #[error("Only ζ₁-ζ₇ are supported, not {k:?}")]
+    /// Got wrong type of ζ code
+    UnsupportedZeta { k: usize },
+
+    #[error("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {code:?} is not supported")]
+    UnsupportedCode { code: Code },
+}
 
 #[derive(Debug)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
@@ -59,10 +68,11 @@ impl<E: Endianness, CR: CodeRead<E>> DynCodesDecoder<E, CR> {
     const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
     const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
 
-    pub fn new(code_reader: CR, cf: &CompFlags) -> anyhow::Result<Self> {
+    #[allow(unreachable_patterns)]
+    pub fn new(code_reader: CR, cf: &CompFlags) -> Result<Self, DynCodesDecoderError> {
         macro_rules! select_code {
             ($code:expr) => {
-                match $code {
+                match *$code {
                     Code::Unary => Self::READ_UNARY,
                     Code::Gamma => Self::READ_GAMMA,
                     Code::Delta => Self::READ_DELTA,
@@ -73,10 +83,8 @@ impl<E: Endianness, CR: CodeRead<E>> DynCodesDecoder<E, CR> {
                     Code::Zeta { k: 5 } => Self::READ_ZETA5,
                     Code::Zeta { k: 6 } => Self::READ_ZETA6,
                     Code::Zeta { k: 7 } => Self::READ_ZETA7,
-                    code => bail!(
-                        "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
-                        code
-                    ),
+                    Code::Zeta { k } => return Err(DynCodesDecoderError::UnsupportedZeta { k }),
+                    code => return Err(DynCodesDecoderError::UnsupportedCode { code }),
                 }
             };
         }
@@ -214,7 +222,12 @@ where
     }
 
     /// Creates a new builder from the data and the compression flags.
-    pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
+    #[allow(unreachable_patterns)]
+    pub fn new(
+        factory: F,
+        offsets: MemCase<OFF>,
+        cf: CompFlags,
+    ) -> Result<Self, DynCodesDecoderError> {
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
@@ -228,10 +241,8 @@ where
                     Code::Zeta { k: 5 } => Self::READ_ZETA5,
                     Code::Zeta { k: 6 } => Self::READ_ZETA6,
                     Code::Zeta { k: 7 } => Self::READ_ZETA7,
-                    code => bail!(
-                        "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
-                        code
-                    ),
+                    Code::Zeta { k } => return Err(DynCodesDecoderError::UnsupportedZeta { k }),
+                    code => return Err(DynCodesDecoderError::UnsupportedCode { code }),
                 }
             };
         }
@@ -264,7 +275,10 @@ where
     where
         Self: 'a;
 
-    fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
+    type Error<'a> = <<F as BitReaderFactory<E>>::BitReader<'a> as BitSeek>::Error
+    where Self: 'a;
+
+    fn new_decoder(&self, node: usize) -> Result<Self::Decoder<'_>, Self::Error<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
 
@@ -284,6 +298,10 @@ where
     }
 }
 
+/// Never errors
+#[derive(thiserror::Error, Debug)]
+pub enum SequentialDynDecoderFactoryError {}
+
 impl<E: Endianness, F: BitReaderFactory<E>> SequentialDecoderFactory
     for DynCodesDecoderFactory<E, F, EmptyDict<usize, usize>>
 where
@@ -294,7 +312,11 @@ where
     where
         Self: 'a;
 
-    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
+    type Error<'a> = SequentialDynDecoderFactoryError
+    where
+        Self: 'a;
+
+    fn new_decoder(&self) -> Result<Self::Decoder<'_>, Self::Error<'_>> {
         Ok(DynCodesDecoder {
             code_reader: self.factory.new_reader(),
             read_outdegree: self.read_outdegree,

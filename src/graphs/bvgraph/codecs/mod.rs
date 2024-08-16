@@ -98,9 +98,12 @@ pub trait RandomAccessDecoderFactory {
     type Decoder<'a>: Decode + 'a
     where
         Self: 'a;
+    type Error<'a>: std::error::Error
+    where
+        Self: 'a;
 
     /// Creates a new reader starting at the given node.
-    fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>>;
+    fn new_decoder(&self, node: usize) -> Result<Self::Decoder<'_>, Self::Error<'_>>;
 }
 
 /// A trait providing decoders on the whole graph.
@@ -109,7 +112,10 @@ pub trait SequentialDecoderFactory {
     type Decoder<'a>: Decode + 'a
     where
         Self: 'a;
+    type Error<'a>: std::error::Error
+    where
+        Self: 'a;
 
     /// Creates a new reader starting at the given node.
-    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>>;
+    fn new_decoder(&self) -> Result<Self::Decoder<'_>, Self::Error<'_>>;
 }

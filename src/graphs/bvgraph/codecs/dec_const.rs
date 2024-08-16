@@ -8,11 +8,25 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use anyhow::bail;
-use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
+
+#[derive(thiserror::Error, Debug)]
+pub enum ConstCodesDecoderError {
+    #[error("Code for outdegrees does not match")]
+    OutdegreesCodeMismatch,
+    #[error("Code for references does not match")]
+    ReferencesCodeMismatch,
+    #[error("Code for blocks does not match")]
+    BlocksCodeMismatch,
+    #[error("Code for intervals does not match")]
+    IntervalsCodeMismatch,
+    #[error("Code for residuals does not match")]
+    ResidualsCodeMismatch,
+    #[error("Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {code:?} is not supported")]
+    UnsupportedCode { code: Code },
+}
 
 /// Temporary constants while const enum generics are not stable
 pub mod const_codes {
@@ -27,7 +41,8 @@ pub mod const_codes {
 }
 
 /// Temporary conversion function while const enum generics are not stable
-pub(crate) fn code_to_const(code: Code) -> Result<usize> {
+pub(crate) fn code_to_const(code: Code) -> Result<usize, ConstCodesDecoderError> {
+    // Hypothetically, this could return ConstCodesDecoderError::UnsupportedCode
     Ok(match code {
         Code::Unary => const_codes::UNARY,
         Code::Gamma => const_codes::GAMMA,
@@ -94,21 +109,21 @@ impl<
     /// and a [`CompFlags`] struct
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
-    pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self> {
+    pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self, ConstCodesDecoderError> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
-            bail!("Code for outdegrees does not match");
+            return Err(ConstCodesDecoderError::OutdegreesCodeMismatch);
         }
         if code_to_const(comp_flags.references)? != REFERENCES {
-            bail!("Cod for references does not match");
+            return Err(ConstCodesDecoderError::ReferencesCodeMismatch);
         }
         if code_to_const(comp_flags.blocks)? != BLOCKS {
-            bail!("Code for blocks does not match");
+            return Err(ConstCodesDecoderError::BlocksCodeMismatch);
         }
         if code_to_const(comp_flags.intervals)? != INTERVALS {
-            bail!("Code for intervals does not match");
+            return Err(ConstCodesDecoderError::IntervalsCodeMismatch);
         }
         if code_to_const(comp_flags.residuals)? != RESIDUALS {
-            bail!("Code for residuals does not match");
+            return Err(ConstCodesDecoderError::ResidualsCodeMismatch);
         }
         Ok(Self {
             code_reader,
@@ -217,21 +232,25 @@ impl<
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Creates a new builder from the given data and compression flags.
-    pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(
+        factory: F,
+        offsets: MemCase<OFF>,
+        comp_flags: CompFlags,
+    ) -> Result<Self, ConstCodesDecoderError> {
         if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
-            bail!("Code for outdegrees does not match");
+            return Err(ConstCodesDecoderError::OutdegreesCodeMismatch);
         }
         if code_to_const(comp_flags.references)? != REFERENCES {
-            bail!("Cod for references does not match");
+            return Err(ConstCodesDecoderError::ReferencesCodeMismatch);
         }
         if code_to_const(comp_flags.blocks)? != BLOCKS {
-            bail!("Code for blocks does not match");
+            return Err(ConstCodesDecoderError::BlocksCodeMismatch);
         }
         if code_to_const(comp_flags.intervals)? != INTERVALS {
-            bail!("Code for intervals does not match");
+            return Err(ConstCodesDecoderError::IntervalsCodeMismatch);
         }
         if code_to_const(comp_flags.residuals)? != RESIDUALS {
-            bail!("Code for residuals does not match");
+            return Err(ConstCodesDecoderError::ResidualsCodeMismatch);
         }
         Ok(Self {
             factory,
@@ -261,7 +280,10 @@ where
     where
         Self: 'a;
 
-    fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
+    type Error<'a> = <<F as BitReaderFactory<E>>::BitReader<'a> as BitSeek>::Error
+    where Self: 'a;
+
+    fn new_decoder(&self, offset: usize) -> Result<Self::Decoder<'_>, Self::Error<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
 
@@ -271,6 +293,10 @@ where
         })
     }
 }
+
+/// Never errors
+#[derive(thiserror::Error, Debug)]
+pub enum SequentialConstCodesDecoderFactoryError {}
 
 impl<
         E: Endianness,
@@ -301,7 +327,11 @@ where
     where
         Self: 'a;
 
-    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
+    type Error<'a> = SequentialConstCodesDecoderFactoryError
+    where
+        Self: 'a;
+
+    fn new_decoder(&self) -> Result<Self::Decoder<'_>, Self::Error<'_>> {
         let code_reader = self.factory.new_reader();
 
         Ok(ConstCodesDecoder {

@@ -20,6 +20,7 @@ fuzz = ["dep:arbitrary", "dep:zip", "dsi-bitstream/fuzz"] # Expose the fuzzing h
 
 [dependencies]
 anyhow = { version = "1.0.79", features=["backtrace"]}
+thiserror = "1.0.63"
 java-properties = "2.0.0"
 mmap-rs = "0.6.1"
 num_cpus = "1.16.0"

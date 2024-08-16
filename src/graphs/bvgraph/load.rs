@@ -7,7 +7,6 @@
 
 use super::*;
 use crate::prelude::*;
-use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use sealed::sealed;
@@ -16,6 +15,53 @@ use std::{
     path::{Path, PathBuf},
 };
 use sux::traits::IndexedSeq;
+
+#[derive(thiserror::Error, Debug)]
+pub enum BvGraphLoadError {
+    /// Cannot mmap or load in RAM
+    #[error("Cannot load/map graph list: {0}")]
+    Graph(anyhow::Error),
+    #[error("Cannot load/map graph list with dynamic dispatch: {0}")]
+    GraphDyn(#[from] DynCodesDecoderError),
+    #[error("Cannot load/map graph list with static dispatch: {0}")]
+    GraphConst(#[from] ConstCodesDecoderError),
+
+    #[error("Cannot load Elias-Fano pointer list {path}: {err}")]
+    EfPointers {
+        path: PathBuf,
+        err: epserde::deser::Error,
+    },
+    /// Variant for [`Self::EfPointers`] for when epserde returns [`anyhow::Error`]
+    #[error("Cannot load Elias-Fano pointer list {path}: {err}")]
+    EfPointersAnyhow { path: PathBuf, err: anyhow::Error },
+    /// Cannot open .properties file
+    #[error("Cannot open properties file {path}: {err}")]
+    OpenProperties { path: PathBuf, err: std::io::Error },
+    /// Not a valid Java properties file
+    #[error("Cannot parse {path} as a java properties file: {err}")]
+    PropertiesFormat {
+        path: PathBuf,
+        err: java_properties::PropertiesError,
+    },
+    /// Missing a property in the java .properties file
+    #[error("Missing '{property}' property in {path}")]
+    MissingProperty {
+        path: PathBuf,
+        property: &'static str,
+    },
+    /// Cannot parse a property from the java .properties file
+    #[error("Could not parse '{property}' property in {path} as {expected_type}")]
+    InvalidPropertyValue {
+        path: PathBuf,
+        property: &'static str,
+        expected_type: &'static str,
+        err: Box<dyn std::error::Error + Send + Sync>,
+    },
+    #[error("Could not parse compression flags: {0}")]
+    CompFlags(#[from] ParseCompFlagsError),
+}
+
+type Result<T> = std::result::Result<T, BvGraphLoadError>;
 
 /// Sequential or random access.
 #[doc(hidden)]
@@ -110,7 +156,7 @@ impl LoadMode for File {
         graph: P,
         _flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        FileFactory::<E>::new(graph)
+        FileFactory::<E>::new(graph).map_err(BvGraphLoadError::Graph)
     }
 
     fn load_offsets<P: AsRef<Path>>(
@@ -119,7 +165,10 @@ impl LoadMode for File {
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
         Ok(EF::load_full(path)
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))?
+            .map_err(|err| BvGraphLoadError::EfPointers {
+                path: path.into(),
+                err,
+            })?
             .into())
     }
 }
@@ -138,7 +187,8 @@ impl LoadMode for Mmap {
         graph: P,
         flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        MmapHelper::mmap(graph, flags.into())
+        let path = graph.as_ref();
+        MmapHelper::mmap(path, flags.into()).map_err(BvGraphLoadError::Graph)
     }
 
     fn load_offsets<P: AsRef<Path>>(
@@ -146,8 +196,10 @@ impl LoadMode for Mmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::mmap(path, flags.into())
-            .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
+        EF::mmap(path, flags.into()).map_err(|err| BvGraphLoadError::EfPointersAnyhow {
+            path: path.into(),
+            err,
+        })
     }
 }
 
@@ -163,7 +215,7 @@ impl LoadMode for LoadMem {
         graph: P,
         _flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        MemoryFactory::<E, _>::new_mem(graph)
+        MemoryFactory::<E, _>::new_mem(graph).map_err(BvGraphLoadError::Graph)
     }
 
     fn load_offsets<P: AsRef<Path>>(
@@ -171,8 +223,10 @@ impl LoadMode for LoadMem {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::load_mem(path)
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        EF::load_mem(path).map_err(|err| BvGraphLoadError::EfPointersAnyhow {
+            path: path.into(),
+            err,
+        })
     }
 }
 
@@ -190,7 +244,7 @@ impl LoadMode for LoadMmap {
         graph: P,
         flags: MemoryFlags,
     ) -> Result<Self::Factory<E>> {
-        MemoryFactory::<E, _>::new_mmap(graph, flags)
+        MemoryFactory::<E, _>::new_mmap(graph, flags).map_err(BvGraphLoadError::Graph)
     }
 
     fn load_offsets<P: AsRef<Path>>(
@@ -198,8 +252,10 @@ impl LoadMode for LoadMmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::load_mmap(path, flags.into())
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        EF::load_mmap(path, flags.into()).map_err(|err| BvGraphLoadError::EfPointersAnyhow {
+            path: path.into(),
+            err,
+        })
     }
 }
 
@@ -361,7 +417,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
+    ) -> Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
             CodeRead<E> + BitSeek,
@@ -388,9 +444,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<
-        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
-    >
+    ) -> Result<BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>>
     where
         for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
     {
@@ -426,7 +480,7 @@ impl<
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<
+    ) -> Result<
         BvGraph<
             ConstCodesDecoderFactory<
                 E,
@@ -485,7 +539,7 @@ impl<
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<
+    ) -> Result<
         BvGraphSeq<
             ConstCodesDecoderFactory<
                 E,
@@ -525,10 +579,16 @@ impl<
 /// Read the .properties file and return the endianness
 pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
     let path = basename.as_ref().with_extension(PROPERTIES_EXTENSION);
-    let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open property file {}", path.display()))?;
-    let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("cannot parse {} as a java properties file", path.display()))?;
+    let f = std::fs::File::open(&path).map_err(|err| BvGraphLoadError::OpenProperties {
+        path: path.clone().into(),
+        err,
+    })?;
+    let map = java_properties::read(BufReader::new(f)).map_err(|err| {
+        BvGraphLoadError::PropertiesFormat {
+            path: path.into(),
+            err,
+        }
+    })?;
 
     let endianness = map
         .get("endianness")
@@ -541,24 +601,45 @@ pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
 /// Read the .properties file and return the number of nodes, number of arcs and compression flags
 /// for the graph. The endianness is checked against the expected one.
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
-    let name = path.as_ref().display();
-    let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open property file {}", name))?;
-    let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("cannot parse {} as a java properties file", name))?;
+    let path = path.as_ref();
+    let f = std::fs::File::open(&path).map_err(|err| BvGraphLoadError::OpenProperties {
+        path: path.into(),
+        err,
+    })?;
+    let map = java_properties::read(BufReader::new(f)).map_err(|err| {
+        BvGraphLoadError::PropertiesFormat {
+            path: path.into(),
+            err,
+        }
+    })?;
 
     let num_nodes = map
         .get("nodes")
-        .with_context(|| format!("Missing 'nodes' property in {}", name))?
+        .ok_or(BvGraphLoadError::MissingProperty {
+            path: path.into(),
+            property: "nodes",
+        })?
         .parse::<usize>()
-        .with_context(|| format!("Cannot parse 'nodes' as usize in {}", name))?;
+        .map_err(|err| BvGraphLoadError::InvalidPropertyValue {
+            path: path.into(),
+            property: "nodes",
+            expected_type: "usize",
+            err: Box::new(err),
+        })?;
     let num_arcs = map
         .get("arcs")
-        .with_context(|| format!("Missing 'arcs' property in {}", name))?
+        .ok_or(BvGraphLoadError::MissingProperty {
+            path: path.into(),
+            property: "arcs",
+        })?
         .parse::<u64>()
-        .with_context(|| format!("Cannot parse arcs as usize in {}", name))?;
+        .map_err(|err| BvGraphLoadError::InvalidPropertyValue {
+            path: path.into(),
+            property: "arcs",
+            expected_type: "u64",
+            err: Box::new(err),
+        })?;
 
-    let comp_flags = CompFlags::from_properties::<E>(&map)
-        .with_context(|| format!("Cannot parse compression flags from {}", name))?;
+    let comp_flags = CompFlags::from_properties::<E>(&map)?;
     Ok((num_nodes, num_arcs, comp_flags))
 }

@@ -5,9 +5,39 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{bail, ensure, Result};
+use anyhow::{ensure, Result};
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
+
+#[derive(thiserror::Error, Debug)]
+pub enum ParseCompFlagsError {
+    #[error("Wrong endianness, got {got} while expected {expected}")]
+    Endianness { got: String, expected: &'static str },
+    #[error("Wrong version, got {got} while expected {expected}")]
+    Version { got: String, expected: &'static str },
+
+    #[error("Only ζ₁-ζ₇ are supported")]
+    /// Got wrong type of ζ code
+    UnsupportedZeta,
+
+    #[error("Only γ code is supported for offsets")]
+    /// Got non-γ code
+    OffsetsCode,
+
+    #[error("Unknown compression flag {0}")]
+    UnknownCompressionFlag(String),
+
+    /// Missing a property in the java .properties file
+    #[error("Missing '{property}' property")]
+    MissingProperty { property: &'static str },
+    /// Cannot parse a property from the java .properties file
+    #[error("Could not parse '{property}' property as {expected_type}")]
+    InvalidPropertyValue {
+        property: &'static str,
+        expected_type: &'static str,
+        err: Box<dyn std::error::Error + Send + Sync>,
+    },
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
@@ -171,34 +201,43 @@ impl CompFlags {
 
     /// Convert the decoded `.properties` file into a `CompFlags` struct.
     /// Also check that the endianness is correct.
-    pub fn from_properties<E: Endianness>(map: &HashMap<String, String>) -> Result<Self> {
+    pub fn from_properties<E: Endianness>(
+        map: &HashMap<String, String>,
+    ) -> Result<Self, ParseCompFlagsError> {
         // Default values, same as the Java class
         let endianness = map
             .get("endianness")
             .map(|x| x.to_string())
             .unwrap_or_else(|| BigEndian::NAME.to_string());
 
-        anyhow::ensure!(
-            endianness == E::NAME,
-            "Wrong endianness, got {} while expected {}",
-            endianness,
-            E::NAME
-        );
+        if endianness != E::NAME {
+            return Err(ParseCompFlagsError::Endianness {
+                got: endianness,
+                expected: E::NAME,
+            });
+        }
         // check that the version was properly set for LE
         if core::any::TypeId::of::<E>() == core::any::TypeId::of::<LittleEndian>() {
-            anyhow::ensure!(
-                map.get("version").map(|x| x.parse::<u32>().unwrap()) == Some(1),
-                "Wrong version, got {} while expected 1",
-                map.get("version").unwrap_or(&"None".to_string())
-            );
+            if map.get("version").map(|x| x.parse::<u32>().unwrap()) != Some(1) {
+                return Err(ParseCompFlagsError::Version {
+                    got: map.get("version").cloned().unwrap_or("None".to_string()),
+                    expected: "1",
+                });
+            }
         }
 
         let mut cf = CompFlags::default();
         let mut k = 3;
         if let Some(spec_k) = map.get("zeta_k") {
-            let spec_k = spec_k.parse::<usize>()?;
+            let spec_k = spec_k.parse::<usize>().map_err(|err| {
+                ParseCompFlagsError::InvalidPropertyValue {
+                    property: "zeta_k",
+                    expected_type: "usize",
+                    err: err.into(),
+                }
+            })?;
             if !(1..=7).contains(&spec_k) {
-                bail!("Only ζ₁-ζ₇ are supported");
+                return Err(ParseCompFlagsError::UnsupportedZeta);
             }
             k = spec_k;
         }
@@ -216,18 +255,42 @@ impl CompFlags {
                         "INTERVALS" => cf.intervals = code,
                         "RESIDUALS" => cf.residuals = code,
                         "OFFSETS" => {
-                            ensure!(code == Code::Gamma, "Only γ code is supported for offsets")
+                            if code != Code::Gamma {
+                                return Err(ParseCompFlagsError::OffsetsCode);
+                            }
                         }
-                        _ => bail!("Unknown compression flag {}", flag),
+                        _ => {
+                            return Err(ParseCompFlagsError::UnknownCompressionFlag(
+                                flag.to_owned(),
+                            ))
+                        }
                     }
                 }
             }
         }
         if let Some(compression_window) = map.get("windowsize") {
-            cf.compression_window = compression_window.parse()?;
+            cf.compression_window =
+                compression_window
+                    .parse()
+                    .map_err(|err: std::num::ParseIntError| {
+                        ParseCompFlagsError::InvalidPropertyValue {
+                            property: "windowsize",
+                            expected_type: "usize",
+                            err: err.into(),
+                        }
+                    })?;
         }
         if let Some(min_interval_length) = map.get("minintervallength") {
-            cf.min_interval_length = min_interval_length.parse()?;
+            cf.min_interval_length =
+                min_interval_length
+                    .parse()
+                    .map_err(|err: std::num::ParseIntError| {
+                        ParseCompFlagsError::InvalidPropertyValue {
+                            property: "minintervallength",
+                            expected_type: "usize",
+                            err: err.into(),
+                        }
+                    })?;
         }
         Ok(cf)
     }
