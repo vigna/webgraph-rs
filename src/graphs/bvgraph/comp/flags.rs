@@ -162,7 +162,7 @@ impl CompFlags {
             ));
             cflags = true;
         }
-        if matches!(self.residuals, Code::Zeta { k: _ }) {
+        if !matches!(self.residuals, Code::Zeta { k: _ }) {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
                 Self::code_to_str(self.residuals).unwrap()
