@@ -131,7 +131,7 @@ impl BvComp<()> {
             .item_name("node")
             .expected_updates(num_nodes);
         pl.start("Compressing successors...");
-        let mut result = 0;
+        let mut bitstream_len = 0;
 
         let mut real_num_nodes = 0;
         if build_offsets {
@@ -148,14 +148,14 @@ impl BvComp<()> {
                 .context("Could not write initial delta")?;
             for_! ( (_node_id, successors) in iter {
                 let delta = bvcomp.push(successors).context("Could not push successors")?;
-                result += delta;
+                bitstream_len += delta;
                 writer.write_gamma(delta).context("Could not write delta")?;
                 pl.update();
                 real_num_nodes += 1;
             });
         } else {
             for_! ( (_node_id, successors) in iter {
-                result += bvcomp.push(successors).context("Could not push successors")?;
+                bitstream_len += bvcomp.push(successors).context("Could not push successors")?;
                 pl.update();
                 real_num_nodes += 1;
             });
@@ -171,17 +171,18 @@ impl BvComp<()> {
                 );
             }
         }
+        let num_arcs = bvcomp.arcs;
+        bitstream_len += bvcomp.flush().context("Could not flush bvcomp")? as u64;
 
         log::info!("Writing the .properties file");
         let properties = compression_flags
-            .to_properties::<BE>(real_num_nodes, bvcomp.arcs)
+            .to_properties::<BE>(real_num_nodes, num_arcs, bitstream_len)
             .context("Could not serialize properties")?;
         let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
         std::fs::write(&properties_path, properties)
             .with_context(|| format!("Could not write {}", properties_path.display()))?;
 
-        bvcomp.flush().context("Could not flush bvcomp")?;
-        Ok(result)
+        Ok(bitstream_len)
     }
 
     /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
@@ -468,7 +469,7 @@ impl BvComp<()> {
 
             log::info!("Writing the .properties file");
             let properties = compression_flags
-                .to_properties::<BE>(num_nodes, total_arcs)
+                .to_properties::<BE>(num_nodes, total_arcs, total_written_bits)
                 .context("Could not serialize properties")?;
             let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
             std::fs::write(&properties_path, properties).with_context(|| {

@@ -40,6 +40,26 @@ macro_rules! impl_convert {
 
         let properties_path = $args.src.with_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<$src>(&properties_path)?;
+        // also extract the bitstream length
+        let f = std::fs::File::open(&properties_path)
+            .with_context(|| format!("Cannot open property file {}", &properties_path.display()))?;
+        let map = java_properties::read(std::io::BufReader::new(f)).with_context(|| {
+            format!(
+                "cannot parse {} as a java properties file",
+                &properties_path.display()
+            )
+        })?;
+        let bitstream_len = map
+            .get("length")
+            .with_context(|| format!("Missing 'arcs' property in {}", &properties_path.display()))?
+            .parse::<u64>()
+            .with_context(|| {
+                format!(
+                    "Cannot parse arcs as usize in {}",
+                    &properties_path.display()
+                )
+            })?;
+
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)
             .item_name("node")
@@ -52,7 +72,7 @@ macro_rules! impl_convert {
         // build the encoder with the opposite endianness
         std::fs::write(
             &properties_path,
-            comp_flags.to_properties::<$dst>(num_nodes, num_arcs)?,
+            comp_flags.to_properties::<$dst>(num_nodes, num_arcs, bitstream_len)?,
         )
         .with_context(|| {
             format!(

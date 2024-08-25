@@ -86,7 +86,12 @@ impl CompFlags {
         }
     }
 
-    pub fn to_properties<E: Endianness>(&self, num_nodes: usize, num_arcs: u64) -> Result<String> {
+    pub fn to_properties<E: Endianness>(
+        &self,
+        num_nodes: usize,
+        num_arcs: u64,
+        bitstream_len: u64,
+    ) -> Result<String> {
         let mut s = String::new();
         s.push_str("#BVGraph properties\n");
         s.push_str("graphclass=it.unimi.dsi.webgraph.BVGraph\n");
@@ -103,6 +108,30 @@ impl CompFlags {
         s.push_str(&format!("minintervallength={}\n", self.min_interval_length));
         s.push_str(&format!("maxrefcount={}\n", self.max_ref_count));
         s.push_str(&format!("windowsize={}\n", self.compression_window));
+        s.push_str(&format!(
+            "bitsperlink={}\n",
+            bitstream_len as f64 / num_arcs as f64
+        ));
+        s.push_str(&format!(
+            "bitspernode={}\n",
+            bitstream_len as f64 / num_nodes as f64
+        ));
+        s.push_str(&format!("length={}\n", bitstream_len));
+
+        fn stirling(n: u64) -> f64 {
+            let n = n as f64;
+            n * (n.ln() - 1.0) + 0.5 * (2.0 * std::f64::consts::PI * n).ln()
+        }
+
+        let nsquared = (num_nodes * num_nodes) as u64;
+        let theoretical_bound =
+            (stirling(nsquared) - stirling(num_arcs) - stirling(nsquared - num_arcs))
+                / 2.0_f64.ln();
+        s.push_str(&format!(
+            "compratio={:.3}\n",
+            bitstream_len as f64 / theoretical_bound
+        ));
+
         s.push_str("compressionflags=");
         let mut cflags = false;
         if self.outdegrees != Code::Gamma {
