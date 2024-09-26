@@ -94,6 +94,7 @@ fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, f
                         .next()
                         .unwrap_or(0),
                 );
+                c += 1;
             }
         } else {
             for _ in 0..samples {
