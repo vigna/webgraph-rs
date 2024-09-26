@@ -14,7 +14,6 @@ use lender::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
-use std::cmp::max;
 use std::hint::black_box;
 use std::path::PathBuf;
 
@@ -95,6 +94,7 @@ fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, f
                         .next()
                         .unwrap_or(0),
                 );
+                c += 1;
             }
         } else {
             for _ in 0..samples {
@@ -110,7 +110,7 @@ fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, f
         println!(
             "{}:    {:>20} ns/arc",
             if first { "First" } else { "Random" },
-            (start.elapsed().as_secs_f64() / max(1, c) as f64) * 1e9
+            (start.elapsed().as_secs_f64() / c as f64) * 1e9
         );
     }
 }
