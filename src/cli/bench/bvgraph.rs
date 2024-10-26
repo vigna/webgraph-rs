@@ -48,6 +48,11 @@ pub struct CliArgs {
     /// Do not test speed, but check that the sequential and random-access successor lists are the same.
     #[arg(short = 'c', long)]
     pub check: bool,
+
+    /// Expand offsets into a slice of usize before testing random-access
+    /// successor lists.
+    #[arg(long)]
+    pub slice: bool,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -179,30 +184,60 @@ where
             std::any::TypeId::of::<D>() == std::any::TypeId::of::<Dynamic>(),
         ) {
             (Some(samples), true) => {
-                bench_random(
-                    BvGraph::with_basename(&args.src)
-                        .endianness::<E>()
-                        .dispatch::<Dynamic>()
-                        .mode::<Mmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                        .load()?,
-                    samples,
-                    args.repeats,
-                    args.first,
-                );
+                if args.slice {
+                    bench_random(
+                        BvGraph::with_basename(&args.src)
+                            .endianness::<E>()
+                            .dispatch::<Dynamic>()
+                            .mode::<Mmap>()
+                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                            .load()?
+                            .offsets_to_slice(),
+                        samples,
+                        args.repeats,
+                        args.first,
+                    );
+                } else {
+                    bench_random(
+                        BvGraph::with_basename(&args.src)
+                            .endianness::<E>()
+                            .dispatch::<Dynamic>()
+                            .mode::<Mmap>()
+                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                            .load()?,
+                        samples,
+                        args.repeats,
+                        args.first,
+                    );
+                }
             }
             (Some(samples), false) => {
-                bench_random(
-                    BvGraph::with_basename(&args.src)
-                        .endianness::<E>()
-                        .dispatch::<Static>()
-                        .mode::<Mmap>()
-                        .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
-                        .load()?,
-                    samples,
-                    args.repeats,
-                    args.first,
-                );
+                if args.slice {
+                    bench_random(
+                        BvGraph::with_basename(&args.src)
+                            .endianness::<E>()
+                            .dispatch::<Static>()
+                            .mode::<Mmap>()
+                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                            .load()?
+                            .offsets_to_slice(),
+                        samples,
+                        args.repeats,
+                        args.first,
+                    );
+                } else {
+                    bench_random(
+                        BvGraph::with_basename(&args.src)
+                            .endianness::<E>()
+                            .dispatch::<Static>()
+                            .mode::<Mmap>()
+                            .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
+                            .load()?,
+                        samples,
+                        args.repeats,
+                        args.first,
+                    );
+                }
             }
             (None, true) => {
                 bench_seq(
