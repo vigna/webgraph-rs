@@ -9,6 +9,7 @@ use std::marker::PhantomData;
 
 use super::super::*;
 use anyhow::bail;
+use bitflags::iter::IterNames;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
@@ -176,6 +177,36 @@ pub struct DynCodesDecoderFactory<
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
+}
+
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    DynCodesDecoderFactory<E, F, OFF>
+where
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
+{
+    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>> {
+        DynCodesDecoderFactory {
+            factory: self.factory,
+            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
+                self.offsets
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            )
+            .into(),
+            compression_flags: self.compression_flags,
+            read_outdegree: self.read_outdegree,
+            read_reference_offset: self.read_reference_offset,
+            read_block_count: self.read_block_count,
+            read_blocks: self.read_blocks,
+            read_interval_count: self.read_interval_count,
+            read_interval_start: self.read_interval_start,
+            read_interval_len: self.read_interval_len,
+            read_first_residual: self.read_first_residual,
+            read_residual: self.read_residual,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>

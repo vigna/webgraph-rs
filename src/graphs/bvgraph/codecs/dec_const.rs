@@ -215,6 +215,47 @@ impl<
         const RESIDUALS: usize,
         const K: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+where
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
+{
+    pub fn offsets_to_slice(
+        self,
+    ) -> ConstCodesDecoderFactory<
+        E,
+        F,
+        SliceSeq<usize, Box<[usize]>>,
+        OUTDEGREES,
+        REFERENCES,
+        BLOCKS,
+        INTERVALS,
+        RESIDUALS,
+        K,
+    > {
+        ConstCodesDecoderFactory {
+            factory: self.factory,
+            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
+                self.offsets
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            )
+            .into(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<
+        E: Endianness,
+        F: BitReaderFactory<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+        const K: usize,
+    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
     /// Creates a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {

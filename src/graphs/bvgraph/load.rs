@@ -93,6 +93,7 @@ pub trait LoadMode: 'static {
         offsets: P,
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>>;
+
 }
 
 /// The graph is read from a file; offsets are fully deserialized in memory.

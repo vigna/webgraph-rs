@@ -64,3 +64,24 @@ fn test_offsets() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_offsets_as_slice() -> Result<()> {
+    // load the graph
+    let graph0 = BvGraph::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
+    let graph1 = BvGraph::with_basename("tests/data/cnr-2000")
+        .endianness::<BE>()
+        .load()?
+        .offsets_to_slice();
+
+    graph0
+        .iter()
+        .zip(graph1.iter())
+        .for_each(|((s, a), (t, b))| {
+            assert_eq!(s, t);
+            itertools::assert_equal(a, b);
+        });
+    Ok(())
+}

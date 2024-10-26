@@ -7,9 +7,10 @@
 
 use crate::prelude::*;
 use bitflags::Flags;
-use dsi_bitstream::traits::BE;
+use dsi_bitstream::traits::{Endianness, BE};
 use lender::IntoLender;
 use std::path::PathBuf;
+use sux::traits::IndexedSeq;
 
 use self::sequential::Iter;
 
@@ -32,6 +33,42 @@ impl BvGraph<()> {
             graph_load_flags: Flags::empty(),
             offsets_load_flags: Flags::empty(),
             _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    BvGraph<DynCodesDecoderFactory<E, F, OFF>>
+where
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
+{
+    pub fn offsets_to_slice(
+        self,
+    ) -> BvGraph<DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+        BvGraph {
+            factory: self.factory.offsets_to_slice().into(),
+            number_of_nodes: self.number_of_nodes,
+            number_of_arcs: self.number_of_arcs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
+        }
+    }
+}
+
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
+where
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
+{
+    pub fn offsets_to_slice(
+        self,
+    ) -> BvGraph<ConstCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+        BvGraph {
+            factory: self.factory.offsets_to_slice().into(),
+            number_of_nodes: self.number_of_nodes,
+            number_of_arcs: self.number_of_arcs,
+            compression_window: self.compression_window,
+            min_interval_length: self.min_interval_length,
         }
     }
 }
