@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(clippy::type_complexity)]
+
 use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::traits::{Endianness, BE};
@@ -42,11 +44,17 @@ impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Outpu
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
+    /// Remaps the offsets in a slice of `usize`.
+    ///
+    /// This method is mainly useful for benchmarking and testing purposes, as
+    /// representing the offsets as a slice increasing significantly the
+    /// memory footprint. It just replaces current decoder factory with
+    /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
     ) -> BvGraph<DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
         BvGraph {
-            factory: self.factory.offsets_to_slice().into(),
+            factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
             compression_window: self.compression_window,
@@ -60,11 +68,17 @@ impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Outpu
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
+    /// Remaps the offsets in a slice of `usize`.
+    ///
+    /// This method is mainly useful for benchmarking and testing purposes, as
+    /// representing the offsets as a slice increasing significantly the
+    /// memory footprint. It just replaces current decoder factory with
+    /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
     ) -> BvGraph<ConstCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
         BvGraph {
-            factory: self.factory.offsets_to_slice().into(),
+            factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
             number_of_arcs: self.number_of_arcs,
             compression_window: self.compression_window,

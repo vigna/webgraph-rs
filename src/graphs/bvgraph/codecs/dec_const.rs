@@ -218,6 +218,13 @@ impl<
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
+    /// Remaps the offsets in a slice of `usize`.
+    ///
+    /// This method is mainly useful for benchmarking and testing purposes, as
+    /// representing the offsets as a slice increasing significantly the
+    /// memory footprint.
+    ///
+    /// This method is used by [`BvGraph::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
     ) -> ConstCodesDecoderFactory<
