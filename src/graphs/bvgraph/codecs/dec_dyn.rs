@@ -181,7 +181,7 @@ pub struct DynCodesDecoderFactory<
 impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+    for<'a> &'a OFF: IntoIterator<Item = usize>, // This dependence can soon be removed, as there will be a IndexedSeq::iter method
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
