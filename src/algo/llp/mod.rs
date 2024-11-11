@@ -143,7 +143,6 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         label_store.init();
         can_change
             .par_iter()
-            .with_min_len(1024)
             .for_each(|c| c.store(true, Ordering::Relaxed));
 
         let mut obj_func = 0.0;
@@ -296,10 +295,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         // We temporarily use the update permutation to compute the sorting
         // permutation of the labels.
         let perm = &mut update_perm;
-        perm.par_iter_mut()
-            .enumerate()
-            .with_min_len(1024)
-            .for_each(|(i, x)| *x = i);
+        perm.par_iter_mut().enumerate().for_each(|(i, x)| *x = i);
         // Sort by label
         perm.par_sort_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
 
@@ -440,10 +436,7 @@ impl<'a, T> UnsafeSlice<'a, T> {
 }
 pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
     let unsafe_slice = UnsafeSlice::new(inv_perm);
-    perm.par_iter()
-        .enumerate()
-        .with_min_len(1024)
-        .for_each(|(i, &x)| unsafe {
-            unsafe_slice.write(x, i);
-        });
+    perm.par_iter().enumerate().for_each(|(i, &x)| unsafe {
+        unsafe_slice.write(x, i);
+    });
 }

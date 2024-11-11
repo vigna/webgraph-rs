@@ -32,12 +32,10 @@ impl LabelStore {
     pub(crate) fn init(&mut self) {
         self.volumes
             .par_iter()
-            .with_min_len(1024)
             .for_each(|v| v.store(1, Ordering::Relaxed));
         self.labels
             .par_iter_mut()
             .enumerate()
-            .with_min_len(1024)
             .for_each(|(i, l)| *l.get_mut() = i);
     }
 
