@@ -199,7 +199,7 @@ where
                     &sorted,
                     graph.num_nodes(),
                     args.ca.into(),
-                    thread_pool,
+                    &thread_pool,
                     dir,
                     &target_endianness,
                 )?;
@@ -258,7 +258,7 @@ where
                     &sorted,
                     graph.num_nodes(),
                     args.ca.into(),
-                    thread_pool,
+                    &thread_pool,
                     dir,
                     &target_endianness,
                 )?;
@@ -282,7 +282,7 @@ where
                 &sorted,
                 seq_graph.num_nodes(),
                 args.ca.into(),
-                thread_pool,
+                &thread_pool,
                 dir,
                 &target_endianness,
             )?;

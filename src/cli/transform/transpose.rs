@@ -78,7 +78,7 @@ where
         &sorted,
         sorted.num_nodes(),
         args.ca.into(),
-        thread_pool,
+        &thread_pool,
         dir,
         &target_endianness.unwrap_or_else(|| E::NAME.into()),
     )?;

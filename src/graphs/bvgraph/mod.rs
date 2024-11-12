@@ -7,11 +7,11 @@
 
 //! An implementation of the Bv format.
 //!
-//! The format has been described by Paolo Boldi and Sebastiano Vigna in [“The
+//! The format has been described by Paolo Boldi and Sebastiano Vigna in “[The
 //!  WebGraph Framework I: Compression
-//!  Techniques”](http://vigna.di.unimi.it/papers.php#BoVWFI), in *Proc. of the
+//!  Techniques](http://vigna.di.unimi.it/papers.php#BoVWFI)”, in *Proc. of the
 //!  13th international conference on World Wide Web*, WWW 2004, pages 595-602,
-//!  ACM [DOI
+//!  ACM. [DOI
 //!  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752).
 //!
 //! The implementation is compatible with the [Java

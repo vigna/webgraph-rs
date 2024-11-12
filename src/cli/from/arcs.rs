@@ -138,7 +138,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
         &g,
         args.num_nodes,
         args.ca.into(),
-        thread_pool,
+        &thread_pool,
         dir,
         &target_endianness.unwrap_or_else(|| BE::NAME.into()),
     )

@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::borrow::Borrow;
-
 use crate::graphs::{
     arc_list_graph, no_selfloops_graph::NoSelfLoopsGraph, union_graph::UnionGraph,
 };
@@ -16,6 +14,7 @@ use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use itertools::{Dedup, Itertools};
 use lender::*;
+use rayon::ThreadPool;
 use tempfile::Builder;
 
 use super::transpose;
@@ -111,18 +110,17 @@ pub fn simplify(
 pub fn simplify_split<S>(
     graph: &S,
     batch_size: usize,
-    threads: impl Borrow<rayon::ThreadPool>,
+    threads: &ThreadPool,
 ) -> Result<Left<arc_list_graph::ArcListGraph<itertools::Dedup<KMergeIters<BatchIterator<()>, ()>>>>>
 where
     S: SequentialGraph + SplitLabeling,
 {
-    let pool = threads.borrow();
-    let num_threads = pool.current_num_threads();
+    let num_threads = threads.current_num_threads();
     let (tx, rx) = std::sync::mpsc::channel();
 
     let mut dirs = vec![];
 
-    pool.in_place_scope(|scope| {
+    threads.in_place_scope(|scope| {
         let mut thread_id = 0;
         #[allow(clippy::explicit_counter_loop)] // enumerate requires some extra bounds here
         for iter in graph.split_iter(num_threads) {

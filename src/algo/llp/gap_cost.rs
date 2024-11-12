@@ -5,11 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::borrow::Borrow;
-
 use crate::traits::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
+use rayon::ThreadPool;
 use sux::prelude::*;
 
 /// Computes the gap cost, that is, the sum of the costs of the logarithms
@@ -21,7 +20,7 @@ pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
     arc_granularity: usize,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
-    thread_pool: impl Borrow<rayon::ThreadPool>,
+    thread_pool: &ThreadPool,
     pr: Option<&mut ProgressLogger>,
 ) -> f64 {
     graph.par_apply(

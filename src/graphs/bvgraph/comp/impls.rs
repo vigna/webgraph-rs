@@ -10,7 +10,8 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
-use std::borrow::Borrow;
+use rayon::ThreadPool;
+
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
@@ -198,7 +199,7 @@ impl BvComp<()> {
         graph: &G,
         num_nodes: usize,
         compression_flags: CompFlags,
-        threads: impl Borrow<rayon::ThreadPool>,
+        threads: &ThreadPool,
         tmp_dir: P,
         endianness: &str,
     ) -> Result<u64>
@@ -214,9 +215,7 @@ impl BvComp<()> {
                 // compress the transposed graph
                 Self::parallel_iter::<BigEndian, _>(
                     basename,
-                    graph
-                        .split_iter(threads.borrow().current_num_threads())
-                        .into_iter(),
+                    graph.split_iter(threads.current_num_threads()).into_iter(),
                     num_nodes,
                     compression_flags,
                     threads,
@@ -231,9 +230,7 @@ impl BvComp<()> {
                 // compress the transposed graph
                 Self::parallel_iter::<LittleEndian, _>(
                     basename,
-                    graph
-                        .split_iter(threads.borrow().current_num_threads())
-                        .into_iter(),
+                    graph.split_iter(threads.current_num_threads()).into_iter(),
                     num_nodes,
                     compression_flags,
                     threads,
@@ -249,7 +246,7 @@ impl BvComp<()> {
         basename: impl AsRef<Path> + Send + Sync,
         graph: &(impl SequentialGraph + SplitLabeling),
         compression_flags: CompFlags,
-        threads: impl Borrow<rayon::ThreadPool>,
+        threads: &ThreadPool,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
@@ -258,9 +255,7 @@ impl BvComp<()> {
     {
         Self::parallel_iter(
             basename,
-            graph
-                .split_iter(threads.borrow().current_num_threads())
-                .into_iter(),
+            graph.split_iter(threads.current_num_threads()).into_iter(),
             graph.num_nodes(),
             compression_flags,
             threads,
@@ -278,14 +273,13 @@ impl BvComp<()> {
         iter: impl Iterator<Item = L>,
         num_nodes: usize,
         compression_flags: CompFlags,
-        threads: impl Borrow<rayon::ThreadPool>,
+        threads: &ThreadPool,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        let thread_pool = threads.borrow();
         let tmp_dir = tmp_dir.as_ref();
         let basename = basename.as_ref();
 
@@ -296,7 +290,7 @@ impl BvComp<()> {
 
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{:016x}.bitstream", thread_id));
 
-        thread_pool.in_place_scope(|s| {
+        threads.in_place_scope(|s| {
             let cp_flags = &compression_flags;
 
             for (thread_id, mut thread_lender) in iter.enumerate() {
