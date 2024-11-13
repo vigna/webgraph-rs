@@ -8,7 +8,7 @@
 //! Facilities to sort externally pairs of nodes with an associated label.
 
 use super::{ArcMmapHelper, MmapHelper};
-use crate::traits::{BitDeserializer, BitSerializer};
+use crate::traits::{BitDeserializer, BitSerializer, SortedIterator};
 use anyhow::{anyhow, Context};
 use dary_heap::PeekMut;
 use dsi_bitstream::prelude::*;
@@ -387,6 +387,8 @@ impl<D: BitDeserializer<NE, BitReader> + Clone> Clone for BatchIterator<D> {
     }
 }
 
+unsafe impl<D: BitDeserializer<NE, BitReader>> SortedIterator for BatchIterator<D> {}
+
 impl<D: BitDeserializer<NE, BitReader>> Iterator for BatchIterator<D> {
     type Item = (usize, usize, D::DeserType);
     fn next(&mut self) -> Option<Self::Item> {
@@ -493,6 +495,11 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
         }
         KMergeIters { heap }
     }
+}
+
+unsafe impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> SortedIterator
+    for KMergeIters<I, T>
+{
 }
 
 #[allow(clippy::uninit_assumed_init)]

@@ -10,7 +10,10 @@ use crate::graphs::{
     arc_list_graph, no_selfloops_graph::NoSelfLoopsGraph, union_graph::UnionGraph,
 };
 use crate::labels::Left;
-use crate::traits::{SequentialGraph, SortedIterator, SortedLender, SplitLabeling};
+use crate::traits::{
+    LenderIntoIter, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
+    SplitLabeling,
+};
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
@@ -28,14 +31,18 @@ use super::transpose;
 /// sorting half the number of arcs of
 /// [`simplify`](crate::transform::simplify::simplify).
 #[allow(clippy::type_complexity)]
-pub fn simplify_sorted<G: SequentialGraph + SortedLender + SortedIterator>(
-    graph: &G,
+pub fn simplify_sorted<'graph, G: SequentialGraph>(
+    graph: &'graph G,
     batch_size: usize,
 ) -> Result<
     NoSelfLoopsGraph<
         UnionGraph<&G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>,
     >,
-> {
+>
+where
+    G::Lender<'graph>: SortedLender,
+    for<'lend> LenderIntoIter<'lend, G::Lender<'graph>>: SortedIterator,
+{
     Ok(NoSelfLoopsGraph(UnionGraph(
         graph,
         transpose(graph, batch_size).context("Could not transpose the graph")?,

@@ -275,7 +275,7 @@ where
 
             // transpose the graph
             let sorted =
-                crate::transform::simplify(&seq_graph, args.batch_size.batch_size).unwrap();
+                crate::transform::simplify_sorted(&seq_graph, args.batch_size.batch_size).unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,
