@@ -4,14 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::borrow::Borrow;
-
 use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::{BatchIterator, KMergeIters};
 use crate::prelude::*;
 use anyhow::{ensure, Context, Result};
 use dsi_progress_logger::prelude::*;
 use lender::*;
+use rayon::ThreadPool;
 use sux::traits::BitFieldSlice;
 use tempfile::Builder;
 
@@ -75,7 +74,7 @@ pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
     batch_size: usize,
-    threads: impl Borrow<rayon::ThreadPool>,
+    threads: &ThreadPool,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
@@ -90,11 +89,10 @@ where
     // get a premuted view
     let pgraph = PermutedGraph { graph, perm };
 
-    let pool = threads.borrow();
-    let num_threads = pool.current_num_threads();
+    let num_threads = threads.current_num_threads();
     let mut dirs = vec![];
 
-    let edges = pool.in_place_scope(|scope| {
+    let edges = threads.in_place_scope(|scope| {
         let (tx, rx) = std::sync::mpsc::channel();
 
         for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {

@@ -10,6 +10,7 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
+use rayon::ThreadPool;
 use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -198,7 +199,7 @@ impl BvComp<()> {
         graph: &G,
         num_nodes: usize,
         compression_flags: CompFlags,
-        threads: impl Borrow<rayon::ThreadPool>,
+        threads: &ThreadPool,
         tmp_dir: P,
         endianness: &str,
     ) -> Result<u64>
@@ -249,7 +250,7 @@ impl BvComp<()> {
         basename: impl AsRef<Path> + Send + Sync,
         graph: &(impl SequentialGraph + SplitLabeling),
         compression_flags: CompFlags,
-        threads: impl Borrow<rayon::ThreadPool>,
+        threads: &ThreadPool,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
@@ -278,7 +279,7 @@ impl BvComp<()> {
         iter: impl Iterator<Item = L>,
         num_nodes: usize,
         compression_flags: CompFlags,
-        threads: impl Borrow<rayon::ThreadPool>,
+        threads: &ThreadPool,
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
