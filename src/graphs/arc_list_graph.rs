@@ -177,6 +177,11 @@ pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut Iter<L, I>,
 }
 
+unsafe impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Succ<'a, L, I> where
+    I::IntoIter: SortedIterator
+{
+}
+
 impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'a, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {

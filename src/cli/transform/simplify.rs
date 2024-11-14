@@ -273,14 +273,15 @@ where
                     .endianness::<E>()
                     .load()?;
 
+            let num_nodes = seq_graph.num_nodes();
             // transpose the graph
             let sorted =
-                crate::transform::simplify(&seq_graph, args.batch_size.batch_size).unwrap();
+                crate::transform::simplify_sorted(seq_graph, args.batch_size.batch_size).unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,
                 &sorted,
-                seq_graph.num_nodes(),
+                num_nodes,
                 args.ca.into(),
                 &thread_pool,
                 dir,
