@@ -4,10 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::vec::IntoIter;
+
 use lender::{Lend, Lender, Lending};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
-use crate::prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling};
+use crate::{
+    prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling},
+    traits::{SortedIterator, SortedLender},
+};
 
 /// Provides a sequential implementation of Erdös-Rényi random graphs.
 ///
@@ -58,6 +63,9 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
+unsafe impl SortedLender for Iter {}
+unsafe impl SortedIterator for <Succ as IntoIterator>::IntoIter {}
+
 #[derive(Debug, Clone)]
 pub struct Iter {
     n: usize,
@@ -68,11 +76,32 @@ pub struct Iter {
 
 impl<'succ> NodeLabelsLender<'succ> for Iter {
     type Label = usize;
-    type IntoIterator = Vec<usize>;
+    type IntoIterator = Succ;
 }
 
 impl<'succ> Lending<'succ> for Iter {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
+}
+
+pub struct Succ(Vec<usize>);
+pub struct SuccIntoIter(IntoIter<usize>);
+
+impl Iterator for SuccIntoIter {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl IntoIterator for Succ {
+    type Item = usize;
+    type IntoIter = SuccIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let iter = self.0.into_iter();
+        SuccIntoIter(iter)
+    }
 }
 
 impl Lender for Iter {
@@ -84,9 +113,11 @@ impl Lender for Iter {
 
         let result = Some((
             self.x,
-            (0..self.n)
-                .filter(|&y| y != self.x && self.rng.gen_bool(self.p))
-                .collect::<Vec<_>>(),
+            Succ(
+                (0..self.n)
+                    .filter(|&y| y != self.x && self.rng.gen_bool(self.p))
+                    .collect::<Vec<_>>(),
+            ),
         ));
         self.x += 1;
         result
@@ -98,6 +129,7 @@ impl SequentialGraph for ErdosRenyi {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::transform;
 
     #[test]
     fn test_er() {
@@ -110,10 +142,18 @@ mod tests {
             }
             while let (Some((x, s)), Some((y, t))) = (it0.next(), it1.next()) {
                 assert_eq!(x, y);
-                assert_eq!(s, t);
+                assert_eq!(s.0, t.0);
             }
             assert!(it0.next().is_none());
             assert!(it1.next().is_none());
         }
+    }
+
+    #[test]
+    fn test_sorted() {
+        // This is just to test that we implemented correctly
+        // the SortedIterator and SortedLender traits.
+        let er = ErdosRenyi::new(100, 0.1, 0);
+        transform::simplify_sorted(er, 100).unwrap();
     }
 }
