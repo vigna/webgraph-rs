@@ -407,36 +407,9 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
     Ok(curr_label + 1)
 }
 
-use std::cell::UnsafeCell;
-
-#[derive(Copy, Clone)]
-struct UnsafeSlice<'a, T>(&'a [UnsafeCell<T>]);
-unsafe impl<'a, T: Send + Sync> Send for UnsafeSlice<'a, T> {}
-unsafe impl<'a, T: Send + Sync> Sync for UnsafeSlice<'a, T> {}
-
-impl<'a, T> UnsafeSlice<'a, T> {
-    fn new(slice: &'a mut [T]) -> Self {
-        #![allow(trivial_casts)]
-        Self(unsafe { &*(slice as *mut [T] as *const [UnsafeCell<T>]) })
-    }
-
-    /// Writes a value to the slice at the given index.
-    ///
-    /// This method makes it possible to write in the slice
-    /// without borrowing the slice mutably.
-    ///
-    /// # Undefined Behavior
-    ///
-    /// It is UB if two threads write to the same index without
-    /// synchronization.
-    unsafe fn write(&self, i: usize, value: T) {
-        let ptr = self.0[i].get();
-        *ptr = value;
-    }
-}
 pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
-    let unsafe_slice = UnsafeSlice::new(inv_perm);
+    let unsafe_slice = SyncUnsafeSlice::new(inv_perm);
     perm.par_iter().enumerate().for_each(|(i, &x)| unsafe {
-        unsafe_slice.write(x, i);
+        *unsafe_slice.get_mut(x) = i;
     });
 }
