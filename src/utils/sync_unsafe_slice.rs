@@ -3,10 +3,13 @@ use std::cell::UnsafeCell;
 /// Synchronized, unsafe slice that allows multiple mutable references to its
 /// elements in different threads.
 ///
+/// An [extension trait](SyncUnsafeSliceExt) provides a [convenient conversion
+/// method](SyncUnsafeSliceExt::as_sync_unsafe_slice).
+///
 /// # Safety
 ///
 /// If an element of the slice is [accessed
-/// exclusively](SyncUnsafeSlice::get_mut), this can happen exactly once thread.
+/// exclusively](SyncUnsafeSlice::get_mut), this can happen exactly once.
 /// Otherwise, multiple thread can have [shared access](SyncUnsafeSlice::get) to
 /// the element.
 ///
@@ -97,5 +100,18 @@ impl<'a, T> SyncUnsafeSlice<'a, T> {
     #[inline(always)]
     pub unsafe fn get(&self, index: usize) -> &T {
         &*(self.0[index].get() as *const T)
+    }
+}
+
+/// Extension trait providing a [synchronized, unsafe view](SyncUnsafeSlice) of
+/// a slice via the
+/// [`as_sync_unsafe_slice`](SyncUnsafeSliceExt::as_sync_unsafe_slice) method.
+pub trait SyncUnsafeSliceExt<'a, T> {
+    fn as_sync_unsafe_slice(self) -> SyncUnsafeSlice<'a, T>;
+}
+
+impl<'a, T> SyncUnsafeSliceExt<'a, T> for &'a mut [T] {
+    fn as_sync_unsafe_slice(self) -> SyncUnsafeSlice<'a, T> {
+        SyncUnsafeSlice::new(self)
     }
 }
