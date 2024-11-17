@@ -408,8 +408,8 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
 }
 
 pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
-    let unsafe_slice = SyncUnsafeSlice::new(inv_perm);
-    perm.par_iter().enumerate().for_each(|(i, &x)| unsafe {
-        *unsafe_slice.get_mut(x) = i;
+    let sync_slice = SyncSlice::from_mut(inv_perm);
+    perm.par_iter().enumerate().for_each(|(i, &x)| {
+        sync_slice.set(x, i);
     });
 }
