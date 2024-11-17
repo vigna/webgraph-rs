@@ -42,8 +42,17 @@ unsafe impl<'a, T: Send> Sync for SyncSlice<'a, T> {}
 
 impl<'a, T> SyncSlice<'a, T> {
     /// Creates a new synchronized slice from a mutable reference.
+    ///
+    /// # Safety
+    ///
+    /// It is the caller's responsibility to ensure that no data
+    /// races occur.
+    ///
+    /// # Undefined Behavior
+    ///
+    /// Data races will cause undefined behaviour.
     #[inline(always)]
-    pub fn from_mut(slice: &'a mut [T]) -> Self {
+    pub unsafe fn from_mut(slice: &'a mut [T]) -> Self {
         Self(Cell::from_mut(slice).as_slice_of_cells())
     }
 }
@@ -152,11 +161,12 @@ impl<'a, T> SyncSlice<'a, T> {
 /// Extension trait providing a [synchronized view](SyncSlice) of a slice via
 /// the [`as_sync_slice`](SyncSliceExt::as_sync_slice) method.
 pub trait SyncSliceExt<'a, T: Copy> {
-    fn as_sync_slice(&'a mut self) -> SyncSlice<'a, T>;
+    /// Invokes [`SyncSlice::from_mut`] on the slice.
+    unsafe fn as_sync_slice(&'a mut self) -> SyncSlice<'a, T>;
 }
 
 impl<'a, T: Copy> SyncSliceExt<'a, T> for [T] {
-    fn as_sync_slice(&'a mut self) -> SyncSlice<'a, T> {
+    unsafe fn as_sync_slice(&'a mut self) -> SyncSlice<'a, T> {
         SyncSlice::from_mut(self)
     }
 }
