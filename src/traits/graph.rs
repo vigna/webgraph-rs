@@ -36,6 +36,8 @@ Usually there is a convenience method doing the wrapping for you.
 
 */
 
+use std::rc::Rc;
+
 use crate::prelude::{Pair, RandomAccessLabeling, SequentialLabeling};
 use impl_tools::autoimpl;
 use lender::*;
@@ -52,7 +54,7 @@ struct this_method_cannot_be_called_use_successors_instead;
 /// order. The marker traits [`SortedLender`](super::labels::SortedLender) and
 /// [`SortedIterator`](super::labels::SortedIterator) can be used to force these
 /// properties.
-#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
 /// Convenience type alias for the iterator over the successors of a node
@@ -66,7 +68,7 @@ pub type Successors<'succ, 'node, S> =
 /// On such a graph, successors are returned by the
 /// [`successors`](RandomAccessGraph::successors) method rather than by the
 /// [`labels`](RandomAccessLabeling::labels) method.
-#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGraph {
     /// Returns the successors of a node.
     ///
@@ -112,6 +114,7 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
 /// A labeled sequential graph is a sequential labeling whose labels are pairs
 /// `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
 /// A wrapper associating to each successor the label `()`.
@@ -196,6 +199,7 @@ impl<G: SequentialGraph> LabeledSequentialGraph<()> for UnitLabelGraph<G> {}
 /// On such a graph, successors are returned by the
 /// [`successors`](LabeledRandomAccessGraph::successors) method rather than by
 /// the [`labels`](RandomAccessLabeling::labels) method.
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> {
     /// Returns pairs given by successors of a node and their labels.
     ///

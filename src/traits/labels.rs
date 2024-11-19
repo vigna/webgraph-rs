@@ -34,6 +34,7 @@ use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
 use rayon::ThreadPool;
+use std::rc::Rc;
 
 use sux::traits::Succ;
 
@@ -56,7 +57,7 @@ use sux::traits::Succ;
 /// [`par_apply`](SequentialLabeling::par_apply) and
 /// [`par_node_apply`](SequentialLabeling::par_node_apply), that make it easy to
 /// process in parallel the nodes of the labeling.
-#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialLabeling {
     type Label;
     /// The type of [`Lender`] over the successors of a node
@@ -354,7 +355,7 @@ impl<I: ExactSizeIterator> ExactSizeIterator for SortedIter<I> {
 
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.
-#[autoimpl(for<S: trait + ?Sized> &S, &mut S)]
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait RandomAccessLabeling: SequentialLabeling {
     /// The type of the iterator over the labels of a node
     /// returned by [`labels`](RandomAccessLabeling::labels).

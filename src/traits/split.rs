@@ -9,6 +9,10 @@
 //! the [iterator](SequentialLabeling::Lender) of a labeling into multiple
 //! iterators.
 
+use std::rc::Rc;
+
+use impl_tools::autoimpl;
+
 use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 
 /// A trait with a single method that splits a labeling into `n` parts which are
@@ -27,7 +31,7 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 /// use them, you must implement the trait by specifying the associated types
 /// `Lender` and `IntoIterator`, and then just return a [`seq::Iter`] or
 /// [`ra::Iter`] structure.
-
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SplitLabeling: SequentialLabeling {
     type SplitLender<'a>: for<'next> NodeLabelsLender<'next, Label = <Self as SequentialLabeling>::Label>
         + Send
