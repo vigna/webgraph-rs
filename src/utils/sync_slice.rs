@@ -46,6 +46,15 @@ use std::{cell::Cell, cmp::Ordering, ops::Deref};
 /// delegation for convenience, but some, as [`Default`], cannot be implemented
 /// because they would use unsafe methods.
 ///
+/// # Safety
+///
+/// Multiple thread can write to the same `SyncCell` at the same time. It is
+/// responsibility of the user to ensure that there are no data races,
+/// which would cause undefined behavior.
+///
+/// Note, however, that it is not possible to build two mutable references
+/// to the same `T` starting from a `SyncCell<T>`.
+///
 /// # Examples
 ///
 /// In this example, you can see that `SyncCell<T>` enables mutation across
@@ -85,6 +94,12 @@ unsafe impl<T: Sync> Sync for SyncCell<T> {}
 
 impl<T> SyncCell<T> {
     /// Creates a new `Cell` containing the given value.
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can write to the same `SyncCell` at the same time. It is
+    /// responsibility of the user to ensure that there are no data races,
+    /// which would cause undefined behavior.
     #[inline(always)]
     pub unsafe fn new(value: T) -> Self {
         Self(Cell::new(value))
@@ -103,6 +118,12 @@ impl<T> SyncCell<T> {
 
 impl<T: ?Sized> SyncCell<T> {
     /// Returns a `&SyncCell<T>` from a `&mut T`
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can write to the same `SyncCell` at the same time. It is
+    /// responsibility of the user to ensure that there are no data races, which
+    /// would cause undefined behavior.
     #[allow(trivial_casts)]
     #[inline(always)]
     pub unsafe fn from_mut(value: &mut T) -> &Self {
@@ -184,11 +205,17 @@ impl<T: Ord + Copy> Ord for SyncCell<T> {
 /// Extension trait turning (unsafely) a slice of `T` into a slice of
 /// `SyncCell<T>`.
 pub trait SyncSlice<T> {
-    /// Returns a view of the
+    /// Returns a `&[SyncCell<T>]` from a `&mut [T]>`.
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can write to the same `SyncCell` at the same time. It is
+    /// responsibility of the user to ensure that there are no data races, which
+    /// would cause undefined behavior.
     unsafe fn as_sync_slice(&mut self) -> &[SyncCell<T>];
 }
 
-impl<'a, T> SyncSlice<T> for [T] {
+impl<T> SyncSlice<T> for [T] {
     unsafe fn as_sync_slice(&mut self) -> &[SyncCell<T>] {
         SyncCell::from_mut(self).as_slice_of_cells()
     }
