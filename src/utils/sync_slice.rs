@@ -250,12 +250,6 @@ impl<T> SyncCell<[T]> {
 /// The resulting slice is `Sync` if `T` is `Sync`.
 pub trait SyncSlice<T> {
     /// Returns a `&[SyncCell<T>]` from a `&mut [T]`.
-    ///
-    /// # Safety
-    ///
-    /// Multiple thread can read from and write to the returned slice at the
-    /// same time. It is responsibility of the user to ensure that there are no
-    /// data races, which would cause undefined behavior.
     fn as_sync_slice(&mut self) -> &[SyncCell<T>];
 }
 
