@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::{cell::Cell, cmp::Ordering, ops::Deref};
+use std::{cell::Cell, cmp::Ordering};
 
 /// A mutable memory location that is [`Sync`].
 ///
@@ -36,11 +36,9 @@ use std::{cell::Cell, cmp::Ordering, ops::Deref};
 ///
 /// # Methods
 ///
-/// Most methods of `SyncCell<T>` come from [`Deref`] to [`Cell<T>`]. Some have
-/// been reimplemented: in particular, [`new`](SyncCell::new) and
-/// [`from_mut`](SyncCell::from_mut) are unsafe, since they force [`Sync`]. Both
-/// [`swap`](SyncCell::swap) and [`into_inner`](SyncCell::into_inner) are
-/// reimplemented as the [`Deref`] version would not work.
+/// `SyncCell<T>` painstakingly reimplements the methods of `Cell<T>` as unsafe,
+/// since they rely on external synchronization mechanisms to avoid undefined
+/// behavior.
 ///
 /// `SyncCell` implements almost all traits implemented by [`Cell`] by
 /// delegation for convenience, but some, as [`Default`], cannot be implemented
@@ -48,16 +46,16 @@ use std::{cell::Cell, cmp::Ordering, ops::Deref};
 ///
 /// # Safety
 ///
-/// Multiple thread can write to the same `SyncCell` at the same time. It is
-/// responsibility of the user to ensure that there are no data races,
-/// which would cause undefined behavior.
+/// Multiple thread can read from and write to the same `SyncCell` at the same
+/// time. It is responsibility of the user to ensure that there are no data
+/// races, which would cause undefined behavior.
 ///
-/// Note, however, that it is not possible to build two mutable references
-/// to the same `T` starting from a `SyncCell<T>`.
+/// Note, however, that it is not possible to build two mutable references to
+/// the same `T` starting from a `SyncCell<T>`.
 ///
 /// # Examples
 ///
-/// In this example, you can see that `SyncCell<T>` enables mutation across
+/// In this example, you can see that `SyncCell` enables mutation across
 /// threads.
 ///
 /// ```
@@ -65,25 +63,25 @@ use std::{cell::Cell, cmp::Ordering, ops::Deref};
 /// use webgraph::utils::SyncSlice;
 ///
 /// let mut x = 0;
-/// let c = unsafe { SyncCell::new(x) };
+/// let c = SyncCell::new(x);
 ///
 /// let mut v = vec![1, 2, 3, 4];
-/// let s = unsafe { v.as_sync_slice() };
+/// let s = v.as_sync_slice();
 ///
 /// std::thread::scope(|scope| {
 ///     scope.spawn(|| {
 ///         // You can use interior mutability in another thread
-///         c.set(5);
+///         unsafe { c.set(5) };
 ///     });
 ///
 ///     scope.spawn(|| {
 ///         // You can use interior mutability in another thread
-///         s[0].set(5);
+///         unsafe { s[0].set(5) };
 ///     });
 ///     scope.spawn(|| {
 ///         // You can use interior mutability in another thread
 ///         // on the same slice
-///         s[1].set(10);
+///         unsafe { s[1].set(10) };
 ///     });
 /// });
 /// ```
@@ -93,69 +91,122 @@ pub struct SyncCell<T: ?Sized>(Cell<T>);
 unsafe impl<T: Sync> Sync for SyncCell<T> {}
 
 impl<T> SyncCell<T> {
-    /// Creates a new `Cell` containing the given value.
+    /// Creates a new `SyncCell` containing the given value.
     ///
     /// # Safety
     ///
-    /// Multiple thread can write to the same `SyncCell` at the same time. It is
-    /// responsibility of the user to ensure that there are no data races,
-    /// which would cause undefined behavior.
-    #[inline(always)]
-    pub unsafe fn new(value: T) -> Self {
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    #[inline]
+    pub fn new(value: T) -> Self {
         Self(Cell::new(value))
     }
 
-    /// Unwraps the value, consuming the cell.
-    pub fn into_inner(self) -> T {
-        self.0.into_inner()
+    /// Sets the contained value by delegation to [`Cell::set`]
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    #[inline]
+    pub unsafe fn set(&self, val: T) {
+        self.0.set(val);
     }
 
     /// Swaps the values of two `SyncCell`s by delegation to [`Cell::swap`].
-    pub fn swap(&self, other: &SyncCell<T>) {
-        self.0.swap(other);
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    #[inline]
+    pub unsafe fn swap(&self, other: &SyncCell<T>) {
+        self.0.swap(&other.0);
+    }
+
+    /// Replaces the contained value with `val`, and returns the old contained
+    /// value by delegation to [`Cell::replace`].
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    #[inline]
+    pub fn replace(&self, val: T) -> T {
+        self.0.replace(val)
+    }
+
+    /// Unwraps the value, consuming the cell.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.0.into_inner()
+    }
+}
+
+impl<T: Copy> SyncCell<T> {
+    /// Returns a copy of the contained value by delegation to [`Cell::get`].
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    #[inline]
+    pub fn get(&self) -> T {
+        self.0.get()
     }
 }
 
 impl<T: ?Sized> SyncCell<T> {
+    /// Returns a raw pointer to the underlying data in this cell
+    /// by delegation to [`Cell::as_ptr`].
+    #[inline]
+    pub const unsafe fn as_ptr(&self) -> *mut T {
+        self.0.as_ptr()
+    }
+
+    /// Returns a mutable reference to the underlying data by delegation to
+    /// [`Cell::get_mut`].
+    #[inline]
+    pub fn get_mut(&mut self) -> &mut T {
+        self.0.get_mut()
+    }
+
     /// Returns a `&SyncCell<T>` from a `&mut T`
+    #[allow(trivial_casts)]
+    #[inline]
+    pub fn from_mut(value: &mut T) -> &Self {
+        // SAFETY: `SyncCell<T>` has the same memory layout as `Cell<T>`.
+        unsafe { &*(Cell::from_mut(value) as *const Cell<T> as *const Self) }
+    }
+}
+
+impl<T: Default> SyncCell<T> {
+    /// Takes the value of the cell, leaving [`Default::default`] in its place.
     ///
     /// # Safety
     ///
-    /// Multiple thread can write to the same `SyncCell` at the same time. It is
-    /// responsibility of the user to ensure that there are no data races, which
-    /// would cause undefined behavior.
-    #[allow(trivial_casts)]
-    #[inline(always)]
-    pub unsafe fn from_mut(value: &mut T) -> &Self {
-        // SAFETY: `SyncCell<T>` has the same memory layout as `Cell<T>`.
-        &*(Cell::from_mut(value) as *const Cell<T> as *const Self)
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    #[inline]
+    pub unsafe fn take(&self) -> T {
+        self.0.replace(Default::default())
     }
 }
 
 #[allow(trivial_casts)]
 impl<T> SyncCell<[T]> {
     /// Returns a `&[SyncCell<T>]` from a `&SyncCell<[T]>`
-    #[inline(always)]
+    #[inline]
     pub fn as_slice_of_cells(&self) -> &[SyncCell<T>] {
-        let slice_of_cells = Deref::deref(self).as_slice_of_cells();
+        let slice_of_cells = self.0.as_slice_of_cells();
         // SAFETY: `SyncCell<T>` has the same memory layout as `Cell<T>`
         unsafe { &*(slice_of_cells as *const [Cell<T>] as *const [SyncCell<T>]) }
-    }
-}
-
-impl<T: ?Sized> std::ops::Deref for SyncCell<T> {
-    type Target = Cell<T>;
-
-    #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Copy> Clone for SyncCell<T> {
-    #[inline]
-    fn clone(&self) -> SyncCell<T> {
-        unsafe { SyncCell::new(self.get()) }
     }
 }
 
@@ -209,14 +260,14 @@ pub trait SyncSlice<T> {
     ///
     /// # Safety
     ///
-    /// Multiple thread can write to the same `SyncCell` at the same time. It is
-    /// responsibility of the user to ensure that there are no data races, which
-    /// would cause undefined behavior.
-    unsafe fn as_sync_slice(&mut self) -> &[SyncCell<T>];
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
+    fn as_sync_slice(&mut self) -> &[SyncCell<T>];
 }
 
 impl<T> SyncSlice<T> for [T] {
-    unsafe fn as_sync_slice(&mut self) -> &[SyncCell<T>] {
+    fn as_sync_slice(&mut self) -> &[SyncCell<T>] {
         SyncCell::from_mut(self).as_slice_of_cells()
     }
 }
