@@ -4,17 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::{cell::Cell, cmp::Ordering};
+use std::cell::Cell;
 
 /// A mutable memory location that is [`Sync`].
 ///
 /// # Memory layout
 ///
 /// `SyncCell<T>` has the same memory layout and caveats as [`Cell<T>`], but it
-/// is [`Sync`] if its content is. In particular, if [`Cell<T>`] has the same
-/// in-memory representation as its inner type `T`, then `SyncCell<T>` has the
-///  same in-memory representation as its inner type `T` (but the code does not
-/// rely on this).
+/// is [`Sync`] if `T` is. In particular, if [`Cell<T>`] has the same in-memory
+/// representation as its inner type `T`, then `SyncCell<T>` has the same
+///  in-memory representation as its inner type `T` (but the code does not rely
+/// on this). `SyncCell<T>` is also [`Send`] if [`Cell<T>`] is [`Send`].
 ///
 /// `SyncCell<T>` is useful when you need to share a mutable memory location
 /// across threads, and you rely on the fact that the intended behavior will not
@@ -30,8 +30,8 @@ use std::{cell::Cell, cmp::Ordering};
 /// `Cell`](Cell::as_slice_of_cells).
 ///
 /// Since this is the most common usage, the extension trait [`SyncSlice`] adds
-/// to slices an unsafe method [`as_sync_slice`](SyncSlice::as_sync_slice) that
-/// turns a mutable reference to a slice of `T` into a reference to a slice of
+/// to slices a method [`as_sync_slice`](SyncSlice::as_sync_slice) that turns a
+/// mutable reference to a slice of `T` into a reference to a slice of
 /// `SyncCell<T>`.
 ///
 /// # Methods
@@ -40,8 +40,8 @@ use std::{cell::Cell, cmp::Ordering};
 /// since they rely on external synchronization mechanisms to avoid undefined
 /// behavior.
 ///
-/// `SyncCell` implements almost all traits implemented by [`Cell`] by
-/// delegation for convenience, but some, as [`Default`], cannot be implemented
+/// `SyncCell` implements a few traits implemented by [`Cell`] by delegation for
+/// convenience, but some, as [`Clone`] or [`PartialOrd`], cannot be implemented
 /// because they would use unsafe methods.
 ///
 /// # Safety
@@ -49,9 +49,6 @@ use std::{cell::Cell, cmp::Ordering};
 /// Multiple thread can read from and write to the same `SyncCell` at the same
 /// time. It is responsibility of the user to ensure that there are no data
 /// races, which would cause undefined behavior.
-///
-/// Note, however, that it is not possible to build two mutable references to
-/// the same `T` starting from a `SyncCell<T>`.
 ///
 /// # Examples
 ///
@@ -88,16 +85,21 @@ use std::{cell::Cell, cmp::Ordering};
 
 #[repr(transparent)]
 pub struct SyncCell<T: ?Sized>(Cell<T>);
-unsafe impl<T: Sync> Sync for SyncCell<T> {}
+
+// This is where we depart from Cell.
+unsafe impl<T: ?Sized> Send for SyncCell<T> where Cell<T>: Send {}
+unsafe impl<T: ?Sized + Sync> Sync for SyncCell<T> {}
+
+impl<T: Default> Default for SyncCell<T> {
+    /// Creates a `SyncCell<T>`, with the `Default` value for `T`.
+    #[inline]
+    fn default() -> SyncCell<T> {
+        SyncCell::new(Default::default())
+    }
+}
 
 impl<T> SyncCell<T> {
     /// Creates a new `SyncCell` containing the given value.
-    ///
-    /// # Safety
-    ///
-    /// Multiple thread can read from and write to the same `SyncCell` at the
-    /// same time. It is responsibility of the user to ensure that there are no
-    /// data races, which would cause undefined behavior.
     #[inline]
     pub fn new(value: T) -> Self {
         Self(Cell::new(value))
@@ -164,6 +166,12 @@ impl<T: Copy> SyncCell<T> {
 impl<T: ?Sized> SyncCell<T> {
     /// Returns a raw pointer to the underlying data in this cell
     /// by delegation to [`Cell::as_ptr`].
+    ///
+    /// # Safety
+    ///
+    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// same time. It is responsibility of the user to ensure that there are no
+    /// data races, which would cause undefined behavior.
     #[inline]
     pub const unsafe fn as_ptr(&self) -> *mut T {
         self.0.as_ptr()
@@ -176,7 +184,7 @@ impl<T: ?Sized> SyncCell<T> {
         self.0.get_mut()
     }
 
-    /// Returns a `&SyncCell<T>` from a `&mut T`
+    /// Returns a `&SyncCell<T>` from a `&mut T`.
     #[allow(trivial_casts)]
     #[inline]
     pub fn from_mut(value: &mut T) -> &Self {
@@ -210,57 +218,16 @@ impl<T> SyncCell<[T]> {
     }
 }
 
-impl<T: PartialEq + Copy> PartialEq for SyncCell<T> {
-    #[inline]
-    fn eq(&self, other: &SyncCell<T>) -> bool {
-        self.get() == other.get()
-    }
-}
-
-impl<T: Eq + Copy> Eq for SyncCell<T> {}
-
-impl<T: PartialOrd + Copy> PartialOrd for SyncCell<T> {
-    #[inline]
-    fn partial_cmp(&self, other: &SyncCell<T>) -> Option<Ordering> {
-        self.get().partial_cmp(&other.get())
-    }
-
-    #[inline]
-    fn lt(&self, other: &SyncCell<T>) -> bool {
-        self.get() < other.get()
-    }
-
-    #[inline]
-    fn le(&self, other: &SyncCell<T>) -> bool {
-        self.get() <= other.get()
-    }
-
-    #[inline]
-    fn gt(&self, other: &SyncCell<T>) -> bool {
-        self.get() > other.get()
-    }
-
-    #[inline]
-    fn ge(&self, other: &SyncCell<T>) -> bool {
-        self.get() >= other.get()
-    }
-}
-
-impl<T: Ord + Copy> Ord for SyncCell<T> {
-    #[inline]
-    fn cmp(&self, other: &SyncCell<T>) -> Ordering {
-        self.get().cmp(&other.get())
-    }
-}
-
-/// Extension trait turning (unsafely) a slice of `T` into a slice of
-/// `SyncCell<T>`.
+/// Extension trait turning a mutable reference to a slice of `T` into a
+/// reference to a slice of `SyncCell<T>`.
+///
+/// The resulting slice is `Sync` if `T` is `Sync`.
 pub trait SyncSlice<T> {
-    /// Returns a `&[SyncCell<T>]` from a `&mut [T]>`.
+    /// Returns a `&[SyncCell<T>]` from a `&mut [T]`.
     ///
     /// # Safety
     ///
-    /// Multiple thread can read from and write to the same `SyncCell` at the
+    /// Multiple thread can read from and write to the returned slice at the
     /// same time. It is responsibility of the user to ensure that there are no
     /// data races, which would cause undefined behavior.
     fn as_sync_slice(&mut self) -> &[SyncCell<T>];
