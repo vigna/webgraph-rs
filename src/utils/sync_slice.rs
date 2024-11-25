@@ -53,7 +53,7 @@ use std::cell::Cell;
 /// # Examples
 ///
 /// In this example, you can see that `SyncCell` enables mutation across
-/// threads.
+/// threads:
 ///
 /// ```
 /// use webgraph::utils::SyncCell;
@@ -82,6 +82,32 @@ use std::cell::Cell;
 ///     });
 /// });
 /// ```
+///
+/// In this example, we invert a permutation in parallel:
+///
+/// ```
+/// use webgraph::utils::SyncCell;
+/// use webgraph::utils::SyncSlice;
+///
+/// let mut perm = vec![0, 2, 3, 1];
+/// let mut inv = vec![0; perm.len()];
+/// let inv_sync = inv.as_sync_slice();
+///
+/// std::thread::scope(|scope| {
+///     scope.spawn(|| { // Invert first half
+///         for i in 0..2 {
+///             unsafe { inv_sync[perm[i]].set(i) };
+///         }
+///     });
+///
+///     scope.spawn(|| { // Invert second half
+///         for i in 2..perm.len() {
+///             unsafe { inv_sync[perm[i]].set(i) };
+///        }
+///     });
+/// });
+///
+/// assert_eq!(inv, vec![0, 3, 1, 2]);
 
 #[repr(transparent)]
 pub struct SyncCell<T: ?Sized>(Cell<T>);
