@@ -136,7 +136,7 @@ impl<T> SyncCell<T> {
     /// same time. It is responsibility of the user to ensure that there are no
     /// data races, which would cause undefined behavior.
     #[inline]
-    pub fn replace(&self, val: T) -> T {
+    pub unsafe fn replace(&self, val: T) -> T {
         self.0.replace(val)
     }
 
@@ -156,7 +156,7 @@ impl<T: Copy> SyncCell<T> {
     /// same time. It is responsibility of the user to ensure that there are no
     /// data races, which would cause undefined behavior.
     #[inline]
-    pub fn get(&self) -> T {
+    pub unsafe fn get(&self) -> T {
         self.0.get()
     }
 }
