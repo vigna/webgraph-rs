@@ -46,6 +46,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use sux::traits::Succ;
+use sync_cell_slice::SyncSlice;
 use tempfile::tempdir;
 
 pub(crate) mod gap_cost;

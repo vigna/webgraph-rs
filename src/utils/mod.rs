@@ -61,8 +61,5 @@ pub use mmap_helper::*;
 mod java_perm;
 pub use java_perm::*;
 
-mod sync_slice;
-pub use sync_slice::*;
-
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
