@@ -61,7 +61,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn from_csv(args: CliArgs) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
-    let mut group_by = SortPairs::new(args.batch_size.batch_size, dir)?;
+    let mut group_by = SortPairs::new(args.batch_size.batch_size, &dir)?;
     let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
