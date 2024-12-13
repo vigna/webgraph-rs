@@ -91,8 +91,14 @@ impl<F: RandomAccessDecoderFactory> SplitLabeling for BvGraph<F>
 where
     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
 {
-    type SplitLender<'a> = split::ra::Lender<'a, BvGraph<F>> where Self: 'a;
-    type IntoIterator<'a> = split::ra::IntoIterator<'a, BvGraph<F>> where Self: 'a;
+    type SplitLender<'a>
+        = split::ra::Lender<'a, BvGraph<F>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, BvGraph<F>>
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::ra::Iter::new(self, how_many)
@@ -146,7 +152,8 @@ where
     F: RandomAccessDecoderFactory,
 {
     type Label = usize;
-    type Lender<'b> = Iter<F::Decoder<'b>>
+    type Lender<'b>
+        = Iter<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -188,8 +195,11 @@ impl<F> RandomAccessLabeling for BvGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    type Labels<'a> = Succ<F::Decoder<'a>>
-    where Self: 'a, F: 'a;
+    type Labels<'a>
+        = Succ<F::Decoder<'a>>
+    where
+        Self: 'a,
+        F: 'a;
 
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs

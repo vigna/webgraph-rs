@@ -68,7 +68,8 @@ impl<E: Endianness> FileFactory<E> {
 }
 
 impl<E: Endianness> BitReaderFactory<E> for FileFactory<E> {
-    type BitReader<'a> = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
+    type BitReader<'a>
+        = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where
         Self: 'a;
 
@@ -229,7 +230,8 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
 }
 
 impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M> {
-    type BitReader<'a> = BufBitReader<E, MemWordReader<u32, &'a[u32]>>
+    type BitReader<'a>
+        = BufBitReader<E, MemWordReader<u32, &'a [u32]>>
     where
         Self: 'a;
 

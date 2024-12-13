@@ -175,7 +175,8 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
 
-    type Lender<'node> = UnitIterator<G::Lender<'node>>
+    type Lender<'node>
+        = UnitIterator<G::Lender<'node>>
     where
         Self: 'node;
 
@@ -242,9 +243,10 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
 }
 
 impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
-    type Labels<'succ> =
-        UnitSuccessors<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
-        where Self: 'succ;
+    type Labels<'succ>
+        = UnitSuccessors<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
+    where
+        Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
         self.0.num_arcs()

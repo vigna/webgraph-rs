@@ -74,7 +74,7 @@ pub struct Iter {
     rng: SmallRng,
 }
 
-impl<'succ> NodeLabelsLender<'succ> for Iter {
+impl NodeLabelsLender<'_> for Iter {
     type Label = usize;
     type IntoIterator = Succ;
 }

@@ -165,8 +165,10 @@ impl<
     > EncodeAndEstimate
     for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    type Estimator<'a> = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
-        where Self: 'a;
+    type Estimator<'a>
+        = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    where
+        Self: 'a;
     fn estimator(&mut self) -> Self::Estimator<'_> {
         ConstCodesEstimator::new()
     }

@@ -70,8 +70,10 @@ pub struct MmapReaderSupplier<E: Endianness> {
 }
 
 impl Supply for MmapReaderSupplier<BE> {
-    type Item<'a> = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
-    where Self: 'a;
+    type Item<'a>
+        = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+    where
+        Self: 'a;
 
     fn request(&self) -> Self::Item<'_> {
         BufBitReader::<BE, _>::new(MemWordReader::new(self.backend.as_ref()))

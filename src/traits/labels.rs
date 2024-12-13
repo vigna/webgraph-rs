@@ -101,7 +101,6 @@ pub trait SequentialLabeling {
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
     /// * `pl` - An optional mutable reference to a progress logger.
-
     fn par_node_apply<F, R, T, A>(
         &self,
         func: F,
@@ -181,7 +180,6 @@ pub trait SequentialLabeling {
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
     /// * `pl` - An optional mutable reference to a progress logger.
-
     fn par_apply<F, R, T, A>(
         &self,
         func: F,
@@ -383,18 +381,18 @@ pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
     pub nodes: core::ops::Range<usize>,
 }
 
-unsafe impl<'a, G: RandomAccessLabeling> SortedLender for IteratorImpl<'a, G> {}
+unsafe impl<G: RandomAccessLabeling> SortedLender for IteratorImpl<'_, G> {}
 
-impl<'node, 'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'node, G> {
+impl<'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'_, G> {
     type Label = G::Label;
     type IntoIterator = <G as RandomAccessLabeling>::Labels<'succ>;
 }
 
-impl<'node, 'succ, G: RandomAccessLabeling> Lending<'succ> for IteratorImpl<'node, G> {
+impl<'succ, G: RandomAccessLabeling> Lending<'succ> for IteratorImpl<'_, G> {
     type Lend = (usize, <G as RandomAccessLabeling>::Labels<'succ>);
 }
 
-impl<'node, G: RandomAccessLabeling> Lender for IteratorImpl<'node, G> {
+impl<G: RandomAccessLabeling> Lender for IteratorImpl<'_, G> {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.nodes

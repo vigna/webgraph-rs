@@ -96,7 +96,6 @@ impl<T: Copy> Ord for Triple<T> {
 /// [`SortPairs::delete_batches`] after usage, unless you stored them in a
 /// self-deleting temporary directory, such as those created by the
 /// [`tempfile`](https://crates.io/crates/tempfile) crate.
-
 pub struct SortPairs<
     S: BitSerializer<NE, BitWriter> = (),
     D: BitDeserializer<NE, BitReader> + Clone = (),

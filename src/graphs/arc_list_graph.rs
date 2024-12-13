@@ -52,8 +52,14 @@ where
     <I as std::iter::IntoIterator>::IntoIter: Clone + Send + Sync,
     L: Send + Sync,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, ArcListGraph<I>> where Self: 'a;
-    type IntoIterator<'a> = split::seq::IntoIterator<'a, ArcListGraph<I>> where Self: 'a;
+    type SplitLender<'a>
+        = split::seq::Lender<'a, ArcListGraph<I>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = split::seq::IntoIterator<'a, ArcListGraph<I>>
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
@@ -149,7 +155,10 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
     for ArcListGraph<I>
 {
     type Label = (usize, L);
-    type Lender<'node> = Iter<L, I> where Self: 'node;
+    type Lender<'node>
+        = Iter<L, I>
+    where
+        Self: 'node;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -177,12 +186,12 @@ pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut Iter<L, I>,
 }
 
-unsafe impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Succ<'a, L, I> where
+unsafe impl<L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Succ<'_, L, I> where
     I::IntoIter: SortedIterator
 {
 }
 
-impl<'a, L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'a, L, I> {
+impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
         // If the source of the next pair is not the current node,

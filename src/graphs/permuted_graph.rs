@@ -19,13 +19,12 @@ pub struct PermutedGraph<'a, G: SequentialGraph, P: BitFieldSlice<usize> + ?Size
     pub perm: &'a P,
 }
 
-impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling
-    for PermutedGraph<'a, G, P>
-{
+impl<G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling for PermutedGraph<'_, G, P> {
     type Label = usize;
-    type Lender<'b> = Iter<'b, G::Lender<'b>, P>
-        where
-            Self: 'b;
+    type Lender<'b>
+        = Iter<'b, G::Lender<'b>, P>
+    where
+        Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -51,15 +50,21 @@ impl<'b, G: SequentialGraph + SplitLabeling, P: BitFieldSlice<usize> + Send + Sy
 where
     for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + Send + Sync,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, PermutedGraph<'b, G, P> > where Self: 'a;
-    type IntoIterator<'a> = split::seq::IntoIterator<'a, PermutedGraph<'b, G, P>> where Self: 'a;
+    type SplitLender<'a>
+        = split::seq::Lender<'a, PermutedGraph<'b, G, P>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = split::seq::IntoIterator<'a, PermutedGraph<'b, G, P>>
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
     }
 }
 
-impl<'a, G: SequentialGraph, P: BitFieldSlice<usize>> SequentialGraph for PermutedGraph<'a, G, P> {}
+impl<G: SequentialGraph, P: BitFieldSlice<usize>> SequentialGraph for PermutedGraph<'_, G, P> {}
 
 impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender
     for &'b PermutedGraph<'a, G, P>
@@ -80,31 +85,26 @@ pub struct Iter<'node, I, P> {
 }
 
 impl<
-        'node,
         'succ,
         I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
         P: BitFieldSlice<usize>,
-    > NodeLabelsLender<'succ> for Iter<'node, I, P>
+    > NodeLabelsLender<'succ> for Iter<'_, I, P>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>, P>;
 }
 
 impl<
-        'node,
         'succ,
         I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
         P: BitFieldSlice<usize>,
-    > Lending<'succ> for Iter<'node, I, P>
+    > Lending<'succ> for Iter<'_, I, P>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<
-        'a,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: BitFieldSlice<usize>,
-    > Lender for Iter<'a, L, P>
+impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>> Lender
+    for Iter<'_, L, P>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -122,10 +122,9 @@ impl<
 }
 
 impl<
-        'a,
         L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
         P: BitFieldSlice<usize>,
-    > ExactSizeLender for Iter<'a, L, P>
+    > ExactSizeLender for Iter<'_, L, P>
 {
     fn len(&self) -> usize {
         self.iter.len()
@@ -138,7 +137,7 @@ pub struct Succ<'a, I: Iterator<Item = usize>, P> {
     perm: &'a P,
 }
 
-impl<'a, I: Iterator<Item = usize>, P: BitFieldSlice<usize>> Iterator for Succ<'a, I, P> {
+impl<I: Iterator<Item = usize>, P: BitFieldSlice<usize>> Iterator for Succ<'_, I, P> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -146,8 +145,8 @@ impl<'a, I: Iterator<Item = usize>, P: BitFieldSlice<usize>> Iterator for Succ<'
     }
 }
 
-impl<'a, I: ExactSizeIterator<Item = usize>, P: BitFieldSlice<usize>> ExactSizeIterator
-    for Succ<'a, I, P>
+impl<I: ExactSizeIterator<Item = usize>, P: BitFieldSlice<usize>> ExactSizeIterator
+    for Succ<'_, I, P>
 {
     #[inline(always)]
     fn len(&self) -> usize {

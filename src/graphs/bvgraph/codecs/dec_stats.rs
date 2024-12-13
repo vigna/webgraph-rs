@@ -86,7 +86,8 @@ impl<F> SequentialDecoderFactory for StatsDecoderFactory<F>
 where
     F: SequentialDecoderFactory,
 {
-    type Decoder<'a> = StatsDecoder<'a, F>
+    type Decoder<'a>
+        = StatsDecoder<'a, F>
     where
         Self: 'a;
 
@@ -108,7 +109,7 @@ pub struct StatsDecoder<'a, F: SequentialDecoderFactory> {
     stats: DecoderStats,
 }
 
-impl<'a, F: SequentialDecoderFactory> Drop for StatsDecoder<'a, F> {
+impl<F: SequentialDecoderFactory> Drop for StatsDecoder<'_, F> {
     fn drop(&mut self) {
         self.factory.glob_stats.lock().unwrap().update(&self.stats);
     }
@@ -130,7 +131,7 @@ impl<'a, F: SequentialDecoderFactory> StatsDecoder<'a, F> {
     }
 }
 
-impl<'a, F: SequentialDecoderFactory> Decode for StatsDecoder<'a, F> {
+impl<F: SequentialDecoderFactory> Decode for StatsDecoder<'_, F> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats
@@ -184,8 +185,8 @@ impl<'a, F: SequentialDecoderFactory> Decode for StatsDecoder<'a, F> {
             .first_residuals
             .update(self.codes_reader.read_first_residual())
     }
-    #[inline(always)]
 
+    #[inline(always)]
     fn read_residual(&mut self) -> u64 {
         self.stats
             .residuals

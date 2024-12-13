@@ -111,11 +111,17 @@ where
     G: SequentialLabeling + SplitLabeling,
     G::Label: Pair,
 {
-    type SplitLender<'a> = LeftIterator<G::SplitLender<'a>> where Self: 'a;
-    type IntoIterator<'a> = core::iter::Map<
+    type SplitLender<'a>
+        = LeftIterator<G::SplitLender<'a>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>
-    > where Self: 'a;
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>,
+    >
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         self.0.split_iter(how_many).into_iter().map(LeftIterator)
@@ -128,8 +134,9 @@ where
 {
     type Label = <S::Label as Pair>::Left;
 
-    type Lender<'node> = LeftIterator<S::Lender<'node>>
-       where
+    type Lender<'node>
+        = LeftIterator<S::Lender<'node>>
+    where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
@@ -149,7 +156,8 @@ impl<R: RandomAccessLabeling> RandomAccessLabeling for Left<R>
 where
     R::Label: Pair,
 {
-    type Labels<'succ> = LeftIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
+    type Labels<'succ>
+        = LeftIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -269,11 +277,17 @@ where
     G: SequentialLabeling + SplitLabeling,
     G::Label: Pair,
 {
-    type SplitLender<'a> = RightIterator<G::SplitLender<'a>> where Self: 'a;
-    type IntoIterator<'a> = core::iter::Map<
+    type SplitLender<'a>
+        = RightIterator<G::SplitLender<'a>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>
-    > where Self: 'a;
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>,
+    >
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         self.0.split_iter(how_many).into_iter().map(RightIterator)
@@ -286,8 +300,9 @@ where
 {
     type Label = <S::Label as Pair>::Right;
 
-    type Lender<'node> = RightIterator<S::Lender<'node>>
-       where
+    type Lender<'node>
+        = RightIterator<S::Lender<'node>>
+    where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
@@ -307,7 +322,8 @@ impl<R: RandomAccessLabeling> RandomAccessLabeling for Right<R>
 where
     R::Label: Pair,
 {
-    type Labels<'succ> = RightIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
+    type Labels<'succ>
+        = RightIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
     where
         Self: 'succ;
 

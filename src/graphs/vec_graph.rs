@@ -235,7 +235,10 @@ impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
 
 impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
     type Label = (usize, L);
-    type Lender<'a> = IteratorImpl<'a, Self> where Self: 'a;
+    type Lender<'a>
+        = IteratorImpl<'a, Self>
+    where
+        Self: 'a;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -259,7 +262,10 @@ impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
 impl<L: Clone + 'static> LabeledSequentialGraph<L> for VecGraph<L> {}
 
 impl<L: Clone + 'static> RandomAccessLabeling for VecGraph<L> {
-    type Labels<'succ> = Successors<'succ, L> where L: 'succ;
+    type Labels<'succ>
+        = Successors<'succ, L>
+    where
+        L: 'succ;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs
@@ -282,7 +288,7 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for VecGraph<L> {}
 #[repr(transparent)]
 pub struct Successors<'a, L: Clone + 'static>(std::collections::btree_set::Iter<'a, Successor<L>>);
 
-impl<'a, L: Clone + 'static> Iterator for Successors<'a, L> {
+impl<L: Clone + 'static> Iterator for Successors<'_, L> {
     type Item = (usize, L);
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -290,9 +296,9 @@ impl<'a, L: Clone + 'static> Iterator for Successors<'a, L> {
     }
 }
 
-unsafe impl<'a, L: Clone + 'static> SortedIterator for Successors<'a, L> {}
+unsafe impl<L: Clone + 'static> SortedIterator for Successors<'_, L> {}
 
-impl<'a, L: Clone + 'static> ExactSizeIterator for Successors<'a, L> {
+impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()

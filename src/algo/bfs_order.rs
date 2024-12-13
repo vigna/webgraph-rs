@@ -22,7 +22,7 @@ pub struct BfsOrder<'a, G: RandomAccessGraph> {
     start: usize,
 }
 
-impl<'a, G: RandomAccessGraph> BfsOrder<'a, G> {
+impl<G: RandomAccessGraph> BfsOrder<'_, G> {
     pub fn new(graph: &G) -> BfsOrder<G> {
         let num_nodes = graph.num_nodes();
         let mut pl = ProgressLogger::default();
@@ -41,7 +41,7 @@ impl<'a, G: RandomAccessGraph> BfsOrder<'a, G> {
     }
 }
 
-impl<'a, G: RandomAccessGraph> Iterator for BfsOrder<'a, G> {
+impl<G: RandomAccessGraph> Iterator for BfsOrder<'_, G> {
     type Item = usize;
 
     fn next(&mut self) -> Option<usize> {
@@ -72,7 +72,7 @@ impl<'a, G: RandomAccessGraph> Iterator for BfsOrder<'a, G> {
     }
 }
 
-impl<'a, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, G> {
+impl<G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'_, G> {
     fn len(&self) -> usize {
         self.graph.num_nodes()
     }

@@ -19,9 +19,10 @@ where
     for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
     type Label = usize;
-    type Lender<'b> = Iter<G::Lender<'b>, H::Lender<'b>>
-        where
-            Self: 'b;
+    type Lender<'b>
+        = Iter<G::Lender<'b>, H::Lender<'b>>
+    where
+        Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -49,8 +50,14 @@ where
     for<'a> H::Lender<'a>: SortedLender + Clone + Send + Sync,
     for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, UnionGraph<G, H>> where Self: 'a;
-    type IntoIterator<'a> = split::seq::IntoIterator<'a, UnionGraph<G, H>> where Self: 'a;
+    type SplitLender<'a>
+        = split::seq::Lender<'a, UnionGraph<G, H>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = split::seq::IntoIterator<'a, UnionGraph<G, H>>
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)

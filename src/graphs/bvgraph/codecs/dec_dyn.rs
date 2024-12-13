@@ -296,8 +296,8 @@ impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Outpu
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,
 {
-    type Decoder<'a> =
-        DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+    type Decoder<'a>
+        = DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
     where
         Self: 'a;
 
@@ -326,8 +326,8 @@ impl<E: Endianness, F: BitReaderFactory<E>> SequentialDecoderFactory
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
 {
-    type Decoder<'a> =
-        DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+    type Decoder<'a>
+        = DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
     where
         Self: 'a;
 

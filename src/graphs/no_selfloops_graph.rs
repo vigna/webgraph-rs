@@ -15,9 +15,10 @@ pub struct NoSelfLoopsGraph<G>(pub G);
 
 impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
     type Label = usize;
-    type Lender<'b> = Iter<G::Lender<'b>>
-        where
-            Self: 'b;
+    type Lender<'b>
+        = Iter<G::Lender<'b>>
+    where
+        Self: 'b;
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
@@ -42,8 +43,14 @@ impl<G: SequentialGraph + SplitLabeling> SplitLabeling for NoSelfLoopsGraph<G>
 where
     for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + Send + Sync,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, NoSelfLoopsGraph<G> > where Self: 'a;
-    type IntoIterator<'a> = split::seq::IntoIterator<'a, NoSelfLoopsGraph<G>> where Self: 'a;
+    type SplitLender<'a>
+        = split::seq::Lender<'a, NoSelfLoopsGraph<G>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = split::seq::IntoIterator<'a, NoSelfLoopsGraph<G>>
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)

@@ -45,8 +45,14 @@ impl<F: SequentialDecoderFactory> SplitLabeling for BvGraphSeq<F>
 where
     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
 {
-    type SplitLender<'a> = split::seq::Lender<'a, BvGraphSeq<F>> where Self: 'a;
-    type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
+    type SplitLender<'a>
+        = split::seq::Lender<'a, BvGraphSeq<F>>
+    where
+        Self: 'a;
+    type IntoIterator<'a>
+        = split::seq::IntoIterator<'a, BvGraphSeq<F>>
+    where
+        Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
@@ -55,7 +61,8 @@ where
 
 impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     type Label = usize;
-    type Lender<'a> = Iter<F::Decoder<'a>>
+    type Lender<'a>
+        = Iter<F::Decoder<'a>>
     where
         Self: 'a;
 

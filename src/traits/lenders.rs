@@ -116,7 +116,7 @@ where
     type IntoIterator = <A as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, 's, T> NodeLabelsLender<'lend> for lender::Chunk<'s, T>
+impl<'lend, T> NodeLabelsLender<'lend> for lender::Chunk<'_, T>
 where
     T: Lender + for<'next> NodeLabelsLender<'next>,
 {
@@ -132,7 +132,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, Label, II, L> NodeLabelsLender<'lend> for lender::Enumerate<L>
+impl<Label, II, L> NodeLabelsLender<'_> for lender::Enumerate<L>
 where
     L: Lender,
     L: for<'all> Lending<'all, Lend = II>,
@@ -151,7 +151,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, L, F, II> NodeLabelsLender<'lend> for lender::FilterMap<L, F>
+impl<L, F, II> NodeLabelsLender<'_> for lender::FilterMap<L, F>
 where
     II: IntoIterator + 'static, // TODO!: check if we can avoid this static
     F: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
@@ -161,7 +161,7 @@ where
     type IntoIterator = II;
 }
 
-impl<'lend, 'this, LL, L, F> NodeLabelsLender<'lend> for lender::FlatMap<'this, LL, F>
+impl<'lend, LL, L, F> NodeLabelsLender<'lend> for lender::FlatMap<'_, LL, F>
 where
     LL: Lender,
     L: Lender + for<'next> NodeLabelsLender<'next> + 'lend,
@@ -171,7 +171,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, 'this, LL, L> NodeLabelsLender<'lend> for lender::Flatten<'this, LL>
+impl<'lend, LL, L> NodeLabelsLender<'lend> for lender::Flatten<'_, LL>
 where
     LL: Lender<Lend = L>,
     L: Lender + for<'next> NodeLabelsLender<'next> + 'lend,
@@ -197,7 +197,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, L, F, II> NodeLabelsLender<'lend> for lender::Map<L, F>
+impl<L, F, II> NodeLabelsLender<'_> for lender::Map<L, F>
 where
     F: for<'all> lender::higher_order::FnMutHKA<'all, Lend<'all, L>, B = (usize, II)>,
     II: IntoIterator,
@@ -207,7 +207,7 @@ where
     type IntoIterator = II;
 }
 
-impl<'lend, L, P, II> NodeLabelsLender<'lend> for lender::MapWhile<L, P>
+impl<L, P, II> NodeLabelsLender<'_> for lender::MapWhile<L, P>
 where
     P: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
     II: IntoIterator + 'static, // TODO!: check if we can avoid this static
@@ -226,7 +226,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, 'this, L> NodeLabelsLender<'lend> for lender::Peekable<'this, L>
+impl<'lend, L> NodeLabelsLender<'lend> for lender::Peekable<'_, L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
 {
@@ -242,7 +242,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, L, St, F, II> NodeLabelsLender<'lend> for lender::Scan<L, St, F>
+impl<L, St, F, II> NodeLabelsLender<'_> for lender::Scan<L, St, F>
 where
     for<'all> F:
         lender::higher_order::FnMutHKAOpt<'all, (&'all mut St, Lend<'all, L>), B = (usize, II)>,
@@ -295,7 +295,7 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
-impl<'lend, A, B, II> NodeLabelsLender<'lend> for lender::Zip<A, B>
+impl<A, B, II> NodeLabelsLender<'_> for lender::Zip<A, B>
 where
     A: Lender + for<'next> Lending<'next, Lend = usize>,
     B: Lender + for<'next> Lending<'next, Lend = II>,
@@ -305,7 +305,7 @@ where
     type IntoIterator = II;
 }
 
-impl<'lend, I, J> NodeLabelsLender<'lend> for lender::FromIter<I>
+impl<I, J> NodeLabelsLender<'_> for lender::FromIter<I>
 where
     I: Iterator<Item = (usize, J)>,
     J: IntoIterator,
@@ -314,7 +314,7 @@ where
     type IntoIterator = J;
 }
 
-impl<'lend, S, F, J> NodeLabelsLender<'lend> for lender::FromFn<S, F>
+impl<S, F, J> NodeLabelsLender<'_> for lender::FromFn<S, F>
 where
     F: for<'all> lender::higher_order::FnMutHKAOpt<'all, &'all mut S, B = (usize, J)>,
     J: IntoIterator,

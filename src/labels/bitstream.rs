@@ -78,40 +78,34 @@ pub struct Iter<'a, 'b, E, BR, D, O> {
 }
 
 impl<
-        'a,
-        'b,
         'succ,
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
         O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > NodeLabelsLender<'succ> for Iter<'a, 'b, E, BR, D, O>
+    > NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
     type IntoIterator = SeqLabels<'succ, E, BR, D>;
 }
 
 impl<
-        'a,
-        'b,
         'succ,
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
         O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > Lending<'succ> for Iter<'a, 'b, E, BR, D, O>
+    > Lending<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<
-        'a,
-        'b,
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
         O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > Lender for Iter<'a, 'b, E, BR, D, O>
+    > Lender for Iter<'_, '_, E, BR, D, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -142,8 +136,8 @@ pub struct SeqLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserial
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for SeqLabels<'a, E, BR, D>
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
+    for SeqLabels<'_, E, BR, D>
 {
     type Item = D::DeserType;
 
@@ -168,7 +162,8 @@ where
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
     type Label = L;
-    type Lender<'node> = Iter<'node, 'node, E, S::Item<'node>, D, O>
+    type Lender<'node>
+        = Iter<'node, 'node, E, S::Item<'node>, D, O>
     where
         Self: 'node;
 
@@ -197,8 +192,8 @@ pub struct RanLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserial
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for RanLabels<'a, E, BR, D>
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
+    for RanLabels<'_, E, BR, D>
 {
     type Item = <D as BitDeserializer<E, BR>>::DeserType;
 
@@ -222,7 +217,10 @@ where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
-    type Labels<'succ> = RanLabels<'succ, E, S::Item<'succ>, D> where Self: 'succ;
+    type Labels<'succ>
+        = RanLabels<'succ, E, S::Item<'succ>, D>
+    where
+        Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
         todo!();

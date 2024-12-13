@@ -232,7 +232,8 @@ impl<E: Encode> Encode for EncoderValidator<E> {
 }
 
 impl<E: EncodeAndEstimate> EncodeAndEstimate for EncoderValidator<E> {
-    type Estimator<'a> = EncoderValidator<E::Estimator<'a>>
+    type Estimator<'a>
+        = EncoderValidator<E::Estimator<'a>>
     where
         Self: 'a;
 

@@ -118,8 +118,9 @@ impl<'a, L: SequentialLabeling, R: SequentialLabeling> IntoLender for &'a Zip<L,
 impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L, R> {
     type Label = (L::Label, R::Label);
 
-    type Lender<'node> = Iter<L::Lender<'node>, R::Lender<'node>>
-        where
+    type Lender<'node>
+        = Iter<L::Lender<'node>, R::Lender<'node>>
+    where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
@@ -133,12 +134,16 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
 }
 
 impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for Zip<L, R> {
-    type Labels<'succ> = std::iter::Zip<
+    type Labels<'succ>
+        = std::iter::Zip<
         <<L as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter,
-        <<R as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
-        where
-            <L as RandomAccessLabeling>::Labels<'succ>: IntoIterator<Item = <L as SequentialLabeling>::Label>,
-            <R as RandomAccessLabeling>::Labels<'succ>: IntoIterator<Item = <R as SequentialLabeling>::Label>,
+        <<R as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter,
+    >
+    where
+        <L as RandomAccessLabeling>::Labels<'succ>:
+            IntoIterator<Item = <L as SequentialLabeling>::Label>,
+        <R as RandomAccessLabeling>::Labels<'succ>:
+            IntoIterator<Item = <R as SequentialLabeling>::Label>,
         Self: 'succ;
 
     fn num_arcs(&self) -> u64 {

@@ -68,7 +68,6 @@ pub trait SplitLabeling: SequentialLabeling {
 ///     }
 /// }
 /// ```
-
 pub mod seq {
     use crate::prelude::SequentialLabeling;
 
@@ -140,7 +139,6 @@ pub mod seq {
 ///     }
 /// }
 /// ```
-
 pub mod ra {
     use crate::prelude::{RandomAccessLabeling, SequentialLabeling};
 
@@ -181,7 +179,7 @@ pub mod ra {
         }
     }
 
-    impl<'a, R: RandomAccessLabeling> ExactSizeIterator for Iter<'a, R> {
+    impl<R: RandomAccessLabeling> ExactSizeIterator for Iter<'_, R> {
         fn len(&self) -> usize {
             self.how_many - self.i
         }

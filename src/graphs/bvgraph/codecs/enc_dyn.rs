@@ -173,8 +173,10 @@ impl<E: Endianness, CW: CodeWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, C
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
-    type Estimator<'a> = &'a mut DynCodesEstimator
-        where Self: 'a;
+    type Estimator<'a>
+        = &'a mut DynCodesEstimator
+    where
+        Self: 'a;
 
     fn estimator(&mut self) -> Self::Estimator<'_> {
         &mut self.estimator
