@@ -79,7 +79,7 @@ pub mod preds;
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
-    sym_graph: &R,
+    sym_graph: R,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
@@ -319,7 +319,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 
         let cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
-                graph: sym_graph,
+                graph: &sym_graph,
                 perm: &inv_perm,
             },
             granularity,

@@ -172,9 +172,11 @@ where
         predicate = predicate.or(PercModified::try_from(perc_modified)?).boxed();
     }
 
+    let num_nodes = graph.num_nodes();
+
     // compute the LLP
     let labels = llp::layered_label_propagation(
-        &graph,
+        graph,
         &*deg_cumul,
         gammas,
         Some(args.num_threads.num_threads),
@@ -185,7 +187,7 @@ where
     )
     .context("Could not compute the LLP")?;
 
-    let mut llp_perm = (0..graph.num_nodes()).collect::<Vec<_>>();
+    let mut llp_perm = (0..num_nodes).collect::<Vec<_>>();
     llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
 
     let mut llp_inv_perm = vec![0; llp_perm.len()];
