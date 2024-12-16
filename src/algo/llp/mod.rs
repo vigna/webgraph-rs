@@ -363,16 +363,17 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         .context("Could not load labels from best gammar")?
         .to_vec();
 
+    let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
     for (i, gamma_index) in gamma_indices.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels =
-            <Vec<usize>>::load_mem(labels_path(*gamma_index)).context("Could not load labels")?;
+        let labels = <Vec<usize>>::load_mmap(labels_path(*gamma_index), mmap_flags)
+            .context("Could not load labels")?;
         combine(&mut result_labels, *labels, &mut temp_perm).context("Could not combine labels")?;
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))
+        let best_labels = <Vec<usize>>::load_mmap(labels_path(best_gamma_index), mmap_flags)
             .context("Could not load labels from best gamma")?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
