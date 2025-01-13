@@ -298,7 +298,12 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         let perm = &mut update_perm;
         perm.par_iter_mut().enumerate().for_each(|(i, x)| *x = i);
         // Sort by label
-        perm.par_sort_by(|&a, &b| label_store.label(a as _).cmp(&label_store.label(b as _)));
+        perm.par_sort_by(|&a, &b| {
+            label_store
+                .label(a as _)
+                .cmp(&label_store.label(b as _))
+                .then_with(|| a.cmp(&b))
+        });
 
         // Save labels
         let labels = label_store.labels();
@@ -337,6 +342,10 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     }
 
     gamma_pl.done();
+
+    // explicit drop to free memory for the next step
+    drop(label_store);
+    drop(can_change);
 
     // compute the indices that sorts the gammas by cost
     let mut gamma_indices = (0..costs.len()).collect::<Vec<_>>();
@@ -390,10 +399,11 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
     // re-init the permutation
     temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
     // permute by the devilish function
-    temp_perm.par_sort_by(|&a, &b| {
+    temp_perm.par_sort_unstable_by(|&a, &b| {
         (result[labels[a]].cmp(&result[labels[b]]))
             .then_with(|| labels[a].cmp(&labels[b]))
             .then_with(|| result[a].cmp(&result[b]))
+            .then_with(|| a.cmp(&b)) // to make it stable
     });
     let mut prev_labels = (result[temp_perm[0]], labels[temp_perm[0]]);
     let mut curr_label = 0;
