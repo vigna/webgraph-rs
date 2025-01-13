@@ -370,6 +370,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             .context("Could not load labels")?;
         combine(&mut result_labels, *labels, &mut temp_perm).context("Could not combine labels")?;
         drop(labels); // explicit drop so we free labels before loading best_labels
+
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
