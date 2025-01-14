@@ -298,7 +298,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         let perm = &mut update_perm;
         perm.par_iter_mut().enumerate().for_each(|(i, x)| *x = i);
         // Sort by label
-        perm.par_sort_by(|&a, &b| {
+        perm.par_sort_unstable_by(|&a, &b| {
             label_store
                 .label(a as _)
                 .cmp(&label_store.label(b as _))
