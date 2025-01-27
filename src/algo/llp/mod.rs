@@ -368,6 +368,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     // reuse the update_perm to store the final permutation
     let mut temp_perm = update_perm;
 
+    gamma_pl.done();
+
     let mut result_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))
         .context("Could not load labels from best gammar")?
         .to_vec();

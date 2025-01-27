@@ -24,7 +24,7 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use super::NodeLabelsLender;
+use super::{LenderLabel, NodeLabelsLender};
 
 use core::{
     ops::Range,
@@ -275,38 +275,51 @@ pub type Labels<'succ, 'node, S> =
 /// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
 pub unsafe trait SortedLender: Lender {}
 
-/// A wrapper to attach `SortedLender` to a lender. This is needed when
-/// the lender is not directly a `SortedLender`, but it is known that it
-/// returns elements in sorted order.
-pub struct SortedLend<L> {
+/// A transparent wrapper for a [`NodeLabelsLender`] unsafely implementing
+/// [`SortedLender`].
+///
+/// This wrapper is useful when the underlying lender is known to return nodes
+/// in ascending order, but the trait is not implemented, and it is not possible
+/// to implement it directly because of the orphan rule.
+pub struct AssumeSortedLender<L> {
     lender: L,
 }
 
-impl<L> SortedLend<L> {
+impl<L> AssumeSortedLender<L> {
     /// # Safety
-    /// This is unsafe as the propose of this struct is to attach an unsafe
-    /// trait to a struct that does not implement it.
+    ///
+    /// The argument must return nodes in ascending order.
     pub unsafe fn new(lender: L) -> Self {
         Self { lender }
     }
 }
 
-unsafe impl<L: Lender> SortedLender for SortedLend<L> {}
+unsafe impl<L: Lender> SortedLender for AssumeSortedLender<L> {}
 
-impl<'succ, L: Lender> Lending<'succ> for SortedLend<L> {
+impl<'succ, L: Lender> Lending<'succ> for AssumeSortedLender<L> {
     type Lend = <L as Lending<'succ>>::Lend;
 }
 
-impl<L: Lender> Lender for SortedLend<L> {
+impl<L: Lender> Lender for AssumeSortedLender<L> {
+    #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.lender.next()
     }
 }
 
-impl<L: ExactSizeLender> ExactSizeLender for SortedLend<L> {
+impl<L: ExactSizeLender> ExactSizeLender for AssumeSortedLender<L> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.lender.len()
     }
+}
+
+impl<'lend, L> NodeLabelsLender<'lend> for AssumeSortedLender<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+{
+    type Label = LenderLabel<'lend, L>;
+    type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
 /// Marker trait for [`Iterator`]s yielding labels in the order induced by

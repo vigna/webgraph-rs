@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 /// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
 pub const fn int2nat(x: i64) -> u64 {
-    (x << 1 ^ (x >> 63)) as u64
+    ((x << 1) ^ (x >> 63)) as u64
 }
 
 /// Bijective mapping from u64 to i64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
