@@ -35,8 +35,7 @@ num_cpus = "1.16.0"
 epserde = "0.6.1"
 sux = "0.4.1"
 dsi-bitstream = "0.4.0"
-# dsi-progress-logger = "0.2.4"
-dsi-progress-logger = { path = "../dsi-progress-logger-rs" }
+dsi-progress-logger = "0.4.0"
 log = "0.4.22"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.10.0"
