@@ -229,7 +229,7 @@ fn test() -> anyhow::Result<()> {
         (2, 4, Some(f64::INFINITY)),
         (3, 4, Some(f64::NEG_INFINITY)),
     ];
-    let g = VecGraph::from_arc_list(arcs.iter().copied());
+    let g = VecGraph::from_arcs(arcs.iter().copied());
     let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
     let g2 = VecGraph::from_lender(&coo);
     assert_eq!(g, g2);

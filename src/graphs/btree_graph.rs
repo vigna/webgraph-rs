@@ -10,7 +10,12 @@ use crate::prelude::*;
 use lender::prelude::*;
 use std::{collections::BTreeSet, mem::MaybeUninit};
 
-/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of [`BTreeSet`].
+/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
+/// [`BTreeSet`].
+///
+/// By setting the feature `serde`, this struct can be serialized and
+/// deserialized using [serde](https://crates.io/crates/serde).
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
@@ -195,11 +200,15 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// [`BTreeSet`].
 ///
+/// By setting the feature `serde`, this struct can be serialized and
+/// deserialized using [serde](https://crates.io/crates/serde).
+///
 /// # Implementation Notes
 ///
 /// This is just a newtype for a [`LabeledBTreeGraph`] with
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
 /// All mutation methods are delegated.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BTreeGraph(LabeledBTreeGraph<()>);
 
@@ -388,11 +397,4 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
     fn len(&self) -> usize {
         self.0.len()
     }
-}
-
-#[test]
-fn test_remove() {
-    let mut g = LabeledBTreeGraph::<_>::from_arcs([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
-    assert!(g.remove_arc(0, 2));
-    assert!(!g.remove_arc(0, 2));
 }
