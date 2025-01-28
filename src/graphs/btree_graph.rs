@@ -48,14 +48,14 @@ impl<L: Clone + 'static> Ord for Successor<L> {
 /// as the label type will result in a [`RandomAccessGraph`] implementation.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VecGraph<L: Clone + 'static = ()> {
+pub struct BTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
     /// For each node, its list of successors.
     succ: Vec<BTreeSet<Successor<L>>>,
 }
 
-impl<L: Clone + 'static> core::default::Default for VecGraph<L> {
+impl<L: Clone + 'static> core::default::Default for BTreeGraph<L> {
     fn default() -> Self {
         Self::new()
     }
@@ -105,7 +105,7 @@ impl<G: LabeledSequentialGraph<()> + MutableGraph> MutableGraph for Left<G> {
     }
 }
 
-impl MutableGraph for VecGraph<()> {
+impl MutableGraph for BTreeGraph<()> {
     /// Add an arc to the graph and return whether it is a new one.
     fn add_arc(&mut self, u: usize, v: usize) -> bool {
         self.add_labeled_arc(u, v, ())
@@ -141,7 +141,7 @@ impl MutableGraph for VecGraph<()> {
     }
 }
 
-impl<L: Clone + 'static> VecGraph<L> {
+impl<L: Clone + 'static> BTreeGraph<L> {
     /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
@@ -248,7 +248,7 @@ impl<L: Clone + 'static> VecGraph<L> {
     }
 }
 
-impl VecGraph<()> {
+impl BTreeGraph<()> {
     /// Add an arc to the graph and return whether it is a new one.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         self.add_labeled_arc(u, v, ())
@@ -304,8 +304,8 @@ impl VecGraph<()> {
     }
 }
 
-impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
-    type Lender = <VecGraph<L> as SequentialLabeling>::Lender<'a>;
+impl<'a, L: Clone + 'static> IntoLender for &'a BTreeGraph<L> {
+    type Lender = <BTreeGraph<L> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -313,7 +313,7 @@ impl<'a, L: Clone + 'static> IntoLender for &'a VecGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
+impl<L: Clone + 'static> SequentialLabeling for BTreeGraph<L> {
     type Label = (usize, L);
     type Lender<'a>
         = IteratorImpl<'a, Self>
@@ -339,9 +339,9 @@ impl<L: Clone + 'static> SequentialLabeling for VecGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> LabeledSequentialGraph<L> for VecGraph<L> {}
+impl<L: Clone + 'static> LabeledSequentialGraph<L> for BTreeGraph<L> {}
 
-impl<L: Clone + 'static> RandomAccessLabeling for VecGraph<L> {
+impl<L: Clone + 'static> RandomAccessLabeling for BTreeGraph<L> {
     type Labels<'succ>
         = Successors<'succ, L>
     where
@@ -362,7 +362,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for VecGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for VecGraph<L> {}
+impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for BTreeGraph<L> {}
 
 #[doc(hidden)]
 #[repr(transparent)]
@@ -387,7 +387,7 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
 
 #[test]
 fn test_remove() {
-    let mut g = VecGraph::<_>::from_labeled_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
+    let mut g = BTreeGraph::<_>::from_labeled_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
     assert!(g.remove_arc(0, 2));
     assert!(!g.remove_arc(0, 2));
 }
