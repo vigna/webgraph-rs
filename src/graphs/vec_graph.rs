@@ -403,10 +403,10 @@ impl SequentialLabeling for VecGraph {
 impl SequentialGraph for VecGraph {}
 
 impl RandomAccessLabeling for VecGraph {
-    type Labels<'succ> = core::iter::Map<
+    type Labels<'succ> = SortedIter<core::iter::Map<
         core::iter::Copied<core::slice::Iter<'succ, (usize, ())>>,
         fn((usize, ())) -> usize,
-    >;
+    >>;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
@@ -419,7 +419,8 @@ impl RandomAccessLabeling for VecGraph {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        self.0.succ[node].iter().copied().map(|x| x.0)
+        // this is safe as we mantain each vector of successors sorted
+        unsafe{SortedIter::new(self.0.succ[node].iter().copied().map(|(x, _)| x))}
     }
 }
 
