@@ -71,7 +71,7 @@ pub fn harness(data: FuzzCase) {
         .map(|(src, dst)| (src as usize, dst as usize))
         .collect::<Vec<_>>();
     edges.sort();
-    let graph = Left(VecGraph::from_arcs(edges));
+    let graph = VecGraph::from_arcs(edges);
     // Compress in big endian
     let mut codes_data_be: Vec<u64> = Vec::new();
     {
@@ -121,13 +121,13 @@ pub fn harness(data: FuzzCase) {
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
         MemCase::from(EmptyDict::default()),
-        comp_flags.clone(),
+        comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
         MemCase::from(EmptyDict::default()),
-        comp_flags.clone(),
+        comp_flags,
     )
     .unwrap();
 
@@ -185,7 +185,7 @@ pub fn harness(data: FuzzCase) {
     let mut seq_iter_le = seq_graph_le.offset_deg_iter();
     // verify that they are the same and build the offsets
     for node_id in 0..graph.num_nodes() {
-        let deg = graph.successors(node_id).into_iter().count();
+        let deg = graph.successors(node_id).count();
         let (offset_be, deg_be) = seq_iter_be.next().unwrap();
         let (offset_le, deg_le) = seq_iter_le.next().unwrap();
         assert_eq!(deg, deg_be);
@@ -199,20 +199,20 @@ pub fn harness(data: FuzzCase) {
     // verify that elias-fano has the right values
     assert_eq!(ef.len(), offsets.len());
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(ef.get(i as usize) as u64, *offset);
+        assert_eq!(ef.get(i) as u64, *offset);
     }
 
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
         MemCase::from(ef.clone()),
-        comp_flags.clone(),
+        comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
         MemCase::from(ef.clone()),
-        comp_flags.clone(),
+        comp_flags,
     )
     .unwrap();
 
@@ -243,7 +243,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(graph.outdegree(node_id), graph_be.outdegree(node_id));
         assert_eq!(graph.outdegree(node_id), graph_le.outdegree(node_id));
 
-        let true_successors = graph.successors(node_id).into_iter().collect::<Vec<_>>();
+        let true_successors = graph.successors(node_id).collect::<Vec<_>>();
         let be_successors = graph_be.successors(node_id).collect::<Vec<_>>();
         let le_successors = graph_le.successors(node_id).collect::<Vec<_>>();
 

@@ -31,7 +31,7 @@ macro_rules! impl_fuzz_repr {
                 let mut file = std::fs::File::open(&filename)?;
                 let metadata = std::fs::metadata(&filename)?;
                 let mut file_bytes = vec![0; metadata.len() as usize];
-                file.read(&mut file_bytes)?;
+                file.read_exact(&mut file_bytes)?;
 
                 let mut unstructured = arbitrary::Unstructured::new(&file_bytes);
                 let data = webgraph::fuzz::$fuzz_name::FuzzCase::arbitrary(&mut unstructured)?;
@@ -59,7 +59,7 @@ macro_rules! impl_fuzz_repr {
                 }
 
                 let mut file_bytes = vec![0; file.size() as usize];
-                file.read(&mut file_bytes)?;
+                file.read_exact(&mut file_bytes)?;
 
                 let mut unstructured = arbitrary::Unstructured::new(&file_bytes);
                 let data = webgraph::fuzz::$fuzz_name::FuzzCase::arbitrary(&mut unstructured)?;

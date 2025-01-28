@@ -20,7 +20,7 @@ use lender::prelude::*;
 /// [ε-serde](https://crates.io/crates/epserde). By setting the feature `serde`,
 /// this struct can be serialized using [serde](https://crates.io/crates/serde),
 /// too.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Clone, Debug, PartialEq, Eq)]
 pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
@@ -85,7 +85,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
                 true
             }
             Some((last, _label)) => {
-                match v.cmp(&last) {
+                match v.cmp(last) {
                     // arcs have to be inserted in order
                     core::cmp::Ordering::Less => panic!(
                         "Error adding arc ({u}, {v}) as its insertion is not monotonic. The last arc inserted was ({u}, {})",
@@ -283,7 +283,7 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 /// This is just a newtype for a [`LabeledVecGraph`] with
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
 /// All mutation methods are delegated.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
 

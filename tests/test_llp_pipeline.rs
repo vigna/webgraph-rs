@@ -102,7 +102,7 @@ fn llp_pipeline() -> Result<()> {
         .load()?;
 
     let final_graph =
-        webgraph::graphs::bvgraph::BvGraph::with_basename(&format!("{}-final", basename))
+        webgraph::graphs::bvgraph::BvGraph::with_basename(format!("{}-final", basename))
             .endianness::<BigEndian>()
             .load()?;
 
@@ -110,7 +110,7 @@ fn llp_pipeline() -> Result<()> {
     assert_eq!(original.num_arcs(), final_graph.num_arcs());
 
     let permutation =
-        JavaPermutation::mmap(&format!("{}.composed", basename), MmapFlags::RANDOM_ACCESS)?;
+        JavaPermutation::mmap(format!("{}.composed", basename), MmapFlags::RANDOM_ACCESS)?;
 
     for node in 0..original.num_nodes() {
         assert_eq!(

@@ -19,7 +19,7 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 ///
 /// By setting the feature `serde`, this struct can be serialized and
 /// deserialized using [serde](https://crates.io/crates/serde).
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug)]
 pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
@@ -247,7 +247,7 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 /// This is just a newtype for a [`LabeledBTreeGraph`] with
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
 /// mutation methods are delegated.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BTreeGraph(LabeledBTreeGraph<()>);
 
@@ -386,6 +386,7 @@ impl From<LabeledBTreeGraph<()>> for BTreeGraph {
 /// can store the successors of a node and their labels as a
 /// [`BTreeSet`] of pairs `(usize, L)`.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Successor<L: Clone + 'static>(usize, L);
 
 impl<L: Clone + 'static> PartialEq for Successor<L> {
