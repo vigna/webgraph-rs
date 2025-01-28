@@ -67,7 +67,7 @@ impl Compressor {
     /// counter-intuitive
     const NO_INTERVALS: usize = 0;
 
-    /// Creates a new empty compressor
+    /// Create a new empty compressor
     fn new() -> Self {
         Compressor {
             outdegree: 0,
@@ -307,7 +307,7 @@ impl<E: EncodeAndEstimate> BvComp<E> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
-    /// Creates a new BvGraph compressor.
+    /// Create a new BvGraph compressor.
     pub fn new(
         encoder: E,
         compression_window: usize,

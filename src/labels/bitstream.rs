@@ -48,7 +48,7 @@ where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
 {
-    /// Creates a new labeling using the given suppliers and offsets.
+    /// Create a new labeling using the given suppliers and offsets.
     ///
     /// # Arguments
     ///

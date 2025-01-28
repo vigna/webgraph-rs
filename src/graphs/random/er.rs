@@ -33,7 +33,7 @@ pub struct ErdosRenyi {
 }
 
 impl ErdosRenyi {
-    /// Creates a new Erdös-Rényi random graph, given the number of
+    /// Create a new Erdös-Rényi random graph, given the number of
     /// nodes, the probability of an edge between any two nodes, and a
     /// seed for the [pseudorandom number generator](SmallRng).
     pub fn new(n: usize, p: f64, seed: u64) -> Self {

@@ -74,7 +74,7 @@ pub trait SequentialLabeling {
         None
     }
 
-    /// Returns an iterator over the labeling.
+    /// Return an iterator over the labeling.
     ///
     /// Iterators over the labeling return pairs given by a node of the graph
     /// and an [`IntoIterator`] over the labels.
@@ -82,7 +82,7 @@ pub trait SequentialLabeling {
         self.iter_from(0)
     }
 
-    /// Returns an iterator over the labeling starting at `from` (included).
+    /// Return an iterator over the labeling starting at `from` (included).
     ///
     /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
     /// the node id of the first node returned by the iterator, but just the

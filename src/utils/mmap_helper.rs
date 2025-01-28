@@ -187,7 +187,7 @@ impl<W> MmapHelper<W, MmapMut> {
         })
     }
 
-    /// Creates and maps a file into memory (read/write), overwriting it if it exists.
+    /// Create and map a file into memory (read/write), overwriting it if it exists.
     ///
     /// # Arguments
     /// - `path`: The path to the file to be created.

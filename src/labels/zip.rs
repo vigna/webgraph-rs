@@ -37,11 +37,10 @@ which does not perform length checks. For extra safety, consider using
 pub struct Zip<L: SequentialLabeling, R: SequentialLabeling>(pub L, pub R);
 
 impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
-    // Performs a complete scan of the content of the two component
-    // labelings, returning true if they are compatible, that is,
-    // their iterators have the same length and return nodes in the
-    // same order, and the two iterators paired to each node return
-    // the same number of elements.
+    // Perform a complete scan of the content of the two component labelings,
+    // returning true if they are compatible, that is, their iterators have the
+    // same length and return nodes in the same order, and the two iterators
+    // paired to each node return the same number of elements.
     pub fn verify(&self) -> bool {
         let mut iter0 = self.0.iter();
         let mut iter1 = self.1.iter();

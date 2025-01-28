@@ -251,7 +251,7 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     path_buf
 }
 
-/// Creates all parent directories of the given file path.
+/// Create all parent directories of the given file path.
 pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     // ensure that the dst directory exists
     if let Some(parent_dir) = file_path.as_ref().parent() {

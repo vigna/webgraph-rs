@@ -42,7 +42,10 @@ use crate::prelude::{Pair, RandomAccessLabeling, SequentialLabeling};
 use impl_tools::autoimpl;
 use lender::*;
 
-use super::lenders::{LenderIntoIter, NodeLabelsLender};
+use super::{
+    lenders::{LenderIntoIter, NodeLabelsLender},
+    SortedIterator, SortedLender,
+};
 
 #[allow(non_camel_case_types)]
 struct this_method_cannot_be_called_use_successors_instead;
@@ -51,9 +54,8 @@ struct this_method_cannot_be_called_use_successors_instead;
 ///
 /// Note that there is no guarantee that the iterator will return nodes in
 /// ascending order, or the successors of a node will be returned in ascending
-/// order. The marker traits [`SortedLender`](super::labels::SortedLender) and
-/// [`SortedIterator`](super::labels::SortedIterator) can be used to force these
-/// properties.
+/// order. The marker traits [`SortedLender`] and [`SortedIterator`] can be used
+/// to force these properties.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
@@ -134,7 +136,7 @@ pub struct UnitLender<L>(pub L);
 
 impl<'succ, L> NodeLabelsLender<'succ> for UnitLender<L>
 where
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = (usize, ());
     type IntoIterator = UnitSuccessors<LenderIntoIter<'succ, L>>;
@@ -142,14 +144,14 @@ where
 
 impl<'succ, L> Lending<'succ> for UnitLender<L>
 where
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Lender> Lender for UnitLender<L>
+impl<L> Lender for UnitLender<L>
 where
-    L: IntoLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -158,6 +160,11 @@ where
             (t.0, UnitSuccessors(t.1.into_iter()))
         })
     }
+}
+
+unsafe impl<L: SortedLender> SortedLender for UnitLender<L> where
+    L: for<'next> NodeLabelsLender<'next, Label = usize>
+{
 }
 
 #[doc(hidden)]
@@ -171,6 +178,8 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
         Some((self.0.next()?, ()))
     }
 }
+
+unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSuccessors<I> {}
 
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());

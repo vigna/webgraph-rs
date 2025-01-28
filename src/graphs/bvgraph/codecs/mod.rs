@@ -99,7 +99,7 @@ pub trait RandomAccessDecoderFactory {
     where
         Self: 'a;
 
-    /// Creates a new reader starting at the given node.
+    /// Create a new reader starting at the given node.
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>>;
 }
 
@@ -110,6 +110,6 @@ pub trait SequentialDecoderFactory {
     where
         Self: 'a;
 
-    /// Creates a new reader starting at the given node.
+    /// Create a new reader starting at the given node.
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>>;
 }

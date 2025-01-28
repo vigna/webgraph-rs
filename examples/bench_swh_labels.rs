@@ -42,7 +42,7 @@ struct SwhDeserializer {
 }
 
 impl SwhDeserializer {
-    /// Creates a new [`SwhDeserializer`] with the given width.
+    /// Create a new [`SwhDeserializer`] with the given width.
     pub fn new(width: usize) -> Self {
         Self { width }
     }

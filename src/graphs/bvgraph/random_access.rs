@@ -26,7 +26,7 @@ pub struct BvGraph<F> {
 }
 
 impl BvGraph<()> {
-    /// Returns a load configuration that can be customized.
+    /// Return a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap> {
@@ -109,7 +109,7 @@ impl<F> BvGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    /// Creates a new BvGraph from the given parameters.
+    /// Create a new BvGraph from the given parameters.
     ///
     /// # Arguments
     /// - `reader_factory`: backend that can create objects that allows
@@ -330,7 +330,7 @@ where
     for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
-    /// Creates an iterator specialized in the degrees of the nodes.
+    /// Create an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
@@ -343,7 +343,7 @@ where
     }
 
     #[inline(always)]
-    /// Creates an iterator specialized in the degrees of the nodes starting
+    /// Create an iterator specialized in the degrees of the nodes starting
     /// from a given node.
     pub fn offset_deg_iter_from(&self, node: usize) -> OffsetDegIter<F::Decoder<'_>> {
         let mut backrefs = vec![0; self.compression_window];
@@ -397,7 +397,7 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
 unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
 impl<D: Decode> Succ<D> {
-    /// Creates an empty iterator
+    /// Create an empty iterator
     fn new(reader: D) -> Self {
         Self {
             reader,

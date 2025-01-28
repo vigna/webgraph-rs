@@ -36,7 +36,7 @@ impl<L: Clone + 'static> core::default::Default for LabeledVecGraph<L> {
 }
 
 impl<L: Clone + 'static> LabeledVecGraph<L> {
-    /// Creates a new empty graph.
+    /// Create a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -44,7 +44,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Creates a new empty graph with `n` nodes.
+    /// Create a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
@@ -52,23 +52,26 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Add an isolated node to the graph and return true if is a new node.
+    /// Add an isolated node to the graph and return true if it is a new node.
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
         self.succ.extend((len..=node).map(|_| Vec::new()));
         len <= node
     }
 
-    /// Add an arc to the graph, the arcs of each node have to be inserted in
-    /// increasing order.
+    /// Add an arc to the graph.
     ///
-    /// The label is not taken into account to check if the arc already exists.
+    /// New arcs must be added in increasing successor order, or this method
+    /// will panic.
     ///
     /// # Panics
-    /// - If the given nodes are bigger or equal than the number of nodes in the graph.
-    /// - If the inserted arc destination `v` is not bigger than all the sucessors
-    ///      of the node `u`.
-    pub fn add_arc(&mut self, u: usize, v: usize, l: L) -> bool {
+    ///
+    /// This method will panic:
+    /// - if one of the given nodes is greater or equal than the number of nodes
+    ///   in the graph;
+    /// - if the successor is lesser than or equal to the current last successor
+    ///   of the source node.
+    pub fn add_arc(&mut self, u: usize, v: usize, l: L) {
         let max = u.max(v);
         if max >= self.succ.len() {
             panic!(
@@ -78,32 +81,31 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
             );
         }
         let succ = &mut self.succ[u];
+
         match succ.last() {
             None => {
                 succ.push((v, l));
                 self.number_of_arcs += 1;
-                true
             }
             Some((last, _label)) => {
-                match v.cmp(last) {
-                    // arcs have to be inserted in order
-                    core::cmp::Ordering::Less => panic!(
-                        "Error adding arc ({u}, {v}) as its insertion is not monotonic. The last arc inserted was ({u}, {})",
-                        last,
-                    ),
-                    // no duplicated arcs
-                    core::cmp::Ordering::Equal => false,
-                    core::cmp::Ordering::Greater => {
-                        succ.push((v, l));
-                        self.number_of_arcs += 1;
-                        true
-                    }
+                if v <= *last {
+                    // arcs have to be inserted in increasing successor order
+                    panic!(
+                        "Error adding arc ({u}, {v}): successor is not increasing; the last arc inserted was ({u}, {last})"
+                    );
                 }
+                succ.push((v, l));
+                self.number_of_arcs += 1;
             }
         }
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Add nodes and successors from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// If the lender is sorted, consider using
+    /// [`add_sorted_lender`](Self::add_sorted_lender), as it does not need to
+    /// sort the output of the lender.
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -123,7 +125,12 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         self
     }
 
-    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Create a new graph from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// If the lender is sorted, consider using
+    /// [`from_sorted_lender`](Self::from_sorted_lender), as it does not need to
+    /// sort the output of the lender.
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -133,10 +140,16 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         g
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a sorted [`NodeLabelsLender`].
+    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// [`NodeLabelsLender`].
+    ///
+    /// This method is faster than [`add_lender`](Self::add_lender) as
+    /// it does not need to sort the output of the lender.
     pub fn add_sorted_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
     {
         for_!( (node, succ) in iter_nodes {
             self.add_node(node);
@@ -148,22 +161,26 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         self
     }
 
-    /// Creates a new graph from a sorted [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Create a new graph from a sorted [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// This method is faster than [`from_lender`](Self::from_lender) as
+    /// it does not need to sort the output of the lender.
     pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
     {
         let mut g = Self::new();
         g.add_sorted_lender(iter_nodes);
         g
     }
 
-    /// Add arcs from an [`IntoIterator`].
+    /// Add labeled arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
+    /// The items must be triples of the form `(usize, usize, l)` specifying an
+    /// arc and its label.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize, L)>) {
         let mut arcs = arcs.into_iter().collect::<Vec<_>>();
         arcs.sort_by_key(|x| (x.0, x.1));
@@ -174,37 +191,13 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Creates a new graph from an [`IntoIterator`].
+    /// Create a new graph from an [`IntoIterator`].
     ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying
-    /// an arc and its label.
+    /// The items must be triples of the form `(usize, usize, l)` specifying an
+    /// arc and its label.
     pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
         let mut g = Self::new();
         g.add_arcs(arcs);
-        g
-    }
-
-    /// Add arcs from a sorted [`IntoIterator`] of paris of nodes.
-    ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
-    pub fn add_sorted_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize, L)>) {
-        for (u, v, l) in arcs {
-            self.add_node(u);
-            self.add_node(v);
-            self.add_arc(u, v, l);
-        }
-    }
-
-    /// Creates a new graph from a sorted [`IntoIterator`].
-    ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying
-    /// an arc and its label.
-    pub fn from_sorted_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
-        let mut g = Self::new();
-        g.add_sorted_arcs(arcs);
         g
     }
 }
@@ -266,12 +259,12 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 
-/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
+/// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// vectors.
 ///
-/// This implementation is faster and uses less resources than a
-/// [`BTreeGraph`](crate::graphs::btree_graph::BTreeGraph), but it
-/// is less flexible as arcs can be added only in increasing successor order.
+/// This implementation is faster and uses less resources than a [`BTreeGraph`],
+/// but it is less flexible as arcs can be added only in increasing successor
+/// order.
 ///
 /// This struct can be serialized with
 /// [ε-serde](https://crates.io/crates/epserde). By setting the feature `serde`,
@@ -281,40 +274,50 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 /// # Implementation Notes
 ///
 /// This is just a newtype for a [`LabeledVecGraph`] with
-/// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
-/// All mutation methods are delegated.
+/// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
+/// mutation methods are delegated.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
 
 impl VecGraph {
-    /// Creates a new empty graph.
+    /// Create a new empty graph.
     pub fn new() -> Self {
-        Self(LabeledVecGraph::new())
+        LabeledVecGraph::new().into()
     }
 
-    /// Creates a new empty graph with `n` nodes.
+    /// Create a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
-        Self(LabeledVecGraph::empty(n))
+        LabeledVecGraph::empty(n).into()
     }
 
-    /// Add an isolated node to the graph and return true if is a new node.
+    /// Add an isolated node to the graph and return true if it is a new node.
     pub fn add_node(&mut self, node: usize) -> bool {
         self.0.add_node(node)
     }
 
-    /// Add an arc to the graph, the arcs of each node have to be inserted in
-    /// increasing order.
+    /// Add an arc to the graph.
+    ///
+    /// New arcs must be added in increasing successor order, or this method
+    /// will panic.
     ///
     /// # Panics
-    /// - If the given nodes are bigger or equal than the number of nodes in the graph.
-    /// - If the inserted arc destination `v` is not bigger than all the sucessors
-    ///      of the node `u`.
-    pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
+    ///
+    /// This method will panic:
+    /// - if one of the given nodes is greater or equal than the number of nodes
+    ///   in the graph;
+    /// - if the successor is lesser than or equal to the current last successor
+    ///   of the source node.
+    pub fn add_arc(&mut self, u: usize, v: usize) {
         self.0.add_arc(u, v, ())
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Add nodes and successors from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// If the lender is sorted, consider using
+    /// [`add_sorted_lender`](Self::add_sorted_lender), as it does not need to
+    /// sort the output of the lender.
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -323,7 +326,12 @@ impl VecGraph {
         self
     }
 
-    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Create a new graph from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// If the lender is sorted, consider using
+    /// [`from_sorted_lender`](Self::from_sorted_lender), as it does not need to
+    /// sort the output of the lender.
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -333,64 +341,51 @@ impl VecGraph {
         g
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a sorted [`NodeLabelsLender`].
+    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// [`NodeLabelsLender`].
+    ///
+    /// This method is faster than [`add_lender`](Self::add_lender) as
+    /// it does not need to sort the output of the lender.
     pub fn add_sorted_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
     {
         self.0
             .add_sorted_lender(UnitLender(iter_nodes.into_lender()));
         self
     }
 
-    /// Creates a new graph from a sorted [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Create a new graph from a sorted [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// This method is faster than [`from_lender`](Self::from_lender) as
+    /// it does not need to sort the output of the lender.
     pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
     {
         let mut g = Self::new();
         g.add_sorted_lender(iter_nodes);
         g
     }
 
-    /// Add arcs from an [`IntoIterator`].
+    /// Add arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
+    /// The items must be pairs of the form `(usize, usize)` specifying an arc.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
         self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
     }
 
-    /// Creates a new graph from an [`IntoIterator`].
+    /// Create a new graph from an [`IntoIterator`].
     ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying
-    /// an arc and its label.
+    /// The items must be pairs of the form `(usize, usize)` specifying an arc.
     pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {
         let mut g = Self::new();
         g.add_arcs(arcs);
-        g
-    }
-
-    /// Add arcs from a sorted [`IntoIterator`] of paris of nodes.
-    ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
-    pub fn add_sorted_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
-        self.0
-            .add_sorted_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
-    }
-
-    /// Creates a new graph from a sorted [`IntoIterator`].
-    ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying
-    /// an arc and its label.
-    pub fn from_sorted_arcs(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {
-        let mut g = Self::new();
-        g.add_sorted_arcs(arcs);
         g
     }
 }
@@ -457,6 +452,12 @@ impl RandomAccessLabeling for VecGraph {
 }
 
 impl RandomAccessGraph for VecGraph {}
+
+impl From<LabeledVecGraph<()>> for VecGraph {
+    fn from(g: LabeledVecGraph<()>) -> Self {
+        VecGraph(g)
+    }
+}
 
 #[cfg(test)]
 mod test {

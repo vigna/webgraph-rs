@@ -61,7 +61,7 @@ impl<
         const K: u64,
     > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 {
-    /// Creates a new [`ConstCodesEncoder`] with the given [`CodeWrite`] implementation.
+    /// Create a new [`ConstCodesEncoder`] with the given [`CodeWrite`] implementation.
     pub fn new(code_writer: CW) -> Self {
         Self {
             code_writer,

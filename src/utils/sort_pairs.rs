@@ -121,7 +121,7 @@ pub struct SortPairs<
 }
 
 impl SortPairs<(), ()> {
-    /// Creates a new `SortPairs` without labels.
+    /// Create a new `SortPairs` without labels.
     ///
     /// The `dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances. Please use the
@@ -140,7 +140,7 @@ impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone>
 where
     S::SerType: Send + Sync + Copy,
 {
-    /// Creates a new `SortPairs` with labels.
+    /// Create a new `SortPairs` with labels.
     ///
     /// The `dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances. Please use the
@@ -182,14 +182,14 @@ where
         Ok(())
     }
 
-    /// Dumps the current batch to disk
+    /// Dump the current batch to disk
     fn dump(&mut self) -> anyhow::Result<()> {
         // This method must be idempotent as it is called by `iter`
         if self.batch.is_empty() {
             return Ok(());
         }
 
-        // Creates a batch file where to dump
+        // Create a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
         BatchIterator::new_from_vec_labeled(
             batch_name,
@@ -217,7 +217,7 @@ where
         Ok(())
     }
 
-    /// Returns an iterator over the labeled pairs, lexicographically sorted.
+    /// Return an iterator over the labeled pairs, lexicographically sorted.
     pub fn iter(&mut self) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
@@ -260,7 +260,7 @@ impl BatchIterator<()> {
             (),
         )
     }
-    /// Dumps the given triples in `file_path` and returns an iterator over
+    /// Dump the given triples in `file_path` and return an iterator over
     /// them, assuming they are already sorted.
     pub fn new_from_vec_sorted<P: AsRef<Path>>(
         file_path: P,
@@ -294,7 +294,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         Self::new_from_vec_sorted_labeled(file_path, batch, serializer, deserializer)
     }
 
-    /// Dumps the given labeled pairs in `file_path` and returns an iterator
+    /// Dump the given labeled pairs in `file_path` and return an iterator
     /// over them, assuming they are already sorted.
     pub fn new_from_vec_sorted_labeled<S: BitSerializer<NE, BitWriter>>(
         file_path: impl AsRef<Path>,
@@ -349,7 +349,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         Self::new_labeled(file_path, batch.len(), deserializer)
     }
 
-    /// Creates a new iterator over the triples previously serialized in `file_path`.
+    /// Create a new iterator over the triples previously serialized in `file_path`.
     pub fn new_labeled<P: AsRef<std::path::Path>>(
         file_path: P,
         len: usize,

@@ -34,12 +34,13 @@ impl<L: Clone + 'static> core::default::Default for LabeledBTreeGraph<L> {
     }
 }
 
-/// Manual implementation of [`PartialEq`]. This is needed because the private struct
-/// [`Successor`] that we use to store in a [`BTreeSet`] the tuple `(usize, Label)`
-/// implements [`PartialEq`] ignoring the label so it enforces the absence of
-/// duplicate arcs. This implies that the derived implementation of [`PartialEq`]
-/// would not check labels, so the same graph with different labels would result
-/// as equal, and this is not the intended result.
+/// Manual implementation of [`PartialEq`]. This implementation is necessary
+/// because the private struct [`Successor`] that we use to store in a
+/// [`BTreeSet`] the tuple `(usize, Label)` implements [`PartialEq`] ignoring
+/// the label so to enforce the absence of duplicate arcs. This implies that the
+/// derived implementation of [`PartialEq`] would not check labels, so the same
+/// graph with different labels would be equal, and this is not the intended
+/// semantics.
 impl<L: Clone + 'static + PartialEq> PartialEq for LabeledBTreeGraph<L> {
     fn eq(&self, other: &Self) -> bool {
         if self.number_of_arcs != other.number_of_arcs {
@@ -66,7 +67,7 @@ impl<L: Clone + 'static + PartialEq> PartialEq for LabeledBTreeGraph<L> {
 impl<L: Clone + 'static + Eq> Eq for LabeledBTreeGraph<L> {}
 
 impl<L: Clone + 'static> LabeledBTreeGraph<L> {
-    /// Creates a new empty graph.
+    /// Create a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -74,7 +75,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         }
     }
 
-    /// Creates a new empty graph with `n` nodes.
+    /// Create a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
@@ -82,14 +83,19 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         }
     }
 
-    /// Add an isolated node to the graph and return true if is a new node.
+    /// Add an isolated node to the graph and return true if it is a new node.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if one of the given nodes is greater or equal
+    /// than the number of nodes in the graph.
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
         self.succ.extend((len..=node).map(|_| BTreeSet::new()));
         len <= node
     }
 
-    /// Add an arc to the graph and return whether it is a new one.
+    /// Add a labeled arc to the graph and return whether it is a new one.
     pub fn add_arc(&mut self, u: usize, v: usize, l: L) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -123,7 +129,8 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         result
     }
 
-    /// Add nodes and labeled successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Add nodes and labeled successors from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I)
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -137,7 +144,8 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         });
     }
 
-    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Create a new graph from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -147,12 +155,10 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         g
     }
 
-    /// Add labeled arcs from an [`IntoIterator`].
+    /// Add labeled arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying
-    /// an arc and its label.
-    ///
-    /// Note that new nodes will be added as needed.
+    /// The items must be triples of the form `(usize, usize, l)` specifying an
+    /// arc and its label.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize, L)>) {
         for (u, v, l) in arcs {
             self.add_node(u);
@@ -161,10 +167,10 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         }
     }
 
-    /// Creates a new graph from an [`IntoIterator`].
+    /// Create a new graph from an [`IntoIterator`].
     ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying
-    /// an arc and its label.
+    /// The items must be triples of the form `(usize, usize, l)` specifying an
+    /// arc and its label.
     pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
         let mut g = Self::new();
         g.add_arcs(arcs);
@@ -235,9 +241,8 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// [`BTreeSet`].
 ///
-/// This implementation is slower and uses more resources than a
-/// [`VecGraph`](crate::graphs::vec_graph::VecGraph), but it is more flexible as
-/// arcs can be added in any order.
+/// This implementation is slower and uses more resources than a [`VecGraph`],
+/// but it is more flexible as arcs can be added in any order.
 ///
 /// By setting the feature `serde`, this struct can be serialized and
 /// deserialized using [serde](https://crates.io/crates/serde).
@@ -252,17 +257,17 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 pub struct BTreeGraph(LabeledBTreeGraph<()>);
 
 impl BTreeGraph {
-    /// Creates a new empty graph.
+    /// Create a new empty graph.
     pub fn new() -> Self {
         Self(LabeledBTreeGraph::new())
     }
 
-    /// Creates a new empty graph with `n` nodes.
+    /// Create a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         LabeledBTreeGraph::empty(n).into()
     }
 
-    /// Add an isolated node to the graph and return true if is a new node.
+    /// Add an isolated node to the graph and return true if it is a new node.
     pub fn add_node(&mut self, node: usize) -> bool {
         self.0.add_node(node)
     }
@@ -272,7 +277,8 @@ impl BTreeGraph {
         self.0.add_arc(u, v, ())
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Add nodes and successors from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -281,17 +287,8 @@ impl BTreeGraph {
         self
     }
 
-    /// Add arcs from an [`IntoIterator`].
-    ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
-    pub fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
-        self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
-    }
-
-    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    /// Create a new graph from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -301,13 +298,20 @@ impl BTreeGraph {
         g
     }
 
-    /// Creates a new graph from  an [`IntoIterator`].
+    /// Add arcs from an [`IntoIterator`], adding new nodes as needed.
+    ///
+    /// The items must be pairs of the form `(usize, usize)` specifying an arc.
+    pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
+        self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
+    }
+
+    /// Create a new graph from  an [`IntoIterator`].
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying
     /// an arc.
     pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {
         let mut g = Self::new();
-        g.add_arc_list(arcs);
+        g.add_arcs(arcs);
         g
     }
 }

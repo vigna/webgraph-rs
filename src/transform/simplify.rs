@@ -19,7 +19,7 @@ use tempfile::Builder;
 
 use super::transpose;
 
-/// Returns a simplified (i.e., undirected and loopless) version of the provided
+/// Return a simplified (i.e., undirected and loopless) version of the provided
 /// sorted (both on nodes and successors) graph as a [sequential
 /// graph](crate::traits::SequentialGraph).
 ///
@@ -43,7 +43,7 @@ where
     Ok(NoSelfLoopsGraph(UnionGraph(graph, transpose)))
 }
 
-/// Returns a simplified (i.e., undirected and loopless) version of the provided
+/// Return a simplified (i.e., undirected and loopless) version of the provided
 /// graph as a [sequential graph](crate::traits::SequentialGraph).
 ///
 /// Note that if the graph is sorted (both on nodes and successors), it is
@@ -101,7 +101,7 @@ pub fn simplify(
     Ok(Left(sorted))
 }
 
-/// Returns a simplified (i.e., undirected and loopless) version of the provided
+/// Return a simplified (i.e., undirected and loopless) version of the provided
 /// graph as a [sequential graph](crate::traits::SequentialGraph).
 ///
 /// This method uses splitting to sort in parallel different parts of the graph.

@@ -9,7 +9,7 @@ and `BTreeGraph`. The latter two structures implements the functionality of the
 old `VecGraph` structure. Migration from the old `VecGraph` requires usually
 just dropping the `Left` projector. The main source of incompatibility is that
 in the new `VecGraph` arcs can be added only in increasing successor order.
-Moreover, `LabeledVecGraph` and `VecGraph` are two different types.
+Moreover, `LabeledVecGraph` and `VecGraph` are now two different types.
 
 ### Improved
 

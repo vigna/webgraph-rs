@@ -16,7 +16,7 @@ use std::path::PathBuf;
 pub const COMMAND_NAME: &str = "rand";
 
 #[derive(Args, Debug)]
-#[command(about = "Create a random permutation.", long_about = None)]
+#[command(about = "Creates a random permutation.", long_about = None)]
 pub struct CliArgs {
     /// The number of elements in the permutation.
     pub len: usize,

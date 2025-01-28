@@ -22,7 +22,7 @@ pub(crate) struct CircularBuffer<T: Default> {
 }
 
 impl<T: Default> CircularBuffer<T> {
-    /// Creates a new circular buffer which can hold `len` values.
+    /// Create a new circular buffer which can hold `len` values.
     pub(crate) fn new(len: usize) -> Self {
         Self {
             data: (0..len).map(|_| T::default()).collect::<Vec<_>>(),
