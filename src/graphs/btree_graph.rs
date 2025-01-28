@@ -13,6 +13,10 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
 /// [`BTreeSet`].
 ///
+/// This implementation is slower and uses more resources than a
+/// [`LabeledVecGraph`](crate::graphs::vec_graph::LabeledVecGraph),
+/// but it is more flexible as arcs can be added in any order.
+///
 /// By setting the feature `serde`, this struct can be serialized and
 /// deserialized using [serde](https://crates.io/crates/serde).
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -200,14 +204,18 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// [`BTreeSet`].
 ///
+/// This implementation is slower and uses more resources than a
+/// [`VecGraph`](crate::graphs::vec_graph::VecGraph), but it is more flexible as
+/// arcs can be added in any order.
+///
 /// By setting the feature `serde`, this struct can be serialized and
 /// deserialized using [serde](https://crates.io/crates/serde).
 ///
 /// # Implementation Notes
 ///
 /// This is just a newtype for a [`LabeledBTreeGraph`] with
-/// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
-/// All mutation methods are delegated.
+/// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
+/// mutation methods are delegated.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BTreeGraph(LabeledBTreeGraph<()>);

@@ -29,7 +29,7 @@ fn test_permuted() {
     //       `-> 4
     // 2 -> 0
     let permuted_graph = PermutedGraph {
-        graph: &Left(graph),
+        graph: &graph,
         perm: &perm,
     };
 

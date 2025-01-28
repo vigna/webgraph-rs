@@ -219,7 +219,7 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
 #[cfg(test)]
 #[cfg_attr(test, test)]
 fn test() -> anyhow::Result<()> {
-    use crate::graphs::vec_graph::VecGraph;
+    use crate::graphs::vec_graph::LabeledVecGraph;
     let arcs = [
         (0, 1, Some(1.0)),
         (0, 2, None),
@@ -229,9 +229,9 @@ fn test() -> anyhow::Result<()> {
         (2, 4, Some(f64::INFINITY)),
         (3, 4, Some(f64::NEG_INFINITY)),
     ];
-    let g = VecGraph::from_arcs(arcs.iter().copied());
+    let g = LabeledVecGraph::<_>::from_arcs(arcs);
     let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
-    let g2 = VecGraph::from_lender(&coo);
+    let g2 = LabeledVecGraph::<_>::from_lender(coo.iter());
     assert_eq!(g, g2);
     Ok(())
 }

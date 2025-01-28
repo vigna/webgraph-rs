@@ -7,7 +7,6 @@
 
 use lender::*;
 use webgraph::graphs::vec_graph::VecGraph;
-use webgraph::labels::proj::LeftIntoIter;
 use webgraph::labels::Zip;
 use webgraph::traits::RandomAccessLabeling;
 
@@ -22,7 +21,7 @@ fn test_zip() {
         assert_eq!(z.labels(x).collect::<Vec<_>>(), s);
         assert_eq!(
             z.labels(x).collect::<Vec<_>>(),
-            v.labels(x).collect::<Vec<_>>()
+            v.labels(x).map(|x| (x, x)).collect::<Vec<_>>()
         )
     }
 }

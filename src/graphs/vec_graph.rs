@@ -8,7 +8,16 @@
 use crate::prelude::*;
 
 use lender::prelude::*;
-
+/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
+/// vectors.
+///
+/// This implementation is faster and uses less resources than a
+/// [`LabeledBTreeGraph`](crate::graphs::btree_graph::LabeledBTreeGraph), but it
+/// is less flexible as arcs can be added only in increasing successor order.
+///
+/// By setting the feature `serde`, this struct can be serialized and
+/// deserialized using [serde](https://crates.io/crates/serde).
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
@@ -246,14 +255,22 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 
-/// A mutable [`RandomAccessGraph`] implementation based on a vector of vectors.
-/// The arcs of each node has to be inserted monotonically.
+/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
+/// vectors.
+///
+/// This implementation is faster and uses less resources than a
+/// [`BTreeGraph`](crate::graphs::btree_graph::BTreeGraph), but it
+/// is less flexible as arcs can be added only in increasing successor order.
+///
+/// By setting the feature `serde`, this struct can be serialized and
+/// deserialized using [serde](https://crates.io/crates/serde).
 ///
 /// # Implementation Notes
 ///
 /// This is just a newtype for a [`LabeledVecGraph`] with
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
 /// All mutation methods are delegated.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
 
