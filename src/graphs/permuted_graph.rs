@@ -157,6 +157,7 @@ impl<I: ExactSizeIterator<Item = usize>, P: BitFieldSlice<usize>> ExactSizeItera
 #[cfg(test)]
 #[test]
 fn test_permuted_graph() -> anyhow::Result<()> {
+    use crate::graphs::vec_graph::MutableGraph;
     use crate::{graphs::vec_graph::VecGraph, prelude::proj::Left};
     let g = VecGraph::from_arc_list([(0, 1), (1, 2), (2, 0), (2, 1)]);
     let p = PermutedGraph {
@@ -165,7 +166,9 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     };
     assert_eq!(p.num_nodes(), 3);
     assert_eq!(p.num_arcs_hint(), Some(4));
-    let v = Left(VecGraph::from_lender(p.iter()));
+    let mut v = Left(VecGraph::from_lender(p.iter()));
+
+    v.add_arc(0, 1);
 
     assert_eq!(v.num_nodes(), 3);
     assert_eq!(v.outdegree(0), 1);

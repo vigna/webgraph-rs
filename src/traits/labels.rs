@@ -107,7 +107,7 @@ pub trait SequentialLabeling {
         fold: R,
         node_granularity: usize,
         thread_pool: &ThreadPool,
-        pl: Option<&mut ProgressLogger>,
+        pl: &mut impl ConcurrentProgressLog,
     ) -> A
     where
         F: Fn(Range<usize>) -> T + Send + Sync,
@@ -115,7 +115,6 @@ pub trait SequentialLabeling {
         T: Send,
         A: Default + Send,
     {
-        let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_scoped_threads = thread_pool
             .current_num_threads()
@@ -129,7 +128,7 @@ pub trait SequentialLabeling {
         thread_pool.in_place_scope(|scope| {
             for _ in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
-                let pl_lock = &pl_lock;
+                let mut pl = pl.clone();
                 let next_node = &next_node;
                 let func = &func;
                 let tx = tx.clone();
@@ -147,12 +146,7 @@ pub trait SequentialLabeling {
                         tx.send(func(start_pos..end_pos)).unwrap();
 
                         // update the progress logger if specified
-                        if let Some(pl_lock) = pl_lock {
-                            pl_lock
-                                .lock()
-                                .unwrap()
-                                .update_with_count((start_pos..end_pos).len());
-                        }
+                        pl.update_with_count((start_pos..end_pos).len());
                     }
                 });
             }
@@ -187,7 +181,7 @@ pub trait SequentialLabeling {
         arc_granularity: usize,
         deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
         thread_pool: &ThreadPool,
-        pl: Option<&mut ProgressLogger>,
+        pl: &mut impl ConcurrentProgressLog,
     ) -> A
     where
         F: Fn(Range<usize>) -> T + Send + Sync,
@@ -195,7 +189,6 @@ pub trait SequentialLabeling {
         T: Send,
         A: Default + Send,
     {
-        let pl_lock = pl.map(std::sync::Mutex::new);
         let num_nodes = self.num_nodes();
         let num_arcs = self.num_arcs_hint().unwrap();
         let num_scoped_threads = thread_pool
@@ -214,7 +207,7 @@ pub trait SequentialLabeling {
 
             for _ in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
-                let pl_lock = &pl_lock;
+                let mut pl = pl.clone();
                 let next_node_next_arc = &next_node_next_arc;
                 let func = &func;
                 let tx = tx.clone();
@@ -245,12 +238,7 @@ pub trait SequentialLabeling {
                         tx.send(func(start_pos..end_pos)).unwrap();
 
                         // update the progress logger if specified
-                        if let Some(pl_lock) = pl_lock {
-                            pl_lock
-                                .lock()
-                                .unwrap()
-                                .update_with_count((start_pos..end_pos).len());
-                        }
+                        pl.update_with_count((start_pos..end_pos).len());
                     }
                 });
             }

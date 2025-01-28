@@ -12,21 +12,30 @@ categories = ["compression", "data-structures"]
 
 [features]
 default = ["cli"]
-cli = ["dep:clap", "dep:clap_complete", "dep:env_logger"] # Enable the compilation of the webgraph binary
+cli = [
+	"dep:clap",
+	"dep:clap_complete",
+	"dep:env_logger",
+] # Enable the compilation of the webgraph binary
 slow_tests = [] # Test feature that enables long running tests
 be_bins = [] # Enable read / write of only BE bvgraphs (to reduce code size)
 le_bins = [] # Enable read / write of only LE bvgraphs (to reduce code size)
-fuzz = ["dep:arbitrary", "dep:zip", "dsi-bitstream/fuzz"] # Expose the fuzzing harnesses
+fuzz = [
+	"dep:arbitrary",
+	"dep:zip",
+	"dsi-bitstream/fuzz",
+] # Expose the fuzzing harnesses
 
 [dependencies]
-anyhow = { version = "1.0.79", features=["backtrace"]}
+anyhow = { version = "1.0.79", features = ["backtrace"] }
 java-properties = "2.0.0"
 mmap-rs = "0.6.1"
 num_cpus = "1.16.0"
 epserde = "0.6.1"
 sux = "0.4.1"
 dsi-bitstream = "0.4.0"
-dsi-progress-logger = "0.2.4"
+# dsi-progress-logger = "0.2.4"
+dsi-progress-logger = { path = "../dsi-progress-logger-rs" }
 log = "0.4.22"
 rand = { version = "0.8.5", features = ["small_rng"] }
 rayon = "1.10.0"
@@ -39,31 +48,31 @@ common_traits = "0.10.0"
 impl-tools = "0.10.0"
 bitflags = "2.6.0"
 dary_heap = "0.3.6"
-rdst = { version  ="0.20.14", features = ["multi-threaded"] }
+rdst = { version = "0.20.14", features = ["multi-threaded"] }
 sealed = "0.5.0"
 
 # Cli
 clap = { version = "4.5.11", features = ["derive", "string"], optional = true }
-clap_complete = {version = "4.4.11", optional = true}
-env_logger = {version = "0.11.5", optional = true}
+clap_complete = { version = "4.4.11", optional = true }
+env_logger = { version = "0.11.5", optional = true }
 
 # Fuzzing deps
 arbitrary = { version = "1.3.2", features = ["derive"], optional = true }
-zip = {version="2.1.5", optional=true}
+zip = { version = "2.1.5", optional = true }
 predicates = "3.1.2"
 sysinfo = "0.30.13"
 sync-cell-slice = "0.9.9"
 
 [build-dependencies]
-built = { version = "0.7", features= ["chrono", "git2"] }
+built = { version = "0.7", features = ["chrono", "git2"] }
 
 [profile.release] # Used for the examples
-opt-level = 3             # like --release
-lto = "fat"               # Full LTO
-overflow-checks = false   # Disable integer overflow checks.
-debug = true              # Include debug info.
-debug-assertions = false  # Enables debug assertions.
-codegen-units=1           # slower compile times, but maybe better perf
+opt-level = 3            # like --release
+lto = "fat"              # Full LTO
+overflow-checks = false  # Disable integer overflow checks.
+debug = true             # Include debug info.
+debug-assertions = false # Enables debug assertions.
+codegen-units = 1        # slower compile times, but maybe better perf
 
 [lib]
 name = "webgraph"

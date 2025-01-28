@@ -125,7 +125,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     let hash_map_init = Ord::max(sym_graph.num_arcs() / sym_graph.num_nodes() as u64, 16) as usize;
 
     // init the update progress logger
-    let mut update_pl = progress_logger!(item_name = "node", local_speed = true);
+    let mut update_pl = concurrent_progress_logger!(item_name = "node", local_speed = true);
 
     let seed = AtomicU64::new(seed);
     let mut costs = Vec::with_capacity(gammas.len());
@@ -259,7 +259,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                 granularity,
                 deg_cumul,
                 &thread_pool,
-                Some(&mut update_pl),
+                &mut update_pl,
             );
 
             update_pl.done_with_count(num_nodes);
@@ -330,7 +330,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
             granularity,
             deg_cumul,
             &thread_pool,
-            Some(&mut update_pl),
+            &mut update_pl,
         );
 
         update_pl.done();

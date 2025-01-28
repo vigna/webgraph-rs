@@ -21,7 +21,7 @@ pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     arc_granularity: usize,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     thread_pool: &ThreadPool,
-    pr: Option<&mut ProgressLogger>,
+    pr: &mut impl ConcurrentProgressLog,
 ) -> f64 {
     graph.par_apply(
         |range| {
