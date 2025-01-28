@@ -13,7 +13,7 @@ use webgraph::traits::RandomAccessLabeling;
 
 #[test]
 fn test_left() {
-    let v = VecGraph::from_arc_list([(0, 1), (1, 2), (2, 0)]);
+    let v = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let z = Zip(v.clone(), v.clone());
     let p = Left(z);
     let mut lender = p.into_lender();
