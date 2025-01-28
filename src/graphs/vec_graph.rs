@@ -78,19 +78,27 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
             );
         }
         let succ = &mut self.succ[u];
-        let biggest_dst = succ.last().map(|x| x.0).unwrap_or(0);
-        match v.cmp(&biggest_dst) {
-            // arcs have to be inserted in order
-            core::cmp::Ordering::Less => panic!(
-                "Error adding arc ({u}, {v}) as its insertion is not monotonic. The last arc inserted was ({u}, {})",
-                biggest_dst,
-            ),
-            // no duplicated arcs
-            core::cmp::Ordering::Equal => succ.last().is_none(),
-            core::cmp::Ordering::Greater => {
+        match succ.last() {
+            None => {
                 succ.push((v, l));
                 self.number_of_arcs += 1;
                 true
+            }
+            Some((last, _label)) => {
+                match v.cmp(&last) {
+                    // arcs have to be inserted in order
+                    core::cmp::Ordering::Less => panic!(
+                        "Error adding arc ({u}, {v}) as its insertion is not monotonic. The last arc inserted was ({u}, {})",
+                        last,
+                    ),
+                    // no duplicated arcs
+                    core::cmp::Ordering::Equal => false,
+                    core::cmp::Ordering::Greater => {
+                        succ.push((v, l));
+                        self.number_of_arcs += 1;
+                        true
+                    }
+                }
             }
         }
     }
