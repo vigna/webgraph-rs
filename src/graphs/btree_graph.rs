@@ -125,7 +125,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     ///
     /// The items must be triples of the form `(usize, usize, l)` specifying
     /// an arc and its label.
-    pub fn from_arc_list(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
+    pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
         let mut g = Self::new();
         g.add_arcs(arcs);
         g
@@ -263,7 +263,7 @@ impl BTreeGraph {
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying
     /// an arc.
-    pub fn from_arc_list(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {
+    pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {
         let mut g = Self::new();
         g.add_arc_list(arcs);
         g
@@ -392,7 +392,7 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
 
 #[test]
 fn test_remove() {
-    let mut g = LabeledBTreeGraph::<_>::from_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
+    let mut g = LabeledBTreeGraph::<_>::from_arcs([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
     assert!(g.remove_arc(0, 2));
     assert!(!g.remove_arc(0, 2));
 }

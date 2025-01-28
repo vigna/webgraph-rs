@@ -196,7 +196,7 @@ mod tests {
     fn test_union_graph() -> anyhow::Result<()> {
         use crate::{graphs::vec_graph::VecGraph, prelude::proj::Left};
         let g = [
-            Left(VecGraph::from_arc_list([
+            Left(VecGraph::from_arcs([
                 (0, 1),
                 (0, 3),
                 (1, 2),
@@ -207,7 +207,7 @@ mod tests {
                 (3, 5),
                 (4, 1),
             ])),
-            Left(VecGraph::from_arc_list([
+            Left(VecGraph::from_arcs([
                 (1, 2),
                 (1, 3),
                 (2, 1),

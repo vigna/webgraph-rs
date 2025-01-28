@@ -130,7 +130,7 @@ impl VecGraph {
     /// an arc.
     ///
     /// Note that new nodes will be added as needed.
-    fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
+    fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
         let mut arcs = arcs.collect::<Vec<_>>();
         arcs.sort();
         for (u, v) in arcs {
@@ -146,12 +146,52 @@ impl VecGraph {
     /// an arc.
     ///
     /// Note that new nodes will be added as needed.
-    fn add_sorted_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
+    fn add_sorted_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
         for (u, v) in arcs {
             self.add_node(u);
             self.add_node(v);
             self.add_arc(u, v);
         }
+    }
+
+    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
+    {
+        let mut g = Self::new();
+        g.add_lender(iter_nodes);
+        g
+    }
+
+    /// Creates a new graph from a sorted [`IntoLender`] yielding a [`NodeLabelsLender`].
+    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
+    {
+        let mut g = Self::new();
+        g.add_sorted_lender(iter_nodes);
+        g
+    }
+
+    /// Creates a new graph from an [`IntoIterator`].
+    ///
+    /// The items must be triples of the form `(usize, usize, l)` specifying
+    /// an arc and its label.
+    pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
+        let mut g = Self::new();
+        g.add_arcs(arcs);
+        g
+    }
+
+    /// Creates a new graph from a sorted [`IntoIterator`].
+    ///
+    /// The items must be triples of the form `(usize, usize, l)` specifying
+    /// an arc and its label.
+    pub fn from_sorted_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
+        let mut g = Self::new();
+        g.add_sorted_arcs(arcs);
+        g
     }
 }
 
@@ -215,7 +255,7 @@ impl RandomAccessGraph for VecGraph {}
 
 #[test]
 fn test_remove() {
-    let mut g = VecGraph::<_>::from_arc_list([(0, 1), (0, 2), (1, 2)]);
+    let mut g = VecGraph::<_>::from_arcs([(0, 1), (0, 2), (1, 2)]);
     assert!(g.remove_arc(0, 2));
     assert!(!g.remove_arc(0, 2));
 }
