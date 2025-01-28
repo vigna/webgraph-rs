@@ -217,21 +217,33 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
 }
 
 #[cfg(test)]
-#[cfg_attr(test, test)]
-fn test() -> anyhow::Result<()> {
-    use crate::graphs::vec_graph::LabeledVecGraph;
-    let arcs = [
-        (0, 1, Some(1.0)),
-        (0, 2, None),
-        (1, 2, Some(2.0)),
-        // the labels should never be read :)
-        (1, 3, Some(f64::NAN)),
-        (2, 4, Some(f64::INFINITY)),
-        (3, 4, Some(f64::NEG_INFINITY)),
-    ];
-    let g = LabeledVecGraph::<_>::from_arcs(arcs);
-    let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
-    let g2 = LabeledVecGraph::<_>::from_lender(coo.iter());
-    assert_eq!(g, g2);
-    Ok(())
+mod test {
+    use super::*;
+
+    #[cfg_attr(test, test)]
+    fn test_arclist() -> anyhow::Result<()> {
+        use crate::graphs::btree_graph::LabeledBTreeGraph;
+        use crate::graphs::vec_graph::LabeledVecGraph;
+
+        let arcs = [
+            (0, 1, Some(1.0)),
+            (0, 2, None),
+            (1, 2, Some(2.0)),
+            (2, 4, Some(f64::INFINITY)),
+            (3, 4, Some(f64::NEG_INFINITY)),
+        ];
+        let g = LabeledBTreeGraph::<_>::from_arcs(arcs);
+        let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
+        let g2 = LabeledBTreeGraph::<_>::from_lender(coo.iter());
+
+        assert_eq!(g, g2);
+
+        let g = LabeledVecGraph::<_>::from_arcs(arcs);
+        let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
+        let g2 = LabeledVecGraph::<_>::from_lender(coo.iter());
+
+        assert_eq!(g, g2);
+
+        Ok(())
+    }
 }

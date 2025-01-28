@@ -171,9 +171,9 @@ fn test_permuted_graph() -> anyhow::Result<()> {
     assert_eq!(v.outdegree(0), 1);
     assert_eq!(v.outdegree(1), 2);
     assert_eq!(v.outdegree(2), 1);
-    assert_eq!(v.successors(0).into_iter().collect::<Vec<_>>(), vec![1]);
-    assert_eq!(v.successors(1).into_iter().collect::<Vec<_>>(), vec![0, 2]);
-    assert_eq!(v.successors(2).into_iter().collect::<Vec<_>>(), vec![0]);
+    assert_eq!(v.successors(0).collect::<Vec<_>>(), vec![1]);
+    assert_eq!(v.successors(1).collect::<Vec<_>>(), vec![0, 2]);
+    assert_eq!(v.successors(2).collect::<Vec<_>>(), vec![0]);
 
     Ok(())
 }

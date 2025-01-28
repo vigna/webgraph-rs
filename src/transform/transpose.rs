@@ -77,6 +77,8 @@ pub fn transpose(
 
 #[cfg(test)]
 mod tests {
+    use crate::graphs::vec_graph::LabeledVecGraph;
+
     use super::*;
     #[test]
     fn test_transposition() -> anyhow::Result<()> {
@@ -96,11 +98,9 @@ mod tests {
 
     #[test]
     fn test_transposition_labeled() -> anyhow::Result<()> {
+        use crate::traits::labels::SequentialLabeling;
         use dsi_bitstream::codes::{GammaRead, GammaWrite};
         use dsi_bitstream::traits::{BitRead, BitWrite};
-
-        use crate::graphs::vec_graph::VecGraph;
-        use crate::traits::SequentialLabeling;
 
         #[derive(Clone, Copy, PartialEq, Debug)]
         struct Payload(f64);
@@ -148,7 +148,7 @@ mod tests {
                 Ok(written_bits)
             }
         }
-        let arcs = vec![
+        let arcs = [
             (0, 1, Payload(1.0)),
             (0, 2, Payload(f64::EPSILON)),
             (1, 2, Payload(2.0)),
@@ -156,20 +156,17 @@ mod tests {
             (2, 4, Payload(f64::INFINITY)),
             (3, 4, Payload(f64::NEG_INFINITY)),
         ];
-        /* TODO
-                // TODO pass &arcs
-                let g = VecGraph::<Payload>::from_arcs(arcs);
+        let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-                let trans = transpose_labeled(&g, 2, BS {}, BD {})?;
-                let g2 = VecGraph::<Payload>::from_labeled_lender(trans.iter());
+        let trans = transpose_labeled(&g, 2, BS {}, BD {})?;
+        let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-                let trans = transpose_labeled(&g2, 2, BS {}, BD {})?;
-                let g3 = VecGraph::<Payload>::from_labeled_lender(trans.iter());
+        let trans = transpose_labeled(&g2, 2, BS {}, BD {})?;
+        let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-                let g4 = VecGraph::from_labeled_lender(g.iter());
+        let g4 = LabeledVecGraph::from_lender(g.iter());
 
-                assert_eq!(g3, g4);
-        */
+        assert_eq!(g3, g4);
         Ok(())
     }
 }
