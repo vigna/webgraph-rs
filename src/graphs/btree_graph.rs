@@ -273,7 +273,7 @@ impl BTreeGraph {
     }
 
     /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
+    pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
@@ -287,7 +287,7 @@ impl BTreeGraph {
     /// an arc.
     ///
     /// Note that new nodes will be added as needed.
-    fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
+    pub fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
         self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
     }
 

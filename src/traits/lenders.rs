@@ -55,7 +55,6 @@ use lender::*;
 /// v.add_lender(g.iter().take(50));
 /// // Put second half of the second random graph in v
 /// v.add_lender(h.iter().skip(50));
-/// let v = Left(v);
 ///
 /// let mut iter = v.iter();
 /// for i in 0..50 {

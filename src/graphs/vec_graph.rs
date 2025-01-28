@@ -7,6 +7,7 @@
 
 use crate::prelude::*;
 
+use epserde::Epserde;
 use lender::prelude::*;
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
 /// vectors.
@@ -15,10 +16,12 @@ use lender::prelude::*;
 /// [`LabeledBTreeGraph`](crate::graphs::btree_graph::LabeledBTreeGraph), but it
 /// is less flexible as arcs can be added only in increasing successor order.
 ///
-/// By setting the feature `serde`, this struct can be serialized and
-/// deserialized using [serde](https://crates.io/crates/serde).
+/// This struct can be serialized with
+/// [ε-serde](https://crates.io/crates/epserde). By setting the feature `serde`,
+/// this struct can be serialized using [serde](https://crates.io/crates/serde),
+/// too.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Epserde, Clone, Debug, PartialEq, Eq)]
 pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
@@ -262,8 +265,10 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 /// [`BTreeGraph`](crate::graphs::btree_graph::BTreeGraph), but it
 /// is less flexible as arcs can be added only in increasing successor order.
 ///
-/// By setting the feature `serde`, this struct can be serialized and
-/// deserialized using [serde](https://crates.io/crates/serde).
+/// This struct can be serialized with
+/// [ε-serde](https://crates.io/crates/epserde). By setting the feature `serde`,
+/// this struct can be serialized using [serde](https://crates.io/crates/serde),
+/// too.
 ///
 /// # Implementation Notes
 ///
@@ -271,7 +276,7 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
 /// All mutation methods are delegated.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Epserde, Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
 
 impl VecGraph {
