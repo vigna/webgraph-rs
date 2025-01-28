@@ -17,7 +17,7 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 /// can store the successors of a node and their labels as a
 /// [`BTreeSet`] of pairs `(usize, L)`.
 #[derive(Clone, Copy, Debug)]
-struct Successor<L: Clone + 'static>(usize, L);
+pub struct Successor<L: Clone + 'static>(usize, L);
 
 impl<L: Clone + 'static> PartialEq for Successor<L> {
     #[inline(always)]
@@ -48,41 +48,58 @@ impl<L: Clone + 'static> Ord for Successor<L> {
 /// as the label type will result in a [`RandomAccessGraph`] implementation.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BTreeGraph<L: Clone + 'static = ()> {
+pub struct BTreeGraph(LabeledBTreeGraph<()>);
+
+impl core::default::Default for BTreeGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of [`BTreeSet`].
+///
+/// Choosing [`()`](https://doc.rust-lang.org/std/primitive.unit.html)
+/// as the label type will result in a [`RandomAccessGraph`] implementation.
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
     /// For each node, its list of successors.
     succ: Vec<BTreeSet<Successor<L>>>,
 }
 
-impl<L: Clone + 'static> core::default::Default for BTreeGraph<L> {
+impl<L: Clone + 'static> core::default::Default for LabeledBTreeGraph<L> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub trait MutableGraph {
-    /// Add an arc to the graph and return whether it is a new one.
-    fn add_arc(&mut self, u: usize, v: usize) -> bool;
-
-    /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
-    where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>;
-
-    /// Add arcs from an [`IntoIterator`].
-    ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
-    fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>);
+impl From<LabeledBTreeGraph<()>> for BTreeGraph {
+    fn from(g: LabeledBTreeGraph<()>) -> Self {
+        BTreeGraph(g)
+    }
 }
 
-impl<G: LabeledSequentialGraph<()> + MutableGraph> MutableGraph for Left<G> {
+impl BTreeGraph {
+    /// Creates a new empty graph.
+    pub fn new() -> Self {
+        Self(LabeledBTreeGraph::new())
+    }
+
+    /// Creates a new empty graph with `n` nodes.
+    pub fn empty(n: usize) -> Self {
+        LabeledBTreeGraph::empty(n).into()
+    }
+
+    /// Add an isolated node to the graph and return true if is a new node.
+    pub fn add_node(&mut self, node: usize) -> bool {
+        self.0.add_node(node)
+    }
+
     /// Add an arc to the graph and return whether it is a new one.
     fn add_arc(&mut self, u: usize, v: usize) -> bool {
-        self.0.add_arc(u, v)
+        self.0.add_arc(u, v, ())
     }
 
     /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
@@ -90,39 +107,7 @@ impl<G: LabeledSequentialGraph<()> + MutableGraph> MutableGraph for Left<G> {
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
-        self.0.add_lender(iter_nodes);
-        self
-    }
-
-    /// Add arcs from an [`IntoIterator`].
-    ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
-    fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
-        self.0.add_arc_list(arcs);
-    }
-}
-
-impl MutableGraph for BTreeGraph<()> {
-    /// Add an arc to the graph and return whether it is a new one.
-    fn add_arc(&mut self, u: usize, v: usize) -> bool {
-        self.add_labeled_arc(u, v, ())
-    }
-
-    /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
-    where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    {
-        for_!( (node, succ) in iter_nodes {
-            self.add_node(node);
-            for v in succ {
-                self.add_node(v);
-                self.add_arc(node, v);
-            }
-        });
+        self.0.add_lender(UnitLender(iter_nodes.into_lender()));
         self
     }
 
@@ -139,9 +124,29 @@ impl MutableGraph for BTreeGraph<()> {
             self.add_arc(u, v);
         }
     }
+
+    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
+    pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+    {
+        let mut g = Self::new();
+        g.add_lender(iter_nodes);
+        g
+    }
+
+    /// Creates a new graph from  an [`IntoIterator`].
+    ///
+    /// The items must be triples of the form `(usize, usize)` specifying
+    /// an arc.
+    pub fn from_arc_list(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {
+        let mut g = Self::new();
+        g.add_arc_list(arcs);
+        g
+    }
 }
 
-impl<L: Clone + 'static> BTreeGraph<L> {
+impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
@@ -166,7 +171,7 @@ impl<L: Clone + 'static> BTreeGraph<L> {
     }
 
     /// Add an arc to the graph and return whether it is a new one.
-    pub fn add_labeled_arc(&mut self, u: usize, v: usize, l: L) -> bool {
+    pub fn add_arc(&mut self, u: usize, v: usize, l: L) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
             panic!(
@@ -200,7 +205,7 @@ impl<L: Clone + 'static> BTreeGraph<L> {
     }
 
     /// Add nodes and labeled successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    pub fn add_labeled_lender<I: IntoLender>(&mut self, iter_nodes: I)
+    pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I)
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
@@ -208,18 +213,18 @@ impl<L: Clone + 'static> BTreeGraph<L> {
             self.add_node(node);
             for (v, l) in succ {
                 self.add_node(v);
-                self.add_labeled_arc(node, v, l);
+                self.add_arc(node, v, l);
             }
         });
     }
 
     /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    pub fn from_labeled_lender<I: IntoLender>(iter_nodes: I) -> Self
+    pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
     {
         let mut g = Self::new();
-        g.add_labeled_lender(iter_nodes);
+        g.add_lender(iter_nodes);
         g
     }
 
@@ -233,7 +238,7 @@ impl<L: Clone + 'static> BTreeGraph<L> {
         for (u, v, l) in arcs {
             self.add_node(u);
             self.add_node(v);
-            self.add_labeled_arc(u, v, l);
+            self.add_arc(u, v, l);
         }
     }
 
@@ -248,64 +253,8 @@ impl<L: Clone + 'static> BTreeGraph<L> {
     }
 }
 
-impl BTreeGraph<()> {
-    /// Add an arc to the graph and return whether it is a new one.
-    pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
-        self.add_labeled_arc(u, v, ())
-    }
-
-    /// Add nodes and successors from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
-    where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    {
-        for_!( (node, succ) in iter_nodes {
-            self.add_node(node);
-            for v in succ {
-                self.add_node(v);
-                self.add_arc(node, v);
-            }
-        });
-        self
-    }
-
-    /// Creates a new graph from an [`IntoLender`] yielding a [`NodeLabelsLender`].
-    pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Left<Self>
-    where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    {
-        let mut g = Left(Self::new());
-        g.add_lender(iter_nodes);
-        g
-    }
-
-    /// Add arcs from an [`IntoIterator`].
-    ///
-    /// The items must be pairs of the form `(usize, usize)` specifying
-    /// an arc.
-    ///
-    /// Note that new nodes will be added as needed.
-    pub fn add_arc_list(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
-        for (u, v) in arcs {
-            self.add_node(u);
-            self.add_node(v);
-            self.add_arc(u, v);
-        }
-    }
-
-    /// Creates a new graph from  an [`IntoIterator`].
-    ///
-    /// The items must be triples of the form `(usize, usize)` specifying
-    /// an arc.
-    pub fn from_arc_list(arcs: impl IntoIterator<Item = (usize, usize)>) -> Left<Self> {
-        let mut g = Left(Self::new());
-        g.add_arc_list(arcs);
-        g
-    }
-}
-
-impl<'a, L: Clone + 'static> IntoLender for &'a BTreeGraph<L> {
-    type Lender = <BTreeGraph<L> as SequentialLabeling>::Lender<'a>;
+impl<'a> IntoLender for &'a BTreeGraph {
+    type Lender = <BTreeGraph as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -313,7 +262,41 @@ impl<'a, L: Clone + 'static> IntoLender for &'a BTreeGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> SequentialLabeling for BTreeGraph<L> {
+impl<'a, L: Clone + 'static> IntoLender for &'a LabeledBTreeGraph<L> {
+    type Lender = <LabeledBTreeGraph<L> as SequentialLabeling>::Lender<'a>;
+
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
+    }
+}
+
+impl SequentialLabeling for BTreeGraph {
+    type Label = usize;
+    type Lender<'a>
+        = IteratorImpl<'a, Self>
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.0.succ.len()
+    }
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<u64> {
+        Some(self.num_arcs())
+    }
+
+    #[inline(always)]
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
+        IteratorImpl {
+            labeling: self,
+            nodes: (from..self.num_nodes()),
+        }
+    }
+}
+impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
     type Label = (usize, L);
     type Lender<'a>
         = IteratorImpl<'a, Self>
@@ -339,9 +322,33 @@ impl<L: Clone + 'static> SequentialLabeling for BTreeGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> LabeledSequentialGraph<L> for BTreeGraph<L> {}
+impl SequentialGraph for BTreeGraph {}
 
-impl<L: Clone + 'static> RandomAccessLabeling for BTreeGraph<L> {
+impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledBTreeGraph<L> {}
+
+impl RandomAccessLabeling for BTreeGraph {
+    type Labels<'succ> = std::iter::Map<
+        std::collections::btree_set::Iter<'succ, Successor<()>>,
+        fn(&Successor<()>) -> usize,
+    >;
+
+    #[inline(always)]
+    fn num_arcs(&self) -> u64 {
+        self.0.number_of_arcs
+    }
+
+    #[inline(always)]
+    fn outdegree(&self, node: usize) -> usize {
+        self.0.succ[node].len()
+    }
+
+    #[inline(always)]
+    fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
+        self.0.succ[node].iter().map(|x| x.0)
+    }
+}
+
+impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
     type Labels<'succ>
         = Successors<'succ, L>
     where
@@ -362,7 +369,9 @@ impl<L: Clone + 'static> RandomAccessLabeling for BTreeGraph<L> {
     }
 }
 
-impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for BTreeGraph<L> {}
+impl RandomAccessGraph for BTreeGraph {}
+
+impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 
 #[doc(hidden)]
 #[repr(transparent)]
@@ -387,7 +396,7 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
 
 #[test]
 fn test_remove() {
-    let mut g = BTreeGraph::<_>::from_labeled_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
+    let mut g = LabeledBTreeGraph::<_>::from_labeled_arc_list([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
     assert!(g.remove_arc(0, 2));
     assert!(!g.remove_arc(0, 2));
 }

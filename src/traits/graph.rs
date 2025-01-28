@@ -130,9 +130,9 @@ pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct UnitIterator<L>(L);
+pub struct UnitLender<L>(pub L);
 
-impl<'succ, L> NodeLabelsLender<'succ> for UnitIterator<L>
+impl<'succ, L> NodeLabelsLender<'succ> for UnitLender<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
@@ -140,14 +140,14 @@ where
     type IntoIterator = UnitSuccessors<LenderIntoIter<'succ, L>>;
 }
 
-impl<'succ, L> Lending<'succ> for UnitIterator<L>
+impl<'succ, L> Lending<'succ> for UnitLender<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Lender> Lender for UnitIterator<L>
+impl<L: Lender> Lender for UnitLender<L>
 where
     L: IntoLender + for<'next> NodeLabelsLender<'next, Label = usize>,
 {
@@ -162,7 +162,7 @@ where
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct UnitSuccessors<I>(I);
+pub struct UnitSuccessors<I>(pub I);
 
 impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
     type Item = (usize, ());
@@ -176,7 +176,7 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
 
     type Lender<'node>
-        = UnitIterator<G::Lender<'node>>
+        = UnitLender<G::Lender<'node>>
     where
         Self: 'node;
 
@@ -185,7 +185,7 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        UnitIterator(self.0.iter_from(from))
+        UnitLender(self.0.iter_from(from))
     }
 }
 

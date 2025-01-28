@@ -147,9 +147,9 @@ impl<I: ExactSizeIterator<Item = usize>> ExactSizeIterator for Succ<I> {
 #[cfg(test)]
 #[test]
 fn test_no_selfloops_graph() -> anyhow::Result<()> {
-    use crate::{graphs::vec_graph::VecGraph, prelude::proj::Left};
+    use crate::graphs::vec_graph::VecGraph;
     let g = VecGraph::from_arc_list([(0, 1), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
-    let p = NoSelfLoopsGraph(Left(g));
+    let p = NoSelfLoopsGraph(g);
     assert_eq!(p.num_nodes(), 3);
 
     let mut iter = p.iter();
