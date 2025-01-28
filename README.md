@@ -109,6 +109,15 @@ for_!((src, succ) in graph {
 });
 ```
 
+## Mutable Graphs
+
+A number of structures make it possible to create dynamically growing graphs:
+[`BTreeGraph`], [`VecGraph`] and their labeled counterparts
+[`LabeledBTreeGraph`] and [`LabeledVecGraph`]. These structures can also
+be serialized with [serde](https://crates.io/crates/serde) using the feature
+gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be seralized with
+[ε-serde](https://crates.io/crates/epserde).
+
 ## Command–Line Interface
 
 We provide a command-line interface to perform various operations on graphs. The
@@ -152,3 +161,7 @@ Union nor the Italian MUR can be held responsible for them.
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
 [ε-serde]: <nttps://crates.io/crates/epserde/>
 [`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>
+[`VecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html>
+[`LabeledVecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html>
+[`BTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html>
+[`LabeledBTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html>
