@@ -209,14 +209,8 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels.
 /// All mutation methods are delegated.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BTreeGraph(LabeledBTreeGraph<()>);
-
-impl core::default::Default for BTreeGraph {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl BTreeGraph {
     /// Creates a new empty graph.
@@ -235,7 +229,7 @@ impl BTreeGraph {
     }
 
     /// Add an arc to the graph and return whether it is a new one.
-    fn add_arc(&mut self, u: usize, v: usize) -> bool {
+    pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         self.0.add_arc(u, v, ())
     }
 
