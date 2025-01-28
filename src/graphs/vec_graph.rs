@@ -444,3 +444,25 @@ impl RandomAccessLabeling for VecGraph {
 }
 
 impl RandomAccessGraph for VecGraph {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_vec_graph() {
+        let mut arcs = vec![
+            (0, 1, Some(1.0)),
+            (0, 2, None),
+            (1, 2, Some(2.0)),
+            (2, 4, Some(f64::INFINITY)),
+            (3, 4, Some(f64::NEG_INFINITY)),
+            (1, 3, Some(f64::NAN)),
+        ];
+        let g = LabeledVecGraph::<_>::from_arcs(arcs.iter().copied());
+        assert_ne!(g, g, "The label contains a NaN which is not equal to itself so the graph must be not equal to itself");
+
+        arcs.pop();
+        let g = LabeledVecGraph::<_>::from_arcs(arcs);
+        assert_eq!(g, g, "Without NaN the graph should be equal to itself");
+    }
+}

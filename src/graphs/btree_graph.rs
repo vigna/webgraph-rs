@@ -20,7 +20,7 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 /// By setting the feature `serde`, this struct can be serialized and
 /// deserialized using [serde](https://crates.io/crates/serde).
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
@@ -33,6 +33,37 @@ impl<L: Clone + 'static> core::default::Default for LabeledBTreeGraph<L> {
         Self::new()
     }
 }
+
+/// Manual implementation of [`PartialEq`]. This is needed because the private struct
+/// [`Successor`] that we use to store in a [`BTreeSet`] the tuple `(usize, Label)`
+/// implements [`PartialEq`] ignoring the label so it enforces the absence of
+/// duplicate arcs. This implies that the derived implementation of [`PartialEq`]
+/// would not check labels, so the same graph with different labels would result
+/// as equal, and this is not the intended result.
+impl<L: Clone + 'static + PartialEq> PartialEq for LabeledBTreeGraph<L> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.number_of_arcs != other.number_of_arcs {
+            return false;
+        }
+        if self.succ.len() != other.succ.len() {
+            return false;
+        }
+        for (s, o) in self.succ.iter().zip(other.succ.iter()) {
+            if s.len() != o.len() {
+                return false;
+            }
+            let s_iter = s.iter().map(|x| (x.0, &x.1));
+            let o_iter = o.iter().map(|x| (x.0, &x.1));
+            for (v1, v2) in s_iter.zip(o_iter) {
+                if v1 != v2 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+impl<L: Clone + 'static + Eq> Eq for LabeledBTreeGraph<L> {}
 
 impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// Creates a new empty graph.
@@ -398,5 +429,27 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_btree_graph() {
+        let mut arcs = vec![
+            (0, 1, Some(1.0)),
+            (0, 2, None),
+            (1, 2, Some(2.0)),
+            (2, 4, Some(f64::INFINITY)),
+            (3, 4, Some(f64::NEG_INFINITY)),
+            (1, 3, Some(f64::NAN)),
+        ];
+        let g = LabeledBTreeGraph::<_>::from_arcs(arcs.iter().copied());
+        assert_ne!(g, g, "The label contains a NaN which is not equal to itself so the graph must be not equal to itself");
+
+        arcs.pop();
+        let g = LabeledBTreeGraph::<_>::from_arcs(arcs);
+        assert_eq!(g, g, "Without NaN the graph should be equal to itself");
     }
 }
