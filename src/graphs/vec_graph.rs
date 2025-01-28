@@ -71,7 +71,7 @@ impl VecGraph {
             );
         }
         let succ = &mut self.succ[u];
-        let biggest_dst = succ.last().unwrap_or(0);
+        let biggest_dst = succ.last().unwrap_or(&0);
         match v.cmp(&biggest_dst) {
             // arcs have to be inserted in order
             core::cmp::Ordering::Less => panic!(
@@ -131,7 +131,7 @@ impl VecGraph {
     ///
     /// Note that new nodes will be added as needed.
     fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
-        let mut arcs = arcs.collect::<Vec<_>>();
+        let mut arcs = arcs.into_iter().collect::<Vec<_>>();
         arcs.sort();
         for (u, v) in arcs {
             self.add_node(u);
@@ -233,8 +233,7 @@ impl SequentialLabeling for VecGraph {
 impl SequentialGraph for VecGraph {}
 
 impl RandomAccessLabeling for VecGraph {
-    type Labels<'succ>
-        = core::iter::Copied<core::slice::Iter<'succ, usize>>;
+    type Labels<'succ> = core::iter::Copied<core::slice::Iter<'succ, usize>>;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs

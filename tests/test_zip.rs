@@ -21,7 +21,7 @@ fn test_zip() {
         println!("{:?} {:?}", x, s);
         assert_eq!(z.labels(x).collect::<Vec<_>>(), s);
         assert_eq!(
-            LeftIntoIter(z.labels(x)).collect::<Vec<_>>(),
+            z.labels(x).collect::<Vec<_>>(),
             v.labels(x).collect::<Vec<_>>()
         )
     }

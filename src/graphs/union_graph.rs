@@ -194,9 +194,9 @@ mod tests {
 
     #[test]
     fn test_union_graph() -> anyhow::Result<()> {
-        use crate::{graphs::vec_graph::VecGraph, prelude::proj::Left};
+        use crate::graphs::vec_graph::VecGraph;
         let g = [
-            Left(VecGraph::from_arcs([
+            VecGraph::from_arcs([
                 (0, 1),
                 (0, 3),
                 (1, 2),
@@ -206,8 +206,8 @@ mod tests {
                 (3, 4),
                 (3, 5),
                 (4, 1),
-            ])),
-            Left(VecGraph::from_arcs([
+            ]),
+            VecGraph::from_arcs([
                 (1, 2),
                 (1, 3),
                 (2, 1),
@@ -217,7 +217,7 @@ mod tests {
                 (5, 1),
                 (5, 2),
                 (6, 6),
-            ])),
+            ]),
         ];
         for i in 0..2 {
             // TODO: why borrowing doesn't work? I should be able to do
