@@ -24,7 +24,7 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use super::{LenderLabel, NodeLabelsLender, ParMapFoldIter};
+use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
 use core::ops::Range;
 use dsi_progress_logger::prelude::*;
@@ -43,7 +43,10 @@ pub enum Granularity {
 
 impl core::default::Default for Granularity {
     fn default() -> Self {
-        Self::Slack { factor: 4.0, min_len: 1000 }
+        Self::Slack {
+            factor: 4.0,
+            min_len: 1000,
+        }
     }
 }
 

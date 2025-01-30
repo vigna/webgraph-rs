@@ -7,71 +7,153 @@
  */
 use rayon::ThreadPool;
 
-impl<I: Iterator> ParMapFoldIter for I where I::Item: Send {}
+impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 
-pub trait ParMapFoldIter: Iterator
+/// Parallel mapping and folding for iterators.
+///
+/// This trait extends the [`Iterator`] trait with methods that map values and
+/// fold them. Differently from the [`rayon`] approach, elements of the iterator
+/// are submitted for processing to a thread pool in the order in which the are
+/// emitted. Each thread performs internal folding of the results: at the end,
+/// all results provided by the threads are folded together.
+///
+/// Inputs and outputs of the threads are managed through buffered channels,
+/// which helps when the original iterator is somewhat CPU bound.
+///
+/// The more generic method is
+/// [`par_map_fold2_with`](ParMapFoldIter::par_map_fold2_with), which allows to
+/// specify a different function for the inner and outer fold, and to pass an
+/// initial value to the map function. The other methods are convenience
+/// methods delegating to this one.
+
+pub trait ParMapFold: Iterator
 where
     Self::Item: Send,
 {
+    /// Map and fold in parallel the items returned by an iterator.
+    ///
+    /// This method is a simplified convenience version of
+    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that uses the
+    /// same fold function for the inner and outer fold and does not provide an
+    /// init value for the map function.
+    ///
+    /// # Arguments
+    ///
+    /// * `fold`: a function that folds the results of the map function.
+    ///
+    /// * `thread_pool`: a thread pool to use for parallelization.
     #[inline(always)]
-    fn par_map_fold<M, F, R>(&mut self, map: M, fold: F, thread_pool: &ThreadPool) -> R
-    where
-        M: Fn(Self::Item) -> R + Send + Sync,
-        F: Fn(R, R) -> R + Send + Sync,
+    fn par_map_fold<
         R: Send + Default,
-    {
+        M: Fn(Self::Item) -> R + Send + Sync,
+        F: Fn(R, R) -> R + Sync,
+    >(
+        &mut self,
+        map: M,
+        fold: F,
+        thread_pool: &ThreadPool,
+    ) -> R {
         self.par_map_fold_with((), |_, i| map(i), fold, thread_pool)
     }
 
+    /// Map and fold in parallel the items returned by an iterator.
+    ///
+    /// This method is a simplified convenience version of
+    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that uses the
+    /// same fold function for the inner and outer fold.
+    ///
+    /// # Arguments
+    ///
+    /// * `init`: an init value for the map function; it will cloned as needed.
+    ///
+    /// * `map`: a function that maps an item to a result.
+    ///
+    /// * `fold`: a function that folds the results of the map function.
+    ///
+    /// * `thread_pool`: a thread pool to use for parallelization.
     #[inline(always)]
-    fn par_map_fold_with<T, M, F, R>(
+    fn par_map_fold_with<
+        T: Clone + Send,
+        R: Send + Default,
+        M: Fn(&mut T, Self::Item) -> R + Send + Sync,
+        F: Fn(R, R) -> R + Sync,
+    >(
         &mut self,
         init: T,
         map: M,
         fold: F,
         thread_pool: &ThreadPool,
-    ) -> R
-    where
-        T: Clone + Send,
-        M: Fn(&mut T, Self::Item) -> R + Send + Sync,
-        F: Fn(R, R) -> R + Send + Sync,
-        R: Send + Default,
-    {
+    ) -> R {
         self.par_map_fold2_with(init, map, &fold, &fold, thread_pool)
     }
 
+    /// Map and fold in parallel the items returned by an iterator.
+    ///
+    /// This method is a simplified convenience version of
+    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that do not
+    /// provides an init value for the map function.
+    ///
+    /// # Arguments
+    ///
+    /// * `map`: a function that maps an item to a result.
+    ///
+    /// * `inner_fold`: a function that folds the results of the map function.
+    ///
+    /// * `outer_fold`: a function that folds the results of the inner fold.
+    ///
+    /// * `thread_pool`: a thread pool to use for parallelization.
     #[inline(always)]
-    fn par_map_fold2<M, IF, OF, A, R>(
+    fn par_map_fold2<
+        R,
+        M: Fn(Self::Item) -> R + Send + Sync,
+        A: Send + Default,
+        IF: Fn(A, R) -> A + Sync,
+        OF: Fn(A, A) -> A,
+    >(
         &mut self,
         map: M,
         inner_fold: IF,
         outer_fold: OF,
         thread_pool: &ThreadPool,
-    ) -> A
-    where
-        M: Fn(Self::Item) -> R + Send + Sync,
-        IF: Fn(A, R) -> A + Send + Sync,
-        OF: Fn(A, A) -> A + Send + Sync,
-        A: Send + Default,
-    {
+    ) -> A {
         self.par_map_fold2_with((), |_, i| map(i), inner_fold, outer_fold, thread_pool)
     }
 
-    fn par_map_fold2_with<T, M, IF, OF, A, R>(
+    /// Map and fold in parallel the items returned by an iterator.
+    ///
+    /// This method is the most generic one, allowing to specify different
+    /// functions for the inner and outer fold, which makes it possible to
+    /// have the return type of the map function to be different from the
+    /// type of the fold accumulator.
+    ///
+    /// Moreover, you can pass an init value that will be cloned as needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `init`: an init value for the map function; it will cloned as needed.
+    ///
+    /// * `map`: a function that maps an item to a result.
+    ///
+    /// * `inner_fold`: a function that folds the results of the map function.
+    ///
+    /// * `outer_fold`: a function that folds the results of the inner fold.
+    ///
+    /// * `thread_pool`: a thread pool to use for parallelization.
+    fn par_map_fold2_with<
+        T: Clone + Send,
+        R,
+        M: Fn(&mut T, Self::Item) -> R + Send + Sync,
+        A: Send + Default,
+        IF: Fn(A, R) -> A + Sync,
+        OF: Fn(A, A) -> A,
+    >(
         &mut self,
         init: T,
         map: M,
         inner_fold: IF,
         outer_fold: OF,
         thread_pool: &ThreadPool,
-    ) -> A
-    where
-        T: Clone + Send,
-        M: Fn(&mut T, Self::Item) -> R + Send + Sync,
-        IF: Fn(A, R) -> A + Send + Sync,
-        OF: Fn(A, A) -> A + Send + Sync,
-        A: Send + Default,
-    {
+    ) -> A {
         let (_min_len, max_len) = self.size_hint();
 
         let mut num_scoped_threads = thread_pool.current_num_threads();
