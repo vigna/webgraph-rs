@@ -35,33 +35,6 @@ use std::rc::Rc;
 
 use sux::{traits::Succ, utils::FairChunks};
 
-#[derive(Debug, Clone, Copy)]
-pub enum Granularity {
-    Fixed(usize),
-    Slack { factor: f64, min_len: usize },
-}
-
-impl core::default::Default for Granularity {
-    fn default() -> Self {
-        Self::Slack {
-            factor: 4.0,
-            min_len: 1000,
-        }
-    }
-}
-
-impl Granularity {
-    pub fn granularity(&self, num_elements: usize, num_threads: usize) -> usize {
-        match self {
-            Granularity::Fixed(fixed) => *fixed,
-            Granularity::Slack { factor, min_len } => {
-                let tasks = (num_threads as f64 * factor) as usize;
-                (num_elements / tasks).max(*min_len)
-            }
-        }
-    }
-}
-
 /// A labeling that can be accessed sequentially.
 ///
 /// The iterator returned by [iter](SequentialLabeling::iter) is a
@@ -125,19 +98,18 @@ pub trait SequentialLabeling {
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
     /// * `pl` - An optional mutable reference to a progress logger.
-    fn par_node_apply<F, R, A>(
+    fn par_node_apply<
+        A: Default + Send,
+        F: Fn(Range<usize>) -> A + Sync,
+        R: Fn(A, A) -> A + Sync,
+    >(
         &self,
         func: F,
         fold: R,
         node_granularity: usize,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> A
-    where
-        F: Fn(Range<usize>) -> A + Send + Sync,
-        R: Fn(A, A) -> A + Send + Sync,
-        A: Default + Send,
-    {
+    ) -> A {
         let num_nodes = self.num_nodes();
         (0..num_nodes.div_ceil(node_granularity))
             .map(|i| i * node_granularity..num_nodes.min((i + 1) * node_granularity))
@@ -154,8 +126,9 @@ pub trait SequentialLabeling {
             )
     }
 
-    /// Applies `func` to each chunk of nodes containing approximately
-    /// `arc_granularity` arcs in parallel, and folds the results using `fold`.
+    /// Apply `func` to each chunk of nodes containing approximately
+    /// `arc_granularity` arcs in parallel and folds the results using `fold`.
+    ///
     /// You have to provide the degree cumulative function of the graph (i.e.,
     /// the sequence 0, *d*₀, *d*₀ + *d*₁, ..., *a*, where *a* is the number of
     /// arcs in the graph) in a form that makes it possible to compute
@@ -164,28 +137,33 @@ pub trait SequentialLabeling {
     /// # Arguments
     ///
     /// * `func` - The function to apply to each chunk of nodes.
+    ///
     /// * `fold` - The function to fold the results obtained from each chunk.
     ///   It will be passed to the [`Iterator::fold`].
+    ///
     /// * `arc_granularity` - The tentative number of arcs to process in each
-    ///   chunk.
+    ///   chunk; usually computed using [`crate::utils::Granularity`].
+    ///
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
+    ///
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
-    /// * `pl` - An optional mutable reference to a progress logger.
-    fn par_apply<F, R, A>(
+    ///
+    /// * `pl` - A mutable reference to a concurrent progress logger.
+    fn par_apply<
+        F: Fn(Range<usize>) -> A + Sync,
+        A: Default + Send,
+        R: Fn(A, A) -> A + Sync,
+        D: Succ<Input = usize, Output = usize>,
+    >(
         &self,
         func: F,
         fold: R,
         arc_granularity: usize,
-        deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+        deg_cumul: &D,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> A
-    where
-        F: Fn(Range<usize>) -> A + Send + Sync,
-        R: Fn(A, A) -> A + Send + Sync,
-        A: Default + Send,
-    {
+    ) -> A {
         FairChunks::new(arc_granularity, deg_cumul).par_map_fold_with(
             pl.clone(),
             |pl, range| {

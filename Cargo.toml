@@ -33,7 +33,7 @@ java-properties = "2.0.0"
 mmap-rs = "0.6.1"
 num_cpus = "1.16.0"
 epserde = "0.6.1"
-sux = {path="../sux-rs"}
+sux = "0.5.0"
 dsi-bitstream = "0.4.0"
 dsi-progress-logger = "0.5.0"
 log = "0.4.22"

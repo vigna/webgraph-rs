@@ -21,7 +21,7 @@ impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 /// which helps when the original iterator is somewhat CPU bound.
 ///
 /// The more generic method is
-/// [`par_map_fold2_with`](ParMapFoldIter::par_map_fold2_with), which allows to
+/// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with), which allows to
 /// specify a different function for the inner and outer fold, and to pass an
 /// initial value to the map function. The other methods are convenience
 /// methods delegating to this one.

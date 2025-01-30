@@ -75,10 +75,14 @@ pub struct CliArgs {
     /// The seed to use for the PRNG.
     pub seed: u64,
 
-    #[arg(long)]
+    #[arg(long, conflicts_with("slack"))]
     /// The tentative number of arcs used define the size of a parallel job
     /// (advanced option).
     pub granularity: Option<usize>,
+
+    #[arg(long, conflicts_with("granularity"))]
+    /// The slack for relative granularity.
+    pub slack: Option<f64>,
 
     #[arg(long)]
     /// The chunk size used to localize the random permutation
@@ -174,6 +178,18 @@ where
 
     let num_nodes = graph.num_nodes();
 
+    let granularity = if let Some(granularity) = args.granularity {
+        Some(Granularity::Absolute(granularity))
+    } else if let Some(slack) = args.slack {
+        Some(Granularity::Relative {
+            slack,
+            min_len: 1000,
+            max_len: 100000, // TODO: make this dependent on default values
+        })
+    } else {
+        None
+    };
+
     // compute the LLP
     let labels = llp::layered_label_propagation(
         graph,
@@ -181,7 +197,7 @@ where
         gammas,
         Some(args.num_threads.num_threads),
         args.chunk_size,
-        args.granularity,
+        granularity,
         args.seed,
         predicate,
     )

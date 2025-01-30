@@ -85,7 +85,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     chunk_size: Option<usize>,
-    granularity: Option<usize>,
+    arc_granularity: Option<Granularity>,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
 ) -> Result<Box<[usize]>> {
@@ -94,7 +94,10 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
-    let granularity = granularity.unwrap_or(Ord::max((sym_graph.num_arcs() >> 9) as usize, 1024));
+    let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+    let arc_granularity = arc_granularity
+        .unwrap_or_default()
+        .granularity(sym_graph.num_arcs().try_into()?, num_threads);
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -106,7 +109,6 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         .map(|value| value.parse().unwrap())
         .unwrap_or(1024 * num_nodes.ilog2_ceil() as usize);
     // build a thread_pool so we avoid having to re-create the threads
-    let num_threads = num_threads.unwrap_or_else(num_cpus::get);
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .stack_size(stack_size)
@@ -257,7 +259,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                     local_obj_func
                 },
                 |delta_obj_func_0: f64, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
-                granularity,
+                arc_granularity,
                 deg_cumul,
                 &thread_pool,
                 &mut update_pl,
@@ -328,7 +330,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
                 graph: &sym_graph,
                 perm: &inv_perm,
             },
-            granularity,
+            arc_granularity,
             deg_cumul,
             &thread_pool,
             &mut update_pl,
