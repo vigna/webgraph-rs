@@ -25,7 +25,6 @@ impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 /// specify a different function for the inner and outer fold, and to pass an
 /// initial value to the map function. The other methods are convenience
 /// methods delegating to this one.
-
 pub trait ParMapFold: Iterator
 where
     Self::Item: Send,

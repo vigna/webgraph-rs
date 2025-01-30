@@ -38,6 +38,7 @@ use predicates::Predicate;
 use common_traits::UnsignedInt;
 use log::info;
 use rand::rngs::SmallRng;
+use rand::seq::IndexedRandom;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use rayon::prelude::*;

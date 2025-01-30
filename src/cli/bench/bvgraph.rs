@@ -94,7 +94,7 @@ fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, f
             for _ in 0..samples {
                 black_box(
                     graph
-                        .successors(rng.gen_range(0..num_nodes))
+                        .successors(rng.random_range(0..num_nodes))
                         .into_iter()
                         .next()
                         .unwrap_or(0),
@@ -105,7 +105,7 @@ fn bench_random(graph: impl RandomAccessGraph, samples: usize, repeats: usize, f
             for _ in 0..samples {
                 c += black_box(
                     graph
-                        .successors(rng.gen_range(0..num_nodes))
+                        .successors(rng.random_range(0..num_nodes))
                         .into_iter()
                         .count() as u64,
                 );

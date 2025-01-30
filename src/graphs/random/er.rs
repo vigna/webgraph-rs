@@ -52,7 +52,7 @@ impl SequentialLabeling for ErdosRenyi {
     fn iter_from(&self, from: usize) -> Iter {
         let mut rng = SmallRng::seed_from_u64(self.seed);
         for _ in 0..from * (self.n - 1) {
-            rng.gen_bool(self.p);
+            rng.random_bool(self.p);
         }
         Iter {
             n: self.n,
@@ -115,7 +115,7 @@ impl Lender for Iter {
             self.x,
             Succ(
                 (0..self.n)
-                    .filter(|&y| y != self.x && self.rng.gen_bool(self.p))
+                    .filter(|&y| y != self.x && self.rng.random_bool(self.p))
                     .collect::<Vec<_>>(),
             ),
         ));

@@ -34,12 +34,12 @@ pub const fn nat2int(x: u64) -> i64 {
 pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     let mut base = base.as_ref().to_owned();
     const ALPHABET: &[u8] = b"0123456789abcdef";
-    let mut rnd = rand::thread_rng();
+    let mut rnd = rand::rng();
     let mut random_str = String::new();
     loop {
         random_str.clear();
         for _ in 0..16 {
-            let idx = rnd.gen_range(0..ALPHABET.len());
+            let idx = rnd.random_range(0..ALPHABET.len());
             random_str.push(ALPHABET[idx] as char);
         }
         base.push(&random_str);

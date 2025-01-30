@@ -37,7 +37,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
     create_parent_dir(&args.dst)?;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut perm = (0..args.len).collect::<Vec<_>>();
     perm.shuffle(&mut rng);
 
