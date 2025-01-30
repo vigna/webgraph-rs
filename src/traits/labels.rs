@@ -24,19 +24,40 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use super::{LenderLabel, NodeLabelsLender};
+use super::{LenderLabel, NodeLabelsLender, ParMapFoldIter};
 
-use core::{
-    ops::Range,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use core::ops::Range;
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
 use rayon::ThreadPool;
 use std::rc::Rc;
 
-use sux::traits::Succ;
+use sux::{traits::Succ, utils::FairChunks};
+
+#[derive(Debug, Clone, Copy)]
+pub enum Granularity {
+    Fixed(usize),
+    Slack { factor: f64, min_len: usize },
+}
+
+impl core::default::Default for Granularity {
+    fn default() -> Self {
+        Self::Slack { factor: 4.0, min_len: 1000 }
+    }
+}
+
+impl Granularity {
+    pub fn granularity(&self, num_elements: usize, num_threads: usize) -> usize {
+        match self {
+            Granularity::Fixed(fixed) => *fixed,
+            Granularity::Slack { factor, min_len } => {
+                let tasks = (num_threads as f64 * factor) as usize;
+                (num_elements / tasks).max(*min_len)
+            }
+        }
+    }
+}
 
 /// A labeling that can be accessed sequentially.
 ///
@@ -101,7 +122,7 @@ pub trait SequentialLabeling {
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
     /// * `pl` - An optional mutable reference to a progress logger.
-    fn par_node_apply<F, R, T, A>(
+    fn par_node_apply<F, R, A>(
         &self,
         func: F,
         fold: R,
@@ -110,50 +131,24 @@ pub trait SequentialLabeling {
         pl: &mut impl ConcurrentProgressLog,
     ) -> A
     where
-        F: Fn(Range<usize>) -> T + Send + Sync,
-        R: Fn(A, T) -> A + Send + Sync,
-        T: Send,
+        F: Fn(Range<usize>) -> A + Send + Sync,
+        R: Fn(A, A) -> A + Send + Sync,
         A: Default + Send,
     {
         let num_nodes = self.num_nodes();
-        let num_scoped_threads = thread_pool
-            .current_num_threads()
-            .min(num_nodes / node_granularity)
-            .max(1);
-
-        let next_node = AtomicUsize::new(0);
-
-        // create a channel to receive the result
-        let (tx, rx) = std::sync::mpsc::channel();
-        thread_pool.in_place_scope(|scope| {
-            for _ in 0..num_scoped_threads {
-                // create some references so that we can share them across threads
-                let mut pl = pl.clone();
-                let next_node = &next_node;
-                let func = &func;
-                let tx = tx.clone();
-
-                scope.spawn(move |_| {
-                    loop {
-                        // compute the next chunk of nodes to process
-                        let start_pos = next_node.fetch_add(node_granularity, Ordering::Relaxed);
-                        let end_pos = (start_pos + node_granularity).min(num_nodes);
-                        // exit if done
-                        if start_pos >= num_nodes {
-                            break;
-                        }
-                        // apply the function and send the result
-                        tx.send(func(start_pos..end_pos)).unwrap();
-
-                        // update the progress logger if specified
-                        pl.update_with_count((start_pos..end_pos).len());
-                    }
-                });
-            }
-            drop(tx);
-
-            rx.iter().fold(A::default(), fold)
-        })
+        (0..num_nodes.div_ceil(node_granularity))
+            .map(|i| i * node_granularity..num_nodes.min((i + 1) * node_granularity))
+            .par_map_fold_with(
+                pl.clone(),
+                |pl, range| {
+                    let len = range.len();
+                    let res = func(range);
+                    pl.update_with_count(len);
+                    res
+                },
+                fold,
+                thread_pool,
+            )
     }
 
     /// Applies `func` to each chunk of nodes containing approximately
@@ -174,7 +169,7 @@ pub trait SequentialLabeling {
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
     /// * `pl` - An optional mutable reference to a progress logger.
-    fn par_apply<F, R, T, A>(
+    fn par_apply<F, R, A>(
         &self,
         func: F,
         fold: R,
@@ -184,68 +179,21 @@ pub trait SequentialLabeling {
         pl: &mut impl ConcurrentProgressLog,
     ) -> A
     where
-        F: Fn(Range<usize>) -> T + Send + Sync,
-        R: Fn(A, T) -> A + Send + Sync,
-        T: Send,
+        F: Fn(Range<usize>) -> A + Send + Sync,
+        R: Fn(A, A) -> A + Send + Sync,
         A: Default + Send,
     {
-        let num_nodes = self.num_nodes();
-        let num_arcs = self.num_arcs_hint().unwrap();
-        let num_scoped_threads = thread_pool
-            .current_num_threads()
-            .min((num_arcs / arc_granularity as u64) as usize)
-            .max(1);
-        let next_node_next_arc = std::sync::Mutex::new((0, 0));
-        let num_arcs = deg_cumul.get(num_nodes);
-        if let Some(num_arcs_hint) = self.num_arcs_hint() {
-            assert_eq!(num_arcs_hint, num_arcs as u64);
-        }
-
-        thread_pool.in_place_scope(|scope| {
-            // create a channel to receive the result
-            let (tx, rx) = std::sync::mpsc::channel();
-
-            for _ in 0..num_scoped_threads {
-                // create some references so that we can share them across threads
-                let mut pl = pl.clone();
-                let next_node_next_arc = &next_node_next_arc;
-                let func = &func;
-                let tx = tx.clone();
-
-                scope.spawn(move |_| {
-                    loop {
-                        let (start_pos, end_pos);
-                        {
-                            let mut next_node_next_arc = next_node_next_arc.lock().unwrap();
-                            let (mut next_node, mut next_arc) = *next_node_next_arc;
-
-                            if next_node >= num_nodes {
-                                break;
-                            }
-
-                            start_pos = next_node;
-                            let target = next_arc + arc_granularity;
-                            if target >= num_arcs {
-                                next_node = num_nodes;
-                            } else {
-                                (next_node, next_arc) = deg_cumul.succ(&target).unwrap();
-                            }
-                            end_pos = next_node;
-                            *next_node_next_arc = (next_node, next_arc);
-                        }
-
-                        // apply the function and send the result
-                        tx.send(func(start_pos..end_pos)).unwrap();
-
-                        // update the progress logger if specified
-                        pl.update_with_count((start_pos..end_pos).len());
-                    }
-                });
-            }
-            drop(tx);
-
-            rx.iter().fold(A::default(), fold)
-        })
+        FairChunks::new(arc_granularity, deg_cumul).par_map_fold_with(
+            pl.clone(),
+            |pl, range| {
+                let len = range.len();
+                let res = func(range);
+                pl.update_with_count(len);
+                res
+            },
+            fold,
+            thread_pool,
+        )
     }
 }
 

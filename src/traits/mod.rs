@@ -58,5 +58,8 @@ pub use serde::*;
 pub mod split;
 pub use split::*;
 
+pub mod par_map_fold;
+pub use par_map_fold::*;
+
 pub mod lenders;
 pub use lenders::*;

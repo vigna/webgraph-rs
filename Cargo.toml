@@ -33,7 +33,7 @@ java-properties = "2.0.0"
 mmap-rs = "0.6.1"
 num_cpus = "1.16.0"
 epserde = "0.6.1"
-sux = "0.4.1"
+sux = {path="../sux-rs"}
 dsi-bitstream = "0.4.0"
 dsi-progress-logger = "0.4.0"
 log = "0.4.22"
@@ -51,6 +51,7 @@ dary_heap = "0.3.6"
 rdst = { version = "0.20.14", features = ["multi-threaded"] }
 sealed = "0.5.0"
 serde = { version = "1.0.217", features = ["serde_derive"], optional = true }
+crossbeam-channel = "0.5"
 
 # Cli
 clap = { version = "4.5.11", features = ["derive", "string"], optional = true }
