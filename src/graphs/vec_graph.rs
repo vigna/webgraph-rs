@@ -200,6 +200,14 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         g.add_arcs(arcs);
         g
     }
+
+    /// Shrink the capacity of the graph to fit its current size.
+    pub fn shrink_to_fit(&mut self) {
+        self.succ.shrink_to_fit();
+        for s in self.succ.iter_mut() {
+            s.shrink_to_fit();
+        }
+    }
 }
 
 impl<L: Clone + 'static> SequentialLabeling for LabeledVecGraph<L> {
@@ -387,6 +395,11 @@ impl VecGraph {
         let mut g = Self::new();
         g.add_arcs(arcs);
         g
+    }
+
+    /// Shrink the capacity of the graph to fit its current size.
+    pub fn shrink_to_fit(&mut self) {
+        self.0.shrink_to_fit();
     }
 }
 

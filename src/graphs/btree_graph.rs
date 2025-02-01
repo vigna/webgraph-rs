@@ -176,6 +176,16 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         g.add_arcs(arcs);
         g
     }
+
+    /// Shrink the capacity of the graph to fit its current size.
+    ///
+    /// # Implementation Notes
+    ///
+    /// This method just shrinks the capacity of the successor vector, as
+    /// [`BTreeSet`] does not have a `shrink_to_fit` method.
+    pub fn shrink_to_fit(&mut self) {
+        self.succ.shrink_to_fit();
+    }
 }
 
 impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
@@ -313,6 +323,16 @@ impl BTreeGraph {
         let mut g = Self::new();
         g.add_arcs(arcs);
         g
+    }
+
+    /// Shrink the capacity of the graph to fit its current size.
+    ///
+    /// # Implementation Notes
+    ///
+    /// This method just shrinks the capacity of the successor vector, as
+    /// [`BTreeSet`] does not have a `shrink_to_fit` method.
+    pub fn shrink_to_fit(&mut self) {
+        self.0.shrink_to_fit();
     }
 }
 
