@@ -55,6 +55,8 @@ pub(crate) mod label_store;
 mod mix64;
 pub mod preds;
 
+const RAYON_MIN_LEN: usize = 100000;
+
 /// Runs layered label propagation on the provided symmetric graph and returns
 /// the resulting labels.
 ///
@@ -147,6 +149,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         label_store.init();
         can_change
             .par_iter()
+            .with_min_len(RAYON_MIN_LEN)
             .for_each(|c| c.store(true, Ordering::Relaxed));
 
         let mut obj_func = 0.0;
@@ -299,7 +302,10 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         // We temporarily use the update permutation to compute the sorting
         // permutation of the labels.
         let perm = &mut update_perm;
-        perm.par_iter_mut().enumerate().for_each(|(i, x)| *x = i);
+        perm.par_iter_mut()
+            .with_min_len(RAYON_MIN_LEN)
+            .enumerate()
+            .for_each(|(i, x)| *x = i);
         // Sort by label
         perm.par_sort_unstable_by(|&a, &b| {
             label_store
@@ -428,7 +434,10 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
 
 pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
     let sync_slice = inv_perm.as_sync_slice();
-    perm.par_iter().enumerate().for_each(|(i, &x)| {
-        unsafe { sync_slice[x].set(i) };
-    });
+    perm.par_iter()
+        .with_min_len(RAYON_MIN_LEN)
+        .enumerate()
+        .for_each(|(i, &x)| {
+            unsafe { sync_slice[x].set(i) };
+        });
 }

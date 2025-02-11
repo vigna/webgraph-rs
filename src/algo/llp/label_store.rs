@@ -11,6 +11,8 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+use super::RAYON_MIN_LEN;
+
 pub(crate) struct LabelStore {
     labels: Box<[UnsafeCell<usize>]>,
     volumes: Box<[AtomicUsize]>,
@@ -32,9 +34,11 @@ impl LabelStore {
     pub(crate) fn init(&mut self) {
         self.volumes
             .par_iter()
+            .with_min_len(RAYON_MIN_LEN)
             .for_each(|v| v.store(1, Ordering::Relaxed));
         self.labels
             .par_iter_mut()
+            .with_min_len(RAYON_MIN_LEN)
             .enumerate()
             .for_each(|(i, l)| *l.get_mut() = i);
     }
