@@ -72,13 +72,22 @@ serde_json = "1.0.137"
 [build-dependencies]
 built = { version = "0.7", features = ["chrono", "git2"] }
 
-[profile.release] # Used for the examples
+[profile.release]
 opt-level = 3            # like --release
 lto = "fat"              # Full LTO
 overflow-checks = false  # Disable integer overflow checks.
 debug = true             # Include debug info.
 debug-assertions = false # Enables debug assertions.
 codegen-units = 1        # slower compile times, but maybe better perf
+
+[profile.bench]
+opt-level = 3            # like --release
+lto = "fat"              # Full LTO
+overflow-checks = false  # Disable integer overflow checks.
+debug = true             # Include debug info.
+debug-assertions = false # Enables debug assertions.
+codegen-units = 1        # slower compile times, but maybe better perf
+
 
 [lib]
 name = "webgraph"
