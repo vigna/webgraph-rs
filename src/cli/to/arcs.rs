@@ -15,7 +15,7 @@ use lender::*;
 use std::io::Write;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "csv";
+pub const COMMAND_NAME: &str = "arcs";
 
 #[derive(Args, Debug)]
 #[command(about = "Dumps a graph as an ASCII list of arcs to stdout.", long_about = None)]
@@ -40,17 +40,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => to_csv::<BE>(args),
+        BE::NAME => to_csv::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => to_csv::<LE>(args),
+        LE::NAME => to_csv::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn to_csv<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -65,6 +65,11 @@ where
     pl.display_memory(true)
         .item_name("nodes")
         .expected_updates(Some(num_nodes));
+
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
+
     pl.start("Reading BvGraph");
 
     for_! ( (src, succ) in graph.iter() {

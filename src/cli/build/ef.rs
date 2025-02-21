@@ -42,17 +42,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => build_eliasfano::<BE>(args),
+        BE::NAME => build_eliasfano::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => build_eliasfano::<LE>(args),
+        LE::NAME => build_eliasfano::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_eliasfano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn build_eliasfano<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -83,6 +83,9 @@ where
             pl.display_memory(true)
                 .item_name("offset")
                 .expected_updates(Some(num_nodes));
+            if let Some(duration) = submatches.get_one("log-interval") {
+                pl.log_interval(*duration);
+            }
             pl.start("Translating offsets to EliasFano...");
             // read the graph a write the offsets
             let mut offset = 0;
@@ -97,12 +100,18 @@ where
 
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
+            if let Some(duration) = submatches.get_one("log-interval") {
+                pl.log_interval(*duration);
+            }
             pl.start("Building the Index over the ones in the high-bits...");
             let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
             pl.done();
 
             let mut pl = ProgressLogger::default();
             pl.display_memory(true);
+            if let Some(duration) = submatches.get_one("log-interval") {
+                pl.log_interval(*duration);
+            }
             pl.start("Writing to disk...");
             // serialize and dump the schema to disk
             let ef_path = basename.with_extension(EF_EXTENSION);
@@ -149,6 +158,9 @@ where
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
@@ -196,12 +208,18 @@ where
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
     pl.start("Building the Index over the ones in the high-bits...");
     let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
     pl.done();
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
     pl.start("Writing to disk...");
     // serialize and dump the schema to disk
     ef.serialize(&mut ef_file)

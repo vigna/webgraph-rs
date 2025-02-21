@@ -31,10 +31,10 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    check_ef(CliArgs::from_arg_matches(submatches)?)
+    check_ef(submatches, CliArgs::from_arg_matches(submatches)?)
 }
 
-pub fn check_ef(args: CliArgs) -> Result<()> {
+pub fn check_ef(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
     let properties_path = args.src.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
@@ -54,6 +54,9 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
@@ -81,6 +84,9 @@ pub fn check_ef(args: CliArgs) -> Result<()> {
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
 
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<BE>()

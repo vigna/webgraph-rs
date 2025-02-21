@@ -104,17 +104,20 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => llp::<BE>(args),
+        BE::NAME => llp::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => llp::<LE>(args),
+        LE::NAME => llp::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
+pub fn llp<E: Endianness + 'static + Send + Sync>(
+    submatches: &ArgMatches,
+    args: CliArgs,
+) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
@@ -180,14 +183,12 @@ where
 
     let granularity = if let Some(granularity) = args.granularity {
         Some(Granularity::Absolute(granularity))
-    } else if let Some(slack) = args.slack {
-        Some(Granularity::Relative {
+    } else  {
+        args.slack.map(|slack| Granularity::Relative {
             slack,
             min_len: 1000,
             max_len: 100000, // TODO: make this dependent on default values
         })
-    } else {
-        None
     };
 
     // compute the LLP
@@ -227,6 +228,5 @@ where
                 .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
         }
     }
-    log::info!("Completed in {} seconds", start.elapsed().as_secs_f64());
     Ok(())
 }

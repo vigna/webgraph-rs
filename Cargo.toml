@@ -9,7 +9,6 @@ readme = "README.md"
 keywords = ["graph", "compression", "codes", "webgraph"]
 categories = ["compression", "data-structures"]
 
-
 [features]
 default = ["cli"]
 cli = [
@@ -32,7 +31,7 @@ anyhow = { version = "1.0.79", features = ["backtrace"] }
 java-properties = "2.0.0"
 mmap-rs = "0.6.1"
 num_cpus = "1.16.0"
-epserde = "0.6.1"
+epserde = "0.7.0"
 sux = "0.5.0"
 dsi-bitstream = "0.4.0"
 dsi-progress-logger = "0.5.0"
@@ -71,6 +70,11 @@ serde_json = "1.0.137"
 
 [build-dependencies]
 built = { version = "0.7", features = ["chrono", "git2"] }
+
+[[bin]]
+name = "webgraph"
+path = "src/main.rs"
+required-features = ["cli"]
 
 [profile.release]
 opt-level = 3            # like --release

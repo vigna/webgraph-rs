@@ -9,6 +9,7 @@ use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{ensure, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use mmap_rs::MmapFlags;
 use std::io::{BufWriter, Write};
@@ -36,13 +37,18 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    merge_perms(CliArgs::from_arg_matches(submatches)?)
+    merge_perms(submatches, CliArgs::from_arg_matches(submatches)?)
 }
 
-pub fn merge_perms(args: CliArgs) -> Result<()> {
-    let start = std::time::Instant::now();
-
+pub fn merge_perms(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
+
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true).item_name("indices");
+
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
 
     if args.epserde {
         let mut perm = Vec::new();
@@ -57,13 +63,16 @@ pub fn merge_perms(args: CliArgs) -> Result<()> {
             "All permutations must have the same length"
         );
 
+        pl.start("Combining permutations...");
         for i in 0..perm[0].len() {
             let mut v = i;
             for p in &perm {
                 v = p[v];
             }
             merged.push(v);
+            pl.light_update();
         }
+        pl.done();
         merged.store(&args.dst)?;
     } else {
         let mut writer = BufWriter::new(std::fs::File::create(&args.dst)?);
@@ -72,7 +81,6 @@ pub fn merge_perms(args: CliArgs) -> Result<()> {
             let p = JavaPermutation::mmap(&path, MmapFlags::RANDOM_ACCESS)?;
             perm.push(p);
         }
-        let mut merged = Vec::new();
 
         ensure!(
             perm.iter()
@@ -80,17 +88,16 @@ pub fn merge_perms(args: CliArgs) -> Result<()> {
             "All permutations must have the same length"
         );
 
+        pl.start("Combining permutations...");
         for i in 0..perm[0].as_ref().len() {
             let mut v = i;
             for p in &perm {
                 v = p.get(v);
             }
-            merged.push(v);
-        }
-        for v in merged {
             writer.write_all(&(v as u64).to_be_bytes())?;
+            pl.light_update();
         }
+        pl.done();
     }
-    log::info!("Completed in {} seconds", start.elapsed().as_secs_f64());
     Ok(())
 }
