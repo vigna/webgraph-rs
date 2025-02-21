@@ -42,12 +42,12 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => optimize_codes::<BE>(args),
+        BE::NAME => optimize_codes::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => optimize_codes::<LE>(args),
+        LE::NAME => optimize_codes::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
@@ -81,7 +81,7 @@ impl Iterator for Chunks {
     }
 }
 
-pub fn optimize_codes<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn optimize_codes<E: Endianness>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
@@ -101,6 +101,10 @@ where
             .expected_updates(Some(graph.num_nodes()));
         pl.start("Scanning...");
 
+        if let Some(duration) = submatches.get_one("log-interval") {
+            pl.log_interval(*duration);
+        }
+    
         let thread_pool = rayon::ThreadPoolBuilder::new()
             .num_threads(args.num_threads.num_threads)
             .build()?;

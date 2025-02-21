@@ -58,10 +58,10 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     log::info!("Reading arcs from stdin...");
     let stdin = std::io::stdin().lock();
-    from_csv(CliArgs::from_arg_matches(submatches)?, stdin)
+    from_csv(submatches, CliArgs::from_arg_matches(submatches)?, stdin)
 }
 
-pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
+pub fn from_csv(submatches: &ArgMatches, args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
     let mut group_by = SortPairs::new(args.batch_size.batch_size, &dir)?;
@@ -72,6 +72,10 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     pl.display_memory(true)
         .item_name("lines")
         .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
+    
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
     pl.start("Reading arcs CSV");
 
     let mut iter = file.lines();
@@ -205,15 +209,27 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
 
     // save the nodes
     if !args.arcs_args.exact {
-        let mut file = std::fs::File::create(args.dst.with_extension("nodes")).unwrap();
+        let nodes_file = args.dst.with_extension("nodes");
+        let mut pl = ProgressLogger::default();
+        pl.display_memory(true)
+            .item_name("lines")
+            .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
+        if let Some(duration) = submatches.get_one("log-interval") {
+            pl.log_interval(*duration);
+        }
+
+        let mut file = std::fs::File::create(&nodes_file).unwrap();
         let mut buf = std::io::BufWriter::new(&mut file);
         let mut nodes = nodes.into_iter().collect::<Vec<_>>();
         // sort based on the idx
         nodes.par_sort_by(|(_, a), (_, b)| a.cmp(b));
+        pl.start(format!("Storing the nodes to {}", nodes_file.display()));
         for (node, _) in nodes {
             buf.write_all(node.as_bytes()).unwrap();
             buf.write_all(b"\n").unwrap();
+            pl.light_update();
         }
+        pl.done();
     }
     Ok(())
 }

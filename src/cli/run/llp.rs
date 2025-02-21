@@ -100,17 +100,20 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => llp::<BE>(args),
+        BE::NAME => llp::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => llp::<LE>(args),
+        LE::NAME => llp::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
+pub fn llp<E: Endianness + 'static + Send + Sync>(
+    _submatches: &ArgMatches,
+    args: CliArgs,
+) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
@@ -214,6 +217,5 @@ where
                 .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
         }
     }
-    log::info!("Completed in {} seconds", start.elapsed().as_secs_f64());
     Ok(())
 }

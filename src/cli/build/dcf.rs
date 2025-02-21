@@ -39,17 +39,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => build_dcf::<BE>(args),
+        BE::NAME => build_dcf::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => build_dcf::<LE>(args),
+        LE::NAME => build_dcf::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_dcf<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn build_dcf<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
@@ -79,6 +79,9 @@ where
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
         .endianness::<E>()
         .load()

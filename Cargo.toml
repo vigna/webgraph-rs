@@ -9,7 +9,6 @@ readme = "README.md"
 keywords = ["graph", "compression", "codes", "webgraph"]
 categories = ["compression", "data-structures"]
 
-
 [features]
 default = ["cli"]
 cli = [
@@ -73,6 +72,11 @@ serde_json = "1.0.137"
 [build-dependencies]
 built = { version = "0.7", features = ["git2"] }
 chrono = "0.4.40"
+
+[[bin]]
+name = "webgraph"
+path = "src/main.rs"
+required-features = ["cli"]
 
 [profile.release]
 opt-level = 3            # like --release

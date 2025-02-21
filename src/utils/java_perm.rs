@@ -111,6 +111,10 @@ impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     fn reset(&mut self) {
         self.perm.as_mut().reset();
     }
+
+    fn par_reset(&mut self) {
+        self.perm.as_mut().par_reset();
+    }
 }
 
 impl AsRef<[u64]> for JavaPermutation {

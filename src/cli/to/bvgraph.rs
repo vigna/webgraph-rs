@@ -46,7 +46,6 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let start = std::time::Instant::now();
     let args = CliArgs::from_arg_matches(submatches)?;
 
     create_parent_dir(&args.dst)?;
@@ -71,11 +70,6 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         LE::NAME => compress::<LE>(args, target_endianness, permutation)?,
         e => panic!("Unknown endianness: {}", e),
     };
-
-    log::info!(
-        "The re-compression took {:.3} seconds",
-        start.elapsed().as_secs_f64()
-    );
     Ok(())
 }
 

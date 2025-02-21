@@ -31,7 +31,7 @@ pub fn cli(command: Command) -> Command {
 }
 
 macro_rules! impl_convert {
-    ($args:expr, $src:ty, $dst:ty) => {
+    ($submatches:expr, $args:expr, $src:ty, $dst:ty) => {
         info!(
             "The source graph was {}-endian, converting to {}-endian",
             <$src>::NAME,
@@ -64,6 +64,10 @@ macro_rules! impl_convert {
         pl.display_memory(true)
             .item_name("node")
             .expected_updates(Some(num_arcs as usize));
+
+        if let Some(duration) = $submatches.get_one("log-interval") {
+            pl.log_interval(*duration);
+        }
 
         let seq_graph = BvGraphSeq::with_basename(&$args.src)
             .endianness::<$src>()
@@ -136,14 +140,14 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         BE::NAME => {
-            impl_convert!(args, BE, LE);
+            impl_convert!(submatches, args, BE, LE);
         }
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
         LE::NAME => {
-            impl_convert!(args, LE, BE);
+            impl_convert!(submatches, args, LE, BE);
         }
         e => panic!("Unknown endianness: {}", e),
     };

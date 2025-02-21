@@ -33,17 +33,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => build_offsets::<BE>(args),
+        BE::NAME => build_offsets::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => build_offsets::<LE>(args),
+        LE::NAME => build_offsets::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_offsets<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn build_offsets<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
@@ -64,6 +64,9 @@ where
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(seq_graph.num_nodes()));
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
     pl.start("Computing offsets...");
     // read the graph a write the offsets
     let mut offset = 0;

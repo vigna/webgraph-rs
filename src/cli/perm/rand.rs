@@ -8,6 +8,7 @@
 use crate::cli::create_parent_dir;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_progress_logger::prelude::*;
 use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
@@ -45,15 +46,24 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         perm.store(&args.dst)
             .with_context(|| format!("Could not store permutation to {}", args.dst.display()))?;
     } else {
+        let mut pl = ProgressLogger::default();
+        pl.display_memory(true).item_name("index");
+        if let Some(duration) = submatches.get_one("log-interval") {
+            pl.log_interval(*duration);
+        }
+
         let mut file =
             std::io::BufWriter::new(std::fs::File::create(&args.dst).with_context(|| {
                 format!("Could not create permutation at {}", args.dst.display())
             })?);
+        pl.start("Writing permutation indices...");
         for perm in perm {
             file.write_all(&perm.to_be_bytes()).with_context(|| {
                 format!("Could not write permutation to {}", args.dst.display())
             })?;
+            pl.light_update();
         }
+        pl.done();
     }
 
     Ok(())

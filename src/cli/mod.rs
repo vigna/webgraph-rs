@@ -12,12 +12,14 @@
 
 use crate::prelude::CompFlags;
 use crate::{build_info, utils::Granularity};
-use anyhow::{anyhow, ensure, Context, Result};
-use clap::{Args, Command, ValueEnum};
+use anyhow::{anyhow, bail, ensure, Context, Result};
+use clap::{Args, Arg, ArgAction, Command, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use sysinfo::System;
+
 
 pub mod analyze;
 pub mod bench;
@@ -308,6 +310,44 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
+/// Parse a duration from a string.
+/// For compatibility with Java, if no suffix is given, it is assumed to be in milliseconds.
+/// You can use suffixes, the available ones are:
+/// - `s` for seconds
+/// - `m` for minutes
+/// - `h` for hours
+/// - `d` for days
+/// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.
+fn parse_duration(value: &str) -> Result<Duration> {
+    if value.is_empty() {
+        bail!("Empty duration string, if you want every 0 milliseconds use `0`.");
+    }
+    let mut duration = Duration::from_secs(0);
+    let mut acc = String::new();
+    for c in value.chars() {
+        if c.is_ascii_digit() {
+            acc.push(c);
+        } else if c.is_whitespace() {
+            continue;
+        } else {
+            let dur = acc.parse::<u64>()?;
+            match c {
+                's' => duration += Duration::from_secs(dur),
+                'm' => duration += Duration::from_secs(dur * 60),
+                'h' => duration += Duration::from_secs(dur * 60 * 60),
+                'd' => duration += Duration::from_secs(dur * 60 * 60 * 24),
+                _ => return Err(anyhow!("Invalid duration suffix: {}", c)),
+            }
+            acc.clear();
+        }
+    }
+    if !acc.is_empty() {
+        let dur = acc.parse::<u64>()?;
+        duration += Duration::from_millis(dur);
+    }
+    Ok(duration)
+}
+
 /// The entry point of the command-line interface.
 pub fn main<I, T>(args: I) -> Result<()>
 where
@@ -315,20 +355,34 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let start = std::time::Instant::now();
-    // it's ok to fail since this might be called multiple times in tests
-    let _ = env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .try_init();
 
     let command = Command::new("webgraph")
         .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")
         .version(build_info::version_string())
         .subcommand_required(true)
         .arg_required_else_help(true)
+        .arg(
+            Arg::new("log-interval")
+                .short('l')
+                .long("log-interval")
+                .value_parser(parse_duration)
+                .help(
+                    "How often to log progress. Default is 10s. You can use the suffixes `s` for seconds, `m` for minutes, `h` for hours, and `d` for days. If no suffix is provided it is assumed to be in milliseconds. Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4 seconds + 567 milliseconds = 93784567 milliseconds.",)
+                .global(true),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .action(ArgAction::Count)
+                .global(true)
+                .help("How much verbose it will be. `-v` for info, `-vv` for debug, `-vvv` for trace. If not passed it defaults to the enviromment variable `WEBGRAPH_LOG`")
+        )
         .after_help(
             "Environment (noteworthy environment variables used):
 RUST_MIN_STACK: minimum thread stack size (in bytes)
 TMPDIR: where to store temporary files (potentially very large ones)
+WEBGRAPH_LOG: default log level (trace, debug, info, warn, error)
 ",
         );
 
@@ -341,6 +395,30 @@ TMPDIR: where to store temporary files (potentially very large ones)
             let command = command.display_order(0); // sort args alphabetically
             let mut completion_command = command.clone();
             let matches = command.get_matches_from(args);
+
+            // setup the log level depending on the verbosity flag given
+            match matches.get_count("verbose") {
+                0 => {
+                    // not passed, default to the env var
+                    env_logger::init_from_env("WEBGRAPH_LOG");
+                }
+                1 => {
+                    let mut builder = env_logger::builder();
+                    builder.parse_filters("info");
+                    builder.init()
+                }
+                2 => {
+                    let mut builder = env_logger::builder();
+                    builder.parse_filters("debug");
+                    builder.init()
+                }
+                3.. => {
+                    let mut builder = env_logger::builder();
+                    builder.parse_filters("trace");
+                    builder.init()
+                }
+            }
+
             let subcommand = matches.subcommand();
             // if no command is specified, print the help message
             if subcommand.is_none() {

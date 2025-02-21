@@ -37,17 +37,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => ascii_convert::<BE>(args),
+        BE::NAME => ascii_convert::<BE>(submatches, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => ascii_convert::<LE>(args),
+        LE::NAME => ascii_convert::<LE>(submatches, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn ascii_convert<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn ascii_convert<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
@@ -57,6 +57,11 @@ where
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("offset");
+
+    if let Some(duration) = submatches.get_one("log-interval") {
+        pl.log_interval(*duration);
+    }
+
     pl.start("Computing offsets...");
 
     let mut iter = seq_graph.iter();
