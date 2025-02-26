@@ -71,7 +71,7 @@ pub fn harness(data: FuzzCase) {
         .map(|(src, dst)| (src as usize, dst as usize))
         .collect::<Vec<_>>();
     edges.sort();
-    let graph = VecGraph::from_arcs(edges);
+    let graph = BTreeGraph::from_arcs(edges);
     // Compress in big endian
     let mut codes_data_be: Vec<u64> = Vec::new();
     {
