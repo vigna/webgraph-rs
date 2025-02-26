@@ -55,29 +55,30 @@ pub fn cli(command: Command) -> Command {
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    from_csv(CliArgs::from_arg_matches(submatches)?)
+    log::info!("Reading arcs from stdin...");
+    let stdin = std::io::stdin().lock();
+    from_csv(CliArgs::from_arg_matches(submatches)?, stdin)
 }
 
-pub fn from_csv(args: CliArgs) -> Result<()> {
+pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
     let mut group_by = SortPairs::new(args.batch_size.batch_size, &dir)?;
     let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
-    let stdin = std::io::stdin();
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("lines")
         .expected_updates(args.arcs_args.max_lines.or(args.num_arcs));
     pl.start("Reading arcs CSV");
 
-    let mut iter = stdin.lock().lines();
+    let mut iter = file.lines();
     // skip the first few lines
     for _ in 0..args.arcs_args.lines_to_skip {
-        iter.next().unwrap().unwrap();
+        let _ = iter.next();
     }
-    let num_cols = args
+    let biggest_idx = args
         .arcs_args
         .source_column
         .max(args.arcs_args.target_column);
@@ -98,10 +99,10 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
         // split the csv line into the args
         let vals = line.split(args.arcs_args.separator).collect::<Vec<_>>();
 
-        if vals.len() <= num_cols {
+        if vals.get(biggest_idx).is_none() {
             log::warn!(
                 "Line {}: {:?} from stdin does not have enough columns: got {} columns but expected at least {} columns separated by {:?} (you can change the separator using the --separator option)", 
-                line_num, line, vals.len(), num_cols + 1, args.arcs_args.separator,
+                line_num, line, vals.len(), biggest_idx + 1, args.arcs_args.separator,
             );
             continue;
         }
@@ -111,13 +112,31 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
 
         // parse if exact, or build a node list
         let src_id = if args.arcs_args.exact {
-            src.parse::<usize>().unwrap()
+            match src.parse::<usize>() {
+                Ok(src_id) => src_id,
+                Err(err) => {
+                    log::error!(
+                        "Error parsing as integer source column value {:?} at line {}: {:?}",
+                        src, line_num, err
+                    );
+                    return Ok(());
+                }
+            }
         } else {
             let node_id = nodes.len();
             *nodes.entry(src.to_string()).or_insert(node_id)
         };
         let dst_id = if args.arcs_args.exact {
-            dst.parse::<usize>().unwrap()
+            match dst.parse::<usize>() {
+                Ok(dst_id) => dst_id,
+                Err(err) => {
+                    log::error!(
+                        "Error parsing as integer target column value {:?} at line {}: {:?}",
+                        dst, line_num, err
+                    );
+                    return Ok(());
+                }
+            }
         } else {
             let node_id = nodes.len();
             *nodes.entry(dst.to_string()).or_insert(node_id)
