@@ -117,7 +117,9 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
                 Err(err) => {
                     log::error!(
                         "Error parsing as integer source column value {:?} at line {}: {:?}",
-                        src, line_num, err
+                        src,
+                        line_num,
+                        err
                     );
                     return Ok(());
                 }
@@ -132,7 +134,9 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
                 Err(err) => {
                     log::error!(
                         "Error parsing as integer target column value {:?} at line {}: {:?}",
-                        dst, line_num, err
+                        dst,
+                        line_num,
+                        err
                     );
                     return Ok(());
                 }
