@@ -77,8 +77,12 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     for _ in 0..args.arcs_args.lines_to_skip {
         iter.next().unwrap().unwrap();
     }
+    let num_cols = args
+        .arcs_args
+        .source_column
+        .max(args.arcs_args.target_column);
     let mut line_id = 0;
-    for line in iter {
+    for (line_num, line) in iter.enumerate() {
         // break if we reached the end
         if let Some(max_lines) = args.arcs_args.max_lines {
             if line_id > max_lines {
@@ -93,8 +97,17 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
 
         // split the csv line into the args
         let vals = line.split(args.arcs_args.separator).collect::<Vec<_>>();
-        let src = vals[0];
-        let dst = vals[1];
+
+        if vals.len() <= num_cols {
+            log::warn!(
+                "Line {}: {:?} from stdin does not have enough columns, got {} but expected at least {} columns separated by {:?} if you can change the separator using `--separator`. ", 
+                line_num, line, vals.len(), num_cols + 1, args.arcs_args.separator,
+            );
+            continue;
+        }
+
+        let src = vals[args.arcs_args.source_column];
+        let dst = vals[args.arcs_args.target_column];
 
         // parse if exact, or build a node list
         let src_id = if args.arcs_args.exact {
@@ -116,6 +129,10 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
     }
     pl.done();
     log::info!("Arcs read: {}", line_id);
+    if line_id == 0 {
+        log::error!("No arcs read from stdin! Check that the --separator={:?} value is correct and that the --source-column={:?} and --target-column={:?} values are correct.", args.arcs_args.separator, args.arcs_args.source_column, args.arcs_args.target_column);
+        return Ok(());
+    }
 
     // convert the iter to a graph
     let g = Left(ArcListGraph::new(
