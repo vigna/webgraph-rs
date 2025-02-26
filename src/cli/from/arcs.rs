@@ -23,7 +23,7 @@ pub const COMMAND_NAME: &str = "arcs";
 
 #[derive(Args, Debug)]
 #[command(
-    about = "Creates a new BvGraph from a list of arcs. Each arc is specified by a pair of labels, and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers."
+    about = "Read from standard input a list of arcs and create a BvGraph. Each arc is specified by a pair of labels separated by a TAB (but the format is customizable), and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers. Note that in that case nodes are numbered starting from zero."
 )]
 pub struct CliArgs {
     /// The basename of the graph.

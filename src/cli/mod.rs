@@ -81,7 +81,7 @@ pub struct ArcsArgs {
     /// ignoring comment lines.
     pub max_lines: Option<usize>,
 
-    #[arg(long, default_value_t = ',')]
+    #[arg(long, default_value_t = '\t')]
     /// The column separator.
     pub separator: char,
 
