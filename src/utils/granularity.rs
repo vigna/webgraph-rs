@@ -50,9 +50,9 @@ impl Granularity {
     /// * [`Granularity::Absolute`]: granularity is just the fixed value.
     ///   variant, this method will just return its fixed
     /// * [`Granularity::Relative`]: granularity will be first given by the
-    /// overall number of element to process, divided by the number of threads
-    /// multiplied by the slack; then, the resulting granularity will be clamped
-    /// between a minimum and a maximum value.
+    ///   overall number of element to process, divided by the number of threads
+    ///   multiplied by the slack; then, the resulting granularity will be
+    ///   clamped between a minimum and a maximum value.
     pub fn granularity(&self, num_elements: usize, num_threads: usize) -> usize {
         match *self {
             Granularity::Absolute(fixed) => fixed,

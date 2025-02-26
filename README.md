@@ -151,8 +151,36 @@ cargo run --release from arcs --num-nodes 3 --exact 3-cycle <3-cycle.tsv
 will create a file compressed graph with basename `3-cycle`. The `--exact` flag
 is used to specify that the labels provided are exactly the node numbers,
 numbered starting from zero: otherwise, a mapping from assigned node number to
-labels will be created in RAM and store in `3-cycle.nodes` file; for very large
-graphs, the mapping might not fit in RAM.
+labels will be created in RAM and store in `3-cycle.nodes` file.
+The labels are stored in a `HashMap`, so, for very large graphs, the mapping 
+might not fit in RAM. For example,
+
+```bash
+echo -e "a\tb\nb\tc\nc\ta" > graph.tsv
+# convert to bvgraph
+cat graph.tsv | cargo run --release from arcs --num-nodes 3 graph
+```
+
+The graph can be converted back in the arcs format using the `to arcs` command.
+Passing the `.nodes` files to `--labels` will write the labels instead of the
+node numbers.
+
+```bash
+# convert back to tsv
+cargo run --release to arcs --labels=graph.nodes graph > back.tsv
+```
+
+Moreover, the `--separator` argument can be used in both `from arcs` and `to arcs`
+to change the character that separates source and target to parse other formats
+such as `csv`. For example,
+
+```bash
+echo -e "a,b\nb,c\nc,a" > graph.csv
+# convert to bvgraph
+$ cat graph.csv | cargo run --release from arcs --separator=',' --num-nodes 3 graph
+# convert back to csv
+$ cargo run --release to arcs --separator=',' --labels=graph.nodes graph > back.csv
+```
 
 ## Ackowledgments
 

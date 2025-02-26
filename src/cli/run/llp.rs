@@ -180,14 +180,12 @@ where
 
     let granularity = if let Some(granularity) = args.granularity {
         Some(Granularity::Absolute(granularity))
-    } else if let Some(slack) = args.slack {
-        Some(Granularity::Relative {
+    } else {
+        args.slack.map(|slack| Granularity::Relative {
             slack,
             min_len: 1000,
             max_len: 100000, // TODO: make this dependent on default values
         })
-    } else {
-        None
     };
 
     // compute the LLP

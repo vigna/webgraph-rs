@@ -93,7 +93,7 @@ pub trait SequentialLabeling {
     ///
     /// * `func` - The function to apply to each chunk of nodes.
     /// * `fold` - The function to fold the results obtained from each chunk. It
-    ///    will be passed to the [`Iterator::fold`].
+    ///   will be passed to the [`Iterator::fold`].
     /// * `node_granularity` - The number of nodes to process in each chunk.
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
