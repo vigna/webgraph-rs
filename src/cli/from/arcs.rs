@@ -100,7 +100,7 @@ pub fn from_csv(args: CliArgs) -> Result<()> {
 
         if vals.len() <= num_cols {
             log::warn!(
-                "Line {}: {:?} from stdin does not have enough columns, got {} but expected at least {} columns separated by {:?} if you can change the separator using `--separator`. ", 
+                "Line {}: {:?} from stdin does not have enough columns: got {} columns but expected at least {} columns separated by {:?} (you can change the separator using the --separator option)", 
                 line_num, line, vals.len(), num_cols + 1, args.arcs_args.separator,
             );
             continue;

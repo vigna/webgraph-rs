@@ -136,7 +136,25 @@ CLI is the main method of the library, so it can be executed with `cargo run`.
 There are many operations available on graphs, such as [transpose],
 [simplify], and [permute].
 
-## Acknowledgments
+## Compressing Graphs Given as List of Arcs
+
+A simple way to compress a graph is to provide it as a list of arcs. The
+`webgraph` CLI provides a command `from` with a subcommand `arcs` that reads a
+list of TAB-separated list of arcs from standard input and writes a compressed
+[`BvGraph`]. For example,
+
+```bash
+echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
+cargo run --release from arcs --num-nodes 3 --exact 3-cycle <3-cycle.tsv
+```
+
+will create a file compressed graph with basename `3-cycle`. The `--exact` flag
+is used to specify that the labels provided are exactly the node numbers,
+numbered starting from zero: otherwise, a mapping from assigned node number to
+labels will be created in RAM and store in `3-cycle.nodes` file; for very large
+graphs, the mapping might not fit in RAM.
+
+## Ackowledgments
 
 This software has been partially supported by project SERICS (PE00000014) under
 the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
@@ -150,6 +168,7 @@ Union nor the Italian MUR can be held responsible for them.
 [permute]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html>
 [`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename>
 [`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html>
+[`BVGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraph.html>
 [`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html>
 [iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
 [zipping]: <https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html>
