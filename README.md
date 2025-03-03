@@ -145,7 +145,7 @@ list of TAB-separated list of arcs from standard input and writes a compressed
 
 ```bash
 echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
-cargo run --release from arcs --num-nodes 3 --exact 3-cycle <3-cycle.tsv
+cargo run --release from arcs --exact 3-cycle <3-cycle.tsv
 ```
 
 will create a file compressed graph with basename `3-cycle`. The `--exact` flag
@@ -158,7 +158,7 @@ might not fit in RAM. For example,
 ```bash
 echo -e "a\tb\nb\tc\nc\ta" > graph.tsv
 # convert to bvgraph
-cat graph.tsv | cargo run --release from arcs --num-nodes 3 graph
+cat graph.tsv | cargo run --release from arcs graph
 ```
 
 The graph can be converted back in the arcs format using the `to arcs` command.
@@ -177,7 +177,7 @@ such as `csv`. For example,
 ```bash
 echo -e "a,b\nb,c\nc,a" > graph.csv
 # convert to bvgraph
-$ cat graph.csv | cargo run --release from arcs --separator=',' --num-nodes 3 graph
+$ cat graph.csv | cargo run --release from arcs --separator=',' graph
 # convert back to csv
 $ cargo run --release to arcs --separator=',' --labels=graph.nodes graph > back.csv
 ```

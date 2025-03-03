@@ -150,7 +150,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     }
     pl.done();
 
-    if args.arcs_args.exact {
+    if !args.arcs_args.exact {
         debug_assert_eq!(num_nodes, nodes.len(), "Consistency check of the algorithm. The number of nodes should be equal to the number of unique nodes found in the arcs.");
     }
 
