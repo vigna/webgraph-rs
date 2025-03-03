@@ -30,6 +30,10 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(long)]
+    /// The number of nodes in the graph; if specified, it will be used to estimate the progress.
+    pub num_nodes: Option<usize>,
+
+    #[arg(long)]
     /// The number of arcs in the graph; if specified, it will be used to estimate the progress.
     pub num_arcs: Option<usize>,
 
@@ -152,6 +156,17 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
 
     if !args.arcs_args.exact {
         debug_assert_eq!(num_nodes, nodes.len(), "Consistency check of the algorithm. The number of nodes should be equal to the number of unique nodes found in the arcs.");
+    }
+
+    if let Some(user_num_nodes) = args.num_nodes {
+        if user_num_nodes < num_nodes {
+            log::warn!(
+                "The number of nodes specified by --num-nodes={} is smaller than the number of nodes found in the arcs: {}",
+                user_num_nodes,
+                num_nodes
+            );
+        }
+        num_nodes = user_num_nodes;
     }
 
     log::info!("Arcs read: {} Nodes: {}", num_arcs, num_nodes);
