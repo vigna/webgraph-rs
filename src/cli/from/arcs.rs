@@ -30,10 +30,6 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(long)]
-    /// The number of nodes in the graph.
-    pub num_nodes: usize,
-
-    #[arg(long)]
     /// The number of arcs in the graph; if specified, it will be used to estimate the progress.
     pub num_arcs: Option<usize>,
 
@@ -70,7 +66,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("lines")
-        .expected_updates(args.arcs_args.max_lines.or(args.num_arcs));
+        .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
     pl.start("Reading arcs CSV");
 
     let mut iter = file.lines();
@@ -82,11 +78,12 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         .arcs_args
         .source_column
         .max(args.arcs_args.target_column);
-    let mut line_id = 0;
+    let mut num_nodes = 0;
+    let mut num_arcs = 0;
     for (line_num, line) in iter.enumerate() {
         // break if we reached the end
-        if let Some(max_lines) = args.arcs_args.max_lines {
-            if line_id > max_lines {
+        if let Some(max_arcs) = args.arcs_args.max_arcs {
+            if num_arcs > max_arcs {
                 break;
             }
         }
@@ -146,20 +143,26 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
             *nodes.entry(dst.to_string()).or_insert(node_id)
         };
 
+        num_nodes = num_nodes.max(src_id.max(dst_id) + 1);
         group_by.push(src_id, dst_id).unwrap();
         pl.light_update();
-        line_id += 1;
+        num_arcs += 1;
     }
     pl.done();
-    log::info!("Arcs read: {}", line_id);
-    if line_id == 0 {
+
+    if args.arcs_args.exact {
+        debug_assert_eq!(num_nodes, nodes.len(), "Consistency check of the algorithm. The number of nodes should be equal to the number of unique nodes found in the arcs.");
+    }
+
+    log::info!("Arcs read: {} Nodes: {}", num_arcs, num_nodes);
+    if num_arcs == 0 {
         log::error!("No arcs read from stdin! Check that the --separator={:?} value is correct and that the --source-column={:?} and --target-column={:?} values are correct.", args.arcs_args.separator, args.arcs_args.source_column, args.arcs_args.target_column);
         return Ok(());
     }
 
     // convert the iter to a graph
     let g = Left(ArcListGraph::new(
-        args.num_nodes,
+        num_nodes,
         group_by
             .iter()
             .unwrap()
@@ -176,7 +179,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     BvComp::parallel_endianness(
         &args.dst,
         &g,
-        args.num_nodes,
+        num_nodes,
         args.ca.into(),
         &thread_pool,
         dir,

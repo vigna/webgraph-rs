@@ -79,7 +79,7 @@ pub struct ArcsArgs {
     #[arg(long)]
     /// How many lines to parse, after skipping the first lines_to_skip and
     /// ignoring comment lines.
-    pub max_lines: Option<usize>,
+    pub max_arcs: Option<usize>,
 
     #[arg(long, default_value_t = '\t')]
     /// The column separator.
