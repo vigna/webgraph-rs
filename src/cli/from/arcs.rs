@@ -30,7 +30,8 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(long)]
-    /// The number of nodes in the graph; if specified, it will be used to estimate the progress.
+    /// The number of nodes in the graph; if specified this will be used instead of the number inferred.
+    /// This is useful if you want to add disconnected nodes at the end of the graph.
     pub num_nodes: Option<usize>,
 
     #[arg(long)]
