@@ -5,23 +5,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use dsi_bitstream::codes::dispatch::code_consts;
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
-use super::{const_codes, CodeWrite, Encode, EncodeAndEstimate};
+use super::{Encode, EncodeAndEstimate};
 
 #[repr(transparent)]
 /// An implementation of [`EncodeAndEstimate`] with compile time defined codes
 #[derive(Debug, Clone)]
 pub struct ConstCodesEncoder<
     E: Endianness,
-    CW: CodeWrite<E>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
-    const K: u64 = 3,
+    CW: CodesWrite<E>,
+    const OUTDEGREES: usize = { code_consts::GAMMA },
+    const REFERENCES: usize = { code_consts::UNARY },
+    const BLOCKS: usize = { code_consts::GAMMA },
+    const INTERVALS: usize = { code_consts::GAMMA },
+    const RESIDUALS: usize = { code_consts::ZETA3 },
 > {
     code_writer: CW,
     _marker: core::marker::PhantomData<E>,
@@ -29,15 +29,13 @@ pub struct ConstCodesEncoder<
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E> + BitSeek,
+        CW: CodesWrite<E> + BitSeek,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
-    > BitSeek
-    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > BitSeek for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = <CW as BitSeek>::Error;
 
@@ -52,14 +50,13 @@ impl<
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E>,
+        CW: CodesWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
-    > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Create a new [`ConstCodesEncoder`] with the given [`CodeWrite`] implementation.
     pub fn new(code_writer: CW) -> Self {
@@ -70,30 +67,15 @@ impl<
     }
 }
 
-macro_rules! select_code_write {
-    ($self:ident, $code:expr, $k: expr, $value:expr) => {
-        match $code {
-            const_codes::UNARY => $self.code_writer.write_unary($value),
-            const_codes::GAMMA => $self.code_writer.write_gamma($value),
-            const_codes::DELTA => $self.code_writer.write_delta($value),
-            const_codes::ZETA if $k == 1 => $self.code_writer.write_gamma($value),
-            const_codes::ZETA if $k == 3 => $self.code_writer.write_zeta3($value),
-            const_codes::ZETA => $self.code_writer.write_zeta($value, K),
-            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
-        }
-    };
-}
-
 impl<
         E: Endianness,
-        CW: CodeWrite<E>,
+        CW: CodesWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
-    > Encode for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encode for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = <CW as BitWrite<E>>::Error;
 
@@ -109,43 +91,43 @@ impl<
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, OUTDEGREES, K, value)
+        ConstCode::<OUTDEGREES>.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, REFERENCES, K, value)
+        ConstCode::<REFERENCES>.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, BLOCKS, K, value)
+        ConstCode::<BLOCKS>.write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, BLOCKS, K, value)
+        ConstCode::<BLOCKS>.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, INTERVALS, K, value)
+        ConstCode::<INTERVALS>.write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, INTERVALS, K, value)
+        ConstCode::<INTERVALS>.write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, INTERVALS, K, value)
+        ConstCode::<INTERVALS>.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, RESIDUALS, K, value)
+        ConstCode::<RESIDUALS>.write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_write!(self, RESIDUALS, K, value)
+        ConstCode::<RESIDUALS>.write(&mut self.code_writer, value)
     }
 
     fn flush(&mut self) -> Result<usize, Self::Error> {
@@ -155,18 +137,17 @@ impl<
 
 impl<
         E: Endianness,
-        CW: CodeWrite<E>,
+        CW: CodesWrite<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
     > EncodeAndEstimate
-    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Estimator<'a>
-        = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+        = ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
     where
         Self: 'a;
     fn estimator(&mut self) -> Self::Estimator<'_> {
@@ -177,12 +158,11 @@ impl<
 #[repr(transparent)]
 #[derive(Debug, Clone, Default)]
 pub struct ConstCodesEstimator<
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
-    const K: u64 = 3,
+    const OUTDEGREES: usize = { code_consts::GAMMA },
+    const REFERENCES: usize = { code_consts::UNARY },
+    const BLOCKS: usize = { code_consts::GAMMA },
+    const INTERVALS: usize = { code_consts::GAMMA },
+    const RESIDUALS: usize = { code_consts::ZETA3 },
 >;
 
 impl<
@@ -191,24 +171,11 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
-    > ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     pub fn new() -> Self {
         Self
     }
-}
-
-macro_rules! select_code_mock_write {
-    ( $code:expr, $k: expr, $value:expr) => {
-        Ok(match $code {
-            const_codes::UNARY => $value as usize + 1,
-            const_codes::GAMMA => len_gamma($value),
-            const_codes::DELTA => len_delta($value),
-            const_codes::ZETA => len_zeta($value, K),
-            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
-        })
-    };
 }
 
 impl<
@@ -217,8 +184,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: u64,
-    > Encode for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Encode for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = Infallible;
 
@@ -234,43 +200,43 @@ impl<
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(OUTDEGREES, K, value)
+        Ok(ConstCode::<OUTDEGREES>.len(value))
     }
 
     #[inline(always)]
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(REFERENCES, K, value)
+        Ok(ConstCode::<REFERENCES>.len(value))
     }
 
     #[inline(always)]
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(BLOCKS, K, value)
+        Ok(ConstCode::<BLOCKS>.len(value))
     }
     #[inline(always)]
     fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(BLOCKS, K, value)
+        Ok(ConstCode::<BLOCKS>.len(value))
     }
 
     #[inline(always)]
     fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(INTERVALS, K, value)
+        Ok(ConstCode::<INTERVALS>.len(value))
     }
     #[inline(always)]
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(INTERVALS, K, value)
+        Ok(ConstCode::<INTERVALS>.len(value))
     }
     #[inline(always)]
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(INTERVALS, K, value)
+        Ok(ConstCode::<INTERVALS>.len(value))
     }
 
     #[inline(always)]
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(RESIDUALS, K, value)
+        Ok(ConstCode::<RESIDUALS>.len(value))
     }
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        select_code_mock_write!(RESIDUALS, K, value)
+        Ok(ConstCode::<RESIDUALS>.len(value))
     }
 
     fn flush(&mut self) -> Result<usize, Self::Error> {

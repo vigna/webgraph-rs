@@ -85,7 +85,7 @@ macro_rules! impl_convert {
             File::create(&target_graph_path)
                 .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
         )));
-        let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags);
+        let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags)?;
         // build the iterator that will read the graph and write it to the encoder
 
         pl.start("Inverting endianness...");

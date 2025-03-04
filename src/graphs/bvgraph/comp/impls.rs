@@ -102,7 +102,7 @@ impl BvComp<()> {
         E: Endianness,
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
         let basename = basename.as_ref();
         let graph_path = basename.with_extension(GRAPH_EXTENSION);
@@ -117,7 +117,7 @@ impl BvComp<()> {
             ..Default::default()
         };
 
-        let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags);
+        let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags)?;
 
         let mut bvcomp = BvComp::new(
             codes_writer,
@@ -250,7 +250,7 @@ impl BvComp<()> {
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         Self::parallel_iter(
@@ -277,7 +277,7 @@ impl BvComp<()> {
         tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodeWrite<E>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         let tmp_dir = tmp_dir.as_ref();
@@ -319,7 +319,7 @@ impl BvComp<()> {
                             let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
                                 BufWriter::new(File::create(&chunk_graph_path).unwrap()),
                             ));
-                            let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags);
+                            let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
 
                             bvcomp = BvComp::new(
                                 codes_encoder,
