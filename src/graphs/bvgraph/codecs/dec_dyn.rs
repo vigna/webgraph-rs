@@ -8,96 +8,63 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use anyhow::bail;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
 
 #[derive(Debug)]
-pub struct DynCodesDecoder<E: Endianness, CR: CodeRead<E>> {
+pub struct DynCodesDecoder<E: Endianness, CR: CodesRead<E>> {
     pub(crate) code_reader: CR,
-    pub(crate) read_outdegree: fn(&mut CR) -> u64,
-    pub(crate) read_reference_offset: fn(&mut CR) -> u64,
-    pub(crate) read_block_count: fn(&mut CR) -> u64,
-    pub(crate) read_block: fn(&mut CR) -> u64,
-    pub(crate) read_interval_count: fn(&mut CR) -> u64,
-    pub(crate) read_interval_start: fn(&mut CR) -> u64,
-    pub(crate) read_interval_len: fn(&mut CR) -> u64,
-    pub(crate) read_first_residual: fn(&mut CR) -> u64,
-    pub(crate) read_residual: fn(&mut CR) -> u64,
+    pub(crate) read_outdegree: FuncCodeReader<E, CR>,
+    pub(crate) read_reference_offset: FuncCodeReader<E, CR>,
+    pub(crate) read_block_count: FuncCodeReader<E, CR>,
+    pub(crate) read_block: FuncCodeReader<E, CR>,
+    pub(crate) read_interval_count: FuncCodeReader<E, CR>,
+    pub(crate) read_interval_start: FuncCodeReader<E, CR>,
+    pub(crate) read_interval_len: FuncCodeReader<E, CR>,
+    pub(crate) read_first_residual: FuncCodeReader<E, CR>,
+    pub(crate) read_residual: FuncCodeReader<E, CR>,
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
 /// manual implementation to avoid the `E: Clone` bound
-impl<E: Endianness, CR: CodeRead<E> + Clone> Clone for DynCodesDecoder<E, CR> {
+impl<E: Endianness, CR: CodesRead<E> + Clone> Clone for DynCodesDecoder<E, CR> {
     fn clone(&self) -> Self {
         Self {
             code_reader: self.code_reader.clone(),
-            read_outdegree: self.read_outdegree,
-            read_reference_offset: self.read_reference_offset,
-            read_block_count: self.read_block_count,
-            read_block: self.read_block,
-            read_interval_count: self.read_interval_count,
-            read_interval_start: self.read_interval_start,
-            read_interval_len: self.read_interval_len,
-            read_first_residual: self.read_first_residual,
-            read_residual: self.read_residual,
+            read_outdegree: self.read_outdegree.clone(),
+            read_reference_offset: self.read_reference_offset.clone(),
+            read_block_count: self.read_block_count.clone(),
+            read_block: self.read_block.clone(),
+            read_interval_count: self.read_interval_count.clone(),
+            read_interval_start: self.read_interval_start.clone(),
+            read_interval_len: self.read_interval_len.clone(),
+            read_first_residual: self.read_first_residual.clone(),
+            read_residual: self.read_residual.clone(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> DynCodesDecoder<E, CR> {
-    const READ_UNARY: fn(&mut CR) -> u64 = |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: fn(&mut CR) -> u64 = |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: fn(&mut CR) -> u64 = |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: fn(&mut CR) -> u64 = |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: fn(&mut CR) -> u64 = |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: fn(&mut CR) -> u64 = |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: fn(&mut CR) -> u64 = |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: fn(&mut CR) -> u64 = |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: fn(&mut CR) -> u64 = |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: fn(&mut CR) -> u64 = Self::READ_GAMMA;
-
+impl<E: Endianness, CR: CodesRead<E>> DynCodesDecoder<E, CR> {
     pub fn new(code_reader: CR, cf: &CompFlags) -> anyhow::Result<Self> {
-        macro_rules! select_code {
-            ($code:expr) => {
-                match $code {
-                    Code::Unary => Self::READ_UNARY,
-                    Code::Gamma => Self::READ_GAMMA,
-                    Code::Delta => Self::READ_DELTA,
-                    Code::Zeta { k: 1 } => Self::READ_ZETA1,
-                    Code::Zeta { k: 2 } => Self::READ_ZETA2,
-                    Code::Zeta { k: 3 } => Self::READ_ZETA3,
-                    Code::Zeta { k: 4 } => Self::READ_ZETA4,
-                    Code::Zeta { k: 5 } => Self::READ_ZETA5,
-                    Code::Zeta { k: 6 } => Self::READ_ZETA6,
-                    Code::Zeta { k: 7 } => Self::READ_ZETA7,
-                    code => bail!(
-                        "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
-                        code
-                    ),
-                }
-            };
-        }
-
         Ok(Self {
             code_reader,
-            read_outdegree: select_code!(&cf.outdegrees),
-            read_reference_offset: select_code!(&cf.references),
-            read_block_count: select_code!(&cf.blocks),
-            read_block: select_code!(&cf.blocks),
-            read_interval_count: select_code!(&cf.intervals),
-            read_interval_start: select_code!(&cf.intervals),
-            read_interval_len: select_code!(&cf.intervals),
-            read_first_residual: select_code!(&cf.residuals),
-            read_residual: select_code!(&cf.residuals),
+            read_outdegree: FuncCodeReader::new(cf.outdegrees)?,
+            read_reference_offset: FuncCodeReader::new(cf.references)?,
+            read_block_count: FuncCodeReader::new(cf.blocks)?,
+            read_block: FuncCodeReader::new(cf.blocks)?,
+            read_interval_count: FuncCodeReader::new(cf.intervals)?,
+            read_interval_start: FuncCodeReader::new(cf.intervals)?,
+            read_interval_len: FuncCodeReader::new(cf.intervals)?,
+            read_first_residual: FuncCodeReader::new(cf.residuals)?,
+            read_residual: FuncCodeReader::new(cf.residuals)?,
             _marker: core::marker::PhantomData,
         })
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR> {
+impl<E: Endianness, CR: CodesRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR> {
     type Error = <CR as BitSeek>::Error;
 
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
@@ -109,49 +76,58 @@ impl<E: Endianness, CR: CodeRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR
     }
 }
 
-impl<E: Endianness, CR: CodeRead<E>> Decode for DynCodesDecoder<E, CR> {
+impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
-        (self.read_outdegree)(&mut self.code_reader)
+        self.read_outdegree.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_reference_offset(&mut self) -> u64 {
-        (self.read_reference_offset)(&mut self.code_reader)
+        self.read_reference_offset
+            .read(&mut self.code_reader)
+            .unwrap()
     }
 
     #[inline(always)]
     fn read_block_count(&mut self) -> u64 {
-        (self.read_block_count)(&mut self.code_reader)
+        self.read_block_count.read(&mut self.code_reader).unwrap()
     }
     #[inline(always)]
     fn read_block(&mut self) -> u64 {
-        (self.read_block)(&mut self.code_reader)
+        self.read_block.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_interval_count(&mut self) -> u64 {
-        (self.read_interval_count)(&mut self.code_reader)
+        self.read_interval_count
+            .read(&mut self.code_reader)
+            .unwrap()
     }
     #[inline(always)]
     fn read_interval_start(&mut self) -> u64 {
-        (self.read_interval_start)(&mut self.code_reader)
+        self.read_interval_start
+            .read(&mut self.code_reader)
+            .unwrap()
     }
     #[inline(always)]
     fn read_interval_len(&mut self) -> u64 {
-        (self.read_interval_len)(&mut self.code_reader)
+        self.read_interval_len.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_first_residual(&mut self) -> u64 {
-        (self.read_first_residual)(&mut self.code_reader)
+        self.read_first_residual
+            .read(&mut self.code_reader)
+            .unwrap()
     }
     #[inline(always)]
     fn read_residual(&mut self) -> u64 {
-        (self.read_residual)(&mut self.code_reader)
+        self.read_residual.read(&mut self.code_reader).unwrap()
     }
 }
 
+#[derive(Debug)]
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
@@ -181,7 +157,8 @@ pub struct DynCodesDecoderFactory<
 impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> &'a OFF: IntoIterator<Item = usize>, // This dependence can soon be removed, as there will be a IndexedSeq::iter method
+    // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -218,7 +195,7 @@ where
 impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
 {
     // Const cached functions we use to decode the data. These could be general
     // functions, but this way we have better visibility and we ensure that
@@ -255,16 +232,16 @@ where
         macro_rules! select_code {
             ($code:expr) => {
                 match $code {
-                    Code::Unary => Self::READ_UNARY,
-                    Code::Gamma => Self::READ_GAMMA,
-                    Code::Delta => Self::READ_DELTA,
-                    Code::Zeta { k: 1 } => Self::READ_ZETA1,
-                    Code::Zeta { k: 2 } => Self::READ_ZETA2,
-                    Code::Zeta { k: 3 } => Self::READ_ZETA3,
-                    Code::Zeta { k: 4 } => Self::READ_ZETA4,
-                    Code::Zeta { k: 5 } => Self::READ_ZETA5,
-                    Code::Zeta { k: 6 } => Self::READ_ZETA6,
-                    Code::Zeta { k: 7 } => Self::READ_ZETA7,
+                    Codes::Unary => Self::READ_UNARY,
+                    Codes::Gamma => Self::READ_GAMMA,
+                    Codes::Delta => Self::READ_DELTA,
+                    Codes::Zeta { k: 1 } => Self::READ_ZETA1,
+                    Codes::Zeta { k: 2 } => Self::READ_ZETA2,
+                    Codes::Zeta { k: 3 } => Self::READ_ZETA3,
+                    Codes::Zeta { k: 4 } => Self::READ_ZETA4,
+                    Codes::Zeta { k: 5 } => Self::READ_ZETA5,
+                    Codes::Zeta { k: 6 } => Self::READ_ZETA6,
+                    Codes::Zeta { k: 7 } => Self::READ_ZETA7,
                     code => bail!(
                         "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
                         code
@@ -294,7 +271,7 @@ where
 impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E> + BitSeek,
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
@@ -324,7 +301,7 @@ where
 impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>

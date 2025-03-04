@@ -11,11 +11,11 @@
 //! implemented as a submodule.
 
 use crate::build_info;
-use crate::graphs::bvgraph::Code;
 use crate::prelude::CompFlags;
 use anyhow::{anyhow, ensure, Context, Result};
 use clap::{Args, Command, ValueEnum};
 use common_traits::UnsignedInt;
+use dsi_bitstream::codes::Codes;
 use std::path::{Path, PathBuf};
 use sysinfo::System;
 
@@ -48,19 +48,19 @@ pub enum PrivCode {
     Zeta7,
 }
 
-impl From<PrivCode> for Code {
+impl From<PrivCode> for Codes {
     fn from(value: PrivCode) -> Self {
         match value {
-            PrivCode::Unary => Code::Unary,
-            PrivCode::Gamma => Code::Gamma,
-            PrivCode::Delta => Code::Delta,
-            PrivCode::Zeta1 => Code::Zeta { k: 1 },
-            PrivCode::Zeta2 => Code::Zeta { k: 2 },
-            PrivCode::Zeta3 => Code::Zeta { k: 3 },
-            PrivCode::Zeta4 => Code::Zeta { k: 4 },
-            PrivCode::Zeta5 => Code::Zeta { k: 5 },
-            PrivCode::Zeta6 => Code::Zeta { k: 6 },
-            PrivCode::Zeta7 => Code::Zeta { k: 7 },
+            PrivCode::Unary => Codes::Unary,
+            PrivCode::Gamma => Codes::Gamma,
+            PrivCode::Delta => Codes::Delta,
+            PrivCode::Zeta1 => Codes::Zeta { k: 1 },
+            PrivCode::Zeta2 => Codes::Zeta { k: 2 },
+            PrivCode::Zeta3 => Codes::Zeta { k: 3 },
+            PrivCode::Zeta4 => Codes::Zeta { k: 4 },
+            PrivCode::Zeta5 => Codes::Zeta { k: 5 },
+            PrivCode::Zeta6 => Codes::Zeta { k: 6 },
+            PrivCode::Zeta7 => Codes::Zeta { k: 7 },
         }
     }
 }

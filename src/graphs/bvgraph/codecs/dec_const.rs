@@ -10,44 +10,22 @@ use std::marker::PhantomData;
 use super::super::*;
 use anyhow::bail;
 use anyhow::Result;
+use dsi_bitstream::codes::dispatch::code_consts;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
-
-/// Temporary constants while const enum generics are not stable
-pub mod const_codes {
-    /// The int associated to UNARY code
-    pub const UNARY: usize = 0;
-    /// The int associated to GAMMA code
-    pub const GAMMA: usize = 1;
-    /// The int associated to DELTA code
-    pub const DELTA: usize = 2;
-    /// The int associated to ZETA code
-    pub const ZETA: usize = 3;
-}
-
-/// Temporary conversion function while const enum generics are not stable
-pub(crate) fn code_to_const(code: Code) -> Result<usize> {
-    Ok(match code {
-        Code::Unary => const_codes::UNARY,
-        Code::Gamma => const_codes::GAMMA,
-        Code::Zeta { k: _ } => const_codes::ZETA,
-        Code::Delta => const_codes::DELTA,
-    })
-}
 
 #[repr(transparent)]
 /// An implementation of [`Decode`]  with compile-time defined codes.
 #[derive(Debug, Clone)]
 pub struct ConstCodesDecoder<
     E: Endianness,
-    CR: CodeRead<E>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
-    const K: usize = 3,
+    CR: CodesRead<E>,
+    const OUTDEGREES: usize = { code_consts::GAMMA },
+    const REFERENCES: usize = { code_consts::UNARY },
+    const BLOCKS: usize = { code_consts::GAMMA },
+    const INTERVALS: usize = { code_consts::GAMMA },
+    const RESIDUALS: usize = { code_consts::ZETA3 },
 > {
     /// The inner codes reader we will dispatch to
     pub(crate) code_reader: CR,
@@ -58,15 +36,13 @@ pub struct ConstCodesDecoder<
 
 impl<
         E: Endianness,
-        CR: CodeRead<E> + BitSeek,
+        CR: CodesRead<E> + BitSeek,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
-    > BitSeek
-    for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > BitSeek for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = <CR as BitSeek>::Error;
 
@@ -81,33 +57,32 @@ impl<
 
 impl<
         E: Endianness,
-        CR: CodeRead<E>,
+        CR: CodesRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
-    > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
-    /// Create a new [`ConstCodesEncoder`] from a [`CodeRead`] implementation.
+    /// Create a new [`ConstCodesEncoder`] from a [`CodesRead`] implementation.
     /// and a [`CompFlags`] struct
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
     pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self> {
-        if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
+        if comp_flags.outdegrees.to_code_const()? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
         }
-        if code_to_const(comp_flags.references)? != REFERENCES {
+        if comp_flags.references.to_code_const()? != REFERENCES {
             bail!("Cod for references does not match");
         }
-        if code_to_const(comp_flags.blocks)? != BLOCKS {
+        if comp_flags.blocks.to_code_const()? != BLOCKS {
             bail!("Code for blocks does not match");
         }
-        if code_to_const(comp_flags.intervals)? != INTERVALS {
+        if comp_flags.intervals.to_code_const()? != INTERVALS {
             bail!("Code for intervals does not match");
         }
-        if code_to_const(comp_flags.residuals)? != RESIDUALS {
+        if comp_flags.residuals.to_code_const()? != RESIDUALS {
             bail!("Code for residuals does not match");
         }
         Ok(Self {
@@ -117,70 +92,55 @@ impl<
     }
 }
 
-macro_rules! select_code_read {
-    ($self:ident, $code:expr, $k: expr) => {
-        match $code {
-            const_codes::UNARY => $self.code_reader.read_unary().unwrap(),
-            const_codes::GAMMA => $self.code_reader.read_gamma().unwrap(),
-            const_codes::DELTA => $self.code_reader.read_delta().unwrap(),
-            const_codes::ZETA if $k == 1 => $self.code_reader.read_gamma().unwrap(),
-            const_codes::ZETA if $k == 3 => $self.code_reader.read_zeta3().unwrap(),
-            const_codes::ZETA => $self.code_reader.read_zeta(K as u64).unwrap(),
-            _ => panic!("Only values in the range [0..4) are allowed to represent codes"),
-        }
-    };
-}
-
 impl<
         E: Endianness,
-        CR: CodeRead<E>,
+        CR: CodesRead<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
-    > Decode for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > Decode for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
-        select_code_read!(self, OUTDEGREES, K)
+        ConstCode::<OUTDEGREES>.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_reference_offset(&mut self) -> u64 {
-        select_code_read!(self, REFERENCES, K)
+        ConstCode::<REFERENCES>.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_block_count(&mut self) -> u64 {
-        select_code_read!(self, BLOCKS, K)
+        ConstCode::<BLOCKS>.read(&mut self.code_reader).unwrap()
     }
     #[inline(always)]
     fn read_block(&mut self) -> u64 {
-        select_code_read!(self, BLOCKS, K)
+        ConstCode::<BLOCKS>.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_interval_count(&mut self) -> u64 {
-        select_code_read!(self, INTERVALS, K)
+        ConstCode::<INTERVALS>.read(&mut self.code_reader).unwrap()
     }
     #[inline(always)]
     fn read_interval_start(&mut self) -> u64 {
-        select_code_read!(self, INTERVALS, K)
+        ConstCode::<INTERVALS>.read(&mut self.code_reader).unwrap()
     }
     #[inline(always)]
     fn read_interval_len(&mut self) -> u64 {
-        select_code_read!(self, INTERVALS, K)
+        ConstCode::<INTERVALS>.read(&mut self.code_reader).unwrap()
     }
 
     #[inline(always)]
     fn read_first_residual(&mut self) -> u64 {
-        select_code_read!(self, RESIDUALS, K)
+        ConstCode::<RESIDUALS>.read(&mut self.code_reader).unwrap()
     }
     #[inline(always)]
     fn read_residual(&mut self) -> u64 {
-        select_code_read!(self, RESIDUALS, K)
+        ConstCode::<RESIDUALS>.read(&mut self.code_reader).unwrap()
     }
 }
 
@@ -188,12 +148,11 @@ pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: BitReaderFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
-    const OUTDEGREES: usize = { const_codes::GAMMA },
-    const REFERENCES: usize = { const_codes::UNARY },
-    const BLOCKS: usize = { const_codes::GAMMA },
-    const INTERVALS: usize = { const_codes::GAMMA },
-    const RESIDUALS: usize = { const_codes::ZETA },
-    const K: usize = 3,
+    const OUTDEGREES: usize = { code_consts::GAMMA },
+    const REFERENCES: usize = { code_consts::UNARY },
+    const BLOCKS: usize = { code_consts::GAMMA },
+    const INTERVALS: usize = { code_consts::GAMMA },
+    const RESIDUALS: usize = { code_consts::ZETA3 },
 > {
     /// The owned data
     factory: F,
@@ -213,8 +172,7 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
-    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>, // This dependence can soon be removed, as there will be a IndexedSeq::iter method
 {
@@ -236,7 +194,6 @@ where
         BLOCKS,
         INTERVALS,
         RESIDUALS,
-        K,
     > {
         ConstCodesDecoderFactory {
             factory: self.factory,
@@ -261,24 +218,23 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
-    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Create a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
-        if code_to_const(comp_flags.outdegrees)? != OUTDEGREES {
+        if comp_flags.outdegrees.to_code_const()? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
         }
-        if code_to_const(comp_flags.references)? != REFERENCES {
+        if comp_flags.references.to_code_const()? != REFERENCES {
             bail!("Cod for references does not match");
         }
-        if code_to_const(comp_flags.blocks)? != BLOCKS {
+        if comp_flags.blocks.to_code_const()? != BLOCKS {
             bail!("Code for blocks does not match");
         }
-        if code_to_const(comp_flags.intervals)? != INTERVALS {
+        if comp_flags.intervals.to_code_const()? != INTERVALS {
             bail!("Code for intervals does not match");
         }
-        if code_to_const(comp_flags.residuals)? != RESIDUALS {
+        if comp_flags.residuals.to_code_const()? != RESIDUALS {
             bail!("Code for residuals does not match");
         }
         Ok(Self {
@@ -298,11 +254,10 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
     > RandomAccessDecoderFactory
-    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E> + BitSeek,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E> + BitSeek,
 {
     type Decoder<'a>
         = ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
@@ -329,11 +284,19 @@ impl<
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
-        const K: usize,
     > SequentialDecoderFactory
-    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
+    for ConstCodesDecoderFactory<
+        E,
+        F,
+        OFF,
+        OUTDEGREES,
+        REFERENCES,
+        BLOCKS,
+        INTERVALS,
+        RESIDUALS,
+    >
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
+    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
 {
     type Decoder<'a>
         = ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>

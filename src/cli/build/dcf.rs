@@ -50,7 +50,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
     let basename = args.src;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);

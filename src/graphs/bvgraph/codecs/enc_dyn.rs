@@ -1,97 +1,58 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{CodeWrite, Encode, EncodeAndEstimate};
-use crate::{graphs::bvgraph::Code, prelude::CompFlags};
+use super::{Encode, EncodeAndEstimate};
+use crate::prelude::CompFlags;
+use anyhow::Result;
+use dsi_bitstream::codes::dispatch::FuncCodeLen;
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
 #[derive(Debug, Clone)]
-pub struct DynCodesEncoder<E: Endianness, CW: CodeWrite<E>> {
+pub struct DynCodesEncoder<E: Endianness, CW: CodesWrite<E>> {
     /// The code writer used by to output the compressed data.
     code_writer: CW,
     /// The estimator for this encoder.
     estimator: DynCodesEstimator,
-    write_outdegree: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_reference_offset: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_block_count: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_block: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_interval_count: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_interval_start: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_interval_len: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_first_residual: fn(&mut CW, u64) -> WriteResult<E, CW>,
-    write_residual: fn(&mut CW, u64) -> WriteResult<E, CW>,
+    write_outdegree: FuncCodeWriter<E, CW>,
+    write_reference_offset: FuncCodeWriter<E, CW>,
+    write_block_count: FuncCodeWriter<E, CW>,
+    write_block: FuncCodeWriter<E, CW>,
+    write_interval_count: FuncCodeWriter<E, CW>,
+    write_interval_start: FuncCodeWriter<E, CW>,
+    write_interval_len: FuncCodeWriter<E, CW>,
+    write_first_residual: FuncCodeWriter<E, CW>,
+    write_residual: FuncCodeWriter<E, CW>,
     _marker: core::marker::PhantomData<E>,
 }
 
-fn write_zeta2<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
-    CW::write_zeta(cw, x, 2)
-}
-
-fn write_zeta4<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
-    CW::write_zeta(cw, x, 4)
-}
-
-fn write_zeta5<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
-    CW::write_zeta(cw, x, 5)
-}
-
-fn write_zeta6<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
-    CW::write_zeta(cw, x, 6)
-}
-
-fn write_zeta7<E: Endianness, CW: CodeWrite<E>>(cw: &mut CW, x: u64) -> WriteResult<E, CW> {
-    CW::write_zeta(cw, x, 7)
-}
-
-impl<E: Endianness, CW: CodeWrite<E>> DynCodesEncoder<E, CW> {
-    #[allow(clippy::type_complexity)]
-    fn select_code(code: Code) -> fn(&mut CW, u64) -> WriteResult<E, CW> {
-        match code {
-            Code::Unary => CW::write_unary,
-            Code::Gamma => CW::write_gamma,
-            Code::Delta => CW::write_delta,
-            Code::Zeta { k: 1 } => CW::write_gamma,
-            Code::Zeta { k: 2 } => write_zeta2,
-            Code::Zeta { k: 3 } => CW::write_zeta3,
-            Code::Zeta { k: 4 } => write_zeta4,
-            Code::Zeta { k: 5 } => write_zeta5,
-            Code::Zeta { k: 6 } => write_zeta6,
-            Code::Zeta { k: 7 } => write_zeta7,
-            code => {
-                panic!(
-                    "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
-                    code
-                )
-            }
-        }
-    }
-
-    pub fn new(code_writer: CW, cf: &CompFlags) -> Self {
-        Self {
+impl<E: Endianness, CW: CodesWrite<E>> DynCodesEncoder<E, CW> {
+    pub fn new(code_writer: CW, cf: &CompFlags) -> Result<Self> {
+        Ok(Self {
             code_writer,
-            write_outdegree: Self::select_code(cf.outdegrees),
-            write_reference_offset: Self::select_code(cf.references),
-            write_block_count: Self::select_code(cf.blocks),
-            write_block: Self::select_code(cf.blocks),
-            write_interval_count: Self::select_code(cf.intervals),
-            write_interval_start: Self::select_code(cf.intervals),
-            write_interval_len: Self::select_code(cf.intervals),
-            write_first_residual: Self::select_code(cf.residuals),
-            write_residual: Self::select_code(cf.residuals),
-            estimator: DynCodesEstimator::new(cf),
+            write_outdegree: FuncCodeWriter::new(cf.outdegrees)?,
+            write_reference_offset: FuncCodeWriter::new(cf.references)?,
+            write_block_count: FuncCodeWriter::new(cf.blocks)?,
+            write_block: FuncCodeWriter::new(cf.blocks)?,
+            write_interval_count: FuncCodeWriter::new(cf.intervals)?,
+            write_interval_start: FuncCodeWriter::new(cf.intervals)?,
+            write_interval_len: FuncCodeWriter::new(cf.intervals)?,
+            write_first_residual: FuncCodeWriter::new(cf.residuals)?,
+            write_residual: FuncCodeWriter::new(cf.residuals)?,
+            estimator: DynCodesEstimator::new(cf)?,
             _marker: core::marker::PhantomData,
-        }
+        })
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E> + BitSeek + Clone> BitSeek for DynCodesEncoder<E, CW> {
+impl<E: Endianness, CW: CodesWrite<E> + BitSeek + Clone> BitSeek for DynCodesEncoder<E, CW> {
     type Error = <CW as BitSeek>::Error;
 
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
@@ -107,7 +68,7 @@ fn len_unary(value: u64) -> usize {
     value as usize + 1
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> Encode for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: CodesWrite<E>> Encode for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
@@ -125,43 +86,47 @@ where
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_outdegree)(&mut self.code_writer, value)
+        self.write_outdegree.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_reference_offset(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_reference_offset)(&mut self.code_writer, value)
+        self.write_reference_offset
+            .write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_block_count(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_block_count)(&mut self.code_writer, value)
+        self.write_block_count.write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_block(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_block)(&mut self.code_writer, value)
+        self.write_block.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_interval_count(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_interval_count)(&mut self.code_writer, value)
+        self.write_interval_count
+            .write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_interval_start(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_interval_start)(&mut self.code_writer, value)
+        self.write_interval_start
+            .write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_interval_len(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_interval_len)(&mut self.code_writer, value)
+        self.write_interval_len.write(&mut self.code_writer, value)
     }
 
     #[inline(always)]
     fn write_first_residual(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_first_residual)(&mut self.code_writer, value)
+        self.write_first_residual
+            .write(&mut self.code_writer, value)
     }
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> WriteResult<E, CW> {
-        (self.write_residual)(&mut self.code_writer, value)
+        self.write_residual.write(&mut self.code_writer, value)
     }
 
     fn flush(&mut self) -> Result<usize, Self::Error> {
@@ -169,7 +134,7 @@ where
     }
 }
 
-impl<E: Endianness, CW: CodeWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, CW>
+impl<E: Endianness, CW: CodesWrite<E>> EncodeAndEstimate for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,
 {
@@ -185,50 +150,30 @@ where
 
 #[derive(Debug, Clone)]
 pub struct DynCodesEstimator {
-    len_outdegree: fn(u64) -> usize,
-    len_reference_offset: fn(u64) -> usize,
-    len_block_count: fn(u64) -> usize,
-    len_block: fn(u64) -> usize,
-    len_interval_count: fn(u64) -> usize,
-    len_interval_start: fn(u64) -> usize,
-    len_interval_len: fn(u64) -> usize,
-    len_first_residual: fn(u64) -> usize,
-    len_residual: fn(u64) -> usize,
+    len_outdegree: FuncCodeLen,
+    len_reference_offset: FuncCodeLen,
+    len_block_count: FuncCodeLen,
+    len_block: FuncCodeLen,
+    len_interval_count: FuncCodeLen,
+    len_interval_start: FuncCodeLen,
+    len_interval_len: FuncCodeLen,
+    len_first_residual: FuncCodeLen,
+    len_residual: FuncCodeLen,
 }
 
 impl DynCodesEstimator {
-    /// Selects the length function for the given [`Code`].
-    fn select_code(code: Code) -> fn(u64) -> usize {
-        match code {
-            Code::Unary => len_unary,
-            Code::Gamma => len_gamma,
-            Code::Delta => len_delta,
-            Code::Zeta { k: 1 } => len_gamma,
-            Code::Zeta { k: 2 } => |x| len_zeta(x, 2),
-            Code::Zeta { k: 3 } => |x| len_zeta(x, 3),
-            Code::Zeta { k: 4 } => |x| len_zeta(x, 4),
-            Code::Zeta { k: 5 } => |x| len_zeta(x, 5),
-            Code::Zeta { k: 6 } => |x| len_zeta(x, 6),
-            Code::Zeta { k: 7 } => |x| len_zeta(x, 7),
-            code => panic!(
-                "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
-                code
-            ),
-        }
-    }
-
-    pub fn new(cf: &CompFlags) -> Self {
-        Self {
-            len_outdegree: Self::select_code(cf.outdegrees),
-            len_reference_offset: Self::select_code(cf.references),
-            len_block_count: Self::select_code(cf.blocks),
-            len_block: Self::select_code(cf.blocks),
-            len_interval_count: Self::select_code(cf.intervals),
-            len_interval_start: Self::select_code(cf.intervals),
-            len_interval_len: Self::select_code(cf.intervals),
-            len_first_residual: Self::select_code(cf.residuals),
-            len_residual: Self::select_code(cf.residuals),
-        }
+    pub fn new(cf: &CompFlags) -> Result<Self> {
+        Ok(Self {
+            len_outdegree: FuncCodeLen::new(cf.outdegrees)?,
+            len_reference_offset: FuncCodeLen::new(cf.references)?,
+            len_block_count: FuncCodeLen::new(cf.blocks)?,
+            len_block: FuncCodeLen::new(cf.blocks)?,
+            len_interval_count: FuncCodeLen::new(cf.intervals)?,
+            len_interval_start: FuncCodeLen::new(cf.intervals)?,
+            len_interval_len: FuncCodeLen::new(cf.intervals)?,
+            len_first_residual: FuncCodeLen::new(cf.residuals)?,
+            len_residual: FuncCodeLen::new(cf.residuals)?,
+        })
     }
 }
 
@@ -247,43 +192,43 @@ impl Encode for DynCodesEstimator {
 
     #[inline(always)]
     fn write_outdegree(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_outdegree)(value))
+        Ok(self.len_outdegree.len(value))
     }
 
     #[inline(always)]
     fn write_reference_offset(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_reference_offset)(value))
+        Ok(self.len_reference_offset.len(value))
     }
 
     #[inline(always)]
     fn write_block_count(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_block_count)(value))
+        Ok(self.len_block_count.len(value))
     }
     #[inline(always)]
     fn write_block(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_block)(value))
+        Ok(self.len_block.len(value))
     }
 
     #[inline(always)]
     fn write_interval_count(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_interval_count)(value))
+        Ok(self.len_interval_count.len(value))
     }
     #[inline(always)]
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_interval_start)(value))
+        Ok(self.len_interval_start.len(value))
     }
     #[inline(always)]
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_interval_len)(value))
+        Ok(self.len_interval_len.len(value))
     }
 
     #[inline(always)]
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_first_residual)(value))
+        Ok(self.len_first_residual.len(value))
     }
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        Ok((self.len_residual)(value))
+        Ok(self.len_residual.len(value))
     }
 
     fn flush(&mut self) -> Result<usize, Self::Error> {

@@ -6,17 +6,9 @@
  */
 
 use anyhow::{bail, ensure, Result};
+use dsi_bitstream::codes::Codes;
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
-pub enum Code {
-    Unary,
-    Gamma,
-    Delta,
-    Zeta { k: usize },
-}
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
@@ -29,15 +21,15 @@ pub enum Code {
 /// splitting them.
 pub struct CompFlags {
     /// The instantaneous code to use to encode the `outdegrees`
-    pub outdegrees: Code,
+    pub outdegrees: Codes,
     /// The instantaneous code to use to encode the `reference_offset`
-    pub references: Code,
+    pub references: Codes,
     /// The instantaneous code to use to encode the `block_count` and `blocks`
-    pub blocks: Code,
+    pub blocks: Codes,
     /// The instantaneous code to use to encode the `interval_count`, `interval_start`, and `interval_len`.
-    pub intervals: Code,
+    pub intervals: Codes,
     /// The instantaneous code to use to encode the `first_residual` and `residual`
-    pub residuals: Code,
+    pub residuals: Codes,
     /// The minimum length of an interval to be compressed as (start, len)
     pub min_interval_length: usize,
     /// The number of previous nodes to use for reference compression
@@ -50,11 +42,11 @@ pub struct CompFlags {
 impl core::default::Default for CompFlags {
     fn default() -> Self {
         CompFlags {
-            outdegrees: Code::Gamma,
-            references: Code::Unary,
-            blocks: Code::Gamma,
-            intervals: Code::Gamma,
-            residuals: Code::Zeta { k: 3 },
+            outdegrees: Codes::Gamma,
+            references: Codes::Unary,
+            blocks: Codes::Gamma,
+            intervals: Codes::Gamma,
+            residuals: Codes::Zeta { k: 3 },
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,
@@ -67,22 +59,23 @@ impl CompFlags {
     /// into which code to use.
     ///
     /// Returns `None` if the string is not recognized.
-    pub fn code_from_str(s: &str, k: usize) -> Option<Code> {
+    pub fn code_from_str(s: &str, k: usize) -> Option<Codes> {
         match s.to_uppercase().as_str() {
-            "UNARY" => Some(Code::Unary),
-            "GAMMA" => Some(Code::Gamma),
-            "DELTA" => Some(Code::Delta),
-            "ZETA" => Some(Code::Zeta { k }),
+            "UNARY" => Some(Codes::Unary),
+            "GAMMA" => Some(Codes::Gamma),
+            "DELTA" => Some(Codes::Delta),
+            "ZETA" => Some(Codes::Zeta { k }),
             _ => None,
         }
     }
 
-    pub fn code_to_str(c: Code) -> Option<&'static str> {
+    pub fn code_to_str(c: Codes) -> Option<&'static str> {
         match c {
-            Code::Unary => Some("UNARY"),
-            Code::Gamma => Some("GAMMA"),
-            Code::Delta => Some("DELTA"),
-            Code::Zeta { k: _ } => Some("ZETA"),
+            Codes::Unary => Some("UNARY"),
+            Codes::Gamma => Some("GAMMA"),
+            Codes::Delta => Some("DELTA"),
+            Codes::Zeta { k: _ } => Some("ZETA"),
+            _ => unimplemented!("Code {:?} not supported", c),
         }
     }
 
@@ -134,35 +127,35 @@ impl CompFlags {
 
         s.push_str("compressionflags=");
         let mut cflags = false;
-        if self.outdegrees != Code::Gamma {
+        if self.outdegrees != Codes::Gamma {
             s.push_str(&format!(
                 "OUTDEGREES_{}|",
                 Self::code_to_str(self.outdegrees).unwrap()
             ));
             cflags = true;
         }
-        if self.references != Code::Unary {
+        if self.references != Codes::Unary {
             s.push_str(&format!(
                 "REFERENCES_{}|",
                 Self::code_to_str(self.references).unwrap()
             ));
             cflags = true;
         }
-        if self.blocks != Code::Gamma {
+        if self.blocks != Codes::Gamma {
             s.push_str(&format!(
                 "BLOCKS_{}|",
                 Self::code_to_str(self.blocks).unwrap()
             ));
             cflags = true;
         }
-        if self.intervals != Code::Gamma {
+        if self.intervals != Codes::Gamma {
             s.push_str(&format!(
                 "INTERVALS_{}|",
                 Self::code_to_str(self.intervals).unwrap()
             ));
             cflags = true;
         }
-        if !matches!(self.residuals, Code::Zeta { k: _ }) {
+        if !matches!(self.residuals, Codes::Zeta { k: _ }) {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
                 Self::code_to_str(self.residuals).unwrap()
@@ -178,7 +171,7 @@ impl CompFlags {
         macro_rules! check_and_set_k {
             ($code:expr) => {
                 match $code {
-                    Code::Zeta { k: new_k } => {
+                    Codes::Zeta { k: new_k } => {
                         if let Some(old_k) = k {
                             ensure!(old_k == new_k, "Only one value of k is supported")
                         }
@@ -245,7 +238,7 @@ impl CompFlags {
                         "INTERVALS" => cf.intervals = code,
                         "RESIDUALS" => cf.residuals = code,
                         "OFFSETS" => {
-                            ensure!(code == Code::Gamma, "Only γ code is supported for offsets")
+                            ensure!(code == Codes::Gamma, "Only γ code is supported for offsets")
                         }
                         _ => bail!("Unknown compression flag {}", flag),
                     }

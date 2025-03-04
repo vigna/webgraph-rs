@@ -49,8 +49,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn build_offsets<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
-    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
+    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>: CodesRead<E> + BitSeek,
 {
     // Create the sequential iterator over the graph
     let seq_graph = BvGraphSeq::with_basename(&args.src)

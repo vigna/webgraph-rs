@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::bvgraph::{get_endianness, CodeRead};
+use crate::graphs::bvgraph::get_endianness;
 use crate::traits::SequentialLabeling;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -58,7 +58,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
     let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()
