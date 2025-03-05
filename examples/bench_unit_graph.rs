@@ -25,7 +25,7 @@ struct Args {
 
 fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
     let graph = BvGraph::with_basename(&args.basename)
         .endianness::<E>()
@@ -33,7 +33,7 @@ where
     let unit = UnitLabelGraph(&graph);
     let labeled = Zip(
         BvGraph::with_basename(&args.basename)
-            .endianness::<E>()
+            .endianness::<E>() 
             .load()?,
         BvGraph::with_basename(&args.basename)
             .endianness::<E>()

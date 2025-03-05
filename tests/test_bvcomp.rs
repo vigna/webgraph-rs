@@ -16,7 +16,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::path::Path;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
-use Code::{Delta, Gamma, Unary, Zeta};
+use Codes::{Delta, Gamma, Unary, Zeta};
 
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
@@ -30,8 +30,8 @@ fn test_bvcomp_slow() -> Result<()> {
 
 fn _test_bvcomp_slow<E: Endianness>() -> Result<()>
 where
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodesRead<E>,
 {
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
@@ -79,8 +79,8 @@ fn _test_body<E: Endianness, P: AsRef<Path>>(
     compression_flags: CompFlags,
 ) -> Result<()>
 where
-    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodeWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodeRead<E>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodesRead<E>,
 {
     let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
         <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(
