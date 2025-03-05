@@ -78,13 +78,10 @@ impl Dispatch for Dynamic {}
 /// You can set both modes with [`LoadConfig::mode`], or set them separately with
 /// [`LoadConfig::graph_mode`] and [`LoadConfig::offsets_mode`].
 #[sealed]
-pub trait LoadMode: 'static {
-    type Factory<E: Endianness>: CodeReaderFactory<E>;
+pub trait LoadMode<E: Endianness>: 'static {
+    type Factory: CodeReaderFactory<E>;
 
-    fn new_factory<E: Endianness, P: AsRef<Path>>(
-        graph: P,
-        flags: codecs::MemoryFlags,
-    ) -> Result<Self::Factory<E>>;
+    fn new_factory<P: AsRef<Path>>(graph: P, flags: codecs::MemoryFlags) -> Result<Self::Factory>;
 
     type Offsets: IndexedSeq<Input = usize, Output = usize>;
 
@@ -101,14 +98,15 @@ pub trait LoadMode: 'static {
 #[derive(Debug, Clone)]
 pub struct File {}
 #[sealed]
-impl LoadMode for File {
-    type Factory<E: Endianness> = FileFactory<E>;
+impl<E: Endianness> LoadMode<E> for File
+where
+    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: CodesRead<E>,
+    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E, Error = std::io::Error>,
+{
+    type Factory = FileFactory<E>;
     type Offsets = EF;
 
-    fn new_factory<E: Endianness, P: AsRef<Path>>(
-        graph: P,
-        _flags: MemoryFlags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<P: AsRef<Path>>(graph: P, _flags: MemoryFlags) -> Result<Self::Factory> {
         FileFactory::<E>::new(graph)
     }
 
@@ -129,14 +127,16 @@ impl LoadMode for File {
 #[derive(Debug, Clone)]
 pub struct Mmap {}
 #[sealed]
-impl LoadMode for Mmap {
-    type Factory<E: Endianness> = MmapHelper<u32>;
+impl<E: Endianness> LoadMode<E> for Mmap
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
+    type Factory = MmapHelper<u32>;
     type Offsets = DeserType<'static, EF>;
 
-    fn new_factory<E: Endianness, P: AsRef<Path>>(
-        graph: P,
-        flags: MemoryFlags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<P: AsRef<Path>>(graph: P, flags: MemoryFlags) -> Result<Self::Factory> {
         MmapHelper::mmap(graph, flags.into())
     }
 
@@ -154,14 +154,16 @@ impl LoadMode for Mmap {
 #[derive(Debug, Clone)]
 pub struct LoadMem {}
 #[sealed]
-impl LoadMode for LoadMem {
-    type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
+impl<E: Endianness> LoadMode<E> for LoadMem
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
+    type Factory = MemoryFactory<E, Box<[u32]>>;
     type Offsets = DeserType<'static, EF>;
 
-    fn new_factory<E: Endianness, P: AsRef<Path>>(
-        graph: P,
-        _flags: MemoryFlags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<P: AsRef<Path>>(graph: P, _flags: MemoryFlags) -> Result<Self::Factory> {
         MemoryFactory::<E, _>::new_mem(graph)
     }
 
@@ -181,14 +183,16 @@ impl LoadMode for LoadMem {
 #[derive(Debug, Clone)]
 pub struct LoadMmap {}
 #[sealed]
-impl LoadMode for LoadMmap {
-    type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
+impl<E: Endianness> LoadMode<E> for LoadMmap
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
+    type Factory = MemoryFactory<E, MmapHelper<u32>>;
     type Offsets = DeserType<'static, EF>;
 
-    fn new_factory<E: Endianness, P: AsRef<Path>>(
-        graph: P,
-        flags: MemoryFlags,
-    ) -> Result<Self::Factory<E>> {
+    fn new_factory<P: AsRef<Path>>(graph: P, flags: MemoryFlags) -> Result<Self::Factory> {
         MemoryFactory::<E, _>::new_mmap(graph, flags)
     }
 
@@ -208,18 +212,22 @@ impl LoadMode for LoadMmap {
 /// [`BvGraph::with_basename`]/[`BvGraphSeq::with_basename`]. The configuration
 /// can then be customized using the methods of this struct.
 #[derive(Debug, Clone)]
-pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode> {
+pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>> {
     pub(crate) basename: PathBuf,
     pub(crate) graph_load_flags: MemoryFlags,
     pub(crate) offsets_load_flags: MemoryFlags,
     pub(crate) _marker: std::marker::PhantomData<(E, A, D, GLM, OLM)>,
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
+impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
     LoadConfig<E, A, D, GLM, OLM>
 {
     /// Set the endianness of the graph and offsets file.
-    pub fn endianness<E2: Endianness>(self) -> LoadConfig<E2, A, D, GLM, OLM> {
+    pub fn endianness<E2: Endianness>(self) -> LoadConfig<E2, A, D, GLM, OLM>
+    where
+        GLM: LoadMode<E2>,
+        OLM: LoadMode<E2>,
+    {
         LoadConfig {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -229,7 +237,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
+impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
     LoadConfig<E, A, D, GLM, OLM>
 {
     /// Choose between [`Static`] and [`Dynamic`] dispatch.
@@ -243,11 +251,11 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
+impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
     LoadConfig<E, A, D, GLM, OLM>
 {
     /// Choose the [`LoadMode`] for the graph and offsets.
-    pub fn mode<LM: LoadMode>(self) -> LoadConfig<E, A, D, LM, LM> {
+    pub fn mode<LM: LoadMode<E>>(self) -> LoadConfig<E, A, D, LM, LM> {
         LoadConfig {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -257,7 +265,12 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap> {
+impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
     /// Set flags for memory-mapping (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, Mmap> {
         LoadConfig {
@@ -269,7 +282,12 @@ impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap> {
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
+impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
     /// Set flags for memory obtained from `mmap()` (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
         LoadConfig {
@@ -281,11 +299,11 @@ impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMm
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
+impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
     LoadConfig<E, A, D, GLM, OLM>
 {
     /// Choose the [`LoadMode`] for the graph only.
-    pub fn graph_mode<NGLM: LoadMode>(self) -> LoadConfig<E, A, D, NGLM, OLM> {
+    pub fn graph_mode<NGLM: LoadMode<E>>(self) -> LoadConfig<E, A, D, NGLM, OLM> {
         LoadConfig {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -295,7 +313,12 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, Mmap, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode<E>> LoadConfig<E, A, D, Mmap, OLM>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
     /// Set flags for memory-mapping the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, OLM> {
         LoadConfig {
@@ -307,7 +330,12 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, M
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, LoadMmap, OLM> {
+impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode<E>> LoadConfig<E, A, D, LoadMmap, OLM>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, OLM> {
         LoadConfig {
@@ -319,9 +347,11 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, L
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, D, GLM, OLM> {
+impl<E: Endianness, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
+    LoadConfig<E, Random, D, GLM, OLM>
+{
     /// Choose the [`LoadMode`] for the graph only.
-    pub fn offsets_mode<NOLM: LoadMode>(self) -> LoadConfig<E, Random, D, GLM, NOLM> {
+    pub fn offsets_mode<NOLM: LoadMode<E>>(self) -> LoadConfig<E, Random, D, GLM, NOLM> {
         LoadConfig {
             basename: self.basename,
             graph_load_flags: self.graph_load_flags,
@@ -331,7 +361,12 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Ran
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mmap> {
+impl<E: Endianness, D: Dispatch, GLM: LoadMode<E>> LoadConfig<E, Random, D, GLM, Mmap>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
     /// Set flags for memory-mapping the offsets.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, Mmap> {
         LoadConfig {
@@ -343,7 +378,12 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mm
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, LoadMmap> {
+impl<E: Endianness, D: Dispatch, GLM: LoadMode<E>> LoadConfig<E, Random, D, GLM, LoadMmap>
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        BitRead<E, Error = std::convert::Infallible>,
+{
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, LoadMmap> {
         LoadConfig {
@@ -355,14 +395,14 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Lo
     }
 }
 
-impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic, GLM, OLM> {
+impl<E: Endianness, GLM: LoadMode<E>, OLM: LoadMode<E>> LoadConfig<E, Random, Dynamic, GLM, OLM> {
     /// Load a random-access graph with dynamic dispatch.
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
+    ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory, OLM::Offsets>>>
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
             CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -382,16 +422,16 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
     }
 }
 
-impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dynamic, GLM, OLM> {
+impl<E: Endianness, GLM: LoadMode<E>, OLM: LoadMode<E>>
+    LoadConfig<E, Sequential, Dynamic, GLM, OLM>
+{
     /// Load a sequential graph with dynamic dispatch.
     #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
-    ) -> anyhow::Result<
-        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
-    >
+    ) -> anyhow::Result<BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory, EmptyDict<usize, usize>>>>
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
             CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -411,8 +451,8 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
 
 impl<
         E: Endianness,
-        GLM: LoadMode,
-        OLM: LoadMode,
+        GLM: LoadMode<E>,
+        OLM: LoadMode<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -429,7 +469,7 @@ impl<
         BvGraph<
             ConstCodesDecoderFactory<
                 E,
-                GLM::Factory<E>,
+                GLM::Factory,
                 OLM::Offsets,
                 OUTDEGREES,
                 REFERENCES,
@@ -440,7 +480,7 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
             CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -462,8 +502,8 @@ impl<
 
 impl<
         E: Endianness,
-        GLM: LoadMode,
-        OLM: LoadMode,
+        GLM: LoadMode<E>,
+        OLM: LoadMode<E>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -486,7 +526,7 @@ impl<
         BvGraphSeq<
             ConstCodesDecoderFactory<
                 E,
-                GLM::Factory<E>,
+                GLM::Factory,
                 EmptyDict<usize, usize>,
                 OUTDEGREES,
                 REFERENCES,
@@ -497,7 +537,7 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
             CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
