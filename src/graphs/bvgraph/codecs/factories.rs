@@ -27,8 +27,9 @@ use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
+    codes::{CodeReaderFactory, CodesRead},
     impls::{BufBitReader, MemWordReader, WordAdapter},
-    traits::Endianness,
+    traits::{BitRead, Endianness},
 };
 use std::{
     fs::File,
@@ -39,13 +40,6 @@ use std::{
 use sux::traits::{IndexedSeq, Types};
 
 use crate::utils::MmapHelper;
-
-pub trait BitReaderFactory<E: Endianness> {
-    type BitReader<'a>
-    where
-        Self: 'a;
-    fn new_reader(&self) -> Self::BitReader<'_>;
-}
 
 #[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
@@ -67,13 +61,17 @@ impl<E: Endianness> FileFactory<E> {
     }
 }
 
-impl<E: Endianness> BitReaderFactory<E> for FileFactory<E> {
-    type BitReader<'a>
+impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E> 
+where
+    BufBitReader<E, WordAdapter<u32, BufReader<File>>>: BitRead<E> + CodesRead<E, Error = std::io::Error>,
+{
+    type Error = std::io::Error;
+    type CodeReader<'a>
         = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::BitReader<'_> {
+    fn new_reader(&self) -> Self::CodeReader<'_> {
         BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(
             File::open(&self.path).unwrap(),
         )))
@@ -229,13 +227,17 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
     }
 }
 
-impl<E: Endianness, M: AsRef<[u32]>> BitReaderFactory<E> for MemoryFactory<E, M> {
-    type BitReader<'a>
+impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible>,
+{
+    type Error = core::convert::Infallible;
+    type CodeReader<'a>
         = BufBitReader<E, MemWordReader<u32, &'a [u32]>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::BitReader<'_> {
+    fn new_reader(&self) -> Self::CodeReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.data.as_ref()))
     }
 }
@@ -272,10 +274,17 @@ impl<I, O> Default for EmptyDict<I, O> {
     }
 }
 
-impl<E: Endianness> BitReaderFactory<E> for MmapHelper<u32> {
-    type BitReader<'a> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+impl<E: Endianness> CodeReaderFactory<E> for MmapHelper<u32> 
+where
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible>,
+{
+    type Error = core::convert::Infallible;
+    type CodeReader<'a>
+        = BufBitReader<E, MemWordReader<u32, &'a [u32]>>
+    where
+        Self: 'a;
 
-    fn new_reader(&self) -> Self::BitReader<'_> {
+    fn new_reader(&self) -> Self::CodeReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
     }
 }

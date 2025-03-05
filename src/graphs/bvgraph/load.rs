@@ -79,7 +79,7 @@ impl Dispatch for Dynamic {}
 /// [`LoadConfig::graph_mode`] and [`LoadConfig::offsets_mode`].
 #[sealed]
 pub trait LoadMode: 'static {
-    type Factory<E: Endianness>: BitReaderFactory<E>;
+    type Factory<E: Endianness>: CodeReaderFactory<E>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -362,7 +362,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         mut self,
     ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
+        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
             CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -391,7 +391,8 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
+        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+            CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -439,7 +440,7 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>:
+        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
             CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -496,7 +497,8 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode>::Factory<E> as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
+        for<'a> <<GLM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>:
+            CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;

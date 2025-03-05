@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -8,6 +9,7 @@
 use std::marker::PhantomData;
 
 use super::super::*;
+use dsi_bitstream::codes::{CodeReaderFactory, FuncCodeReaderFactory};
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
@@ -130,7 +132,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
 #[derive(Debug)]
 pub struct DynCodesDecoderFactory<
     E: Endianness,
-    F: BitReaderFactory<E>,
+    F: CodeReaderFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
@@ -140,21 +142,21 @@ pub struct DynCodesDecoderFactory<
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
-    read_outdegree: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_reference_offset: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_block_count: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_blocks: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_interval_count: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_interval_start: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_interval_len: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_first_residual: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
-    read_residual: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64,
+    read_outdegree: FuncCodeReaderFactory<E, F>,
+    read_reference_offset: FuncCodeReaderFactory<E, F>,
+    read_block_count: FuncCodeReaderFactory<E, F>,
+    read_blocks: FuncCodeReaderFactory<E, F>,
+    read_interval_count: FuncCodeReaderFactory<E, F>,
+    read_interval_start: FuncCodeReaderFactory<E, F>,
+    read_interval_len: FuncCodeReaderFactory<E, F>,
+    read_first_residual: FuncCodeReaderFactory<E, F>,
+    read_residual: FuncCodeReaderFactory<E, F>,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
@@ -192,35 +194,11 @@ where
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error=F::Error>,
 {
-    // Const cached functions we use to decode the data. These could be general
-    // functions, but this way we have better visibility and we ensure that
-    // they are compiled once!
-    const READ_UNARY: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_unary().unwrap();
-    const READ_GAMMA: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_gamma().unwrap();
-    const READ_DELTA: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_delta().unwrap();
-    const READ_ZETA2: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_zeta(2).unwrap();
-    const READ_ZETA3: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_zeta3().unwrap();
-    const READ_ZETA4: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_zeta(4).unwrap();
-    const READ_ZETA5: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_zeta(5).unwrap();
-    const READ_ZETA6: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_zeta(6).unwrap();
-    const READ_ZETA7: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        |cr| cr.read_zeta(7).unwrap();
-    const READ_ZETA1: for<'a> fn(&mut <F as BitReaderFactory<E>>::BitReader<'a>) -> u64 =
-        Self::READ_GAMMA;
-
     #[inline(always)]
     /// Return a clone of the compression flags.
     pub fn get_compression_flags(&self) -> CompFlags {
@@ -229,52 +207,31 @@ where
 
     /// Create a new builder from the data and the compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
-        macro_rules! select_code {
-            ($code:expr) => {
-                match $code {
-                    Codes::Unary => Self::READ_UNARY,
-                    Codes::Gamma => Self::READ_GAMMA,
-                    Codes::Delta => Self::READ_DELTA,
-                    Codes::Zeta { k: 1 } => Self::READ_ZETA1,
-                    Codes::Zeta { k: 2 } => Self::READ_ZETA2,
-                    Codes::Zeta { k: 3 } => Self::READ_ZETA3,
-                    Codes::Zeta { k: 4 } => Self::READ_ZETA4,
-                    Codes::Zeta { k: 5 } => Self::READ_ZETA5,
-                    Codes::Zeta { k: 6 } => Self::READ_ZETA6,
-                    Codes::Zeta { k: 7 } => Self::READ_ZETA7,
-                    code => bail!(
-                        "Only unary, ɣ, δ, and ζ₁-ζ₇ codes are allowed, {:?} is not supported",
-                        code
-                    ),
-                }
-            };
-        }
-
         Ok(Self {
             factory,
             offsets,
-            read_outdegree: select_code!(cf.outdegrees),
-            read_reference_offset: select_code!(cf.references),
-            read_block_count: select_code!(cf.blocks),
-            read_blocks: select_code!(cf.blocks),
-            read_interval_count: select_code!(cf.intervals),
-            read_interval_start: select_code!(cf.intervals),
-            read_interval_len: select_code!(cf.intervals),
-            read_first_residual: select_code!(cf.residuals),
-            read_residual: select_code!(cf.residuals),
+            read_outdegree: FuncCodeReaderFactory::new(cf.outdegrees)?,
+            read_reference_offset: FuncCodeReaderFactory::new(cf.references)?,
+            read_block_count: FuncCodeReaderFactory::new(cf.blocks)?,
+            read_blocks: FuncCodeReaderFactory::new(cf.blocks)?,
+            read_interval_count: FuncCodeReaderFactory::new(cf.intervals)?,
+            read_interval_start: FuncCodeReaderFactory::new(cf.intervals)?,
+            read_interval_len: FuncCodeReaderFactory::new(cf.intervals)?,
+            read_first_residual: FuncCodeReaderFactory::new(cf.residuals)?,
+            read_residual: FuncCodeReaderFactory::new(cf.residuals)?,
             compression_flags: cf,
             _marker: core::marker::PhantomData,
         })
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error> + BitSeek,
 {
     type Decoder<'a>
-        = DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+        = DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
@@ -284,42 +241,42 @@ where
 
         Ok(DynCodesDecoder {
             code_reader,
-            read_outdegree: self.read_outdegree,
-            read_reference_offset: self.read_reference_offset,
-            read_block_count: self.read_block_count,
-            read_block: self.read_blocks,
-            read_interval_count: self.read_interval_count,
-            read_interval_start: self.read_interval_start,
-            read_interval_len: self.read_interval_len,
-            read_first_residual: self.read_first_residual,
-            read_residual: self.read_residual,
+            read_outdegree: self.read_outdegree.get(),
+            read_reference_offset: self.read_reference_offset.get(),
+            read_block_count: self.read_block_count.get(),
+            read_block: self.read_blocks.get(),
+            read_interval_count: self.read_interval_count.get(),
+            read_interval_start: self.read_interval_start.get(),
+            read_interval_len: self.read_interval_len.get(),
+            read_first_residual: self.read_first_residual.get(),
+            read_residual: self.read_residual.get(),
             _marker: PhantomData,
         })
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>> SequentialDecoderFactory
+impl<E: Endianness, F: CodeReaderFactory<E>> SequentialDecoderFactory
     for DynCodesDecoderFactory<E, F, EmptyDict<usize, usize>>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error>,
 {
     type Decoder<'a>
-        = DynCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+        = DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         Ok(DynCodesDecoder {
             code_reader: self.factory.new_reader(),
-            read_outdegree: self.read_outdegree,
-            read_reference_offset: self.read_reference_offset,
-            read_block_count: self.read_block_count,
-            read_block: self.read_blocks,
-            read_interval_count: self.read_interval_count,
-            read_interval_start: self.read_interval_start,
-            read_interval_len: self.read_interval_len,
-            read_first_residual: self.read_first_residual,
-            read_residual: self.read_residual,
+            read_outdegree: self.read_outdegree.get(),
+            read_reference_offset: self.read_reference_offset.get(),
+            read_block_count: self.read_block_count.get(),
+            read_block: self.read_blocks.get(),
+            read_interval_count: self.read_interval_count.get(),
+            read_interval_start: self.read_interval_start.get(),
+            read_interval_len: self.read_interval_len.get(),
+            read_first_residual: self.read_first_residual.get(),
+            read_residual: self.read_residual.get(),
             _marker: PhantomData,
         })
     }
