@@ -9,6 +9,7 @@
 
 use crate::prelude::*;
 use bitflags::Flags;
+use dsi_bitstream::codes::CodeReaderFactory;
 use dsi_bitstream::traits::{Endianness, BE};
 use lender::IntoLender;
 use std::path::PathBuf;
@@ -39,7 +40,7 @@ impl BvGraph<()> {
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
@@ -63,7 +64,7 @@ where
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,

@@ -48,7 +48,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn optimize_codes<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let mut stats = Default::default();
     let has_ef = std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());

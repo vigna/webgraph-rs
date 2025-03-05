@@ -146,7 +146,7 @@ impl<
 
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
-    F: BitReaderFactory<E>,
+    F: CodeReaderFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
@@ -165,7 +165,7 @@ pub struct ConstCodesDecoderFactory<
 
 impl<
         E: Endianness,
-        F: BitReaderFactory<E>,
+        F: CodeReaderFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -211,7 +211,7 @@ where
 
 impl<
         E: Endianness,
-        F: BitReaderFactory<E>,
+        F: CodeReaderFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -247,7 +247,7 @@ impl<
 
 impl<
         E: Endianness,
-        F: BitReaderFactory<E>,
+        F: CodeReaderFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -257,10 +257,10 @@ impl<
     > RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E> + BitSeek,
 {
     type Decoder<'a>
-        = ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+        = ConstCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
@@ -277,7 +277,7 @@ where
 
 impl<
         E: Endianness,
-        F: BitReaderFactory<E>,
+        F: CodeReaderFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -296,10 +296,10 @@ impl<
         RESIDUALS,
     >
 where
-    for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodesRead<E>,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E>,
 {
     type Decoder<'a>
-        = ConstCodesDecoder<E, <F as BitReaderFactory<E>>::BitReader<'a>>
+        = ConstCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
     where
         Self: 'a;
 
