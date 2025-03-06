@@ -6,7 +6,7 @@
  */
 
 use crate::prelude::*;
-use dsi_bitstream::prelude::CodesStats;
+use dsi_bitstream::{prelude::CodesStats, traits::BitSeek};
 use std::sync::Mutex;
 
 /// A struct that keeps track of how much bits each piece would take
@@ -128,6 +128,21 @@ impl<'a, F: SequentialDecoderFactory> StatsDecoder<'a, F> {
             codes_reader,
             stats,
         }
+    }
+}
+
+impl<'a, F: SequentialDecoderFactory> BitSeek for StatsDecoder<'a, F>
+where
+    F::Decoder<'a>: BitSeek,
+{
+    type Error = <F::Decoder<'a> as BitSeek>::Error;
+
+    fn bit_pos(&mut self) -> Result<u64, Self::Error> {
+        self.codes_reader.bit_pos()
+    }
+
+    fn set_bit_pos(&mut self, bit_pos: u64) -> Result<(), Self::Error> {
+        self.codes_reader.set_bit_pos(bit_pos)
     }
 }
 

@@ -10,7 +10,6 @@ use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
-use lender::*;
 use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "codes";
@@ -61,8 +60,8 @@ where
 
     pl.start("Scanning...");
 
-    let mut iter = graph.iter();
-    while iter.next().is_some() {
+    let mut iter = graph.offset_deg_iter();
+    for _ in iter.by_ref() {
         pl.light_update();
     }
     pl.done();
