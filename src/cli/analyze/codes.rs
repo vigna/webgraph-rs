@@ -5,7 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{cli::NumThreadsArg, prelude::*};
+use crate::{
+    cli::{GranularityArgs, NumThreadsArg},
+    prelude::*,
+};
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -22,6 +25,9 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
+
+    #[clap(flatten)]
+    pub granularity: GranularityArgs,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -46,9 +52,39 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
+/// Returns ranges of nodes to process in parallel of size `chunk_size` each,
+/// with the last chunk possibly being smaller.
+/// The equivalent of `std::iter::Chunks` but with a `Range` instead of a `Slice`.
+pub struct Chunks {
+    total: core::ops::Range<usize>,
+    chunk_size: usize,
+}
+
+impl Chunks {
+    pub fn new(total: core::ops::Range<usize>, chunk_size: usize) -> Self {
+        Self { total, chunk_size }
+    }
+}
+
+impl Iterator for Chunks {
+    type Item = core::ops::Range<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.total.start < self.total.end {
+            let end = (self.total.start + self.chunk_size).min(self.total.end);
+            let range = self.total.start..end;
+            self.total.start = end;
+            Some(range)
+        } else {
+            None
+        }
+    }
+}
+
 pub fn optimize_codes<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let mut stats = Default::default();
     let has_ef = std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());
@@ -58,44 +94,49 @@ where
             "Analyzing codes in parallel using {} threads",
             args.num_threads.num_threads
         );
-        let graph = BvGraph::with_basename(args.src).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
         let mut pl = concurrent_progress_logger![item_name = "node"];
         pl.display_memory(true)
             .expected_updates(Some(graph.num_nodes()));
         pl.start("Scanning...");
 
-        stats = rayon::scope(|s| {
-            let nodes_for_thread = graph.num_nodes().div_ceil(args.num_threads.num_threads);
-            let chunks = args.num_threads.num_threads.max(1);
-            let (tx, rx) = std::sync::mpsc::channel();
-            for i in 0..chunks {
-                let graph = &graph;
-                let tx = tx.clone();
-                let mut pl = pl.clone();
-                s.spawn(move |_s| {
-                    let start_node = i * nodes_for_thread;
-                    let end_node = (start_node + nodes_for_thread).min(graph.num_nodes());
-                    let mut iter = graph
-                        .offset_deg_iter_from(start_node)
-                        .map_decoder(|d| StatsDecoder::new(d, Default::default()));
+        let thread_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(args.num_threads.num_threads)
+            .build()?;
 
-                    for _ in (&mut iter).take(end_node - start_node) {
-                        pl.light_update();
-                    }
+        let granularity = args
+            .granularity
+            .into_granularity()
+            .unwrap_or_default()
+            .granularity(graph.num_nodes(), args.num_threads.num_threads);
 
-                    let mut local_stats = Default::default();
-                    iter.map_decoder(|d| {
-                        local_stats = d.stats;
-                        d.codes_reader // not important but we need to return something
-                    });
-                    tx.send(local_stats).unwrap();
+        // TODO!: use FairChunks with the offsets EF to distribute the
+        // work based on number of bits used, not nodes
+        stats = Chunks::new(0..graph.num_nodes(), granularity).par_map_fold_with(
+            pl.clone(),
+            |pl, range| {
+                let mut iter = graph
+                    .offset_deg_iter_from(range.start)
+                    .map_decoder(|d| StatsDecoder::new(d, Default::default()));
+
+                for _ in (&mut iter).take(range.len()) {
+                    pl.light_update();
+                }
+
+                let mut stats = Default::default();
+                iter.map_decoder(|d| {
+                    stats = d.stats;
+                    d.codes_reader // not important but we need to return something
                 });
-            }
-            drop(tx);
-
-            rx.iter().sum()
-        });
+                stats
+            },
+            |mut acc1, acc2| {
+                acc1 += &acc2;
+                acc1
+            },
+            &thread_pool,
+        );
 
         pl.done();
     } else {

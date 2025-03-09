@@ -10,7 +10,7 @@ use dsi_bitstream::{prelude::CodesStats, traits::BitSeek};
 
 /// A struct that keeps track of how much bits each piece would take
 /// using different codes for compression.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DecoderStats {
     /// The statistics for the outdegrees values
     pub outdegrees: CodesStats,

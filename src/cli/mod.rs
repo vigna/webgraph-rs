@@ -10,8 +10,8 @@
 //! Each module correspond to a group of commands, and each command is
 //! implemented as a submodule.
 
-use crate::build_info;
 use crate::prelude::CompFlags;
+use crate::{build_info, utils::Granularity};
 use anyhow::{anyhow, ensure, Context, Result};
 use clap::{Args, Command, ValueEnum};
 use common_traits::UnsignedInt;
@@ -104,6 +104,49 @@ pub struct NumThreadsArg {
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1))]
     /// The number of threads to use
     pub num_threads: usize,
+}
+
+/// Shared CLI arguments for commands that specify a granularity.
+#[derive(Args, Debug)]
+pub struct GranularityArgs {
+    #[arg(
+        long,
+        conflicts_with("slack"),
+        conflicts_with("min_len"),
+        conflicts_with("max_len")
+    )]
+    /// The tentative number of arcs used define the size of a parallel job
+    /// (advanced option).
+    pub granularity: Option<usize>,
+
+    #[arg(long, conflicts_with("granularity"))]
+    /// The slack for relative granularity.
+    pub slack: Option<f64>,
+
+    #[arg(long, conflicts_with("granularity"), default_value_t = 1_000)]
+    /// The minimum length of the interval to be processed in parallel. This is
+    /// applied only when slack is used instead of granularity.
+    pub min_len: usize,
+
+    #[arg(long, conflicts_with("granularity"), default_value_t = 100_000)]
+    /// The maximum length of the interval to be processed in parallel. This is
+    /// applied only when slack is used instead of granularity.
+    pub max_len: usize,
+}
+
+impl GranularityArgs {
+    pub fn into_granularity(&self) -> Option<Granularity> {
+        match (self.granularity, self.slack) {
+            (Some(granularity), None) => Some(Granularity::Absolute(granularity)),
+            (None, Some(slack)) => Some(Granularity::Relative {
+                slack,
+                min_len: self.min_len,
+                max_len: self.max_len,
+            }),
+            (None, None) => None,
+            _ => unreachable!("Clap should prevent both granularity and slack to be set"),
+        }
+    }
 }
 
 /// Shared CLI arguments for commands that specify a batch size.

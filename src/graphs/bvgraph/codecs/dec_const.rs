@@ -285,16 +285,7 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > SequentialDecoderFactory
-    for ConstCodesDecoderFactory<
-        E,
-        F,
-        OFF,
-        OUTDEGREES,
-        REFERENCES,
-        BLOCKS,
-        INTERVALS,
-        RESIDUALS,
-    >
+    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E>,
 {

@@ -58,7 +58,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()

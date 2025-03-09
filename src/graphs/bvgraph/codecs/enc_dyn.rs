@@ -64,10 +64,6 @@ impl<E: Endianness, CW: CodesWrite<E> + BitSeek + Clone> BitSeek for DynCodesEnc
     }
 }
 
-fn len_unary(value: u64) -> usize {
-    value as usize + 1
-}
-
 impl<E: Endianness, CW: CodesWrite<E>> Encode for DynCodesEncoder<E, CW>
 where
     <CW as BitWrite<E>>::Error: Send + Sync,

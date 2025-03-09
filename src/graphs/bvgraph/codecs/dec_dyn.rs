@@ -197,7 +197,7 @@ where
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error=F::Error>,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error>,
 {
     #[inline(always)]
     /// Return a clone of the compression flags.
@@ -255,8 +255,8 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>,  OFF: IndexedSeq<Input = usize, Output = usize>> SequentialDecoderFactory
-    for DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error>,
 {

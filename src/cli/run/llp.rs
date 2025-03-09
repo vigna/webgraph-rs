@@ -9,6 +9,7 @@
 use self::llp::preds::MinAvgImprov;
 
 use crate::cli::create_parent_dir;
+use crate::cli::GranularityArgs;
 use crate::cli::NumThreadsArg;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
@@ -75,14 +76,8 @@ pub struct CliArgs {
     /// The seed to use for the PRNG.
     pub seed: u64,
 
-    #[arg(long, conflicts_with("slack"))]
-    /// The tentative number of arcs used define the size of a parallel job
-    /// (advanced option).
-    pub granularity: Option<usize>,
-
-    #[arg(long, conflicts_with("granularity"))]
-    /// The slack for relative granularity.
-    pub slack: Option<f64>,
+    #[clap(flatten)]
+    pub granularity: GranularityArgs,
 
     #[arg(long)]
     /// The chunk size used to localize the random permutation
@@ -116,7 +111,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let start = std::time::Instant::now();
 
@@ -178,15 +174,7 @@ where
 
     let num_nodes = graph.num_nodes();
 
-    let granularity = if let Some(granularity) = args.granularity {
-        Some(Granularity::Absolute(granularity))
-    } else {
-        args.slack.map(|slack| Granularity::Relative {
-            slack,
-            min_len: 1000,
-            max_len: 100000, // TODO: make this dependent on default values
-        })
-    };
+    let granularity = args.granularity.into_granularity();
 
     // compute the LLP
     let labels = llp::layered_label_propagation(

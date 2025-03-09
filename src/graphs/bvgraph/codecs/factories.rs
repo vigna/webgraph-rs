@@ -61,9 +61,10 @@ impl<E: Endianness> FileFactory<E> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E> 
+impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E>
 where
-    BufBitReader<E, WordAdapter<u32, BufReader<File>>>: BitRead<E> + CodesRead<E, Error = std::io::Error>,
+    BufBitReader<E, WordAdapter<u32, BufReader<File>>>:
+        BitRead<E> + CodesRead<E, Error = std::io::Error>,
 {
     type Error = std::io::Error;
     type CodeReader<'a>
@@ -227,9 +228,10 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
     }
 }
 
-impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M> 
+impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        CodesRead<E, Error = core::convert::Infallible>,
 {
     type Error = core::convert::Infallible;
     type CodeReader<'a>
@@ -274,9 +276,10 @@ impl<I, O> Default for EmptyDict<I, O> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for MmapHelper<u32> 
+impl<E: Endianness> CodeReaderFactory<E> for MmapHelper<u32>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E, Error = core::convert::Infallible>,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        CodesRead<E, Error = core::convert::Infallible>,
 {
     type Error = core::convert::Infallible;
     type CodeReader<'a>

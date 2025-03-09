@@ -67,7 +67,8 @@ pub fn transpose(
 
 fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
+    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
+        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.basename)
         .endianness::<E>()
