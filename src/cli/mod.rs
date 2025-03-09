@@ -128,7 +128,7 @@ pub struct GranularityArgs {
     /// applied only when slack is used instead of granularity.
     pub min_len: usize,
 
-    #[arg(long, conflicts_with("granularity"), default_value_t = 100_000)]
+    #[arg(long, conflicts_with("granularity"), default_value_t = 1_000_000)]
     /// The maximum length of the interval to be processed in parallel. This is
     /// applied only when slack is used instead of granularity.
     pub max_len: usize,

@@ -38,8 +38,8 @@ impl core::default::Default for Granularity {
     fn default() -> Self {
         Self::Relative {
             slack: 4.0,
-            min_len: 1000,
-            max_len: 1000000,
+            min_len: 1_000,
+            max_len: 1_000_000,
         }
     }
 }
