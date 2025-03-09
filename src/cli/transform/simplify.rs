@@ -90,9 +90,9 @@ where
             log::info!("Transposed graph provided, using it to simplify the graph");
 
             let has_ef_graph =
-                std::fs::metadata(args.src.with_extension(".ef")).is_ok_and(|x| x.is_file());
+                std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());
             let has_ef_t_graph =
-                std::fs::metadata(t_path.with_extension(".ef")).is_ok_and(|x| x.is_file());
+                std::fs::metadata(t_path.with_extension("ef")).is_ok_and(|x| x.is_file());
 
             match (has_ef_graph, has_ef_t_graph) {
                 (true, true) => {
@@ -176,7 +176,7 @@ where
             let perm = JavaPermutation::mmap(perm_path, MmapFlags::RANDOM_ACCESS)?;
 
             // if the .ef file exists, we can use the simplify split
-            if std::fs::metadata(args.src.with_extension(".ef")).is_ok_and(|x| x.is_file()) {
+            if std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file()) {
                 log::info!(".ef file found, using simplify split");
                 let graph =
                     crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
@@ -239,7 +239,7 @@ where
                 "No permutation or transposed graph provided, computing the transpose on the fly"
             );
             // if the .ef file exists, we can use the simplify split
-            if std::fs::metadata(args.src.with_extension(".ef")).is_ok_and(|x| x.is_file()) {
+            if std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file()) {
                 log::info!(".ef file found, using simplify split");
 
                 let graph =

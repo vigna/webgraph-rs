@@ -323,6 +323,7 @@ where
 impl<
         E: Endianness,
         F: BitReaderFactory<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -330,17 +331,7 @@ impl<
         const RESIDUALS: usize,
         const K: usize,
     > SequentialDecoderFactory
-    for ConstCodesDecoderFactory<
-        E,
-        F,
-        EmptyDict<usize, usize>,
-        OUTDEGREES,
-        REFERENCES,
-        BLOCKS,
-        INTERVALS,
-        RESIDUALS,
-        K,
-    >
+    for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS, K>
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
 {

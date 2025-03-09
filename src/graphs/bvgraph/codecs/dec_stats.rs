@@ -7,7 +7,6 @@
 
 use crate::prelude::*;
 use dsi_bitstream::{prelude::CodesStats, traits::BitSeek};
-use std::sync::Mutex;
 
 /// A struct that keeps track of how much bits each piece would take
 /// using different codes for compression.
@@ -34,7 +33,7 @@ pub struct DecoderStats {
 }
 
 impl DecoderStats {
-    fn update(&mut self, rhs: &Self) {
+    pub fn update(&mut self, rhs: &Self) {
         self.outdegrees.add(&rhs.outdegrees);
         self.reference_offsets.add(&rhs.reference_offsets);
         self.block_counts.add(&rhs.block_counts);
@@ -47,95 +46,44 @@ impl DecoderStats {
     }
 }
 
-/// A wrapper that keeps track of how much bits each piece would take using
-/// different codes for compressions for a [`SequentialDecoderFactory`]
-/// implementation and returns the stats.
-pub struct StatsDecoderFactory<F: SequentialDecoderFactory> {
-    factory: F,
-    glob_stats: Mutex<DecoderStats>,
-}
-
-impl<F> StatsDecoderFactory<F>
-where
-    F: SequentialDecoderFactory,
-{
-    pub fn new(factory: F) -> Self {
-        Self {
-            factory,
-            glob_stats: Mutex::new(DecoderStats::default()),
-        }
-    }
-
-    /// Consume self and return the stats.
-    pub fn stats(self) -> DecoderStats {
-        self.glob_stats.into_inner().unwrap()
+impl std::ops::AddAssign<&Self> for DecoderStats {
+    fn add_assign(&mut self, rhs: &Self) {
+        self.update(rhs);
     }
 }
 
-impl<F> From<F> for StatsDecoderFactory<F>
-where
-    F: SequentialDecoderFactory,
-{
-    #[inline(always)]
-    fn from(value: F) -> Self {
-        Self::new(value)
-    }
-}
-
-impl<F> SequentialDecoderFactory for StatsDecoderFactory<F>
-where
-    F: SequentialDecoderFactory,
-{
-    type Decoder<'a>
-        = StatsDecoder<'a, F>
-    where
-        Self: 'a;
-
-    #[inline(always)]
-    fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
-        Ok(StatsDecoder::new(
-            self,
-            self.factory.new_decoder()?,
-            DecoderStats::default(),
-        ))
+impl core::iter::Sum for DecoderStats {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::default(), |mut acc, x| {
+            acc.update(&x);
+            acc
+        })
     }
 }
 
 /// A wrapper over a generic [`Decode`] that keeps track of how much
 /// bits each piece would take using different codes for compressions
-pub struct StatsDecoder<'a, F: SequentialDecoderFactory> {
-    factory: &'a StatsDecoderFactory<F>,
-    codes_reader: F::Decoder<'a>,
-    stats: DecoderStats,
+pub struct StatsDecoder<D: Decode> {
+    pub codes_reader: D,
+    pub stats: DecoderStats,
 }
 
-impl<F: SequentialDecoderFactory> Drop for StatsDecoder<'_, F> {
-    fn drop(&mut self) {
-        self.factory.glob_stats.lock().unwrap().update(&self.stats);
-    }
-}
-
-impl<'a, F: SequentialDecoderFactory> StatsDecoder<'a, F> {
+impl<D: Decode> StatsDecoder<D> {
     /// Wrap a reader
     #[inline(always)]
-    pub fn new(
-        factory: &'a StatsDecoderFactory<F>,
-        codes_reader: F::Decoder<'a>,
-        stats: DecoderStats,
-    ) -> Self {
+    pub fn new(codes_reader: D, stats: DecoderStats) -> Self {
         Self {
-            factory,
             codes_reader,
             stats,
         }
     }
 }
 
-impl<'a, F: SequentialDecoderFactory> BitSeek for StatsDecoder<'a, F>
+impl<D: Decode> BitSeek for StatsDecoder<D>
 where
-    F::Decoder<'a>: BitSeek,
+    D: BitSeek,
 {
-    type Error = <F::Decoder<'a> as BitSeek>::Error;
+    type Error = <D as BitSeek>::Error;
 
     fn bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.codes_reader.bit_pos()
@@ -146,7 +94,7 @@ where
     }
 }
 
-impl<F: SequentialDecoderFactory> Decode for StatsDecoder<'_, F> {
+impl<D: Decode> Decode for StatsDecoder<D> {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         self.stats

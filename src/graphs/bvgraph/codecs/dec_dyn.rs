@@ -321,8 +321,8 @@ where
     }
 }
 
-impl<E: Endianness, F: BitReaderFactory<E>> SequentialDecoderFactory
-    for DynCodesDecoderFactory<E, F, EmptyDict<usize, usize>>
+impl<E: Endianness, F: BitReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as BitReaderFactory<E>>::BitReader<'a>: CodeRead<E>,
 {

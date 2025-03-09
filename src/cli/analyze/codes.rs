@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{cli::NumThreadsArg, prelude::*};
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
@@ -19,6 +19,9 @@ pub const COMMAND_NAME: &str = "codes";
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
+
+    #[clap(flatten)]
+    pub num_threads: NumThreadsArg,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -43,31 +46,89 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn optimize_codes<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn optimize_codes<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodeRead<E> + BitSeek,
 {
-    // TODO!: speed it up by using random access graph if possible
-    let graph = BvGraphSeq::with_basename(args.src)
-        .endianness::<E>()
-        .load()?
-        .map_factory(StatsDecoderFactory::new);
+    let mut stats = Default::default();
+    let has_ef = std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("node")
-        .expected_updates(Some(graph.num_nodes()));
+    if has_ef {
+        log::info!(
+            "Analyzing codes in parallel using {} threads",
+            args.num_threads.num_threads
+        );
+        let graph = BvGraph::with_basename(args.src).endianness::<E>().load()?;
 
-    pl.start("Scanning...");
+        let mut pl = concurrent_progress_logger![item_name = "node"];
+        pl.display_memory(true)
+            .expected_updates(Some(graph.num_nodes()));
+        pl.start("Scanning...");
 
-    let mut iter = graph.offset_deg_iter();
-    for _ in iter.by_ref() {
-        pl.light_update();
+        stats = rayon::scope(|s| {
+            let nodes_for_thread = graph.num_nodes().div_ceil(args.num_threads.num_threads);
+            let chunks = args.num_threads.num_threads.max(1);
+            let (tx, rx) = std::sync::mpsc::channel();
+            for i in 0..chunks {
+                let graph = &graph;
+                let tx = tx.clone();
+                let mut pl = pl.clone();
+                s.spawn(move |_s| {
+                    let start_node = i * nodes_for_thread;
+                    let end_node = (start_node + nodes_for_thread).min(graph.num_nodes());
+                    let mut iter = graph
+                        .offset_deg_iter_from(start_node)
+                        .map_decoder(|d| StatsDecoder::new(d, Default::default()));
+
+                    for _ in (&mut iter).take(end_node - start_node) {
+                        pl.light_update();
+                    }
+
+                    let mut local_stats = Default::default();
+                    iter.map_decoder(|d| {
+                        local_stats = d.stats;
+                        d.codes_reader // not important but we need to return something
+                    });
+                    tx.send(local_stats).unwrap();
+                });
+            }
+            drop(tx);
+
+            rx.iter().sum()
+        });
+
+        pl.done();
+    } else {
+        if args.num_threads.num_threads != 1 {
+            log::info!("Analyzing codes sequentially, this might be faster if you build the Elias-Fano index using `webgraph build ef {}` which will generate file {}", args.src.display(), args.src.with_extension("ef").display());
+        }
+
+        let graph = BvGraphSeq::with_basename(args.src)
+            .endianness::<E>()
+            .load()?;
+
+        let mut pl = ProgressLogger::default();
+        pl.display_memory(true)
+            .item_name("node")
+            .expected_updates(Some(graph.num_nodes()));
+
+        pl.start("Scanning...");
+
+        // add the stats wrapper to the decoder
+        let mut iter = graph
+            .offset_deg_iter()
+            .map_decoder(|d| StatsDecoder::new(d, Default::default()));
+        // iterate over the graph
+        for _ in iter.by_ref() {
+            pl.light_update();
+        }
+        pl.done();
+        // extract the stats
+        iter.map_decoder(|d| {
+            stats = d.stats;
+            d.codes_reader // not important but we need to return something
+        });
     }
-    pl.done();
-
-    drop(iter); // This releases the decoder and updates the global stats
-    let stats = graph.into_inner().stats();
 
     macro_rules! impl_best_code {
         ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident - $old:expr),*) => {
