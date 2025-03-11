@@ -123,25 +123,21 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     // otherwise use the provided value, this is so we can build the Elias-Fano
     // for offsets of any custom format that might not use the standard
     // properties file
-    let num_nodes = args
-        .n
-        .map(Ok::<_, anyhow::Error>)
-        .unwrap_or_else(|| {
-            let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
-            info!(
-                "Reading num_of_nodes from properties file at '{}'",
+    let num_nodes = args.n.map(Ok::<_, anyhow::Error>).unwrap_or_else(|| {
+        let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
+        info!(
+            "Reading num_of_nodes from properties file at '{}'",
+            properties_path.display()
+        );
+        let f = File::open(&properties_path).with_context(|| {
+            format!(
+                "Could not open properties file: {}",
                 properties_path.display()
-            );
-            let f = File::open(&properties_path)
-                .with_context(|| {
-                    format!(
-                        "Could not open properties file: {}",
-                        properties_path.display()
-                    )
-                })?;
-            let map = java_properties::read(BufReader::new(f))?;
-            Ok(map.get("nodes").unwrap().parse::<usize>()?)
+            )
         })?;
+        let map = java_properties::read(BufReader::new(f))?;
+        Ok(map.get("nodes").unwrap().parse::<usize>()?)
+    })?;
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("offset")

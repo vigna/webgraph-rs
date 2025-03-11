@@ -32,7 +32,11 @@ use dsi_bitstream::{
     traits::{BitRead, Endianness},
 };
 use std::{
-    convert::Infallible, fs::File, io::{self, BufReader, Read}, marker::PhantomData, path::Path
+    convert::Infallible,
+    fs::File,
+    io::{self, BufReader, Read},
+    marker::PhantomData,
+    path::Path,
 };
 use sux::traits::{IndexedSeq, Types};
 
