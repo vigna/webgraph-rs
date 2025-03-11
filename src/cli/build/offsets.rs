@@ -12,7 +12,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::{
     convert::Infallible,
-    io::{self, BufWriter},
+    io::BufWriter,
     path::PathBuf,
 };
 
@@ -50,7 +50,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn build_offsets<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
-    FileBufReader<E>: CodesRead<E, Error = io::Error> + BitSeek,
+    FileBufReader<E>: BitSeek,
 {
     // Create the sequential iterator over the graph
     let seq_graph = BvGraphSeq::with_basename(&args.src)

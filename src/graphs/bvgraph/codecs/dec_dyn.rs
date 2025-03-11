@@ -257,8 +257,6 @@ where
 
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
-where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error>,
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>

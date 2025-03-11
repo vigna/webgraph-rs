@@ -79,7 +79,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub fn compress<E: Endianness + Clone + Send + Sync>(
+pub fn compress<E: Endianness>(
     args: CliArgs,
     target_endianness: Option<String>,
     permutation: Option<JavaPermutation>,

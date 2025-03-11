@@ -57,7 +57,7 @@ impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Outp
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
 {
     type Decoder<'a>
         = CustomDecoder<E, F::CodeReader<'a>>
@@ -73,7 +73,7 @@ where
 impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
 {
     type Decoder<'a>
         = CustomDecoder<E, F::CodeReader<'a>>
