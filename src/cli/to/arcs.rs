@@ -6,6 +6,7 @@
  */
 
 use crate::graphs::bvgraph::get_endianness;
+use crate::prelude::MemBufReader;
 use crate::traits::SequentialLabeling;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
@@ -58,8 +59,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()

@@ -84,8 +84,7 @@ pub fn compress<E: Endianness + Clone + Send + Sync>(
     permutation: Option<JavaPermutation>,
 ) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 

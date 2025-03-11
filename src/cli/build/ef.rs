@@ -124,7 +124,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     // properties file
     let num_nodes = args
         .n
-        .map(|x| Ok::<_, anyhow::Error>(x))
+        .map(Ok::<_, anyhow::Error>)
         .unwrap_or_else(|| {
             let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
             info!(
@@ -137,8 +137,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
                         "Could not open properties file: {}",
                         properties_path.display()
                     )
-                })
-                .map_err(anyhow::Error::from)?;
+                })?;
             let map = java_properties::read(BufReader::new(f))?;
             Ok(map.get("nodes").unwrap().parse::<usize>()?)
         })?;
@@ -221,8 +220,7 @@ pub fn build_eliasfano<E: Endianness + 'static>(
     efb: &mut EliasFanoBuilder,
 ) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()

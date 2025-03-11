@@ -71,7 +71,7 @@ pub struct MmapReaderSupplier<E: Endianness> {
 
 impl Supply for MmapReaderSupplier<BE> {
     type Item<'a>
-        = BufBitReader<BE, MemWordReader<u32, &'a [u32]>>
+        = MemBufReader<'a, BE>
     where
         Self: 'a;
 

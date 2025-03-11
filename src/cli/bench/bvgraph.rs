@@ -140,8 +140,7 @@ fn bench_seq(graph: impl SequentialGraph, repeats: usize) {
 
 fn bench_webgraph<E: Endianness, D: Dispatch>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     if args.check {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;

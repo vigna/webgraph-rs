@@ -165,7 +165,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         4, // default
     );
 
-
     let truth = BvGraph::with_basename("/dfd/graphs/enwiki-2015").load()?;
 
     let mut seen = vec![false; args.num_nodes];
@@ -179,17 +178,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     pl.start("Visiting graph...");
 
     log::info!("Checking that the graphs are equal");
-    truth.iter().zip(graph.iter()).for_each(|((n1, s1), (n2, s2))| {
-        assert_eq!(n1, n2);
-        assert_eq!(s1.collect::<Vec<_>>(), s2.collect::<Vec<_>>(), "Error at node {}", n1);
-    });
+    truth
+        .iter()
+        .zip(graph.iter())
+        .for_each(|((n1, s1), (n2, s2))| {
+            assert_eq!(n1, n2);
+            assert_eq!(
+                s1.collect::<Vec<_>>(),
+                s2.collect::<Vec<_>>(),
+                "Error at node {}",
+                n1
+            );
+        });
     log::info!("Graphs are equal");
 
     for node_id in 0..args.num_nodes {
         assert_eq!(
             graph.successors(node_id).collect::<Vec<_>>(),
             truth.successors(node_id).collect::<Vec<_>>(),
-        ); 
+        );
     }
 
     log::info!("Graphs are randomly equal");

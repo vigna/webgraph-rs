@@ -92,8 +92,12 @@ pub trait LoadMode<E: Endianness>: 'static {
     ) -> Result<MemCase<Self::Offsets>>;
 }
 
+/// A type alias for a buffered reader that reads from a memory buffer a `u32` at a time.
 pub type MemBufReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+/// A type alias for a buffered reader that reads from a file buffer a `u32` at a time.
 pub type FileBufReader<E> = BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>;
+/// A type alias for the code reader returned by the [`CodeReaderFactory`]
+/// associated with a [`LoadMode`].
 pub type LoadModeCodeReader<'a, E, LM> =
     <<LM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>;
 

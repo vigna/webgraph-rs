@@ -39,7 +39,10 @@ use std::{
 };
 use sux::traits::{IndexedSeq, Types};
 
-use crate::{prelude::FileBufReader, utils::MmapHelper};
+use crate::{
+    prelude::{FileBufReader, MemBufReader},
+    utils::MmapHelper,
+};
 
 #[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
@@ -229,12 +232,11 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
 
 impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible>,
 {
     type Error = core::convert::Infallible;
     type CodeReader<'a>
-        = BufBitReader<E, MemWordReader<u32, &'a [u32]>>
+        = MemBufReader<'a, E>
     where
         Self: 'a;
 
@@ -277,12 +279,11 @@ impl<I, O> Default for EmptyDict<I, O> {
 
 impl<E: Endianness> CodeReaderFactory<E> for MmapHelper<u32>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible>,
 {
     type Error = core::convert::Infallible;
     type CodeReader<'a>
-        = BufBitReader<E, MemWordReader<u32, &'a [u32]>>
+        = MemBufReader<'a, E>
     where
         Self: 'a;
 

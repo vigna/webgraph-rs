@@ -11,7 +11,9 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::{
-    convert::Infallible, fs::File, io::{self, BufReader, BufWriter}, path::PathBuf
+    convert::Infallible,
+    io::{self, BufWriter},
+    path::PathBuf,
 };
 
 pub const COMMAND_NAME: &str = "offsets";

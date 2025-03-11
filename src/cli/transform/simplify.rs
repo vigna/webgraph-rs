@@ -74,8 +74,7 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
 
 pub fn simplify<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
