@@ -88,17 +88,40 @@ macro_rules! impl_convert {
         let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags)?;
         // build the iterator that will read the graph and write it to the encoder
 
+        let offsets_path = $args.dst.with_extension(OFFSETS_EXTENSION);
+        let mut offsets_writer =
+            <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+                File::create(&offsets_path)
+                    .with_context(|| format!("Could not create {}", offsets_path.display()))?,
+            )));
+
         pl.start("Inverting endianness...");
 
         let mut iter = seq_graph
             .offset_deg_iter()
-            .map_decoder(move |decoder| Converter { decoder, encoder });
-        // consume the graph iterator reading all codes, but do nothing with them
+            .map_decoder(move |decoder| Converter {
+                decoder,
+                encoder,
+                offset: 0,
+            });
+
+        let mut offset = 0;
         for _ in 0..num_nodes {
             iter.next_degree()?;
+            let new_offset = iter.get_decoder().offset;
+            offsets_writer
+                .write_gamma((new_offset - offset) as u64)
+                .context("Could not write gamma")?;
+            offset = new_offset;
             pl.light_update();
         }
+        let new_offset = iter.get_decoder().offset;
+        offsets_writer
+            .write_gamma((new_offset - offset) as u64)
+            .context("Could not write gamma")?;
+        pl.light_update();
         pl.done();
+        offsets_writer.flush().context("Could not flush offsets")?;
     };
 }
 
@@ -126,68 +149,4 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     };
 
     Ok(())
-}
-
-/// A decoder that encodes the read values using the given encoder.
-pub struct Converter<D: Decode, E: Encode> {
-    decoder: D,
-    encoder: E,
-}
-
-impl<D: Decode, E: Encode> Decode for Converter<D, E> {
-    // TODO: implement correctly start_node/end_node
-    #[inline(always)]
-    fn read_outdegree(&mut self) -> u64 {
-        let res = self.decoder.read_outdegree();
-        self.encoder.write_outdegree(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_reference_offset(&mut self) -> u64 {
-        let res = self.decoder.read_reference_offset();
-        self.encoder.write_reference_offset(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_block_count(&mut self) -> u64 {
-        let res = self.decoder.read_block_count();
-        self.encoder.write_block_count(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_block(&mut self) -> u64 {
-        let res = self.decoder.read_block();
-        self.encoder.write_block(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_interval_count(&mut self) -> u64 {
-        let res = self.decoder.read_interval_count();
-        self.encoder.write_interval_count(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_interval_start(&mut self) -> u64 {
-        let res = self.decoder.read_interval_start();
-        self.encoder.write_interval_start(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_interval_len(&mut self) -> u64 {
-        let res = self.decoder.read_interval_len();
-        self.encoder.write_interval_len(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_first_residual(&mut self) -> u64 {
-        let res = self.decoder.read_first_residual();
-        self.encoder.write_first_residual(res).unwrap();
-        res
-    }
-    #[inline(always)]
-    fn read_residual(&mut self) -> u64 {
-        let res = self.decoder.read_residual();
-        self.encoder.write_residual(res).unwrap();
-        res
-    }
 }

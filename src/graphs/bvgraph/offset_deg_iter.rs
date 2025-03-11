@@ -92,6 +92,11 @@ impl<D: Decode> OffsetDegIter<D> {
         self.number_of_nodes
     }
 
+    /// Returns a reference to the decoder so it can be inspected during iteration.
+    pub fn get_decoder(&self) -> &D {
+        &self.decoder
+    }
+
     /// Convert the decoder to another one.
     pub fn map_decoder<D2: Decode, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
         OffsetDegIter {
