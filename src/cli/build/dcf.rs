@@ -49,7 +49,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn build_dcf<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {

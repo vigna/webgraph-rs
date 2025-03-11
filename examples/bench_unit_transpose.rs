@@ -66,7 +66,7 @@ pub fn transpose(
     Ok(Left(sorted))
 }
 
-fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
+fn bench_impl<E: Endianness>(args: Args) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {

@@ -47,7 +47,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn build_offsets<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn build_offsets<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
     FileBufReader<E>: CodesRead<E, Error = io::Error> + BitSeek,

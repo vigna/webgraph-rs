@@ -46,7 +46,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn ascii_convert<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn ascii_convert<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {

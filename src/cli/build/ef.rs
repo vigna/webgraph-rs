@@ -211,7 +211,7 @@ pub fn build_eliasfano_from_graph(
     }
 }
 
-pub fn build_eliasfano<E: Endianness + 'static>(
+pub fn build_eliasfano<E: Endianness>(
     args: &CliArgs,
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,

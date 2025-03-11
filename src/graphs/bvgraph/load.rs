@@ -13,7 +13,6 @@ use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
-    convert::Infallible,
     io::BufReader,
     path::{Path, PathBuf},
 };
@@ -272,8 +271,6 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap>
-where
-    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory-mapping (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, Mmap> {
@@ -287,8 +284,6 @@ where
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap>
-where
-    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory obtained from `mmap()` (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
@@ -316,8 +311,6 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, Mmap, OLM>
-where
-    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory-mapping the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, OLM> {
@@ -331,8 +324,6 @@ where
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, LoadMmap, OLM>
-where
-    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, OLM> {
@@ -358,8 +349,6 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Ran
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mmap>
-where
-    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory-mapping the offsets.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, Mmap> {
@@ -373,8 +362,6 @@ where
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, LoadMmap>
-where
-    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, LoadMmap> {

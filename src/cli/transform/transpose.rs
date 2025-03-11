@@ -58,7 +58,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+pub fn transpose<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {

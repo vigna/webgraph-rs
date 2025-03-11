@@ -81,7 +81,7 @@ impl Iterator for Chunks {
     }
 }
 
-pub fn optimize_codes<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
+pub fn optimize_codes<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {

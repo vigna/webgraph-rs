@@ -72,7 +72,7 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
     log::warn!("The .ef file was not found so the simplification will proceed sequentially. This may be slow. To speed it up, you can use `webgraph build ef {}` which would allow us create batches in parallel", basepath.as_ref().display());
 }
 
-pub fn simplify<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
+pub fn simplify<E: Endianness>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
