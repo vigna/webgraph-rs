@@ -78,6 +78,12 @@ impl Dispatch for Dynamic {}
 ///
 /// You can set both modes with [`LoadConfig::mode`], or set them separately with
 /// [`LoadConfig::graph_mode`] and [`LoadConfig::offsets_mode`].
+/// 
+/// # Implementation Notes
+/// 
+/// This trait depends on an [`Endianness`] parameter `E` because it contains
+/// an associated type [`LoadMode::Factory`] that is a [`CodeReaderFactory`],
+/// and as such it depends on the endianness.
 #[sealed]
 pub trait LoadMode<E: Endianness>: 'static {
     type Factory: CodeReaderFactory<E>;
