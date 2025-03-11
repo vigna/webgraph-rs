@@ -32,10 +32,7 @@ use dsi_bitstream::{
     traits::{BitRead, Endianness},
 };
 use std::{
-    fs::File,
-    io::{self, BufReader, Read},
-    marker::PhantomData,
-    path::Path,
+    convert::Infallible, fs::File, io::{self, BufReader, Read}, marker::PhantomData, path::Path
 };
 use sux::traits::{IndexedSeq, Types};
 
@@ -232,9 +229,9 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
 
 impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible>,
 {
-    type Error = core::convert::Infallible;
+    type Error = Infallible;
     type CodeReader<'a>
         = MemBufReader<'a, E>
     where
@@ -279,9 +276,9 @@ impl<I, O> Default for EmptyDict<I, O> {
 
 impl<E: Endianness> CodeReaderFactory<E> for MmapHelper<u32>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible>,
 {
-    type Error = core::convert::Infallible;
+    type Error = Infallible;
     type CodeReader<'a>
         = MemBufReader<'a, E>
     where

@@ -12,8 +12,8 @@ use lender::prelude::*;
 /// A BvGraph compressor, this is used to compress a graph into a BvGraph
 #[derive(Debug, Clone)]
 pub struct BvComp<E> {
-    /// The ring-buffer that stores the neighbours of the last
-    /// `compression_window` neighbours
+    /// The ring-buffer that stores the neighbors of the last
+    /// `compression_window` neighbors
     backrefs: CircularBuffer<Vec<usize>>,
     /// The ring-buffer that stores how many recursion steps are needed to
     /// decode the last `compression_window` nodes, this is used for
@@ -55,7 +55,7 @@ struct Compressor {
     extra_nodes: Vec<usize>,
     /// The starts of the intervals
     left_interval: Vec<usize>,
-    /// The lengths of the intervls
+    /// The lengths of the intervals
     len_interval: Vec<usize>,
     /// The nodes left to encode as gaps
     residuals: Vec<usize>,
@@ -263,7 +263,7 @@ impl Compressor {
             } else {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {
-                        /* If we trespassed the currented element of the reference list, we
+                        /* If we trespassed the current element of the reference list, we
                         increase the block length. k gets increased. */
                         k += 1;
                         curr_block_len += 1;
@@ -333,7 +333,7 @@ impl<E: EncodeAndEstimate> BvComp<E> {
 
     /// Push a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator)
     pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
         // collect the iterator inside the backrefs, to reuse the capacity already
@@ -389,9 +389,9 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             if count >= self.max_ref_count {
                 continue;
             }
-            // Get the neighbours of this previous len_zetanode
+            // Get the neighbors of this previous ref_node
             let ref_list = &self.backrefs[ref_node];
-            // No neighbours, no compression
+            // No neighbors, no compression
             if ref_list.is_empty() {
                 continue;
             }
@@ -435,7 +435,7 @@ impl<E: EncodeAndEstimate> BvComp<E> {
 
     /// Given an iterator over the nodes successors iterators, push them all.
     /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.

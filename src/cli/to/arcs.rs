@@ -13,6 +13,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
+use std::convert::Infallible;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -59,7 +60,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn to_csv<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()

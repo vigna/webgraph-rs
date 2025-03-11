@@ -11,6 +11,7 @@ use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::Serialize;
+use std::convert::Infallible;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
@@ -56,7 +57,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn bfs<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible
+    > + BitSeek,
 {
     // load the graph
     let graph = BvGraph::with_basename(&args.src)

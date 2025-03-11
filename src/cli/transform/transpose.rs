@@ -10,6 +10,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
+use std::convert::Infallible;
 use std::path::PathBuf;
 use tempfile::Builder;
 
@@ -59,7 +60,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn transpose<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 

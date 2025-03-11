@@ -13,6 +13,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use epserde::deser::DeserializeInner;
 use mmap_rs::MmapFlags;
+use std::convert::Infallible;
 use std::path::PathBuf;
 use tempfile::Builder;
 
@@ -84,7 +85,7 @@ pub fn compress<E: Endianness + Clone + Send + Sync>(
     permutation: Option<JavaPermutation>,
 ) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 

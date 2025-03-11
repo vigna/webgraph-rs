@@ -12,6 +12,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
+use std::convert::Infallible;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
@@ -50,7 +51,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let basename = args.src;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);

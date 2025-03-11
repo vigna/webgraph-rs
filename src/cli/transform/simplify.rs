@@ -12,7 +12,7 @@ use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
-use std::path::PathBuf;
+use std::{convert::Infallible, path::PathBuf};
 use tempfile::Builder;
 
 pub const COMMAND_NAME: &str = "simplify";
@@ -74,7 +74,7 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
 
 pub fn simplify<E: Endianness + Send + Sync + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     // TODO!: speed it up by using random access graph if possible
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);

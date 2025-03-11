@@ -12,6 +12,7 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
+use std::convert::Infallible;
 use std::hint::black_box;
 use std::path::PathBuf;
 use webgraph::prelude::*;
@@ -25,7 +26,7 @@ struct Args {
 
 fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let graph = BvGraph::with_basename(&args.basename)
         .endianness::<E>()

@@ -21,6 +21,7 @@ use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 
 use predicates::prelude::*;
 use rayon::prelude::*;
+use std::convert::Infallible;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
@@ -111,7 +112,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let start = std::time::Instant::now();
 

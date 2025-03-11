@@ -14,6 +14,7 @@ use lender::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
+use std::convert::Infallible;
 use std::hint::black_box;
 use std::path::PathBuf;
 
@@ -140,7 +141,7 @@ fn bench_seq(graph: impl SequentialGraph, repeats: usize) {
 
 fn bench_webgraph<E: Endianness, D: Dispatch>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     if args.check {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;

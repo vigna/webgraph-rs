@@ -7,6 +7,7 @@
 
 #![allow(clippy::type_complexity)]
 
+use std::convert::Infallible;
 use std::hint::black_box;
 
 use anyhow::Result;
@@ -67,7 +68,7 @@ pub fn transpose(
 
 fn bench_impl<E: Endianness + 'static>(args: Args) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = core::convert::Infallible> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {
     let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.basename)
         .endianness::<E>()
