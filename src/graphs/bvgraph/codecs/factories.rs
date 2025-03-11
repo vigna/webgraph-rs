@@ -33,13 +33,13 @@ use dsi_bitstream::{
 };
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{self, BufReader, Read},
     marker::PhantomData,
     path::Path,
 };
 use sux::traits::{IndexedSeq, Types};
 
-use crate::utils::MmapHelper;
+use crate::{prelude::FileBufReader, utils::MmapHelper};
 
 #[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
@@ -63,10 +63,9 @@ impl<E: Endianness> FileFactory<E> {
 
 impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E>
 where
-    BufBitReader<E, WordAdapter<u32, BufReader<File>>>:
-        BitRead<E> + CodesRead<E, Error = std::io::Error>,
+    FileBufReader<E>: BitRead<E> + CodesRead<E, Error = io::Error>,
 {
-    type Error = std::io::Error;
+    type Error = io::Error;
     type CodeReader<'a>
         = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where

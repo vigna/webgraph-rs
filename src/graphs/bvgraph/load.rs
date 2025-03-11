@@ -13,7 +13,8 @@ use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
-    io::BufReader,
+    convert::Infallible,
+    io::{self, BufReader},
     path::{Path, PathBuf},
 };
 use sux::traits::IndexedSeq;
@@ -91,6 +92,11 @@ pub trait LoadMode<E: Endianness>: 'static {
     ) -> Result<MemCase<Self::Offsets>>;
 }
 
+pub type MemBufReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
+pub type FileBufReader<E> = BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>;
+pub type LoadModeCodeReader<'a, E, LM> =
+    <<LM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>;
+
 /// The graph is read from a file; offsets are fully deserialized in memory.
 ///
 /// Note that you must guarantee that the graph file is padded with enough
@@ -100,8 +106,7 @@ pub struct File {}
 #[sealed]
 impl<E: Endianness> LoadMode<E> for File
 where
-    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: CodesRead<E>,
-    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E, Error = std::io::Error>,
+    FileBufReader<E>: BitRead<E, Error = io::Error> + CodesRead<E>,
 {
     type Factory = FileFactory<E>;
     type Offsets = EF;
@@ -129,9 +134,7 @@ pub struct Mmap {}
 #[sealed]
 impl<E: Endianness> LoadMode<E> for Mmap
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     type Factory = MmapHelper<u32>;
     type Offsets = DeserType<'static, EF>;
@@ -156,9 +159,7 @@ pub struct LoadMem {}
 #[sealed]
 impl<E: Endianness> LoadMode<E> for LoadMem
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     type Factory = MemoryFactory<E, Box<[u32]>>;
     type Offsets = DeserType<'static, EF>;
@@ -185,9 +186,7 @@ pub struct LoadMmap {}
 #[sealed]
 impl<E: Endianness> LoadMode<E> for LoadMmap
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     type Factory = MemoryFactory<E, MmapHelper<u32>>;
     type Offsets = DeserType<'static, EF>;
@@ -267,9 +266,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
 
 impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory-mapping (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, Mmap> {
@@ -284,9 +281,7 @@ where
 
 impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory obtained from `mmap()` (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
@@ -315,9 +310,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode<E>> LoadConfig<E, A, D, Mmap, OLM>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory-mapping the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, OLM> {
@@ -332,9 +325,7 @@ where
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode<E>> LoadConfig<E, A, D, LoadMmap, OLM>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, OLM> {
@@ -363,9 +354,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode<E>, OLM: LoadMode<E>>
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode<E>> LoadConfig<E, Random, D, GLM, Mmap>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory-mapping the offsets.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, Mmap> {
@@ -380,9 +369,7 @@ where
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode<E>> LoadConfig<E, Random, D, GLM, LoadMmap>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E>,
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        BitRead<E, Error = std::convert::Infallible>,
+    for<'a> MemBufReader<'a, E>: BitRead<E, Error = Infallible> + CodesRead<E>,
 {
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, LoadMmap> {
@@ -402,8 +389,7 @@ impl<E: Endianness, GLM: LoadMode<E>, OLM: LoadMode<E>> LoadConfig<E, Random, Dy
         mut self,
     ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory, OLM::Offsets>>>
     where
-        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
-            CodesRead<E> + BitSeek,
+        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -431,8 +417,7 @@ impl<E: Endianness, GLM: LoadMode<E>, OLM: LoadMode<E>>
         mut self,
     ) -> anyhow::Result<BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory, EmptyDict<usize, usize>>>>
     where
-        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
-            CodesRead<E>,
+        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -480,8 +465,7 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
-            CodesRead<E> + BitSeek,
+        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -537,8 +521,7 @@ impl<
         >,
     >
     where
-        for<'a> <<GLM as LoadMode<E>>::Factory as CodeReaderFactory<E>>::CodeReader<'a>:
-            CodesRead<E>,
+        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;

@@ -11,9 +11,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::{
-    fs::File,
-    io::{BufReader, BufWriter},
-    path::PathBuf,
+    convert::Infallible, fs::File, io::{self, BufReader, BufWriter}, path::PathBuf
 };
 
 pub const COMMAND_NAME: &str = "offsets";
@@ -49,10 +47,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn build_offsets<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
-    for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>:
-        CodesRead<E, Error = core::convert::Infallible> + BitSeek,
-    for<'a> BufBitReader<E, WordAdapter<u32, BufReader<File>>>:
-        CodesRead<E, Error = std::io::Error> + BitSeek,
+    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    FileBufReader<E>: CodesRead<E, Error = io::Error> + BitSeek,
 {
     // Create the sequential iterator over the graph
     let seq_graph = BvGraphSeq::with_basename(&args.src)
