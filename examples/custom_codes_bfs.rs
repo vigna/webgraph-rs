@@ -12,7 +12,6 @@ use clap::Parser;
 use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
-use lender::Lender;
 use mmap_rs::MmapFlags;
 use sux::{bits::BitVec, traits::IndexedSeq};
 use webgraph::prelude::*;

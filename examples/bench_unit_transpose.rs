@@ -7,7 +7,6 @@
 
 #![allow(clippy::type_complexity)]
 
-use std::convert::Infallible;
 use std::hint::black_box;
 
 use anyhow::Result;

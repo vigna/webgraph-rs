@@ -87,7 +87,7 @@ where
             tmp_path.as_ref(),
         )?))),
         &compression_flags,
-    ));
+    )?);
     let mut bvcomp = BvComp::new(
         writer,
         compression_flags.compression_window,

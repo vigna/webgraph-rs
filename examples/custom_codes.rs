@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
-        .expected_updates(Some(graph.num_nodes() as usize));
+        .expected_updates(Some(graph.num_nodes()));
     pl.start("Re-encoding...");
 
     // wrap the offset degrees iterator, which reads every code but doesn't
