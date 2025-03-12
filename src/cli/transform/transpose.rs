@@ -9,6 +9,7 @@ use crate::cli::*;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 use std::path::PathBuf;
@@ -60,7 +61,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn transpose<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MmapHelper<u32>: IntermediateFactory<E>,
 {
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
 

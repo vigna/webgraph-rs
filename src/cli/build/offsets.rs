@@ -8,13 +8,9 @@
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
-use std::{
-    convert::Infallible,
-    io::BufWriter,
-    path::PathBuf,
-};
+use std::{convert::Infallible, io::BufWriter, path::PathBuf};
 
 pub const COMMAND_NAME: &str = "offsets";
 
@@ -49,8 +45,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn build_offsets<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
-    FileBufReader<E>: BitSeek,
+    MmapHelper<u32>: IntermediateFactory<E>,
+    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
 {
     // Create the sequential iterator over the graph
     let seq_graph = BvGraphSeq::with_basename(&args.src)

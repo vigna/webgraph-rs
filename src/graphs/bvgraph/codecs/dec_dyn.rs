@@ -9,6 +9,7 @@
 use std::marker::PhantomData;
 
 use super::super::*;
+use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::codes::{CodeReaderFactory, FuncCodeReaderFactory};
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
@@ -132,7 +133,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
 #[derive(Debug)]
 pub struct DynCodesDecoderFactory<
     E: Endianness,
-    F: CodeReaderFactory<E>,
+    F: IntermediateFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
@@ -156,7 +157,7 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
@@ -194,10 +195,8 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
-where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error>,
 {
     #[inline(always)]
     /// Return a clone of the compression flags.
@@ -225,10 +224,10 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E, Error = F::Error> + BitSeek,
+    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
@@ -255,7 +254,7 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>

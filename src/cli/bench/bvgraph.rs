@@ -8,6 +8,7 @@
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::prelude::*;
 use itertools::Itertools;
 use lender::*;
@@ -141,7 +142,8 @@ fn bench_seq(graph: impl SequentialGraph, repeats: usize) {
 
 fn bench_webgraph<E: Endianness, D: Dispatch>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MmapHelper<u32>: IntermediateFactory<E>,
+    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
 {
     if args.check {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;

@@ -6,9 +6,11 @@
  */
 
 use crate::traits::SequentialLabeling;
+use crate::utils::MmapHelper;
 use crate::{graphs::bvgraph::get_endianness, prelude::MemBufReader};
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -48,7 +50,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn ascii_convert<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MmapHelper<u32>: IntermediateFactory<E>,
 {
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()

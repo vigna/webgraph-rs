@@ -110,7 +110,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn llp<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
 {

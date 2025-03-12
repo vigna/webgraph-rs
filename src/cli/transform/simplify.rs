@@ -10,7 +10,7 @@ use crate::graphs::union_graph::UnionGraph;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use mmap_rs::MmapFlags;
 use std::{convert::Infallible, path::PathBuf};
 use tempfile::Builder;
@@ -74,7 +74,8 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
 
 pub fn simplify<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MmapHelper<u32>: IntermediateFactory<E>,
+    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek + Clone + Send + Sync,
 {
     // TODO!: speed it up by using random access graph if possible
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);

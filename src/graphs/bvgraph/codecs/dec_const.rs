@@ -11,6 +11,7 @@ use super::super::*;
 use anyhow::bail;
 use anyhow::Result;
 use dsi_bitstream::codes::dispatch::code_consts;
+use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
@@ -146,7 +147,7 @@ impl<
 
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
-    F: CodeReaderFactory<E>,
+    F: IntermediateFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
@@ -165,7 +166,7 @@ pub struct ConstCodesDecoderFactory<
 
 impl<
         E: Endianness,
-        F: CodeReaderFactory<E>,
+        F: IntermediateFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -211,7 +212,7 @@ where
 
 impl<
         E: Endianness,
-        F: CodeReaderFactory<E>,
+        F: IntermediateFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -247,7 +248,7 @@ impl<
 
 impl<
         E: Endianness,
-        F: CodeReaderFactory<E>,
+        F: IntermediateFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -277,7 +278,7 @@ where
 
 impl<
         E: Endianness,
-        F: CodeReaderFactory<E>,
+        F: IntermediateFactory<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,

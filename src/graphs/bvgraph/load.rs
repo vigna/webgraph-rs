@@ -8,7 +8,7 @@
 use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
-use dsi_bitstream::codes::dispatch::code_consts;
+use dsi_bitstream::codes::{dispatch::code_consts, dispatch_factory::IntermediateFactory};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use sealed::sealed;
@@ -270,8 +270,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap>
-{
+impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap> {
     /// Set flags for memory-mapping (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, Mmap> {
         LoadConfig {
@@ -283,8 +282,7 @@ impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap>
-{
+impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
     /// Set flags for memory obtained from `mmap()` (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
         LoadConfig {
@@ -310,8 +308,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, Mmap, OLM>
-{
+impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, Mmap, OLM> {
     /// Set flags for memory-mapping the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, OLM> {
         LoadConfig {
@@ -323,8 +320,7 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, M
     }
 }
 
-impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, LoadMmap, OLM>
-{
+impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, LoadMmap, OLM> {
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, OLM> {
         LoadConfig {
@@ -348,8 +344,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Ran
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mmap>
-{
+impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mmap> {
     /// Set flags for memory-mapping the offsets.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, Mmap> {
         LoadConfig {
@@ -361,8 +356,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mm
     }
 }
 
-impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, LoadMmap>
-{
+impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, LoadMmap> {
     /// Set flags for memory obtained from `mmap()` for the graph.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, LoadMmap> {
         LoadConfig {
@@ -381,7 +375,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         mut self,
     ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
-        <GLM as LoadMode>::Factory<E>: CodeReaderFactory<E>,
+        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
         for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -410,7 +404,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
-        <GLM as LoadMode>::Factory<E>: CodeReaderFactory<E>,
+        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
         for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -459,7 +453,7 @@ impl<
         >,
     >
     where
-        <GLM as LoadMode>::Factory<E>: CodeReaderFactory<E>,
+        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
         for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
@@ -516,7 +510,7 @@ impl<
         >,
     >
     where
-        <GLM as LoadMode>::Factory<E>: CodeReaderFactory<E>,
+        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
         for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);

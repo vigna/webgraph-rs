@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::*;
+use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use lender::Lender;
@@ -32,7 +32,7 @@ struct Args {
 /// This is the factory that we can plug in BVGraph to read the custom codes
 pub struct CustomDecoderFactory<
     E: Endianness,
-    F: CodeReaderFactory<E>,
+    F: IntermediateFactory<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     pub factory: F,
@@ -42,7 +42,7 @@ pub struct CustomDecoderFactory<
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     CustomDecoderFactory<E, F, OFF>
 {
     pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
@@ -54,7 +54,7 @@ impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Outp
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<E: Endianness, F: CodeReaderFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
