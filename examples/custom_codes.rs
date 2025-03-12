@@ -67,7 +67,7 @@ impl<E: Endianness, W: CodesWrite<E>> Encode for CustomEncoder<E, W> {
     }
     #[inline(always)]
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error> {
-        self.encoder.write_gamma(value)
+        self.encoder.write_pi(value, 2)
     }
     #[inline(always)]
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error> {
@@ -75,11 +75,11 @@ impl<E: Endianness, W: CodesWrite<E>> Encode for CustomEncoder<E, W> {
     }
     #[inline(always)]
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        self.encoder.write_zeta3(value)
+        self.encoder.write_pi(value, 3)
     }
     #[inline(always)]
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error> {
-        self.encoder.write_zeta3(value)
+        self.encoder.write_pi(value, 2)
     }
     #[inline(always)]
     fn flush(&mut self) -> Result<usize, Self::Error> {
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a bitstream writer for the target graph
     let target_graph_path = args.dst.with_extension(GRAPH_EXTENSION);
-    let writer = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+    let writer = <BufBitWriter<LE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
         File::create(&target_graph_path)
             .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
     )));
@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
-        .expected_updates(Some(graph.num_nodes()));
+        .expected_updates(Some(graph.num_nodes() as usize));
     pl.start("Re-encoding...");
 
     // wrap the offset degrees iterator, which reads every code but doesn't

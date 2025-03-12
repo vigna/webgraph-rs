@@ -66,7 +66,7 @@ where
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
-        Ok(CustomDecoder::new(self.factory.new_reader()))
+        Ok(CustomDecoder::new(code_reader))
     }
 }
 
@@ -126,7 +126,7 @@ impl<E: Endianness, R: CodesRead<E>> Decode for CustomDecoder<E, R> {
     }
     #[inline(always)]
     fn read_interval_start(&mut self) -> u64 {
-        self.decoder.read_gamma().unwrap()
+        self.decoder.read_pi(2).unwrap()
     }
     #[inline(always)]
     fn read_interval_len(&mut self) -> u64 {
@@ -134,11 +134,11 @@ impl<E: Endianness, R: CodesRead<E>> Decode for CustomDecoder<E, R> {
     }
     #[inline(always)]
     fn read_first_residual(&mut self) -> u64 {
-        self.decoder.read_zeta3().unwrap()
+        self.decoder.read_pi(3).unwrap()
     }
     #[inline(always)]
     fn read_residual(&mut self) -> u64 {
-        self.decoder.read_zeta3().unwrap()
+        self.decoder.read_pi(2).unwrap()
     }
 }
 
@@ -153,7 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let graph = BvGraph::new(
         CustomDecoderFactory::new(
-            MemoryFactory::<BE, _>::new_mmap(
+            MemoryFactory::<LE, _>::new_mmap(
                 args.basename.with_extension(GRAPH_EXTENSION),
                 MemoryFlags::default(),
             )?,
@@ -165,8 +165,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         4, // default
     );
 
-    let truth = BvGraph::with_basename("/dfd/graphs/enwiki-2015").load()?;
-
     let mut seen = vec![false; args.num_nodes];
     let mut queue = VecDeque::new();
 
@@ -176,30 +174,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .local_speed(true)
         .expected_updates(Some(args.num_nodes));
     pl.start("Visiting graph...");
-
-    log::info!("Checking that the graphs are equal");
-    truth
-        .iter()
-        .zip(graph.iter())
-        .for_each(|((n1, s1), (n2, s2))| {
-            assert_eq!(n1, n2);
-            assert_eq!(
-                s1.collect::<Vec<_>>(),
-                s2.collect::<Vec<_>>(),
-                "Error at node {}",
-                n1
-            );
-        });
-    log::info!("Graphs are equal");
-
-    for node_id in 0..args.num_nodes {
-        assert_eq!(
-            graph.successors(node_id).collect::<Vec<_>>(),
-            truth.successors(node_id).collect::<Vec<_>>(),
-        );
-    }
-
-    log::info!("Graphs are randomly equal");
 
     for start in 0..args.num_nodes {
         if seen[start] {
@@ -219,6 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+    pl.done();
 
     Ok(())
 }
