@@ -6,7 +6,6 @@
  */
 
 use crate::graphs::bvgraph::get_endianness;
-use crate::prelude::MemBufReader;
 use crate::traits::SequentialLabeling;
 use crate::utils::MmapHelper;
 use anyhow::Result;
@@ -15,7 +14,6 @@ use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
-use std::convert::Infallible;
 use std::io::Write;
 use std::path::PathBuf;
 

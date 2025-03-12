@@ -10,7 +10,6 @@
 use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
-use dsi_bitstream::codes::CodeReaderFactory;
 use dsi_bitstream::traits::{Endianness, BE};
 use lender::IntoLender;
 use std::path::PathBuf;

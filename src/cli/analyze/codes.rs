@@ -13,7 +13,7 @@ use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
-use std::{convert::Infallible, path::PathBuf};
+use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "codes";
 

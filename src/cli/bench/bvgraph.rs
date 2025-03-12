@@ -15,7 +15,6 @@ use lender::*;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
-use std::convert::Infallible;
 use std::hint::black_box;
 use std::path::PathBuf;
 

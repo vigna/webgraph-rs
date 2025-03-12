@@ -13,7 +13,6 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
-use std::convert::Infallible;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use std::path::PathBuf;

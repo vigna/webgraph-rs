@@ -13,6 +13,7 @@ use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use lender::Lender;
+use mmap_rs::MmapFlags;
 use sux::{bits::BitVec, traits::IndexedSeq};
 use webgraph::prelude::*;
 
@@ -27,6 +28,10 @@ struct Args {
 
     /// The number of arcs in the graph
     num_arcs: u64,
+
+    #[clap(long, default_value = "false")]
+    /// Whether to use mmap for the graph, otherwise it will be load in memory
+    mmap: bool,
 }
 
 /// This is the factory that we can plug in BVGraph to read the custom codes
@@ -151,21 +156,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let offsets = EF::load_mmap(args.basename.with_extension(EF_EXTENSION), Flags::default())?;
 
-    let graph = BvGraph::new(
-        CustomDecoderFactory::new(
-            MemoryFactory::<LE, _>::new_mmap(
-                args.basename.with_extension(GRAPH_EXTENSION),
-                MemoryFlags::default(),
-            )?,
-            offsets,
-        ),
-        args.num_nodes,
-        args.num_arcs,
-        7, // default
-        4, // default
-    );
+    if args.mmap {
+        let graph = BvGraph::new(
+            CustomDecoderFactory::<LE, _, _>::new(
+                // This is MMap
+                MmapHelper::mmap(
+                    args.basename.with_extension(GRAPH_EXTENSION),
+                    MmapFlags::empty(),
+                )?,
+                offsets,
+            ),
+            args.num_nodes,
+            args.num_arcs,
+            7, // default
+            4, // default
+        );
 
-    visit(graph)?;
+        visit(graph)?;
+    } else {
+        let graph = BvGraph::new(
+            CustomDecoderFactory::new(
+                MemoryFactory::<LE, _>::new_mmap(
+                    args.basename.with_extension(GRAPH_EXTENSION),
+                    MemoryFlags::default(),
+                )?,
+                offsets,
+            ),
+            args.num_nodes,
+            args.num_arcs,
+            7, // default
+            4, // default
+        );
+
+        visit(graph)?;
+    }
 
     Ok(())
 }

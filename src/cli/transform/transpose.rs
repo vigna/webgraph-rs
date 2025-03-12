@@ -11,7 +11,6 @@ use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
 use dsi_bitstream::prelude::*;
-use std::convert::Infallible;
 use std::path::PathBuf;
 use tempfile::Builder;
 

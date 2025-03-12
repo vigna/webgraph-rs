@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
-use std::{convert::Infallible, io::BufWriter, path::PathBuf};
+use std::{io::BufWriter, path::PathBuf};
 
 pub const COMMAND_NAME: &str = "offsets";
 

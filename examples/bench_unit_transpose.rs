@@ -69,7 +69,7 @@ pub fn transpose(
 
 fn bench_impl<E: Endianness>(args: Args) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>
+    MmapHelper<u32>: IntermediateFactory<E>,
 {
     let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.basename)
         .endianness::<E>()
