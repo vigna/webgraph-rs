@@ -13,7 +13,7 @@ use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use lender::Lender;
-use sux::traits::IndexedSeq;
+use sux::{bits::BitVec, traits::IndexedSeq};
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -165,22 +165,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         4, // default
     );
 
-    let mut seen = vec![false; args.num_nodes];
+    visit(graph)?;
+
+    Ok(())
+}
+
+fn visit(graph: impl RandomAccessGraph) -> Result<()> {
+    let num_nodes = graph.num_nodes();
+    let mut seen = BitVec::new(num_nodes);
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
         .item_name("node")
         .local_speed(true)
-        .expected_updates(Some(args.num_nodes));
+        .expected_updates(Some(num_nodes));
     pl.start("Visiting graph...");
 
-    for start in 0..args.num_nodes {
+    for start in 0..num_nodes {
         if seen[start] {
             continue;
         }
         queue.push_back(start as _);
-        seen[start] = true;
+        seen.set(start, true);
 
         while !queue.is_empty() {
             pl.light_update();
@@ -188,11 +195,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for succ in graph.successors(current_node) {
                 if !seen[succ] {
                     queue.push_back(succ);
-                    seen[succ] = true;
+                    seen.set(succ as _, true);
                 }
             }
         }
     }
+
     pl.done();
 
     Ok(())
