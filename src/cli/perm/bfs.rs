@@ -59,7 +59,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn bfs<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
-    for<'a> <MemoryFactory<E, MmapHelper<u32>> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
+    for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek, 
 {
     // load the graph
     let graph = BvGraph::with_basename(&args.src)

@@ -98,10 +98,31 @@ pub trait LoadMode: 'static {
 pub type MemBufReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 /// A type alias for a buffered reader that reads from a file buffer a `u32` at a time.
 pub type FileBufReader<E> = BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>;
+/// A type alias for the [`CodesReaderFactory`] associated with a [`LoadMode`].
+/// 
+/// This type can be used in client methods that abstract over endianness to
+/// impose the necessary trait bounds on the factory associated with the load
+/// mode: one has just to write, for example, for the [`Mmap`] load mode:
+/// ```ignore
+/// LoadModeFactory<E, Mmap>: CodesReaderFactoryHelper<E>
+/// ```
+/// 
+/// Additional trait bounds on the [`CodesReader`] associated with the factory
+/// can be imposed by using the [`LoadModeCodesReader`] type alias.
+pub type LoadModeFactory<E, LM> = <LM as LoadMode>::Factory<E>;
 /// A type alias for the code reader returned by the [`CodesReaderFactory`]
 /// associated with a [`LoadMode`].
+/// 
+/// This type can be used in client methods that abstract over endianness to
+/// impose bounds on the code reader associated to the factory associated with
+/// the load mode, usually in conjunction with [`LoadModeFactory`]. For example,
+/// for the [`Mmap`] load mode:
+/// ```ignore
+/// LoadModeFactory<E, Mmap>: CodesReaderFactoryHelper<E>
+/// LoadModeCodesReader<'a, E, Mmap>: BitSeek
+/// ```
 pub type LoadModeCodesReader<'a, E, LM> =
-    <<LM as LoadMode>::Factory<E> as CodesReaderFactory<E>>::CodesReader<'a>;
+    <LoadModeFactory<E, LM> as CodesReaderFactory<E>>::CodesReader<'a>;
 
 /// The graph is read from a file; offsets are fully deserialized in memory.
 ///
