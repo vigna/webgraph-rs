@@ -27,14 +27,13 @@ use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
-    codes::{CodesReaderFactory, CodesRead},
+    codes::{CodesRead, CodesReaderFactory},
     impls::{BufBitReader, MemWordReader, WordAdapter},
     traits::{BitRead, Endianness},
 };
 use std::{
-    convert::Infallible,
     fs::File,
-    io::{self, BufReader, Read},
+    io::{BufReader, Read},
     marker::PhantomData,
     path::Path,
 };

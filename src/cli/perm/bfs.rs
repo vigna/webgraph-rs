@@ -12,7 +12,6 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::Serialize;
-use std::convert::Infallible;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
@@ -59,7 +58,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn bfs<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
-    for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek, 
+    for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
 {
     // load the graph
     let graph = BvGraph::with_basename(&args.src)

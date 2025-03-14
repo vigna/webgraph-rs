@@ -13,7 +13,6 @@ use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
-use std::convert::Infallible;
 use std::hint::black_box;
 use std::path::PathBuf;
 use webgraph::prelude::*;
@@ -29,7 +28,7 @@ fn bench_impl<E: Endianness>(args: Args) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
-{ 
+{
     let graph = BvGraph::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;

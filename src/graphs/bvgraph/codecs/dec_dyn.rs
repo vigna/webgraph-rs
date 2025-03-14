@@ -70,10 +70,12 @@ impl<E: Endianness, CR: CodesRead<E>> DynCodesDecoder<E, CR> {
 impl<E: Endianness, CR: CodesRead<E> + BitSeek> BitSeek for DynCodesDecoder<E, CR> {
     type Error = <CR as BitSeek>::Error;
 
+    #[inline(always)]
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {
         self.code_reader.set_bit_pos(bit_index)
     }
 
+    #[inline(always)]
     fn bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.code_reader.bit_pos()
     }
@@ -157,8 +159,11 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
     for<'a> &'a OFF: IntoIterator<Item = usize>,
@@ -195,8 +200,11 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
     /// Return a clone of the compression flags.
@@ -224,8 +232,11 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usiz
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -234,6 +245,7 @@ where
     where
         Self: 'a;
 
+    #[inline(always)]
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
         code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
@@ -254,14 +266,18 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
     where
         Self: 'a;
 
+    #[inline(always)]
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {
         Ok(DynCodesDecoder {
             code_reader: self.factory.new_reader(),

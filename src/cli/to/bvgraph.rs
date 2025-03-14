@@ -14,7 +14,6 @@ use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::deser::DeserializeInner;
 use mmap_rs::MmapFlags;
-use std::convert::Infallible;
 use std::path::PathBuf;
 use tempfile::Builder;
 
@@ -87,9 +86,8 @@ pub fn compress<E: Endianness>(
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for <'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
-
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);

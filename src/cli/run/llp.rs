@@ -22,7 +22,6 @@ use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 
 use predicates::prelude::*;
 use rayon::prelude::*;
-use std::convert::Infallible;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
