@@ -87,7 +87,7 @@ pub fn compress<E: Endianness>(
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for <'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek + Send + Sync + Clone,
+    for <'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
 
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;

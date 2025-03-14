@@ -218,7 +218,7 @@ pub fn build_eliasfano<E: Endianness>(
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()

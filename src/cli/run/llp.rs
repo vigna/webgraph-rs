@@ -114,7 +114,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
-    for<'a> <MemoryFactory<E, MmapHelper<u32>> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
+    for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
 {
     let start = std::time::Instant::now();
 

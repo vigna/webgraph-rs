@@ -28,7 +28,7 @@ struct Args {
 fn bench_impl<E: Endianness>(args: Args) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 { 
     let graph = BvGraph::with_basename(&args.basename)
         .endianness::<E>()

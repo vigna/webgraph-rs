@@ -75,7 +75,7 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
 pub fn simplify<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>:
+    for<'a> LoadModeCodesReader<'a, E, Mmap>:
         BitSeek + Clone + Send + Sync,
 {
     // TODO!: speed it up by using random access graph if possible

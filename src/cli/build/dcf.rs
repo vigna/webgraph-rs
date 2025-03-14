@@ -52,7 +52,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 pub fn build_dcf<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     let basename = args.src;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
