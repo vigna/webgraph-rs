@@ -11,7 +11,7 @@ use std::hint::black_box;
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
@@ -68,7 +68,7 @@ pub fn transpose(
 
 fn bench_impl<E: Endianness>(args: Args) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
     let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.basename)
         .endianness::<E>()

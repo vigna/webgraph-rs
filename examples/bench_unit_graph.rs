@@ -9,6 +9,7 @@ mod bench_sort_pairs;
 
 use anyhow::Result;
 use clap::Parser;
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -26,8 +27,9 @@ struct Args {
 
 fn bench_impl<E: Endianness>(args: Args) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
-{
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
+{ 
     let graph = BvGraph::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;

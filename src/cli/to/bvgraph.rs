@@ -10,6 +10,7 @@ use crate::cli::*;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::deser::DeserializeInner;
 use mmap_rs::MmapFlags;
@@ -85,8 +86,10 @@ pub fn compress<E: Endianness>(
     permutation: Option<JavaPermutation>,
 ) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for <'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek + Send + Sync + Clone,
 {
+
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 
     let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);

@@ -14,6 +14,7 @@ use crate::cli::NumThreadsArg;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use llp::invert_permutation;
@@ -112,7 +113,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
+    for<'a> <MemoryFactory<E, MmapHelper<u32>> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     let start = std::time::Instant::now();
 

@@ -11,7 +11,7 @@ use crate::{
 };
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
+use dsi_bitstream::{codes::dispatch_factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
 
@@ -83,8 +83,8 @@ impl Iterator for Chunks {
 
 pub fn optimize_codes<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>,
-    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     let mut stats = Default::default();
     let has_ef = std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());

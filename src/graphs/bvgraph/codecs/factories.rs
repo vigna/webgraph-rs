@@ -27,7 +27,7 @@ use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
-    codes::{CodeReaderFactory, CodesRead},
+    codes::{CodesReaderFactory, CodesRead},
     impls::{BufBitReader, MemWordReader, WordAdapter},
     traits::{BitRead, Endianness},
 };
@@ -65,17 +65,16 @@ impl<E: Endianness> FileFactory<E> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for FileFactory<E>
+impl<E: Endianness> CodesReaderFactory<E> for FileFactory<E>
 where
-    FileBufReader<E>: BitRead<E> + CodesRead<E, Error = io::Error>,
+    FileBufReader<E>: BitRead<E> + CodesRead<E>,
 {
-    type Error = io::Error;
-    type CodeReader<'a>
+    type CodesReader<'a>
         = BufBitReader<E, WordAdapter<u32, BufReader<File>>>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::CodeReader<'_> {
+    fn new_reader(&self) -> Self::CodesReader<'_> {
         BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(
             File::open(&self.path).unwrap(),
         )))
@@ -231,17 +230,16 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
     }
 }
 
-impl<E: Endianness, M: AsRef<[u32]>> CodeReaderFactory<E> for MemoryFactory<E, M>
+impl<E: Endianness, M: AsRef<[u32]>> CodesReaderFactory<E> for MemoryFactory<E, M>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible>,
+    for<'a> MemBufReader<'a, E>: CodesRead<E>,
 {
-    type Error = Infallible;
-    type CodeReader<'a>
+    type CodesReader<'a>
         = MemBufReader<'a, E>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::CodeReader<'_> {
+    fn new_reader(&self) -> Self::CodesReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.data.as_ref()))
     }
 }
@@ -278,17 +276,16 @@ impl<I, O> Default for EmptyDict<I, O> {
     }
 }
 
-impl<E: Endianness> CodeReaderFactory<E> for MmapHelper<u32>
+impl<E: Endianness> CodesReaderFactory<E> for MmapHelper<u32>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible>,
+    for<'a> MemBufReader<'a, E>: CodesRead<E>,
 {
-    type Error = Infallible;
-    type CodeReader<'a>
+    type CodesReader<'a>
         = MemBufReader<'a, E>
     where
         Self: 'a;
 
-    fn new_reader(&self) -> Self::CodeReader<'_> {
+    fn new_reader(&self) -> Self::CodesReader<'_> {
         BufBitReader::<E, _>::new(MemWordReader::new(self.as_ref()))
     }
 }

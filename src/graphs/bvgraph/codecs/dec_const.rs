@@ -11,7 +11,7 @@ use super::super::*;
 use anyhow::bail;
 use anyhow::Result;
 use dsi_bitstream::codes::dispatch::code_consts;
-use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
@@ -147,7 +147,7 @@ impl<
 
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
-    F: IntermediateFactory<E>,
+    F: CodesReaderFactoryHelper<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
@@ -166,7 +166,7 @@ pub struct ConstCodesDecoderFactory<
 
 impl<
         E: Endianness,
-        F: IntermediateFactory<E>,
+        F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -212,7 +212,7 @@ where
 
 impl<
         E: Endianness,
-        F: IntermediateFactory<E>,
+        F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -248,7 +248,7 @@ impl<
 
 impl<
         E: Endianness,
-        F: IntermediateFactory<E>,
+        F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -258,10 +258,10 @@ impl<
     > RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E> + BitSeek,
+    for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
-        = ConstCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        = ConstCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
     where
         Self: 'a;
 
@@ -278,7 +278,7 @@ where
 
 impl<
         E: Endianness,
-        F: IntermediateFactory<E>,
+        F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
@@ -287,11 +287,9 @@ impl<
         const RESIDUALS: usize,
     > SequentialDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: CodesRead<E>,
 {
     type Decoder<'a>
-        = ConstCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        = ConstCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
     where
         Self: 'a;
 

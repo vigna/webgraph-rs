@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
@@ -217,8 +217,8 @@ pub fn build_eliasfano<E: Endianness>(
     efb: &mut EliasFanoBuilder,
 ) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>,
-    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()

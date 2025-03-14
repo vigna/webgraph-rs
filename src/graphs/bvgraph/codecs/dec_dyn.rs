@@ -9,8 +9,8 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
-use dsi_bitstream::codes::{CodeReaderFactory, FuncCodeReaderFactory};
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
+use dsi_bitstream::codes::{CodesReaderFactory, FuncCodesReaderFactory};
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
@@ -18,15 +18,15 @@ use sux::traits::IndexedSeq;
 #[derive(Debug)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodesRead<E>> {
     pub(crate) code_reader: CR,
-    pub(crate) read_outdegree: FuncCodeReader<E, CR>,
-    pub(crate) read_reference_offset: FuncCodeReader<E, CR>,
-    pub(crate) read_block_count: FuncCodeReader<E, CR>,
-    pub(crate) read_block: FuncCodeReader<E, CR>,
-    pub(crate) read_interval_count: FuncCodeReader<E, CR>,
-    pub(crate) read_interval_start: FuncCodeReader<E, CR>,
-    pub(crate) read_interval_len: FuncCodeReader<E, CR>,
-    pub(crate) read_first_residual: FuncCodeReader<E, CR>,
-    pub(crate) read_residual: FuncCodeReader<E, CR>,
+    pub(crate) read_outdegree: FuncCodesReader<E, CR>,
+    pub(crate) read_reference_offset: FuncCodesReader<E, CR>,
+    pub(crate) read_block_count: FuncCodesReader<E, CR>,
+    pub(crate) read_block: FuncCodesReader<E, CR>,
+    pub(crate) read_interval_count: FuncCodesReader<E, CR>,
+    pub(crate) read_interval_start: FuncCodesReader<E, CR>,
+    pub(crate) read_interval_len: FuncCodesReader<E, CR>,
+    pub(crate) read_first_residual: FuncCodesReader<E, CR>,
+    pub(crate) read_residual: FuncCodesReader<E, CR>,
     pub(crate) _marker: core::marker::PhantomData<E>,
 }
 
@@ -53,15 +53,15 @@ impl<E: Endianness, CR: CodesRead<E>> DynCodesDecoder<E, CR> {
     pub fn new(code_reader: CR, cf: &CompFlags) -> anyhow::Result<Self> {
         Ok(Self {
             code_reader,
-            read_outdegree: FuncCodeReader::new(cf.outdegrees)?,
-            read_reference_offset: FuncCodeReader::new(cf.references)?,
-            read_block_count: FuncCodeReader::new(cf.blocks)?,
-            read_block: FuncCodeReader::new(cf.blocks)?,
-            read_interval_count: FuncCodeReader::new(cf.intervals)?,
-            read_interval_start: FuncCodeReader::new(cf.intervals)?,
-            read_interval_len: FuncCodeReader::new(cf.intervals)?,
-            read_first_residual: FuncCodeReader::new(cf.residuals)?,
-            read_residual: FuncCodeReader::new(cf.residuals)?,
+            read_outdegree: FuncCodesReader::new(cf.outdegrees)?,
+            read_reference_offset: FuncCodesReader::new(cf.references)?,
+            read_block_count: FuncCodesReader::new(cf.blocks)?,
+            read_block: FuncCodesReader::new(cf.blocks)?,
+            read_interval_count: FuncCodesReader::new(cf.intervals)?,
+            read_interval_start: FuncCodesReader::new(cf.intervals)?,
+            read_interval_len: FuncCodesReader::new(cf.intervals)?,
+            read_first_residual: FuncCodesReader::new(cf.residuals)?,
+            read_residual: FuncCodesReader::new(cf.residuals)?,
             _marker: core::marker::PhantomData,
         })
     }
@@ -133,7 +133,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
 #[derive(Debug)]
 pub struct DynCodesDecoderFactory<
     E: Endianness,
-    F: IntermediateFactory<E>,
+    F: CodesReaderFactoryHelper<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
@@ -143,21 +143,21 @@ pub struct DynCodesDecoderFactory<
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
-    read_outdegree: FuncCodeReaderFactory<E, F>,
-    read_reference_offset: FuncCodeReaderFactory<E, F>,
-    read_block_count: FuncCodeReaderFactory<E, F>,
-    read_blocks: FuncCodeReaderFactory<E, F>,
-    read_interval_count: FuncCodeReaderFactory<E, F>,
-    read_interval_start: FuncCodeReaderFactory<E, F>,
-    read_interval_len: FuncCodeReaderFactory<E, F>,
-    read_first_residual: FuncCodeReaderFactory<E, F>,
-    read_residual: FuncCodeReaderFactory<E, F>,
+    read_outdegree: FuncCodesReaderFactory<E, F>,
+    read_reference_offset: FuncCodesReaderFactory<E, F>,
+    read_block_count: FuncCodesReaderFactory<E, F>,
+    read_blocks: FuncCodesReaderFactory<E, F>,
+    read_interval_count: FuncCodesReaderFactory<E, F>,
+    read_interval_start: FuncCodesReaderFactory<E, F>,
+    read_interval_len: FuncCodesReaderFactory<E, F>,
+    read_first_residual: FuncCodesReaderFactory<E, F>,
+    read_residual: FuncCodesReaderFactory<E, F>,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
@@ -209,28 +209,28 @@ impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Ou
         Ok(Self {
             factory,
             offsets,
-            read_outdegree: FuncCodeReaderFactory::new(cf.outdegrees)?,
-            read_reference_offset: FuncCodeReaderFactory::new(cf.references)?,
-            read_block_count: FuncCodeReaderFactory::new(cf.blocks)?,
-            read_blocks: FuncCodeReaderFactory::new(cf.blocks)?,
-            read_interval_count: FuncCodeReaderFactory::new(cf.intervals)?,
-            read_interval_start: FuncCodeReaderFactory::new(cf.intervals)?,
-            read_interval_len: FuncCodeReaderFactory::new(cf.intervals)?,
-            read_first_residual: FuncCodeReaderFactory::new(cf.residuals)?,
-            read_residual: FuncCodeReaderFactory::new(cf.residuals)?,
+            read_outdegree: FuncCodesReaderFactory::new(cf.outdegrees)?,
+            read_reference_offset: FuncCodesReaderFactory::new(cf.references)?,
+            read_block_count: FuncCodesReaderFactory::new(cf.blocks)?,
+            read_blocks: FuncCodesReaderFactory::new(cf.blocks)?,
+            read_interval_count: FuncCodesReaderFactory::new(cf.intervals)?,
+            read_interval_start: FuncCodesReaderFactory::new(cf.intervals)?,
+            read_interval_len: FuncCodesReaderFactory::new(cf.intervals)?,
+            read_first_residual: FuncCodesReaderFactory::new(cf.residuals)?,
+            read_residual: FuncCodesReaderFactory::new(cf.residuals)?,
             compression_flags: cf,
             _marker: core::marker::PhantomData,
         })
     }
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
+    for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
-        = DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
     where
         Self: 'a;
 
@@ -254,11 +254,11 @@ where
     }
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>
-        = DynCodesDecoder<E, <F as CodeReaderFactory<E>>::CodeReader<'a>>
+        = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
     where
         Self: 'a;
 

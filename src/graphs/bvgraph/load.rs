@@ -8,7 +8,7 @@
 use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
-use dsi_bitstream::codes::{dispatch::code_consts, dispatch_factory::IntermediateFactory};
+use dsi_bitstream::codes::{dispatch::code_consts, dispatch_factory::CodesReaderFactoryHelper};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use sealed::sealed;
@@ -98,10 +98,10 @@ pub trait LoadMode: 'static {
 pub type MemBufReader<'a, E> = BufBitReader<E, MemWordReader<u32, &'a [u32]>>;
 /// A type alias for a buffered reader that reads from a file buffer a `u32` at a time.
 pub type FileBufReader<E> = BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>;
-/// A type alias for the code reader returned by the [`CodeReaderFactory`]
+/// A type alias for the code reader returned by the [`CodesReaderFactory`]
 /// associated with a [`LoadMode`].
-pub type LoadModeCodeReader<'a, E, LM> =
-    <<LM as LoadMode>::Factory<E> as CodeReaderFactory<E>>::CodeReader<'a>;
+pub type LoadModeCodesReader<'a, E, LM> =
+    <<LM as LoadMode>::Factory<E> as CodesReaderFactory<E>>::CodesReader<'a>;
 
 /// The graph is read from a file; offsets are fully deserialized in memory.
 ///
@@ -375,8 +375,8 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         mut self,
     ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
     where
-        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
-        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E> + BitSeek,
+        <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
+        for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -404,8 +404,8 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
     >
     where
-        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
-        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E>,
+        <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
+        for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -453,8 +453,8 @@ impl<
         >,
     >
     where
-        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
-        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E> + BitSeek,
+        <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
+        for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -510,8 +510,8 @@ impl<
         >,
     >
     where
-        <GLM as LoadMode>::Factory<E>: IntermediateFactory<E>,
-        for<'a> LoadModeCodeReader<'a, E, GLM>: CodesRead<E>,
+        <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
+        for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E>,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;

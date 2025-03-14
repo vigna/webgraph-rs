@@ -9,6 +9,7 @@ use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::Serialize;
 use std::convert::Infallible;
@@ -57,7 +58,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn bfs<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    for<'a> MemBufReader<'a, E>: CodesRead<E, Error = Infallible> + BitSeek,
+    MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
+    for<'a> <MemoryFactory<E, MmapHelper<u32>> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     // load the graph
     let graph = BvGraph::with_basename(&args.src)

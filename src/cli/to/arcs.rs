@@ -10,7 +10,7 @@ use crate::traits::SequentialLabeling;
 use crate::utils::MmapHelper;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -60,7 +60,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn to_csv<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
     let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()

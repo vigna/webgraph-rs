@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::codes::dispatch_factory::IntermediateFactory;
+use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
@@ -51,8 +51,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
 
 pub fn build_dcf<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>,
-    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     let basename = args.src;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);

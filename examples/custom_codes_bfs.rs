@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
+use dsi_bitstream::{codes::dispatch_factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use mmap_rs::MmapFlags;
@@ -36,7 +36,7 @@ struct Args {
 /// This is the factory that we can plug in BVGraph to read the custom codes
 pub struct CustomDecoderFactory<
     E: Endianness,
-    F: IntermediateFactory<E>,
+    F: CodesReaderFactoryHelper<E>,
     OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     pub factory: F,
@@ -46,7 +46,7 @@ pub struct CustomDecoderFactory<
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     CustomDecoderFactory<E, F, OFF>
 {
     pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
@@ -58,13 +58,13 @@ impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Ou
     }
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
+    for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
-        = CustomDecoder<E, F::CodeReader<'a>>
+        = CustomDecoder<E, F::CodesReader<'a>>
     where
         Self: 'a;
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
@@ -74,13 +74,13 @@ where
     }
 }
 
-impl<E: Endianness, F: IntermediateFactory<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
     SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
-    for<'a> <F as CodeReaderFactory<E>>::CodeReader<'a>: BitSeek,
+    for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
-        = CustomDecoder<E, F::CodeReader<'a>>
+        = CustomDecoder<E, F::CodesReader<'a>>
     where
         Self: 'a;
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>> {

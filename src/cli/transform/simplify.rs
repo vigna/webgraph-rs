@@ -10,7 +10,7 @@ use crate::graphs::union_graph::UnionGraph;
 use crate::prelude::*;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::{codes::dispatch_factory::IntermediateFactory, prelude::*};
+use dsi_bitstream::{codes::dispatch_factory::CodesReaderFactoryHelper, prelude::*};
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
@@ -74,8 +74,8 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
 
 pub fn simplify<E: Endianness>(args: CliArgs) -> Result<()>
 where
-    MmapHelper<u32>: IntermediateFactory<E>,
-    for<'a> <MmapHelper<u32> as CodeReaderFactory<E>>::CodeReader<'a>:
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>:
         BitSeek + Clone + Send + Sync,
 {
     // TODO!: speed it up by using random access graph if possible
