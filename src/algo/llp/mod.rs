@@ -59,7 +59,7 @@ const RAYON_MIN_LEN: usize = 100000;
 
 #[derive(Epserde, Debug, Clone)]
 /// This struct is how the labels and their metadata are stored on disk.
-pub struct Labels<A> {
+pub struct LabelsStore<A> {
     pub gap_cost: f64,
     pub gamma: f64,
     pub labels: A,
@@ -350,16 +350,13 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         costs.push(gap_cost);
 
         // store the labels on disk with their cost and gamma
-        let mut file =
-            std::fs::File::create(labels_path(gamma_index)).context("Could not write labels")?;
-
-        let labels = Labels{
-            labels: labels,
-            gap_cost: gap_cost,
+        let labels_store = LabelsStore {
+            labels: &*inv_perm,
+            gap_cost,
             gamma: *gamma,
         };
-        <Labels<Box<[usize]>>::store_ref()
-        labels.store(&mut file)
+        labels_store
+            .store(labels_path(gamma_index))
             .context("Could not serialize labels")?;
 
         gamma_pl.update_and_display();

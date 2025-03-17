@@ -300,7 +300,7 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
 /// mutation methods are delegated.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Epserde, Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
 
 impl VecGraph {

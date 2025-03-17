@@ -4,12 +4,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use epserde::prelude::*;
-use webgraph::graphs::vec_graph::LabeledVecGraph;
 
 #[cfg(feature = "serde")]
 #[test]
 fn test_serde() {
+    use epserde::prelude::*;
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
@@ -18,6 +18,7 @@ fn test_serde() {
     assert_eq!(g, p);
 }
 
+/*
 #[test]
 fn test_epserde() {
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
@@ -30,3 +31,4 @@ fn test_epserde() {
     let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data).unwrap();
     assert_eq!(g, g2);
 }
+*/

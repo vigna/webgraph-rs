@@ -317,6 +317,7 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
 /// - `m` for minutes
 /// - `h` for hours
 /// - `d` for days
+///
 /// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.
 fn parse_duration(value: &str) -> Result<Duration> {
     if value.is_empty() {

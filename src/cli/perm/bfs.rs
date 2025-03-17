@@ -12,6 +12,7 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_progress_logger::prelude::*;
 use dsi_bitstream::prelude::*;
+use dsi_progress_logger::prelude::*;
 use epserde::prelude::Serialize;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -56,12 +57,14 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn bfs<E: Endianness + 'static + Send + Sync>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
+pub fn bfs<E: Endianness + 'static + Send + Sync>(
+    submatches: &ArgMatches,
+    args: CliArgs,
+) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
 {
-
     // load the graph
     let graph = BvGraph::with_basename(&args.src)
         .mode::<LoadMmap>()

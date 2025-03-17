@@ -53,7 +53,10 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     }
 }
 
-pub fn build_eliasfano<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
+pub fn build_eliasfano<E: Endianness + 'static>(
+    submatches: &ArgMatches,
+    args: CliArgs,
+) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
