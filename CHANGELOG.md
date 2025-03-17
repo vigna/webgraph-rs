@@ -1,15 +1,27 @@
 # Change Log
 
-## [0.3.0] - 2025-01-28
+## [0.3.0] - 2025-03-17
 
 ### New
 
-Four new mutable structures: `LabeledVecGraph`, `VecGraph`, `LabeledBTreeGraph`
-and `BTreeGraph`. The latter two structures implements the functionality of the
-old `VecGraph` structure. Migration from the old `VecGraph` requires usually
-just dropping the `Left` projector. The main source of incompatibility is that
-in the new `VecGraph` arcs can be added only in increasing successor order.
-Moreover, `LabeledVecGraph` and `VecGraph` are now two different types.
+* Four new mutable structures: `LabeledVecGraph`, `VecGraph`, `LabeledBTreeGraph`
+  and `BTreeGraph`. The latter two structures implements the functionality of the
+  old `VecGraph` structure. Migration from the old `VecGraph` requires usually
+  just dropping the `Left` projector. The main source of incompatibility is that
+  in the new `VecGraph` arcs can be added only in increasing successor order.
+  Moreover, `LabeledVecGraph` and `VecGraph` are now two different types. All
+  structures can be serialized with ε-serde.
+
+* We now rely on the `dsi-bitstream` mechanism for dynamic code dispatch.
+
+* All dependencies have been updated.
+
+* LLP can be run in split mode.
+
+* New `Granularity` enum to specify granularity of parallel computations.
+
+* `ParMapFold` for generic parallel iteration without some of the
+  bottlenecks of `rayon`s `ParallelBridge`.
 
 ### Improved
 
