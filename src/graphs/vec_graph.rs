@@ -7,6 +7,15 @@
 
 use crate::prelude::*;
 
+#[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct LabelledArc<L>(usize, L);
+
+impl<L> From<(usize, L)> for LabelledArc<L> {
+    fn from((v, l): (usize, L)) -> Self {
+        Self(v, l)
+    }
+}
+
 use epserde::Epserde;
 use lender::prelude::*;
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
@@ -26,7 +35,7 @@ pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
     /// For each node, its list of successors.
-    succ: Vec<Vec<(usize, L)>>,
+    succ: Vec<Vec<LabelledArc<L>>>,
 }
 
 impl<L: Clone + 'static> core::default::Default for LabeledVecGraph<L> {
@@ -84,17 +93,17 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
 
         match succ.last() {
             None => {
-                succ.push((v, l));
+                succ.push((v, l).into());
                 self.number_of_arcs += 1;
             }
-            Some((last, _label)) => {
+            Some(LabelledArc(last, _label)) => {
                 if v <= *last {
                     // arcs have to be inserted in increasing successor order
                     panic!(
                         "Error adding arc ({u}, {v}): successor is not increasing; the last arc inserted was ({u}, {last})"
                     );
                 }
-                succ.push((v, l));
+                succ.push((v, l).into());
                 self.number_of_arcs += 1;
             }
         }
@@ -248,7 +257,7 @@ impl<'a, L: Clone + 'static> IntoLender for &'a LabeledVecGraph<L> {
 impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledVecGraph<L> {}
 
 impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
-    type Labels<'succ> = core::iter::Cloned<core::slice::Iter<'succ, (usize, L)>>;
+    type Labels<'succ> = core::iter::Map<core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>, fn(LabelledArc<L>) -> (usize, L)>;   
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs
@@ -261,7 +270,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        self.succ[node].iter().cloned()
+        self.succ[node].iter().cloned().map(|LabelledArc(v, l)| (v, l))
     }
 }
 
@@ -285,7 +294,7 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 /// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
 /// mutation methods are delegated.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Epserde, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
 
 impl VecGraph {
@@ -443,8 +452,8 @@ impl SequentialGraph for VecGraph {}
 impl RandomAccessLabeling for VecGraph {
     type Labels<'succ> = SortedIter<
         core::iter::Map<
-            core::iter::Copied<core::slice::Iter<'succ, (usize, ())>>,
-            fn((usize, ())) -> usize,
+            core::iter::Copied<core::slice::Iter<'succ, LabelledArc<()>>>,
+            fn(LabelledArc<()>) -> usize,
         >,
     >;
     #[inline(always)]
@@ -459,8 +468,8 @@ impl RandomAccessLabeling for VecGraph {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        // this is safe as we mantain each vector of successors sorted
-        unsafe { SortedIter::new(self.0.succ[node].iter().copied().map(|(x, _)| x)) }
+        // this is safe as we maintain each vector of successors sorted
+        unsafe { SortedIter::new(self.0.succ[node].iter().copied().map(|LabelledArc(x, _)| x)) }
     }
 }
 
