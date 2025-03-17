@@ -10,7 +10,7 @@ use crate::traits::SequentialLabeling;
 use crate::utils::MmapHelper;
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;

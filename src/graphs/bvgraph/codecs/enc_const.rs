@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use dsi_bitstream::codes::dispatch::code_consts;
+use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 

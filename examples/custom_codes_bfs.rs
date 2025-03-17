@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::{codes::dispatch_factory::CodesReaderFactoryHelper, prelude::*};
+use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use mmap_rs::MmapFlags;

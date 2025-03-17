@@ -6,7 +6,7 @@
  */
 
 use anyhow::{bail, ensure, Result};
-use dsi_bitstream::codes::Codes;
+use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
 

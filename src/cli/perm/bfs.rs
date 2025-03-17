@@ -9,7 +9,7 @@ use crate::cli::create_parent_dir;
 use crate::prelude::*;
 use anyhow::{Context, Result};
 use clap::{ArgMatches, Args, Command, FromArgMatches};
-use dsi_bitstream::codes::dispatch_factory::CodesReaderFactoryHelper;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::Serialize;
 use std::io::{BufWriter, Write};

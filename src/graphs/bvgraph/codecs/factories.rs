@@ -27,9 +27,7 @@ use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
-    codes::{CodesRead, CodesReaderFactory},
-    impls::{BufBitReader, MemWordReader, WordAdapter},
-    traits::{BitRead, Endianness},
+    impls::{BufBitReader, MemWordReader, WordAdapter}, prelude::{CodesRead, CodesReaderFactory}, traits::{BitRead, Endianness}
 };
 use std::{
     fs::File,

@@ -8,7 +8,7 @@
 use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
-use dsi_bitstream::codes::{dispatch::code_consts, dispatch_factory::CodesReaderFactoryHelper};
+use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use sealed::sealed;

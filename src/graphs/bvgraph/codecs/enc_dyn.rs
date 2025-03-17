@@ -9,7 +9,7 @@
 use super::{Encode, EncodeAndEstimate};
 use crate::prelude::CompFlags;
 use anyhow::Result;
-use dsi_bitstream::codes::dispatch::FuncCodeLen;
+use dsi_bitstream::dispatch::FuncCodeLen;
 use dsi_bitstream::prelude::*;
 use std::convert::Infallible;
 

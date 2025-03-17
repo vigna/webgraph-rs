@@ -15,7 +15,7 @@ use crate::{build_info, utils::Granularity};
 use anyhow::{anyhow, ensure, Context, Result};
 use clap::{Args, Command, ValueEnum};
 use common_traits::UnsignedInt;
-use dsi_bitstream::codes::Codes;
+use dsi_bitstream::dispatch::Codes;
 use std::path::{Path, PathBuf};
 use sysinfo::System;
 
