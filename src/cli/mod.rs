@@ -13,13 +13,12 @@
 use crate::prelude::CompFlags;
 use crate::{build_info, utils::Granularity};
 use anyhow::{anyhow, bail, ensure, Context, Result};
-use clap::{Args, Arg, ArgAction, Command, ValueEnum};
+use clap::{Arg, ArgAction, Args, Command, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
-
 
 pub mod analyze;
 pub mod bench;

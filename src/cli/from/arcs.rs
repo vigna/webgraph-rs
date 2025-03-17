@@ -72,7 +72,7 @@ pub fn from_csv(submatches: &ArgMatches, args: CliArgs, file: impl BufRead) -> R
     pl.display_memory(true)
         .item_name("lines")
         .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
-    
+
     if let Some(duration) = submatches.get_one("log-interval") {
         pl.log_interval(*duration);
     }

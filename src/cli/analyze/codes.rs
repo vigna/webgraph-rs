@@ -104,7 +104,7 @@ where
         if let Some(duration) = submatches.get_one("log-interval") {
             pl.log_interval(*duration);
         }
-    
+
         let thread_pool = rayon::ThreadPoolBuilder::new()
             .num_threads(args.num_threads.num_threads)
             .build()?;

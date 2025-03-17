@@ -60,7 +60,7 @@ pub fn build_eliasfano<E: Endianness + 'static>(
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
-    let basename = args.src;
+    let basename = args.src.clone();
     if let Some(num_nodes) = args.n {
         // Horribly temporary duplicated code for the case of label offsets.
         let of_file_path = basename.with_extension(LABELOFFSETS_EXTENSION);

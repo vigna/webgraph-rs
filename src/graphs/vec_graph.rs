@@ -6,9 +6,12 @@
  */
 
 use crate::prelude::*;
+use epserde::Epserde;
+use lender::prelude::*;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct LabelledArc<L>(usize, L);
+pub struct LabelledArc<L>(usize, L);
 
 impl<L> From<(usize, L)> for LabelledArc<L> {
     fn from((v, l): (usize, L)) -> Self {
@@ -16,14 +19,12 @@ impl<L> From<(usize, L)> for LabelledArc<L> {
     }
 }
 
-impl<L> Into<(usize, L)> for LabelledArc<L> {
-    fn into(self) -> (usize, L) {
-        (self.0, self.1)
+impl<L> From<LabelledArc<L>> for (usize, L) {
+    fn from(value: LabelledArc<L>) -> (usize, L) {
+        (value.0, value.1)
     }
 }
 
-use epserde::Epserde;
-use lender::prelude::*;
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
 /// vectors.
 ///
@@ -263,7 +264,10 @@ impl<'a, L: Clone + 'static> IntoLender for &'a LabeledVecGraph<L> {
 impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledVecGraph<L> {}
 
 impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
-    type Labels<'succ> = core::iter::Map<core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>, fn(LabelledArc<L>) -> (usize, L)>;   
+    type Labels<'succ> = core::iter::Map<
+        core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>,
+        fn(LabelledArc<L>) -> (usize, L),
+    >;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs

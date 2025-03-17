@@ -18,13 +18,13 @@ pub enum CodeFuzz {
     Delta,
     Zeta3,
 }
-impl From<CodeFuzz> for Code {
+impl From<CodeFuzz> for Codes {
     fn from(value: CodeFuzz) -> Self {
         match value {
-            CodeFuzz::Unary => Code::Unary,
-            CodeFuzz::Gamma => Code::Gamma,
-            CodeFuzz::Delta => Code::Delta,
-            CodeFuzz::Zeta3 => Code::Zeta { k: 3 },
+            CodeFuzz::Unary => Codes::Unary,
+            CodeFuzz::Gamma => Codes::Gamma,
+            CodeFuzz::Delta => Codes::Delta,
+            CodeFuzz::Zeta3 => Codes::Zeta { k: 3 },
         }
     }
 }
@@ -76,7 +76,7 @@ pub fn harness(data: FuzzCase) {
     let mut codes_data_be: Vec<u64> = Vec::new();
     {
         let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriterVec::new(&mut codes_data_be));
-        let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags);
+        let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags).unwrap();
         let mut bvcomp = BvComp::new(
             codes_writer,
             comp_flags.compression_window,
@@ -91,7 +91,7 @@ pub fn harness(data: FuzzCase) {
     let mut codes_data_le: Vec<u64> = Vec::new();
     {
         let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut codes_data_le));
-        let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags);
+        let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags).unwrap();
         let mut bvcomp = BvComp::new(
             codes_writer,
             comp_flags.compression_window,
@@ -120,13 +120,13 @@ pub fn harness(data: FuzzCase) {
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
-        MemCase::from(EmptyDict::default()),
+        MemCase::from(<EmptyDict<usize, usize>>::default()),
         comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
-        MemCase::from(EmptyDict::default()),
+        MemCase::from(<EmptyDict<usize, usize>>::default()),
         comp_flags,
     )
     .unwrap();

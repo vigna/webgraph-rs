@@ -8,7 +8,6 @@
 #[cfg(feature = "serde")]
 #[test]
 fn test_serde() {
-    use epserde::prelude::*;
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
@@ -18,9 +17,10 @@ fn test_serde() {
     assert_eq!(g, p);
 }
 
-/*
 #[test]
 fn test_epserde() {
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
+    use epserde::prelude::*;
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
@@ -31,4 +31,3 @@ fn test_epserde() {
     let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data).unwrap();
     assert_eq!(g, g2);
 }
-*/
