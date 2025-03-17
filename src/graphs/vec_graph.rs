@@ -16,6 +16,12 @@ impl<L> From<(usize, L)> for LabelledArc<L> {
     }
 }
 
+impl<L> Into<(usize, L)> for LabelledArc<L> {
+    fn into(self) -> (usize, L) {
+        (self.0, self.1)
+    }
+}
+
 use epserde::Epserde;
 use lender::prelude::*;
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
@@ -270,7 +276,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        self.succ[node].iter().cloned().map(|LabelledArc(v, l)| (v, l))
+        self.succ[node].iter().cloned().map(Into::into)
     }
 }
 
