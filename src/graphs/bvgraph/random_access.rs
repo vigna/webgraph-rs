@@ -9,6 +9,7 @@
 
 use crate::prelude::*;
 use bitflags::Flags;
+use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{Endianness, BE};
 use lender::IntoLender;
@@ -278,7 +279,7 @@ where
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficiency
                 result.intervals = Vec::with_capacity(number_of_intervals + 1);
-                let node_id_offset = nat2int(result.reader.read_interval_start());
+                let node_id_offset = (result.reader.read_interval_start()).to_int();
 
                 debug_assert!((node_id as i64 + node_id_offset) >= 0);
                 let mut start = (node_id as i64 + node_id_offset) as usize;
@@ -306,7 +307,7 @@ where
 
         // decode just the first extra, if present (the others will be decoded on demand)
         if nodes_left_to_decode != 0 {
-            let node_id_offset = nat2int(result.reader.read_first_residual());
+            let node_id_offset = result.reader.read_first_residual().to_int();
             result.next_residual_node = (node_id as i64 + node_id_offset) as usize;
             result.residuals_to_go = nodes_left_to_decode - 1;
         }

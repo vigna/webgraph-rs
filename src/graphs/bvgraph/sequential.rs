@@ -8,10 +8,10 @@
 use std::path::PathBuf;
 
 use super::*;
-use crate::utils::nat2int;
 use crate::utils::CircularBuffer;
 use anyhow::Result;
 use bitflags::Flags;
+use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
 use lender::*;
@@ -268,7 +268,7 @@ impl<D: Decode> Iter<D> {
             let number_of_intervals = self.decoder.read_interval_count() as usize;
             if number_of_intervals != 0 {
                 // pre-allocate with capacity for efficiency
-                let node_id_offset = nat2int(self.decoder.read_interval_start());
+                let node_id_offset = self.decoder.read_interval_start().to_int();
                 let mut start = (node_id as i64 + node_id_offset) as usize;
                 let mut delta = self.decoder.read_interval_len() as usize;
                 delta += self.min_interval_length;
@@ -292,7 +292,7 @@ impl<D: Decode> Iter<D> {
         let nodes_left_to_decode = degree - results.len();
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficiency
-            let node_id_offset = nat2int(self.decoder.read_first_residual());
+            let node_id_offset = self.decoder.read_first_residual().to_int();
             let mut extra = (node_id as i64 + node_id_offset) as usize;
             results.push(extra);
             // decode the successive extra nodes

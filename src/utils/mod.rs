@@ -10,26 +10,6 @@
 use rand::Rng;
 use std::path::PathBuf;
 
-/// Bijective mapping from isize to u64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
-pub const fn int2nat(x: i64) -> u64 {
-    ((x << 1) ^ (x >> 63)) as u64
-}
-
-/// Bijective mapping from u64 to i64 as defined in <https://github.com/vigna/dsiutils/blob/master/src/it/unimi/dsi/bits/Fast.java>
-///
-/// ```
-/// # use webgraph::utils::*;
-///
-/// assert_eq!(nat2int(0), 0);
-/// assert_eq!(nat2int(1), -1);
-/// assert_eq!(nat2int(2), 1);
-/// assert_eq!(nat2int(3), -2);
-/// assert_eq!(nat2int(4), 2);
-/// ```
-pub const fn nat2int(x: u64) -> i64 {
-    ((x >> 1) ^ !((x & 1).wrapping_sub(1))) as i64
-}
-
 /// Create a new random dir inside the given folder
 pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     let mut base = base.as_ref().to_owned();

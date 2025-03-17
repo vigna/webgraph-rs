@@ -8,8 +8,8 @@
 use super::*;
 use crate::prelude::*;
 use anyhow::{Context, Result};
-use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
 use dsi_bitstream::prelude::*;
+use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{

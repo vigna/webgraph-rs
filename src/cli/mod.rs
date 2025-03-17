@@ -32,7 +32,7 @@ pub mod transform;
 pub const DEFAULT_STACK_SIZE: usize = 64 * 1024 * 1024;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-/// Enum for instantanous codes.
+/// Enum for instantaneous codes.
 ///
 /// It is used to implement [`ValueEnum`] here instead of in [`dsi_bitstream`].
 pub enum PrivCode {

@@ -7,6 +7,7 @@
 
 use crate::prelude::*;
 use core::cmp::Ordering;
+use dsi_bitstream::codes::ToNat;
 use lender::prelude::*;
 
 /// A BvGraph compressor, this is used to compress a graph into a BvGraph
@@ -114,9 +115,9 @@ impl Compressor {
             written_bits += writer.write_interval_count(self.left_interval.len() as _)? as u64;
 
             if !self.left_interval.is_empty() {
-                written_bits += writer.write_interval_start(int2nat(
-                    self.left_interval[0] as i64 - curr_node as i64,
-                ))? as u64;
+                written_bits += writer.write_interval_start(
+                    (self.left_interval[0] as i64 - curr_node as i64).to_nat(),
+                )? as u64;
                 written_bits += writer
                     .write_interval_len((self.len_interval[0] - min_interval_length) as u64)?
                     as u64;
@@ -136,7 +137,7 @@ impl Compressor {
         // write the residuals
         if !self.residuals.is_empty() {
             written_bits += writer
-                .write_first_residual(int2nat(self.residuals[0] as i64 - curr_node as i64))?
+                .write_first_residual((self.residuals[0] as i64 - curr_node as i64).to_nat())?
                 as u64;
 
             for i in 1..self.residuals.len() {
