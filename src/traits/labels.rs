@@ -160,10 +160,6 @@ pub trait SequentialLabeling {
     ///   parallelism is given by the number of threads in the pool.
     ///
     /// * `pl` - A mutable reference to a concurrent progress logger.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if [`Granularity::node_granularity`] does.
     fn par_apply<
         F: Fn(Range<usize>) -> A + Sync,
         A: Default + Send,
@@ -180,7 +176,7 @@ pub trait SequentialLabeling {
     ) -> A {
         FairChunks::new(
             granularity
-                .arc_granularity(self.num_nodes(), deg_cumul.get(deg_cumul.len() - 1) as u64),
+                .arc_granularity(self.num_nodes(), Some(deg_cumul.get(deg_cumul.len() - 1) as u64)),
             deg_cumul,
         )
         .par_map_fold_with(
