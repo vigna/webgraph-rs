@@ -216,7 +216,7 @@ pub fn harness(data: FuzzCase) {
     )
     .unwrap();
 
-    // Create the two bvgraphs
+    // Creates the two bvgraphs
     let graph_be: BvGraph<_> = BvGraph::new(
         codes_reader_be,
         graph.num_nodes(),

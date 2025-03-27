@@ -207,12 +207,12 @@ impl<
     > DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
-    /// Return a clone of the compression flags.
+    /// Returns a clone of the compression flags.
     pub fn get_compression_flags(&self) -> CompFlags {
         self.compression_flags
     }
 
-    /// Create a new builder from the data and the compression flags.
+    /// Creates a new builder from the data and the compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         Ok(Self {
             factory,

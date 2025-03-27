@@ -67,7 +67,7 @@ impl<L: Clone + 'static + PartialEq> PartialEq for LabeledBTreeGraph<L> {
 impl<L: Clone + 'static + Eq> Eq for LabeledBTreeGraph<L> {}
 
 impl<L: Clone + 'static> LabeledBTreeGraph<L> {
-    /// Create a new empty graph.
+    /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -75,7 +75,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         }
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
@@ -144,7 +144,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         });
     }
 
-    /// Create a new graph from an [`IntoLender`] yielding a
+    /// Creates a new graph from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
@@ -167,7 +167,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         }
     }
 
-    /// Create a new graph from an [`IntoIterator`].
+    /// Creates a new graph from an [`IntoIterator`].
     ///
     /// The items must be triples of the form `(usize, usize, l)` specifying an
     /// arc and its label.
@@ -267,12 +267,12 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 pub struct BTreeGraph(LabeledBTreeGraph<()>);
 
 impl BTreeGraph {
-    /// Create a new empty graph.
+    /// Creates a new empty graph.
     pub fn new() -> Self {
         Self(LabeledBTreeGraph::new())
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         LabeledBTreeGraph::empty(n).into()
     }
@@ -297,7 +297,7 @@ impl BTreeGraph {
         self
     }
 
-    /// Create a new graph from an [`IntoLender`] yielding a
+    /// Creates a new graph from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
@@ -315,7 +315,7 @@ impl BTreeGraph {
         self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
     }
 
-    /// Create a new graph from  an [`IntoIterator`].
+    /// Creates a new graph from  an [`IntoIterator`].
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying
     /// an arc.

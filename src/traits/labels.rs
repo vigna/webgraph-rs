@@ -24,6 +24,8 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
+use crate::utils::Granularity;
+
 use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
 use core::ops::Range;
@@ -71,7 +73,7 @@ pub trait SequentialLabeling {
         None
     }
 
-    /// Return an iterator over the labeling.
+    /// Returns an iterator over the labeling.
     ///
     /// Iterators over the labeling return pairs given by a node of the graph
     /// and an [`IntoIterator`] over the labels.
@@ -79,7 +81,7 @@ pub trait SequentialLabeling {
         self.iter_from(0)
     }
 
-    /// Return an iterator over the labeling starting at `from` (included).
+    /// Returns an iterator over the labeling starting at `from` (included).
     ///
     /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
     /// the node id of the first node returned by the iterator, but just the
@@ -92,12 +94,20 @@ pub trait SequentialLabeling {
     /// # Arguments
     ///
     /// * `func` - The function to apply to each chunk of nodes.
+    ///
     /// * `fold` - The function to fold the results obtained from each chunk. It
     ///   will be passed to the [`Iterator::fold`].
-    /// * `node_granularity` - The number of nodes to process in each chunk.
+    ///
+    /// * `granularity` - The granularity of parallel tasks.
+    ///
     /// * `thread_pool` - The thread pool to use. The maximum level of
     ///   parallelism is given by the number of threads in the pool.
+    ///
     /// * `pl` - An optional mutable reference to a progress logger.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if [`Granularity::node_granularity`] does.
     fn par_node_apply<
         A: Default + Send,
         F: Fn(Range<usize>) -> A + Sync,
@@ -106,11 +116,12 @@ pub trait SequentialLabeling {
         &self,
         func: F,
         fold: R,
-        node_granularity: usize,
+        granularity: Granularity,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         let num_nodes = self.num_nodes();
+        let node_granularity = granularity.node_granularity(num_nodes, self.num_arcs_hint());
         (0..num_nodes.div_ceil(node_granularity))
             .map(|i| i * node_granularity..num_nodes.min((i + 1) * node_granularity))
             .par_map_fold_with(
@@ -141,8 +152,7 @@ pub trait SequentialLabeling {
     /// * `fold` - The function to fold the results obtained from each chunk.
     ///   It will be passed to the [`Iterator::fold`].
     ///
-    /// * `arc_granularity` - The tentative number of arcs to process in each
-    ///   chunk; usually computed using [`crate::utils::Granularity`].
+    /// * `granularity` - The granularity of parallel tests.
     ///
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
     ///
@@ -150,6 +160,10 @@ pub trait SequentialLabeling {
     ///   parallelism is given by the number of threads in the pool.
     ///
     /// * `pl` - A mutable reference to a concurrent progress logger.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if [`Granularity::node_granularity`] does.
     fn par_apply<
         F: Fn(Range<usize>) -> A + Sync,
         A: Default + Send,
@@ -159,12 +173,17 @@ pub trait SequentialLabeling {
         &self,
         func: F,
         fold: R,
-        arc_granularity: usize,
+        granularity: Granularity,
         deg_cumul: &D,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
-        FairChunks::new(arc_granularity, deg_cumul).par_map_fold_with(
+        FairChunks::new(
+            granularity
+                .arc_granularity(self.num_nodes(), deg_cumul.get(deg_cumul.len() - 1) as u64),
+            deg_cumul,
+        )
+        .par_map_fold_with(
             pl.clone(),
             |pl, range| {
                 let len = range.len();

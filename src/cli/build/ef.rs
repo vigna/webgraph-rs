@@ -130,7 +130,7 @@ where
         }
     }
 
-    // Create the offsets file
+    // Creates the offsets file
     let of_file_path = basename.with_extension(OFFSETS_EXTENSION);
 
     let ef_path = basename.with_extension(EF_EXTENSION);

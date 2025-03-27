@@ -70,7 +70,7 @@ pub trait EncodeAndEstimate: Encode {
     type Estimator<'a>: Encode
     where
         Self: 'a;
-    /// Return an estimator for this measurable encoder.
+    /// Returns an estimator for this measurable encoder.
     /// This is expected to be a fast operation as its called many times.
     fn estimator(&mut self) -> Self::Estimator<'_>;
 }
@@ -82,7 +82,7 @@ pub trait RandomAccessDecoderFactory {
     where
         Self: 'a;
 
-    /// Create a new reader starting at the given node.
+    /// Creates a new reader starting at the given node.
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>>;
 }
 
@@ -93,6 +93,6 @@ pub trait SequentialDecoderFactory {
     where
         Self: 'a;
 
-    /// Create a new reader starting at the given node.
+    /// Creates a new reader starting at the given node.
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>>;
 }

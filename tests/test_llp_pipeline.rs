@@ -27,7 +27,7 @@ fn llp_pipeline() -> Result<()> {
         )?;
     }
 
-    log::info!("Step 1: Create the Elias Fano");
+    log::info!("Step 1: Creates the Elias Fano");
     cli_main(vec!["webgraph", "build", "ef", &basename])?;
     log::info!("Step 2: Run a BFS traversal to get the initial permutation");
     cli_main(vec![
@@ -37,7 +37,7 @@ fn llp_pipeline() -> Result<()> {
         &basename,
         &format!("{}.bfs", basename),
     ])?;
-    log::info!("Step 3: Create a simplified view of the graph with the BFS permutation");
+    log::info!("Step 3: Creates a simplified view of the graph with the BFS permutation");
     cli_main(vec![
         "webgraph",
         "transform",
@@ -47,14 +47,14 @@ fn llp_pipeline() -> Result<()> {
         "--permutation",
         &format!("{}.bfs", basename),
     ])?;
-    log::info!("Step 4: Create the Elias Fano for the simplified graph");
+    log::info!("Step 4: Creates the Elias Fano for the simplified graph");
     cli_main(vec![
         "webgraph",
         "build",
         "ef",
         &format!("{}-simple", basename),
     ])?;
-    log::info!("Step 5: Create the Degrees Cumulative Function");
+    log::info!("Step 5: Creates the Degrees Cumulative Function");
     cli_main(vec![
         "webgraph",
         "build",
@@ -88,7 +88,7 @@ fn llp_pipeline() -> Result<()> {
         "--permutation",
         &format!("{}.composed", basename),
     ])?;
-    log::info!("Step 9: Create the final Elias Fano");
+    log::info!("Step 9: Creates the final Elias Fano");
     cli_main(vec![
         "webgraph",
         "build",

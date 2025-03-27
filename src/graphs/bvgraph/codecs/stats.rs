@@ -41,7 +41,7 @@ impl CodesStats {
         n
     }
 
-    /// Return the best code for the stream and its space usage.
+    /// Returns the best code for the stream and its space usage.
     pub fn get_best_code(&self) -> (Code, usize) {
         // TODO!: make cleaner
         let mut best = self.unary.load(Ordering::Relaxed);

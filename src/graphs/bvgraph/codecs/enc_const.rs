@@ -58,7 +58,7 @@ impl<
         const RESIDUALS: usize,
     > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
-    /// Create a new [`ConstCodesEncoder`] with the given [`CodeWrite`] implementation.
+    /// Creates a new [`ConstCodesEncoder`] with the given [`CodesWrite`] implementation.
     pub fn new(code_writer: CW) -> Self {
         Self {
             code_writer,

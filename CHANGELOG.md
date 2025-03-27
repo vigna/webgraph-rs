@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.3.0] - 2025-03-17
+## [0.2.0] - 2025-03-27
 
 ### New
 
@@ -26,10 +26,6 @@
 ### Improved
 
 * Argument specifying a thread pool are now simply references.
-
-## [0.2.0] - 2024-08-09
-
-### Improved
 
 * Argument specifying a thread pool are now simply references.
 

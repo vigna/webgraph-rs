@@ -30,7 +30,7 @@ pub struct JavaPermutation<M = ArcMmapHelper<u64>> {
 
 #[cfg(target_pointer_width = "64")]
 impl JavaPermutation<MmapHelper<u64, MmapMut>> {
-    /// Create and map a permutation into memory (read/write), overwriting it if it exists.
+    /// Creates and map a permutation into memory (read/write), overwriting it if it exists.
     ///
     /// # Arguments
     /// - `path` - The path to the permutation.

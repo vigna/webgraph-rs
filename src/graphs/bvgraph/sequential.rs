@@ -67,7 +67,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
         Self: 'a;
 
     #[inline(always)]
-    /// Return the number of nodes in the graph
+    /// Returns the number of nodes in the graph
     fn num_nodes(&self) -> usize {
         self.number_of_nodes
     }
@@ -104,7 +104,7 @@ impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
 }
 
 impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
-    /// Create a new sequential graph from a codes reader builder
+    /// Creates a new sequential graph from a codes reader builder
     /// and the number of nodes.
     pub fn new(
         codes_reader_builder: F,
@@ -149,7 +149,7 @@ where
     for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
-    /// Create an iterator specialized in the degrees of the nodes.
+    /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
@@ -184,7 +184,7 @@ impl<D: Decode + BitSeek> Iter<D> {
 }
 
 impl<D: Decode> Iter<D> {
-    /// Create a new iterator from a codes reader
+    /// Creates a new iterator from a codes reader
     pub fn new(
         decoder: D,
         number_of_nodes: usize,

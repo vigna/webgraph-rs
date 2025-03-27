@@ -14,7 +14,7 @@ use rayon::ThreadPool;
 use sux::traits::BitFieldSlice;
 use tempfile::Builder;
 
-/// Return a [sequential](crate::traits::SequentialGraph) permuted graph.
+/// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
 ///
 /// Note that if the graph is [splittable](SplitLabeling),
 /// [`permute_split`] will be much faster.
@@ -60,7 +60,7 @@ pub fn permute(
     Ok(Left(sorted))
 }
 
-/// Return a [sequential](crate::traits::SequentialGraph) permuted graph
+/// Returns a [sequential](crate::traits::SequentialGraph) permuted graph
 /// starting from a [splittable](SplitLabeling) graph.
 ///
 /// Note that if the graph is not [splittable](SplitLabeling) you must use

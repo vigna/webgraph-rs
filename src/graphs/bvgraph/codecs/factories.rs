@@ -10,7 +10,7 @@
 
 Factories for bit readers.
 
-Implementations of the [`BitReaderFactory`] trait can be used to create
+Implementations of the [`CodesReaderFactory`] trait can be used to create
 bit readers accessing a graph data using different techniques.
 - [`FileFactory`] uses a [std::fs::File] to create a bit reader.
 - [`MemoryFactory`] creates bit readers from a slice of memory,

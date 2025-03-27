@@ -10,7 +10,7 @@
 use rand::Rng;
 use std::path::PathBuf;
 
-/// Create a new random dir inside the given folder
+/// Creates a new random dir inside the given folder
 pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     let mut base = base.as_ref().to_owned();
     const ALPHABET: &[u8] = b"0123456789abcdef";

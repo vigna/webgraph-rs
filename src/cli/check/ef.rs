@@ -45,7 +45,7 @@ pub fn check_ef(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
-    // Create the offsets file
+    // Creates the offsets file
     let of_file_path = args.src.with_extension(OFFSETS_EXTENSION);
 
     let ef = EF::mmap(args.src.with_extension(EF_EXTENSION), Flags::default())?;

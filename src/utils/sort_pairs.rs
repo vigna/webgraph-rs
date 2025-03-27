@@ -121,7 +121,7 @@ pub struct SortPairs<
 }
 
 impl SortPairs<(), ()> {
-    /// Create a new `SortPairs` without labels.
+    /// Creates a new `SortPairs` without labels.
     ///
     /// The `dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances. Please use the
@@ -140,7 +140,7 @@ impl<S: BitSerializer<NE, BitWriter>, D: BitDeserializer<NE, BitReader> + Clone>
 where
     S::SerType: Send + Sync + Copy,
 {
-    /// Create a new `SortPairs` with labels.
+    /// Creates a new `SortPairs` with labels.
     ///
     /// The `dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances. Please use the
@@ -189,7 +189,7 @@ where
             return Ok(());
         }
 
-        // Create a batch file where to dump
+        // Creates a batch file where to dump
         let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
         BatchIterator::new_from_vec_labeled(
             batch_name,
@@ -217,7 +217,7 @@ where
         Ok(())
     }
 
-    /// Return an iterator over the labeled pairs, lexicographically sorted.
+    /// Returns an iterator over the labeled pairs, lexicographically sorted.
     pub fn iter(&mut self) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
@@ -349,7 +349,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
         Self::new_labeled(file_path, batch.len(), deserializer)
     }
 
-    /// Create a new iterator over the triples previously serialized in `file_path`.
+    /// Creates a new iterator over the triples previously serialized in `file_path`.
     pub fn new_labeled<P: AsRef<std::path::Path>>(
         file_path: P,
         len: usize,

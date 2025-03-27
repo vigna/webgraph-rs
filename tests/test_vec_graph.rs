@@ -19,8 +19,8 @@ fn test_serde() {
 
 #[test]
 fn test_epserde() {
-    use webgraph::graphs::vec_graph::LabeledVecGraph;
     use epserde::prelude::*;
+    use webgraph::graphs::vec_graph::LabeledVecGraph;
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);

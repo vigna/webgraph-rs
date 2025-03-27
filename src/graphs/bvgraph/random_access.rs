@@ -28,7 +28,7 @@ pub struct BvGraph<F> {
 }
 
 impl BvGraph<()> {
-    /// Return a load configuration that can be customized.
+    /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap> {
@@ -117,7 +117,7 @@ impl<F> BvGraph<F>
 where
     F: RandomAccessDecoderFactory,
 {
-    /// Create a new BvGraph from the given parameters.
+    /// Creates a new BvGraph from the given parameters.
     ///
     /// # Arguments
     /// - `reader_factory`: backend that can create objects that allows
@@ -176,7 +176,7 @@ where
         Some(self.number_of_arcs)
     }
 
-    /// Return a fast sequential iterator over the nodes of the graph and their successors.
+    /// Returns a fast sequential iterator over the nodes of the graph and their successors.
     fn iter_from(&self, start_node: usize) -> Self::Lender<'_> {
         let codes_reader = self.factory.new_decoder(start_node).unwrap();
         // we have to pre-fill the buffer
@@ -213,7 +213,7 @@ where
         self.number_of_arcs
     }
 
-    /// Return the outdegree of a node.
+    /// Returns the outdegree of a node.
     fn outdegree(&self, node_id: usize) -> usize {
         let mut codes_reader = self
             .factory
@@ -223,7 +223,7 @@ where
     }
 
     #[inline(always)]
-    /// Return a random access iterator over the successors of a node.
+    /// Returns a random access iterator over the successors of a node.
     fn labels(&self, node_id: usize) -> Succ<F::Decoder<'_>> {
         let codes_reader = self
             .factory
@@ -338,7 +338,7 @@ where
     for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
-    /// Create an iterator specialized in the degrees of the nodes.
+    /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
     /// and completely skip the merging step.
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
@@ -356,7 +356,7 @@ where
     for<'a> F::Decoder<'a>: Decode,
 {
     #[inline(always)]
-    /// Create an iterator specialized in the degrees of the nodes starting
+    /// Creates an iterator specialized in the degrees of the nodes starting
     /// from a given node.
     pub fn offset_deg_iter_from(&self, node: usize) -> OffsetDegIter<F::Decoder<'_>> {
         let mut backrefs = vec![0; self.compression_window];
@@ -410,7 +410,7 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
 unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
 impl<D: Decode> Succ<D> {
-    /// Create an empty iterator
+    /// Creates an empty iterator
     fn new(reader: D) -> Self {
         Self {
             reader,

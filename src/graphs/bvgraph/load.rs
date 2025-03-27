@@ -107,7 +107,7 @@ pub type FileBufReader<E> = BufBitReader<E, WordAdapter<u32, BufReader<std::fs::
 /// LoadModeFactory<E, Mmap>: CodesReaderFactoryHelper<E>
 /// ```
 ///
-/// Additional trait bounds on the [`CodesReader`] associated with the factory
+/// Additional trait bounds on the [`CodesRead`] associated with the factory
 /// can be imposed by using the [`LoadModeCodesReader`] type alias.
 pub type LoadModeFactory<E, LM> = <LM as LoadMode>::Factory<E>;
 /// A type alias for the code reader returned by the [`CodesReaderFactory`]

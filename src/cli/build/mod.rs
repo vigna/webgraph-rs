@@ -16,7 +16,7 @@ pub const COMMAND_NAME: &str = "build";
 
 pub fn cli(command: Command) -> Command {
     let sub_command = Command::new(COMMAND_NAME)
-        .about("Build accessory bv graph datastructures (e.g., offsets, ef, etc.).")
+        .about("Builds accessory bv graph data structures (e.g., offsets, ef, etc.).")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .allow_external_subcommands(true)

@@ -48,7 +48,7 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    // Create the sequential iterator over the graph
+    // Creates the sequential iterator over the graph
     let seq_graph = BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;

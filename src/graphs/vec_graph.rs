@@ -52,7 +52,7 @@ impl<L: Clone + 'static> core::default::Default for LabeledVecGraph<L> {
 }
 
 impl<L: Clone + 'static> LabeledVecGraph<L> {
-    /// Create a new empty graph.
+    /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
             number_of_arcs: 0,
@@ -60,7 +60,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
@@ -141,7 +141,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         self
     }
 
-    /// Create a new graph from an [`IntoLender`] yielding a
+    /// Creates a new graph from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
     /// If the lender is sorted, consider using
@@ -177,7 +177,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         self
     }
 
-    /// Create a new graph from a sorted [`IntoLender`] yielding a
+    /// Creates a new graph from a sorted [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
     /// This method is faster than [`from_lender`](Self::from_lender) as
@@ -207,7 +207,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Create a new graph from an [`IntoIterator`].
+    /// Creates a new graph from an [`IntoIterator`].
     ///
     /// The items must be triples of the form `(usize, usize, l)` specifying an
     /// arc and its label.
@@ -308,12 +308,12 @@ impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 pub struct VecGraph(LabeledVecGraph<()>);
 
 impl VecGraph {
-    /// Create a new empty graph.
+    /// Creates a new empty graph.
     pub fn new() -> Self {
         LabeledVecGraph::new().into()
     }
 
-    /// Create a new empty graph with `n` nodes.
+    /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         LabeledVecGraph::empty(n).into()
     }
@@ -353,7 +353,7 @@ impl VecGraph {
         self
     }
 
-    /// Create a new graph from an [`IntoLender`] yielding a
+    /// Creates a new graph from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
     /// If the lender is sorted, consider using
@@ -384,7 +384,7 @@ impl VecGraph {
         self
     }
 
-    /// Create a new graph from a sorted [`IntoLender`] yielding a
+    /// Creates a new graph from a sorted [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
     /// This method is faster than [`from_lender`](Self::from_lender) as
@@ -407,7 +407,7 @@ impl VecGraph {
         self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
     }
 
-    /// Create a new graph from an [`IntoIterator`].
+    /// Creates a new graph from an [`IntoIterator`].
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying an arc.
     pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize)>) -> Self {

@@ -267,7 +267,7 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Create a threadpool with the given number of threads and set the stack to either the env var or to
+/// Creates a threadpool with the given number of threads and set the stack to either the env var or to
 /// the default stack size `DEFAULT_STACK_SIZE`.
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     rayon::ThreadPoolBuilder::new()
@@ -295,7 +295,7 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     path_buf
 }
 
-/// Create all parent directories of the given file path.
+/// Creates all parent directories of the given file path.
 pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     // ensure that the dst directory exists
     if let Some(parent_dir) = file_path.as_ref().parent() {
