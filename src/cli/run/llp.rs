@@ -43,11 +43,11 @@ pub struct CliArgs {
     /// dir will be used which will be deleted at the end of the computation.
     /// The temp dir parent folder can be specified with the TMPDIR environment
     /// variable.
-    /// Setting a work_dir has two pourpouses: saving the informations they
+    /// Setting a work_dir has two purposes: saving the information they
     /// compute and to be able to resume the computation of gammas as their
     /// computation on large graphs might take days.
     /// The labels represent information about communities in the graph, nodes
-    /// similars will have the same label.
+    /// similar will have the same label.
     /// To resume computation you can compute the remaining gammas without
     /// passing `perm`, and then finally run `combine` that will combine all the
     /// labels of the gammas present in the folder into a final permutation.
@@ -104,29 +104,13 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
-#[derive(Args, Debug)]
-#[command(about = "Combine the pre-compute labels from Layered Label Propagation into permutation.", long_about = None)]
-pub struct CombineArgs {
-    /// The folder where the LLP labels are stored.
-    #[arg(short, long)]
-    pub work_dir: PathBuf,
-
-    /// A filename for the LLP permutation in binary big-endian format.
-    pub perm: PathBuf,
-
-    #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    pub epserde: bool,
-}
-
 pub fn cli(command: Command) -> Command {
     let sub_command = CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0);
-    let combine = CombineArgs::augment_args(Command::new("combine")).display_order(0);
-    command.subcommand(sub_command.subcommand(combine))
+    command.subcommand(sub_command)
 }
 
-/// Helper method that stores lables with or without epserde
-fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
+/// Helper method that stores labels with or without epserde
+pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
         data.store(&perm)
             .with_context(|| format!("Could not write permutation to {}", perm.as_ref().display()))
@@ -148,15 +132,6 @@ fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<(
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
-    // if the user passed the combine subcommand do it
-    if let Some(("combine", matches)) = submatches.subcommand() {
-        let args = CombineArgs::from_arg_matches(matches)?;
-        let perm = combine_labels(args.work_dir)?;
-        let rank_perm = labels_to_ranks(&perm);
-        log::info!("Saving permutation...");
-        return store_perm(&rank_perm, args.perm, args.epserde);
-    }
-    // otherwise fallback to full llp
     let args = CliArgs::from_arg_matches(submatches)?;
 
     if args.perm.is_none() && args.work_dir.is_none() {

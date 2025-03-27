@@ -8,6 +8,7 @@ use anyhow::Result;
 use clap::{ArgMatches, Command};
 
 pub mod llp;
+pub mod llp_combine;
 pub mod pad;
 
 pub const COMMAND_NAME: &str = "run";
@@ -19,6 +20,7 @@ pub fn cli(command: Command) -> Command {
         .arg_required_else_help(true)
         .allow_external_subcommands(true);
     let sub_command = llp::cli(sub_command);
+    let sub_command = llp_combine::cli(sub_command);
     let sub_command = pad::cli(sub_command);
     command.subcommand(sub_command.display_order(0))
 }
@@ -26,6 +28,7 @@ pub fn cli(command: Command) -> Command {
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     match submatches.subcommand() {
         Some((llp::COMMAND_NAME, sub_m)) => llp::main(sub_m),
+        Some((llp_combine::COMMAND_NAME, sub_m)) => llp_combine::main(sub_m),
         Some((pad::COMMAND_NAME, sub_m)) => pad::main(sub_m),
         Some((command_name, _)) => {
             eprintln!("Unknown command: {:?}", command_name);
