@@ -19,8 +19,8 @@ use dsi_bitstream::dispatch::Codes;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use sysinfo::System;
 use std::time::SystemTime;
+use sysinfo::System;
 
 pub mod analyze;
 pub mod bench;
