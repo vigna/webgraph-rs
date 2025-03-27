@@ -32,8 +32,6 @@
 
 * Argument specifying a thread pool are now simply references.
 
-* Argument specifying a thread pool are now simply references.
-
 ## [0.1.4] - 2024-08-09
 
 ### Fixed
