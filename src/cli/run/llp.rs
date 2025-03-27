@@ -22,7 +22,9 @@ use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 
 use predicates::prelude::*;
 use rayon::prelude::*;
+use tempfile::tempdir;
 use std::io::{BufWriter, Write};
+use std::path::Path;
 use std::path::PathBuf;
 
 pub const COMMAND_NAME: &str = "llp";
@@ -33,8 +35,25 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 
-    /// A filename for the LLP permutation in binary big-endian format.
-    pub perm: PathBuf,
+    /// A filename for the LLP permutation in binary big-endian format. If not
+    /// provided, we will compute the labels but not combine them into the final
+    /// permutation. If you don't set this parameter, be sure to set `work_dir`
+    /// so the labels will not be deleted at the end.
+    pub perm: Option<PathBuf>,
+
+    /// The folder where the LLP labels are stored. If not specified, a temp
+    /// dir will be used which will be deleted at the end of the computation.
+    /// The temp dir parent folder can be specified with the TMPDIR environment
+    /// variable.
+    /// Setting a work_dir has two pourpouses: saving the informations they
+    /// compute and to be able to resume the computation of gammas as their
+    /// computation on large graphs might take days.
+    /// The labels represent information about communities in the graph, nodes
+    /// similars will have the same label.
+    /// To resume computation you can compute the remaining gammas without
+    /// passing `perm`, and then finally run `combine` that will combine all the
+    /// labels of the gammas present in the folder into a final permutation.
+    pub work_dir: Option<PathBuf>,
 
     #[arg(short, long)]
     /// Save the permutation in ε-serde format.
@@ -86,14 +105,68 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
+#[derive(Args, Debug)]
+#[command(about = "Combine the pre-compute labels from Layered Label Propagation into permutation.", long_about = None)]
+pub struct CombineArgs {
+    /// The folder where the LLP labels are stored.
+    pub work_dir: PathBuf,
+
+    /// A filename for the LLP permutation in binary big-endian format.
+    pub perm: PathBuf,
+
+    #[arg(short, long)]
+    /// Save the permutation in ε-serde format.
+    pub epserde: bool,
+}
+
 pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
+    let sub_command = CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0);
+    let combine = CombineArgs::augment_args(Command::new("combine")).display_order(0);
+    command.subcommand(sub_command.subcommand(combine))
+}
+
+/// Helper method that stores lables with or without epserde
+fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
+    if epserde {
+        data
+            .store(&perm)
+            .with_context(|| format!("Could not write permutation to {}", perm.as_ref().display()))
+    } else {
+        let mut file = std::fs::File::create(&perm)
+            .with_context(|| format!("Could not create permutation at {}", perm.as_ref().display()))?;
+        let mut buf = BufWriter::new(&mut file);
+        for word in data.into_iter() {
+            buf.write_all(&word.to_be_bytes())
+                .with_context(|| format!("Could not write permutation to {}", perm.as_ref().display()))?;
+        }
+        Ok(())
+    }
 }
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
+    // if the user passed the combine subcommand do it
+    if let Some(("combine", matches)) = submatches.subcommand() {
+        let args = CombineArgs::from_arg_matches(matches)?;
+        let perm = combine_labels(args.work_dir)?;
+        let rank_perm = labels_to_ranks(&perm);
+        log::info!("Saving permutation...");
+        return store_perm(&rank_perm, args.perm, args.epserde);
+    }
+    // otherwise fallback to full llp
     let args = CliArgs::from_arg_matches(submatches)?;
 
-    create_parent_dir(&args.perm)?;
+    if args.perm.is_none() && args.work_dir.is_none() {
+        log::warn!(concat!(
+            "If `perm` is not set the llp will just compute the labels and not produce the final permutation. ",
+            "But you didn't set `work_dir` so the labels will be stored in a temp dir that will be deleted at the end of computation. ",
+            "Either set `perm` if you want to compute the permutation, or `work_dir` if you want the labels and combine them later."
+        ));
+        return Ok(());
+    }
+
+    if let Some(perm) = &args.perm {
+        create_parent_dir(perm)?;
+    }
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
@@ -119,6 +192,10 @@ where
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
 {
     let start = std::time::Instant::now();
+    // due to ownership problems, we always create the temp dir, but only use it
+    // if the user didn't provide a work_dir
+    let temp_dir = tempdir()?;
+    let work_dir = args.work_dir.as_ref().map(|x| x.as_path()).unwrap_or(temp_dir.path());
 
     // Load the graph in THP memory
     log::info!(
@@ -176,12 +253,10 @@ where
         predicate = predicate.or(PercModified::try_from(perc_modified)?).boxed();
     }
 
-    let num_nodes = graph.num_nodes();
-
     let granularity = args.granularity.into_granularity();
 
     // compute the LLP
-    let labels = llp::layered_label_propagation(
+    llp::layered_label_propagation_labels_only(
         graph,
         &*deg_cumul,
         gammas,
@@ -190,32 +265,17 @@ where
         granularity,
         args.seed,
         predicate,
+        work_dir,
     )
     .context("Could not compute the LLP")?;
 
-    let mut llp_perm = (0..num_nodes).collect::<Vec<_>>();
-    llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
-
-    let mut llp_inv_perm = vec![0; llp_perm.len()];
-    invert_permutation(llp_perm.as_ref(), llp_inv_perm.as_mut());
-
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
-    log::info!("Saving permutation...");
-
-    let perm = args.perm;
-
-    if args.epserde {
-        llp_inv_perm
-            .store(&perm)
-            .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
-    } else {
-        let mut file = std::fs::File::create(&perm)
-            .with_context(|| format!("Could not create permutation at {}", perm.display()))?;
-        let mut buf = BufWriter::new(&mut file);
-        for word in llp_inv_perm.into_iter() {
-            buf.write_all(&word.to_be_bytes())
-                .with_context(|| format!("Could not write permutation to {}", perm.display()))?;
-        }
+    if let Some(perm_path) = args.perm {
+        let labels = combine_labels(work_dir)?;
+        log::info!("Combined labels...");
+        let rank_perm = labels_to_ranks(&labels);
+        log::info!("Saving permutation...");
+        store_perm(&rank_perm, perm_path, args.epserde)?;
     }
     Ok(())
 }

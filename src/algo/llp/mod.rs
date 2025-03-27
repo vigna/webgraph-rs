@@ -44,11 +44,11 @@ use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use sux::traits::Succ;
 use sync_cell_slice::SyncSlice;
-use tempfile::tempdir;
 
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
@@ -87,6 +87,8 @@ pub struct LabelsStore<A> {
 ///   computed adaptively. This is an advanced option: see
 ///   [par_apply](crate::traits::SequentialLabeling::par_apply).
 /// * `seed` - The seed to use for pseudorandom number generation.
+/// * `work_dir` - The directory where the labels will be stored, if `None`, a
+///   temporary directory will be created.
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
@@ -98,9 +100,44 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     arc_granularity: Option<Granularity>,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
+    work_dir: impl AsRef<Path>,
 ) -> Result<Box<[usize]>> {
-    let work_dir = tempdir().context("Could not create temporary directory")?;
-    let labels_path = |gamma_index| work_dir.path().join(format!("labels_{gamma_index}.bin"));
+    // compute the labels
+    layered_label_propagation_labels_only(
+        sym_graph,
+        deg_cumul,
+        gammas,
+        num_threads,
+        chunk_size,
+        arc_granularity,
+        seed,
+        predicate,
+        &work_dir
+    )?;
+    // merge them
+    combine_labels(work_dir)
+}
+
+
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
+/// Computes and store on disk the labels for the given gammas, but does not combine them.
+/// For the arguments look at [`layered_label_propagation`].
+pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
+    sym_graph: R,
+    deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+    gammas: Vec<f64>,
+    num_threads: Option<usize>,
+    chunk_size: Option<usize>,
+    arc_granularity: Option<Granularity>,
+    seed: u64,
+    predicate: impl Predicate<preds::PredParams>,
+    work_dir: impl AsRef<Path>,
+) -> Result<()> {
+    // work-around to make TempDir Live as much as needed but only create it if
+    // the user didn't provide a work_dir, which can also be a TempDir.
+    let work_path = work_dir.as_ref();
+    let labels_path = |gamma_index| work_path.join(format!("labels_{gamma_index}.bin"));
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
@@ -363,42 +400,73 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     }
 
     gamma_pl.done();
+    
+    Ok(())
+}
 
-    // explicit drop to free memory for the next step
-    drop(label_store);
-    drop(can_change);
+/// Combines the labels computed by LLP into a final labels array.
+/// 
+/// * `work_dir`: The folder where the labels to combine are.
+pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
+    let mut gammas = vec![]; 
+    let iter = std::fs::read_dir(work_dir.as_ref())?
+        .filter_map(Result::ok)
+        .filter(|path| {
+            let path_name = path.file_name();
+            let path_str = path_name.to_string_lossy();
+            path_str.starts_with("labels_") && path_str.ends_with(".bin") && path.file_type().unwrap().is_file()
+        });
+    
+    let mut num_nodes = None;
+    for path in iter {
+        let path = path.file_name();
+        // we only need the cost and gamma here, so we mmap it to ignore the 
+        // actual labels which will be needed only later
+        let res = <LabelsStore<Box<[usize]>>>::mmap(&path, Flags::default()).unwrap();
+        info!("Found labels from {:?} with gamma {} and cost {} and num_nodes {}", path.display(), res.gamma, res.gap_cost, res.labels.len());
+        
+        match &mut num_nodes {
+            num_nodes @ None => {
+                *num_nodes = Some(res.labels.len());
+            }
+            Some(num_nodes) => {
+                if res.labels.len() != *num_nodes {
+                    anyhow::bail!("Labels '{}' have length {} while we expected {}.", path.display(), res.labels.len(), num_nodes);
+                }
+            }
+        }
+        gammas.push((res.gap_cost, res.gamma, path));
+    }
+
+    if gammas.is_empty() {
+        anyhow::bail!("No labels were found in {}", work_dir.as_ref().display());
+    }
+    let mut temp_perm = vec![0; num_nodes.unwrap()];
 
     // compute the indices that sorts the gammas by cost
-    let mut gamma_indices = (0..costs.len()).collect::<Vec<_>>();
     // sort in descending order
-    gamma_indices.sort_by(|a, b| costs[*b].total_cmp(&costs[*a]));
+    gammas.sort_by(|(a, _, _), (b, _, _)| b.total_cmp(a));
 
     // the best gamma is the last because it has the min cost
-    let best_gamma_index = *gamma_indices.last().unwrap();
-    let worst_gamma_index = gamma_indices[0];
-    let best_gamma = gammas[best_gamma_index];
-    let worst_gamma = gammas[worst_gamma_index];
+    let (best_gamma_cost, best_gamma, best_gamma_path) = gammas.last().unwrap();
+    let (worst_gamma_cost, worst_gamma, _worst_gamma_path) = &gammas[0];
     info!(
         "Best gamma: {}\twith log-gap cost {}",
-        best_gamma, costs[best_gamma_index]
+        best_gamma, best_gamma_cost
     );
     info!(
         "Worst gamma: {}\twith log-gap cost {}",
-        worst_gamma, costs[worst_gamma_index]
+        worst_gamma, worst_gamma_cost
     );
-    // reuse the update_perm to store the final permutation
-    let mut temp_perm = update_perm;
 
-    gamma_pl.done();
-
-    let mut result_labels = <Vec<usize>>::load_mem(labels_path(best_gamma_index))
+    let mut result_labels = <Vec<usize>>::load_mem(best_gamma_path)
         .context("Could not load labels from best gammar")?
         .to_vec();
 
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
-    for (i, gamma_index) in gamma_indices.iter().enumerate() {
+    for (i, (_, _, gamma_path)) in gammas.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels = <Vec<usize>>::load_mmap(labels_path(*gamma_index), mmap_flags)
+        let labels = <Vec<usize>>::load_mmap(gamma_path, mmap_flags)
             .context("Could not load labels")?;
         combine(&mut result_labels, *labels, &mut temp_perm).context("Could not combine labels")?;
         drop(labels); // explicit drop so we free labels before loading best_labels
@@ -407,7 +475,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = <Vec<usize>>::load_mmap(labels_path(best_gamma_index), mmap_flags)
+        let best_labels = <Vec<usize>>::load_mmap(best_gamma_path, mmap_flags)
             .context("Could not load labels from best gamma")?;
         let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
@@ -444,6 +512,7 @@ fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> R
     Ok(curr_label + 1)
 }
 
+/// Inverts a permutation.
 pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
     let sync_slice = inv_perm.as_sync_slice();
     perm.par_iter()
@@ -452,4 +521,13 @@ pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
         .for_each(|(i, &x)| {
             unsafe { sync_slice[x].set(i) };
         });
+}
+
+/// Computes the ranks of a slice of labels by their natural order.
+pub fn labels_to_ranks(labels: &[usize]) -> Box<[usize]> {
+    let mut llp_perm = (0..labels.len()).collect::<Vec<_>>().into_boxed_slice();
+    llp_perm.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
+    let mut llp_inv_perm = vec![0; llp_perm.len()].into_boxed_slice();
+    invert_permutation(llp_perm.as_ref(), llp_inv_perm.as_mut());
+    llp_inv_perm
 }
