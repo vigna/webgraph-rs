@@ -51,6 +51,7 @@ pub struct CliArgs {
     /// To resume computation you can compute the remaining gammas without
     /// passing `perm`, and then finally run `combine` that will combine all the
     /// labels of the gammas present in the folder into a final permutation.
+    #[arg(short, long)]
     pub work_dir: Option<PathBuf>,
 
     #[arg(short, long)]
@@ -107,6 +108,7 @@ pub struct CliArgs {
 #[command(about = "Combine the pre-compute labels from Layered Label Propagation into permutation.", long_about = None)]
 pub struct CombineArgs {
     /// The folder where the LLP labels are stored.
+    #[arg(short, long)]
     pub work_dir: PathBuf,
 
     /// A filename for the LLP permutation in binary big-endian format.
