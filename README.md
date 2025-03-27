@@ -102,11 +102,11 @@ Once you load the graph, you can [retrieve the successors of a node] or
 you can write an iteration on the graph as
 
 ```ignore
-for_!((src, succ) in graph {
+for_![(src, succ) in graph {
     for dst in succ {
         [do something with the arc src -> dst]
     }
-});
+}];
 ```
 
 ## Mutable Graphs
@@ -115,7 +115,7 @@ A number of structures make it possible to create dynamically growing graphs:
 [`BTreeGraph`], [`VecGraph`] and their labeled counterparts
 [`LabeledBTreeGraph`] and [`LabeledVecGraph`]. These structures can also
 be serialized with [serde](https://crates.io/crates/serde) using the feature
-gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be seralized with
+gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be serialized with
 [ε-serde](https://crates.io/crates/epserde).
 
 ## Command–Line Interface
@@ -152,7 +152,7 @@ will create a file compressed graph with basename `3-cycle`. The `--exact` flag
 is used to specify that the labels provided are exactly the node numbers,
 numbered starting from zero: otherwise, a mapping from assigned node number to
 labels will be created in RAM and store in `3-cycle.nodes` file.
-The labels are stored in a `HashMap`, so, for very large graphs, the mapping 
+The labels are stored in a `HashMap`, so, for very large graphs, the mapping
 might not fit in RAM. For example,
 
 ```bash

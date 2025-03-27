@@ -175,8 +175,10 @@ pub trait SequentialLabeling {
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         FairChunks::new(
-            granularity
-                .arc_granularity(self.num_nodes(), Some(deg_cumul.get(deg_cumul.len() - 1) as u64)),
+            granularity.arc_granularity(
+                self.num_nodes(),
+                Some(deg_cumul.get(deg_cumul.len() - 1) as u64),
+            ),
             deg_cumul,
         )
         .par_map_fold_with(
