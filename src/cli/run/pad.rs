@@ -20,10 +20,10 @@ use crate::graphs::bvgraph::GRAPH_EXTENSION;
 pub const COMMAND_NAME: &str = "pad";
 
 #[derive(Args, Debug)]
-#[command(about = "Zero-pad graph files to a length multiple of a word size. This is needed to mmap graphs on Windows.", long_about = None)]
+#[command(about = "Zero-pad graph files to a length multiple of a word size.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
-    pub basename: PathBuf,
+    /// The file to pad, usually it's either a graph or offsets.
+    pub file: PathBuf,
     /// The word size to pad to.
     #[clap(value_enum)]
     pub word_size: WordSize,
@@ -56,7 +56,7 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
         WordSize::U128 => size_of::<u128>(),
     };
 
-    pad(args.basename.with_extension(GRAPH_EXTENSION), word_size)
+    pad(args.file, word_size)
 }
 
 pub fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
