@@ -97,7 +97,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     chunk_size: Option<usize>,
-    arc_granularity: Option<Granularity>,
+    arc_granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
@@ -112,12 +112,11 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         arc_granularity,
         seed,
         predicate,
-        &work_dir
+        &work_dir,
     )?;
     // merge them
     combine_labels(work_dir)
 }
-
 
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
@@ -129,7 +128,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     chunk_size: Option<usize>,
-    arc_granularity: Option<Granularity>,
+    arc_granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
@@ -142,9 +141,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
     let num_threads = num_threads.unwrap_or_else(num_cpus::get);
-    let arc_granularity = arc_granularity
-        .unwrap_or_default()
-        .granularity(sym_graph.num_arcs().try_into()?, num_threads);
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -400,38 +396,51 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     }
 
     gamma_pl.done();
-    
+
     Ok(())
 }
 
 /// Combines the labels computed by LLP into a final labels array.
-/// 
+///
 /// * `work_dir`: The folder where the labels to combine are.
 pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
-    let mut gammas = vec![]; 
+    let mut gammas = vec![];
     let iter = std::fs::read_dir(work_dir.as_ref())?
         .filter_map(Result::ok)
         .filter(|path| {
             let path_name = path.file_name();
             let path_str = path_name.to_string_lossy();
-            path_str.starts_with("labels_") && path_str.ends_with(".bin") && path.file_type().unwrap().is_file()
+            path_str.starts_with("labels_")
+                && path_str.ends_with(".bin")
+                && path.file_type().unwrap().is_file()
         });
-    
+
     let mut num_nodes = None;
     for path in iter {
         let path = path.file_name();
-        // we only need the cost and gamma here, so we mmap it to ignore the 
+        // we only need the cost and gamma here, so we mmap it to ignore the
         // actual labels which will be needed only later
         let res = <LabelsStore<Box<[usize]>>>::mmap(&path, Flags::default()).unwrap();
-        info!("Found labels from {:?} with gamma {} and cost {} and num_nodes {}", path.display(), res.gamma, res.gap_cost, res.labels.len());
-        
+        info!(
+            "Found labels from {:?} with gamma {} and cost {} and num_nodes {}",
+            path.display(),
+            res.gamma,
+            res.gap_cost,
+            res.labels.len()
+        );
+
         match &mut num_nodes {
             num_nodes @ None => {
                 *num_nodes = Some(res.labels.len());
             }
             Some(num_nodes) => {
                 if res.labels.len() != *num_nodes {
-                    anyhow::bail!("Labels '{}' have length {} while we expected {}.", path.display(), res.labels.len(), num_nodes);
+                    anyhow::bail!(
+                        "Labels '{}' have length {} while we expected {}.",
+                        path.display(),
+                        res.labels.len(),
+                        num_nodes
+                    );
                 }
             }
         }
@@ -466,8 +475,8 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
     for (i, (_, _, gamma_path)) in gammas.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels = <Vec<usize>>::load_mmap(gamma_path, mmap_flags)
-            .context("Could not load labels")?;
+        let labels =
+            <Vec<usize>>::load_mmap(gamma_path, mmap_flags).context("Could not load labels")?;
         combine(&mut result_labels, *labels, &mut temp_perm).context("Could not combine labels")?;
         drop(labels); // explicit drop so we free labels before loading best_labels
 

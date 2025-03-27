@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::*;
+use crate::{traits::*, utils::Granularity};
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use rayon::ThreadPool;
@@ -18,7 +18,7 @@ use sux::prelude::*;
 /// as a measure of cost, where as the Java implementation uses the _ceiling_.
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
-    arc_granularity: usize,
+    arc_granularity: Granularity,
     deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
     thread_pool: &ThreadPool,
     pr: &mut impl ConcurrentProgressLog,

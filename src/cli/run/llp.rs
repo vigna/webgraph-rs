@@ -17,15 +17,13 @@ use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
-use llp::invert_permutation;
 use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 
 use predicates::prelude::*;
-use rayon::prelude::*;
-use tempfile::tempdir;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::path::PathBuf;
+use tempfile::tempdir;
 
 pub const COMMAND_NAME: &str = "llp";
 
@@ -128,16 +126,20 @@ pub fn cli(command: Command) -> Command {
 /// Helper method that stores lables with or without epserde
 fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
-        data
-            .store(&perm)
+        data.store(&perm)
             .with_context(|| format!("Could not write permutation to {}", perm.as_ref().display()))
     } else {
-        let mut file = std::fs::File::create(&perm)
-            .with_context(|| format!("Could not create permutation at {}", perm.as_ref().display()))?;
+        let mut file = std::fs::File::create(&perm).with_context(|| {
+            format!(
+                "Could not create permutation at {}",
+                perm.as_ref().display()
+            )
+        })?;
         let mut buf = BufWriter::new(&mut file);
-        for word in data.into_iter() {
-            buf.write_all(&word.to_be_bytes())
-                .with_context(|| format!("Could not write permutation to {}", perm.as_ref().display()))?;
+        for word in data.iter() {
+            buf.write_all(&word.to_be_bytes()).with_context(|| {
+                format!("Could not write permutation to {}", perm.as_ref().display())
+            })?;
         }
         Ok(())
     }
@@ -195,7 +197,7 @@ where
     // due to ownership problems, we always create the temp dir, but only use it
     // if the user didn't provide a work_dir
     let temp_dir = tempdir()?;
-    let work_dir = args.work_dir.as_ref().map(|x| x.as_path()).unwrap_or(temp_dir.path());
+    let work_dir = args.work_dir.as_deref().unwrap_or(temp_dir.path());
 
     // Load the graph in THP memory
     log::info!(
