@@ -15,8 +15,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::graphs::bvgraph::GRAPH_EXTENSION;
-
 pub const COMMAND_NAME: &str = "pad";
 
 #[derive(Args, Debug)]

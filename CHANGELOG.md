@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.2.1]
+
+### New
+
+* The `pad` command now takes a file instead of a basename, making it possible
+  to pad offset files.
+
 ## [0.2.0] - 2025-03-27
 
 ### New
