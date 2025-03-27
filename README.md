@@ -4,7 +4,7 @@
 [![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph)](https://crates.io/crates/webgraph/reverse_dependencies)
 ![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/webgraph)
-[![](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
+[![Line count](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
 [![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
 [![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
 [![Coverage Status](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
@@ -182,7 +182,7 @@ $ cat graph.csv | cargo run --release from arcs --separator=',' graph
 $ cargo run --release to arcs --separator=',' --labels=graph.nodes graph > back.csv
 ```
 
-## Ackowledgments
+## Acknowledgments
 
 This software has been partially supported by project SERICS (PE00000014) under
 the NRRP MUR program funded by the EU - NGEU, and by project ANR COREGRAPHIE,
@@ -206,7 +206,7 @@ Union nor the Italian MUR can be held responsible for them.
 [LAW website]: <http://law.di.unimi.it/>
 [Elias–Fano]: <sux::dict::EliasFano>
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
-[ε-serde]: <nttps://crates.io/crates/epserde/>
+[ε-serde]: <https://crates.io/crates/epserde/>
 [`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>
 [`VecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html>
 [`LabeledVecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html>

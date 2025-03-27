@@ -290,7 +290,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                         // randomly break ties
                         let next_label = *majorities.choose(&mut rand).unwrap();
                         // if the label changed we need to update the label store
-                        // and signal that this could change the neighbour nodes
+                        // and signal that this could change the neighbor nodes
                         if next_label != curr_label {
                             modified.fetch_add(1, Ordering::Relaxed);
                             for succ in sym_graph.successors(node) {
@@ -423,7 +423,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         let res = <LabelsStore<Box<[usize]>>>::mmap(&path, Flags::default()).unwrap();
         info!(
             "Found labels from {:?} with gamma {} and cost {} and num_nodes {}",
-            path.display(),
+            path.to_string_lossy(),
             res.gamma,
             res.gap_cost,
             res.labels.len()
@@ -437,7 +437,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
                 if res.labels.len() != *num_nodes {
                     anyhow::bail!(
                         "Labels '{}' have length {} while we expected {}.",
-                        path.display(),
+                        path.to_string_lossy(),
                         res.labels.len(),
                         num_nodes
                     );
@@ -469,7 +469,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
     );
 
     let mut result_labels = <Vec<usize>>::load_mem(best_gamma_path)
-        .context("Could not load labels from best gammar")?
+        .context("Could not load labels from best gamma")?
         .to_vec();
 
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;

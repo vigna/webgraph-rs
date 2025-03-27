@@ -98,7 +98,7 @@ pub fn from_csv(submatches: &ArgMatches, args: CliArgs, file: impl BufRead) -> R
         }
         let line = line.unwrap();
         // skip comment
-        if line.trim().starts_with(args.arcs_args.line_comment_simbol) {
+        if line.trim().starts_with(args.arcs_args.line_comment_symbol) {
             continue;
         }
 

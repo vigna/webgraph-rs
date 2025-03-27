@@ -16,9 +16,11 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Arg, ArgAction, Args, Command, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
+use std::time::SystemTime;
 
 pub mod analyze;
 pub mod bench;
@@ -71,7 +73,7 @@ impl From<PrivCode> for Codes {
 pub struct ArcsArgs {
     #[arg(long, default_value_t = '#')]
     /// Ignore lines that start with this symbol.
-    pub line_comment_simbol: char,
+    pub line_comment_symbol: char,
 
     #[arg(long, default_value_t = 0)]
     /// How many lines to skip, ignoring comment lines.
@@ -110,23 +112,23 @@ pub struct NumThreadsArg {
 /// Shared CLI arguments for commands that specify a granularity.
 #[derive(Args, Debug)]
 pub struct GranularityArgs {
-    #[arg(long, conflicts_with("nodes_granularity"))]
+    #[arg(long, conflicts_with("node_granularity"))]
     /// The tentative number of arcs used define the size of a parallel job
     /// (advanced option).
-    pub arcs_granularity: Option<u64>,
+    pub arc_granularity: Option<u64>,
 
-    #[arg(long, conflicts_with("arcs_granularity"))]
+    #[arg(long, conflicts_with("arc_granularity"))]
     /// The tentative number of nodes used define the size of a parallel job
     /// (advanced option).
-    pub nodes_granularity: Option<usize>,
+    pub node_granularity: Option<usize>,
 }
 
 impl GranularityArgs {
     pub fn into_granularity(&self) -> Granularity {
-        match (self.arcs_granularity, self.nodes_granularity) {
+        match (self.arc_granularity, self.node_granularity) {
             (Some(_), Some(_)) => unreachable!(),
-            (Some(arcs_granularity), None) => Granularity::Arcs(arcs_granularity),
-            (None, Some(nodes_granularity)) => Granularity::Nodes(nodes_granularity),
+            (Some(arc_granularity), None) => Granularity::Arcs(arc_granularity),
+            (None, Some(node_granularity)) => Granularity::Nodes(node_granularity),
             (None, None) => Granularity::default(),
         }
     }
@@ -364,7 +366,7 @@ where
             "Environment (noteworthy environment variables used):
 RUST_MIN_STACK: minimum thread stack size (in bytes)
 TMPDIR: where to store temporary files (potentially very large ones)
-WEBGRAPH_LOG: default log level (trace, debug, info, warn, error)
+RUST_LOG: configuration for env_logger
 ",
         );
 
@@ -379,27 +381,39 @@ WEBGRAPH_LOG: default log level (trace, debug, info, warn, error)
             let matches = command.get_matches_from(args);
 
             // setup the log level depending on the verbosity flag given
+            let mut builder = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
+
             match matches.get_count("verbose") {
-                0 => {
-                    // not passed, default to the env var
-                    env_logger::init_from_env("WEBGRAPH_LOG");
-                }
+                0 => {}
                 1 => {
-                    let mut builder = env_logger::builder();
                     builder.parse_filters("info");
-                    builder.init()
                 }
                 2 => {
-                    let mut builder = env_logger::builder();
                     builder.parse_filters("debug");
-                    builder.init()
                 }
                 3.. => {
-                    let mut builder = env_logger::builder();
                     builder.parse_filters("trace");
-                    builder.init()
                 }
             }
+
+            builder.format(|buf, record| {
+                let Ok(ts) = jiff::Timestamp::try_from(SystemTime::now()) else {
+                   return Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to get timestamp"));
+                };
+
+                let style = buf.default_level_style(record.level());
+                writeln!(
+                    buf,
+                    "{} {style}{}{style:#} [{:?}] {} - {}",
+                    ts.strftime("%F %T%.3f"),
+                    record.level(),
+                    std::thread::current().id(),
+                    record.target(),
+                    record.args()
+                )
+            });
+
+            builder.init();
 
             let subcommand = matches.subcommand();
             // if no command is specified, print the help message

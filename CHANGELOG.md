@@ -23,6 +23,11 @@
 * `ParMapFold` for generic parallel iteration without some of the
   bottlenecks of `rayon`s `ParallelBridge`.
 
+* Layered Label Propagation has been split into a label-generation phase
+  and a label-combination phase that can be run separately.
+
+* Log4J-like logging format that includes the thread id.
+
 ### Improved
 
 * Argument specifying a thread pool are now simply references.

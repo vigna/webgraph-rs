@@ -109,14 +109,14 @@ where
             .num_threads(args.num_threads.num_threads)
             .build()?;
 
-        let nodes_granularity = args
+        let node_granularity = args
             .granularity
             .into_granularity()
             .node_granularity(graph.num_nodes(), Some(graph.num_arcs()));
 
         // TODO!: use FairChunks with the offsets EF to distribute the
         // work based on number of bits used, not nodes
-        stats = Chunks::new(0..graph.num_nodes(), nodes_granularity).par_map_fold_with(
+        stats = Chunks::new(0..graph.num_nodes(), node_granularity).par_map_fold_with(
             pl.clone(),
             |pl, range| {
                 let mut iter = graph

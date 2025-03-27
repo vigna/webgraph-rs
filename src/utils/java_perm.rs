@@ -115,6 +115,22 @@ impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     fn par_reset(&mut self) {
         self.perm.as_mut().par_reset();
     }
+
+    fn as_mut_slice(&mut self) -> &mut [usize] {
+        unimplemented!(
+            "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
+        );
+    }
+
+    type ChunksMut<'a>
+        = std::slice::ChunksMut<'a, usize>
+    where
+        Self: 'a;
+
+    fn try_chunks_mut(&mut self, _chunk_size: usize) -> Result<Self::ChunksMut<'_>, ()> {
+        // Unsupported
+        Err(())
+    }
 }
 
 impl AsRef<[u64]> for JavaPermutation {
