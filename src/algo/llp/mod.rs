@@ -419,10 +419,11 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
 
     let mut num_nodes = None;
     for path in iter {
-        let path = path.file_name();
+        let path = work_dir.as_ref().join(path.file_name());
         // we only need the cost and gamma here, so we mmap it to ignore the
         // actual labels which will be needed only later
-        let res = <LabelsStore<Box<[usize]>>>::mmap(&path, Flags::default()).unwrap();
+        let res = <LabelsStore<Vec<usize>>>::mmap(&path, Flags::default())
+            .with_context(|| format!("Could not load labels from {}", path.to_string_lossy(),))?;
         info!(
             "Found labels from {:?} with gamma {} and cost {} and num_nodes {}",
             path.to_string_lossy(),
@@ -470,25 +471,27 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         worst_gamma, worst_gamma_cost
     );
 
-    let mut result_labels = <Vec<usize>>::load_mem(best_gamma_path)
+    let mut result_labels = <LabelsStore<Vec<usize>>>::load_mem(best_gamma_path)
         .context("Could not load labels from best gamma")?
+        .labels
         .to_vec();
 
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
     for (i, (_, _, gamma_path)) in gammas.iter().enumerate() {
         info!("Starting step {}...", i);
-        let labels =
-            <Vec<usize>>::load_mmap(gamma_path, mmap_flags).context("Could not load labels")?;
-        combine(&mut result_labels, *labels, &mut temp_perm).context("Could not combine labels")?;
+        let labels = <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
+            .context("Could not load labels")?;
+        combine(&mut result_labels, labels.labels, &mut temp_perm)
+            .context("Could not combine labels")?;
         drop(labels); // explicit drop so we free labels before loading best_labels
 
         // This recombination with the best labels does not appear in the paper, but
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        let best_labels = <Vec<usize>>::load_mmap(best_gamma_path, mmap_flags)
+        let best_labels = <LabelsStore<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
             .context("Could not load labels from best gamma")?;
-        let number_of_labels = combine(&mut result_labels, *best_labels, &mut temp_perm)?;
+        let number_of_labels = combine(&mut result_labels, best_labels.labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
         info!("Finished step {}.", i);
     }

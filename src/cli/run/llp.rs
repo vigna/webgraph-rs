@@ -176,6 +176,7 @@ where
     // if the user didn't provide a work_dir
     let temp_dir = tempdir()?;
     let work_dir = args.work_dir.as_deref().unwrap_or(temp_dir.path());
+    log::info!("Using workdir: {}", work_dir.display());
 
     // Load the graph in THP memory
     log::info!(

@@ -5,6 +5,7 @@ use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use sux::traits::bit_field_slice::BitFieldSlice;
 use tempfile::Builder;
+use webgraph::cli::init_envlogger;
 use webgraph::cli::main as cli_main;
 use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use webgraph::prelude::JavaPermutation;
@@ -14,6 +15,7 @@ const TEST_GRAPH: &str = "tests/data/cnr-2000";
 
 #[test]
 fn llp_pipeline() -> Result<()> {
+    init_envlogger()?;
     let copy_basename = PathBuf::from(TEST_GRAPH);
     let tmp_dir = Builder::new().prefix("LLPPipeline").tempdir()?;
     let graph_name = copy_basename.file_stem().unwrap();

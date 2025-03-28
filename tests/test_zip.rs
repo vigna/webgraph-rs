@@ -13,7 +13,7 @@ use webgraph::traits::RandomAccessLabeling;
 #[test]
 fn test_zip() {
     let v = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let z = Zip(v.clone(), v.clone());
+    let z = Zip(&v, &v);
     let mut lender = z.into_lender();
     while let Some((x, i)) = lender.next() {
         let s = i.collect::<Vec<_>>();
