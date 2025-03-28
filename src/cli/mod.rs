@@ -30,8 +30,6 @@ pub mod run;
 pub mod to;
 pub mod transform;
 
-pub const DEFAULT_STACK_SIZE: usize = 64 * 1024 * 1024;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Enum for instantaneous codes.
 ///
