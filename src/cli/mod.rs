@@ -249,16 +249,10 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Creates a threadpool with the given number of threads and set the stack to either the env var or to
-/// the default stack size `DEFAULT_STACK_SIZE`.
+/// Creates a threadpool with the given number of threads
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
-        .stack_size(
-            std::env::var("RUST_MIN_STACK")
-                .map(|x| dbg!(x.parse::<usize>().unwrap()))
-                .unwrap_or(crate::cli::DEFAULT_STACK_SIZE),
-        )
         .build()
         .expect("Failed to create thread pool")
 }

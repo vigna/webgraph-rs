@@ -35,7 +35,6 @@ use epserde::prelude::*;
 use llp::preds::PredParams;
 use predicates::Predicate;
 
-use common_traits::UnsignedInt;
 use log::info;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
@@ -148,13 +147,9 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
     let mut label_store = label_store::LabelStore::new(num_nodes as _);
-    let stack_size = std::env::var("RUST_MIN_STACK")
-        .map(|value| value.parse().unwrap())
-        .unwrap_or(1024 * num_nodes.ilog2_ceil() as usize);
     // build a thread_pool so we avoid having to re-create the threads
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
-        .stack_size(stack_size)
         .build()
         .context("Could not create thread pool")?;
 
@@ -343,16 +338,18 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         // We temporarily use the update permutation to compute the sorting
         // permutation of the labels.
         let perm = &mut update_perm;
-        perm.par_iter_mut()
-            .with_min_len(RAYON_MIN_LEN)
-            .enumerate()
-            .for_each(|(i, x)| *x = i);
-        // Sort by label
-        perm.par_sort_unstable_by(|&a, &b| {
-            label_store
-                .label(a as _)
-                .cmp(&label_store.label(b as _))
-                .then_with(|| a.cmp(&b))
+        thread_pool.install(|| {
+            perm.par_iter_mut()
+                .with_min_len(RAYON_MIN_LEN)
+                .enumerate()
+                .for_each(|(i, x)| *x = i);
+            // Sort by label
+            perm.par_sort_unstable_by(|&a, &b| {
+                label_store
+                    .label(a as _)
+                    .cmp(&label_store.label(b as _))
+                    .then_with(|| a.cmp(&b))
+            });
         });
 
         // Save labels
@@ -361,7 +358,10 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         // the inverse permutation. It will be reinitialized at the next
         // iteration anyway.
         let inv_perm = labels;
-        invert_permutation(perm, inv_perm);
+
+        thread_pool.install(|| {
+            invert_permutation(perm, inv_perm);
+        });
 
         update_pl.expected_updates(Some(num_nodes));
         update_pl.start("Computing log-gap cost...");

@@ -6,7 +6,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{
+    cli::{get_thread_pool, NumThreadsArg},
+    prelude::*,
+};
 use anyhow::Result;
 use clap::{ArgMatches, Args, Command, FromArgMatches};
 
@@ -28,6 +31,10 @@ pub struct CombineArgs {
     #[arg(short, long)]
     /// Save the permutation in ε-serde format.
     pub epserde: bool,
+
+    /// The number of threads to use.
+    #[command(flatten)]
+    pub num_threads: NumThreadsArg,
 }
 
 pub fn cli(command: Command) -> Command {
@@ -37,8 +44,13 @@ pub fn cli(command: Command) -> Command {
 
 pub fn main(submatches: &ArgMatches) -> Result<()> {
     let args = CombineArgs::from_arg_matches(submatches)?;
-    let perm = combine_labels(args.work_dir)?;
-    let rank_perm = labels_to_ranks(&perm);
-    log::info!("Saving permutation...");
-    store_perm(&rank_perm, args.perm, args.epserde)
+    let thread_pool = get_thread_pool(args.num_threads.num_threads);
+    thread_pool.install(|| -> Result<()> {
+        let labels = combine_labels(args.work_dir)?;
+        log::info!("Combined labels...");
+        let rank_perm = labels_to_ranks(&labels);
+        log::info!("Saving permutation...");
+        store_perm(&rank_perm, &args.perm, args.epserde)?;
+        Ok(())
+    })
 }

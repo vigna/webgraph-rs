@@ -9,6 +9,7 @@
 use self::llp::preds::MinAvgImprov;
 
 use crate::cli::create_parent_dir;
+use crate::cli::get_thread_pool;
 use crate::cli::GranularityArgs;
 use crate::cli::NumThreadsArg;
 use crate::prelude::*;
@@ -250,11 +251,15 @@ where
 
     log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
     if let Some(perm_path) = args.perm {
-        let labels = combine_labels(work_dir)?;
-        log::info!("Combined labels...");
-        let rank_perm = labels_to_ranks(&labels);
-        log::info!("Saving permutation...");
-        store_perm(&rank_perm, perm_path, args.epserde)?;
+        let thread_pool = get_thread_pool(args.num_threads.num_threads);
+        thread_pool.install(|| -> Result<()> {
+            let labels = combine_labels(work_dir)?;
+            log::info!("Combined labels...");
+            let rank_perm = labels_to_ranks(&labels);
+            log::info!("Saving permutation...");
+            store_perm(&rank_perm, perm_path, args.epserde)?;
+            Ok(())
+        })?;
     }
     Ok(())
 }
