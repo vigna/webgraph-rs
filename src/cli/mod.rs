@@ -13,13 +13,11 @@
 use crate::prelude::CompFlags;
 use crate::{build_info, utils::Granularity};
 use anyhow::{anyhow, bail, ensure, Context, Result};
-use clap::{Arg, ArgAction, Args, Command, ValueEnum};
+use clap::{Arg, Args, Command, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::time::SystemTime;
 use sysinfo::System;
 
 pub mod analyze;
@@ -354,19 +352,13 @@ where
                     "How often to log progress. Default is 10s. You can use the suffixes `s` for seconds, `m` for minutes, `h` for hours, and `d` for days. If no suffix is provided it is assumed to be in milliseconds. Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4 seconds + 567 milliseconds = 93784567 milliseconds.",)
                 .global(true),
         )
-        .arg(
-            Arg::new("verbose")
-                .short('v')
-                .long("verbose")
-                .action(ArgAction::Count)
-                .global(true)
-                .help("How much verbose it will be. `-v` for info, `-vv` for debug, `-vvv` for trace. If not passed it defaults to the enviromment variable `WEBGRAPH_LOG`")
-        )
         .after_help(
             "Environment (noteworthy environment variables used):
 RUST_MIN_STACK: minimum thread stack size (in bytes)
 TMPDIR: where to store temporary files (potentially very large ones)
-RUST_LOG: configuration for env_logger
+RUST_LOG: configuration for env_logger, pass `info` to see the progress of the
+  compression, `debug` to see the progress of the decompression, and `trace` to see all the
+  details. You can also use `RUST_LOG=webgraph=debug` to see only the webgraph logs.
 ",
         );
 
@@ -379,44 +371,6 @@ RUST_LOG: configuration for env_logger
             let command = command.display_order(0); // sort args alphabetically
             let mut completion_command = command.clone();
             let matches = command.get_matches_from(args);
-
-            // setup the log level depending on the verbosity flag given
-            let mut builder = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
-
-            match matches.get_count("verbose") {
-                0 => {}
-                1 => {
-                    builder.parse_filters("info");
-                }
-                2 => {
-                    builder.parse_filters("debug");
-                }
-                3.. => {
-                    builder.parse_filters("trace");
-                }
-            }
-
-            let start = std::time::Instant::now();
-            builder.format(move |buf, record| {
-                use jiff::{Span, ToSpan};
-                let Ok(ts) = jiff::Timestamp::try_from(SystemTime::now()) else {
-                   return Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to get timestamp"));
-                };
-                let style = buf.default_level_style(record.level());
-                let elapsed = start.elapsed();
-                writeln!(
-                    buf,
-                    "{} {:#} {style}{}{style:#} [{:?}] {} - {}",
-                    ts.strftime("%F %T%.3f"),
-                    Span::new().seconds(elapsed.as_secs() as i64).milliseconds(elapsed.subsec_millis() as i64),
-                    record.level(),
-                    std::thread::current().id(),
-                    record.target(),
-                    record.args()
-                )
-            });
-
-            builder.init();
 
             let subcommand = matches.subcommand();
             // if no command is specified, print the help message
