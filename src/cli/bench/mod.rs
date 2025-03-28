@@ -16,13 +16,13 @@ pub mod bvgraph;
 #[command(name = "bench")]
 /// A few benchmark utilities.
 pub enum SubCommands {
-    BVGraph(bvgraph::CliArgs),
+    Bvgraph(bvgraph::CliArgs),
     BFVisit(bf_visit::CliArgs),
 }
 
 pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::BVGraph(args) => bvgraph::main(global_args, args),
+        SubCommands::Bvgraph(args) => bvgraph::main(global_args, args),
         SubCommands::BFVisit(args) => bf_visit::main(global_args, args),
     }
 }
