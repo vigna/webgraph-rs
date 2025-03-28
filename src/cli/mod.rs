@@ -396,16 +396,19 @@ RUST_LOG: configuration for env_logger
                 }
             }
 
-            builder.format(|buf, record| {
+            let start = std::time::Instant::now();
+            builder.format(move |buf, record| {
+                use jiff::{Span, ToSpan};
                 let Ok(ts) = jiff::Timestamp::try_from(SystemTime::now()) else {
                    return Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to get timestamp"));
                 };
-
                 let style = buf.default_level_style(record.level());
+                let elapsed = start.elapsed();
                 writeln!(
                     buf,
-                    "{} {style}{}{style:#} [{:?}] {} - {}",
+                    "{} {:#} {style}{}{style:#} [{:?}] {} - {}",
                     ts.strftime("%F %T%.3f"),
+                    Span::new().seconds(elapsed.as_secs() as i64).milliseconds(elapsed.subsec_millis() as i64),
                     record.level(),
                     std::thread::current().id(),
                     record.target(),
