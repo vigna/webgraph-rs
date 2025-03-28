@@ -1,11 +1,13 @@
 # Change Log
 
-## [0.2.1]
+## [0.2.1] - 2025-03-28
 
 ### New
 
 * The `pad` command now takes a file instead of a basename, making it possible
   to pad offset files.
+
+* The CLI has been rewritten using `clap`'s declarative interface.
 
 ## [0.2.0] - 2025-03-27
 
