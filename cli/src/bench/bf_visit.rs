@@ -7,7 +7,6 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -15,6 +14,7 @@ use dsi_progress_logger::prelude::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use sux::prelude::BitVec;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None)]

@@ -505,7 +505,10 @@ mod test {
             (1, 3, Some(f64::NAN)),
         ];
         let g = LabeledVecGraph::<_>::from_arcs(arcs.iter().copied());
-        assert_ne!(g, g, "The label contains a NaN which is not equal to itself so the graph must be not equal to itself");
+        assert_ne!(
+            g, g,
+            "The label contains a NaN which is not equal to itself so the graph must be not equal to itself"
+        );
 
         arcs.pop();
         let g = LabeledVecGraph::<_>::from_arcs(arcs);

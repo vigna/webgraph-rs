@@ -46,11 +46,8 @@ pub struct CustomDecoderFactory<
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    CustomDecoderFactory<E, F, OFF>
 {
     pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
         Self {
@@ -61,11 +58,8 @@ impl<
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -80,11 +74,8 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {

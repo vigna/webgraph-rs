@@ -6,7 +6,7 @@
  */
 
 use crate::prelude::*;
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;

@@ -6,7 +6,6 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -17,6 +16,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use sux::prelude::*;
+use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 
 #[derive(Parser, Debug)]
 #[command(name = "ef", about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]

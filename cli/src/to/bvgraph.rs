@@ -7,7 +7,6 @@
 
 use crate::create_parent_dir;
 use crate::*;
-use webgraph::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -15,6 +14,7 @@ use epserde::deser::DeserializeInner;
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "bvgraph", about = "Recompresses a BvGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
@@ -122,7 +122,9 @@ where
             )?;
         }
     } else {
-        log::warn!("The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing.");
+        log::warn!(
+            "The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing."
+        );
         let seq_graph = BvGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;

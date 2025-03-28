@@ -36,10 +36,10 @@ use llp::preds::PredParams;
 use predicates::Predicate;
 
 use log::info;
+use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
 use rand::seq::SliceRandom;
-use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::VecDeque;

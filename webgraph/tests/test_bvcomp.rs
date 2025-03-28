@@ -11,12 +11,12 @@ use tempfile::NamedTempFile;
 
 const NODES: usize = 325557;
 
+use Codes::{Delta, Gamma, Unary, Zeta};
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::path::Path;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
-use Codes::{Delta, Gamma, Unary, Zeta};
 
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
@@ -47,7 +47,14 @@ where
                                     eprintln!();
                                     eprintln!(
                                         "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",
-                                        outdegrees, references, blocks, intervals, residuals, compression_window, max_ref_count, min_interval_length,
+                                        outdegrees,
+                                        references,
+                                        blocks,
+                                        intervals,
+                                        residuals,
+                                        compression_window,
+                                        max_ref_count,
+                                        min_interval_length,
                                     );
                                     let compression_flags = CompFlags {
                                         outdegrees,

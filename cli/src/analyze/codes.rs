@@ -6,12 +6,12 @@
  */
 
 use crate::{GlobalArgs, GranularityArgs, NumThreadsArg};
-use webgraph::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "codes", about = "Reads a graph and suggests the best codes to use.", long_about = None)]
@@ -134,7 +134,11 @@ where
         pl.done();
     } else {
         if args.num_threads.num_threads != 1 {
-            log::info!("Analyzing codes sequentially, this might be faster if you build the Elias-Fano index using `webgraph build ef {}` which will generate file {}", args.src.display(), args.src.with_extension("ef").display());
+            log::info!(
+                "Analyzing codes sequentially, this might be faster if you build the Elias-Fano index using `webgraph build ef {}` which will generate file {}",
+                args.src.display(),
+                args.src.with_extension("ef").display()
+            );
         }
 
         let graph = BvGraphSeq::with_basename(args.src)

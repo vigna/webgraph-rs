@@ -10,19 +10,19 @@
 //! Each module correspond to a group of commands, and each command is
 //! implemented as a submodule.
 
-use webgraph::prelude::CompFlags;
-use webgraph::utils::Granularity;
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
-use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
 use jiff::SpanRound;
+use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
 use sysinfo::System;
+use webgraph::prelude::CompFlags;
+use webgraph::utils::Granularity;
 
 pub mod build_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));

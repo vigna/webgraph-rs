@@ -23,7 +23,7 @@ or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
 decoupling the choice of encoder from the underlying support.
 
 */
-use anyhow::{ensure, Context};
+use anyhow::{Context, ensure};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{

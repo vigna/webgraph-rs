@@ -6,7 +6,6 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::prelude::*;
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -18,6 +17,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use sux::prelude::*;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "dcf", about = "Builds the Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]

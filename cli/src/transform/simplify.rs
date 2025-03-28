@@ -6,13 +6,13 @@
  */
 
 use crate::*;
-use webgraph::graphs::union_graph::UnionGraph;
-use webgraph::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
+use webgraph::graphs::union_graph::UnionGraph;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "simplify", about = "Makes a BvGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
@@ -60,7 +60,10 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 }
 
 fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
-    log::warn!("The .ef file was not found so the simplification will proceed sequentially. This may be slow. To speed it up, you can use `webgraph build ef {}` which would allow us create batches in parallel", basepath.as_ref().display());
+    log::warn!(
+        "The .ef file was not found so the simplification will proceed sequentially. This may be slow. To speed it up, you can use `webgraph build ef {}` which would allow us create batches in parallel",
+        basepath.as_ref().display()
+    );
 }
 
 pub fn simplify<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
@@ -101,7 +104,11 @@ where
                             .load()?;
 
                     if graph_t.num_nodes() != num_nodes {
-                        anyhow::bail!("The number of nodes in the graph and its transpose do not match! {} != {}", num_nodes, graph_t.num_nodes());
+                        anyhow::bail!(
+                            "The number of nodes in the graph and its transpose do not match! {} != {}",
+                            num_nodes,
+                            graph_t.num_nodes()
+                        );
                     }
 
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
@@ -213,7 +220,7 @@ where
 
             // simplify the graph
             let sorted =
-            webgraph::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
+                webgraph::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,
@@ -268,7 +275,8 @@ where
             let num_nodes = seq_graph.num_nodes();
             // transpose the graph
             let sorted =
-            webgraph::transform::simplify_sorted(seq_graph, args.batch_size.batch_size).unwrap();
+                webgraph::transform::simplify_sorted(seq_graph, args.batch_size.batch_size)
+                    .unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,

@@ -197,7 +197,7 @@ where
                 in_tx.send(val).unwrap();
             }
             drop(in_tx); // close the channel so the threads will exit when done
-                         // listen on the output channel for results
+            // listen on the output channel for results
             out_rx.into_iter().fold(A::default(), outer_fold)
         })
     }

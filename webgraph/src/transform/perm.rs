@@ -7,7 +7,7 @@
 use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::{BatchIterator, KMergeIters};
 use crate::prelude::*;
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use rayon::ThreadPool;
@@ -28,9 +28,11 @@ pub fn permute(
     perm: &impl BitFieldSlice<usize>,
     batch_size: usize,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
-    ensure!(perm.len() == graph.num_nodes(),
-        "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.", 
-        perm.len(), graph.num_nodes(),
+    ensure!(
+        perm.len() == graph.num_nodes(),
+        "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
+        perm.len(),
+        graph.num_nodes(),
     );
     let dir = Builder::new().prefix("permute_").tempdir()?;
 
@@ -81,9 +83,11 @@ where
     P: BitFieldSlice<usize> + Send + Sync + Clone,
     for<'a> <S as SequentialLabeling>::Lender<'a>: Send + Sync + Clone + ExactSizeLender,
 {
-    ensure!(perm.len() == graph.num_nodes(),
-        "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.", 
-        perm.len(), graph.num_nodes(),
+    ensure!(
+        perm.len() == graph.num_nodes(),
+        "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
+        perm.len(),
+        graph.num_nodes(),
     );
 
     // get a premuted view

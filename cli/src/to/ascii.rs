@@ -6,9 +6,6 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::graphs::bvgraph::get_endianness;
-use webgraph::traits::SequentialLabeling;
-use webgraph::utils::MmapHelper;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -16,6 +13,9 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::path::PathBuf;
+use webgraph::graphs::bvgraph::get_endianness;
+use webgraph::traits::SequentialLabeling;
+use webgraph::utils::MmapHelper;
 
 #[derive(Parser, Debug)]
 #[command(name = "ascii", about = "Dumps a graph in ASCII format: a line for each node with successors separated by tabs.", long_about = None)]

@@ -6,9 +6,6 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::graphs::bvgraph::get_endianness;
-use webgraph::traits::SequentialLabeling;
-use webgraph::utils::MmapHelper;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -17,6 +14,9 @@ use dsi_progress_logger::prelude::*;
 use lender::*;
 use std::io::Write;
 use std::path::PathBuf;
+use webgraph::graphs::bvgraph::get_endianness;
+use webgraph::traits::SequentialLabeling;
+use webgraph::utils::MmapHelper;
 
 #[derive(Parser, Debug)]
 #[command(name = "arcs", about = "Writes to standard out a graph as a list of arcs to stdout. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The `.nodes` file created by the `from arcs` command is compatible with `--labels`.", long_about = None)]

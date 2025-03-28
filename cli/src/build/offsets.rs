@@ -6,12 +6,12 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::prelude::*;
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::{io::BufWriter, path::PathBuf};
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "offsets", about = "Builds the offsets file of a graph.", long_about = None)]

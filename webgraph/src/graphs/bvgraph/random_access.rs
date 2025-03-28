@@ -11,7 +11,7 @@ use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
-use dsi_bitstream::traits::{Endianness, BE};
+use dsi_bitstream::traits::{BE, Endianness};
 use lender::IntoLender;
 use std::path::PathBuf;
 use sux::traits::IndexedSeq;
@@ -41,11 +41,8 @@ impl BvGraph<()> {
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
@@ -68,11 +65,8 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
+    BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
 {

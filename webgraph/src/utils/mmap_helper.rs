@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use common_traits::UnsignedInt;
 use core::fmt::Debug;
 use mmap_rs::*;
@@ -105,7 +105,9 @@ impl<W> MmapHelper<W> {
         {
             ensure!(
                 mmap_len == file_len,
-                "File has insufficient padding for word size {}. Use \"webgraph run pad BASENAME u{}\" to ensure sufficient padding.", size_of::<W>() * 8, size_of::<W>() * 8
+                "File has insufficient padding for word size {}. Use \"webgraph run pad BASENAME u{}\" to ensure sufficient padding.",
+                size_of::<W>() * 8,
+                size_of::<W>() * 8
             );
         }
         let file = std::fs::File::open(path.as_ref())
@@ -163,7 +165,12 @@ impl<W> MmapHelper<W, MmapMut> {
         // Align to multiple of size_of::<W>
         let mmap_len = file_len.align_to(size_of::<W>());
 
-        ensure!(mmap_len == file_len, "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME u{}\" to ensure sufficient padding.", size_of::<W>(), size_of::<W>() * 8);
+        ensure!(
+            mmap_len == file_len,
+            "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME u{}\" to ensure sufficient padding.",
+            size_of::<W>(),
+            size_of::<W>() * 8
+        );
 
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(mmap_len.max(1))

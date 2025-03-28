@@ -5,9 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{create_parent_dir, GlobalArgs};
-use webgraph::prelude::*;
-use anyhow::{ensure, Result};
+use crate::{GlobalArgs, create_parent_dir};
+use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
@@ -15,6 +14,7 @@ use mmap_rs::MmapFlags;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use sux::traits::BitFieldSlice;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name="comp", about = "Compose multiple permutations into a single one", long_about = None)]

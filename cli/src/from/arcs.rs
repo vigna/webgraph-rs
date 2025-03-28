@@ -7,11 +7,9 @@
 
 use crate::create_parent_dir;
 use crate::*;
-use webgraph::graphs::arc_list_graph::ArcListGraph;
-use webgraph::prelude::*;
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::{Endianness, BE};
+use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
@@ -19,6 +17,8 @@ use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
+use webgraph::graphs::arc_list_graph::ArcListGraph;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -102,8 +102,12 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
 
         if vals.get(biggest_idx).is_none() {
             log::warn!(
-                "Line {}: {:?} from stdin does not have enough columns: got {} columns but expected at least {} columns separated by {:?} (you can change the separator using the --separator option)", 
-                line_num, line, vals.len(), biggest_idx + 1, args.arcs_args.separator,
+                "Line {}: {:?} from stdin does not have enough columns: got {} columns but expected at least {} columns separated by {:?} (you can change the separator using the --separator option)",
+                line_num,
+                line,
+                vals.len(),
+                biggest_idx + 1,
+                args.arcs_args.separator,
             );
             continue;
         }
@@ -155,7 +159,11 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     pl.done();
 
     if !args.arcs_args.exact {
-        debug_assert_eq!(num_nodes, nodes.len(), "Consistency check of the algorithm. The number of nodes should be equal to the number of unique nodes found in the arcs.");
+        debug_assert_eq!(
+            num_nodes,
+            nodes.len(),
+            "Consistency check of the algorithm. The number of nodes should be equal to the number of unique nodes found in the arcs."
+        );
     }
 
     if let Some(user_num_nodes) = args.num_nodes {
@@ -171,7 +179,12 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
 
     log::info!("Arcs read: {} Nodes: {}", num_arcs, num_nodes);
     if num_arcs == 0 {
-        log::error!("No arcs read from stdin! Check that the --separator={:?} value is correct and that the --source-column={:?} and --target-column={:?} values are correct.", args.arcs_args.separator, args.arcs_args.source_column, args.arcs_args.target_column);
+        log::error!(
+            "No arcs read from stdin! Check that the --separator={:?} value is correct and that the --source-column={:?} and --target-column={:?} values are correct.",
+            args.arcs_args.separator,
+            args.arcs_args.source_column,
+            args.arcs_args.target_column
+        );
         return Ok(());
     }
 

@@ -6,18 +6,18 @@
  */
 
 use crate::GlobalArgs;
-use webgraph::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use itertools::Itertools;
 use lender::*;
-use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
+use rand::rngs::SmallRng;
 use std::hint::black_box;
 use std::path::PathBuf;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "bvgraph", about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]

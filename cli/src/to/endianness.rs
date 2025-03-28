@@ -4,8 +4,7 @@
 * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 */
 
-use crate::{create_parent_dir, GlobalArgs};
-use webgraph::prelude::*;
+use crate::{GlobalArgs, create_parent_dir};
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -14,6 +13,7 @@ use log::info;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "endianness", about = "Inverts the endianness of a BvGraph.", long_about = None)]

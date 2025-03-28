@@ -27,7 +27,7 @@
 //! ```
 
 use anyhow::ensure;
-use predicates::{reflection::PredicateReflection, Predicate};
+use predicates::{Predicate, reflection::PredicateReflection};
 use std::fmt::Display;
 
 #[doc(hidden)]
