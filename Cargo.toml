@@ -73,7 +73,7 @@ env_logger = { version = "0.11.5" }
 
 [build-dependencies]
 built = { version = "0.7", features = ["git2"] }
-chrono = "0.4.40"
+chrono = "0.4.39"
 
 [[bin]]
 name = "webgraph"
