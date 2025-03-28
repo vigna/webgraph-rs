@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::create_parent_dir;
-use crate::cli::*;
-use crate::prelude::*;
+use crate::create_parent_dir;
+use crate::*;
+use webgraph::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -76,7 +76,7 @@ where
 {
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 
-    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
+    let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
     if args.src.with_extension(EF_EXTENSION).exists() {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;

@@ -4,8 +4,8 @@
 * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 */
 
-use crate::cli::{create_parent_dir, GlobalArgs};
-use crate::prelude::*;
+use crate::{create_parent_dir, GlobalArgs};
+use webgraph::prelude::*;
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;

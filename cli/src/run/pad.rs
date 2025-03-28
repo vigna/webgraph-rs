@@ -15,7 +15,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::cli::GlobalArgs;
+use crate::GlobalArgs;
 
 #[derive(Parser, Debug)]
 #[command(name = "pad", about = "Zero-pad graph files to a length multiple of a word size.", long_about = None)]

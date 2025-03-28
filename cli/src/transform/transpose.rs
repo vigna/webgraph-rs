@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::*;
-use crate::prelude::*;
+use crate::*;
+use webgraph::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -53,7 +53,7 @@ pub fn transpose<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Resu
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
-    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
+    let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
     // TODO!: speed it up by using random access graph if possible
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)

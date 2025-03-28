@@ -6,10 +6,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{
-    cli::{get_thread_pool, GlobalArgs, NumThreadsArg},
-    prelude::*,
-};
+use crate::{get_thread_pool, GlobalArgs, NumThreadsArg};
+use webgraph::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 

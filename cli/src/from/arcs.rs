@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::create_parent_dir;
-use crate::cli::*;
-use crate::graphs::arc_list_graph::ArcListGraph;
-use crate::prelude::*;
+use crate::create_parent_dir;
+use crate::*;
+use webgraph::graphs::arc_list_graph::ArcListGraph;
+use webgraph::prelude::*;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::{Endianness, BE};
@@ -190,7 +190,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     // compress it
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
-    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
+    let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     BvComp::parallel_endianness(
         &args.dst,
         &g,

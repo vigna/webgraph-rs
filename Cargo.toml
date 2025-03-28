@@ -7,6 +7,8 @@ members = [
 ]
 
 [workspace.dependencies]
+webgraph = {path="./webgraph", version="0.2.1"}
+
 anyhow = { version = "1.0.79", features = ["backtrace"] }
 epserde = "0.8.0"
 dsi-bitstream = "0.5.0"
@@ -15,6 +17,12 @@ log = "0.4.22"
 sux = "0.7.2"
 common_traits = "0.11.2"
 lender = "0.3.1"
+rand = { version = "0.9.0", features = ["small_rng"] }
+tempfile = "3.10.1"
+itertools = "0.14.0"
+rayon = "1.10.0"
+mmap-rs = "0.6.1"
+predicates = "3.1.2"
 
 [profile.release]
 opt-level = 3            # like --release

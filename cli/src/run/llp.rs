@@ -8,12 +8,12 @@
 
 use self::llp::preds::MinAvgImprov;
 
-use crate::cli::create_parent_dir;
-use crate::cli::get_thread_pool;
-use crate::cli::GlobalArgs;
-use crate::cli::GranularityArgs;
-use crate::cli::NumThreadsArg;
-use crate::prelude::*;
+use crate::create_parent_dir;
+use crate::get_thread_pool;
+use crate::GlobalArgs;
+use crate::GranularityArgs;
+use crate::NumThreadsArg;
+use webgraph::prelude::*;
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;

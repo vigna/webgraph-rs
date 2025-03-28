@@ -4,10 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.5.11", features = ["derive", "string"] }
-clap_complete = { version = "4.4.11" }
-env_logger = { version = "0.11.5", default-features = false, features = ["auto-color", "regex"] }
-jiff = "0.2.5"
+webgraph.workspace = true
 anyhow.workspace = true
 epserde.workspace = true
 dsi-bitstream.workspace = true
@@ -16,6 +13,21 @@ log.workspace = true
 sux.workspace = true
 common_traits.workspace = true
 lender.workspace = true
+rand.workspace = true
+tempfile.workspace = true
+itertools.workspace = true
+rayon.workspace = true
+mmap-rs.workspace = true
+predicates.workspace = true
+
+clap = { version = "4.5.11", features = ["derive", "string"] }
+clap_complete = { version = "4.4.11" }
+env_logger = { version = "0.11.5", default-features = false, features = ["auto-color", "regex"] }
+jiff = "0.2.5"
+
+[build-dependencies]
+built = { version = "0.7", features = ["git2"] }
+chrono = "0.4.39"
 
 [features]
 default = ["be_bins", "le_bins"]

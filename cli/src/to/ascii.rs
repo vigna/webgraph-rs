@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::GlobalArgs;
+use crate::GlobalArgs;
 use crate::graphs::bvgraph::get_endianness;
 use crate::traits::SequentialLabeling;
 use crate::utils::MmapHelper;

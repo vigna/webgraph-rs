@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::*;
+use crate::*;
 use crate::graphs::union_graph::UnionGraph;
-use crate::prelude::*;
+use webgraph::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use mmap_rs::MmapFlags;
@@ -69,7 +69,7 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
 {
     // TODO!: speed it up by using random access graph if possible
-    let thread_pool = crate::cli::get_thread_pool(args.num_threads.num_threads);
+    let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 

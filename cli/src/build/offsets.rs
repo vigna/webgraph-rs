@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{cli::GlobalArgs, prelude::*};
+use crate::GlobalArgs;
+use webgraph::prelude::*;
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
