@@ -20,8 +20,7 @@ rayon.workspace = true
 mmap-rs.workspace = true
 predicates.workspace = true
 java-properties.workspace = true
-
-clap = { version = "4.5.11", features = ["derive", "string"] }
+clap.workspace = true
 clap_complete = { version = "4.4.11" }
 env_logger.workspace = true
 jiff = "0.2.5"

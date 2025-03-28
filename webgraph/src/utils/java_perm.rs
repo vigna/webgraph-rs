@@ -90,21 +90,25 @@ impl BitFieldSliceCore<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
 impl BitFieldSlice<usize> for JavaPermutation {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> usize {
-        u64::from_be_bytes(self.perm.as_ref().get_unchecked(index).to_ne_bytes()) as usize
+        u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
+            as usize
     }
 }
 
 impl BitFieldSlice<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> usize {
-        u64::from_be_bytes(self.perm.as_ref().get_unchecked(index).to_ne_bytes()) as usize
+        u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
+            as usize
     }
 }
 
 impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn set_unchecked(&mut self, index: usize, value: usize) {
-        *self.perm.as_mut().get_unchecked_mut(index) = value as u64;
+        unsafe {
+            *self.perm.as_mut().get_unchecked_mut(index) = value as u64;
+        }
     }
 
     #[inline(always)]
