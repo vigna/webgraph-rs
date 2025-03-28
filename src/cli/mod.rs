@@ -355,6 +355,7 @@ where
         .after_help(
             "Environment (noteworthy environment variables used):
 RUST_MIN_STACK: minimum thread stack size (in bytes)
+    we suggest RUST_MIN_STACK=8388608 which is the maximum allowed by linux.
 TMPDIR: where to store temporary files (potentially very large ones)
 RUST_LOG: configuration for env_logger, pass `info` to see the progress of the
   compression, `debug` to see the progress of the decompression, and `trace` to see all the
