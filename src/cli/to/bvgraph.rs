@@ -9,7 +9,6 @@ use crate::cli::create_parent_dir;
 use crate::cli::*;
 use crate::prelude::*;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::deser::DeserializeInner;
@@ -17,10 +16,8 @@ use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 
-pub const COMMAND_NAME: &str = "bvgraph";
-
-#[derive(Args, Debug)]
-#[command(about = "Recompresses a BvGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "bvgraph", about = "Recompresses a BvGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the source graph.
     pub src: PathBuf,
@@ -41,13 +38,7 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     let permutation = if let Some(path) = args.permutation.as_ref() {
@@ -62,18 +53,19 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => compress::<BE>(args, target_endianness, permutation)?,
+        BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation)?,
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => compress::<LE>(args, target_endianness, permutation)?,
+        LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation)?,
         e => panic!("Unknown endianness: {}", e),
     };
     Ok(())
 }
 
 pub fn compress<E: Endianness>(
+    _global_args: GlobalArgs,
     args: CliArgs,
     target_endianness: Option<String>,
     permutation: Option<JavaPermutation>,

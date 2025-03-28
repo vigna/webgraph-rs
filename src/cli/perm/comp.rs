@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::create_parent_dir;
+use crate::cli::{create_parent_dir, GlobalArgs};
 use crate::prelude::*;
 use anyhow::{ensure, Result};
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use mmap_rs::MmapFlags;
@@ -16,10 +16,8 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use sux::traits::BitFieldSlice;
 
-pub const COMMAND_NAME: &str = "comp";
-
-#[derive(Args, Debug)]
-#[command(about = "Compose multiple permutations into a single one", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name="comp", about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
     /// The filename of the resulting permutation in binary big-endian format.
     pub dst: PathBuf,
@@ -32,22 +30,14 @@ pub struct CliArgs {
     pub epserde: bool,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    merge_perms(submatches, CliArgs::from_arg_matches(submatches)?)
-}
-
-pub fn merge_perms(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("indices");
 
-    if let Some(duration) = submatches.get_one("log-interval") {
-        pl.log_interval(*duration);
+    if let Some(duration) = global_args.log_interval {
+        pl.log_interval(duration);
     }
 
     if args.epserde {

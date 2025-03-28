@@ -6,19 +6,17 @@
  */
 
 use crate::{
-    cli::{GranularityArgs, NumThreadsArg},
+    cli::{GlobalArgs, GranularityArgs, NumThreadsArg},
     prelude::*,
 };
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "codes";
-
-#[derive(Args, Debug)]
-#[command(about = "Reads a graph and suggests the best codes to use.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "codes", about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -30,24 +28,18 @@ pub struct CliArgs {
     pub granularity: GranularityArgs,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => optimize_codes::<BE>(submatches, args),
+        BE::NAME => optimize_codes::<BE>(global_args, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => optimize_codes::<LE>(submatches, args),
+        LE::NAME => optimize_codes::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
@@ -81,7 +73,7 @@ impl Iterator for Chunks {
     }
 }
 
-pub fn optimize_codes<E: Endianness>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
+pub fn optimize_codes<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
@@ -101,8 +93,8 @@ where
             .expected_updates(Some(graph.num_nodes()));
         pl.start("Scanning...");
 
-        if let Some(duration) = submatches.get_one("log-interval") {
-            pl.log_interval(*duration);
+        if let Some(duration) = global_args.log_interval {
+            pl.log_interval(duration);
         }
 
         let thread_pool = rayon::ThreadPoolBuilder::new()

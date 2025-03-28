@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::GlobalArgs;
 use crate::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use anyhow::{Context, Result};
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
@@ -17,24 +18,14 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use sux::prelude::*;
 
-pub const COMMAND_NAME: &str = "ef";
-
-#[derive(Args, Debug)]
-#[command(about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "ef", about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    check_ef(submatches, CliArgs::from_arg_matches(submatches)?)
-}
-
-pub fn check_ef(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let properties_path = args.src.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
@@ -54,7 +45,7 @@ pub fn check_ef(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
-    if let Some(duration) = submatches.get_one("log-interval") {
+    if let Some(duration) = &global_args.log_interval {
         pl.log_interval(*duration);
     }
 
@@ -84,8 +75,8 @@ pub fn check_ef(submatches: &ArgMatches, args: CliArgs) -> Result<()> {
     pl.display_memory(true)
         .item_name("offset")
         .expected_updates(Some(num_nodes));
-    if let Some(duration) = submatches.get_one("log-interval") {
-        pl.log_interval(*duration);
+    if let Some(duration) = global_args.log_interval {
+        pl.log_interval(duration);
     }
 
     let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)

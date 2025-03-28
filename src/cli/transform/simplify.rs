@@ -9,16 +9,13 @@ use crate::cli::*;
 use crate::graphs::union_graph::UnionGraph;
 use crate::prelude::*;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 
-pub const COMMAND_NAME: &str = "simplify";
-
-#[derive(Args, Debug)]
-#[command(about = "Makes a BvGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "simplify", about = "Makes a BvGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -44,13 +41,7 @@ pub struct CliArgs {
     pub permutation: Option<PathBuf>,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     match get_endianness(&args.src)?.as_str() {
@@ -58,12 +49,12 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => simplify::<BE>(args),
+        BE::NAME => simplify::<BE>(global_args, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => simplify::<LE>(args),
+        LE::NAME => simplify::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
@@ -72,7 +63,7 @@ fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
     log::warn!("The .ef file was not found so the simplification will proceed sequentially. This may be slow. To speed it up, you can use `webgraph build ef {}` which would allow us create batches in parallel", basepath.as_ref().display());
 }
 
-pub fn simplify<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn simplify<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,

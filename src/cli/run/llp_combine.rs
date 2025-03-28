@@ -7,21 +7,19 @@
  */
 
 use crate::{
-    cli::{get_thread_pool, NumThreadsArg},
+    cli::{get_thread_pool, GlobalArgs, NumThreadsArg},
     prelude::*,
 };
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "llp-combine";
-
 use super::llp::store_perm;
 
-#[derive(Args, Debug)]
-#[command(about = "Combine the pre-compute labels from Layered Label Propagation into permutation.", long_about = None)]
-pub struct CombineArgs {
+#[derive(Parser, Debug)]
+#[command(name = "llp-combine", about = "Combine the pre-compute labels from Layered Label Propagation into permutation.", long_about = None)]
+pub struct CliArgs {
     /// The folder where the LLP labels are stored.
     pub work_dir: PathBuf,
 
@@ -37,13 +35,7 @@ pub struct CombineArgs {
     pub num_threads: NumThreadsArg,
 }
 
-pub fn cli(command: Command) -> Command {
-    let sub_command = CombineArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0);
-    command.subcommand(sub_command)
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CombineArgs::from_arg_matches(submatches)?;
+pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
     thread_pool.install(|| -> Result<()> {
         let labels = combine_labels(args.work_dir)?;

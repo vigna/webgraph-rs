@@ -5,11 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::GlobalArgs;
 use crate::graphs::bvgraph::get_endianness;
 use crate::traits::SequentialLabeling;
 use crate::utils::MmapHelper;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
@@ -17,10 +18,8 @@ use lender::*;
 use std::io::Write;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "arcs";
-
-#[derive(Args, Debug)]
-#[command(about = "Writes to standard out a graph as a list of arcs to stdout. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The `.nodes` file created by the `from arcs` command is compatible with `--labels`.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "arcs", about = "Writes to standard out a graph as a list of arcs to stdout. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The `.nodes` file created by the `from arcs` command is compatible with `--labels`.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -36,29 +35,23 @@ pub struct CliArgs {
     pub labels: Option<PathBuf>,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => to_csv::<BE>(submatches, args),
+        BE::NAME => to_csv::<BE>(global_args, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => to_csv::<LE>(submatches, args),
+        LE::NAME => to_csv::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn to_csv<E: Endianness + 'static>(submatches: &ArgMatches, args: CliArgs) -> Result<()>
+pub fn to_csv<E: Endianness + 'static>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
@@ -85,8 +78,8 @@ where
         .item_name("nodes")
         .expected_updates(Some(num_nodes));
 
-    if let Some(duration) = submatches.get_one("log-interval") {
-        pl.log_interval(*duration);
+    if let Some(duration) = global_args.log_interval {
+        pl.log_interval(duration);
     }
 
     pl.start("Reading BvGraph");

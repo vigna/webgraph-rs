@@ -5,35 +5,24 @@
  */
 
 use anyhow::Result;
-use clap::{ArgMatches, Command};
+use clap::Subcommand;
+
+use super::GlobalArgs;
 
 pub mod simplify;
 pub mod transpose;
 
-pub const COMMAND_NAME: &str = "transform";
-
-pub fn cli(command: Command) -> Command {
-    let sub_command = Command::new(COMMAND_NAME)
-        .about("Apply a transformation to a graph.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true);
-    let sub_command = simplify::cli(sub_command);
-    let sub_command = transpose::cli(sub_command);
-    command.subcommand(sub_command.display_order(0))
+#[derive(Subcommand, Debug)]
+#[command(name = "transform")]
+/// Apply a transformation to a graph.
+pub enum SubCommands {
+    Simplify(simplify::CliArgs),
+    Transpose(transpose::CliArgs),
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    match submatches.subcommand() {
-        Some((simplify::COMMAND_NAME, sub_m)) => simplify::main(sub_m),
-        Some((transpose::COMMAND_NAME, sub_m)) => transpose::main(sub_m),
-        Some((command_name, _)) => {
-            eprintln!("Unknown command: {:?}", command_name);
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("No command given for transform");
-            std::process::exit(1);
-        }
+pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+    match subcommand {
+        SubCommands::Simplify(args) => simplify::main(global_args, args),
+        SubCommands::Transpose(args) => transpose::main(global_args, args),
     }
 }

@@ -5,38 +5,27 @@
  */
 
 use anyhow::Result;
-use clap::{ArgMatches, Command};
+use clap::Subcommand;
+
+use super::GlobalArgs;
 
 pub mod llp;
 pub mod llp_combine;
 pub mod pad;
 
-pub const COMMAND_NAME: &str = "run";
-
-pub fn cli(command: Command) -> Command {
-    let sub_command = Command::new(COMMAND_NAME)
-        .about("Long running algorithms.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true);
-    let sub_command = llp::cli(sub_command);
-    let sub_command = llp_combine::cli(sub_command);
-    let sub_command = pad::cli(sub_command);
-    command.subcommand(sub_command.display_order(0))
+#[derive(Subcommand, Debug)]
+#[command(name = "transform")]
+/// Apply a transformation to a graph.
+pub enum SubCommands {
+    Llp(llp::CliArgs),
+    LlpCombine(llp_combine::CliArgs),
+    Pad(pad::CliArgs),
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    match submatches.subcommand() {
-        Some((llp::COMMAND_NAME, sub_m)) => llp::main(sub_m),
-        Some((llp_combine::COMMAND_NAME, sub_m)) => llp_combine::main(sub_m),
-        Some((pad::COMMAND_NAME, sub_m)) => pad::main(sub_m),
-        Some((command_name, _)) => {
-            eprintln!("Unknown command: {:?}", command_name);
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("No command given for run");
-            std::process::exit(1);
-        }
+pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+    match subcommand {
+        SubCommands::Llp(args) => llp::main(global_args, args),
+        SubCommands::LlpCombine(args) => llp_combine::main(global_args, args),
+        SubCommands::Pad(args) => pad::main(global_args, args),
     }
 }

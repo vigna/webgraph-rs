@@ -4,33 +4,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::GlobalArgs;
 use anyhow::Result;
-use clap::{ArgMatches, Command};
+use clap::Subcommand;
 
 pub mod codes;
 
-pub const COMMAND_NAME: &str = "analyze";
+pub const COMMAND_NAME: &str = "";
 
-pub fn cli(command: Command) -> Command {
-    let sub_command = Command::new(COMMAND_NAME)
-        .about("Compute statistics on a BvGraph.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true);
-    let sub_command = codes::cli(sub_command);
-    command.subcommand(sub_command.display_order(0))
+#[derive(Subcommand, Debug)]
+#[command(name = "analyze")]
+/// Compute statistics on a graphs.
+pub enum SubCommands {
+    Codes(codes::CliArgs),
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    match submatches.subcommand() {
-        Some((codes::COMMAND_NAME, sub_m)) => codes::main(sub_m),
-        Some((command_name, _)) => {
-            eprintln!("Unknown command: {:?}", command_name);
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("No command given for analyze");
-            std::process::exit(1);
-        }
+pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+    match subcommand {
+        SubCommands::Codes(args) => codes::main(global_args, args),
     }
 }

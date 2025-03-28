@@ -10,11 +10,12 @@ use self::llp::preds::MinAvgImprov;
 
 use crate::cli::create_parent_dir;
 use crate::cli::get_thread_pool;
+use crate::cli::GlobalArgs;
 use crate::cli::GranularityArgs;
 use crate::cli::NumThreadsArg;
 use crate::prelude::*;
 use anyhow::{bail, Context, Result};
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
@@ -26,10 +27,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use tempfile::tempdir;
 
-pub const COMMAND_NAME: &str = "llp";
-
-#[derive(Args, Debug)]
-#[command(about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "llp", about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -105,11 +104,6 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
-pub fn cli(command: Command) -> Command {
-    let sub_command = CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0);
-    command.subcommand(sub_command)
-}
-
 /// Helper method that stores labels with or without epserde
 pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
@@ -132,9 +126,7 @@ pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Resu
     }
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     if args.perm.is_none() && args.work_dir.is_none() {
         log::warn!(concat!(
             "If `perm` is not set the llp will just compute the labels and not produce the final permutation. ",
@@ -153,18 +145,18 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => llp::<BE>(submatches, args),
+        BE::NAME => llp::<BE>(global_args, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => llp::<LE>(submatches, args),
+        LE::NAME => llp::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
 pub fn llp<E: Endianness + 'static + Send + Sync>(
-    _submatches: &ArgMatches,
+    _global_args: GlobalArgs,
     args: CliArgs,
 ) -> Result<()>
 where

@@ -13,7 +13,7 @@
 use crate::prelude::CompFlags;
 use crate::{build_info, utils::Granularity};
 use anyhow::{anyhow, bail, ensure, Context, Result};
-use clap::{Arg, Args, Command, ValueEnum};
+use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
 use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
@@ -23,16 +23,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
 use sysinfo::System;
-
-pub mod analyze;
-pub mod bench;
-pub mod build;
-pub mod check;
-pub mod from;
-pub mod perm;
-pub mod run;
-pub mod to;
-pub mod transform;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Enum for instantaneous codes.
@@ -364,6 +354,67 @@ pub fn init_envlogger() -> Result<()> {
     Ok(())
 }
 
+#[derive(Args, Debug)]
+pub struct GlobalArgs {
+    #[arg(short, long, value_parser = parse_duration, global=true)]
+    /// How often to log progress. Default is 10s. You can use the suffixes `s`
+    /// for seconds, `m` for minutes, `h` for hours, and `d` for days. If no
+    /// suffix is provided it is assumed to be in milliseconds.
+    /// Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4
+    /// seconds + 567 milliseconds = 93784567 milliseconds.
+    log_interval: Option<Duration>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SubCommands {
+    #[command(subcommand)]
+    Analyze(analyze::SubCommands),
+    #[command(subcommand)]
+    Bench(bench::SubCommands),
+    #[command(subcommand)]
+    Build(build::SubCommands),
+    #[command(subcommand)]
+    Check(check::SubCommands),
+    #[command(subcommand)]
+    From(from::SubCommands),
+    #[command(subcommand)]
+    Perm(perm::SubCommands),
+    #[command(subcommand)]
+    Run(run::SubCommands),
+    #[command(subcommand)]
+    To(to::SubCommands),
+    #[command(subcommand)]
+    Transform(transform::SubCommands),
+}
+
+#[derive(Parser, Debug)]
+#[command(name = "webgraph", version=build_info::version_string())]
+/// Webgraph tools to build, convert, modify, and analyze webgraph files.
+///
+/// Environment (noteworthy environment variables used):
+/// `RUST_MIN_STACK``: minimum thread stack size (in bytes)
+/// we suggest `RUST_MIN_STACK=8388608`` which is the maximum allowed by linux.
+/// `TMPDIR``: where to store temporary files (potentially very large ones)
+/// `RUST_LOG``: configuration for env_logger, pass `info` to see the progress of the
+/// compression, `debug` to see the progress of the decompression, and `trace` to see all the
+/// details. You can also use `RUST_LOG=webgraph=debug` to see only the webgraph logs.
+pub struct Cli {
+    #[clap(flatten)]
+    args: GlobalArgs,
+    #[command(subcommand)]
+    command: SubCommands,
+}
+
+pub mod analyze;
+pub mod bench;
+pub mod build;
+pub mod check;
+pub mod from;
+pub mod perm;
+pub mod run;
+pub mod to;
+pub mod transform;
+
 /// The entry point of the command-line interface.
 pub fn main<I, T>(args: I) -> Result<()>
 where
@@ -371,64 +422,36 @@ where
     T: Into<std::ffi::OsString> + Clone,
 {
     let start = std::time::Instant::now();
-
-    let command = Command::new("webgraph")
-        .about("Webgraph tools to build, convert, modify, and analyze webgraph files.")
-        .version(build_info::version_string())
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .arg(
-            Arg::new("log-interval")
-                .short('l')
-                .long("log-interval")
-                .value_parser(parse_duration)
-                .help(
-                    "How often to log progress. Default is 10s. You can use the suffixes `s` for seconds, `m` for minutes, `h` for hours, and `d` for days. If no suffix is provided it is assumed to be in milliseconds. Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4 seconds + 567 milliseconds = 93784567 milliseconds.",)
-                .global(true),
-        )
-        .after_help(
-            "Environment (noteworthy environment variables used):
-RUST_MIN_STACK: minimum thread stack size (in bytes)
-    we suggest RUST_MIN_STACK=8388608 which is the maximum allowed by linux.
-TMPDIR: where to store temporary files (potentially very large ones)
-RUST_LOG: configuration for env_logger, pass `info` to see the progress of the
-  compression, `debug` to see the progress of the decompression, and `trace` to see all the
-  details. You can also use `RUST_LOG=webgraph=debug` to see only the webgraph logs.
-",
-        );
-
-    macro_rules! impl_dispatch {
-        ($command:expr, $($module:ident),*) => {{
-            let command = build::cli($command);
-            $(
-                let command = $module::cli(command);
-            )*
-            let command = command.display_order(0); // sort args alphabetically
-            let mut completion_command = command.clone();
-            let matches = command.get_matches_from(args);
-
-            let subcommand = matches.subcommand();
-            // if no command is specified, print the help message
-            if subcommand.is_none() {
-                completion_command.print_help().unwrap();
-                return Ok(());
-            }
-            match subcommand.unwrap() {
-                (build::COMMAND_NAME, sub_m) => build::main(sub_m, &mut completion_command),
-                $(
-                    ($module::COMMAND_NAME, sub_m) => $module::main(sub_m),
-                )*
-                (command_name, _) => {
-                    // this shouldn't happen as clap should catch this
-                    eprintln!("Unknown command: {:?}", command_name);
-                    completion_command.print_help().unwrap();
-                    std::process::exit(1);
-                }
-            }
-        }};
+    let cli = Cli::parse_from(args);
+    match cli.command {
+        SubCommands::Analyze(args) => {
+            analyze::main(cli.args, args)?;
+        }
+        SubCommands::Bench(args) => {
+            bench::main(cli.args, args)?;
+        }
+        SubCommands::Build(args) => {
+            build::main(cli.args, args, Cli::command())?;
+        }
+        SubCommands::Check(args) => {
+            check::main(cli.args, args)?;
+        }
+        SubCommands::From(args) => {
+            from::main(cli.args, args)?;
+        }
+        SubCommands::Perm(args) => {
+            perm::main(cli.args, args)?;
+        }
+        SubCommands::Run(args) => {
+            run::main(cli.args, args)?;
+        }
+        SubCommands::To(args) => {
+            to::main(cli.args, args)?;
+        }
+        SubCommands::Transform(args) => {
+            transform::main(cli.args, args)?;
+        }
     }
-
-    impl_dispatch!(command, analyze, bench, check, from, perm, run, to, transform)?;
 
     log::info!(
         "The command took {}",

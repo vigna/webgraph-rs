@@ -5,41 +5,30 @@
  */
 
 use anyhow::Result;
-use clap::{ArgMatches, Command};
+use clap::Subcommand;
+
+use super::GlobalArgs;
 
 pub mod arcs;
 pub mod ascii;
 pub mod bvgraph;
 pub mod endianness;
 
-pub const COMMAND_NAME: &str = "to";
-
-pub fn cli(command: Command) -> Command {
-    let sub_command = Command::new(COMMAND_NAME)
-        .about("Converts graphs from a representation to another.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true);
-    let sub_command = ascii::cli(sub_command);
-    let sub_command = bvgraph::cli(sub_command);
-    let sub_command = arcs::cli(sub_command);
-    let sub_command = endianness::cli(sub_command);
-    command.subcommand(sub_command.display_order(0))
+#[derive(Subcommand, Debug)]
+#[command(name = "to")]
+/// Converts graphs from a representation to another.
+pub enum SubCommands {
+    Ascii(ascii::CliArgs),
+    BVGraph(bvgraph::CliArgs),
+    Arcs(arcs::CliArgs),
+    Endianness(endianness::CliArgs),
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    match submatches.subcommand() {
-        Some((ascii::COMMAND_NAME, sub_m)) => ascii::main(sub_m),
-        Some((bvgraph::COMMAND_NAME, sub_m)) => bvgraph::main(sub_m),
-        Some((arcs::COMMAND_NAME, sub_m)) => arcs::main(sub_m),
-        Some((endianness::COMMAND_NAME, sub_m)) => endianness::main(sub_m),
-        Some((command_name, _)) => {
-            eprintln!("Unknown command: {:?}", command_name);
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("No command given for to");
-            std::process::exit(1);
-        }
+pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+    match subcommand {
+        SubCommands::Ascii(args) => ascii::main(global_args, args),
+        SubCommands::BVGraph(args) => bvgraph::main(global_args, args),
+        SubCommands::Arcs(args) => arcs::main(global_args, args),
+        SubCommands::Endianness(args) => endianness::main(global_args, args),
     }
 }

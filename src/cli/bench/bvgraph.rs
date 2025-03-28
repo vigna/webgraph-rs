@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::GlobalArgs;
 use crate::prelude::*;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use itertools::Itertools;
@@ -18,10 +19,8 @@ use rand::SeedableRng;
 use std::hint::black_box;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "bvgraph";
-
-#[derive(Args, Debug)]
-#[command(about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "bvgraph", about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -56,13 +55,7 @@ pub struct CliArgs {
     pub slice: bool,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",

@@ -10,7 +10,7 @@ use crate::cli::*;
 use crate::graphs::arc_list_graph::ArcListGraph;
 use crate::prelude::*;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::prelude::{Endianness, BE};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
@@ -19,9 +19,8 @@ use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
 use tempfile::Builder;
-pub const COMMAND_NAME: &str = "arcs";
 
-#[derive(Args, Debug)]
+#[derive(Parser, Debug)]
 #[command(
     about = "Read from standard input a list of arcs and create a BvGraph. Each arc is specified by a pair of labels separated by a TAB (but the format is customizable), and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers. Note that in that case nodes are numbered starting from zero."
 )]
@@ -51,17 +50,13 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     log::info!("Reading arcs from stdin...");
     let stdin = std::io::stdin().lock();
-    from_csv(submatches, CliArgs::from_arg_matches(submatches)?, stdin)
+    from_csv(global_args, args, stdin)
 }
 
-pub fn from_csv(submatches: &ArgMatches, args: CliArgs, file: impl BufRead) -> Result<()> {
+pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
     let mut group_by = SortPairs::new(args.batch_size.batch_size, &dir)?;
@@ -73,8 +68,8 @@ pub fn from_csv(submatches: &ArgMatches, args: CliArgs, file: impl BufRead) -> R
         .item_name("lines")
         .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
 
-    if let Some(duration) = submatches.get_one("log-interval") {
-        pl.log_interval(*duration);
+    if let Some(duration) = global_args.log_interval {
+        pl.log_interval(duration);
     }
     pl.start("Reading arcs CSV");
 
@@ -214,8 +209,8 @@ pub fn from_csv(submatches: &ArgMatches, args: CliArgs, file: impl BufRead) -> R
         pl.display_memory(true)
             .item_name("lines")
             .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
-        if let Some(duration) = submatches.get_one("log-interval") {
-            pl.log_interval(*duration);
+        if let Some(duration) = global_args.log_interval {
+            pl.log_interval(duration);
         }
 
         let mut file = std::fs::File::create(&nodes_file).unwrap();

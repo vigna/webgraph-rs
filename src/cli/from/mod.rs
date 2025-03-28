@@ -5,32 +5,21 @@
  */
 
 use anyhow::Result;
-use clap::{ArgMatches, Command};
+use clap::Subcommand;
+
+use super::GlobalArgs;
 
 pub mod arcs;
 
-pub const COMMAND_NAME: &str = "from";
-
-pub fn cli(command: Command) -> Command {
-    let sub_command = Command::new(COMMAND_NAME)
-        .about("Ingest data into graphs.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true);
-    let sub_command = arcs::cli(sub_command);
-    command.subcommand(sub_command.display_order(0))
+#[derive(Subcommand, Debug)]
+#[command(name = "from")]
+/// Ingest data into graphs.
+pub enum SubCommands {
+    Arcs(arcs::CliArgs),
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    match submatches.subcommand() {
-        Some((arcs::COMMAND_NAME, sub_m)) => arcs::main(sub_m),
-        Some((command_name, _)) => {
-            eprintln!("Unknown command: {:?}", command_name);
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("No command given for from");
-            std::process::exit(1);
-        }
+pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+    match subcommand {
+        SubCommands::Arcs(args) => arcs::main(global_args, args),
     }
 }

@@ -6,19 +6,18 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::cli::GlobalArgs;
 use crate::prelude::*;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use sux::prelude::BitVec;
 
-pub const COMMAND_NAME: &str = "bf-visit";
-
-#[derive(Args, Debug)]
-#[command(about = "Benchmarks a breadth-first visit.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -34,13 +33,7 @@ pub struct CliArgs {
     mmap: bool,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let config = BvGraph::with_basename(&args.src);
 
     for _ in 0..args.repeats {

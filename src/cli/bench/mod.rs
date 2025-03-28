@@ -5,35 +5,24 @@
  */
 
 use anyhow::Result;
-use clap::{ArgMatches, Command};
+use clap::Subcommand;
+
+use super::GlobalArgs;
 
 pub mod bf_visit;
 pub mod bvgraph;
 
-pub const COMMAND_NAME: &str = "bench";
-
-pub fn cli(command: Command) -> Command {
-    let sub_command = Command::new(COMMAND_NAME)
-        .about("A few benchmark utilities.")
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .allow_external_subcommands(true);
-    let sub_command = bvgraph::cli(sub_command);
-    let sub_command = bf_visit::cli(sub_command);
-    command.subcommand(sub_command.display_order(0))
+#[derive(Subcommand, Debug)]
+#[command(name = "bench")]
+/// A few benchmark utilities.
+pub enum SubCommands {
+    BVGraph(bvgraph::CliArgs),
+    BFVisit(bf_visit::CliArgs),
 }
 
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    match submatches.subcommand() {
-        Some((bf_visit::COMMAND_NAME, sub_m)) => bf_visit::main(sub_m),
-        Some((bvgraph::COMMAND_NAME, sub_m)) => bvgraph::main(sub_m),
-        Some((command_name, _)) => {
-            eprintln!("Unknown command: {:?}", command_name);
-            std::process::exit(1);
-        }
-        None => {
-            eprintln!("No command given for build");
-            std::process::exit(1);
-        }
+pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+    match subcommand {
+        SubCommands::BVGraph(args) => bvgraph::main(global_args, args),
+        SubCommands::BFVisit(args) => bf_visit::main(global_args, args),
     }
 }

@@ -8,16 +8,13 @@
 use crate::cli::*;
 use crate::prelude::*;
 use anyhow::Result;
-use clap::{ArgMatches, Args, Command, FromArgMatches};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use std::path::PathBuf;
 use tempfile::Builder;
 
-pub const COMMAND_NAME: &str = "transpose";
-
-#[derive(Args, Debug)]
-#[command(about = "Transposes a BvGraph.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "transpose", about = "Transposes a BvGraph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -34,13 +31,7 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     match get_endianness(&args.src)?.as_str() {
@@ -48,17 +39,17 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => transpose::<BE>(args),
+        BE::NAME => transpose::<BE>(global_args, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => transpose::<LE>(args),
+        LE::NAME => transpose::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn transpose<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn transpose<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {

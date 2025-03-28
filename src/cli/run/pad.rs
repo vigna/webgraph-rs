@@ -7,7 +7,7 @@
  */
 
 use anyhow::{Context, Result};
-use clap::{ArgMatches, Args, Command, FromArgMatches, ValueEnum};
+use clap::{Parser, ValueEnum};
 use common_traits::UnsignedInt;
 use log::info;
 use std::{
@@ -15,10 +15,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub const COMMAND_NAME: &str = "pad";
+use crate::cli::GlobalArgs;
 
-#[derive(Args, Debug)]
-#[command(about = "Zero-pad graph files to a length multiple of a word size.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "pad", about = "Zero-pad graph files to a length multiple of a word size.", long_about = None)]
 pub struct CliArgs {
     /// The file to pad, usually it's either a graph or offsets.
     pub file: PathBuf,
@@ -40,13 +40,7 @@ pub enum WordSize {
     U128,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let word_size = match args.word_size {
         WordSize::U16 => size_of::<u16>(),
         WordSize::U32 => size_of::<u32>(),

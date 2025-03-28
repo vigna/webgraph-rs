@@ -5,19 +5,17 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::create_parent_dir;
+use crate::cli::{create_parent_dir, GlobalArgs};
 use anyhow::{Context, Result};
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_progress_logger::prelude::*;
 use epserde::ser::Serialize;
 use rand::prelude::SliceRandom;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "rand";
-
-#[derive(Args, Debug)]
-#[command(about = "Creates a random permutation.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "rand", about = "Creates a random permutation.", long_about = None)]
 pub struct CliArgs {
     /// The number of elements in the permutation.
     pub len: usize,
@@ -29,13 +27,7 @@ pub struct CliArgs {
     pub epserde: bool,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     let mut rng = rand::rng();
@@ -48,8 +40,8 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
     } else {
         let mut pl = ProgressLogger::default();
         pl.display_memory(true).item_name("index");
-        if let Some(duration) = submatches.get_one("log-interval") {
-            pl.log_interval(*duration);
+        if let Some(duration) = global_args.log_interval {
+            pl.log_interval(duration);
         }
 
         let mut file =

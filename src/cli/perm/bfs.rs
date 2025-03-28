@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::cli::create_parent_dir;
+use crate::cli::{create_parent_dir, GlobalArgs};
 use crate::prelude::*;
 use anyhow::{Context, Result};
-use clap::{ArgMatches, Args, Command, FromArgMatches};
+use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
@@ -16,10 +16,8 @@ use epserde::prelude::Serialize;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
-pub const COMMAND_NAME: &str = "bfs";
-
-#[derive(Args, Debug)]
-#[command(about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
+#[derive(Parser, Debug)]
+#[command(name = "bfs", about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -32,13 +30,7 @@ pub struct CliArgs {
     pub epserde: bool,
 }
 
-pub fn cli(command: Command) -> Command {
-    command.subcommand(CliArgs::augment_args(Command::new(COMMAND_NAME)).display_order(0))
-}
-
-pub fn main(submatches: &ArgMatches) -> Result<()> {
-    let args = CliArgs::from_arg_matches(submatches)?;
-
+pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.perm)?;
 
     match get_endianness(&args.src)?.as_str() {
@@ -46,18 +38,18 @@ pub fn main(submatches: &ArgMatches) -> Result<()> {
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => bfs::<BE>(submatches, args),
+        BE::NAME => bfs::<BE>(global_args, args),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => bfs::<LE>(submatches, args),
+        LE::NAME => bfs::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
 pub fn bfs<E: Endianness + 'static + Send + Sync>(
-    submatches: &ArgMatches,
+    global_args: GlobalArgs,
     args: CliArgs,
 ) -> Result<()>
 where
@@ -75,8 +67,8 @@ where
     pl.display_memory(true)
         .item_name("nodes")
         .expected_updates(Some(graph.num_nodes()));
-    if let Some(duration) = submatches.get_one("log-interval") {
-        pl.log_interval(*duration);
+    if let Some(duration) = global_args.log_interval {
+        pl.log_interval(duration);
     }
 
     // create the permutation
