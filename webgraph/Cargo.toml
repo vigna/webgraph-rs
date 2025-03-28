@@ -56,7 +56,8 @@ sync-cell-slice = "0.9.9"
 [dev-dependencies]
 serde = "1.0.217"
 serde_json = "1.0.137"
-env_logger = { version = "0.11.5" }
+env_logger.workspace = true
+clap.workspace = true
 
 [lib]
 name = "webgraph"
