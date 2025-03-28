@@ -183,10 +183,12 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
             gammas.len(),
         ));
         label_store.init();
-        can_change
-            .par_iter()
-            .with_min_len(RAYON_MIN_LEN)
-            .for_each(|c| c.store(true, Ordering::Relaxed));
+        thread_pool.install(|| {
+            can_change
+                .par_iter()
+                .with_min_len(RAYON_MIN_LEN)
+                .for_each(|c| c.store(true, Ordering::Relaxed));
+        });
 
         let mut obj_func = 0.0;
         let mut prev_gain = f64::MAX;
