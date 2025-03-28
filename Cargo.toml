@@ -8,6 +8,7 @@ members = [
 
 [workspace.dependencies]
 webgraph = {path="./webgraph", version="0.2.1"}
+webgraph-algo = {path="./algo", version="0.1.0"}
 
 anyhow = { version = "1.0.79", features = ["backtrace"] }
 epserde = "0.8.0"
@@ -23,6 +24,7 @@ itertools = "0.14.0"
 rayon = "1.10.0"
 mmap-rs = "0.6.1"
 predicates = "3.1.2"
+java-properties = "2.0.0"
 
 [profile.release]
 opt-level = 3            # like --release

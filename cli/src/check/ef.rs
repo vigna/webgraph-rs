@@ -79,7 +79,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         pl.log_interval(duration);
     }
 
-    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<BE>()
         .load()?;
     // otherwise directly read the graph

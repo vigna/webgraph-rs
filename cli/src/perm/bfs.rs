@@ -6,7 +6,6 @@
  */
 
 use crate::{create_parent_dir, GlobalArgs};
-use common_traits::ToBytes;
 use webgraph::prelude::*;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -75,7 +74,7 @@ where
     // create the permutation
     let mut perm = vec![0; graph.num_nodes()];
     pl.start("Computing BFS permutation...");
-    for (i, node_id) in crate::algo::BfsOrder::new(&graph).enumerate() {
+    for (i, node_id) in webgraph::algo::BfsOrder::new(&graph).enumerate() {
         perm[node_id] = i;
         pl.light_update();
     }

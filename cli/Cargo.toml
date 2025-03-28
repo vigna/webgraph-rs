@@ -19,11 +19,13 @@ itertools.workspace = true
 rayon.workspace = true
 mmap-rs.workspace = true
 predicates.workspace = true
+java-properties.workspace = true
 
 clap = { version = "4.5.11", features = ["derive", "string"] }
 clap_complete = { version = "4.4.11" }
 env_logger = { version = "0.11.5", default-features = false, features = ["auto-color", "regex"] }
 jiff = "0.2.5"
+sysinfo = "0.33.1"
 
 [build-dependencies]
 built = { version = "0.7", features = ["git2"] }

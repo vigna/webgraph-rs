@@ -56,12 +56,12 @@ where
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
     // TODO!: speed it up by using random access graph if possible
-    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
 
     // transpose the graph
-    let sorted = crate::transform::transpose(&seq_graph, args.batch_size.batch_size).unwrap();
+    let sorted = webgraph::transform::transpose(&seq_graph, args.batch_size.batch_size).unwrap();
 
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;

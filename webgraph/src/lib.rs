@@ -26,29 +26,6 @@ pub mod traits;
 pub mod transform;
 pub mod utils;
 
-pub mod build_info {
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
-
-    pub fn version_string() -> String {
-        format!(
-            "{}
-git info: {} {} {}
-build info: built on {} for {} with {}",
-            PKG_VERSION,
-            GIT_VERSION.unwrap_or(""),
-            GIT_COMMIT_HASH.unwrap_or(""),
-            match GIT_DIRTY {
-                None => "",
-                Some(true) => "(dirty)",
-                Some(false) => "(clean)",
-            },
-            BUILD_DATE,
-            TARGET,
-            RUSTC_VERSION
-        )
-    }
-}
-
 pub mod prelude {
     pub use crate::algo::*;
     pub use crate::graphs::prelude::*;

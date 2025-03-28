@@ -75,7 +75,7 @@ where
     if let Some(duration) = global_args.log_interval {
         pl.log_interval(duration);
     }
-    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)
         .endianness::<E>()
         .load()
         .with_context(|| format!("Could not load graph at {}", basename.display()))?;

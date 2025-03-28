@@ -6,9 +6,9 @@
  */
 
 use crate::GlobalArgs;
-use crate::graphs::bvgraph::get_endianness;
-use crate::traits::SequentialLabeling;
-use crate::utils::MmapHelper;
+use webgraph::graphs::bvgraph::get_endianness;
+use webgraph::traits::SequentialLabeling;
+use webgraph::utils::MmapHelper;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -55,7 +55,7 @@ pub fn to_csv<E: Endianness + 'static>(global_args: GlobalArgs, args: CliArgs) -
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
-    let graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
+    let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
         .endianness::<E>()
         .load()?;
     let num_nodes = graph.num_nodes();

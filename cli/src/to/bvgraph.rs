@@ -87,7 +87,7 @@ where
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
             // TODO!: this type annotation is not needed in the nightly version
-            let sorted = crate::transform::permute_split::<
+            let sorted = webgraph::transform::permute_split::<
                 BvGraph<
                     DynCodesDecoderFactory<
                         E,
@@ -132,7 +132,7 @@ where
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
-            let permuted = crate::transform::permute(&seq_graph, &permutation, batch_size)?;
+            let permuted = webgraph::transform::permute(&seq_graph, &permutation, batch_size)?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()

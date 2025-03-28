@@ -10,8 +10,8 @@
 //! Each module correspond to a group of commands, and each command is
 //! implemented as a submodule.
 
-use crate::prelude::CompFlags;
-use crate::{build_info, utils::Granularity};
+use webgraph::prelude::CompFlags;
+use webgraph::utils::Granularity;
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::UnsignedInt;
@@ -23,6 +23,29 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
 use sysinfo::System;
+
+pub mod build_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+
+    pub fn version_string() -> String {
+        format!(
+            "{}
+git info: {} {} {}
+build info: built on {} for {} with {}",
+            PKG_VERSION,
+            GIT_VERSION.unwrap_or(""),
+            GIT_COMMIT_HASH.unwrap_or(""),
+            match GIT_DIRTY {
+                None => "",
+                Some(true) => "(dirty)",
+                Some(false) => "(clean)",
+            },
+            BUILD_DATE,
+            TARGET,
+            RUSTC_VERSION
+        )
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Enum for instantaneous codes.

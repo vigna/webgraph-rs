@@ -252,7 +252,7 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let seq_graph = crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
         .endianness::<E>()
         .load()
         .with_context(|| format!("Could not load graph at {}", args.src.display()))?;

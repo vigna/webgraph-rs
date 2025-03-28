@@ -6,7 +6,7 @@
  */
 
 use crate::*;
-use crate::graphs::union_graph::UnionGraph;
+use webgraph::graphs::union_graph::UnionGraph;
 use webgraph::prelude::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
@@ -91,12 +91,12 @@ where
                     log::info!("Both .ef files found, using simplify split");
 
                     let graph =
-                        crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
+                        webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                             .endianness::<E>()
                             .load()?;
                     let num_nodes = graph.num_nodes();
                     let graph_t =
-                        crate::graphs::bvgraph::random_access::BvGraph::with_basename(&t_path)
+                        webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&t_path)
                             .endianness::<E>()
                             .load()?;
 
@@ -131,12 +131,12 @@ where
             }
 
             let seq_graph =
-                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
                     .load()?;
             let num_nodes = seq_graph.num_nodes();
             let seq_graph_t =
-                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&t_path)
+                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&t_path)
                     .endianness::<E>()
                     .load()?;
 
@@ -171,7 +171,7 @@ where
             if std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file()) {
                 log::info!(".ef file found, using simplify split");
                 let graph =
-                    crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
+                    webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .load()?;
 
@@ -180,7 +180,7 @@ where
                     perm: &perm,
                 };
 
-                let sorted = crate::transform::simplify_split(
+                let sorted = webgraph::transform::simplify_split(
                     &perm_graph,
                     args.batch_size.batch_size,
                     &thread_pool,
@@ -202,7 +202,7 @@ where
             no_ef_warn(&args.src);
 
             let seq_graph =
-                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
                     .load()?;
 
@@ -213,7 +213,7 @@ where
 
             // simplify the graph
             let sorted =
-                crate::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
+            webgraph::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,
@@ -235,11 +235,11 @@ where
                 log::info!(".ef file found, using simplify split");
 
                 let graph =
-                    crate::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
+                    webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .load()?;
 
-                let sorted = crate::transform::simplify_split(
+                let sorted = webgraph::transform::simplify_split(
                     &graph,
                     args.batch_size.batch_size,
                     &thread_pool,
@@ -261,14 +261,14 @@ where
             no_ef_warn(&args.src);
 
             let seq_graph =
-                crate::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                     .endianness::<E>()
                     .load()?;
 
             let num_nodes = seq_graph.num_nodes();
             // transpose the graph
             let sorted =
-                crate::transform::simplify_sorted(seq_graph, args.batch_size.batch_size).unwrap();
+            webgraph::transform::simplify_sorted(seq_graph, args.batch_size.batch_size).unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,
