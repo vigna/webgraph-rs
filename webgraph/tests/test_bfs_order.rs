@@ -51,7 +51,7 @@ fn test_start_orphan() -> Result<()> {
 
 #[test]
 fn test_cnr2000() -> Result<()> {
-    let graph = BvGraph::with_basename("tests/data/cnr-2000")
+    let graph = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     let seen: HashSet<usize> = HashSet::new();

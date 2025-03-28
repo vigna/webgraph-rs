@@ -21,8 +21,8 @@ fn test_par_bvcomp() -> Result<()> {
         .filter_level(log::LevelFilter::Debug)
         .try_init()?;
 
-    _test_par_bvcomp("tests/data/cnr-2000")?;
-    _test_par_bvcomp("tests/data/cnr-2000-hc")?;
+    _test_par_bvcomp("../data/cnr-2000")?;
+    _test_par_bvcomp("../data/cnr-2000-hc")?;
     Ok(())
 }
 

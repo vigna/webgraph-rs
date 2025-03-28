@@ -16,11 +16,11 @@ use webgraph::prelude::*;
 #[test]
 fn test_offsets() -> Result<()> {
     // load the graph
-    let graph = BvGraph::with_basename("tests/data/cnr-2000")
+    let graph = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?;
     // Read the offsets gammas
-    let mut offsets_file = std::fs::File::open("tests/data/cnr-2000.offsets")?;
+    let mut offsets_file = std::fs::File::open("../data/cnr-2000.offsets")?;
     let mut offsets_data = vec![0; offsets_file.metadata()?.len() as usize];
     offsets_file.read_exact(&mut offsets_data)?;
 
@@ -35,7 +35,7 @@ fn test_offsets() -> Result<()> {
 
     // Load Elias-fano
     let ef_offsets = <webgraph::graphs::bvgraph::EF>::mmap(
-        "tests/data/cnr-2000.ef",
+        "../data/cnr-2000.ef",
         deser::Flags::TRANSPARENT_HUGE_PAGES,
     )?;
 
@@ -68,10 +68,10 @@ fn test_offsets() -> Result<()> {
 #[test]
 fn test_offsets_as_slice() -> Result<()> {
     // load the graph
-    let graph0 = BvGraph::with_basename("tests/data/cnr-2000")
+    let graph0 = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?;
-    let graph1 = BvGraph::with_basename("tests/data/cnr-2000")
+    let graph1 = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?
         .offsets_to_slice();

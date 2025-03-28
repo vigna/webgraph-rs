@@ -1,84 +1,20 @@
-[package]
-name = "webgraph"
-version = "0.2.1"
-edition = "2021"
-description = "A Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
-repository = "https://github.com/vigna/webgraph-rs/"
-license = "Apache-2.0 OR LGPL-2.1-or-later"
-readme = "README.md"
-keywords = ["graph", "compression", "codes", "webgraph"]
-categories = ["compression", "data-structures"]
+[workspace]
+resolver = "3"
+members = [
+    "algo", 
+    "cli",
+    "webgraph",
+]
 
-[features]
-default = ["cli"]
-cli = [
-	"dep:clap",
-	"dep:clap_complete",
-	"dep:env_logger",
-] # Enable the compilation of the webgraph binary
-slow_tests = [] # Test feature that enables long running tests
-be_bins = [] # Enable read / write of only BE bvgraphs (to reduce code size)
-le_bins = [] # Enable read / write of only LE bvgraphs (to reduce code size)
-fuzz = [
-	"dep:arbitrary",
-	"dep:zip",
-	"dsi-bitstream/fuzz",
-] # Expose the fuzzing harnesses
-serde = ["dep:serde"]
-
-[dependencies]
+[workspace.dependencies]
 anyhow = { version = "1.0.79", features = ["backtrace"] }
-java-properties = "2.0.0"
-mmap-rs = "0.6.1"
-num_cpus = "1.16.0"
 epserde = "0.8.0"
-sux = "0.7.2"
-#dsi-bitstream = {git="https://github.com/vigna/dsi-bitstream-rs.git"}
-#dsi-bitstream = { path="../dsi-bitstream-rs" }
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
 log = "0.4.22"
-rand = { version = "0.9.0", features = ["small_rng"] }
-rayon = "1.10.0"
-tempfile = "3.10.1"
-libc = "0.2.155"
-itertools = "0.14.0"
-lender = "0.3.1"
+sux = "0.7.2"
 common_traits = "0.11.2"
-impl-tools = "0.10.0"
-bitflags = "2.6.0"
-dary_heap = "0.3.6"
-rdst = { version = "0.20.14", features = ["multi-threaded"] }
-sealed = "0.6.0"
-serde = { version = "1.0.217", features = ["serde_derive"], optional = true }
-crossbeam-channel = "0.5"
-
-# Cli
-clap = { version = "4.5.11", features = ["derive", "string"], optional = true }
-clap_complete = { version = "4.4.11", optional = true }
-env_logger = { version = "0.11.5", default-features = false, optional = true, features = ["auto-color", "regex"] }
-
-# Fuzzing deps
-arbitrary = { version = "1.3.2", features = ["derive"], optional = true }
-zip = { version = "2.1.5", optional = true }
-predicates = "3.1.2"
-sysinfo = "0.33.1"
-sync-cell-slice = "0.9.9"
-jiff = "0.2.5"
-
-[dev-dependencies]
-serde = "1.0.217"
-serde_json = "1.0.137"
-env_logger = { version = "0.11.5" }
-
-[build-dependencies]
-built = { version = "0.7", features = ["git2"] }
-chrono = "0.4.39"
-
-[[bin]]
-name = "webgraph"
-path = "src/main.rs"
-required-features = ["cli"]
+lender = "0.3.1"
 
 [profile.release]
 opt-level = 3            # like --release
@@ -95,8 +31,3 @@ overflow-checks = false  # Disable integer overflow checks.
 debug = true             # Include debug info.
 debug-assertions = false # Enables debug assertions.
 codegen-units = 1        # slower compile times, but maybe better perf
-
-
-[lib]
-name = "webgraph"
-path = "src/lib.rs"

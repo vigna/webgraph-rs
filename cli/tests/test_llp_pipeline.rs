@@ -11,7 +11,7 @@ use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_E
 use webgraph::prelude::JavaPermutation;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
 
-const TEST_GRAPH: &str = "tests/data/cnr-2000";
+const TEST_GRAPH: &str = "../data/cnr-2000";
 
 #[test]
 fn llp_pipeline() -> Result<()> {

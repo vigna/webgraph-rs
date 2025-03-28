@@ -577,12 +577,12 @@ mod test {
         let compression_window = 7;
         let min_interval_length = 4;
 
-        let seq_graph = BvGraphSeq::with_basename("tests/data/cnr-2000")
+        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
         // Compress the graph
-        let file_path = "tests/data/cnr-2000.bvcomp";
+        let file_path = "../data/cnr-2000.bvcomp";
         let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
             File::create(file_path)?,
         )));
@@ -640,7 +640,7 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = BvGraphSeq::with_basename("tests/data/cnr-2000")
+        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 

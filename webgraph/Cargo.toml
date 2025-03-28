@@ -1,0 +1,66 @@
+[package]
+name = "webgraph"
+version = "0.2.0"
+edition = "2021"
+description = "A Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
+repository = "https://github.com/vigna/webgraph-rs/"
+license = "Apache-2.0 OR LGPL-2.1-or-later"
+readme = "README.md"
+keywords = ["graph", "compression", "codes", "webgraph"]
+categories = ["compression", "data-structures"]
+
+[features]
+default = []
+slow_tests = [] # Test feature that enables long running tests
+fuzz = [
+	"dep:arbitrary",
+	"dep:zip",
+	"dsi-bitstream/fuzz",
+] # Expose the fuzzing harnesses
+serde = ["dep:serde"]
+
+[dependencies]
+anyhow.workspace = true
+epserde.workspace = true
+dsi-bitstream.workspace = true
+dsi-progress-logger.workspace = true
+log.workspace = true
+sux.workspace = true
+common_traits.workspace = true
+lender.workspace = true
+arbitrary = { version = "1.3.2", features = ["derive"], optional = true }
+
+java-properties = "2.0.0"
+mmap-rs = "0.6.1"
+num_cpus = "1.16.0"
+rand = { version = "0.9.0", features = ["small_rng"] }
+rayon = "1.10.0"
+tempfile = "3.10.1"
+libc = "0.2.155"
+itertools = "0.14.0"
+impl-tools = "0.10.0"
+bitflags = "2.6.0"
+dary_heap = "0.3.6"
+rdst = { version = "0.20.14", features = ["multi-threaded"] }
+sealed = "0.6.0"
+serde = { version = "1.0.217", features = ["serde_derive"], optional = true }
+crossbeam-channel = "0.5"
+
+# Fuzzing deps
+zip = { version = "2.1.5", optional = true }
+predicates = "3.1.2"
+sysinfo = "0.33.1"
+sync-cell-slice = "0.9.9"
+
+[dev-dependencies]
+serde = "1.0.217"
+serde_json = "1.0.137"
+env_logger = { version = "0.11.5" }
+
+[build-dependencies]
+built = { version = "0.7", features = ["git2"] }
+chrono = "0.4.39"
+
+[lib]
+name = "webgraph"
+path = "src/lib.rs"
