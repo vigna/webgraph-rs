@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::{computer::DirExactSumSweepComputer, outputs, outputs_symm};
+use super::{computer::DirExactSumSweepComputer, output, output_symm};
 use dsi_progress_logger::ConcurrentProgressLog;
 use rayon::ThreadPool;
 use sux::bits::AtomicBitVec;
@@ -34,7 +34,7 @@ impl core::ops::Add for Missing {
     }
 }
 /// Trait used to compute the results of the ExactSumSweep algorithm.
-pub trait OutputLevel: Sync {
+pub trait Level: Sync {
     /// The type the result of [`compute`](Self::run).
     type Output;
     /// The type the result of [`compute`](Self::run_symm).
@@ -80,9 +80,9 @@ pub trait OutputLevel: Sync {
 /// This variant is equivalent to [`AllForward`] in the undirected case.
 pub struct All;
 
-impl OutputLevel for All {
-    type Output = outputs::All;
-    type OutputSymm = outputs_symm::All;
+impl Level for All {
+    type Output = output::All;
+    type OutputSymm = output_symm::All;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -191,9 +191,9 @@ impl OutputLevel for All {
 /// Computes all the forward eccentricities of the graph.
 pub struct AllForward;
 
-impl OutputLevel for AllForward {
-    type Output = outputs::AllForward;
-    type OutputSymm = outputs_symm::All;
+impl Level for AllForward {
+    type Output = output::AllForward;
+    type OutputSymm = output_symm::All;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -261,9 +261,9 @@ impl OutputLevel for AllForward {
 /// Computes both the diameter and the radius of the graph.
 pub struct RadiusDiameter;
 
-impl OutputLevel for RadiusDiameter {
-    type Output = outputs::RadiusDiameter;
-    type OutputSymm = outputs_symm::RadiusDiameter;
+impl Level for RadiusDiameter {
+    type Output = output::RadiusDiameter;
+    type OutputSymm = output_symm::RadiusDiameter;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -348,9 +348,9 @@ impl OutputLevel for RadiusDiameter {
 /// Computes the diameter of the graph.
 pub struct Diameter;
 
-impl OutputLevel for Diameter {
-    type Output = outputs::Diameter;
-    type OutputSymm = outputs_symm::Diameter;
+impl Level for Diameter {
+    type Output = output::Diameter;
+    type OutputSymm = output_symm::Diameter;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -415,9 +415,9 @@ impl OutputLevel for Diameter {
 /// Computes the radius of the graph.
 pub struct Radius;
 
-impl OutputLevel for Radius {
-    type Output = outputs::Radius;
-    type OutputSymm = outputs_symm::Radius;
+impl Level for Radius {
+    type Output = output::Radius;
+    type OutputSymm = output_symm::Radius;
 
     fn run(
         graph: impl RandomAccessGraph + Sync,

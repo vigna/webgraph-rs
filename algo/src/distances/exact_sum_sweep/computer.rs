@@ -29,7 +29,7 @@ use sux::bits::AtomicBitVec;
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
 
-use super::{Missing, OutputLevel};
+use super::{Level, Missing};
 
 /// Experimentally obtained sane value for the granularity of the visits.
 const VISIT_GRANULARITY: usize = 64;
@@ -41,7 +41,7 @@ pub struct DirExactSumSweepComputer<
     G2: RandomAccessGraph + Sync,
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
-    OL: OutputLevel,
+    OL: Level,
 > {
     pub graph: &'a G1,
     pub transpose: &'a G2,
@@ -89,7 +89,7 @@ pub struct DirExactSumSweepComputer<
     _marker: std::marker::PhantomData<OL>,
 }
 
-impl<'a, G: RandomAccessGraph + Sync, OL: OutputLevel>
+impl<'a, G: RandomAccessGraph + Sync, OL: Level>
     DirExactSumSweepComputer<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL>
 {
     /// Build a new instance to compute the *ExactSumSweep* algorithm on
@@ -120,7 +120,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: OutputLevel>
     }
 }
 
-impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: OutputLevel>
+impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     DirExactSumSweepComputer<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL>
 {
     /// Build a new instance to compute the *ExactSumSweep* algorithm on
@@ -171,7 +171,7 @@ impl<
         G2: RandomAccessGraph + Sync,
         V1: Parallel<EventNoPred> + Sync,
         V2: Parallel<EventNoPred> + Sync,
-        OL: OutputLevel,
+        OL: Level,
     > DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL>
 {
     #[allow(clippy::too_many_arguments)]
@@ -236,7 +236,7 @@ impl<
         G2: RandomAccessGraph + Sync,
         V1: Parallel<EventNoPred> + Sync,
         V2: Parallel<EventNoPred> + Sync,
-        OL: OutputLevel,
+        OL: Level,
     > DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL>
 {
     #[inline(always)]

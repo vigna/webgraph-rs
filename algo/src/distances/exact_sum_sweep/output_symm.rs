@@ -6,7 +6,7 @@
  */
 
 /// The result returned by
-/// [`compute_symm`](super::OutputLevel::run_symm) on [`All`](super::All) or
+/// [`compute_symm`](super::Level::run_symm) on [`All`](super::All) or
 /// [`AllForward`](super::AllForward).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct All {
@@ -29,7 +29,7 @@ pub struct All {
 }
 
 /// The result returned by
-/// [`compute_symm`](super::OutputLevel::run_symm) on
+/// [`compute_symm`](super::Level::run_symm) on
 /// [`RadiusDiameter`](super::RadiusDiameter).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RadiusDiameter {
@@ -48,7 +48,7 @@ pub struct RadiusDiameter {
 }
 
 /// The result returned by
-/// [`compute_symm`](super::OutputLevel::run_symm) on
+/// [`compute_symm`](super::Level::run_symm) on
 /// [`Diameter`](super::Diameter).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Diameter {
@@ -61,7 +61,7 @@ pub struct Diameter {
 }
 
 /// The result returned by
-/// [`compute_symm`](super::OutputLevel::run_symm) on [`Radius`](super::Radius).
+/// [`compute_symm`](super::Level::run_symm) on [`Radius`](super::Radius).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Radius {
     /// The radius.

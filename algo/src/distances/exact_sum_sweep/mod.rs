@@ -19,12 +19,12 @@
 //! computation to a relatively small number of visits on real-world graphs.
 //!
 //! Depending on what you intend to compute, you have to choose the right
-//! [*output level*](OutputLevel) between [`All`], [`AllForward`],
-//! [`RadiusDiameter`], [`Diameter`], and [`Radius`]. Then you have to invoke
-//! [`compute`](OutputLevel::run) or [`compute_symm`](OutputLevel::run_symm). In
-//! the first case, you have to provide a graph and its transpose; in the second
-//! case, you have to provide a symmetric graph. The methods returns a
-//! suitable structure containing the result of the algorithm.
+//! [*level*](Level) between [`All`], [`AllForward`], [`RadiusDiameter`],
+//! [`Diameter`], and [`Radius`]. Then you have to invoke
+//! [`compute`](Level::run) or [`compute_symm`](Level::run_symm). In the first
+//! case, you have to provide a graph and its transpose; in the second case, you
+//! have to provide a symmetric graph. The methods returns a suitable structure
+//! containing the result of the algorithm.
 //!
 //! # Examples
 //!
@@ -91,7 +91,7 @@
 //! ```
 //!
 //! If the graph is symmetric (i.e., undirected), you may use
-//! [compute_symm](OutputLevel::run_symm).
+//! [compute_symm](Level::run_symm).
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
 //! use webgraph_algo::thread_pool;
@@ -114,8 +114,8 @@
 
 mod computer;
 mod level;
-mod outputs;
-mod outputs_symm;
+mod output;
+mod output_symm;
 mod scc_graph;
 
 pub use level::*;
