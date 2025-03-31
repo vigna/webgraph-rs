@@ -305,6 +305,17 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
     where
         S::SerType: Send + Sync + Copy,
     {
+        // make sure directory exists before creating any files in it
+        let dir = file_path.as_ref().parent()
+            .expect("BatchIterator temporary file directory should have parent");
+        std::fs::create_dir_all(dir)
+            .with_context(|| {
+                format!(
+                    "Could not create BatchIterator temporary file directory {}",
+                    dir.display()
+                )
+            })?;
+
         // create a batch file where to dump
         let file_path = file_path.as_ref();
         let file = std::io::BufWriter::with_capacity(
