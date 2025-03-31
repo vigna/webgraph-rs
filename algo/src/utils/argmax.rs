@@ -30,8 +30,7 @@ pub fn argmax<T: std::cmp::PartialOrd + Copy>(slice: &[T]) -> Option<usize> {
     slice
         .iter()
         .enumerate()
-        .rev()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+        .min_by(|a, b| b.1.partial_cmp(a.1).unwrap())
         .map(|m| m.0)
 }
 
@@ -84,15 +83,14 @@ pub fn argmax_filtered<
         .iter()
         .zip(tie_break.iter())
         .enumerate()
-        .rev()
         .filter(|v| filter(v.0, *v.1 .0))
-        .max_by(|a, b| {
+        .min_by(|a, b| {
             let (value_a, tie_a) = a.1;
             let (value_b, tie_b) = b.1;
-            value_a
-                .partial_cmp(value_b)
+            value_b
+                .partial_cmp(value_a)
                 .unwrap()
-                .then(tie_a.partial_cmp(tie_b).unwrap())
+                .then(tie_b.partial_cmp(tie_a).unwrap())
         })
         .map(|m| m.0)
 }
