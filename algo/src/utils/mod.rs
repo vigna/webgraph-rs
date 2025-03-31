@@ -7,6 +7,15 @@
 
 //! Utilities.
 
+mod argmax;
+mod argmin;
+
+/// Module containing mathematical utilities.
+pub mod math {
+    pub use super::argmax::*;
+    pub use super::argmin::*;
+}
+
 /// Utility macro to create [`thread_pools`](`rayon::ThreadPool`).
 ///
 /// There are two forms of this macro:

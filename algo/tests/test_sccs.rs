@@ -5,9 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::num;
-use std::io::Read;
-
 use anyhow::Result;
 use dsi_progress_logger::prelude::*;
 use lender::for_;

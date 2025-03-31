@@ -14,8 +14,8 @@ pub use acyclicity::is_acyclic;
 pub mod sccs;
 mod top_sort;
 pub use top_sort::top_sort;
+pub mod distances;
 pub mod visits;
-
 pub mod prelude {
     pub use crate::acyclicity::is_acyclic;
     pub use crate::sccs::*;
