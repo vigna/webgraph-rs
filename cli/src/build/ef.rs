@@ -18,7 +18,6 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use std::path::PathBuf;
 use sux::prelude::*;
-use tempfile::NamedTempFile;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug, Clone)]
@@ -254,31 +253,18 @@ pub fn serialize_eliasfano(
         pl.log_interval(*duration);
     }
     pl.start("Writing to disk...");
+
     let ef_path = args.src.with_extension(EF_EXTENSION);
-
-    let mut tmp_file = NamedTempFile::with_prefix("ef_")?;
-    let tmp_file_path = tmp_file.path().to_owned();
-    info!(
-        "Creating Elias-Fano at '{}' and then renaming it to '{}'",
-        tmp_file_path.display(),
-        ef_path.display()
+    info!("Creating Elias-Fano at '{}'", ef_path.display());
+    let mut ef_file = BufWriter::new(
+        File::create(&ef_path)
+            .with_context(|| format!("Could not create {}", ef_path.display()))?,
     );
 
-    let mut tmp = BufWriter::new(tmp_file.as_file_mut());
     // serialize and dump the schema to disk
-    ef.serialize(&mut tmp).with_context(|| {
-        format!(
-            "Could not serialize EliasFano to {}",
-            tmp_file_path.display()
-        )
-    })?;
+    ef.serialize(&mut ef_file)
+        .with_context(|| format!("Could not serialize EliasFano to {}", ef_path.display()))?;
 
-    info!(
-        "Renaming '{}' into '{}'",
-        tmp_file_path.display(),
-        ef_path.display()
-    );
-    std::fs::rename(tmp_file_path, ef_path)?;
     pl.done();
     Ok(())
 }
