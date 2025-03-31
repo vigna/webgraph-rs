@@ -1,7 +1,7 @@
 [package]
 name = "webgraph-algo"
 version = "0.1.1"
-edition = "2024"
+edition = "2021"
 description = "Algorithms for the Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
 repository = "https://github.com/vigna/webgraph-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
