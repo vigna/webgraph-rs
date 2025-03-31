@@ -1,6 +1,7 @@
 # WebGraph
 
-A Rust implementation of the [WebGraph framework] for graph compression.
+A Rust implementation of the [WebGraph
+framework](http://vigna.di.unimi.it/) for graph compression.
 
 ## At a Glance
 
