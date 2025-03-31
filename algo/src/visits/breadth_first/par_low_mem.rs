@@ -9,7 +9,7 @@ use crate::visits::{
     Parallel,
     breadth_first::{EventPred, FilterArgsPred},
 };
-use parallel_frontier::prelude::{Frontier, ParallelIterator};
+use parallel_frontier::Frontier;
 use rayon::{ThreadPool, prelude::*};
 use std::{
     ops::ControlFlow::{self, Continue},
@@ -40,9 +40,9 @@ use webgraph::traits::RandomAccessGraph;
 /// to store the parent of each node.
 ///
 /// ```
-/// use webgraph_algo::algo::visits::Parallel;
-/// use webgraph_algo::algo::visits::breadth_first::{*, self};
-/// use webgraph_algo::threads;
+/// use webgraph_algo::visits::Parallel;
+/// use webgraph_algo::visits::breadth_first::{*, self};
+/// use webgraph_algo::thread_pool;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::sync::atomic::AtomicUsize;
@@ -66,7 +66,7 @@ use webgraph::traits::RandomAccessGraph;
 ///         }
 ///         Continue(())
 ///     },
-///     &threads![],
+///     &thread_pool![],
 /// ).continue_value_no_break();
 ///
 /// assert_eq!(tree[0], 0);
@@ -150,10 +150,10 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
             return Continue(());
         }
 
-        // We do not provide a capacity in the hope of allocating dyinamically
+        // We do not provide a capacity in the hope of allocating dynamically
         // space as the frontiers grow.
         let mut curr_frontier = Frontier::with_threads(thread_pool, None);
-        // Inject the filterd roots in the frontier.
+        // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
         let mut next_frontier = Frontier::with_threads(thread_pool, None);
         let mut distance = 1;

@@ -9,5 +9,9 @@ rayon.workspace = true
 sealed = "0.6.0"
 sux.workspace = true
 thiserror = "2.0.12"
+parallel_frontier = "0.1.0"
 webgraph.workspace = true
-
+sync-cell-slice = "0.9.11"
+anyhow.workspace = true
+dsi-progress-logger.workspace = true
+no-break = "0.1.2"

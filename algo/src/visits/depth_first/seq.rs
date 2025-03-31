@@ -68,8 +68,8 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// Let's test acyclicity:
 ///
 /// ```
-/// use webgraph_algo::algo::visits::*;
-/// use webgraph_algo::algo::visits::depth_first::*;
+/// use webgraph_algo::visits::*;
+/// use webgraph_algo::visits::depth_first::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::traits::SequentialLabeling;
 /// use webgraph::labels::proj::Left;
@@ -94,8 +94,8 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// topological sort:
 ///
 /// ```
-/// use webgraph_algo::algo::visits::*;
-/// use webgraph_algo::algo::visits::depth_first::*;
+/// use webgraph_algo::visits::*;
+/// use webgraph_algo::visits::depth_first::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use webgraph::traits::labels::SequentialLabeling;

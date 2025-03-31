@@ -32,7 +32,7 @@ use webgraph::traits::RandomAccessGraph;
 /// Let's compute the distances from 0:
 ///
 /// ```
-/// use webgraph_algo::algo::visits::*;
+/// use webgraph_algo::visits::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::ops::ControlFlow::Continue;
@@ -63,7 +63,7 @@ use webgraph::traits::RandomAccessGraph;
 ///
 /// ```
 /// use std::convert::Infallible;
-/// use webgraph_algo::algo::visits::*;
+/// use webgraph_algo::visits::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::ops::ControlFlow::Continue;
