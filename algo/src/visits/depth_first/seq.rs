@@ -35,9 +35,9 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 ///   stack; it can be used, for example, to compute reachability information.
 /// * [`SeqPred`] keeps track of predecessors, but not of nodes on the stack; it
 ///   can be used, for example, to compute a [topological
-///   sort](crate::algo::top_sort()).
+///   sort](crate::top_sort).
 /// * [`SeqPath`] keeps track of predecessors and nodes on the stack; it can be
-///   used, for example, to establish [acyclicity](crate::algo::acyclicity()).
+///   used, for example, to establish [acyclicity](crate::is_acyclic)).
 ///
 /// Each type of visit uses incrementally more space:
 /// * [`SeqNoPred`] uses one bit per node to remember known nodes and a stack of

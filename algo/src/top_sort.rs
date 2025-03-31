@@ -7,7 +7,7 @@
 
 use crate::{
     visits::depth_first::SeqPred,
-    visits::{Sequential, depth_first::*},
+    visits::{depth_first::*, Sequential},
 };
 use dsi_progress_logger::ProgressLog;
 use no_break::NoBreak;

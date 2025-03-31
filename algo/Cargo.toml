@@ -26,3 +26,4 @@ sync-cell-slice = "0.9.11"
 anyhow.workspace = true
 dsi-progress-logger.workspace = true
 no-break = "0.1.2"
+lender = "0.3.1"
