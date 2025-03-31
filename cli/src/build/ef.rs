@@ -13,6 +13,7 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
+use mmap_rs::MmapFlags;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use std::path::PathBuf;
@@ -68,13 +69,12 @@ where
             let mut efb = EliasFanoBuilder::new(num_nodes, file_len as usize);
 
             info!("The offsets file exists, reading it to build Elias-Fano");
-            let of_file = BufReader::with_capacity(
-                1 << 20,
-                File::open(&of_file_path)
-                    .with_context(|| format!("Could not open {}", of_file_path.display()))?,
-            );
-            // create a bit reader on the file
-            let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
+
+            let of = <MmapHelper<u32>>::mmap(
+                of_file_path,
+                MmapFlags::SEQUENTIAL,
+            )?;
+            let mut reader = of.new_reader();
             // progress bar
             let mut pl = ProgressLogger::default();
             pl.display_memory(true)
@@ -175,13 +175,11 @@ where
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
         info!("The offsets file exists, reading it to build Elias-Fano");
-        let of_file = BufReader::with_capacity(
-            1 << 20,
-            File::open(&of_file_path)
-                .with_context(|| format!("Could not open {}", of_file_path.display()))?,
-        );
-        // create a bit reader on the file
-        let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
+        let of = <MmapHelper<u32>>::mmap(
+            of_file_path,
+            MmapFlags::SEQUENTIAL,
+        )?;
+        let mut reader = of.new_reader();
         // progress bar
         pl.start("Translating offsets to EliasFano...");
         // read the graph a write the offsets
