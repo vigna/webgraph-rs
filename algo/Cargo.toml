@@ -4,4 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+nonmax = "0.5.5"
+rayon.workspace = true
+sealed = "0.6.0"
+sux.workspace = true
+thiserror = "2.0.12"
+webgraph.workspace = true
 
