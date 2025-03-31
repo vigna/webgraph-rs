@@ -28,7 +28,7 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
     // Node timestamps will start at num_nodes and will decrease with time,
     // that is, they will go in opposite order with respect to the classical
     // implementation. We keep track of the highest index seen, instead
-    // of the lowest index seen, and we number compoments starting from
+    // of the lowest index seen, and we number components starting from
     // zero. We also raise index by the number of elements of each emitted
     // component. In this way unvisited nodes and emitted nodes have always
     // a lower value than index. This strategy is analogous to that
@@ -47,7 +47,7 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
                 }
                 EventPred::Previsit { node: curr, .. } => {
                     pl.light_update();
-                    high_link[curr] = index; // >= num_nodes, <= umax::SIZE
+                    high_link[curr] = index; // >= num_nodes, <= usize::MAX
                     index -= 1;
                     lead.push(true);
                 }
