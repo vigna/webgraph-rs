@@ -13,7 +13,8 @@
 //! the transpose of the graph—it is mainly useful for testing and debugging.
 //!
 //! For symmetric (i.e., undirected) graphs there is a [sequential](symm_seq)
-//! and a [parallel](symm_par) implementation.
+//! and a [parallel](symm_par) implementation that computes connected
+//! components.
 //!
 //! # Examples
 //! ```

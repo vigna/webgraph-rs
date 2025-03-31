@@ -13,16 +13,16 @@ use std::marker::PhantomData;
 use webgraph::traits::RandomAccessGraph;
 
 #[derive(Clone, Debug)]
-pub struct SccGraphConnection {
+pub(super) struct SccGraphConnection {
     /// The component this connection is connected to
-    pub target: usize,
+    pub(super) target: usize,
     /// The start node of the connection
-    pub start: usize,
+    pub(super) start: usize,
     /// The end node of the connection
-    pub end: usize,
+    pub(super) end: usize,
 }
 
-pub struct SccGraph<G1: RandomAccessGraph, G2: RandomAccessGraph> {
+pub(super) struct SccGraph<G1: RandomAccessGraph, G2: RandomAccessGraph> {
     /// Slice of offsets where the `i`-th offset is how many elements to skip in [`Self::data`]
     /// in order to reach the first element relative to component `i`.
     segments_offset: Box<[usize]>,
@@ -43,7 +43,7 @@ fn arc_value<G1: RandomAccessGraph, G2: RandomAccessGraph>(
 }
 
 impl<G: RandomAccessGraph> SccGraph<G, G> {
-    pub fn new_symm(sccs: &Sccs) -> Self {
+    pub(super) fn new_symm(sccs: &Sccs) -> Self {
         Self {
             segments_offset: vec![0; sccs.num_components()].into_boxed_slice(),
             data: Vec::new().into_boxed_slice(),
@@ -53,7 +53,7 @@ impl<G: RandomAccessGraph> SccGraph<G, G> {
 }
 
 impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
-    pub fn new_directed(graph: &G1, transpose: &G2, scc: &Sccs, pl: &mut impl ProgressLog) -> Self {
+    pub(super) fn new(graph: &G1, transpose: &G2, scc: &Sccs, pl: &mut impl ProgressLog) -> Self {
         pl.display_memory(false);
         pl.expected_updates(None);
         pl.start("Computing strongly connected components graph...");
@@ -71,7 +71,7 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
     }
 
     /// The successors of the specified strongly connected component.
-    pub fn successors(&self, component: usize) -> &[SccGraphConnection] {
+    pub(super) fn successors(&self, component: usize) -> &[SccGraphConnection] {
         let offset = self.segments_offset[component];
         let &end = self
             .segments_offset

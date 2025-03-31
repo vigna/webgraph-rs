@@ -34,8 +34,7 @@ use super::{Level, Missing};
 /// Experimentally obtained sane value for the granularity of the visits.
 const VISIT_GRANULARITY: usize = 64;
 
-/// The implementation of the *SumSweep* algorithm on directed graphs.
-pub struct DirExactSumSweepComputer<
+pub(super) struct DirExactSumSweepComputer<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
@@ -69,9 +68,9 @@ pub struct DirExactSumSweepComputer<
     pub radius_iterations: Option<usize>,
     /// Number of iterations before the diameter was found.
     pub diameter_iterations: Option<usize>,
-    /// Number of iterations before all forward eccentricities are found.
+    /// Number of iterations before all forward eccentricities were found.
     pub forward_iter: Option<usize>,
-    /// Number of iterations before all eccentricities are found.
+    /// Number of iterations before all eccentricities were found.
     pub all_iter: Option<usize>,
     /// The strongly connected components.
     pub scc: Sccs,
@@ -94,12 +93,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level>
 {
     /// Build a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
-    ///
-    /// # Arguments
-    /// * `graph`: the graph.
-    /// * `output`: the desired output of the algorithm.
-    /// * `pl`: a progress logger.
-    pub fn new_symm(graph: &'a G, pl: &mut impl ProgressLog) -> Self {
+    pub(super) fn new_symm(graph: &'a G, pl: &mut impl ProgressLog) -> Self {
         // TODO debug_assert!(check_symmetric(graph), "graph should be symmetric");
 
         let scc = sccs::symm_seq(graph, pl);
@@ -134,7 +128,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     ///    `i` is to be considered radial vertex. If [`None`] the algorithm will
     ///    use the biggest connected component.
     /// * `pl`: a progress logger.
-    pub fn new(
+    pub(super) fn new(
         graph: &'a G1,
         transpose: &'a G2,
         radial_vertices: Option<AtomicBitVec>,
@@ -148,7 +142,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
         );*/
 
         let scc = sccs::tarjan(graph, pl);
-        let scc_graph = SccGraph::new_directed(graph, transpose, &scc, pl);
+        let scc_graph = SccGraph::new(graph, transpose, &scc, pl);
         let visit = ParFairNoPred::new(graph, VISIT_GRANULARITY);
         let transposed_visit = ParFairNoPred::new(transpose, VISIT_GRANULARITY);
 

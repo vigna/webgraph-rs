@@ -11,6 +11,7 @@ use rayon::ThreadPool;
 use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
 
+#[doc(hidden)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Missing {
     pub radius: usize,
@@ -33,22 +34,42 @@ impl core::ops::Add for Missing {
         }
     }
 }
-/// Trait used to compute the results of the ExactSumSweep algorithm.
+
+/// Trait used to run the ExactSumSweep algorithm.
+///
+/// This trait can be used to run the algorithm either [providing a graph and
+/// its transpose](Self::run) or [using a symmetric graph](Self::run_symm).
+///
+/// It is implemented by the following structs: [`All`], [`AllForward`],
+/// [`RadiusDiameter`], [`Diameter`], and [`Radius`], which correspond to
+/// different level of computation, with decreasing cost in term of memory and
+/// execution time.
+///
+/// # Examples
+///
+/// See the [module documentation](crate::distances::exact_sum_sweep).
 pub trait Level: Sync {
-    /// The type the result of [`compute`](Self::run).
+    /// The type of the result of [`run`](Self::run).
     type Output;
-    /// The type the result of [`compute`](Self::run_symm).
+    /// The type of the result of [`run_symm`](Self::run_symm).
     type OutputSymm;
 
-    /// Build a new instance to compute the *ExactSumSweep* algorithm on
-    /// the specified directed graph and returns the results.
+    /// Runs the ExactSumSweep algorithm on the specified graph.
     ///
     /// # Arguments
-    /// * `graph`: the direct graph.
-    /// * `transpose`: the transpose of `graph`.
-    /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node `i` is to be considered
-    ///    radial vertex. If [`None`] the algorithm will use the biggest connected component.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
+    ///
+    /// * `graph`: a graph.
+    ///
+    /// * `transpose`: the transpose of `graph`. Note that you are responsible
+    ///   for providing a correct transpose. The result of the computation is
+    ///   undefined otherwise.
+    ///
+    /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node
+    ///    `i` is to be considered radial vertex. If [`None`] the algorithm will
+    ///    use the biggest connected component.
+    ///
+    /// * `thread_pool`: The thread pool to use for parallel computations.
+    ///
     /// * `pl`: a progress logger.
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -58,13 +79,16 @@ pub trait Level: Sync {
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output;
 
-    /// Build a new instance to compute the *ExactSumSweep* algorithm on the specified
-    /// symmetric graph and returns the results.
+    /// Runs the ExactSumSweep algorithm on the specified symmetric graph.
     ///
     /// # Arguments
-    /// * `graph`: the graph.
-    /// * `output`: the desired output of the algorithm.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
+    ///
+    /// * `graph`: a symmetric graph. Note that you are responsible for the
+    ///   graph being symmetric. The result of the computation is undefined
+    ///   otherwise.
+    ///
+    /// * `thread_pool`: The thread pool to use for parallel computations.
+    ///
     /// * `pl`: a progress logger.
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
@@ -75,9 +99,9 @@ pub trait Level: Sync {
     fn missing_nodes(missing_nodes: &Missing) -> usize;
 }
 
-/// Computes all the eccentricities of the graph.
+/// Computes all eccentricities of a graph, its diameter, and its radius.
 ///
-/// This variant is equivalent to [`AllForward`] in the undirected case.
+/// This variant is equivalent to [`AllForward`] in the symmetric case.
 pub struct All;
 
 impl Level for All {
@@ -167,7 +191,7 @@ impl Level for All {
     }
 }
 
-/// Computes all the forward eccentricities of the graph.
+/// Computes all forward eccentricities of a graph, its diameter, and its radius.
 pub struct AllForward;
 
 impl Level for AllForward {
@@ -228,7 +252,7 @@ impl Level for AllForward {
     }
 }
 
-/// Computes both the diameter and the radius of the graph.
+/// Computes the diameter and the radius of a graph.
 pub struct RadiusDiameter;
 
 impl Level for RadiusDiameter {
@@ -298,12 +322,13 @@ impl Level for RadiusDiameter {
         }
     }
 
+    #[doc(hidden)]
     fn missing_nodes(missing: &Missing) -> usize {
         missing.radius + std::cmp::min(missing.diameter_forward, missing.diameter_backward)
     }
 }
 
-/// Computes the diameter of the graph.
+/// Computes the diameter of a graph.
 pub struct Diameter;
 
 impl Level for Diameter {
@@ -364,7 +389,7 @@ impl Level for Diameter {
     }
 }
 
-/// Computes the radius of the graph.
+/// Computes the radius of a graph.
 pub struct Radius;
 
 impl Level for Radius {
