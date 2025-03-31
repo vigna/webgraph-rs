@@ -5,14 +5,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// Returns the index of the maximum value in a slice, or [`None`] if the slice
-/// is empty.
+/// Returns the index of the maximum value in an iterator, or [`None`] if the
+/// iterator is empty.
 ///
-/// If the maximum appears several times, this methods returns the
-/// position of the first instance.
+/// If the maximum appears several times, this methods returns the position of
+/// the first instance.
 ///
 /// # Arguments
-/// * `slice`: the slice of elements.
+///
+/// * `iter`: the iterator.
 ///
 /// # Panics
 ///
@@ -26,35 +27,37 @@
 /// let index = argmax(&v);
 /// assert_eq!(index, Some(2));
 /// ```
-pub fn argmax<T: std::cmp::PartialOrd + Copy>(slice: &[T]) -> Option<usize> {
-    slice
-        .iter()
+pub fn argmax<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>) -> Option<usize> {
+    iter.into_iter()
         .enumerate()
-        .min_by(|a, b| b.1.partial_cmp(a.1).unwrap())
+        .min_by(|a, b| b.1.partial_cmp(&a.1).unwrap())
         .map(|m| m.0)
 }
 
-/// Returns the index of the maximum value approved by a filter in a slice, or
-/// [`None`] if no element is approved by the filter.
+/// Returns the index of the maximum value approved by a filter in an iterator,
+/// or [`None`] if no element is approved by the filter.
 ///
-/// In case of ties, this method returns the index for which `tie_break` is
-/// maximized.
+/// In case of ties, this method returns the index for which the corresponding
+/// element in `tie_break` is minimized.
 ///
-/// If the minimum appears several times with the same tie break, this methods
+/// If the maximum appears several times with the same tie break, this methods
 /// returns the position of the first instance.
+///
+/// # Arguments
+///
+/// * `iter`: the iterator.
+///
+/// * `tie_break`: in case two elements of `iter` are the same, the
+///   corresponding elements in this iterator are used as secondary order.
+///
+/// * `filter`: a closure that takes as arguments the index of the element and
+///   the element itself and returns true if the element is approved.
 ///
 /// # Panics
 ///
 /// If a comparison returns [`None`].
 ///
-/// # Arguments
-/// * `slice`: the slice of elements.
-///
-/// * `tie_break`: in case two elements of `slice` are the same, this slice
-///   is used as secondary order.
-///
-/// * `filter`: a closure that takes as arguments the index of the element and
-///   the element itself and returns true if the element is approved.
+/// # Examples
 ///
 /// ```
 /// # use webgraph_algo::utils::math::argmax_filtered;
@@ -75,22 +78,21 @@ pub fn argmax_filtered<
     N: std::cmp::PartialOrd + Copy,
     F: Fn(usize, T) -> bool,
 >(
-    slice: &[T],
-    tie_break: &[N],
+    iter: impl IntoIterator<Item = T>,
+    tie_break: impl IntoIterator<Item = N>,
     filter: F,
 ) -> Option<usize> {
-    slice
-        .iter()
-        .zip(tie_break.iter())
+    iter.into_iter()
+        .zip(tie_break)
         .enumerate()
-        .filter(|v| filter(v.0, *v.1 .0))
+        .filter(|v| filter(v.0, v.1 .0))
         .min_by(|a, b| {
             let (value_a, tie_a) = a.1;
             let (value_b, tie_b) = b.1;
             value_b
-                .partial_cmp(value_a)
+                .partial_cmp(&value_a)
                 .unwrap()
-                .then(tie_b.partial_cmp(tie_a).unwrap())
+                .then(tie_b.partial_cmp(&tie_a).unwrap())
         })
         .map(|m| m.0)
 }
