@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
-/// on [`All`](super::All) or [`AllForward`](super::AllForward).
+/// The result returned by
+/// [`compute_symm`](super::OutputLevel::run_symm) on [`All`](super::All) or
+/// [`AllForward`](super::AllForward).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct All {
     /// The eccentricities
@@ -27,8 +28,9 @@ pub struct All {
     pub iterations: usize,
 }
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
-/// on [`RadiusDiameter`](super::RadiusDiameter).
+/// The result returned by
+/// [`compute_symm`](super::OutputLevel::run_symm) on
+/// [`RadiusDiameter`](super::RadiusDiameter).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RadiusDiameter {
     /// The diameter.
@@ -45,21 +47,21 @@ pub struct RadiusDiameter {
     pub diameter_iterations: usize,
 }
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
-/// on [`Diameter`](super::Diameter).
+/// The result returned by
+/// [`compute_symm`](super::OutputLevel::run_symm) on
+/// [`Diameter`](super::Diameter).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Diameter {
     /// The diameter.
     pub diameter: usize,
-    /// The radius.
     /// A vertex whose eccentricity equals the diameter.
     pub diametral_vertex: usize,
     /// Number of iterations before the diameter was found.
     pub diameter_iterations: usize,
 }
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
-/// on [`Radius`](super::Radius).
+/// The result returned by
+/// [`compute_symm`](super::OutputLevel::run_symm) on [`Radius`](super::Radius).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Radius {
     /// The radius.

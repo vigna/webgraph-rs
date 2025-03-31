@@ -16,14 +16,15 @@
 //! The algorithm can compute the diameter, the radius, and even the
 //! eccentricities (forward and backward) of a graph. These tasks are quadratic
 //! in nature, but ExactSumSweep uses a number of heuristic to reduce the
-//! computation to a relatively small number of visits.
+//! computation to a relatively small number of visits on real-world graphs.
 //!
 //! Depending on what you intend to compute, you have to choose the right
-//! *output level* between [`All`], [`AllForward`], [`RadiusDiameter`],
-//! [`Diameter`], and [`Radius`]. Then you have to invoke
-//! [`compute`](OutputLevel::run) or [`compute_symm`](OutputLevel::run_symm).
-//! In the first case, you have to provide a graph and its transpose;
-//! in the second case, you have to provide a symmetric graph.
+//! [*output level*](OutputLevel) between [`All`], [`AllForward`],
+//! [`RadiusDiameter`], [`Diameter`], and [`Radius`]. Then you have to invoke
+//! [`compute`](OutputLevel::run) or [`compute_symm`](OutputLevel::run_symm). In
+//! the first case, you have to provide a graph and its transpose; in the second
+//! case, you have to provide a symmetric graph. The methods returns a
+//! suitable structure containing the result of the algorithm.
 //!
 //! # Examples
 //!
