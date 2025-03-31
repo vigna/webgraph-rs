@@ -6,11 +6,13 @@ framework](http://webgraph.di.unimi.it/) for graph compression.
 ## At a Glance
 
 - Compressed graph representation (start from here):
-  [`webgraph`](http://crates.io/crates/webgraph) [repo](/webgraph)
+  [`webgraph`](http://crates.io/crates/webgraph) ([repo](/webgraph))
 
-- Algorithms: [`webgraph_algo`](http://crates.io/crates/webgraph_algo) 
+- Algorithms: [`webgraph_algo`](http://crates.io/crates/webgraph_algo)
+  ([repo](/algo))
 
 - CLI commands: [`webgraph_cli`](http://crates.io/crates/webgraph_cli)
+  ([repo](/cli))
 
 ## Acknowledgments
 
