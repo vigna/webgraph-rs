@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::compute_symm)
+/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
 /// on [`All`](super::All) or [`AllForward`](super::AllForward).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct All {
@@ -27,7 +27,7 @@ pub struct All {
     pub iterations: usize,
 }
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::compute_symm)
+/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
 /// on [`RadiusDiameter`](super::RadiusDiameter).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RadiusDiameter {
@@ -45,7 +45,7 @@ pub struct RadiusDiameter {
     pub diameter_iterations: usize,
 }
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::compute_symm)
+/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
 /// on [`Diameter`](super::Diameter).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Diameter {
@@ -58,7 +58,7 @@ pub struct Diameter {
     pub diameter_iterations: usize,
 }
 
-/// The results produced by calling [`compute_symm`](super::OutputLevel::compute_symm)
+/// The results produced by calling [`compute_symm`](super::OutputLevel::run_symm)
 /// on [`Radius`](super::Radius).
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Radius {

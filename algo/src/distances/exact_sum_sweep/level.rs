@@ -35,10 +35,10 @@ impl core::ops::Add for Missing {
 }
 /// Trait used to compute the results of the ExactSumSweep algorithm.
 pub trait OutputLevel: Sync {
-    /// The result of the algorithm when called on directed graphs.
-    type DirectedOutput;
-    /// The result of the algorithm when called on undirected graphs.
-    type UndirectedOutput;
+    /// The type the result of [`compute`](Self::run).
+    type Output;
+    /// The type the result of [`compute`](Self::run_symm).
+    type OutputSymm;
 
     /// Build a new instance to compute the *ExactSumSweep* algorithm on
     /// the specified directed graph and returns the results.
@@ -50,27 +50,27 @@ pub trait OutputLevel: Sync {
     ///    radial vertex. If [`None`] the algorithm will use the biggest connected component.
     /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: a progress logger.
-    fn compute(
+    fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::DirectedOutput;
+    ) -> Self::Output;
 
     /// Build a new instance to compute the *ExactSumSweep* algorithm on the specified
-    /// undirected graph and returns the results.
+    /// symmetric graph and returns the results.
     ///
     /// # Arguments
     /// * `graph`: the graph.
     /// * `output`: the desired output of the algorithm.
     /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: a progress logger.
-    fn compute_symm(
+    fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::UndirectedOutput;
+    ) -> Self::OutputSymm;
 
     fn missing_nodes(missing_nodes: &Missing) -> usize;
 }
@@ -81,16 +81,16 @@ pub trait OutputLevel: Sync {
 pub struct All;
 
 impl OutputLevel for All {
-    type DirectedOutput = outputs::All;
-    type UndirectedOutput = outputs_symm::All;
+    type Output = outputs::All;
+    type OutputSymm = outputs_symm::All;
 
-    fn compute(
+    fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::DirectedOutput {
+    ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
             &graph,
             &transpose,
@@ -127,7 +127,7 @@ impl OutputLevel for All {
         let forward_eccentricities = computer.forward_low;
         let backward_eccentricities = computer.backward_high;
 
-        Self::DirectedOutput {
+        Self::Output {
             forward_eccentricities,
             backward_eccentricities,
             diameter,
@@ -141,11 +141,11 @@ impl OutputLevel for All {
         }
     }
 
-    fn compute_symm(
+    fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::UndirectedOutput {
+    ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
@@ -171,7 +171,7 @@ impl OutputLevel for All {
         let iterations = computer.forward_iter.unwrap();
         let eccentricities = computer.forward_low;
 
-        Self::UndirectedOutput {
+        Self::OutputSymm {
             eccentricities,
             diameter,
             radius,
@@ -192,16 +192,16 @@ impl OutputLevel for All {
 pub struct AllForward;
 
 impl OutputLevel for AllForward {
-    type DirectedOutput = outputs::AllForward;
-    type UndirectedOutput = outputs_symm::All;
+    type Output = outputs::AllForward;
+    type OutputSymm = outputs_symm::All;
 
-    fn compute(
+    fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::DirectedOutput {
+    ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
             &graph,
             &transpose,
@@ -232,7 +232,7 @@ impl OutputLevel for AllForward {
         let forward_iterations = computer.forward_iter.unwrap();
         let forward_eccentricities = computer.forward_low;
 
-        Self::DirectedOutput {
+        Self::Output {
             forward_eccentricities,
             diameter,
             radius,
@@ -245,12 +245,12 @@ impl OutputLevel for AllForward {
     }
 
     #[inline(always)]
-    fn compute_symm(
+    fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::UndirectedOutput {
-        All::compute_symm(graph, thread_pool, pl)
+    ) -> Self::OutputSymm {
+        All::run_symm(graph, thread_pool, pl)
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -262,16 +262,16 @@ impl OutputLevel for AllForward {
 pub struct RadiusDiameter;
 
 impl OutputLevel for RadiusDiameter {
-    type DirectedOutput = outputs::RadiusDiameter;
-    type UndirectedOutput = outputs_symm::RadiusDiameter;
+    type Output = outputs::RadiusDiameter;
+    type OutputSymm = outputs_symm::RadiusDiameter;
 
-    fn compute(
+    fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::DirectedOutput {
+    ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
             &graph,
             &transpose,
@@ -296,7 +296,7 @@ impl OutputLevel for RadiusDiameter {
         let radius_iterations = computer.radius_iterations.unwrap();
         let diameter_iterations = computer.diameter_iterations.unwrap();
 
-        Self::DirectedOutput {
+        Self::Output {
             diameter,
             radius,
             diametral_vertex,
@@ -306,11 +306,11 @@ impl OutputLevel for RadiusDiameter {
         }
     }
 
-    fn compute_symm(
+    fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::UndirectedOutput {
+    ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
@@ -330,7 +330,7 @@ impl OutputLevel for RadiusDiameter {
         let radius_iterations = computer.radius_iterations.unwrap();
         let diameter_iterations = computer.diameter_iterations.unwrap();
 
-        Self::UndirectedOutput {
+        Self::OutputSymm {
             diameter,
             radius,
             diametral_vertex,
@@ -349,16 +349,16 @@ impl OutputLevel for RadiusDiameter {
 pub struct Diameter;
 
 impl OutputLevel for Diameter {
-    type DirectedOutput = outputs::Diameter;
-    type UndirectedOutput = outputs_symm::Diameter;
+    type Output = outputs::Diameter;
+    type OutputSymm = outputs_symm::Diameter;
 
-    fn compute(
+    fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::DirectedOutput {
+    ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
             &graph,
             &transpose,
@@ -376,18 +376,18 @@ impl OutputLevel for Diameter {
         let diametral_vertex = computer.diameter_vertex;
         let diameter_iterations = computer.diameter_iterations.unwrap();
 
-        Self::DirectedOutput {
+        Self::Output {
             diameter,
             diametral_vertex,
             diameter_iterations,
         }
     }
 
-    fn compute_symm(
+    fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::UndirectedOutput {
+    ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
@@ -400,7 +400,7 @@ impl OutputLevel for Diameter {
         let diametral_vertex = computer.diameter_vertex;
         let diameter_iterations = computer.diameter_iterations.unwrap();
 
-        Self::UndirectedOutput {
+        Self::OutputSymm {
             diameter,
             diametral_vertex,
             diameter_iterations,
@@ -416,16 +416,16 @@ impl OutputLevel for Diameter {
 pub struct Radius;
 
 impl OutputLevel for Radius {
-    type DirectedOutput = outputs::Radius;
-    type UndirectedOutput = outputs_symm::Radius;
+    type Output = outputs::Radius;
+    type OutputSymm = outputs_symm::Radius;
 
-    fn compute(
+    fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::DirectedOutput {
+    ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
             &graph,
             &transpose,
@@ -443,18 +443,18 @@ impl OutputLevel for Radius {
         let radial_vertex = computer.radius_vertex;
         let radius_iterations = computer.radius_iterations.unwrap();
 
-        Self::DirectedOutput {
+        Self::Output {
             radius,
             radial_vertex,
             radius_iterations,
         }
     }
 
-    fn compute_symm(
+    fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
-    ) -> Self::UndirectedOutput {
+    ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
@@ -467,7 +467,7 @@ impl OutputLevel for Radius {
         let radial_vertex = computer.radius_vertex;
         let radius_iterations = computer.radius_iterations.unwrap();
 
-        Self::UndirectedOutput {
+        Self::OutputSymm {
             radius,
             radial_vertex,
             radius_iterations,

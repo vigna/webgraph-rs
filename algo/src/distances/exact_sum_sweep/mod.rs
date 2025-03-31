@@ -13,6 +13,18 @@
 //! graphs–With an application to the six degrees of separation
 //! games](https://doi.org/10.1016/j.tcs.2015.02.033)”.
 //!
+//! The algorithm can compute the diameter, the radius, and even the
+//! eccentricities (forward and backward) of a graph. These tasks are quadratic
+//! in nature, but ExactSumSweep uses a number of heuristic to reduce the
+//! computation to a relatively small number of visits.
+//!
+//! Depending on what you intend to compute, you have to choose the right
+//! *output level* between [`All`], [`AllForward`], [`RadiusDiameter`],
+//! [`Diameter`], and [`Radius`]. Then you have to invoke
+//! [`compute`](OutputLevel::run) or [`compute_symm`](OutputLevel::run_symm).
+//! In the first case, you have to provide a graph and its transpose;
+//! in the second case, you have to provide a symmetric graph.
+//!
 //! # Examples
 //!
 //! ```
@@ -26,7 +38,7 @@
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
 //! // Let's compute all eccentricities
-//! let result = exact_sum_sweep::All::compute(
+//! let result = exact_sum_sweep::All::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
@@ -40,7 +52,7 @@
 //! assert_eq!(result.backward_eccentricities.as_ref(), &vec![3, 3, 3, 3, 4]);
 //!
 //! // Let's just compute the radius and diameter
-//! let result = exact_sum_sweep::RadiusDiameter::compute(
+//! let result = exact_sum_sweep::RadiusDiameter::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
@@ -62,7 +74,7 @@
 //! let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
 //! let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
 //!
-//! let result = exact_sum_sweep::RadiusDiameter::compute(
+//! let result = exact_sum_sweep::RadiusDiameter::run(
 //!     &graph,
 //!     &transpose,
 //!     None,
@@ -78,7 +90,7 @@
 //! ```
 //!
 //! If the graph is symmetric (i.e., undirected), you may use
-//! [compute_symm](OutputLevel::compute_symm).
+//! [compute_symm](OutputLevel::run_symm).
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
 //! use webgraph_algo::thread_pool;
@@ -89,7 +101,7 @@
 //!     [(0, 1), (1, 0), (1, 2), (2, 1), (2, 0), (0, 2), (3, 4), (4, 3)]
 //! );
 //!
-//! let result = exact_sum_sweep::RadiusDiameter::compute_symm(
+//! let result = exact_sum_sweep::RadiusDiameter::run_symm(
 //!     &graph,
 //!     &thread_pool![],
 //!     no_logging![]
