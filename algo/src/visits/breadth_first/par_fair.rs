@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::visits::{Parallel, breadth_first::*};
+use crate::visits::{breadth_first::*, Parallel};
 use parallel_frontier::Frontier;
-use rayon::{ThreadPool, prelude::*};
+use rayon::{prelude::*, ThreadPool};
 use std::{
     ops::ControlFlow::{self, Continue},
     sync::atomic::Ordering,

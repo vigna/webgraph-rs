@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, create_parent_dir};
+use crate::{create_parent_dir, GlobalArgs};
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_progress_logger::prelude::*;

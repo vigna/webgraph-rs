@@ -1,5 +1,8 @@
 # WebGraph
 
+![license](https://img.shields.io/crates/l/webgraph)
+[![Line count](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
+
 A Rust implementation of the [WebGraph
 framework](http://webgraph.di.unimi.it/) for graph compression.
 

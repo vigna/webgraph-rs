@@ -18,6 +18,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use std::path::PathBuf;
 use sux::prelude::*;
+use tempfile::NamedTempFile;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug, Clone)]
@@ -32,6 +33,16 @@ pub struct CliArgs {
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+    let ef_path = args.src.with_extension(EF_EXTENSION);
+    // check that ef_path is writable, this is the only portable way I found
+    // to check that the file is writable.
+    if ef_path.exists() && ef_path.metadata()?.permissions().readonly() {
+        return Err(anyhow::anyhow!(
+            "The file is not writable: {}",
+            ef_path.display()
+        ));
+    }
+
     match get_endianness(&args.src)?.as_str() {
         #[cfg(any(
             feature = "be_bins",
@@ -54,8 +65,15 @@ pub fn build_eliasfano<E: Endianness + 'static>(
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true).item_name("offset");
+    if let Some(duration) = &global_args.log_interval {
+        pl.log_interval(*duration);
+    }
+
     let basename = args.src.clone();
     if let Some(num_nodes) = args.n {
+        pl.expected_updates(Some(num_nodes));
         // Horribly temporary duplicated code for the case of label offsets.
         let of_file_path = basename.with_extension(LABELOFFSETS_EXTENSION);
         if of_file_path.exists() {
@@ -70,68 +88,21 @@ where
 
             info!("The offsets file exists, reading it to build Elias-Fano");
 
-            let of = <MmapHelper<u32>>::mmap(
-                of_file_path,
-                MmapFlags::SEQUENTIAL,
+            let of = <MmapHelper<u32>>::mmap(of_file_path, MmapFlags::SEQUENTIAL)?;
+            build_eliasfano_from_offsets(
+                &global_args,
+                &args,
+                num_nodes,
+                of.new_reader(),
+                &mut pl,
+                &mut efb,
             )?;
-            let mut reader = of.new_reader();
-            // progress bar
-            let mut pl = ProgressLogger::default();
-            pl.display_memory(true)
-                .item_name("offset")
-                .expected_updates(Some(num_nodes));
-            if let Some(duration) = &global_args.log_interval {
-                pl.log_interval(*duration);
-            }
-            pl.start("Translating offsets to EliasFano...");
-            // read the graph a write the offsets
-            let mut offset = 0;
-            for _node_id in 0..num_nodes {
-                // write where
-                offset += reader.read_gamma().context("Could not read gamma")?;
-                efb.push(offset as _);
-                // decode the next nodes so we know where the next node_id starts
-                pl.light_update();
-            }
-            let ef = efb.build();
-
-            let mut pl = ProgressLogger::default();
-            pl.display_memory(true);
-            if let Some(duration) = &global_args.log_interval {
-                pl.log_interval(*duration);
-            }
-            pl.start("Building the Index over the ones in the high-bits...");
-            let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
-            pl.done();
-
-            let mut pl = ProgressLogger::default();
-            pl.display_memory(true);
-            if let Some(duration) = &global_args.log_interval {
-                pl.log_interval(*duration);
-            }
-            pl.start("Writing to disk...");
-            // serialize and dump the schema to disk
-            let ef_path = basename.with_extension(EF_EXTENSION);
-            let mut ef_file = BufWriter::new(
-                File::create(&ef_path)
-                    .with_context(|| format!("Could not create {}", ef_path.display()))?,
-            );
-            ef.serialize(&mut ef_file)
-                .with_context(|| format!("Could not serialize EF to {}", ef_path.display()))?;
-            pl.done();
-            return Ok(());
+            return serialize_eliasfano(&global_args, &args, efb, &mut pl);
         }
     }
 
     // Creates the offsets file
     let of_file_path = basename.with_extension(OFFSETS_EXTENSION);
-
-    let ef_path = basename.with_extension(EF_EXTENSION);
-    info!("Creating Elias-Fano at '{}'", ef_path.display());
-    let mut ef_file = BufWriter::new(
-        File::create(&ef_path)
-            .with_context(|| format!("Could not create {}", ef_path.display()))?,
-    );
 
     let graph_path = basename.with_extension(GRAPH_EXTENSION);
     info!("Getting size of graph at '{}'", graph_path.display());
@@ -161,13 +132,7 @@ where
         let map = java_properties::read(BufReader::new(f))?;
         Ok(map.get("nodes").unwrap().parse::<usize>()?)
     })?;
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("offset")
-        .expected_updates(Some(num_nodes));
-    if let Some(duration) = &global_args.log_interval {
-        pl.log_interval(*duration);
-    }
+    pl.expected_updates(Some(num_nodes));
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
 
@@ -175,49 +140,20 @@ where
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
         info!("The offsets file exists, reading it to build Elias-Fano");
-        let of = <MmapHelper<u32>>::mmap(
-            of_file_path,
-            MmapFlags::SEQUENTIAL,
+        let of = <MmapHelper<u32>>::mmap(of_file_path, MmapFlags::SEQUENTIAL)?;
+        build_eliasfano_from_offsets(
+            &global_args,
+            &args,
+            num_nodes,
+            of.new_reader(),
+            &mut pl,
+            &mut efb,
         )?;
-        let mut reader = of.new_reader();
-        // progress bar
-        pl.start("Translating offsets to EliasFano...");
-        // read the graph a write the offsets
-        let mut offset = 0;
-        for _node_id in 0..num_nodes + 1 {
-            // write where
-            offset += reader.read_gamma().context("Could not read gamma")?;
-            efb.push(offset as _);
-            // decode the next nodes so we know where the next node_id starts
-            pl.light_update();
-        }
     } else {
         build_eliasfano_from_graph(&args, &mut pl, &mut efb)?;
     }
-    let ef = efb.build();
-    pl.done();
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
-    if let Some(duration) = &global_args.log_interval {
-        pl.log_interval(*duration);
-    }
-    pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
-    pl.done();
-
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
-    if let Some(duration) = &global_args.log_interval {
-        pl.log_interval(*duration);
-    }
-    pl.start("Writing to disk...");
-    // serialize and dump the schema to disk
-    ef.serialize(&mut ef_file)
-        .with_context(|| format!("Could not serialize EliasFano to {}", ef_path.display()))?;
-
-    pl.done();
-    Ok(())
+    serialize_eliasfano(&global_args, &args, efb, &mut pl)
 }
 
 pub fn build_eliasfano_from_graph(
@@ -231,17 +167,42 @@ pub fn build_eliasfano_from_graph(
             feature = "be_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        BE::NAME => build_eliasfano_sub::<BE>(args, pl, efb),
+        BE::NAME => build_eliasfano_from_graph_with_endianness::<BE>(args, pl, efb),
         #[cfg(any(
             feature = "le_bins",
             not(any(feature = "be_bins", feature = "le_bins"))
         ))]
-        LE::NAME => build_eliasfano_sub::<LE>(args, pl, efb),
+        LE::NAME => build_eliasfano_from_graph_with_endianness::<LE>(args, pl, efb),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_eliasfano_sub<E: Endianness>(
+pub fn build_eliasfano_from_offsets<E: Endianness>(
+    _global_args: &GlobalArgs,
+    _args: &CliArgs,
+    num_nodes: usize,
+    mut reader: impl GammaRead<E>,
+    pl: &mut impl ProgressLog,
+    efb: &mut EliasFanoBuilder,
+) -> Result<()> {
+    info!("Building Elias-Fano from offsets...");
+
+    // progress bar
+    pl.start("Translating offsets to EliasFano...");
+    // read the graph a write the offsets
+    let mut offset = 0;
+    for _node_id in 0..num_nodes + 1 {
+        // write where
+        offset += reader.read_gamma().context("Could not read gamma")?;
+        efb.push(offset as _);
+        // decode the next nodes so we know where the next node_id starts
+        pl.light_update();
+    }
+    pl.done();
+    Ok(())
+}
+
+pub fn build_eliasfano_from_graph_with_endianness<E: Endianness>(
     args: &CliArgs,
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,
@@ -266,5 +227,58 @@ where
         pl.light_update();
     }
     efb.push(iter.get_pos() as _);
+    Ok(())
+}
+
+pub fn serialize_eliasfano(
+    global_args: &GlobalArgs,
+    args: &CliArgs,
+    efb: EliasFanoBuilder,
+    pl: &mut impl ProgressLog,
+) -> Result<()> {
+    let ef = efb.build();
+    pl.done();
+
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true);
+    if let Some(duration) = &global_args.log_interval {
+        pl.log_interval(*duration);
+    }
+    pl.start("Building the Index over the ones in the high-bits...");
+    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
+    pl.done();
+
+    let mut pl = ProgressLogger::default();
+    pl.display_memory(true);
+    if let Some(duration) = &global_args.log_interval {
+        pl.log_interval(*duration);
+    }
+    pl.start("Writing to disk...");
+    let ef_path = args.src.with_extension(EF_EXTENSION);
+
+    let mut tmp_file = NamedTempFile::with_prefix("ef_")?;
+    let tmp_file_path = tmp_file.path().to_owned();
+    info!(
+        "Creating Elias-Fano at '{}' and then renaming it to '{}'",
+        tmp_file_path.display(),
+        ef_path.display()
+    );
+
+    let mut tmp = BufWriter::new(tmp_file.as_file_mut());
+    // serialize and dump the schema to disk
+    ef.serialize(&mut tmp).with_context(|| {
+        format!(
+            "Could not serialize EliasFano to {}",
+            tmp_file_path.display()
+        )
+    })?;
+
+    info!(
+        "Renaming '{}' into '{}'",
+        tmp_file_path.display(),
+        ef_path.display()
+    );
+    std::fs::rename(tmp_file_path, ef_path)?;
+    pl.done();
     Ok(())
 }

@@ -6,11 +6,11 @@
  */
 
 use crate::visits::{
-    Parallel,
     breadth_first::{EventPred, FilterArgsPred},
+    Parallel,
 };
 use parallel_frontier::Frontier;
-use rayon::{ThreadPool, prelude::*};
+use rayon::{prelude::*, ThreadPool};
 use std::{
     ops::ControlFlow::{self, Continue},
     sync::atomic::Ordering,

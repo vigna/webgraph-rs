@@ -10,12 +10,12 @@
 //! Each module correspond to a group of commands, and each command is
 //! implemented as a submodule.
 
-use anyhow::{Context, Result, anyhow, bail, ensure};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
-use jiff::SpanRound;
 use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
+use jiff::SpanRound;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;

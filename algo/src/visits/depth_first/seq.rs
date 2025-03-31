@@ -6,8 +6,8 @@
  */
 
 use crate::visits::{
-    Sequential,
     depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
+    Sequential,
 };
 use sealed::sealed;
 use std::ops::ControlFlow::{self, Continue};

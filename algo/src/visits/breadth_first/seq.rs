@@ -6,8 +6,8 @@
  */
 
 use crate::visits::{
-    Sequential,
     breadth_first::{EventPred, FilterArgsPred},
+    Sequential,
 };
 use nonmax::NonMaxUsize;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};

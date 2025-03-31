@@ -60,12 +60,17 @@ impl<W: Debug> Debug for MmapHelper<W, MmapMut> {
 impl<W> TryFrom<Mmap> for MmapHelper<W> {
     type Error = anyhow::Error;
 
-    fn try_from(value: Mmap) -> std::prelude::v1::Result<Self, Self::Error> {
-        ensure!(
-            value.len() % size_of::<W>() == 0,
-            "The size of the mmap is not a multiple of the size of W"
-        );
-        let len = value.len() / size_of::<W>();
+    fn try_from(value: Mmap) -> std::result::Result<Self, Self::Error> {
+        #[cfg(windows)]
+        {
+            /// Only on windows is required, on linux we can handle these cases
+            /// with the implicit zero padding that mmap guarantees.
+            ensure!(
+                value.len() % size_of::<W>() == 0,
+                "The size of the mmap is not a multiple of the size of W"
+            );
+        }
+        let len = value.len().div_ceil(size_of::<W>());
         Ok(Self {
             len,
             mmap: value,
