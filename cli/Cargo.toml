@@ -34,6 +34,7 @@ chrono = "0.4.39"
 default = ["be_bins", "le_bins"]
 be_bins = [] # Enable read / write of only BE bvgraphs (to reduce code size)
 le_bins = [] # Enable read / write of only LE bvgraphs (to reduce code size)
+slow_tests = [] # Enable long-running tests
 
 [[bin]]
 name = "webgraph-cli"
