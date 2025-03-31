@@ -9,10 +9,13 @@
 
 #[macro_use]
 pub mod utils;
+mod acyclicity;
+mod top_sort;
 pub mod visits;
-
 pub mod prelude {
+    pub use crate::acyclicity::is_acyclic;
     pub use crate::thread_pool;
+    pub use crate::top_sort::top_sort;
     pub use crate::visits::breadth_first;
     pub use crate::visits::depth_first;
     pub use crate::visits::*;

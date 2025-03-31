@@ -9,45 +9,6 @@ use no_break::NoBreak;
 use webgraph::prelude::VecGraph;
 use webgraph_algo::{prelude::depth_first, visits::Sequential};
 
-/* TODO #[test]
-fn test_top_sort() {
-    assert_eq!(
-        vec![0, 1, 2].into_boxed_slice(),
-        top_sort(VecGraph::from_arcs([(1, 2), (0, 1)]), no_logging![])
-    );
-
-    assert_eq!(
-        vec![0, 1, 2].into_boxed_slice(),
-        top_sort(VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]), no_logging![])
-    );
-
-    assert_eq!(
-        vec![0, 2, 1, 3].into_boxed_slice(),
-        top_sort(
-            VecGraph::from_arcs([(0, 1), (0, 2), (2, 3), (1, 3)]),
-            no_logging![]
-        )
-    );
-}
-*/
-/*#[test] TODO
-fn test_acyclicity() {
-    let graph = VecGraph::from_arcs([(1, 2), (0, 1)]);
-
-    assert!(acyclicity(&graph, no_logging![]));
-    assert!(graph.is_acyclic());
-
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-
-    assert!(!acyclicity(&graph, no_logging![]));
-    assert!(!graph.is_acyclic());
-
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (2, 3), (1, 3)]);
-
-    assert!(acyclicity(&graph, no_logging![]));
-    assert!(graph.is_acyclic());
-}
-*/
 #[test]
 fn test_depth() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
