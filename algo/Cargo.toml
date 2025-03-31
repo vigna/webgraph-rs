@@ -2,6 +2,17 @@
 name = "webgraph_algo"
 version = "0.1.0"
 edition = "2024"
+description = "Algorithms for the Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
+repository = "https://github.com/vigna/webgraph-rs/"
+license = "Apache-2.0 OR LGPL-2.1-or-later"
+readme = "README.md"
+keywords = ["graph", "compression", "codes", "webgraph"]
+categories = ["compression", "data-structures", "algorithms"]
+authors = [
+	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Matteo Dell'Acqua <dellacqua.matteo99@gmail.com>",
+	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
+]
 
 [dependencies]
 nonmax = "0.5.5"

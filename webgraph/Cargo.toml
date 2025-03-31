@@ -8,6 +8,10 @@ license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
 keywords = ["graph", "compression", "codes", "webgraph"]
 categories = ["compression", "data-structures"]
+authors = [
+	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
+]
 
 [features]
 default = []

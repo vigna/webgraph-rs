@@ -2,6 +2,10 @@
 name = "webgraph_cli"
 version = "0.1.0"
 edition = "2024"
+authors = [
+	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
+]
 
 [dependencies]
 webgraph.workspace = true
@@ -32,9 +36,9 @@ chrono = "0.4.39"
 
 [features]
 default = ["be_bins", "le_bins"]
-be_bins = [] # Enable read / write of only BE bvgraphs (to reduce code size)
-le_bins = [] # Enable read / write of only LE bvgraphs (to reduce code size)
-slow_tests = [] # Enable long-running tests
+be_bins = []                     # Enable read / write of only BE bvgraphs (to reduce code size)
+le_bins = []                     # Enable read / write of only LE bvgraphs (to reduce code size)
+slow_tests = []                  # Enable long-running tests
 
 [[bin]]
 name = "webgraph-cli"
