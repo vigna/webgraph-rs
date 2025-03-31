@@ -13,9 +13,9 @@ use webgraph::traits::RandomAccessGraph;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Missing {
-    pub r: usize,
-    pub df: usize,
-    pub db: usize,
+    pub radius: usize,
+    pub diameter_forward: usize,
+    pub diameter_backward: usize,
     pub all_forward: usize,
     pub all_backward: usize,
 }
@@ -25,9 +25,9 @@ impl core::ops::Add for Missing {
 
     fn add(self, rhs: Self) -> Self {
         Self {
-            r: self.r + rhs.r,
-            df: self.df + rhs.df,
-            db: self.db + rhs.db,
+            radius: self.radius + rhs.radius,
+            diameter_forward: self.diameter_forward + rhs.diameter_forward,
+            diameter_backward: self.diameter_backward + rhs.diameter_backward,
             all_forward: self.all_forward + rhs.all_forward,
             all_backward: self.all_backward + rhs.all_backward,
         }
@@ -99,22 +99,10 @@ impl Level for All {
         );
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.all_iter.is_some(),
-            "Trying to build All without all eccentricities computed"
-        );
-        assert!(
-            computer.forward_iter.is_some(),
-            "Trying to build All without all forward eccentricities computed"
-        );
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build All without the diameter computed"
-        );
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build All without the radius computed"
-        );
+        assert!(computer.all_iter.is_some(),);
+        assert!(computer.forward_iter.is_some(),);
+        assert!(computer.diameter_iterations.is_some(),);
+        assert!(computer.radius_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let radius = computer.radius_high;
@@ -149,18 +137,9 @@ impl Level for All {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.forward_iter.is_some(),
-            "Trying to build All without all forward eccentricities computed"
-        );
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build All without the diameter computed"
-        );
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build All without the radius computed"
-        );
+        assert!(computer.forward_iter.is_some(),);
+        assert!(computer.diameter_iterations.is_some(),);
+        assert!(computer.radius_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let radius = computer.radius_high;
@@ -210,18 +189,9 @@ impl Level for AllForward {
         );
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.forward_iter.is_some(),
-            "Trying to build AllForward without all forward eccentricities computed"
-        );
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build AllForward without the diameter computed"
-        );
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build AllForward without the radius computed"
-        );
+        assert!(computer.forward_iter.is_some(),);
+        assert!(computer.diameter_iterations.is_some());
+        assert!(computer.radius_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let radius = computer.radius_high;
@@ -280,14 +250,8 @@ impl Level for RadiusDiameter {
         );
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build RadiusDiameter without the diameter computed"
-        );
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build RadiusDiameter without the radius computed"
-        );
+        assert!(computer.diameter_iterations.is_some(),);
+        assert!(computer.radius_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let radius = computer.radius_high;
@@ -314,14 +278,8 @@ impl Level for RadiusDiameter {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build RadiusDiameter without the diameter computed"
-        );
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build RadiusDiameter without the radius computed"
-        );
+        assert!(computer.diameter_iterations.is_some(),);
+        assert!(computer.radius_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let radius = computer.radius_high;
@@ -341,7 +299,7 @@ impl Level for RadiusDiameter {
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
-        missing.r + std::cmp::min(missing.df, missing.db)
+        missing.radius + std::cmp::min(missing.diameter_forward, missing.diameter_backward)
     }
 }
 
@@ -367,10 +325,7 @@ impl Level for Diameter {
         );
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build Diameter without the diameter computed"
-        );
+        assert!(computer.diameter_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let diametral_vertex = computer.diameter_vertex;
@@ -391,10 +346,7 @@ impl Level for Diameter {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.diameter_iterations.is_some(),
-            "Trying to build Diameter without the diameter computed"
-        );
+        assert!(computer.diameter_iterations.is_some(),);
 
         let diameter = computer.diameter_low;
         let diametral_vertex = computer.diameter_vertex;
@@ -408,7 +360,7 @@ impl Level for Diameter {
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
-        std::cmp::min(missing.df, missing.db)
+        std::cmp::min(missing.diameter_forward, missing.diameter_backward)
     }
 }
 
@@ -434,10 +386,7 @@ impl Level for Radius {
         );
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build Radius without the radius computed"
-        );
+        assert!(computer.radius_iterations.is_some(),);
 
         let radius = computer.radius_high;
         let radial_vertex = computer.radius_vertex;
@@ -458,10 +407,7 @@ impl Level for Radius {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
         computer.compute(thread_pool, pl);
 
-        assert!(
-            computer.radius_iterations.is_some(),
-            "Trying to build Radius without the radius computed"
-        );
+        assert!(computer.radius_iterations.is_some(),);
 
         let radius = computer.radius_high;
         let radial_vertex = computer.radius_vertex;
@@ -475,6 +421,6 @@ impl Level for Radius {
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
-        missing.r
+        missing.radius
     }
 }

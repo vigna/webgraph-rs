@@ -21,7 +21,7 @@
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// # use webgraph_algo::utils::math::argmin;
 /// let v = vec![4, 3, 1, 0, 5, 0];
 /// let index = argmin(&v);
@@ -58,18 +58,19 @@ pub fn argmin<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>)
 /// If a comparison returns [`None`].
 ///
 /// # Examples
-/// ```
+///
+/// ```rust
 /// # use webgraph_algo::utils::math::argmin_filtered;
 /// let v = vec![3, 2, 5, 2, 3, 2];
 /// let tie = vec![5, 4, 3, 2, 1, 1];
-/// let index = argmin_filtered(&v, &tie, |_, element| element > 1);
+/// let index = argmin_filtered(&v, &tie, |_, &element| element > 1);
 /// // Tie break wins
 /// assert_eq!(index, Some(5));
 ///
 /// let v = vec![3, 2, 5, 2, 3, 2];
 /// let tie = vec![5, 4, 3, 2, 1, 2];
 /// // Enumeration order wins
-/// let index = argmin_filtered(&v, &tie, |_, element| element > 1);
+/// let index = argmin_filtered(&v, &tie, |_, &element| element > 1);
 /// assert_eq!(index, Some(3));
 /// ```
 pub fn argmin_filtered<

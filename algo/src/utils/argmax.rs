@@ -59,17 +59,17 @@ pub fn argmax<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>)
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// # use webgraph_algo::utils::math::argmax_filtered;
 /// let v = vec![1, 2, 5, 2, 1, 2];
 /// let tie = vec![1, 2, 3, 4, 5, 2];
-/// let index = argmax_filtered(&v, &tie, |_, element| element < 4);
+/// let index = argmax_filtered(&v, &tie, |_, &element| element < 4);
 /// // Tie break wins
 /// assert_eq!(index, Some(3));
 ///
 /// let v = vec![1, 2, 5, 2, 1, 2];
 /// let tie = vec![1, 1, 3, 2, 5, 2];
-/// let index = argmax_filtered(&v, &tie, |_, element| element < 4);
+/// let index = argmax_filtered(&v, &tie, |_, &element| element < 4);
 /// // Enumeration order wins
 /// assert_eq!(index, Some(3));
 /// ```

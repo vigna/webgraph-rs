@@ -281,7 +281,7 @@ fn test_no_radial_vertices() -> Result<()> {
 }
 
 #[test]
-#[should_panic(expected = "Trying to build All without all eccentricities computed")]
+#[should_panic]
 fn test_empty_graph() {
     let vec_graph = VecGraph::new();
 

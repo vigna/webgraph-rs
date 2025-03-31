@@ -33,24 +33,19 @@ pub struct SccGraph<G1: RandomAccessGraph, G2: RandomAccessGraph> {
 #[inline(always)]
 fn arc_value<G1: RandomAccessGraph, G2: RandomAccessGraph>(
     graph: &G1,
-    reversed_graph: &G2,
+    transpose: &G2,
     start: usize,
     end: usize,
 ) -> usize {
-    let start_value = reversed_graph.outdegree(start);
+    let start_value = transpose.outdegree(start);
     let end_value = graph.outdegree(end);
     start_value + end_value
 }
 
 impl<G: RandomAccessGraph> SccGraph<G, G> {
-    /// Creates a strongly connected components graph from the provided undirected graph.
-    ///
-    /// # Arguments
-    /// * `graph`: An immutable reference to the graph.
-    /// * `scc`: An immutable reference to a [`StronglyConnectedComponents`] instance.
-    pub fn new_symm(scc: &Sccs) -> Self {
+    pub fn new_symm(sccs: &Sccs) -> Self {
         Self {
-            segments_offset: vec![0; scc.num_components()].into_boxed_slice(),
+            segments_offset: vec![0; sccs.num_components()].into_boxed_slice(),
             data: Vec::new().into_boxed_slice(),
             _marker: PhantomData,
         }
@@ -58,26 +53,13 @@ impl<G: RandomAccessGraph> SccGraph<G, G> {
 }
 
 impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
-    /// Creates a strongly connected components graph from provided graphs and strongly connected
-    /// components.
-    ///
-    /// # Arguments
-    /// * `graph`: An immutable reference to the graph.
-    /// * `reversed_graph`: An immutable reference to `graph` transposed.
-    /// * `scc`: An immutable reference to a [`StronglyConnectedComponents`] instance.
-    /// * `pl`: A progress logger.
-    pub fn new_directed(
-        graph: &G1,
-        reversed_graph: &G2,
-        scc: &Sccs,
-        pl: &mut impl ProgressLog,
-    ) -> Self {
+    pub fn new_directed(graph: &G1, transpose: &G2, scc: &Sccs, pl: &mut impl ProgressLog) -> Self {
         pl.display_memory(false);
         pl.expected_updates(None);
         pl.start("Computing strongly connected components graph...");
 
         let (vec_lengths, vec_connections) =
-            Self::find_edges_through_scc(graph, reversed_graph, scc, pl);
+            Self::find_edges_through_scc(graph, transpose, scc, pl);
 
         pl.done();
 
@@ -88,14 +70,8 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
         }
     }
 
-    /// The children of the passed strongly connected component.
-    ///
-    /// # Arguments
-    /// * `component`: the component.
-    ///
-    /// # Panics
-    /// Panics if a non-existent component index is passed.
-    pub fn children(&self, component: usize) -> &[SccGraphConnection] {
+    /// The successors of the specified strongly connected component.
+    pub fn successors(&self, component: usize) -> &[SccGraphConnection] {
         let offset = self.segments_offset[component];
         let &end = self
             .segments_offset
@@ -104,29 +80,22 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
         &self.data[offset..end]
     }
 
-    /// For each edge in the DAG of strongly connected components, finds a corresponding edge
-    /// in the graph. This edge is used in the [`Self::all_cc_upper_bound`] method.
-    ///
-    /// # Arguments
-    /// * `pl`: A progress logger.
+    /// For each edge in the DAG of strongly connected components, finds a
+    /// corresponding edge in the graph. This edge is used in the
+    /// [`Self::all_cc_upper_bound`] method.
     fn find_edges_through_scc(
         graph: &G1,
-        reversed_graph: &G2,
-        scc: &Sccs,
+        transpose: &G2,
+        sccs: &Sccs,
         pl: &mut impl ProgressLog,
     ) -> (Vec<usize>, Vec<SccGraphConnection>) {
-        assert!(
-            graph.num_nodes() < usize::MAX,
-            "Graph should have a number of nodes < usize::MAX"
-        );
-
         pl.item_name("node");
         pl.display_memory(false);
         pl.expected_updates(Some(graph.num_nodes()));
         pl.start("Selecting arcs...");
 
-        let number_of_scc = scc.num_components();
-        let node_components = scc.components();
+        let number_of_scc = sccs.num_components();
+        let node_components = sccs.components();
         let mut vertices_in_scc = vec![Vec::new(); number_of_scc];
 
         let mut scc_graph = vec![Vec::new(); number_of_scc];
@@ -153,11 +122,11 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
                                 child_components.push(succ_component);
                             }
 
-                            let current_value = arc_value(graph, reversed_graph, v, succ);
+                            let current_value = arc_value(graph, transpose, v, succ);
                             if current_value
                                 > arc_value(
                                     graph,
-                                    reversed_graph,
+                                    transpose,
                                     best_start[succ_component].unwrap().into(),
                                     best_end[succ_component].unwrap().into(),
                                 )

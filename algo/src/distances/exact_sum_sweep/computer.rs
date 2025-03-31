@@ -186,10 +186,6 @@ impl<
         pl: &mut impl ProgressLog,
     ) -> Self {
         let num_nodes = graph.num_nodes();
-        assert!(
-            num_nodes < usize::MAX,
-            "Graph should have a number of nodes < usize::MAX"
-        );
 
         let compute_radial_vertices = radial_vertices.is_none();
         let acc_radial = if let Some(r) = radial_vertices {
@@ -337,7 +333,7 @@ impl<
         ));
 
         while missing_nodes > 0 {
-            let step_to_perform = math::argmax(&points).expect("Could not find step to perform");
+            let step_to_perform = math::argmax(points).expect("Could not find step to perform");
 
             match step_to_perform {
                 0 => self.all_cc_upper_bound(thread_pool, &mut cpl),
@@ -826,7 +822,7 @@ impl<
         // are traversed as is.
         pl.info(format_args!("Bounding forward eccentricities of pivots..."));
         for (c, &p) in pivot.iter().enumerate() {
-            for connection in self.scc_graph.children(c) {
+            for connection in self.scc_graph.successors(c) {
                 let next_c = connection.target;
                 let start = connection.start;
                 let end = connection.end;
@@ -851,7 +847,7 @@ impl<
             "Bounding backward eccentricities of pivots..."
         ));
         for c in (0..self.scc.num_components()).rev() {
-            for component in self.scc_graph.children(c) {
+            for component in self.scc_graph.successors(c) {
                 let next_c = component.target;
                 let start = component.start;
                 let end = component.end;
@@ -945,16 +941,16 @@ impl<
                     if self.incomplete_forward(node) {
                         acc.all_forward += 1;
                         if self.forward_high[node] > self.diameter_low {
-                            acc.df += 1;
+                            acc.diameter_forward += 1;
                         }
                         if self.radial_vertices[node] && self.forward_low[node] < self.radius_high {
-                            acc.r += 1;
+                            acc.radius += 1;
                         }
                     }
                     if self.incomplete_backward(node) {
                         acc.all_backward += 1;
                         if self.backward_high[node] > self.diameter_low {
-                            acc.db += 1;
+                            acc.diameter_backward += 1;
                         }
                     }
                     acc
@@ -964,10 +960,12 @@ impl<
 
         pl.update_with_count(self.num_nodes);
 
-        if missing.r == 0 && self.radius_iterations.is_none() {
+        if missing.radius == 0 && self.radius_iterations.is_none() {
             self.radius_iterations = Some(self.iterations);
         }
-        if (missing.df == 0 || missing.db == 0) && self.diameter_iterations.is_none() {
+        if (missing.diameter_forward == 0 || missing.diameter_backward == 0)
+            && self.diameter_iterations.is_none()
+        {
             self.diameter_iterations = Some(self.iterations);
         }
         if missing.all_forward == 0 && self.forward_iter.is_none() {
