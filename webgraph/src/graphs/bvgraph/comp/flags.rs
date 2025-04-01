@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{Result, bail, ensure};
+use anyhow::{bail, ensure, Result};
 use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;

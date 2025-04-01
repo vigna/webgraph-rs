@@ -93,28 +93,28 @@ where
 pub struct Iter<L, M>(L, M);
 
 impl<
-    'succ,
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-> NodeLabelsLender<'succ> for Iter<L, M>
+        'succ,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    > NodeLabelsLender<'succ> for Iter<L, M>
 {
     type Label = usize;
     type IntoIterator = Succ<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, M>>;
 }
 
 impl<
-    'succ,
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-> Lending<'succ> for Iter<L, M>
+        'succ,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    > Lending<'succ> for Iter<L, M>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-> Lender for Iter<L, M>
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    > Lender for Iter<L, M>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -131,9 +131,9 @@ impl<
 }
 
 impl<
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
-    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
-> ExactSizeLender for Iter<L, M>
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
+        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
+    > ExactSizeLender for Iter<L, M>
 {
     fn len(&self) -> usize {
         self.0.len().max(self.1.len())
@@ -141,9 +141,9 @@ impl<
 }
 
 unsafe impl<
-    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
-    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
-> SortedLender for Iter<L, M>
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+    > SortedLender for Iter<L, M>
 {
 }
 

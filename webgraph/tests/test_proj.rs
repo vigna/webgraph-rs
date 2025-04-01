@@ -7,8 +7,8 @@
 
 use lender::*;
 use webgraph::graphs::vec_graph::VecGraph;
-use webgraph::labels::Zip;
 use webgraph::labels::proj::{Left, Right};
+use webgraph::labels::Zip;
 use webgraph::traits::RandomAccessLabeling;
 
 #[test]
