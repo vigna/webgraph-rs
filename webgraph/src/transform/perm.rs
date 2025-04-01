@@ -7,7 +7,7 @@
 use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::{BatchIterator, KMergeIters};
 use crate::prelude::*;
-use anyhow::{Context, Result, ensure};
+use anyhow::{ensure, Context, Result};
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use rayon::ThreadPool;

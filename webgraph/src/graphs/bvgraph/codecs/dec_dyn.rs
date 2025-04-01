@@ -9,8 +9,8 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
+use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::prelude::*;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
@@ -159,8 +159,11 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
     for<'a> &'a OFF: IntoIterator<Item = usize>,
@@ -197,8 +200,11 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
     /// Returns a clone of the compression flags.
@@ -226,8 +232,11 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usiz
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -257,8 +266,11 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: IndexedSeq<Input = usize, Output = usize>>
-    SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<
+        E: Endianness,
+        F: CodesReaderFactoryHelper<E>,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
+    > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>

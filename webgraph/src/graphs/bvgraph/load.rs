@@ -52,12 +52,12 @@ pub struct Static<
 
 #[sealed]
 impl<
-    const OUTDEGREES: usize,
-    const REFERENCES: usize,
-    const BLOCKS: usize,
-    const INTERVALS: usize,
-    const RESIDUALS: usize,
-> Dispatch for Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+    > Dispatch for Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
 }
 
@@ -444,15 +444,16 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
 }
 
 impl<
-    E: Endianness,
-    GLM: LoadMode,
-    OLM: LoadMode,
-    const OUTDEGREES: usize,
-    const REFERENCES: usize,
-    const BLOCKS: usize,
-    const INTERVALS: usize,
-    const RESIDUALS: usize,
-> LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>, GLM, OLM>
+        E: Endianness,
+        GLM: LoadMode,
+        OLM: LoadMode,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+    >
+    LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>, GLM, OLM>
 {
     /// Load a random-access graph with static dispatch.
     #[allow(clippy::type_complexity)]
@@ -494,15 +495,15 @@ impl<
 }
 
 impl<
-    E: Endianness,
-    GLM: LoadMode,
-    OLM: LoadMode,
-    const OUTDEGREES: usize,
-    const REFERENCES: usize,
-    const BLOCKS: usize,
-    const INTERVALS: usize,
-    const RESIDUALS: usize,
->
+        E: Endianness,
+        GLM: LoadMode,
+        OLM: LoadMode,
+        const OUTDEGREES: usize,
+        const REFERENCES: usize,
+        const BLOCKS: usize,
+        const INTERVALS: usize,
+        const RESIDUALS: usize,
+    >
     LoadConfig<
         E,
         Sequential,

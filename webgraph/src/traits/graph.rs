@@ -43,8 +43,8 @@ use impl_tools::autoimpl;
 use lender::*;
 
 use super::{
-    SortedIterator, SortedLender,
     lenders::{LenderIntoIter, NodeLabelsLender},
+    SortedIterator, SortedLender,
 };
 
 #[allow(non_camel_case_types)]

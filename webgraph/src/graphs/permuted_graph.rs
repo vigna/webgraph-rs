@@ -84,15 +84,21 @@ pub struct Iter<'node, I, P> {
     perm: &'node P,
 }
 
-impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>>
-    NodeLabelsLender<'succ> for Iter<'_, I, P>
+impl<
+        'succ,
+        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > NodeLabelsLender<'succ> for Iter<'_, I, P>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>, P>;
 }
 
-impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>>
-    Lending<'succ> for Iter<'_, I, P>
+impl<
+        'succ,
+        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > Lending<'succ> for Iter<'_, I, P>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
@@ -116,9 +122,9 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldS
 }
 
 impl<
-    L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    P: BitFieldSlice<usize>,
-> ExactSizeLender for Iter<'_, L, P>
+        L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+        P: BitFieldSlice<usize>,
+    > ExactSizeLender for Iter<'_, L, P>
 {
     fn len(&self) -> usize {
         self.iter.len()

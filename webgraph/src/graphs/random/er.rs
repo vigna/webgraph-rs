@@ -7,7 +7,7 @@
 use std::vec::IntoIter;
 
 use lender::{Lend, Lender, Lending};
-use rand::{Rng, SeedableRng, rngs::SmallRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use crate::{
     prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling},

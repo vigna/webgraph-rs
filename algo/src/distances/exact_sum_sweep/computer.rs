@@ -8,7 +8,7 @@
 use crate::{
     distances::exact_sum_sweep::scc_graph::SccGraph,
     sccs::{self, Sccs},
-    utils::math,
+    utils::ArgMinMax,
     visits::{
         breadth_first::{EventNoPred, ParFairNoPred},
         FilterArgs, Parallel,
@@ -264,7 +264,7 @@ impl<
 
         for i in 2..=iterations {
             if i % 2 == 0 {
-                let v = math::argmax_filtered(&self.backward_tot, &self.backward_low, |i, _| {
+                let v = argmax_filtered(&self.backward_tot, &self.backward_low, |i, _| {
                     self.incomplete_backward(i)
                 });
                 self.step_sum_sweep(v, false, thread_pool, pl, |node| {
@@ -274,7 +274,7 @@ impl<
                     )
                 });
             } else {
-                let v = math::argmax_filtered(&self.forward_tot, &self.forward_low, |i, _| {
+                let v = argmax_filtered(&self.forward_tot, &self.forward_low, |i, _| {
                     self.incomplete_forward(i)
                 });
                 self.step_sum_sweep(v, true, thread_pool, pl, |node| {
@@ -327,12 +327,15 @@ impl<
         ));
 
         while missing_nodes > 0 {
-            let step_to_perform = math::argmax(points).expect("Could not find step to perform");
+            let step_to_perform = points
+                .iter()
+                .argmax()
+                .expect("Could not find step to perform");
 
             match step_to_perform {
                 0 => self.all_cc_upper_bound(thread_pool, &mut cpl),
                 1 => {
-                    let v = math::argmax_filtered(&self.forward_high, &self.forward_tot, |i, _| {
+                    let v = argmax_filtered(&self.forward_high, &self.forward_tot, |i, _| {
                         self.incomplete_forward(i)
                     });
                     self.step_sum_sweep(v, true, thread_pool, &mut cpl, |node| {
@@ -343,7 +346,7 @@ impl<
                     })
                 }
                 2 => {
-                    let v = math::argmin_filtered(&self.forward_low, &self.forward_tot, |i, _| {
+                    let v = argmin_filtered(&self.forward_low, &self.forward_tot, |i, _| {
                         self.radial_vertices[i]
                     });
                     self.step_sum_sweep(v, true, thread_pool, &mut cpl, |node| {
@@ -354,10 +357,9 @@ impl<
                     })
                 }
                 3 => {
-                    let v =
-                        math::argmax_filtered(&self.backward_high, &self.backward_tot, |i, _| {
-                            self.incomplete_backward(i)
-                        });
+                    let v = argmax_filtered(&self.backward_high, &self.backward_tot, |i, _| {
+                        self.incomplete_backward(i)
+                    });
                     self.step_sum_sweep(v, false, thread_pool, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the upper bound ({})...",
@@ -366,10 +368,9 @@ impl<
                     })
                 }
                 4 => {
-                    let v =
-                        math::argmax_filtered(&self.backward_tot, &self.backward_high, |i, _| {
-                            self.incomplete_backward(i)
-                        });
+                    let v = argmax_filtered(&self.backward_tot, &self.backward_high, |i, _| {
+                        self.incomplete_backward(i)
+                    });
                     self.step_sum_sweep(v, false, thread_pool, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the distance sum ({})",
@@ -485,7 +486,10 @@ impl<
 
         let component = self.scc.components();
         let scc_sizes = self.scc.compute_sizes();
-        let max_size_scc = math::argmax(&scc_sizes).expect("Could not find max size scc.");
+        let max_size_scc = scc_sizes
+            .iter()
+            .argmax()
+            .expect("Could not find max size scc.");
 
         // TODO: eliminate double scan
         pl.info(format_args!(
@@ -973,4 +977,83 @@ impl<
 
         OL::missing_nodes(&missing)
     }
+}
+
+/// Returns the index of the maximum value approved by a filter in an iterator,
+/// or [`None`] if no element is approved by the filter.
+///
+/// In case of ties, this method returns the index for which the corresponding
+/// element in `tie_break` is minimized.
+///
+/// If the maximum appears several times with the same tie break, this methods
+/// returns the position of the first instance.
+///
+/// # Arguments
+///
+/// * `iter`: the iterator.
+///
+/// * `tie_break`: in case two elements of `iter` are the same, the
+///   corresponding elements in this iterator are used as secondary order.
+///
+/// * `filter`: a closure that takes as arguments the index of the element and
+///   the element itself and returns true if the element is approved.
+///
+/// # Panics
+///
+/// If a comparison returns [`None`].
+fn argmax_filtered<I: IntoIterator, T: IntoIterator>(
+    iter: I,
+    tie_break: T,
+    filter: impl Fn(usize, I::Item) -> bool,
+) -> Option<usize>
+where
+    I::Item: std::cmp::PartialOrd + Copy,
+    T::Item: std::cmp::PartialOrd + Copy,
+{
+    iter.into_iter()
+        .zip(tie_break)
+        .enumerate()
+        .filter(|(idx, (v, _tie))| filter(*idx, *v))
+        .min_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap())
+        .map(|(idx, _)| idx)
+}
+
+/// Returns the index of the minimum value approved by a filter in an iterator,
+/// or [`None`] if no element is approved by the filter.
+///
+/// In case of ties, this method returns the index for which the corresponding
+/// element in `tie_break` is minimized.
+///
+/// If the minimum appears several times with the same tie break, this methods
+/// returns the position of the first instance.
+///
+/// # Arguments
+///
+/// * `iter`: the iterator.
+///
+/// * `tie_break`: in case two elements of `iter` are the same, the
+///   corresponding elements in this iterator are used as secondary order.
+///
+/// * `filter`: a closure that takes as arguments the index of the element and
+///   the element itself and returns true if the element is approved.
+///
+/// # Panics
+///
+/// If a comparison returns [`None`].
+///
+fn argmin_filtered<I: IntoIterator, T: IntoIterator>(
+    iter: I,
+    tie_break: T,
+    filter: impl Fn(usize, I::Item) -> bool,
+) -> Option<usize>
+where
+    I::Item: std::cmp::PartialOrd + Copy,
+    T::Item: std::cmp::PartialOrd + Copy,
+{
+    iter.into_iter()
+        .zip(tie_break)
+        .enumerate()
+        .filter(|(idx, (v, _tie))| filter(*idx, *v))
+        .min_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap())
+        .map(|(idx, _)| idx)
 }

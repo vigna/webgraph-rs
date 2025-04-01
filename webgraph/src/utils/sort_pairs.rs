@@ -9,7 +9,7 @@
 
 use super::{ArcMmapHelper, MmapHelper};
 use crate::traits::{BitDeserializer, BitSerializer, SortedIterator};
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use dary_heap::PeekMut;
 use dsi_bitstream::prelude::*;
 use log::debug;
