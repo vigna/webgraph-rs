@@ -96,6 +96,7 @@ pub trait Level: Sync {
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm;
 
+    #[doc(hidden)]
     fn missing_nodes(missing_nodes: &Missing) -> usize;
 }
 
