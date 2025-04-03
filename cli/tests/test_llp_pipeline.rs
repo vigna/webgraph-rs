@@ -8,7 +8,7 @@ use tempfile::Builder;
 use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use webgraph::prelude::JavaPermutation;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
-use webgraph_cli::init_envlogger;
+use webgraph_cli::init_env_logger;
 use webgraph_cli::main as cli_main;
 
 const TEST_GRAPH: &str = "../data/cnr-2000";

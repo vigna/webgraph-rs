@@ -264,7 +264,7 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Creates a threadpool with the given number of threads
+/// Creates a [`ThreadPool`] with the given number of threads
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
@@ -339,7 +339,7 @@ fn parse_duration(value: &str) -> Result<Duration> {
     Ok(duration)
 }
 
-pub fn init_envlogger() -> Result<()> {
+pub fn init_env_logger() -> Result<()> {
     let mut builder =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
 

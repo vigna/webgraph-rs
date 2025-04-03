@@ -8,3 +8,4 @@
 //! Algorithms related to distances.
 
 pub mod exact_sum_sweep;
+pub mod hyperball;
