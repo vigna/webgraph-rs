@@ -22,6 +22,7 @@ log.workspace = true
 sux.workspace = true
 common_traits.workspace = true
 lender.workspace = true
+
 rand.workspace = true
 tempfile.workspace = true
 itertools.workspace = true
@@ -31,6 +32,7 @@ predicates.workspace = true
 java-properties.workspace = true
 clap.workspace = true
 env_logger.workspace = true
+
 jiff = "0.2.5"
 sysinfo = "0.33.1"
 clap_complete = { version = "4.4.11" }

@@ -1233,7 +1233,7 @@ mod test {
     use std::hash::{BuildHasherDefault, DefaultHasher};
 
     use super::*;
-    use counter_array::traits::MergeCounter;
+    use counter_array::traits::{CounterArray, MergeCounter};
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
     use webgraph::{
@@ -1241,18 +1241,16 @@ mod test {
         traits::SequentialLabeling,
     };
 
+    type HyperBallArray<G> = SliceCounterArray<
+        HyperLogLog<<G as SequentialLabeling>::Label, BuildHasherDefault<DefaultHasher>, usize>,
+        usize,
+        Box<[usize]>,
+    >;
+
     struct SeqHyperBall<'a, G: RandomAccessGraph> {
         graph: &'a G,
-        curr_state: SliceCounterArray<
-            HyperLogLog<G::Label, BuildHasherDefault<DefaultHasher>, usize>,
-            usize,
-            Box<[usize]>,
-        >,
-        next_state: SliceCounterArray<
-            HyperLogLog<G::Label, BuildHasherDefault<DefaultHasher>, usize>,
-            usize,
-            Box<[usize]>,
-        >,
+        curr_state: HyperBallArray<G>,
+        next_state: HyperBallArray<G>,
     }
 
     impl<G: RandomAccessGraph> SeqHyperBall<'_, G> {

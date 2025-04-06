@@ -54,11 +54,8 @@ fn test_depth() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
     depth_first::SeqNoPred::new(&graph)
         .visit([0], |event| {
-            match event {
-                depth_first::EventNoPred::Previsit { node, depth, .. } => {
-                    assert_eq!(node, depth);
-                }
-                _ => (),
+            if let depth_first::EventNoPred::Previsit { node, depth, .. } = event {
+                assert_eq!(node, depth);
             }
             std::ops::ControlFlow::Continue(())
         })

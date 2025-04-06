@@ -15,7 +15,7 @@ const TEST_GRAPH: &str = "../data/cnr-2000";
 
 #[test]
 fn llp_pipeline() -> Result<()> {
-    init_envlogger()?;
+    init_env_logger()?;
     let copy_basename = PathBuf::from(TEST_GRAPH);
     let tmp_dir = Builder::new().prefix("LLPPipeline").tempdir()?;
     let graph_name = copy_basename.file_stem().unwrap();

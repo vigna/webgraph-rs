@@ -240,7 +240,7 @@ fn test_empty() -> Result<()> {
 
 #[test]
 fn test_sparse() -> Result<()> {
-    let arcs = vec![(10, 32), (10, 65), (65, 10), (21, 44)];
+    let arcs = [(10, 32), (10, 65), (65, 10), (21, 44)];
     let graph = BTreeGraph::from_arcs(arcs.iter().copied());
     let transpose = BTreeGraph::from_arcs(arcs.iter().map(|(x, y)| (*y, *x)));
     let sum_sweep = All::run(graph, transpose, None, &thread_pool![], no_logging![]);
