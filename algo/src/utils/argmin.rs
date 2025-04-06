@@ -27,11 +27,14 @@
 /// let index = argmin(&v);
 /// assert_eq!(index, Some(3));
 /// ```
-pub fn argmin<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>) -> Option<usize> {
+pub fn argmin<I: IntoIterator>(iter: I) -> Option<usize>
+where
+    I::Item: core::cmp::PartialOrd + Copy,
+{
     iter.into_iter()
         .enumerate()
-        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-        .map(|m| m.0)
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .map(|(idx, _)| idx)
 }
 
 /// Returns the index of the minimum value approved by a filter in an iterator,
@@ -73,26 +76,19 @@ pub fn argmin<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>)
 /// let index = argmin_filtered(&v, &tie, |_, &element| element > 1);
 /// assert_eq!(index, Some(3));
 /// ```
-pub fn argmin_filtered<
-    T: std::cmp::PartialOrd + Copy,
-    N: std::cmp::PartialOrd + Copy,
-    F: Fn(usize, T) -> bool,
->(
-    iter: impl IntoIterator<Item = T>,
-    tie_break: impl IntoIterator<Item = N>,
-    filter: F,
-) -> Option<usize> {
+pub fn argmin_filtered<I: IntoIterator, J: IntoIterator>(
+    iter: I,
+    tie_break: J,
+    filter: impl Fn(usize, I::Item) -> bool,
+) -> Option<usize>
+where
+    I::Item: core::cmp::PartialOrd + Copy,
+    J::Item: core::cmp::PartialOrd + Copy,
+{
     iter.into_iter()
         .zip(tie_break)
         .enumerate()
-        .filter(|v| filter(v.0, v.1 .0))
-        .min_by(|a, b| {
-            let (value_a, tie_a) = a.1;
-            let (value_b, tie_b) = b.1;
-            value_a
-                .partial_cmp(&value_b)
-                .unwrap()
-                .then(tie_a.partial_cmp(&tie_b).unwrap())
-        })
-        .map(|m| m.0)
+        .filter(|(idx, (v, _tie))| filter(*idx, *v))
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .map(|(idx, _)| idx)
 }

@@ -664,7 +664,7 @@ where
         self.ensure_iteration()?;
         let d = self.discounted_centralities.get(index);
         if let Some(distances) = d {
-            Ok(&distances)
+            Ok(distances)
         } else {
             bail!("Discount centrality of index {} does not exist", index)
         }
@@ -878,15 +878,9 @@ where
         pl.start("Starting parallel execution");
         {
             let next_state_sync = self.next_state.as_sync_array();
-            let sum_of_dists = match &mut self.sum_of_dists {
-                None => None,
-                Some(x) => Some(x.as_sync_slice()),
-            };
+            let sum_of_dists = self.sum_of_dists.as_mut().map(|x| x.as_sync_slice());
+            let sum_of_inv_dists = self.sum_of_inv_dists.as_mut().map(|x| x.as_sync_slice());
 
-            let sum_of_inv_dists = match &mut self.sum_of_inv_dists {
-                None => None,
-                Some(x) => Some(x.as_sync_slice()),
-            };
             let discounted_centralities = &self
                 .discounted_centralities
                 .iter_mut()
@@ -968,6 +962,7 @@ where
     /// * `curr_state`: the current state of the counters.
     /// * `next_state`: the next state of the counters (to be computed).
     /// * `ic`: the iteration context.
+    #[allow(clippy::too_many_arguments)]
     fn parallel_task(
         graph: &(impl RandomAccessGraph + Sync),
         transpose: Option<&(impl RandomAccessGraph + Sync)>,

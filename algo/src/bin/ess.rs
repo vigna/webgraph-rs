@@ -6,7 +6,7 @@
  */
 
 use anyhow::Result;
-use dsi_progress_logger::{concurrent_progress_logger, no_logging};
+use dsi_progress_logger::no_logging;
 use webgraph::prelude::BvGraph;
 use webgraph_algo::{
     distances::exact_sum_sweep::{self, Level},
@@ -19,7 +19,6 @@ fn main() -> Result<()> {
     let basename = std::env::args().nth(1).unwrap();
     let graph = BvGraph::with_basename(&basename).load()?;
     let transpose = BvGraph::with_basename(basename + "-t").load()?;
-    let mut pl = concurrent_progress_logger![];
     let result = exact_sum_sweep::RadiusDiameter::run(
         graph,
         transpose,

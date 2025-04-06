@@ -27,11 +27,14 @@
 /// let index = argmax(&v);
 /// assert_eq!(index, Some(2));
 /// ```
-pub fn argmax<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>) -> Option<usize> {
+pub fn argmax<I: IntoIterator>(iter: I) -> Option<usize>
+where
+    I::Item: core::cmp::PartialOrd + Copy,
+{
     iter.into_iter()
         .enumerate()
-        .min_by(|a, b| b.1.partial_cmp(&a.1).unwrap())
-        .map(|m| m.0)
+        .min_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap())
+        .map(|(idx, _)| idx)
 }
 
 /// Returns the index of the maximum value approved by a filter in an iterator,
@@ -73,26 +76,19 @@ pub fn argmax<T: std::cmp::PartialOrd + Copy>(iter: impl IntoIterator<Item = T>)
 /// // Enumeration order wins
 /// assert_eq!(index, Some(3));
 /// ```
-pub fn argmax_filtered<
-    T: std::cmp::PartialOrd + Copy,
-    N: std::cmp::PartialOrd + Copy,
-    F: Fn(usize, T) -> bool,
->(
-    iter: impl IntoIterator<Item = T>,
-    tie_break: impl IntoIterator<Item = N>,
-    filter: F,
-) -> Option<usize> {
+pub fn argmax_filtered<I: IntoIterator, J: IntoIterator>(
+    iter: I,
+    tie_break: J,
+    filter: impl Fn(usize, I::Item) -> bool,
+) -> Option<usize>
+where
+    I::Item: core::cmp::PartialOrd + Copy,
+    J::Item: core::cmp::PartialOrd + Copy,
+{
     iter.into_iter()
         .zip(tie_break)
         .enumerate()
-        .filter(|v| filter(v.0, v.1 .0))
-        .min_by(|a, b| {
-            let (value_a, tie_a) = a.1;
-            let (value_b, tie_b) = b.1;
-            value_b
-                .partial_cmp(&value_a)
-                .unwrap()
-                .then(tie_b.partial_cmp(&tie_a).unwrap())
-        })
-        .map(|m| m.0)
+        .filter(|(idx, (v, _tie))| filter(*idx, *v))
+        .min_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap())
+        .map(|(idx, _)| idx)
 }
