@@ -9,14 +9,16 @@ members = [
 [workspace.dependencies]
 webgraph = {path="./webgraph", version="0.2.1"}
 webgraph-algo = {path="./algo", version="0.1.0"}
-
-anyhow = { version = "1.0.79", features = ["backtrace"] }
+webgraph-cli = {path="./cli"} # TODO!: publish
+counter-array = { path = "../counter-array-rs" } # TODO!: publish 
 epserde = "0.8.0"
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
-log = "0.4.22"
 sux = "0.7.2"
 common_traits = "0.11.2"
+
+anyhow = { version = "1.0.79", features = ["backtrace"] }
+log = "0.4.22"
 lender = "0.3.1"
 rand = { version = "0.9.0", features = ["small_rng"] }
 tempfile = "3.10.1"
@@ -27,6 +29,10 @@ predicates = "3.1.2"
 java-properties = "2.0.0"
 env_logger = { version = "0.11.5", default-features = false, features = ["auto-color", "regex"] }
 clap = { version = "4.5.11", features = ["derive", "string"] }
+sync-cell-slice = "0.9.9"
+arbitrary = { version = "1.3.2", features = ["derive"]}
+serde = { version = "1.0.217", features = ["serde_derive"]}
+serde_json = "1.0.137"
 
 [profile.release]
 opt-level = 3            # like --release
