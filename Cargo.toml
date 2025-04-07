@@ -1,16 +1,12 @@
 [workspace]
 resolver = "2"
-members = [
-    "algo", 
-    "cli",
-    "webgraph",
-]
+members = ["algo", "cli", "webgraph"]
 
 [workspace.dependencies]
-webgraph = {path="./webgraph", version="0.2.1"}
-webgraph-algo = {path="./algo", version="0.1.0"}
-webgraph-cli = {path="./cli"} # TODO!: publish
-counter-array = { path = "../counter-array-rs" } # TODO!: publish 
+webgraph = { path = "./webgraph", version = "0.2.1" }
+webgraph-algo = { path = "./algo", version = "0.1.0" }
+webgraph-cli = { path = "./cli" }                      # TODO!: publish
+card-est-array = { path = "../card-est-array-rs" }     # TODO!: publish 
 epserde = "0.8.0"
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
@@ -27,11 +23,14 @@ rayon = "1.10.0"
 mmap-rs = "0.6.1"
 predicates = "3.1.2"
 java-properties = "2.0.0"
-env_logger = { version = "0.11.5", default-features = false, features = ["auto-color", "regex"] }
+env_logger = { version = "0.11.5", default-features = false, features = [
+    "auto-color",
+    "regex",
+] }
 clap = { version = "4.5.11", features = ["derive", "string"] }
 sync-cell-slice = "0.9.9"
-arbitrary = { version = "1.3.2", features = ["derive"]}
-serde = { version = "1.0.217", features = ["serde_derive"]}
+arbitrary = { version = "1.3.2", features = ["derive"] }
+serde = { version = "1.0.217", features = ["serde_derive"] }
 serde_json = "1.0.137"
 
 [profile.release]

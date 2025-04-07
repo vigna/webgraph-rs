@@ -6,8 +6,8 @@
  */
 
 use anyhow::{bail, ensure, Context, Result};
-use counter_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceCounterArray};
-use counter_array::traits::{
+use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceCounterArray};
+use card_est_array::traits::{
     AsSyncArray, CounterArray, CounterArrayMut, CounterLogic, CounterMut, MergeCounterLogic,
     SyncCounterArray,
 };
@@ -1233,7 +1233,7 @@ mod test {
     use std::hash::{BuildHasherDefault, DefaultHasher};
 
     use super::*;
-    use counter_array::traits::{CounterArray, MergeCounter};
+    use card_est_array::traits::{CounterArray, MergeCounter};
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
     use webgraph::{
