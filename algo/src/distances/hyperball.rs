@@ -6,10 +6,10 @@
  */
 
 use anyhow::{bail, ensure, Context, Result};
-use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceCounterArray};
+use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceEstimatorArray};
 use card_est_array::traits::{
-    AsSyncArray, CounterArray, CounterArrayMut, CounterLogic, CounterMut, MergeCounterLogic,
-    SyncCounterArray,
+    AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
+    MergeEstimationLogic, SyncEstimatorArray,
 };
 use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
@@ -32,8 +32,8 @@ pub struct HyperBallBuilder<
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
     D: Succ<Input = usize, Output = usize>,
-    L: MergeCounterLogic<Item = G1::Label>,
-    A: CounterArrayMut<L>,
+    L: MergeEstimationLogic<Item = G1::Label>,
+    A: EstimatorArrayMut<L>,
 > {
     /// A graph.
     graph: &'a G1,
@@ -51,9 +51,9 @@ pub struct HyperBallBuilder<
     arc_granularity: usize,
     /// Integer weights for the nodes, if any.
     weights: Option<&'a [usize]>,
-    /// A first array of counters.
+    /// A first array of estimators.
     array_0: A,
-    /// A second array of counters of the same length and with the same logic of
+    /// A second array of estimators of the same length and with the same logic of
     /// `array_0`.
     array_1: A,
     _marker: std::marker::PhantomData<L>,
@@ -71,14 +71,14 @@ impl<
         G2,
         D,
         HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, usize>,
-        SliceCounterArray<
+        SliceEstimatorArray<
             HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, usize>,
             usize,
             Box<[usize]>,
         >,
     >
 {
-    /// A builder for [`HyperBall`] using a specified [`CounterLogic`].
+    /// A builder for [`HyperBall`] using a specified [`EstimationLogic`].
     ///
     /// # Arguments
     /// * `graph`: the graph to analyze.
@@ -86,11 +86,9 @@ impl<
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
     /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
     /// * `log2m`: the base-2 logarithm of the number *m* of register per
-    ///   HyperLogLog counter.
+    ///   HyperLogLog cardinality estimator.
     /// * `weights`: the weights to use. If [`None`] every node is assumed to be
     ///   of weight equal to 1.
-    /// * `mmap_options`: the options to use for the backend of the counter
-    ///   arrays as a [`TempMmapOptions`].
     pub fn with_hyper_log_log(
         graph: &'a G1,
         transposed: Option<&'a G2>,
@@ -113,8 +111,8 @@ impl<
             .build()
             .with_context(|| "Could not build HyperLogLog logic")?;
 
-        let array_0 = SliceCounterArray::new(logic.clone(), graph.num_nodes());
-        let array_1 = SliceCounterArray::new(logic, graph.num_nodes());
+        let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
+        let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
 
         Ok(Self {
             graph,
@@ -136,8 +134,8 @@ impl<
         'a,
         D: Succ<Input = usize, Output = usize>,
         G: RandomAccessGraph + Sync,
-        L: MergeCounterLogic<Item = G::Label> + PartialEq,
-        A: CounterArrayMut<L>,
+        L: MergeEstimationLogic<Item = G::Label> + PartialEq,
+        A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G, G, D, L, A>
 {
     /// Creates a new builder with default parameters.
@@ -145,8 +143,8 @@ impl<
     /// # Arguments
     /// * `graph`: the graph to analyze.
     /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
-    /// * `array_0`: a first array of counters.
-    /// * `array_1`: A second array of counters of the same length and with the same logic of
+    /// * `array_0`: a first array of estimators.
+    /// * `array_1`: A second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
         assert!(array_0.logic() == array_1.logic(), "Incompatible logics");
@@ -185,8 +183,8 @@ impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
         D: Succ<Input = usize, Output = usize>,
-        L: MergeCounterLogic<Item = G1::Label>,
-        A: CounterArrayMut<L>,
+        L: MergeEstimationLogic<Item = G1::Label>,
+        A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G1, G2, D, L, A>
 {
     const DEFAULT_GRANULARITY: usize = 16 * 1024;
@@ -197,8 +195,8 @@ impl<
     /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
     /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
-    /// * `array_0`: a first array of counters.
-    /// * `array_1`: A second array of counters of the same length and with the same logic of
+    /// * `array_0`: a first array of estimators.
+    /// * `array_1`: A second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn with_transpose(
         graph: &'a G1,
@@ -308,8 +306,8 @@ impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
         D: Succ<Input = usize, Output = usize>,
-        L: MergeCounterLogic<Item = G1::Label> + Sync + std::fmt::Display,
-        A: CounterArrayMut<L>,
+        L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
+        A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G1, G2, D, L, A>
 {
     /// Builds a [`HyperBall`] instance.
@@ -346,21 +344,13 @@ impl<
         }
 
         pl.info(format_args!("Initializing bit vectors"));
-
-        pl.debug(format_args!("Initializing counter_modified bitvec"));
-        let counter_modified = AtomicBitVec::new(num_nodes);
-
-        pl.debug(format_args!("Initializing modified_result_counter bitvec"));
-        let modified_result_counter = AtomicBitVec::new(num_nodes);
-
-        pl.debug(format_args!("Initializing must_be_checked bitvec"));
+        let estimator_modified = AtomicBitVec::new(num_nodes);
+        let modified_result_estimator = AtomicBitVec::new(num_nodes);
         let must_be_checked = AtomicBitVec::new(num_nodes);
-
-        pl.debug(format_args!("Initializing next_must_be_checked bitvec"));
         let next_must_be_checked = AtomicBitVec::new(num_nodes);
 
         pl.info(format_args!(
-            "Using counter logic: {}",
+            "Using estimation logic: {}",
             self.array_0.logic()
         ));
 
@@ -386,7 +376,7 @@ impl<
                 node_cursor: AtomicUsize::new(0),
                 arc_cursor: Mutex::new((0, 0)),
                 visited_arcs: AtomicU64::new(0),
-                modified_counters: AtomicU64::new(0),
+                modified_estimators: AtomicU64::new(0),
                 systolic: false,
                 local: false,
                 pre_local: false,
@@ -394,8 +384,8 @@ impl<
                 local_next_must_be_checked: Mutex::new(Vec::new()),
                 must_be_checked,
                 next_must_be_checked,
-                curr_modified: counter_modified,
-                next_modified: modified_result_counter,
+                curr_modified: estimator_modified,
+                next_modified: modified_result_estimator,
                 discount_functions: self.discount_functions,
             },
             _marker: std::marker::PhantomData,
@@ -427,8 +417,8 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     arc_cursor: Mutex<(usize, usize)>,
     /// The number of arcs visited during the current iteration.
     visited_arcs: AtomicU64,
-    /// The number of counters modified during the current iteration.
-    modified_counters: AtomicU64,
+    /// The number of estimators modified during the current iteration.
+    modified_estimators: AtomicU64,
     /// `true` if we started a systolic computation.
     systolic: bool,
     /// `true` if we started a local computation.
@@ -446,9 +436,9 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// Used in systolic iterations to keep track of nodes to check in the next
     /// iteration.
     next_must_be_checked: AtomicBitVec,
-    /// Whether each counter has been modified during the previous iteration.
+    /// Whether each estimator has been modified during the previous iteration.
     curr_modified: AtomicBitVec,
-    /// Whether each counter has been modified during the current iteration.
+    /// Whether each estimator has been modified during the current iteration.
     next_modified: AtomicBitVec,
     /// Custom discount functions whose sum should be computed.
     discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Sync + 'a>>,
@@ -461,7 +451,7 @@ impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
         self.node_cursor.store(0, Ordering::Relaxed);
         *self.arc_cursor.lock().unwrap() = (0, 0);
         self.visited_arcs.store(0, Ordering::Relaxed);
-        self.modified_counters.store(0, Ordering::Relaxed);
+        self.modified_estimators.store(0, Ordering::Relaxed);
     }
 }
 
@@ -473,8 +463,8 @@ pub struct HyperBall<
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
     D: Succ<Input = usize, Output = usize>,
-    L: MergeCounterLogic<Item = G1::Label> + Sync,
-    A: CounterArrayMut<L>,
+    L: MergeEstimationLogic<Item = G1::Label> + Sync,
+    A: EstimatorArrayMut<L>,
 > {
     /// The graph to analyze.
     graph: &'a G1,
@@ -512,8 +502,8 @@ impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
         D: Succ<Input = usize, Output = usize> + Sync,
-        L: MergeCounterLogic<Item = usize> + Sync,
-        A: CounterArrayMut<L> + Sync + AsSyncArray<L>,
+        L: MergeEstimationLogic<Item = usize> + Sync,
+        A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
     > HyperBall<'_, G1, G2, D, L, A>
 where
     L::Backend: PartialEq,
@@ -526,7 +516,7 @@ where
     ///
     /// * `threshold`: a value that will be used to stop the computation by
     ///   relative increment if the neighborhood function is being computed. If
-    ///   [`None`] the computation will stop when no counters are modified.
+    ///   [`None`] the computation will stop when no estimators are modified.
     ///
     /// * `thread_pool`: The thread pool to use for parallel computation.
     ///
@@ -541,7 +531,7 @@ where
         let upper_bound = std::cmp::min(upper_bound, self.graph.num_nodes());
 
         self.init(thread_pool, pl)
-            .with_context(|| "Could not initialize approximator")?;
+            .with_context(|| "Could not initialize estimator")?;
 
         pl.item_name("iteration");
         pl.expected_updates(None);
@@ -558,12 +548,12 @@ where
 
             if self
                 .iteration_context
-                .modified_counters
+                .modified_estimators
                 .load(Ordering::Relaxed)
                 == 0
             {
                 pl.info(format_args!(
-                    "Terminating appoximation after {} iteration(s) by stabilisation",
+                    "Terminating HyperBall after {} iteration(s) by stabilization",
                     i + 1
                 ));
                 break;
@@ -571,7 +561,7 @@ where
 
             if let Some(t) = threshold {
                 if i > 3 && self.relative_increment < (1.0 + t) {
-                    pl.info(format_args!("Terminating approximation after {} iteration(s) by relative bound on the neighborhood function", i + 1));
+                    pl.info(format_args!("Terminating HyperBall after {} iteration(s) by relative bound on the neighborhood function", i + 1));
                     break;
                 }
             }
@@ -582,7 +572,7 @@ where
         Ok(())
     }
 
-    /// Runs HyperBall until no counters are modified.
+    /// Runs HyperBall until no estimators are modified.
     ///
     /// # Arguments
     ///
@@ -602,7 +592,7 @@ where
             .with_context(|| "Could not complete run_until_stable")
     }
 
-    /// Runs HyperBall until no counters are modified with no upper bound on the
+    /// Runs HyperBall until no estimators are modified with no upper bound on the
     /// number of iterations.
     ///
     /// # Arguments
@@ -697,7 +687,7 @@ where
                     if d == 0.0 {
                         1.0
                     } else {
-                        let count = logic.count(self.curr_state.get_backend(node));
+                        let count = logic.estimate(self.curr_state.get_backend(node));
                         count * count / d
                     }
                 })
@@ -716,7 +706,7 @@ where
                 .iter()
                 .enumerate()
                 .map(|(node, &d)| {
-                    let count = logic.count(self.curr_state.get_backend(node));
+                    let count = logic.estimate(self.curr_state.get_backend(node));
                     (count * count) - d
                 })
                 .collect())
@@ -725,7 +715,7 @@ where
         }
     }
 
-    /// Reads from the internal counter array and estimates the number of nodes
+    /// Reads from the internal estimator array and estimates the number of nodes
     /// reachable from the specified node.
     ///
     /// # Arguments
@@ -735,10 +725,10 @@ where
         Ok(self
             .curr_state
             .logic()
-            .count(self.curr_state.get_backend(node)))
+            .estimate(self.curr_state.get_backend(node)))
     }
 
-    /// Reads from the internal counter array and estimates the number of nodes reachable
+    /// Reads from the internal estimator array and estimates the number of nodes reachable
     /// from every node of the graph.
     ///
     /// `hyperball.reachable_nodes().unwrap()[i]` is equal to `hyperball.reachable_nodes_from(i).unwrap()`.
@@ -746,7 +736,7 @@ where
         self.ensure_iteration()?;
         let logic = self.curr_state.logic();
         Ok((0..self.graph.num_nodes())
-            .map(|n| logic.count(self.curr_state.get_backend(n)))
+            .map(|n| logic.estimate(self.curr_state.get_backend(n)))
             .collect())
     }
 }
@@ -755,8 +745,8 @@ impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
         D: Succ<Input = usize, Output = usize> + Sync,
-        L: CounterLogic<Item = usize> + MergeCounterLogic + Sync,
-        A: CounterArrayMut<L> + Sync + AsSyncArray<L>,
+        L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
+        A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
     > HyperBall<'_, G1, G2, D, L, A>
 where
     L::Backend: PartialEq,
@@ -775,10 +765,10 @@ where
 
         pl.info(format_args!("Performing iteration {}", ic.iteration + 1));
 
-        // Alias the number of modified counters, nodes and arcs
+        // Alias the number of modified estimators, nodes and arcs
         let num_nodes = self.graph.num_nodes() as u64;
         let num_arcs = self.graph.num_arcs();
-        let modified_counters = ic.modified_counters.load(Ordering::Relaxed);
+        let modified_estimators = ic.modified_estimators.load(Ordering::Relaxed);
 
         // Let us record whether the previous computation was systolic or local
         let prev_was_systolic = ic.systolic;
@@ -787,12 +777,12 @@ where
         // If less than one fourth of the nodes have been modified, and we have
         // the transpose, it is time to pass to a systolic computation
         ic.systolic =
-            self.transposed.is_some() && ic.iteration > 0 && modified_counters < num_nodes / 4;
+            self.transposed.is_some() && ic.iteration > 0 && modified_estimators < num_nodes / 4;
 
-        // Non-systolic computations add up the values of all counter
+        // Non-systolic computations add up the values of all estimators.
         //
         // Systolic computations modify the last value by compensating for each
-        // modified counter
+        // modified estimators.
         *ic.current_nf.lock().unwrap() = if ic.systolic { self.last } else { 0.0 };
 
         // If we completed the last iteration in pre-local mode, we MUST run in
@@ -801,7 +791,8 @@ where
 
         // We run in pre-local mode if we are systolic and few nodes where
         // modified.
-        ic.pre_local = ic.systolic && modified_counters < (num_nodes * num_nodes) / (num_arcs * 10);
+        ic.pre_local =
+            ic.systolic && modified_estimators < (num_nodes * num_nodes) / (num_arcs * 10);
 
         if ic.systolic {
             pl.info(format_args!(
@@ -812,7 +803,6 @@ where
             pl.info(format_args!("Starting standard iteration"));
         }
 
-        pl.info(format_args!("Preparing modified_result_counter"));
         if prev_was_local {
             for &node in ic.local_checklist.iter() {
                 ic.next_modified.set(node, false, Ordering::Relaxed);
@@ -822,7 +812,6 @@ where
         }
 
         if ic.local {
-            pl.info(format_args!("Preparing local checklist"));
             // In case of a local computation, we convert the set of
             // must-be-checked for the next iteration into a check list
             thread_pool.join(
@@ -839,7 +828,6 @@ where
                 &mut ic.local_next_must_be_checked.lock().unwrap(),
             );
         } else if ic.systolic {
-            pl.info(format_args!("Preparing systolic flags"));
             thread_pool.join(
                 || {
                     // Systolic, non-local computations store the could-be-modified set implicitly into Self::next_must_be_checked.
@@ -862,7 +850,7 @@ where
                 granularity = f64::min(
                     std::cmp::max(1, num_nodes as usize / num_threads) as _,
                     granularity as f64
-                        * (num_nodes as f64 / std::cmp::max(1, modified_counters) as f64),
+                        * (num_nodes as f64 / std::cmp::max(1, modified_estimators) as f64),
                 ) as usize;
             }
             pl.info(format_args!(
@@ -902,13 +890,13 @@ where
         }
 
         pl.done_with_count(ic.visited_arcs.load(Ordering::Relaxed) as usize);
-        let modified_counters = ic.modified_counters.load(Ordering::Relaxed);
+        let modified_estimators = ic.modified_estimators.load(Ordering::Relaxed);
 
         pl.info(format_args!(
-            "Modified counters: {}/{} ({:.3}%)",
-            modified_counters,
+            "Modified estimators: {}/{} ({:.3}%)",
+            modified_estimators,
             self.graph.num_nodes(),
-            (modified_counters as f64 / self.graph.num_nodes() as f64) * 100.0
+            (modified_estimators as f64 / self.graph.num_nodes() as f64) * 100.0
         ));
 
         std::mem::swap(&mut self.curr_state, &mut self.next_state);
@@ -959,15 +947,15 @@ where
     /// * `graph`: the graph to analyze.
     /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed.
-    /// * `curr_state`: the current state of the counters.
-    /// * `next_state`: the next state of the counters (to be computed).
+    /// * `curr_state`: the current state of the estimators.
+    /// * `next_state`: the next state of the estimators (to be computed).
     /// * `ic`: the iteration context.
     #[allow(clippy::too_many_arguments)]
     fn parallel_task(
         graph: &(impl RandomAccessGraph + Sync),
         transpose: Option<&(impl RandomAccessGraph + Sync)>,
-        curr_state: &impl CounterArray<L>,
-        next_state: &impl SyncCounterArray<L>,
+        curr_state: &impl EstimatorArray<L>,
+        next_state: &impl SyncEstimatorArray<L>,
         ic: &IterationContext<'_, G1, D>,
         sum_of_dists: Option<&[SyncCell<f64>]>,
         sum_of_inv_dists: Option<&[SyncCell<f64>]>,
@@ -987,7 +975,7 @@ where
             graph.num_nodes()
         };
         let mut visited_arcs = 0;
-        let mut modified_counters = 0;
+        let mut modified_estimators = 0;
         let arc_upper_limit = graph.num_arcs();
 
         // During standard iterations, cumulates the neighborhood function for the nodes scanned
@@ -996,7 +984,7 @@ where
         let mut neighborhood_function_delta = KahanSum::new_with_value(0.0);
         let mut helper = curr_state.logic().new_helper();
         let logic = curr_state.logic();
-        let mut next_counter = logic.new_counter();
+        let mut next_estimator = logic.new_estimator();
 
         loop {
             // Get work
@@ -1034,14 +1022,14 @@ where
             for i in start..end {
                 let node = if ic.local { ic.local_checklist[i] } else { i };
 
-                let prev_counter = curr_state.get_backend(node);
+                let prev_estimator = curr_state.get_backend(node);
 
                 // The three cases in which we enumerate successors:
                 // 1) A non-systolic computation (we don't know anything, so we enumerate).
                 // 2) A systolic, local computation (the node is by definition to be checked, as it comes from the local check list).
                 // 3) A systolic, non-local computation in which the node should be checked.
                 if !ic.systolic || ic.local || ic.must_be_checked[node] {
-                    next_counter.set(prev_counter);
+                    next_estimator.set(prev_estimator);
                     let mut modified = false;
                     for succ in graph.successors(node) {
                         if succ != node && ic.curr_modified[succ] {
@@ -1050,7 +1038,7 @@ where
                                 modified = true;
                             }
                             logic.merge_with_helper(
-                                next_counter.as_mut(),
+                                next_estimator.as_mut(),
                                 curr_state.get_backend(succ),
                                 &mut helper,
                             );
@@ -1058,21 +1046,21 @@ where
                     }
 
                     let mut post = f64::NAN;
-                    let counter_modified = modified && next_counter.as_ref() != prev_counter;
+                    let estimator_modified = modified && next_estimator.as_ref() != prev_estimator;
 
-                    // We need the counter value only if the iteration is standard (as we're going to
+                    // We need the estimator value only if the iteration is standard (as we're going to
                     // compute the neighborhood function cumulating actual values, and not deltas) or
-                    // if the counter was actually modified (as we're going to cumulate the neighborhood
+                    // if the estimator was actually modified (as we're going to cumulate the neighborhood
                     // function delta, or at least some centrality).
-                    if !ic.systolic || counter_modified {
-                        post = logic.count(next_counter.as_ref())
+                    if !ic.systolic || estimator_modified {
+                        post = logic.estimate(next_estimator.as_ref())
                     }
                     if !ic.systolic {
                         neighborhood_function_delta += post;
                     }
 
-                    if counter_modified && (ic.systolic || do_centrality) {
-                        let pre = logic.count(prev_counter);
+                    if estimator_modified && (ic.systolic || do_centrality) {
+                        let pre = logic.estimate(prev_estimator);
                         if ic.systolic {
                             neighborhood_function_delta += -pre;
                             neighborhood_function_delta += post;
@@ -1108,8 +1096,8 @@ where
                         }
                     }
 
-                    if counter_modified {
-                        // We keep track of modified counters in the result. Note that we must
+                    if estimator_modified {
+                        // We keep track of modified estimators in the result. Note that we must
                         // add the current node to the must-be-checked set for the next
                         // local iteration if it is modified, as it might need a copy to
                         // the result array at the next iteration.
@@ -1120,10 +1108,12 @@ where
 
                         if ic.systolic {
                             debug_assert!(transpose.is_some());
-                            // In systolic computations we must keep track of which counters must
-                            // be checked on the next iteration. If we are preparing a local computation,
-                            // we do this explicitly, by adding the predecessors of the current
-                            // node to a set. Otherwise, we do this implicitly, by setting the
+                            // In systolic computations we must keep track of
+                            // which estimators must be checked on the next
+                            // iteration. If we are preparing a local
+                            // computation, we do this explicitly, by adding the
+                            // predecessors of the current node to a set.
+                            // Otherwise, we do this implicitly, by setting the
                             // corresponding entry in an array.
 
                             // SAFETY: ic.systolic is true, so transpose is Some
@@ -1141,11 +1131,11 @@ where
                             }
                         }
 
-                        modified_counters += 1;
+                        modified_estimators += 1;
                     }
 
                     unsafe {
-                        next_state.set(node, next_counter.as_ref());
+                        next_state.set(node, next_estimator.as_ref());
                     }
                 } else {
                     // Even if we cannot possibly have changed our value, still our copy
@@ -1153,7 +1143,7 @@ where
                     // reflect our current value.
                     if ic.curr_modified[node] {
                         unsafe {
-                            next_state.set(node, prev_counter);
+                            next_state.set(node, prev_estimator);
                         }
                     }
                 }
@@ -1162,8 +1152,8 @@ where
 
         *ic.current_nf.lock().unwrap() += neighborhood_function_delta.sum();
         ic.visited_arcs.fetch_add(visited_arcs, Ordering::Relaxed);
-        ic.modified_counters
-            .fetch_add(modified_counters, Ordering::Relaxed);
+        ic.modified_estimators
+            .fetch_add(modified_estimators, Ordering::Relaxed);
     }
 
     /// Initializes HyperBall.
@@ -1172,7 +1162,7 @@ where
         thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        pl.start("Initializing approximator");
+        pl.start("Initializing estimators");
         pl.info(format_args!("Clearing all registers"));
 
         self.curr_state.clear();
@@ -1182,14 +1172,14 @@ where
         if let Some(w) = &self.weight {
             pl.info(format_args!("Loading weights"));
             for (i, &node_weight) in w.iter().enumerate() {
-                let mut counter = self.curr_state.get_counter_mut(i);
+                let mut estimator = self.curr_state.get_estimator_mut(i);
                 for _ in 0..node_weight {
-                    counter.add(&(random::<u64>() as usize));
+                    estimator.add(&(random::<u64>() as usize));
                 }
             }
         } else {
             (0..self.graph.num_nodes()).for_each(|i| {
-                self.curr_state.get_counter_mut(i).add(i);
+                self.curr_state.get_estimator_mut(i).add(i);
             });
         }
 
@@ -1209,17 +1199,17 @@ where
         if let Some(distances) = &mut self.sum_of_inv_dists {
             distances.fill(0_f64);
         }
-        pl.info(format_args!("Initializing centralities"));
+        pl.debug(format_args!("Initializing centralities"));
         for centralities in self.discounted_centralities.iter_mut() {
             centralities.fill(0.0);
         }
 
         self.last = self.graph.num_nodes() as f64;
-        pl.info(format_args!("Initializing neighborhood function"));
+        pl.debug(format_args!("Initializing neighborhood function"));
         self.neighborhood_function.clear();
         self.neighborhood_function.push(self.last);
 
-        pl.info(format_args!("Initializing modified counters"));
+        pl.debug(format_args!("Initializing modified estimators"));
         thread_pool.install(|| ic.curr_modified.fill(true, Ordering::Relaxed));
 
         pl.done();
@@ -1233,7 +1223,7 @@ mod test {
     use std::hash::{BuildHasherDefault, DefaultHasher};
 
     use super::*;
-    use card_est_array::traits::{CounterArray, MergeCounter};
+    use card_est_array::traits::{EstimatorArray, MergeEstimator};
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
     use webgraph::{
@@ -1241,7 +1231,7 @@ mod test {
         traits::SequentialLabeling,
     };
 
-    type HyperBallArray<G> = SliceCounterArray<
+    type HyperBallArray<G> = SliceEstimatorArray<
         HyperLogLog<<G as SequentialLabeling>::Label, BuildHasherDefault<DefaultHasher>, usize>,
         usize,
         Box<[usize]>,
@@ -1256,16 +1246,16 @@ mod test {
     impl<G: RandomAccessGraph> SeqHyperBall<'_, G> {
         fn init(&mut self) {
             for i in 0..self.graph.num_nodes() {
-                self.curr_state.get_counter_mut(i).add(i);
+                self.curr_state.get_estimator_mut(i).add(i);
             }
         }
 
         fn iterate(&mut self) {
             for i in 0..self.graph.num_nodes() {
-                let mut counter = self.next_state.get_counter_mut(i);
-                counter.set(self.curr_state.get_backend(i));
+                let mut estimator = self.next_state.get_estimator_mut(i);
+                estimator.set(self.curr_state.get_backend(i));
                 for succ in self.graph.successors(i) {
-                    counter.merge(self.curr_state.get_backend(succ));
+                    estimator.merge(self.curr_state.get_backend(succ));
                 }
             }
             std::mem::swap(&mut self.curr_state, &mut self.next_state);
@@ -1287,10 +1277,10 @@ mod test {
             .log_2_num_reg(6)
             .build()?;
 
-        let seq_bits = SliceCounterArray::new(hyper_log_log.clone(), num_nodes);
-        let seq_result_bits = SliceCounterArray::new(hyper_log_log.clone(), num_nodes);
-        let par_bits = SliceCounterArray::new(hyper_log_log.clone(), num_nodes);
-        let par_result_bits = SliceCounterArray::new(hyper_log_log.clone(), num_nodes);
+        let seq_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
+        let seq_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
+        let par_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
+        let par_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
 
         let mut hyperball = HyperBallBuilder::with_transpose(
             &graph,
@@ -1306,18 +1296,18 @@ mod test {
             graph: &graph,
         };
 
-        let mut modified_counters = num_nodes as u64;
+        let mut modified_estimators = num_nodes as u64;
         let threads = thread_pool![];
         hyperball.init(&threads, no_logging![])?;
         seq_hyperball.init();
 
-        while modified_counters != 0 {
+        while modified_estimators != 0 {
             hyperball.iterate(&threads, no_logging![])?;
             seq_hyperball.iterate();
 
-            modified_counters = hyperball
+            modified_estimators = hyperball
                 .iteration_context
-                .modified_counters
+                .modified_estimators
                 .load(Ordering::Relaxed);
 
             assert_eq!(
