@@ -382,7 +382,7 @@ pub fn init_env_logger() -> Result<()> {
 
 #[derive(Args, Debug)]
 pub struct GlobalArgs {
-    #[arg(short, long, value_parser = parse_duration, global=true)]
+    #[arg(long, value_parser = parse_duration, global=true, display_order = 1000)]
     /// How often to log progress. Default is 10s. You can use the suffixes `s`
     /// for seconds, `m` for minutes, `h` for hours, and `d` for days. If no
     /// suffix is provided it is assumed to be in milliseconds.
@@ -419,10 +419,10 @@ pub enum SubCommands {
 ///
 #[doc = include_str!("./common_env.txt")]
 pub struct Cli {
-    #[clap(flatten)]
-    args: GlobalArgs,
     #[command(subcommand)]
     command: SubCommands,
+    #[clap(flatten)]
+    args: GlobalArgs,
 }
 
 pub mod dist;
