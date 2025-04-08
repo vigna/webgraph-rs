@@ -488,11 +488,11 @@ pub struct HyperBall<
     /// iteration.
     relative_increment: f64,
     /// The sum of the distances from every given node, if requested.
-    sum_of_dists: Option<Vec<f64>>,
+    sum_of_dists: Option<Vec<f32>>,
     /// The sum of inverse distances from each given node, if requested.
-    sum_of_inv_dists: Option<Vec<f64>>,
+    sum_of_inv_dists: Option<Vec<f32>>,
     /// The overall discount centrality for every [`Self::discount_functions`].
-    discounted_centralities: Vec<Vec<f64>>,
+    discounted_centralities: Vec<Vec<f32>>,
     /// Context used in a single iteration.
     iteration_context: IterationContext<'a, G1, D>,
     _marker: std::marker::PhantomData<L>,
@@ -626,7 +626,7 @@ where
     }
 
     /// Returns the sum of distances computed by this instance if requested.
-    pub fn sum_of_distances(&self) -> Result<&[f64]> {
+    pub fn sum_of_distances(&self) -> Result<&[f32]> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
             // TODO these are COPIES
@@ -637,7 +637,7 @@ where
     }
 
     /// Returns the harmonic centralities (sum of inverse distances) computed by this instance if requested.
-    pub fn harmonic_centralities(&self) -> Result<&[f64]> {
+    pub fn harmonic_centralities(&self) -> Result<&[f32]> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_inv_dists {
             Ok(distances)
@@ -650,7 +650,7 @@ where
     ///
     /// # Arguments
     /// * `index`: the index of the requested discounted centrality.
-    pub fn discounted_centrality(&self, index: usize) -> Result<&[f64]> {
+    pub fn discounted_centrality(&self, index: usize) -> Result<&[f32]> {
         self.ensure_iteration()?;
         let d = self.discounted_centralities.get(index);
         if let Some(distances) = d {
@@ -661,7 +661,7 @@ where
     }
 
     /// Computes and returns the closeness centralities from the sum of distances computed by this instance.
-    pub fn closeness_centrality(&self) -> Result<Vec<f64>> {
+    pub fn closeness_centrality(&self) -> Result<Vec<f32>> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
             Ok(distances
@@ -676,7 +676,7 @@ where
     /// Computes and returns the lin centralities from the sum of distances computed by this instance.
     ///
     /// Note that lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
-    pub fn lin_centrality(&self) -> Result<Vec<f64>> {
+    pub fn lin_centrality(&self) -> Result<Vec<f32>> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
             let logic = self.curr_state.logic();
@@ -688,7 +688,7 @@ where
                         1.0
                     } else {
                         let count = logic.estimate(self.curr_state.get_backend(node));
-                        count * count / d
+                        (count * count / d as f64) as f32
                     }
                 })
                 .collect())
@@ -707,7 +707,7 @@ where
                 .enumerate()
                 .map(|(node, &d)| {
                     let count = logic.estimate(self.curr_state.get_backend(node));
-                    (count * count) - d
+                    (count * count) - d as f64
                 })
                 .collect())
         } else {
@@ -957,9 +957,9 @@ where
         curr_state: &impl EstimatorArray<L>,
         next_state: &impl SyncEstimatorArray<L>,
         ic: &IterationContext<'_, G1, D>,
-        sum_of_dists: Option<&[SyncCell<f64>]>,
-        sum_of_inv_dists: Option<&[SyncCell<f64>]>,
-        discounted_centralities: &[&[SyncCell<f64>]],
+        sum_of_dists: Option<&[SyncCell<f32>]>,
+        sum_of_inv_dists: Option<&[SyncCell<f32>]>,
+        discounted_centralities: &[&[SyncCell<f32>]],
         _broadcast_context: rayon::BroadcastContext,
     ) {
         let node_granularity = ic.arc_granularity;
@@ -1073,13 +1073,15 @@ where
                                 if let Some(distances) = sum_of_dists {
                                     let new_value = delta * (ic.iteration + 1) as f64;
                                     unsafe {
-                                        distances[node].set(distances[node].get() + new_value)
+                                        distances[node]
+                                            .set((distances[node].get() as f64 + new_value) as f32)
                                     };
                                 }
                                 if let Some(distances) = sum_of_inv_dists {
                                     let new_value = delta / (ic.iteration + 1) as f64;
                                     unsafe {
-                                        distances[node].set(distances[node].get() + new_value)
+                                        distances[node]
+                                            .set((distances[node].get() as f64 + new_value) as f32)
                                     };
                                 }
                                 for (func, distances) in ic
@@ -1089,7 +1091,8 @@ where
                                 {
                                     let new_value = delta * func(ic.iteration + 1);
                                     unsafe {
-                                        distances[node].set(distances[node].get() + new_value)
+                                        distances[node]
+                                            .set((distances[node].get() as f64 + new_value) as f32)
                                     };
                                 }
                             }
@@ -1194,10 +1197,10 @@ where
 
         pl.debug(format_args!("Initializing distances"));
         if let Some(distances) = &mut self.sum_of_dists {
-            distances.fill(0_f64);
+            distances.fill(0.0);
         }
         if let Some(distances) = &mut self.sum_of_inv_dists {
-            distances.fill(0_f64);
+            distances.fill(0.0);
         }
         pl.debug(format_args!("Initializing centralities"));
         for centralities in self.discounted_centralities.iter_mut() {
