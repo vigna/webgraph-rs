@@ -43,15 +43,9 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     }
 
     match get_endianness(&args.src)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "be_bins")]
         BE::NAME => build_eliasfano::<BE>(global_args, args),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "le_bins")]
         LE::NAME => build_eliasfano::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
@@ -162,15 +156,9 @@ pub fn build_eliasfano_from_graph(
 ) -> Result<()> {
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
     match get_endianness(&args.src)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "be_bins")]
         BE::NAME => build_eliasfano_from_graph_with_endianness::<BE>(args, pl, efb),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "le_bins")]
         LE::NAME => build_eliasfano_from_graph_with_endianness::<LE>(args, pl, efb),
         e => panic!("Unknown endianness: {}", e),
     }

@@ -14,6 +14,7 @@ categories = ["compression", "data-structures", "algorithms", "cli"]
 
 [dependencies]
 webgraph.workspace = true
+webgraph-algo.workspace = true
 anyhow.workspace = true
 epserde.workspace = true
 dsi-bitstream.workspace = true

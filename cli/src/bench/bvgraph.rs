@@ -57,18 +57,12 @@ pub struct CliArgs {
 
 pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     match get_endianness(&args.src)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "be_bins")]
         BE::NAME => match args._static {
             true => bench_webgraph::<BE, Static>(args),
             false => bench_webgraph::<BE, Dynamic>(args),
         },
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "le_bins")]
         LE::NAME => match args._static {
             true => bench_webgraph::<LE, Static>(args),
             false => bench_webgraph::<LE, Dynamic>(args),

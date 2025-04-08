@@ -24,6 +24,9 @@ use sysinfo::System;
 use webgraph::prelude::CompFlags;
 use webgraph::utils::Granularity;
 
+#[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
+compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
+
 pub mod build_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 
@@ -414,19 +417,15 @@ pub enum SubCommands {
 #[command(name = "webgraph", version=build_info::version_string())]
 /// Webgraph tools to build, convert, modify, and analyze webgraph files.
 ///
-/// Environment (noteworthy environment variables used):
-/// `RUST_MIN_STACK``: minimum thread stack size (in bytes)
-/// we suggest `RUST_MIN_STACK=8388608`` which is the maximum allowed by linux.
-/// `TMPDIR``: where to store temporary files (potentially very large ones)
-/// `RUST_LOG``: configuration for env_logger, pass `info` to see the progress of the
-/// compression, `debug` to see the progress of the decompression, and `trace` to see all the
-/// details. You can also use `RUST_LOG=webgraph=debug` to see only the webgraph logs.
+#[doc = include_str!("./common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]
     args: GlobalArgs,
     #[command(subcommand)]
     command: SubCommands,
 }
+
+pub mod dist;
 
 pub mod analyze;
 pub mod bench;

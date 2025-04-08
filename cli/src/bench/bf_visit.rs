@@ -38,10 +38,7 @@ pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     for _ in 0..args.repeats {
         match (get_endianness(&args.src)?.as_str(), args.mmap) {
-            #[cfg(any(
-                feature = "be_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
+            #[cfg(feature = "be_bins")]
             (BE::NAME, true) => match args._static {
                 true => visit(
                     config
@@ -54,10 +51,7 @@ pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
                 )?,
                 false => visit(config.clone().endianness::<BE>().load()?)?,
             },
-            #[cfg(any(
-                feature = "be_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
+            #[cfg(feature = "be_bins")]
             (BE::NAME, false) => match args._static {
                 true => visit(
                     config
@@ -70,10 +64,7 @@ pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
                 )?,
                 false => visit(config.clone().endianness::<BE>().load()?)?,
             },
-            #[cfg(any(
-                feature = "le_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
+            #[cfg(feature = "le_bins")]
             (LE::NAME, true) => match args._static {
                 true => visit(
                     config
@@ -86,10 +77,7 @@ pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
                 )?,
                 false => visit(config.clone().endianness::<LE>().load()?)?,
             },
-            #[cfg(any(
-                feature = "le_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
+            #[cfg(feature = "le_bins")]
             (LE::NAME, false) => match args._static {
                 true => visit(
                     config

@@ -22,15 +22,9 @@ pub struct CliArgs {
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     match get_endianness(&args.src)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "be_bins")]
         BE::NAME => build_offsets::<BE>(global_args, args),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "le_bins")]
         LE::NAME => build_offsets::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }

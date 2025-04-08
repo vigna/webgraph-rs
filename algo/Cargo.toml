@@ -16,7 +16,6 @@ authors = [
 
 [dependencies]
 card-est-array.workspace = true
-webgraph-cli.workspace = true
 webgraph.workspace = true
 dsi-progress-logger.workspace = true
 sux.workspace = true

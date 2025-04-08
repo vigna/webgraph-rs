@@ -27,7 +27,7 @@ pub struct CliArgs {
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
-    #[clap(long)]
+    #[arg(long)]
     /// The path to an optional permutation in binary big-endian format to be applied to the graph.
     pub permutation: Option<PathBuf>,
 
@@ -49,15 +49,9 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     let target_endianness = args.ca.endianness.clone();
     match get_endianness(&args.src)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "be_bins")]
         BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation)?,
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
+        #[cfg(feature = "le_bins")]
         LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation)?,
         e => panic!("Unknown endianness: {}", e),
     };
