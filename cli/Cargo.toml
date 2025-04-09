@@ -11,6 +11,7 @@ license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
 keywords = ["graph", "compression", "codes", "webgraph"]
 categories = ["compression", "data-structures", "algorithms", "cli"]
+default-run = "webgraph"
 
 [dependencies]
 webgraph.workspace = true
@@ -49,7 +50,7 @@ le_bins = []                     # Enable read / write of only LE bvgraphs (to r
 slow_tests = []                  # Enable long-running tests
 
 [[bin]]
-name = "webgraph-cli"
+name = "webgraph"
 path = "src/main.rs"
 
 [lib]
