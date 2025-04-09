@@ -22,7 +22,6 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     }
 }
 
-pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn hyperball<E: Endianness>(_global_args: GlobalArgs, _args: CliArgs) -> Result<()> {
     todo!();
-    Ok(())
 }
