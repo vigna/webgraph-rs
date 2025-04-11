@@ -10,6 +10,7 @@ use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_cell_slice::SyncSlice;
+use webgraph::utils::Granularity;
 use webgraph::{
     prelude::{BvGraph, VecGraph},
     traits::{RandomAccessGraph, SequentialLabeling},
@@ -292,10 +293,20 @@ test_bfv_algo_seq!(
     sequential
 );
 test_bfv_algo_par!(
-    |g| { webgraph_algo::prelude::breadth_first::ParFairPred::<_>::new(g, 32,) },
+    |g| {
+        webgraph_algo::prelude::breadth_first::ParFairPred::with_granularity(
+            g,
+            Granularity::Nodes(32),
+        )
+    },
     parallel_fair_pred
 );
 test_bfv_algo_par!(
-    |g| { webgraph_algo::prelude::breadth_first::ParLowMem::<_>::new(g, 32,) },
+    |g| {
+        webgraph_algo::prelude::breadth_first::ParLowMem::with_granularity(
+            g,
+            Granularity::Nodes(32),
+        )
+    },
     parallel_fast_callback
 );

@@ -122,8 +122,8 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     /// * `transpose`: the transpose of `graph`.
     /// * `output`: the desired output of the algorithm.
     /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node
-    ///    `i` is to be considered radial vertex. If [`None`] the algorithm will
-    ///    use the biggest connected component.
+    ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
+    ///   use the biggest connected component.
     /// * `pl`: a progress logger.
     pub(super) fn new(
         graph: &'a G1,

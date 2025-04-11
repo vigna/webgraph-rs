@@ -65,8 +65,8 @@ pub trait Level: Sync {
     ///   undefined otherwise.
     ///
     /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node
-    ///    `i` is to be considered radial vertex. If [`None`] the algorithm will
-    ///    use the biggest connected component.
+    ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
+    ///   use the biggest connected component.
     ///
     /// * `thread_pool`: The thread pool to use for parallel computations.
     ///
