@@ -31,9 +31,6 @@ use webgraph::traits::RandomAccessGraph;
 
 use super::{Level, Missing};
 
-/// Experimentally obtained sane value for the granularity of the visits.
-const VISIT_GRANULARITY: usize = 64;
-
 pub(super) struct DirExactSumSweepComputer<
     'a,
     G1: RandomAccessGraph + Sync,
@@ -98,8 +95,8 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level>
 
         let scc = sccs::symm_seq(graph, pl);
         let scc_graph = SccGraph::new_symm(&scc);
-        let visit = ParFairNoPred::new(graph, VISIT_GRANULARITY);
-        let transposed_visit = ParFairNoPred::new(graph, VISIT_GRANULARITY);
+        let visit = ParFairNoPred::new(graph);
+        let transposed_visit = ParFairNoPred::new(graph);
 
         Self::_new(
             graph,
@@ -143,8 +140,8 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
 
         let scc = sccs::tarjan(graph, pl);
         let scc_graph = SccGraph::new(graph, transpose, &scc, pl);
-        let visit = ParFairNoPred::new(graph, VISIT_GRANULARITY);
-        let transposed_visit = ParFairNoPred::new(transpose, VISIT_GRANULARITY);
+        let visit = ParFairNoPred::new(graph);
+        let transposed_visit = ParFairNoPred::new(transpose);
 
         Self::_new(
             graph,
@@ -752,7 +749,7 @@ impl<
         let current_index = AtomicUsize::new(0);
 
         thread_pool.broadcast(|_| {
-            let mut bfs = ParFairNoPred::new(graph, VISIT_GRANULARITY);
+            let mut bfs = ParFairNoPred::new(graph);
             let mut current_pivot_index = current_index.fetch_add(1, Ordering::Relaxed);
 
             while let Some(&p) = pivot.get(current_pivot_index) {

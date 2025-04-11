@@ -13,7 +13,7 @@ use std::{
     sync::atomic::Ordering,
 };
 use sux::bits::AtomicBitVec;
-use webgraph::traits::RandomAccessGraph;
+use webgraph::{traits::RandomAccessGraph, utils::Granularity};
 
 /// Fair parallel breadth-first visits.
 ///
@@ -68,7 +68,7 @@ use webgraph::traits::RandomAccessGraph;
 /// use no_break::NoBreak;
 ///
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-/// let mut visit = breadth_first::ParFairNoPred::new(&graph, 1);
+/// let mut visit = breadth_first::ParFairNoPred::new(&graph);
 /// let mut d = [0_usize; 4];
 /// let mut d_sync = d.as_sync_slice();
 /// visit.par_visit(
@@ -106,17 +106,35 @@ pub type ParFairNoPred<G> = ParFair<G, false>;
 impl<G: RandomAccessGraph, const P: bool> ParFair<G, P> {
     /// Creates a fair parallel breadth-first visit.
     ///
+    /// This constructor uses a default granularity of 128 nodes. Use
+    /// [`with_granularity`](Self::with_granularity) to set a different
+    ///  granularity.
+    ///
     /// # Arguments
+    ///
     /// * `graph`: the graph to visit.
-    /// * `granularity`: the number of nodes per chunk. High granularity reduces
-    ///   overhead, but may lead to decreased performance on graphs with a
-    ///   skewed outdegree distribution.
     #[inline(always)]
-    pub fn new(graph: G, granularity: usize) -> Self {
+    pub fn new(graph: G) -> Self {
+        Self::with_granularity(graph, Granularity::Nodes(128))
+    }
+
+    /// Creates a fair parallel breadth-first visit.
+    ///
+    /// # Arguments
+    ///
+    /// * `graph`: the graph to visit.
+    ///
+    /// * `granularity`: High granularity reduces overhead, but may lead to
+    ///   decreased performance on graphs with a skewed outdegree distribution.
+    ///   From this parameter, we derive a [node
+    ///   granularity](Granularity::node_granularity).
+    #[inline(always)]
+    pub fn with_granularity(graph: G, granularity: Granularity) -> Self {
         let num_nodes = graph.num_nodes();
+        let num_arcs = graph.num_arcs();
         Self {
             graph,
-            granularity,
+            granularity: granularity.node_granularity(num_nodes, Some(num_arcs)),
             visited: AtomicBitVec::new(num_nodes),
         }
     }

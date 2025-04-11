@@ -33,8 +33,7 @@ pub fn symm_par(
     pl.expected_updates(Some(num_nodes));
     pl.start("Computing strongly connected components...");
 
-    // TODO: use a better value for granularity
-    let mut visit = ParFairNoPred::new(&graph, 100);
+    let mut visit = ParFairNoPred::new(&graph);
     let mut component = Box::new_uninit_slice(num_nodes);
 
     let number_of_components = AtomicUsize::new(0);

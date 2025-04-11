@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.1.2] - 2025-04-11
+
+### Changed
+
+* Reviewed constructors of parallel visit to offer default granularity.
+
 ## [0.1.1] - 2025-04-01
 
 ### New
