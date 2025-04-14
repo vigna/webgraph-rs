@@ -1,0 +1,378 @@
+use super::bvgraph::EF;
+use crate::traits::*;
+use common_traits::UnsignedInt;
+use epserde::Epserde;
+use lender::{for_, IntoLender, Lend, Lender, Lending};
+use sux::{
+    bits::BitFieldVec,
+    dict::EliasFanoBuilder,
+    prelude::SelectAdaptConst,
+    traits::{BitFieldSliceCore, IndexedSeq, IntoIteratorFrom},
+};
+
+pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
+
+#[derive(Debug, Clone, Epserde)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// A compressed sparse row graph.
+/// It is a graph representation that stores the degree-cumulative function (DCF)
+/// and the successors in a compressed format.
+/// The DCF is a sequence of offsets that indicates the start of the neighbors
+/// for each node in the graph.
+///
+/// Depending on the performance and memory requirements, both the DCF and
+/// successors can be stored in different formats.
+///
+/// The fastest format is `CsrGraph<Vec<usize>, Vec<usize>>`, while a compressed
+/// representation can be achieved with `CsrGraph<webgraph::bvgraph::DCF, BitFieldVec>`.
+pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
+    dcf: DCF,
+    successors: S,
+}
+
+impl<DCF, S> CsrGraph<DCF, S> {
+    /// Creates a new CSR graph from the given degree-cumulative function and successors.
+    ///
+    /// # Safety
+    /// The degree-cumulative function must be monotone and coherent with the successors.
+    pub unsafe fn from_parts(dcf: DCF, successors: S) -> Self {
+        Self { dcf, successors }
+    }
+
+    pub fn dcf(&self) -> &DCF {
+        &self.dcf
+    }
+
+    pub fn successors(&self) -> &S {
+        &self.successors
+    }
+
+    pub fn into_inner(self) -> (DCF, S) {
+        (self.dcf, self.successors)
+    }
+}
+
+impl core::default::Default for CsrGraph<Vec<usize>, Vec<usize>> {
+    fn default() -> Self {
+        Self {
+            dcf: vec![0],
+            successors: vec![],
+        }
+    }
+}
+
+impl CsrGraph<Vec<usize>, Vec<usize>> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new graph from a [`SequentialGraph`].
+    pub fn from_graph<G: SequentialGraph>(g: &G) -> Self {
+        let mut dcf = Vec::with_capacity(g.num_nodes() + 1);
+        let mut successors = Vec::with_capacity(g.num_arcs_hint().unwrap_or(0) as usize);
+        for_!((_, succ) in g.iter() {
+            successors.extend(succ);
+            dcf.push(successors.len());
+        });
+        unsafe { Self::from_parts(dcf, successors) }
+    }
+
+    /// Creates a new graph from a sorted [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// This method is faster than [`from_lender`](Self::from_lender) as
+    /// it does not need to sort the output of the lender.
+    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
+    {
+        let mut dcf = vec![0];
+        let mut successors = vec![];
+        for_!( (_, succ) in iter_nodes {
+            successors.extend(succ);
+            dcf.push(successors.len());
+        });
+        unsafe { Self::from_parts(dcf, successors) }
+    }
+
+    pub fn shrink_to_fit(&mut self) {
+        self.dcf.shrink_to_fit();
+        self.successors.shrink_to_fit();
+    }
+}
+
+impl CompressedCsrGraph {
+    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self {
+        let n = g.num_nodes();
+        let u = g.num_arcs();
+        let mut efb = EliasFanoBuilder::new(n + 1, u as usize + 1);
+        efb.push(0);
+        let mut successors = BitFieldVec::with_capacity(n.ilog2_ceil() as usize, u as usize);
+
+        for_!((_, succ) in g.iter() {
+            successors.extend(succ);
+            efb.push(successors.len());
+        });
+        let ef = efb.build();
+        let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
+        unsafe { Self::from_parts(ef, successors) }
+    }
+}
+
+impl<'a, DCF, S> IntoLender for &'a CsrGraph<DCF, S>
+where
+    DCF: IndexedSeq<Input = usize, Output = usize>,
+    S: IndexedSeq<Input = usize, Output = usize>,
+    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
+    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+{
+    type Lender = LenderImpl<
+        <&'a DCF as IntoIteratorFrom>::IntoIterFrom,
+        <&'a S as IntoIteratorFrom>::IntoIterFrom,
+    >;
+
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
+    }
+}
+
+impl<DCF, S> SequentialLabeling for CsrGraph<DCF, S>
+where
+    DCF: IndexedSeq<Input = usize, Output = usize>,
+    S: IndexedSeq<Input = usize, Output = usize>,
+    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
+    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+{
+    type Label = usize;
+    type Lender<'a>
+        = LenderImpl<
+        <&'a DCF as IntoIteratorFrom>::IntoIterFrom,
+        <&'a S as IntoIteratorFrom>::IntoIterFrom,
+    >
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.dcf.len().saturating_sub(1)
+    }
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<u64> {
+        Some(self.num_arcs())
+    }
+
+    #[inline(always)]
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
+        let mut offsets_iter = self.dcf.into_iter_from(from);
+        // skip the first offset, we don't start from `from + 1`
+        // because it might not exist
+        let offset = offsets_iter.next().unwrap_or(0);
+
+        LenderImpl {
+            node: from,
+            last_offset: offset,
+            current_offset: offset,
+            offsets_iter,
+            successors_iter: self.successors.into_iter_from(offset),
+        }
+    }
+}
+
+impl<DCF, S> SequentialGraph for CsrGraph<DCF, S>
+where
+    DCF: IndexedSeq<Input = usize, Output = usize>,
+    S: IndexedSeq<Input = usize, Output = usize>,
+    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
+    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+{
+}
+
+impl<DCF, S> RandomAccessLabeling for CsrGraph<DCF, S>
+where
+    DCF: IndexedSeq<Input = usize, Output = usize>,
+    S: IndexedSeq<Input = usize, Output = usize>,
+    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
+    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+{
+    type Labels<'succ>
+        = core::iter::Take<<&'succ S as IntoIteratorFrom>::IntoIterFrom>
+    where
+        Self: 'succ;
+
+    #[inline(always)]
+    fn num_arcs(&self) -> u64 {
+        self.successors.len() as u64
+    }
+
+    #[inline(always)]
+    fn outdegree(&self, node: usize) -> usize {
+        self.dcf.get(node + 1) - self.dcf.get(node)
+    }
+
+    #[inline(always)]
+    fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
+        let start = self.dcf.get(node);
+        let end = self.dcf.get(node + 1);
+        self.successors.into_iter_from(start).take(end - start)
+    }
+}
+
+impl<DCF, S> RandomAccessGraph for CsrGraph<DCF, S>
+where
+    DCF: IndexedSeq<Input = usize, Output = usize>,
+    S: IndexedSeq<Input = usize, Output = usize>,
+    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
+    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+{
+}
+
+/// Sequential Lender for the CSR graph.
+pub struct LenderImpl<I: Iterator<Item = usize>, D: Iterator<Item = usize>> {
+    /// The next node to lend labels for.
+    node: usize,
+    /// This is the offset of the last successor of the previous node.
+    last_offset: usize,
+    /// This is the offset of the next successor to lend. This is modified
+    /// by the iterator we return.
+    current_offset: usize,
+    /// The offsets iterator.
+    offsets_iter: I,
+    /// The successors iterator.
+    successors_iter: D,
+}
+
+impl<'succ, I, D> NodeLabelsLender<'succ> for LenderImpl<I, D>
+where
+    I: Iterator<Item = usize>,
+    D: Iterator<Item = usize>,
+{
+    type Label = usize;
+    type IntoIterator = IteratorImpl<'succ, D>;
+}
+
+impl<'succ, I, D> Lending<'succ> for LenderImpl<I, D>
+where
+    I: Iterator<Item = usize>,
+    D: Iterator<Item = usize>,
+{
+    type Lend = (usize, IteratorImpl<'succ, D>);
+}
+
+impl<I, D> Lender for LenderImpl<I, D>
+where
+    I: Iterator<Item = usize>,
+    D: Iterator<Item = usize>,
+{
+    #[inline(always)]
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
+        // if the user of the iterator wasn't fully consumed,
+        // we need to skip the remaining successors
+        while self.current_offset < self.last_offset {
+            self.current_offset += 1;
+            self.successors_iter.next()?;
+        }
+
+        // implicitly exit if the offsets iterator is empty
+        let offset = self.offsets_iter.next()?;
+        self.last_offset = offset;
+
+        let node = self.node;
+        self.node += 1;
+
+        Some((
+            node,
+            IteratorImpl {
+                succ_iter: &mut self.successors_iter,
+                current_offset: &mut self.current_offset,
+                last_offset: &self.last_offset,
+            },
+        ))
+    }
+}
+
+/// The iterator returned by the lender.
+/// This is different from the Random access iterator because
+/// for better efficiency we have a single successors iterators
+/// that is forwarded by the lender.
+///
+/// If the dcf and the successors are compressed representations,
+/// this might be much faster than the random access iterator,
+/// like we do in BVGraph. When using vectors it might be
+/// slower, but it is still a good idea to use this
+/// iterator to avoid the overhead of creating a new iterator
+/// for each node.
+pub struct IteratorImpl<'a, D> {
+    succ_iter: &'a mut D,
+    current_offset: &'a mut usize,
+    last_offset: &'a usize,
+}
+
+impl<D: Iterator<Item = usize>> Iterator for IteratorImpl<'_, D> {
+    type Item = usize;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        if *self.current_offset >= *self.last_offset {
+            return None;
+        }
+        *self.current_offset += 1;
+        self.succ_iter.next()
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.last_offset - *self.current_offset;
+        (len, Some(len))
+    }
+}
+
+impl<D: Iterator<Item = usize>> ExactSizeIterator for IteratorImpl<'_, D> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.last_offset - *self.current_offset
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::prelude::VecGraph;
+
+    use super::*;
+    #[test]
+    fn test_csr_graph() {
+        let mut arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+        let g = VecGraph::from_arcs(arcs.iter().copied());
+
+        let csr = <CsrGraph>::from_graph(&g);
+        check_graph_equivalence(&g, &csr);
+
+        let csr = CompressedCsrGraph::from_graph(&g);
+        check_graph_equivalence(&g, &csr);
+    }
+
+    fn check_graph_equivalence(g1: impl RandomAccessGraph, g2: impl RandomAccessGraph) {
+        assert_eq!(g1.num_nodes(), g2.num_nodes());
+        assert_eq!(g1.num_arcs(), g2.num_arcs());
+        for node in 0..g1.num_nodes() {
+            let labels1: Vec<_> = g1.successors(node).into_iter().collect();
+            let labels2: Vec<_> = g2.successors(node).into_iter().collect();
+            assert_eq!(labels1, labels2);
+        }
+        for start in 0..g1.num_nodes() {
+            let mut iter1 = g1.iter_from(start);
+            let mut iter2 = g2.iter_from(start);
+
+            while let Some(((n1, succ1), (n2, succ2))) = iter1.next().zip(iter2.next()) {
+                assert_eq!(n1, n2);
+                assert_eq!(
+                    succ1.into_iter().collect::<Vec<_>>(),
+                    succ2.into_iter().collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+}
