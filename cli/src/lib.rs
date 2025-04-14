@@ -14,9 +14,10 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::UnsignedInt;
 use dsi_bitstream::dispatch::Codes;
+use epserde::ser::Serialize;
 use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
 use jiff::SpanRound;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
@@ -117,10 +118,18 @@ pub struct ArcsArgs {
     pub exact: bool,
 }
 
+/// Parses the number of threads from a string, this is meant to be used with
+/// `#[arg(...,  value_parser = num_threads_parser)]`.
+pub fn num_threads_parser(arg: &str) -> Result<usize> {
+    let num_threads = arg.parse::<usize>()?;
+    ensure!(num_threads > 0, "Number of threads must be greater than 0");
+    Ok(num_threads)
+}
+
 /// Shared CLI arguments for commands that specify a number of threads.
 #[derive(Args, Debug)]
 pub struct NumThreadsArg {
-    #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1))]
+    #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
     /// The number of threads to use
     pub num_threads: usize,
 }
@@ -159,6 +168,88 @@ pub struct BatchSizeArg {
     /// multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. You can also use a
     /// percentage of the available memory by appending a `%` to the number.
     pub batch_size: usize,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum VectorFormat {
+    /// Java-compatible format i.e., a sequence of
+    /// big-endian 64-bit integers.
+    Java,
+    /// ε-serde format that can be memory-mapped and read using
+    /// https://crates.io/crates/epserde .
+    Epserde,
+    /// ASCII format, one integer per line
+    Ascii,
+    /// A Json Array
+    Json,
+}
+
+impl VectorFormat {
+    /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
+    pub fn store(&self, path: impl AsRef<Path>, data: &[u64]) -> Result<()> {
+        // Ensure the parent directory exists
+        create_parent_dir(&path)?;
+
+        if matches!(self, VectorFormat::Epserde) {
+            log::info!("Storing in epserde format at {}", path.as_ref().display());
+            data.store(&path).with_context(|| {
+                format!("Could not write vector to {}", path.as_ref().display())
+            })?;
+            return Ok(());
+        }
+
+        let mut file = std::fs::File::create(&path)
+            .with_context(|| format!("Could not create vector at {}", path.as_ref().display()))?;
+        let mut buf = BufWriter::new(&mut file);
+
+        match self {
+            VectorFormat::Epserde => unreachable!(),
+            VectorFormat::Java => {
+                log::info!("Storing in Java format at {}", path.as_ref().display());
+                for word in data.iter() {
+                    buf.write_all(&word.to_be_bytes()).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+            }
+            VectorFormat::Ascii => {
+                log::info!("Storing in ASCII format at {}", path.as_ref().display());
+                for word in data.iter() {
+                    writeln!(buf, "{}", word).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+            }
+            VectorFormat::Json => {
+                log::info!("Storing in JSON format at {}", path.as_ref().display());
+                write!(buf, "[")?;
+                for word in data.iter().take(data.len().saturating_sub(2)) {
+                    write!(buf, "{}, ", word).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+                if let Some(last) = data.last() {
+                    write!(buf, "{}", last).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+                write!(buf, "]")?;
+            }
+        };
+
+        Ok(())
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    /// Stores a vector of `usize` in the specified `path`` using the format defined by `self`.
+    ///
+    /// This helper method is available only on 64-bit architectures as Java's format
+    /// is of 64-bit integers.
+    pub fn store_usizes(&self, path: impl AsRef<Path>, data: &[usize]) -> Result<()> {
+        self.store(path, unsafe {
+            core::mem::transmute::<&[usize], &[u64]>(data)
+        })
+    }
 }
 
 /// Parses a batch size.
@@ -426,6 +517,7 @@ pub struct Cli {
 }
 
 pub mod dist;
+pub mod sccs;
 
 pub mod analyze;
 pub mod bench;
@@ -438,7 +530,7 @@ pub mod to;
 pub mod transform;
 
 /// The entry point of the command-line interface.
-pub fn main<I, T>(args: I) -> Result<()>
+pub fn cli_main<I, T>(args: I) -> Result<()>
 where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone,

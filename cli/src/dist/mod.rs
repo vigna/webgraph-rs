@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 use crate::{build_info, pretty_print_elapsed};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -28,7 +34,7 @@ pub struct Cli {
     command: SubCommands,
 }
 
-pub fn main<I, T>(args: I) -> Result<()>
+pub fn cli_main<I, T>(args: I) -> Result<()>
 where
     I: IntoIterator<Item = T>,
     T: Into<std::ffi::OsString> + Clone,
