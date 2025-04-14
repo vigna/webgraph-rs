@@ -16,6 +16,8 @@ pub mod random;
 pub mod union_graph;
 pub mod vec_graph;
 
+pub mod csr_graph;
+
 pub mod prelude {
     pub use super::btree_graph::BTreeGraph;
     pub use super::bvgraph::*;

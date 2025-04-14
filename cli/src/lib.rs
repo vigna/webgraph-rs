@@ -171,7 +171,7 @@ pub struct BatchSizeArg {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum VectorFormat {
+pub enum SliceFormat {
     /// Java-compatible format i.e., a sequence of
     /// big-endian 64-bit integers.
     Java,
@@ -184,53 +184,56 @@ pub enum VectorFormat {
     Json,
 }
 
-impl VectorFormat {
+impl SliceFormat {
     /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
     pub fn store(&self, path: impl AsRef<Path>, data: &[u64]) -> Result<()> {
         // Ensure the parent directory exists
         create_parent_dir(&path)?;
 
-        if matches!(self, VectorFormat::Epserde) {
+        if matches!(self, SliceFormat::Epserde) {
             log::info!("Storing in epserde format at {}", path.as_ref().display());
-            data.store(&path).with_context(|| {
-                format!("Could not write vector to {}", path.as_ref().display())
-            })?;
+            data.store(&path)
+                .with_context(|| format!("Could not write slice to {}", path.as_ref().display()))?;
             return Ok(());
         }
 
-        let mut file = std::fs::File::create(&path)
-            .with_context(|| format!("Could not create vector at {}", path.as_ref().display()))?;
+        let mut file = std::fs::File::create(&path).with_context(|| {
+            format!(
+                "Could not create file at {} to store slice",
+                path.as_ref().display()
+            )
+        })?;
         let mut buf = BufWriter::new(&mut file);
 
         match self {
-            VectorFormat::Epserde => unreachable!(),
-            VectorFormat::Java => {
+            SliceFormat::Epserde => unreachable!(),
+            SliceFormat::Java => {
                 log::info!("Storing in Java format at {}", path.as_ref().display());
                 for word in data.iter() {
                     buf.write_all(&word.to_be_bytes()).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })?;
                 }
             }
-            VectorFormat::Ascii => {
+            SliceFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path.as_ref().display());
                 for word in data.iter() {
                     writeln!(buf, "{}", word).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })?;
                 }
             }
-            VectorFormat::Json => {
+            SliceFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());
                 write!(buf, "[")?;
                 for word in data.iter().take(data.len().saturating_sub(2)) {
                     write!(buf, "{}, ", word).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })?;
                 }
                 if let Some(last) = data.last() {
                     write!(buf, "{}", last).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })?;
                 }
                 write!(buf, "]")?;
@@ -403,34 +406,18 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
 /// - `d` for days
 ///
 /// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.
+///
+/// More precisely, this is parsed using `jiff` so it supports ISO 8601 durations and their
+/// [friendly format](https://docs.rs/jiff/latest/jiff/fmt/friendly/index.html) which includes our
+/// custom format.
 fn parse_duration(value: &str) -> Result<Duration> {
     if value.is_empty() {
         bail!("Empty duration string, if you want every 0 milliseconds use `0`.");
     }
-    let mut duration = Duration::from_secs(0);
-    let mut acc = String::new();
-    for c in value.chars() {
-        if c.is_ascii_digit() {
-            acc.push(c);
-        } else if c.is_whitespace() {
-            continue;
-        } else {
-            let dur = acc.parse::<u64>()?;
-            match c {
-                's' => duration += Duration::from_secs(dur),
-                'm' => duration += Duration::from_secs(dur * 60),
-                'h' => duration += Duration::from_secs(dur * 60 * 60),
-                'd' => duration += Duration::from_secs(dur * 60 * 60 * 24),
-                _ => return Err(anyhow!("Invalid duration suffix: {}", c)),
-            }
-            acc.clear();
-        }
-    }
-    if !acc.is_empty() {
-        let dur = acc.parse::<u64>()?;
-        duration += Duration::from_millis(dur);
-    }
-    Ok(duration)
+    let span: jiff::Span = value
+        .parse()
+        .map_err(|_| anyhow!("Failed to parse duration: {}", value))?;
+    Ok(Duration::try_from(span)?)
 }
 
 pub fn init_env_logger() -> Result<()> {

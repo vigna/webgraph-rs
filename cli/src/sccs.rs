@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{build_info, num_threads_parser, pretty_print_elapsed, VectorFormat};
+use crate::{build_info, num_threads_parser, pretty_print_elapsed, SliceFormat};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
@@ -50,9 +50,9 @@ pub struct CliArgs {
     /// The number of threads to use to compute the sizes of the components.
     pub num_threads: usize,
 
-    #[arg(long, value_enum, default_value_t = VectorFormat::Java)]
+    #[arg(long, value_enum, default_value_t = SliceFormat::Java)]
     /// How the components and component sizes will be stored.
-    pub fmt: VectorFormat,
+    pub fmt: SliceFormat,
 }
 
 pub fn cli_main<I, T>(args: I) -> Result<()>
