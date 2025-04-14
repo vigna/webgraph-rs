@@ -1,4 +1,4 @@
-use super::bvgraph::DCF;
+use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
@@ -6,11 +6,11 @@ use lender::{for_, IntoLender, Lend, Lender, Lending};
 use sux::{
     bits::BitFieldVec,
     dict::EliasFanoBuilder,
-    prelude::{SelectAdaptConst, SelectZeroAdaptConst},
+    prelude::SelectAdaptConst,
     traits::{BitFieldSliceCore, IndexedSeq, IntoIteratorFrom},
 };
 
-pub type CompressedCsrGraph = CsrGraph<DCF, BitFieldVec>;
+pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
 
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -116,11 +116,7 @@ impl CompressedCsrGraph {
             efb.push(successors.len());
         });
         let ef = efb.build();
-        let ef: DCF = unsafe {
-            ef.map_high_bits(|bits| {
-                SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(bits))
-            })
-        };
+        let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
         unsafe { Self::from_parts(ef, successors) }
     }
 }
