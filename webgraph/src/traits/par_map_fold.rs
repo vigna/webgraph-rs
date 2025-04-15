@@ -12,7 +12,7 @@ impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 /// Parallel mapping and folding for iterators.
 ///
 /// This trait extends the [`Iterator`] trait with methods that map values and
-/// fold them. Differently from the [`rayon`] approach, elements of the iterator
+/// fold them. Differently from the [Rayon](rayon) approach, elements of the iterator
 /// are submitted for processing to a thread pool in the order in which the are
 /// emitted. Each thread performs internal folding of the results: at the end,
 /// all results provided by the threads are folded together.

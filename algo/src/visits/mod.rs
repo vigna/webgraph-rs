@@ -42,7 +42,7 @@
 //! available) due to race conditions.
 //!
 //! All visits have also methods accepting an `init` item similarly to the
-//! [`rayon`] [`map_with`](rayon::iter::ParallelIterator::map_with) method. For
+//! [Rayon](rayon) [`map_with`](rayon::iter::ParallelIterator::map_with) method. For
 //! parallel visits, the item will be cloned.
 //!
 //! There is a blanket implementation of the [`Parallel`] trait for all types
