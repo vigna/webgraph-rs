@@ -927,7 +927,7 @@ impl<
 
         let missing = thread_pool.install(|| {
             (0..self.num_nodes)
-                .into_par_iter()
+                .into_par_iter() // TODO: with_min_len (also elsewhere)
                 .fold(Default::default, |mut acc: Missing, node| {
                     if self.incomplete_forward(node) {
                         acc.all_forward += 1;
