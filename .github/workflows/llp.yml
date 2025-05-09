@@ -1,4 +1,4 @@
-name: Rust CI Pipeline
+name: Test LLP pipeline
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   RUST_MIN_STACK: 67108864 # 64MiB
 
 jobs:
-  build:
+  llp:
     runs-on: ubuntu-latest
     steps:
       - name: Run LLP test on CNR2000
