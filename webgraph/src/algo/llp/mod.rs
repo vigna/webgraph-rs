@@ -477,7 +477,10 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
 
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
     for (i, (cost, gamma, gamma_path)) in gammas.iter().enumerate() {
-        info!("Starting step {} with gamma {} cost {} and labels {:?}...", i, gamma, cost, gamma_path);
+        info!(
+            "Starting step {} with gamma {} cost {} and labels {:?}...",
+            i, gamma, cost, gamma_path
+        );
         let labels = <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
             .context("Could not load labels")?;
         combine(&mut result_labels, labels.labels, &mut temp_perm)
@@ -488,7 +491,10 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
-        info!("Recombining with gamma {} cost {} and labels {:?}...", best_gamma, best_gamma_cost, best_gamma_path);
+        info!(
+            "Recombining with gamma {} cost {} and labels {:?}...",
+            best_gamma, best_gamma_cost, best_gamma_path
+        );
         let best_labels = <LabelsStore<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
             .context("Could not load labels from best gamma")?;
         let number_of_labels = combine(&mut result_labels, best_labels.labels, &mut temp_perm)?;
