@@ -14,5 +14,6 @@ jobs:
   llp:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Run LLP test on CNR2000
         run: cargo test test_llp_pipeline --all-features
