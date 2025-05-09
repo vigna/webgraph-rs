@@ -355,14 +355,13 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         });
 
         // Save labels
-        let labels = label_store.labels();
+        let (labels, volumes) = label_store.labels_and_volumes();
+
         // We temporarily use the label array from the label store to compute
         // the inverse permutation. It will be reinitialized at the next
         // iteration anyway.
-        let inv_perm = labels;
-
         thread_pool.install(|| {
-            invert_permutation(perm, inv_perm);
+            invert_permutation(perm, volumes);
         });
 
         update_pl.expected_updates(Some(num_nodes));
@@ -371,7 +370,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         let gap_cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
                 graph: &sym_graph,
-                perm: &inv_perm,
+                perm: &volumes,
             },
             arc_granularity,
             deg_cumul,
@@ -386,7 +385,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
 
         // store the labels on disk with their cost and gamma
         let labels_store = LabelsStore {
-            labels: &*inv_perm,
+            labels: &*labels,
             gap_cost,
             gamma: *gamma,
         };
@@ -477,8 +476,8 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         .to_vec();
 
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
-    for (i, (_, _, gamma_path)) in gammas.iter().enumerate() {
-        info!("Starting step {}...", i);
+    for (i, (cost, gamma, gamma_path)) in gammas.iter().enumerate() {
+        info!("Starting step {} with gamma {} cost {} and labels {:?}...", i, gamma, cost, gamma_path);
         let labels = <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
             .context("Could not load labels")?;
         combine(&mut result_labels, labels.labels, &mut temp_perm)
@@ -489,11 +488,11 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         // it is not harmful and fixes a few corner cases in which experimentally
         // LLP does not perform well. It was introduced by Marco Rosa in the Java
         // LAW code.
+        info!("Recombining with gamma {} cost {} and labels {:?}...", best_gamma, best_gamma_cost, best_gamma_path);
         let best_labels = <LabelsStore<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
             .context("Could not load labels from best gamma")?;
         let number_of_labels = combine(&mut result_labels, best_labels.labels, &mut temp_perm)?;
         info!("Number of labels: {}", number_of_labels);
-        info!("Finished step {}.", i);
     }
 
     Ok(result_labels.into_boxed_slice())

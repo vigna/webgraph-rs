@@ -61,8 +61,13 @@ impl LabelStore {
         self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn labels(&mut self) -> &mut [usize] {
-        unsafe { std::mem::transmute::<&mut [UnsafeCell<usize>], &mut [usize]>(&mut self.labels) }
+    pub(crate) fn labels_and_volumes(&mut self) -> (&mut [usize], &mut [usize]) {
+        unsafe {
+            (
+                std::mem::transmute::<&mut [UnsafeCell<usize>], &mut [usize]>(&mut self.labels),
+                std::mem::transmute::<&mut [AtomicUsize], &mut [usize]>(&mut self.volumes),
+            )
+        }
     }
 }
 

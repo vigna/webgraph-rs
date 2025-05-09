@@ -8,8 +8,8 @@ use tempfile::Builder;
 use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use webgraph::prelude::JavaPermutation;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
-use webgraph_cli::init_env_logger;
 use webgraph_cli::cli_main;
+use webgraph_cli::init_env_logger;
 
 const TEST_GRAPH: &str = "../data/cnr-2000";
 const EXPECTED_BITS_PER_ARC: f64 = 2.897;
@@ -131,7 +131,10 @@ fn test_llp_pipeline() -> Result<()> {
         assert_eq!(original_succ, final_succ);
     }
 
-    log::info!("Loading graph at {}", format!("{}-final.{}", basename, GRAPH_EXTENSION));
+    log::info!(
+        "Loading graph at {}",
+        format!("{}-final.{}", basename, GRAPH_EXTENSION)
+    );
     let graph_size = std::fs::metadata(format!("{}-final.{}", basename, GRAPH_EXTENSION))?.len();
     let bits_per_arc = 8.0 * graph_size as f64 / original.num_arcs() as f64;
     log::info!("Graph size: {} bytes", graph_size);
@@ -139,7 +142,8 @@ fn test_llp_pipeline() -> Result<()> {
     assert!(
         bits_per_arc < 1.05 * EXPECTED_BITS_PER_ARC, //  allow 5% error
         "The graph is too large: {:.3} bits per arc, the expected is {:.3}",
-        bits_per_arc, EXPECTED_BITS_PER_ARC
+        bits_per_arc,
+        EXPECTED_BITS_PER_ARC
     );
 
     Ok(())
