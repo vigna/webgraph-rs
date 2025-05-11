@@ -153,6 +153,163 @@ where
     pub fn into_inner(self) -> F {
         self.factory
     }
+
+    /// Returns an iterator over the successors removing some nodes that have
+    /// already been seen.
+    ///
+    /// This is a specialized version of the successor method for algorithms
+    /// like BFS where it the following invariant holds:
+    /// if a node has been seen, all its successors have / will been seen too.
+    ///
+    /// This means that when decoding the successors of a node, we can skip the
+    /// nodes we copy by reference if the reference node has been seen.
+    ///
+    /// Warning: This method doesn't filter **all** seen nodes, but only the
+    /// ones that are copied by reference. This means that you must filter its
+    /// output too.
+    pub fn filtered_bfs_successors(
+        &self,
+        node_id: usize,
+        filter: impl Fn(usize) -> bool,
+    ) -> impl Iterator<Item = usize> + '_ {
+        let codes_reader = self
+            .factory
+            .new_decoder(node_id)
+            .expect("Cannot create reader");
+
+        let mut result = Succ::new(codes_reader);
+        let degree = result.reader.read_outdegree() as usize;
+        // no edges, we are done!
+        if degree == 0 {
+            return result;
+        }
+        result.size = degree;
+        let mut nodes_left_to_decode = degree;
+        // read the reference offset
+        let ref_delta = if self.compression_window != 0 {
+            result.reader.read_reference_offset() as usize
+        } else {
+            0
+        };
+        // if we copy nodes from a previous one
+        if ref_delta != 0 {
+            // compute the node id of the reference
+            let reference_node_id = node_id - ref_delta;
+            if filter(reference_node_id) {
+                // we can skip! yay
+                let neighbours_len = self.outdegree(reference_node_id);
+                // get the info on which destinations to copy
+                let number_of_blocks = result.reader.read_block_count() as usize;
+                let mut nodes_copied = 0;
+                let mut cumsum_blocks = 0;
+                // add +1 if the number of blocks is even, so we have capacity for
+                // the block that will be added in the masked iterator
+                if number_of_blocks != 0 {
+                    // the first block could be zero
+                    let first_block = result.reader.read_block() as usize;
+                    nodes_copied += first_block;
+                    cumsum_blocks += first_block;
+                    // while the other can't
+                    for i in 1..number_of_blocks {
+                        let block = result.reader.read_block() as usize + 1;
+                        cumsum_blocks += block;
+                        nodes_copied += if (i % 2) == 0 { block } else { 0 };
+                    }
+                }
+                let remainder = neighbours_len - cumsum_blocks;
+                if remainder != 0 && number_of_blocks % 2 == 0 {
+                    nodes_copied += remainder;
+                }
+                // create the masked iterator
+                nodes_left_to_decode -= nodes_copied;
+                result.size -= nodes_copied;
+                result.copied_nodes_iter = None;
+            } else {
+                // we can't skip the reference
+                // retrieve the data, TODO!: how can we propagate the filter?
+                let neighbours = self.successors(reference_node_id);
+                debug_assert!(neighbours.len() != 0);
+                // get the info on which destinations to copy
+                let number_of_blocks: usize = result.reader.read_block_count() as usize;
+                // add +1 if the number of blocks is even, so we have capacity for
+                // the block that will be added in the masked iterator
+                let alloc_len = 1 + number_of_blocks - (number_of_blocks & 1);
+                let mut blocks = Vec::with_capacity(alloc_len);
+                if number_of_blocks != 0 {
+                    // the first block could be zero
+                    blocks.push(result.reader.read_block() as usize);
+                    // while the other can't
+                    for _ in 1..number_of_blocks {
+                        blocks.push(result.reader.read_block() as usize + 1);
+                    }
+                }
+                // create the masked iterator
+                let res = MaskedIterator::new(neighbours, blocks);
+                nodes_left_to_decode -= res.len();
+
+                result.copied_nodes_iter = Some(res);
+            }
+        };
+
+        // if we still have to read nodes
+        if nodes_left_to_decode != 0 && self.min_interval_length != 0 {
+            // read the number of intervals
+            let number_of_intervals = result.reader.read_interval_count() as usize;
+            if number_of_intervals != 0 {
+                // pre-allocate with capacity for efficiency
+                result.intervals = Vec::with_capacity(number_of_intervals + 1);
+                let node_id_offset = (result.reader.read_interval_start()).to_int();
+
+                debug_assert!((node_id as i64 + node_id_offset) >= 0);
+                let mut start = (node_id as i64 + node_id_offset) as usize;
+                let mut delta = result.reader.read_interval_len() as usize;
+                delta += self.min_interval_length;
+                // save the first interval
+                result.intervals.push((start, delta));
+                start += delta;
+                nodes_left_to_decode -= delta;
+                // decode the intervals
+                for _ in 1..number_of_intervals {
+                    start += 1 + result.reader.read_interval_start() as usize;
+                    delta = result.reader.read_interval_len() as usize;
+                    delta += self.min_interval_length;
+
+                    result.intervals.push((start, delta));
+                    start += delta;
+                    nodes_left_to_decode -= delta;
+                }
+                // fake final interval to avoid checks in the implementation of
+                // `next`
+                result.intervals.push((usize::MAX - 1, 1));
+            }
+        }
+
+        // decode just the first extra, if present (the others will be decoded on demand)
+        if nodes_left_to_decode != 0 {
+            let node_id_offset = result.reader.read_first_residual().to_int();
+            result.next_residual_node = (node_id as i64 + node_id_offset) as usize;
+            result.residuals_to_go = nodes_left_to_decode - 1;
+        }
+
+        // setup the first interval node so we can decode without branches
+        if !result.intervals.is_empty() {
+            let (start, len) = &mut result.intervals[0];
+            *len -= 1;
+            result.next_interval_node = *start;
+            *start += 1;
+            result.intervals_idx += (*len == 0) as usize;
+        };
+
+        // cache the first copied node so we don't have to check if the iter
+        // ended at every call of `next`
+        result.next_copied_node = result
+            .copied_nodes_iter
+            .as_mut()
+            .and_then(|iter| iter.next())
+            .unwrap_or(usize::MAX);
+
+        result
+    }
 }
 
 impl<F> SequentialLabeling for BvGraph<F>

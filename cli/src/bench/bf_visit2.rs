@@ -16,7 +16,7 @@ use sux::prelude::BitVec;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None)]
+#[command(name = "bf-visit2", about = "Benchmarks a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub src: PathBuf,
@@ -95,9 +95,10 @@ pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     Ok(())
 }
 
-fn visit(graph: impl RandomAccessGraph) -> Result<()> {
+fn visit(graph: BvGraph<impl RandomAccessDecoderFactory>) -> Result<()> {
     let num_nodes = graph.num_nodes();
     let mut seen = BitVec::new(num_nodes);
+    let mut visited = BitVec::new(num_nodes);
     let mut frontier = Vec::new();
     let mut next_frontier = Vec::new();
 
@@ -120,12 +121,13 @@ fn visit(graph: impl RandomAccessGraph) -> Result<()> {
             while !frontier.is_empty() {
                 pl.light_update();
                 let current_node = frontier.pop().unwrap();
-                for succ in graph.successors(current_node) {
+                for succ in graph.filtered_bfs_successors(current_node, |node| visited[node]) {
                     if !seen[succ] {
                         next_frontier.push(succ);
                         seen.set(succ as _, true);
                     }
                 }
+                visited.set(current_node as _, true);
             }
             std::mem::swap(&mut frontier, &mut next_frontier);
             next_frontier.clear();
