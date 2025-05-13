@@ -34,6 +34,7 @@ predicates.workspace = true
 java-properties.workspace = true
 clap.workspace = true
 env_logger.workspace = true
+zstd.workspace = true
 
 jiff = "0.2.5"
 sysinfo = "0.33.1"

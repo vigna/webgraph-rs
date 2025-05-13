@@ -21,6 +21,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
+use sux::bits::BitFieldVec;
 use sysinfo::System;
 use webgraph::prelude::CompFlags;
 use webgraph::utils::Granularity;
@@ -175,35 +176,68 @@ pub enum VectorFormat {
     /// Java-compatible format i.e., a sequence of
     /// big-endian 64-bit integers.
     Java,
-    /// ε-serde format that can be memory-mapped and read using
-    /// https://crates.io/crates/epserde .
+    /// ε-serde slice format that can be memory-mapped and uses 64-bits for
+    /// each element in native endianness.
     Epserde,
-    /// ASCII format, one integer per line
+    /// [`BitFieldVec`] using ε-serde. It stores each element using
+    /// ceil(log2(max)) bits, is memory-mappable, but requires to allocate
+    /// the `BitFieldVec` in RAM before serializing it.
+    ///
+    /// This format is useful when the vector is large
+    /// and the maximum value is small.
+    BitFieldVec,
+    /// ASCII format, one integer per line: `1\n2\n3\n`
     Ascii,
-    /// A Json Array
+    /// As Ascii but compressed using zstd (level 3).
+    ZstdAscii,
+    /// A Json Array: `[1, 2, 3]`
     Json,
 }
 
 impl VectorFormat {
     /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
-    pub fn store(&self, path: impl AsRef<Path>, data: &[u64]) -> Result<()> {
+    /// `max` is the maximum value of the vector, if it is not provided, it will
+    /// be computed from the data.
+    pub fn store(&self, path: impl AsRef<Path>, data: &[u64], max: Option<u64>) -> Result<()> {
         // Ensure the parent directory exists
         create_parent_dir(&path)?;
-
-        if matches!(self, VectorFormat::Epserde) {
-            log::info!("Storing in epserde format at {}", path.as_ref().display());
-            data.store(&path).with_context(|| {
-                format!("Could not write vector to {}", path.as_ref().display())
-            })?;
-            return Ok(());
-        }
 
         let mut file = std::fs::File::create(&path)
             .with_context(|| format!("Could not create vector at {}", path.as_ref().display()))?;
         let mut buf = BufWriter::new(&mut file);
 
+        debug_assert_eq!(
+            max,
+            max.map(|_| { data.iter().copied().max().unwrap_or(0) }),
+            "The wrong maximum value was provided for the vector"
+        );
+
         match self {
-            VectorFormat::Epserde => unreachable!(),
+            VectorFormat::Epserde => {
+                log::info!("Storing in epserde format at {}", path.as_ref().display());
+                data.serialize(&mut buf).with_context(|| {
+                    format!("Could not write vector to {}", path.as_ref().display())
+                })?;
+            }
+            VectorFormat::BitFieldVec => {
+                log::info!(
+                    "Storing in BitFieldVec format at {}",
+                    path.as_ref().display()
+                );
+                let max = max.unwrap_or_else(|| {
+                    data.iter()
+                        .copied()
+                        .max()
+                        .unwrap_or_else(|| panic!("Empty vector"))
+                });
+                let bit_width = max.max(1).ilog2_ceil() as usize;
+                log::info!("Using {} bits per element", bit_width);
+                let mut bitfield = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
+                bitfield.extend(data.iter().copied());
+                bitfield.store(&path).with_context(|| {
+                    format!("Could not write vector to {}", path.as_ref().display())
+                })?;
+            }
             VectorFormat::Java => {
                 log::info!("Storing in Java format at {}", path.as_ref().display());
                 for word in data.iter() {
@@ -219,6 +253,21 @@ impl VectorFormat {
                         format!("Could not write vector to {}", path.as_ref().display())
                     })?;
                 }
+            }
+            VectorFormat::ZstdAscii => {
+                log::info!(
+                    "Storing in Zstd ASCII format at {}",
+                    path.as_ref().display()
+                );
+                let mut encoder = zstd::Encoder::new(buf, 0)?;
+                for word in data.iter() {
+                    writeln!(encoder, "{}", word).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+                encoder.finish().with_context(|| {
+                    format!("Could not write vector to {}", path.as_ref().display())
+                })?;
             }
             VectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());
@@ -242,13 +291,22 @@ impl VectorFormat {
 
     #[cfg(target_pointer_width = "64")]
     /// Stores a vector of `usize` in the specified `path`` using the format defined by `self`.
+    /// `max` is the maximum value of the vector, if it is not provided, it will
+    /// be computed from the data.
     ///
     /// This helper method is available only on 64-bit architectures as Java's format
     /// is of 64-bit integers.
-    pub fn store_usizes(&self, path: impl AsRef<Path>, data: &[usize]) -> Result<()> {
-        self.store(path, unsafe {
-            core::mem::transmute::<&[usize], &[u64]>(data)
-        })
+    pub fn store_usizes(
+        &self,
+        path: impl AsRef<Path>,
+        data: &[usize],
+        max: Option<usize>,
+    ) -> Result<()> {
+        self.store(
+            path,
+            unsafe { core::mem::transmute::<&[usize], &[u64]>(data) },
+            max.map(|x| x as u64),
+        )
     }
 }
 

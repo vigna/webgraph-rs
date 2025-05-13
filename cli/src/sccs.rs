@@ -52,6 +52,20 @@ pub struct CliArgs {
 
     #[arg(long, value_enum, default_value_t = VectorFormat::Java)]
     /// How the components and component sizes will be stored.
+    ///
+    /// Examples of sizes of .sccs and .sizes for twitter-2010:
+    /// 
+    /// - java:          318M, 62M # mmap, random access
+    /// 
+    /// - epserde:       318M, 62M # mmap, random access
+    /// 
+    /// - bit-field-vec: 115M, 24M # mmap, random access
+    /// 
+    /// - ascii:         125M, 16M
+    /// 
+    /// - zstd-ascii:     24M, <4K
+    /// 
+    /// - json:          165M, 24M
     pub fmt: VectorFormat,
 }
 
@@ -118,14 +132,16 @@ where
             let thread_pool = thread_pool![args.num_threads];
             thread_pool.install(|| sccs.par_sort_by_size())
         };
-        args.fmt.store_usizes(sizes_path, &component_sizes)?;
+        let max = component_sizes.first().copied();
+        args.fmt.store_usizes(sizes_path, &component_sizes, max)?;
     } else if args.sizes {
         log::info!("Computing the sizes of the components");
         let sizes = sccs.compute_sizes();
-        args.fmt.store_usizes(sizes_path, &sizes)?;
+        args.fmt.store_usizes(sizes_path, &sizes, None)?;
     };
 
-    args.fmt.store_usizes(path, sccs.components())?;
+    args.fmt
+        .store_usizes(path, sccs.components(), Some(sccs.num_components()))?;
 
     Ok(())
 }
