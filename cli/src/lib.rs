@@ -12,7 +12,7 @@
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use common_traits::UnsignedInt;
+use common_traits::{ToBytes, UnsignedInt};
 use dsi_bitstream::dispatch::Codes;
 use epserde::ser::Serialize;
 use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
@@ -172,7 +172,104 @@ pub struct BatchSizeArg {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum VectorFormat {
+/// How to store vectors of floats.
+pub enum FloatVectorFormat {
+    /// Java-compatible format i.e., a sequence of
+    /// big-endian floats .
+    Java,
+    /// ε-serde slice format that can be memory-mapped and stores each element
+    /// in native endianness.
+    Epserde,
+    /// ASCII format, one integer per line: `1.2\n2.3\n3.4\n`
+    Ascii,
+    /// As Ascii but compressed using zstd (level 3).
+    ZstdAscii,
+    /// A Json Array: `[1.2, 2.3, 3.4]`
+    Json,
+}
+
+impl FloatVectorFormat {
+    /// Stores float values in the specified `path` using the format defined by `self`.
+    /// If the result is a textual format, i.e. Ascii, ZstdAscii or Json, precision
+    /// will be used to truncate the float values to the specified number of decimal digits.
+    pub fn store<F>(
+        &self,
+        path: impl AsRef<Path>,
+        values: &[F],
+        precision: Option<usize>,
+    ) -> Result<()>
+    where
+        F: ToBytes + core::fmt::Display + epserde::ser::Serialize + Copy,
+        for<'a> &'a [F]: epserde::ser::Serialize,
+    {
+        let precision = precision.unwrap_or(f64::DIGITS as usize);
+        create_parent_dir(&path)?;
+        let mut file = std::fs::File::create(&path)
+            .with_context(|| format!("Could not create vector at {}", path.as_ref().display()))?;
+
+        match self {
+            FloatVectorFormat::Epserde => {
+                log::info!("Storing in epserde format at {}", path.as_ref().display());
+                values.serialize(&mut file).with_context(|| {
+                    format!("Could not write vector to {}", path.as_ref().display())
+                })?;
+            }
+            FloatVectorFormat::Java => {
+                log::info!("Storing in Java format at {}", path.as_ref().display());
+                for word in values.iter() {
+                    file.write_all(word.to_be_bytes().as_ref())
+                        .with_context(|| {
+                            format!("Could not write vector to {}", path.as_ref().display())
+                        })?;
+                }
+            }
+            FloatVectorFormat::Ascii => {
+                log::info!("Storing in ASCII format at {}", path.as_ref().display());
+                for word in values.iter() {
+                    writeln!(file, "{word:.precision$}").with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+            }
+            FloatVectorFormat::ZstdAscii => {
+                log::info!(
+                    "Storing in Zstd ASCII format at {}",
+                    path.as_ref().display()
+                );
+                let mut encoder = zstd::Encoder::new(file, 0)?;
+                for word in values.iter() {
+                    writeln!(encoder, "{word:.precision$}").with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+                encoder.finish().with_context(|| {
+                    format!("Could not write vector to {}", path.as_ref().display())
+                })?;
+            }
+            FloatVectorFormat::Json => {
+                log::info!("Storing in JSON format at {}", path.as_ref().display());
+                write!(file, "[")?;
+                for word in values.iter().take(values.len().saturating_sub(2)) {
+                    write!(file, "{word:.precision$}, ").with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+                if let Some(last) = values.last() {
+                    write!(file, "{last:.precision$}").with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })?;
+                }
+                write!(file, "]")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+/// How to store vectors of integers.
+pub enum IntVectorFormat {
     /// Java-compatible format i.e., a sequence of
     /// big-endian 64-bit integers.
     Java,
@@ -194,7 +291,7 @@ pub enum VectorFormat {
     Json,
 }
 
-impl VectorFormat {
+impl IntVectorFormat {
     /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
     /// `max` is the maximum value of the vector, if it is not provided, it will
     /// be computed from the data.
@@ -213,13 +310,13 @@ impl VectorFormat {
         );
 
         match self {
-            VectorFormat::Epserde => {
+            IntVectorFormat::Epserde => {
                 log::info!("Storing in epserde format at {}", path.as_ref().display());
                 data.serialize(&mut buf).with_context(|| {
                     format!("Could not write vector to {}", path.as_ref().display())
                 })?;
             }
-            VectorFormat::BitFieldVec => {
+            IntVectorFormat::BitFieldVec => {
                 log::info!(
                     "Storing in BitFieldVec format at {}",
                     path.as_ref().display()
@@ -238,7 +335,7 @@ impl VectorFormat {
                     format!("Could not write vector to {}", path.as_ref().display())
                 })?;
             }
-            VectorFormat::Java => {
+            IntVectorFormat::Java => {
                 log::info!("Storing in Java format at {}", path.as_ref().display());
                 for word in data.iter() {
                     buf.write_all(&word.to_be_bytes()).with_context(|| {
@@ -246,7 +343,7 @@ impl VectorFormat {
                     })?;
                 }
             }
-            VectorFormat::Ascii => {
+            IntVectorFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path.as_ref().display());
                 for word in data.iter() {
                     writeln!(buf, "{}", word).with_context(|| {
@@ -254,7 +351,7 @@ impl VectorFormat {
                     })?;
                 }
             }
-            VectorFormat::ZstdAscii => {
+            IntVectorFormat::ZstdAscii => {
                 log::info!(
                     "Storing in Zstd ASCII format at {}",
                     path.as_ref().display()
@@ -269,7 +366,7 @@ impl VectorFormat {
                     format!("Could not write vector to {}", path.as_ref().display())
                 })?;
             }
-            VectorFormat::Json => {
+            IntVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());
                 write!(buf, "[")?;
                 for word in data.iter().take(data.len().saturating_sub(2)) {

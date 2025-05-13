@@ -16,7 +16,7 @@ use webgraph_algo::distances::exact_sum_sweep::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "exactsumsweep", about = "", long_about = None)]
+#[command(name = "exactsumsweep", about = "Compute radius, diameter, and possibly eccentricities using the ExactSumSweep algorithm. (WORK IN PROGRESS)", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,

@@ -13,7 +13,6 @@ use card_est_array::traits::{
 };
 use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
-use rand::random;
 use rayon::{prelude::*, ThreadPool};
 use std::hash::{BuildHasherDefault, DefaultHasher};
 use std::sync::{atomic::*, Mutex};
@@ -526,11 +525,12 @@ where
         upper_bound: usize,
         threshold: Option<f64>,
         thread_pool: &ThreadPool,
+        rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         let upper_bound = std::cmp::min(upper_bound, self.graph.num_nodes());
 
-        self.init(thread_pool, pl)
+        self.init(thread_pool, rng, pl)
             .with_context(|| "Could not initialize estimator")?;
 
         pl.item_name("iteration");
@@ -586,9 +586,10 @@ where
         &mut self,
         upper_bound: usize,
         thread_pool: &ThreadPool,
+        rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        self.run(upper_bound, None, thread_pool, pl)
+        self.run(upper_bound, None, thread_pool, rng, pl)
             .with_context(|| "Could not complete run_until_stable")
     }
 
@@ -604,9 +605,10 @@ where
     pub fn run_until_done(
         &mut self,
         thread_pool: &ThreadPool,
+        rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        self.run_until_stable(usize::MAX, thread_pool, pl)
+        self.run_until_stable(usize::MAX, thread_pool, rng, pl)
             .with_context(|| "Could not complete run_until_done")
     }
 
@@ -1163,6 +1165,7 @@ where
     fn init(
         &mut self,
         thread_pool: &ThreadPool,
+        mut rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         pl.start("Initializing estimators");
@@ -1177,7 +1180,7 @@ where
             for (i, &node_weight) in w.iter().enumerate() {
                 let mut estimator = self.curr_state.get_estimator_mut(i);
                 for _ in 0..node_weight {
-                    estimator.add(&(random::<u64>() as usize));
+                    estimator.add(&(rng.random::<u64>() as usize));
                 }
             }
         } else {
@@ -1229,6 +1232,7 @@ mod test {
     use card_est_array::traits::{EstimatorArray, MergeEstimator};
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
+    use rand::SeedableRng;
     use webgraph::{
         prelude::{BvGraph, DCF},
         traits::SequentialLabeling,
@@ -1301,7 +1305,8 @@ mod test {
 
         let mut modified_estimators = num_nodes as u64;
         let threads = thread_pool![];
-        hyperball.init(&threads, no_logging![])?;
+        let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
+        hyperball.init(&threads, &mut rng, no_logging![])?;
         seq_hyperball.init();
 
         while modified_estimators != 0 {

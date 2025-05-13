@@ -400,11 +400,16 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
+            .with_context(|| {
+                format!("Could not load properties file {}", self.basename.display())
+            })?;
         self.basename.set_extension(GRAPH_EXTENSION);
-        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
+        let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
+            .with_context(|| format!("Could not graph file {}", self.basename.display()))?;
         self.basename.set_extension(EF_EXTENSION);
-        let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)?;
+        let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
+            .with_context(|| format!("Could not offsets file {}", self.basename.display()))?;
 
         Ok(BvGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,

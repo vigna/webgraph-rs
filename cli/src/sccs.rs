@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{build_info, num_threads_parser, pretty_print_elapsed, VectorFormat};
+use crate::{build_info, num_threads_parser, pretty_print_elapsed, IntVectorFormat};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
@@ -50,23 +50,23 @@ pub struct CliArgs {
     /// The number of threads to use to compute the sizes of the components.
     pub num_threads: usize,
 
-    #[arg(long, value_enum, default_value_t = VectorFormat::Java)]
+    #[arg(long, value_enum, default_value_t = IntVectorFormat::Java)]
     /// How the components and component sizes will be stored.
     ///
     /// Examples of sizes of .sccs and .sizes for twitter-2010:
-    /// 
+    ///
     /// - java:          318M, 62M # mmap, random access
-    /// 
+    ///
     /// - epserde:       318M, 62M # mmap, random access
-    /// 
+    ///
     /// - bit-field-vec: 115M, 24M # mmap, random access
-    /// 
+    ///
     /// - ascii:         125M, 16M
-    /// 
+    ///
     /// - zstd-ascii:     24M, <4K
-    /// 
+    ///
     /// - json:          165M, 24M
-    pub fmt: VectorFormat,
+    pub fmt: IntVectorFormat,
 }
 
 pub fn cli_main<I, T>(args: I) -> Result<()>

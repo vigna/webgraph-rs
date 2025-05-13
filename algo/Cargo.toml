@@ -23,6 +23,7 @@ epserde.workspace = true
 lender.workspace = true
 
 rand.workspace = true
+log.workspace = true
 anyhow.workspace = true
 rayon.workspace = true
 sync-cell-slice.workspace = true
