@@ -23,12 +23,14 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug, Clone)]
 #[command(name = "ef", about = "Builds the Elias-Fano representation of the offsets of a graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph (or labels).
     pub src: PathBuf,
-    /// The number of elements to be inserted in the Elias-Fano
-    /// starting from a label offset file. It is usually one more than
-    /// the number of nodes in the graph.
-    pub n: Option<usize>,
+    /// The number of nodes of the graph. When passed, we don't need to load the
+    /// `.properties` file. This allows to build Elias-Fano from the offsets of
+    /// something that might not be a graph but that has offsets, like labels.
+    /// For this reason, if passed, we will also try to read the `.labeloffsets`
+    /// file and then fallback to the usual `.offsets` file.
+    pub number_of_nodes: Option<usize>,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -65,7 +67,7 @@ where
     }
 
     let basename = args.src.clone();
-    if let Some(num_nodes) = args.n {
+    if let Some(num_nodes) = args.number_of_nodes {
         pl.expected_updates(Some(num_nodes));
         // Horribly temporary duplicated code for the case of label offsets.
         let of_file_path = basename.with_extension(LABELOFFSETS_EXTENSION);
@@ -77,7 +79,7 @@ where
                 .seek(std::io::SeekFrom::End(0))
                 .with_context(|| format!("Could not seek to end of {}", labels_path.display()))?;
 
-            let mut efb = EliasFanoBuilder::new(num_nodes, file_len as usize);
+            let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
 
             info!("The offsets file exists, reading it to build Elias-Fano");
 
@@ -110,21 +112,24 @@ where
     // otherwise use the provided value, this is so we can build the Elias-Fano
     // for offsets of any custom format that might not use the standard
     // properties file
-    let num_nodes = args.n.map(Ok::<_, anyhow::Error>).unwrap_or_else(|| {
-        let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
-        info!(
-            "Reading num_of_nodes from properties file at '{}'",
-            properties_path.display()
-        );
-        let f = File::open(&properties_path).with_context(|| {
-            format!(
-                "Could not open properties file: {}",
+    let num_nodes = args
+        .number_of_nodes
+        .map(Ok::<_, anyhow::Error>)
+        .unwrap_or_else(|| {
+            let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
+            info!(
+                "Reading num_of_nodes from properties file at '{}'",
                 properties_path.display()
-            )
+            );
+            let f = File::open(&properties_path).with_context(|| {
+                format!(
+                    "Could not open properties file: {}",
+                    properties_path.display()
+                )
+            })?;
+            let map = java_properties::read(BufReader::new(f))?;
+            Ok(map.get("nodes").unwrap().parse::<usize>()?)
         })?;
-        let map = java_properties::read(BufReader::new(f))?;
-        Ok(map.get("nodes").unwrap().parse::<usize>()?)
-    })?;
     pl.expected_updates(Some(num_nodes));
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);

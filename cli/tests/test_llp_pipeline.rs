@@ -23,13 +23,15 @@ fn test_llp_pipeline() -> Result<()> {
     let basename = tmp_dir.path().join(graph_name).display().to_string();
 
     // copy the graph files to the temporary directory
-    for extension in [GRAPH_EXTENSION, PROPERTIES_EXTENSION, OFFSETS_EXTENSION] {
+    for extension in [GRAPH_EXTENSION, PROPERTIES_EXTENSION] {
         std::fs::copy(
             copy_basename.with_extension(extension),
             tmp_dir.path().join(graph_name).with_extension(extension),
         )?;
     }
 
+    log::info!("Step 0: Built the Offsets");
+    cli_main(vec!["webgraph", "build", "offsets", &basename])?;
     log::info!("Step 1: Creates the Elias Fano");
     cli_main(vec!["webgraph", "build", "ef", &basename])?;
     log::info!("Step 2: Run a BFS traversal to get the initial permutation");
