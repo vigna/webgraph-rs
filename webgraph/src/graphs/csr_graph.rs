@@ -391,7 +391,7 @@ mod test {
         check_graph_equivalence(&g, &csr);
 
         let csr = CompressedCsrGraph::from_graph(&g);
-        //check_graph_equivalence(&g, &csr);
+        check_graph_equivalence(&g, &csr);
     }
 
     fn check_graph_equivalence(g1: impl RandomAccessGraph, g2: impl RandomAccessGraph) {
