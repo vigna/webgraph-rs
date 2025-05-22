@@ -21,9 +21,7 @@ use super::GlobalArgs;
 #[command(name = "webgraph-sccs", version=build_info::version_string())]
 /// Computes the strongly connected components of a graph of given basename.
 /// The resulting data is saved in files stemmed from the given basename with
-/// extension .scc and .sccsizes.
-///
-///
+/// extensions .sccs and .sccsizes.
 #[doc = include_str!("common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]
@@ -35,37 +33,22 @@ pub struct Cli {
 #[derive(Parser, Debug)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     #[arg(short, long)]
-    /// Compute the size of the strongly connected components and save them in a file with the same basename  as src and .sccsizes extension.
+    /// Compute the size of the strongly connected components.
     pub sizes: bool,
 
     #[arg(short, long)]
-    /// Renumber components in decreasing-size order.
-    /// This implicitly also computes the sizes of the components.
+    /// Renumber components in decreasing-size order (implicitly, compute sizes).
     pub renumber: bool,
 
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
     /// The number of threads to use to compute the sizes of the components.
     pub num_threads: usize,
 
-    #[arg(long, value_enum, default_value_t = IntVectorFormat::Java)]
-    /// How the components and component sizes will be stored.
-    ///
-    /// Examples of sizes of .sccs and .sizes for twitter-2010:
-    ///
-    /// - java:          318M, 62M # mmap, random access
-    ///
-    /// - epserde:       318M, 62M # mmap, random access
-    ///
-    /// - bit-field-vec: 115M, 24M # mmap, random access
-    ///
-    /// - ascii:         125M, 16M
-    ///
-    /// - zstd-ascii:     24M, <4K
-    ///
-    /// - json:          165M, 24M
+    #[arg(long, value_enum, default_value_t = IntVectorFormat::ZstdAscii)]
+    /// The storage format for components and component sizes.
     pub fmt: IntVectorFormat,
 }
 
@@ -87,7 +70,7 @@ where
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => sccs::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -101,8 +84,8 @@ where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
 {
-    log::info!("Loading the graph from {}", args.src.display());
-    let graph = BvGraph::with_basename(&args.src)
+    log::info!("Loading the graph from {}", args.basename.display());
+    let graph = BvGraph::with_basename(&args.basename)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
@@ -119,16 +102,16 @@ where
         sccs.num_components()
     );
 
-    let path = args.src.with_extension("scc");
-    let sizes_path = args.src.with_extension("sccsizes");
+    let path = args.basename.with_extension("sccs");
+    let sizes_path = args.basename.with_extension("sccsizes");
 
     if args.renumber {
-        log::info!("Renumbering components in decreasing size");
+        log::info!("Renumbering components by decreasing size");
         let component_sizes = if args.num_threads == 1 {
-            log::info!("Using sequential algorithm");
+            log::debug!("Using sequential algorithm");
             sccs.sort_by_size()
         } else {
-            log::info!("Using Parallel algorithm with {} threads", args.num_threads);
+            log::debug!("Using parallel algorithm with {} threads", args.num_threads);
             let thread_pool = thread_pool![args.num_threads];
             thread_pool.install(|| sccs.par_sort_by_size())
         };

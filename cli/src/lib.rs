@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -119,8 +120,10 @@ pub struct ArcsArgs {
     pub exact: bool,
 }
 
-/// Parses the number of threads from a string, this is meant to be used with
-/// `#[arg(...,  value_parser = num_threads_parser)]`.
+/// Parses the number of threads from a string.
+///
+/// This function is meant to be used with `#[arg(...,  value_parser =
+/// num_threads_parser)]`.
 pub fn num_threads_parser(arg: &str) -> Result<usize> {
     let num_threads = arg.parse::<usize>()?;
     ensure!(num_threads > 0, "Number of threads must be greater than 0");
@@ -131,7 +134,7 @@ pub fn num_threads_parser(arg: &str) -> Result<usize> {
 #[derive(Args, Debug)]
 pub struct NumThreadsArg {
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
-    /// The number of threads to use
+    /// The number of threads to use.
     pub num_threads: usize,
 }
 
@@ -139,12 +142,12 @@ pub struct NumThreadsArg {
 #[derive(Args, Debug)]
 pub struct GranularityArgs {
     #[arg(long, conflicts_with("node_granularity"))]
-    /// The tentative number of arcs used define the size of a parallel job
+    /// The tentative number of arcs used to define the size of a parallel job
     /// (advanced option).
     pub arc_granularity: Option<u64>,
 
     #[arg(long, conflicts_with("arc_granularity"))]
-    /// The tentative number of nodes used define the size of a parallel job
+    /// The tentative number of nodes used to define the size of a parallel job
     /// (advanced option).
     pub node_granularity: Option<usize>,
 }
@@ -174,17 +177,17 @@ pub struct BatchSizeArg {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// How to store vectors of floats.
 pub enum FloatVectorFormat {
-    /// Java-compatible format i.e., a sequence of
-    /// big-endian floats .
+    /// Java-compatible format: a sequence of big-endian floats (32 bits).
     Java,
-    /// ε-serde slice format that can be memory-mapped and stores each element
-    /// in native endianness.
+    /// A slice of f32 serialized using ε-serde.
     Epserde,
-    /// ASCII format, one integer per line: `1.2\n2.3\n3.4\n`
+    /// ASCII format, one float per line.
     Ascii,
-    /// As Ascii but compressed using zstd (level 3).
+    // TODO: maybe better have named files everywhere, and people can compress
+    // with named pipes
+    /// As ASCII but compressed using zstd (level 3).
     ZstdAscii,
-    /// A Json Array: `[1.2, 2.3, 3.4]`
+    /// A JSON Array.
     Json,
 }
 
@@ -204,60 +207,55 @@ impl FloatVectorFormat {
     {
         let precision = precision.unwrap_or(f64::DIGITS as usize);
         create_parent_dir(&path)?;
+        let path_display = path.as_ref().display();
         let mut file = std::fs::File::create(&path)
-            .with_context(|| format!("Could not create vector at {}", path.as_ref().display()))?;
+            .with_context(|| format!("Could not create vector at {}", path_display))?;
 
         match self {
             FloatVectorFormat::Epserde => {
-                log::info!("Storing in epserde format at {}", path.as_ref().display());
-                values.serialize(&mut file).with_context(|| {
-                    format!("Could not write vector to {}", path.as_ref().display())
-                })?;
+                log::info!("Storing in ε-serde format at {}", path_display);
+                values
+                    .serialize(&mut file)
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
             }
             FloatVectorFormat::Java => {
-                log::info!("Storing in Java format at {}", path.as_ref().display());
+                log::info!("Storing in Java format at {}", path_display);
                 for word in values.iter() {
                     file.write_all(word.to_be_bytes().as_ref())
-                        .with_context(|| {
-                            format!("Could not write vector to {}", path.as_ref().display())
-                        })?;
+                        .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
             }
             FloatVectorFormat::Ascii => {
-                log::info!("Storing in ASCII format at {}", path.as_ref().display());
+                log::info!("Storing in ASCII format at {}", path_display);
                 for word in values.iter() {
-                    writeln!(file, "{word:.precision$}").with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
+                    writeln!(file, "{word:.precision$}")
+                        .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
             }
             FloatVectorFormat::ZstdAscii => {
                 log::info!(
-                    "Storing in Zstd ASCII format at {}",
-                    path.as_ref().display()
+                    "Storing in zstd-compressed ASCII format at {}",
+                    path_display
                 );
                 let mut encoder = zstd::Encoder::new(file, 0)?;
                 for word in values.iter() {
-                    writeln!(encoder, "{word:.precision$}").with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
+                    writeln!(encoder, "{word:.precision$}")
+                        .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
-                encoder.finish().with_context(|| {
-                    format!("Could not write vector to {}", path.as_ref().display())
-                })?;
+                encoder
+                    .finish()
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
             }
             FloatVectorFormat::Json => {
-                log::info!("Storing in JSON format at {}", path.as_ref().display());
+                log::info!("Storing in JSON format at {}", path_display);
                 write!(file, "[")?;
                 for word in values.iter().take(values.len().saturating_sub(2)) {
-                    write!(file, "{word:.precision$}, ").with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
+                    write!(file, "{word:.precision$}, ")
+                        .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
                 if let Some(last) = values.last() {
-                    write!(file, "{last:.precision$}").with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
+                    write!(file, "{last:.precision$}")
+                        .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
                 write!(file, "]")?;
             }
@@ -270,30 +268,26 @@ impl FloatVectorFormat {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// How to store vectors of integers.
 pub enum IntVectorFormat {
-    /// Java-compatible format i.e., a sequence of
-    /// big-endian 64-bit integers.
+    /// Java-compatible format: a sequence of big-endian longs (64 bits).
     Java,
-    /// ε-serde slice format that can be memory-mapped and uses 64-bits for
-    /// each element in native endianness.
+    /// A slice of usize serialized using ε-serde.
     Epserde,
-    /// [`BitFieldVec`] using ε-serde. It stores each element using
-    /// ceil(log2(max)) bits, is memory-mappable, but requires to allocate
-    /// the `BitFieldVec` in RAM before serializing it.
-    ///
-    /// This format is useful when the vector is large
-    /// and the maximum value is small.
+    /// A BitFieldVec stored using ε-serde. It stores each element using
+    /// ⌊log₂(max)⌋ + 1 bits. It requires to allocate the `BitFieldVec` in RAM
+    /// before serializing it.
     BitFieldVec,
-    /// ASCII format, one integer per line: `1\n2\n3\n`
+    /// ASCII format, one float per line.
     Ascii,
-    /// As Ascii but compressed using zstd (level 3).
+    /// As ASCII, but compressed using zstd (level 3).
     ZstdAscii,
-    /// A Json Array: `[1, 2, 3]`
+    /// A JSON Array.
     Json,
 }
 
 impl IntVectorFormat {
     /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
-    /// `max` is the maximum value of the vector, if it is not provided, it will
+    ///
+    /// `max` is the maximum value of the vector. If it is not provided, it will
     /// be computed from the data.
     pub fn store(&self, path: impl AsRef<Path>, data: &[u64], max: Option<u64>) -> Result<()> {
         // Ensure the parent directory exists
@@ -327,11 +321,11 @@ impl IntVectorFormat {
                         .max()
                         .unwrap_or_else(|| panic!("Empty vector"))
                 });
-                let bit_width = max.max(1).ilog2_ceil() as usize;
+                let bit_width = max.len() as usize;
                 log::info!("Using {} bits per element", bit_width);
-                let mut bitfield = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
-                bitfield.extend(data.iter().copied());
-                bitfield.store(&path).with_context(|| {
+                let mut bit_field_vec = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
+                bit_field_vec.extend(data.iter().copied());
+                bit_field_vec.store(&path).with_context(|| {
                     format!("Could not write vector to {}", path.as_ref().display())
                 })?;
             }
@@ -387,12 +381,12 @@ impl IntVectorFormat {
     }
 
     #[cfg(target_pointer_width = "64")]
-    /// Stores a vector of `usize` in the specified `path`` using the format defined by `self`.
+    /// Stores a vector of `usize` in the specified `path` using the format defined by `self`.
     /// `max` is the maximum value of the vector, if it is not provided, it will
     /// be computed from the data.
     ///
     /// This helper method is available only on 64-bit architectures as Java's format
-    /// is of 64-bit integers.
+    /// uses of 64-bit integers.
     pub fn store_usizes(
         &self,
         path: impl AsRef<Path>,
@@ -513,7 +507,7 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Creates a [`ThreadPool`] with the given number of threads
+/// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
@@ -661,8 +655,7 @@ pub enum SubCommands {
 
 #[derive(Parser, Debug)]
 #[command(name = "webgraph", version=build_info::version_string())]
-/// Webgraph tools to build, convert, modify, and analyze webgraph files.
-///
+/// Webgraph tools to build, convert, modify, and analyze graphs.
 #[doc = include_str!("./common_env.txt")]
 pub struct Cli {
     #[command(subcommand)]

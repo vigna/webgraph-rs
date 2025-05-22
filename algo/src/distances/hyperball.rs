@@ -616,15 +616,15 @@ where
     fn ensure_iteration(&self) -> Result<()> {
         ensure!(
             self.iteration_context.iteration > 0,
-            "HyperBall was not run. Please call HyperBall::run before accessing computed fields"
+            "HyperBall was not run. Please call HyperBall::run before accessing computed fields."
         );
         Ok(())
     }
 
     /// Returns the neighborhood function computed by this instance.
-    pub fn neighborhood_function(&self) -> Result<Vec<f64>> {
+    pub fn neighborhood_function(&self) -> Result<&[f64]> {
         self.ensure_iteration()?;
-        Ok(self.neighborhood_function.clone())
+        Ok(&self.neighborhood_function)
     }
 
     /// Returns the sum of distances computed by this instance if requested.
@@ -634,7 +634,7 @@ where
             // TODO these are COPIES
             Ok(distances)
         } else {
-            bail!("Sum of distances were not requested. Use builder.with_sum_of_distances(true) while building HyperBall to compute them")
+            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute them")
         }
     }
 
@@ -644,7 +644,7 @@ where
         if let Some(distances) = &self.sum_of_inv_dists {
             Ok(distances)
         } else {
-            bail!("Sum of inverse distances were not requested. Use builder.with_sum_of_inverse_distances(true) while building HyperBall to compute them")
+            bail!("Sum of inverse distances were not requested: use builder.with_sum_of_inverse_distances(true) while building HyperBall to compute them")
         }
     }
 
@@ -663,7 +663,7 @@ where
     }
 
     /// Computes and returns the closeness centralities from the sum of distances computed by this instance.
-    pub fn closeness_centrality(&self) -> Result<Vec<f32>> {
+    pub fn closeness_centrality(&self) -> Result<Box<[f32]>> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
             Ok(distances
@@ -671,14 +671,14 @@ where
                 .map(|&d| if d == 0.0 { 0.0 } else { d.recip() })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested. Use builder.with_sum_of_distances(true) while building HyperBall to compute closeness centrality.")
+            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute closeness centrality")
         }
     }
 
     /// Computes and returns the lin centralities from the sum of distances computed by this instance.
     ///
     /// Note that lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
-    pub fn lin_centrality(&self) -> Result<Vec<f32>> {
+    pub fn lin_centrality(&self) -> Result<Box<[f32]>> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
             let logic = self.curr_state.logic();
@@ -695,12 +695,12 @@ where
                 })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested. Use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
+            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
         }
     }
 
     /// Computes and returns the Nieminen centralities from the sum of distances computed by this instance.
-    pub fn nieminen_centrality(&self) -> Result<Vec<f64>> {
+    pub fn nieminen_centrality(&self) -> Result<Box<[f32]>> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
             let logic = self.curr_state.logic();
@@ -709,11 +709,11 @@ where
                 .enumerate()
                 .map(|(node, &d)| {
                     let count = logic.estimate(self.curr_state.get_backend(node));
-                    (count * count) - d as f64
+                    ((count * count) - d as f64) as f32
                 })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested. Use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
+            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
         }
     }
 
@@ -734,11 +734,11 @@ where
     /// from every node of the graph.
     ///
     /// `hyperball.reachable_nodes().unwrap()[i]` is equal to `hyperball.reachable_nodes_from(i).unwrap()`.
-    pub fn reachable_nodes(&self) -> Result<Vec<f64>> {
+    pub fn reachable_nodes(&self) -> Result<Box<[f32]>> {
         self.ensure_iteration()?;
         let logic = self.curr_state.logic();
         Ok((0..self.graph.num_nodes())
-            .map(|n| logic.estimate(self.curr_state.get_backend(n)))
+            .map(|n| logic.estimate(self.curr_state.get_backend(n)) as f32)
             .collect())
     }
 }

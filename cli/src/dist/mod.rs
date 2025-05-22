@@ -16,7 +16,7 @@ pub mod hyperball;
 #[derive(Subcommand, Debug)]
 #[command(name = "dist")]
 pub enum SubCommands {
-    #[clap(visible_alias = "hb")]
+    #[clap(name = "hyperball", visible_alias = "hb")]
     HyperBall(hyperball::CliArgs),
     #[clap(visible_alias = "ess")]
     ExactSumSweep(ess::CliArgs),
@@ -24,8 +24,7 @@ pub enum SubCommands {
 
 #[derive(Parser, Debug)]
 #[command(name = "webgraph-dist", version=build_info::version_string())]
-/// Webgraph tools computing graph properties based on distances.
-///
+/// WebGraph tools computing graph properties based on distances.
 #[doc = include_str!("../common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]

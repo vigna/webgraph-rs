@@ -62,9 +62,9 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         !(args.symmetric && args.transposed.is_some()),
         "--transposed is needed only if the graph is not symmetric."
     );
-    ensure!(args.forward.is_none() || matches!(args.level, LevelArg::All | LevelArg::AllForward), "You cannot only pass --forward with --level=all or --level=all-forward as the forward eccentricites won't be computed otherwise.");
+    ensure!(args.forward.is_none() || matches!(args.level, LevelArg::All | LevelArg::AllForward), "You cannot only pass --forward with --level=all or --level=all-forward as the forward eccentricities won't be computed otherwise.");
     ensure!(!(args.forward.is_none() && matches!(args.level, LevelArg::All | LevelArg::AllForward)), "If --level=all or --level=all-forward, you should pass --forward to store the computed eccentricities.");
-    ensure!(!(args.backward.is_some() && args.level != LevelArg::All), "You cannot only pass --backward with --level=all as the backward eccentricites won't be computed otherwise.");
+    ensure!(!(args.backward.is_some() && args.level != LevelArg::All), "You cannot only pass --backward with --level=all as the backward eccentricities won't be computed otherwise.");
     ensure!(!(args.level == LevelArg::All && args.symmetric && args.backward.is_some()), "You cannot pass --backward with --symm and --level=all as the eccentricities of a symmetric graph are the same in both directions.");
 
     match get_endianness(&args.basename)?.as_str() {
