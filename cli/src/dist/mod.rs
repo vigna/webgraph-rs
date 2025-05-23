@@ -25,6 +25,7 @@ pub enum SubCommands {
 #[derive(Parser, Debug)]
 #[command(name = "webgraph-dist", version=build_info::version_string())]
 /// WebGraph tools computing graph properties based on distances.
+#[doc = include_str!("../common_ps.txt")]
 #[doc = include_str!("../common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]

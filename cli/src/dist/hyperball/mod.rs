@@ -21,8 +21,9 @@ use webgraph_algo::distances::hyperball::HyperBallBuilder;
 #[derive(Args, Debug, Clone)]
 #[clap(group = ArgGroup::new("centralities"))]
 /// Centralities that can be computed with hyperball.
+///
 /// To compress the result you can use named pipes or process substitution
-/// like `--harmonic=>(zstd > harmonic.zstd)`.
+/// like `--harmonic >(zstd > harmonic.zstd)`.
 pub struct Centralities {
     /// How all the centralities will be stored.
     #[clap(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
@@ -45,8 +46,6 @@ pub struct Centralities {
     pub closeness: Option<PathBuf>,
     #[clap(long)]
     /// Compute the approximate neighborhood function and save it as at the given path.
-    /// This is at most as big as the graph diameter and stores the number of
-    /// paths of length 1, 2, ..., d.
     pub neighborhood_function: Option<PathBuf>,
 }
 

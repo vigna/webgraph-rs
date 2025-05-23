@@ -20,9 +20,8 @@ use super::GlobalArgs;
 #[derive(Parser, Debug)]
 #[command(name = "webgraph-sccs", version=build_info::version_string())]
 /// Computes the strongly connected components of a graph of given basename.
-/// The resulting data is saved in files stemmed from the given basename with
-/// extensions .sccs and .sccsizes.
-#[doc = include_str!("common_env.txt")]
+#[doc = include_str!("./common_ps.txt")]
+#[doc = include_str!("./common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]
     global_args: GlobalArgs,
@@ -35,12 +34,10 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
 
-    #[arg(short, long)]
-    /// The path where to save the sccs. On bash / zsh, you can compress the
-    /// output using `--dst=>(zstd > sccs.zstd)`
-    pub dst: PathBuf,
+    /// The path where to save the strongly connected components.
+    pub sccs: PathBuf,
 
-    #[arg(short, long)]
+    #[arg(short = 's', long)]
     /// Compute the size of the strongly connected components and store them
     /// at the given path.
     pub sizes: Option<PathBuf>,
@@ -119,7 +116,7 @@ where
             thread_pool.install(|| sccs.par_sort_by_size())
         };
         let max = component_sizes.first().copied();
-        args.fmt.store_usizes(&args.dst, &component_sizes, max)?;
+        args.fmt.store_usizes(&args.sccs, &component_sizes, max)?;
     } else if let Some(sizes_path) = args.sizes {
         log::info!("Computing the sizes of the components");
         let sizes = sccs.compute_sizes();
@@ -127,7 +124,7 @@ where
     };
 
     args.fmt
-        .store_usizes(&args.dst, sccs.components(), Some(sccs.num_components()))?;
+        .store_usizes(&args.sccs, sccs.components(), Some(sccs.num_components()))?;
 
     Ok(())
 }
