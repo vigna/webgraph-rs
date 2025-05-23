@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use self::llp::preds::MinAvgImprov;
-
 use crate::create_parent_dir;
 use crate::get_thread_pool;
 use crate::GlobalArgs;
@@ -18,8 +16,9 @@ use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
-use llp::preds::{MaxUpdates, MinGain, MinModified, PercModified};
 use webgraph::prelude::*;
+use webgraph_algo::llp::preds::{MaxUpdates, MinAvgImprov, MinGain, MinModified, PercModified};
+use webgraph_algo::{combine_labels, labels_to_ranks};
 
 use predicates::prelude::*;
 use std::io::{BufWriter, Write};
@@ -223,7 +222,7 @@ where
     let granularity = args.granularity.into_granularity();
 
     // compute the LLP
-    llp::layered_label_propagation_labels_only(
+    webgraph_algo::llp::layered_label_propagation_labels_only(
         graph,
         &*deg_cumul,
         gammas,

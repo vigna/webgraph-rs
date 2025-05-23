@@ -9,7 +9,7 @@
 use crate::{get_thread_pool, GlobalArgs, NumThreadsArg};
 use anyhow::Result;
 use clap::Parser;
-use webgraph::prelude::*;
+use webgraph_algo::{combine_labels, labels_to_ranks};
 
 use std::path::PathBuf;
 
