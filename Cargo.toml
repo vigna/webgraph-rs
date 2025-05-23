@@ -3,7 +3,7 @@ resolver = "2"
 members = ["algo", "cli", "webgraph"]
 
 [workspace.dependencies]
-webgraph = {path="./webgraph", version="0.2.1"}
+webgraph = {path="./webgraph", version="0.3.0"}
 webgraph-algo = {path="./algo", version="0.1.0"}
 webgraph-cli = {path="./cli", version="0.1.0"}
 

@@ -1,5 +1,15 @@
 # Change Log
 
+## [0.3.0] - 2025-05-23
+
+### Changed
+
+* There is a workspace containing three crates: `webgraph` (basic
+  infrastructure, `algo` (algorithms), and `cli` (command line
+  interface).
+
+* Layered Label Propagation has been moved to the `algo` crate.
+
 ## [0.2.1] - 2025-03-28
 
 ### New
