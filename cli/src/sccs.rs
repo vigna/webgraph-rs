@@ -36,8 +36,14 @@ pub struct CliArgs {
     pub basename: PathBuf,
 
     #[arg(short, long)]
-    /// Compute the size of the strongly connected components.
-    pub sizes: bool,
+    /// The path where to save the sccs. On bash / zsh, you can compress the
+    /// output using `--dst=>(zstd > sccs.zstd)`
+    pub dst: PathBuf,
+
+    #[arg(short, long)]
+    /// Compute the size of the strongly connected components and store them
+    /// at the given path.
+    pub sizes: Option<PathBuf>,
 
     #[arg(short, long)]
     /// Renumber components in decreasing-size order (implicitly, compute sizes).
@@ -102,9 +108,6 @@ where
         sccs.num_components()
     );
 
-    let path = args.basename.with_extension("sccs");
-    let sizes_path = args.basename.with_extension("sccsizes");
-
     if args.renumber {
         log::info!("Renumbering components by decreasing size");
         let component_sizes = if args.num_threads == 1 {
@@ -116,15 +119,15 @@ where
             thread_pool.install(|| sccs.par_sort_by_size())
         };
         let max = component_sizes.first().copied();
-        args.fmt.store_usizes(sizes_path, &component_sizes, max)?;
-    } else if args.sizes {
+        args.fmt.store_usizes(&args.dst, &component_sizes, max)?;
+    } else if let Some(sizes_path) = args.sizes {
         log::info!("Computing the sizes of the components");
         let sizes = sccs.compute_sizes();
         args.fmt.store_usizes(sizes_path, &sizes, None)?;
     };
 
     args.fmt
-        .store_usizes(path, sccs.components(), Some(sccs.num_components()))?;
+        .store_usizes(&args.dst, sccs.components(), Some(sccs.num_components()))?;
 
     Ok(())
 }

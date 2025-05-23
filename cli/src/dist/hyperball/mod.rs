@@ -18,46 +18,51 @@ use webgraph::{
 };
 use webgraph_algo::distances::hyperball::HyperBallBuilder;
 
-#[derive(Args, Debug, Clone, Copy)]
+#[derive(Args, Debug, Clone)]
 #[clap(group = ArgGroup::new("centralities"))]
 /// Centralities that can be computed with hyperball.
-/// The output files will be named BASENAME.<centrality_name>.
+/// To compress the result you can use named pipes or process substitution
+/// like `--harmonic=>(zstd > harmonic.zstd)`.
 pub struct Centralities {
     /// How all the centralities will be stored.
     #[clap(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
     pub fmt: FloatVectorFormat,
+    #[clap(long)]
     /// How many decimal digits will be used to store centralities in text formats.
     pub precision: Option<usize>,
 
-    /// Compute the approximate sum of distances and save them as BASENAME.sum_of_distances
+    /// Compute the approximate sum of distances and save them as at the given path.
     #[clap(long)]
-    pub sum_of_distances: bool,
-    /// Compute the approximate number of reachable nodes and save them as BASENAME.reachable_nodes
+    pub sum_of_distances: Option<PathBuf>,
+    /// Compute the approximate number of reachable nodes and save them as at the given path.
     #[clap(long)]
-    pub reachable_nodes: bool,
-    /// Compute the approximate harmonic centralities and save them as BASENAME.harmonic
+    pub reachable_nodes: Option<PathBuf>,
+    /// Compute the approximate harmonic centralities and save them as at the given path.
     #[clap(long)]
-    pub harmonic: bool,
-    /// Compute the approximate closeness centralities and save them as BASENAME.closeness
+    pub harmonic: Option<PathBuf>,
+    /// Compute the approximate closeness centralities and save them as at the given path.
     #[clap(long)]
-    pub closeness: bool,
-    // TODO!: discounted ?
-    // TODO!: neighborhood_function ?
+    pub closeness: Option<PathBuf>,
+    #[clap(long)]
+    /// Compute the approximate neighborhood function and save it as at the given path.
+    /// This is at most as big as the graph diameter and stores the number of
+    /// paths of length 1, 2, ..., d.
+    pub neighborhood_function: Option<PathBuf>,
 }
 
 impl Centralities {
     pub fn should_compute_sum_of_distances(&self) -> bool {
-        self.sum_of_distances || self.closeness
+        self.sum_of_distances.is_some() || self.closeness.is_some()
     }
     pub fn should_compute_sum_of_inverse_distances(&self) -> bool {
-        self.harmonic
+        self.harmonic.is_some()
     }
 }
 
 #[derive(Parser, Debug)]
 #[command(
     name = "hyperball",
-    about = "Use hyperball to compute centralities. (WORK IN PROGRESS)",
+    about = "Use hyperball to compute centralities.",
     long_about = ""
 )]
 pub struct CliArgs {
@@ -176,9 +181,8 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
     /// here we use a macro to avoid duplicating the code, it can't be a function
     /// because different centralities have different return types
     macro_rules! store_centrality {
-        ($flag:ident, $method:ident, $extension:literal, $description:expr) => {{
-            if args.centralities.$flag {
-                let path = args.basename.with_extension($extension);
+        ($flag:ident, $method:ident, $description:expr) => {{
+            if let Some(path) = args.centralities.$flag {
                 log::info!("Saving {} to {}", $description, path.display());
                 let value = hb.$method()?;
                 args.centralities
@@ -188,31 +192,14 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
         }};
     }
 
-    // TODO: store neighborhood function
-
+    store_centrality!(sum_of_distances, sum_of_distances, "sum of distances");
+    store_centrality!(harmonic, harmonic_centralities, "harmonic centralities");
+    store_centrality!(closeness, closeness_centrality, "closeness centralities");
+    store_centrality!(reachable_nodes, reachable_nodes, "reachable nodes");
     store_centrality!(
-        sum_of_distances,
-        sum_of_distances,
-        "sum_of_distances",
-        "sum of distances"
-    );
-    store_centrality!(
-        harmonic,
-        harmonic_centralities,
-        "harmonic",
-        "harmonic centralities"
-    );
-    store_centrality!(
-        closeness,
-        closeness_centrality,
-        "closeness",
-        "closeness centralities"
-    );
-    store_centrality!(
-        reachable_nodes,
-        reachable_nodes,
-        "reachable_nodes",
-        "reachable nodes"
+        neighborhood_function,
+        neighborhood_function,
+        "neighborhood function"
     );
 
     Ok(())

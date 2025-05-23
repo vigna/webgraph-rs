@@ -177,9 +177,9 @@ pub struct BatchSizeArg {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 /// How to store vectors of floats.
 pub enum FloatVectorFormat {
-    /// Java-compatible format: a sequence of big-endian floats (32 bits).
+    /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
     Java,
-    /// A slice of f32 serialized using ε-serde.
+    /// A slice of floats (32 or 64 bits) serialized using ε-serde.
     Epserde,
     /// ASCII format, one float per line.
     Ascii,
