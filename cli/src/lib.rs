@@ -633,7 +633,7 @@ pub enum SubCommands {
 /// - TMPDIR: where to store temporary files (potentially very large ones)
 ///
 /// - RUST_LOG: configuration for env_logger
-///   (https://docs.rs/env_logger/latest/env_logger/)
+///   <https://docs.rs/env_logger/latest/env_logger/>
 pub struct Cli {
     #[command(subcommand)]
     command: SubCommands,
