@@ -53,8 +53,7 @@ where
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
     let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
 
-    // TODO : not +1
-    let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs + 1);
+    let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
 
     let ef_path = basename.with_extension(DEG_CUMUL_EXTENSION);
     let mut ef_file = BufWriter::new(

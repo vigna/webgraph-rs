@@ -24,7 +24,7 @@ use webgraph_algo::distances::hyperball::HyperBallBuilder;
 /// The output files will be named BASENAME.<centrality_name>.
 pub struct Centralities {
     /// How all the centralities will be stored.
-    #[clap(long, value_enum, default_value_t = FloatVectorFormat::ZstdAscii)]
+    #[clap(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
     pub fmt: FloatVectorFormat,
     /// How many decimal digits will be used to store centralities in text formats.
     pub precision: Option<usize>,

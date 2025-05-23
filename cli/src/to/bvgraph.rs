@@ -10,7 +10,7 @@ use crate::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
-use epserde::deser::DeserializeInner;
+
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
@@ -80,17 +80,8 @@ where
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
-            // TODO!: this type annotation is not needed in the nightly version
-            let sorted = webgraph::transform::permute_split::<
-                BvGraph<
-                    DynCodesDecoderFactory<
-                        E,
-                        MmapHelper<u32>,
-                        <EF as DeserializeInner>::DeserType<'_>,
-                    >,
-                >,
-                JavaPermutation,
-            >(&graph, &permutation, batch_size, &thread_pool)?;
+            let sorted =
+                webgraph::transform::permute_split(&graph, &permutation, batch_size, &thread_pool)?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()

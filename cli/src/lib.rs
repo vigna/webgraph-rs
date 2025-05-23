@@ -183,18 +183,17 @@ pub enum FloatVectorFormat {
     Epserde,
     /// ASCII format, one float per line.
     Ascii,
-    // TODO: maybe better have named files everywhere, and people can compress
-    // with named pipes
-    /// As ASCII but compressed using zstd (level 3).
-    ZstdAscii,
     /// A JSON Array.
     Json,
 }
 
 impl FloatVectorFormat {
-    /// Stores float values in the specified `path` using the format defined by `self`.
-    /// If the result is a textual format, i.e. Ascii, ZstdAscii or Json, precision
-    /// will be used to truncate the float values to the specified number of decimal digits.
+    /// Stores float values in the specified `path` using the format defined by
+    /// `self`.
+    ///
+    /// If the result is a textual format, i.e., ASCII or JSON, `precision`
+    /// will be used to truncate the float values to the specified number of
+    /// decimal digits.
     pub fn store<F>(
         &self,
         path: impl AsRef<Path>,
@@ -232,20 +231,6 @@ impl FloatVectorFormat {
                         .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
             }
-            FloatVectorFormat::ZstdAscii => {
-                log::info!(
-                    "Storing in zstd-compressed ASCII format at {}",
-                    path_display
-                );
-                let mut encoder = zstd::Encoder::new(file, 0)?;
-                for word in values.iter() {
-                    writeln!(encoder, "{word:.precision$}")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
-                }
-                encoder
-                    .finish()
-                    .with_context(|| format!("Could not write vector to {}", path_display))?;
-            }
             FloatVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path_display);
                 write!(file, "[")?;
@@ -278,8 +263,6 @@ pub enum IntVectorFormat {
     BitFieldVec,
     /// ASCII format, one float per line.
     Ascii,
-    /// As ASCII, but compressed using zstd (level 3).
-    ZstdAscii,
     /// A JSON Array.
     Json,
 }
@@ -344,21 +327,6 @@ impl IntVectorFormat {
                         format!("Could not write vector to {}", path.as_ref().display())
                     })?;
                 }
-            }
-            IntVectorFormat::ZstdAscii => {
-                log::info!(
-                    "Storing in Zstd ASCII format at {}",
-                    path.as_ref().display()
-                );
-                let mut encoder = zstd::Encoder::new(buf, 0)?;
-                for word in data.iter() {
-                    writeln!(encoder, "{}", word).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
-                }
-                encoder.finish().with_context(|| {
-                    format!("Could not write vector to {}", path.as_ref().display())
-                })?;
             }
             IntVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());

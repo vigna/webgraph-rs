@@ -47,7 +47,7 @@ pub struct CliArgs {
     /// The number of threads to use to compute the sizes of the components.
     pub num_threads: usize,
 
-    #[arg(long, value_enum, default_value_t = IntVectorFormat::ZstdAscii)]
+    #[arg(long, value_enum, default_value_t = IntVectorFormat::Ascii)]
     /// The storage format for components and component sizes.
     pub fmt: IntVectorFormat,
 }
