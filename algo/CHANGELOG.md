@@ -1,10 +1,14 @@
 # Change Log
 
-## [0.1.2] - 2025-04-11
+## [0.2.0] - 2025-05-23
 
 ### Changed
 
 * Reviewed constructors of parallel visit to offer default granularity.
+
+* Moved in Layered Label Propagation.
+
+* Revamped ExactSumSweep implementation.
 
 ## [0.1.1] - 2025-04-01
 

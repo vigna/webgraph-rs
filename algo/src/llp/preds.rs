@@ -7,7 +7,7 @@
 
 //! Predicates implementing stopping conditions.
 //!
-//! The implementation of [layered label propagation](super::llp) requires a
+//! The implementation of [layered label propagation](super) requires a
 //! [predicate](Predicate) to stop the algorithm. This module provides a few
 //! such predicates: they evaluate to true if the updates should be stopped.
 //!

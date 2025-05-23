@@ -15,11 +15,11 @@
 //!
 //! The function [`layered_label_propagation`] returns a permutation of the
 //! provided symmetric graph which will (hopefully) increase locality (see the
-//! paper). Usually, the permutation is fed to [`permute`] to permute the
+//! paper). Usually, the permutation is fed to [`permute`](webgraph::transform::permute) to permute the
 //! original graph.
 //!
 //! Note that the graph provided should be _symmetric_ and _loopless_. If this
-//! is not the case, please use [`simplify`] to generate a
+//! is not the case, please use [`simplify`](webgraph::transform::simplify) to generate a
 //! suitable graph.
 //!
 //! # Memory requirements
@@ -75,17 +75,17 @@ pub struct LabelsStore<A> {
 ///
 /// * `sym_graph` - The symmetric graph to run LLP on.
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
-///   [par_apply](crate::traits::SequentialLabeling::par_apply).
+///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
 /// * `num_threads` - The number of threads to use. If `None`, the number of
 ///   threads is set to [`num_cpus::get`].
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
 ///   an advanced option: see
-///   [par_apply](crate::traits::SequentialLabeling::par_apply).
+///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
 /// * `granularity` - The granularity of the parallel processing expressed as
 ///   the number of arcs to process at a time. If `None`, the granularity is
 ///   computed adaptively. This is an advanced option: see
-///   [par_apply](crate::traits::SequentialLabeling::par_apply).
+///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
 /// * `seed` - The seed to use for pseudorandom number generation.
 /// * `work_dir` - The directory where the labels will be stored, if `None`, a
 ///   temporary directory will be created.
