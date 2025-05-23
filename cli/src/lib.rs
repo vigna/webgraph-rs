@@ -624,7 +624,16 @@ pub enum SubCommands {
 #[derive(Parser, Debug)]
 #[command(name = "webgraph", version=build_info::version_string())]
 /// Webgraph tools to build, convert, modify, and analyze graphs.
-#[doc = include_str!("./common_env.txt")]
+///
+/// Noteworthy environment variables:
+///
+/// - RUST_MIN_STACK: minimum thread stack size (in bytes); we suggest
+///   RUST_MIN_STACK=8388608 (8MiB)
+///
+/// - TMPDIR: where to store temporary files (potentially very large ones)
+///
+/// - RUST_LOG: configuration for env_logger
+///   (https://docs.rs/env_logger/latest/env_logger/)
 pub struct Cli {
     #[command(subcommand)]
     command: SubCommands,
