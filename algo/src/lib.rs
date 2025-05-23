@@ -11,6 +11,10 @@
 pub mod utils;
 mod acyclicity;
 pub use acyclicity::is_acyclic;
+
+pub mod llp;
+pub use llp::*;
+
 pub mod sccs;
 mod top_sort;
 pub use top_sort::top_sort;

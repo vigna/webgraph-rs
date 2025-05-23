@@ -45,11 +45,11 @@ pub use symm_seq::*;
 mod symm_par;
 pub use symm_par::*;
 
+use crate::llp;
 use rayon::{
     iter::{IntoParallelRefMutIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
-use webgraph::algo::llp;
 
 /// Strongly connected components.
 ///

@@ -5,11 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{traits::*, utils::Granularity};
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use rayon::ThreadPool;
 use sux::prelude::*;
+use webgraph::{traits::*, utils::Granularity};
 
 /// Computes the gap cost, that is, the sum of the costs of the logarithms
 /// of the differences between successors.

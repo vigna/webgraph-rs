@@ -38,11 +38,11 @@ env_logger.workspace = true
 zstd.workspace = true
 
 jiff = "0.2.5"
-sysinfo = "0.33.1"
+sysinfo = "0.35.1"
 clap_complete = { version = "4.4.11" }
 
 [build-dependencies]
-built = { version = "0.7", features = ["git2"] }
+built = { version = "0.8", features = ["git2"] }
 chrono = "0.4.39"
 
 [features]

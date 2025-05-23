@@ -27,13 +27,11 @@
 //! LLP requires three `usize` and a boolean per node, plus the memory that is
 //! necessary to load the graph.
 //!
-use crate::prelude::*;
-use crate::traits::*;
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
-use llp::preds::PredParams;
 use predicates::Predicate;
+use preds::PredParams;
 
 use log::info;
 use rand::rngs::SmallRng;
@@ -48,6 +46,9 @@ use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use sux::traits::Succ;
 use sync_cell_slice::SyncSlice;
+use webgraph::prelude::PermutedGraph;
+use webgraph::traits::RandomAccessGraph;
+use webgraph::utils::Granularity;
 
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
