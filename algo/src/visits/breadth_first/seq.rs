@@ -164,6 +164,14 @@ impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
             return Continue(());
         }
 
+        callback(
+            &mut init,
+            EventPred::DistanceChanged {
+                distance: 0,
+                nodes: self.queue.len(),
+            },
+        )?;
+
         // Insert marker
         self.queue.push_back(None);
         let mut distance = 1;
@@ -208,6 +216,13 @@ impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
                     // We are at the end of the current level, so
                     // we increment the distance and add a separator.
                     if !self.queue.is_empty() {
+                        callback(
+                            &mut init,
+                            EventPred::DistanceChanged {
+                                distance,
+                                nodes: self.queue.len(),
+                            },
+                        )?;
                         distance += 1;
                         self.queue.push_back(None);
                     }

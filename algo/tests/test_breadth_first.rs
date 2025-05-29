@@ -67,6 +67,7 @@ macro_rules! test_bfv_algo_seq {
     ($bfv:expr, $name:ident) => {
         mod $name {
             use super::*;
+            use std::collections::BTreeMap;
 
             #[test]
             fn test_simple_graph() -> Result<()> {
@@ -161,6 +162,58 @@ macro_rules! test_bfv_algo_seq {
 
                 Ok(())
             }
+
+            #[test]
+            fn test_distance_event_cnr_2000_single_root() -> Result<()> {
+                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let mut visit = $bfv(&graph);
+                let mut distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
+                let mut expected_distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
+
+                visit
+                    .visit([0], |event| {
+                       if let breadth_first::EventPred::Unknown { distance, .. } = event
+                        {
+                            *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
+                        }
+                        if let breadth_first::EventPred::DistanceChanged { nodes, distance } = event
+                        {
+                            *distance_to_quantity.entry(distance).or_insert(0) += nodes;
+                        }
+                        Continue(())
+                    })
+                    .continue_value_no_break();
+
+                assert_eq!(distance_to_quantity, expected_distance_to_quantity);
+
+                Ok(())
+            }
+            
+            #[test]
+            fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
+                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let mut visit = $bfv(&graph);
+                let mut distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
+                let mut expected_distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
+
+                visit
+                    .visit([0, graph.num_nodes()/2, graph.num_nodes()-1], |event| {
+                       if let breadth_first::EventPred::Unknown { distance, .. } = event
+                        {
+                            *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
+                        }
+                        if let breadth_first::EventPred::DistanceChanged { nodes, distance } = event
+                        {
+                            *distance_to_quantity.entry(distance).or_insert(0) += nodes;
+                        }
+                        Continue(())
+                    })
+                    .continue_value_no_break();
+
+                assert_eq!(distance_to_quantity, expected_distance_to_quantity);
+
+                Ok(())
+            }
         }
     };
 }
@@ -169,7 +222,9 @@ macro_rules! test_bfv_algo_par {
     ($bfv:expr, $name:ident) => {
         mod $name {
             use super::*;
-
+            use std::collections::BTreeMap;
+            use std::sync::Mutex;
+            
             #[test]
             fn test_simple_graph() -> Result<()> {
                 let arcs = vec![
@@ -281,6 +336,74 @@ macro_rules! test_bfv_algo_par {
                 let actual_distances = into_non_atomic(distances);
 
                 assert_eq!(actual_distances, expected_distances);
+
+                Ok(())
+            }
+            
+            #[test]
+            fn test_distance_event_cnr_2000_single_root() -> Result<()> {
+                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let mut visit = $bfv(&graph);
+                let t = thread_pool![];
+
+                let distance_to_quantity: Mutex<BTreeMap<usize, usize>> = Mutex::new(BTreeMap::new());
+                let expected_distance_to_quantity: Mutex<BTreeMap<usize, usize>> = Mutex::new(BTreeMap::new());
+                
+                visit
+                    .par_visit(
+                        [0],
+                        |event| {
+                            if let breadth_first::EventPred::Unknown {
+                                distance, ..
+                            } = event
+                            {
+                                *expected_distance_to_quantity.lock().unwrap().entry(distance).or_insert(0) += 1;
+                            }
+                            if let breadth_first::EventPred::DistanceChanged { nodes, distance } = event 
+                            {
+                                *distance_to_quantity.lock().unwrap().entry(distance).or_insert(0) += nodes;
+                            }
+                            Continue(())
+                        },
+                        &t,
+                    )
+                    .continue_value_no_break();
+
+                assert_eq!(distance_to_quantity.into_inner().unwrap(), expected_distance_to_quantity.into_inner().unwrap());
+
+                Ok(())
+            }
+            
+            #[test]
+            fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
+                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let mut visit = $bfv(&graph);
+                let t = thread_pool![];
+
+                let distance_to_quantity: Mutex<BTreeMap<usize, usize>> = Mutex::new(BTreeMap::new());
+                let expected_distance_to_quantity: Mutex<BTreeMap<usize, usize>> = Mutex::new(BTreeMap::new());
+                
+                visit
+                    .par_visit(
+                        [0, graph.num_nodes()/2, graph.num_nodes()-1],
+                        |event| {
+                            if let breadth_first::EventPred::Unknown {
+                                distance, ..
+                            } = event
+                            {
+                                *expected_distance_to_quantity.lock().unwrap().entry(distance).or_insert(0) += 1;
+                            }
+                            if let breadth_first::EventPred::DistanceChanged { nodes, distance } = event 
+                            {
+                                *distance_to_quantity.lock().unwrap().entry(distance).or_insert(0) += nodes;
+                            }
+                            Continue(())
+                        },
+                        &t,
+                    )
+                    .continue_value_no_break();
+
+                assert_eq!(distance_to_quantity.into_inner().unwrap(), expected_distance_to_quantity.into_inner().unwrap());
 
                 Ok(())
             }

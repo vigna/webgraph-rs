@@ -177,6 +177,13 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
 
         // Visit the connected component
         while !curr_frontier.is_empty() {
+            callback(
+                &mut init,
+                EventPred::DistanceChanged {
+                    distance: distance - 1,
+                    nodes: curr_frontier.len(),
+                },
+            )?;
             thread_pool.install(|| {
                 curr_frontier
                     .par_iter()
