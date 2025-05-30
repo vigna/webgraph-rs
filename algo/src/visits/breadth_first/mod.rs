@@ -58,7 +58,7 @@ pub enum EventPred {
     },
     /// The nodes at new distance are being processed.
     ///
-    /// Note that this event is emitted either just before starting to visit nodes at 
+    /// Note that this event is emitted either just before starting to visit nodes at
     /// a given distance or when all nodes at that distance have been visited depending
     /// on the implementation.
     DistanceChanged {
@@ -119,7 +119,7 @@ pub enum EventNoPred {
     },
     /// The nodes at new distance are being processed.
     ///
-    /// Note that this event is emitted either just before starting to visit nodes at 
+    /// Note that this event is emitted either just before starting to visit nodes at
     /// a given distance or when all nodes at that distance have been visited depending
     /// on the implementation.
     DistanceChanged {
