@@ -56,6 +56,17 @@ pub enum EventPred {
         /// The predecessor of [node](`EventPred::Known::node`).
         pred: usize,
     },
+    /// The nodes at new distance are being processed.
+    ///
+    /// Note that this event is emitted either just before starting to visit nodes at
+    /// a given distance or when all nodes at that distance have been visited depending
+    /// on the implementation.
+    DistanceChanged {
+        /// The number of nodes visited at that distance.
+        nodes: usize,
+        /// The distance of the nodes visited.
+        distance: usize,
+    },
     /// The visit has been completed.
     ///
     /// Note that this event will not happen if the visit is empty (that is, if
@@ -105,6 +116,17 @@ pub enum EventNoPred {
     Known {
         /// The current node.
         node: usize,
+    },
+    /// The nodes at new distance are being processed.
+    ///
+    /// Note that this event is emitted either just before starting to visit nodes at
+    /// a given distance or when all nodes at that distance have been visited depending
+    /// on the implementation.
+    DistanceChanged {
+        /// The number of nodes visited at that distance.
+        nodes: usize,
+        /// The distance of the nodes visited.
+        distance: usize,
     },
     /// The visit has been completed.
     ///

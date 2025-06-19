@@ -18,7 +18,7 @@
 //! ```
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use predicates::prelude::*;
-//! use webgraph::algo::llp::preds::{MinGain, MaxUpdates};
+//! use webgraph_algo::llp::preds::{MinGain, MaxUpdates};
 //!
 //! let mut predicate = MinGain::try_from(0.001)?.boxed();
 //! predicate = predicate.or(MaxUpdates::from(100)).boxed();
