@@ -1,5 +1,16 @@
 # Change Log
 
+## [0.3.1] -
+
+### New
+
+* `SequentialLabeling::eq_sorted` associated function that checks
+  equality between labelings.
+
+* `RandomAccessLabeling::check_impl` associated function that checks
+  that the sequential and random-access implementations return the
+  same results.
+
 ## [0.3.0] - 2025-05-23
 
 ### Changed
