@@ -181,7 +181,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                 &mut init,
                 EventPred::FrontierSize {
                     distance: distance - 1,
-                    nodes: curr_frontier.len(),
+                    size: curr_frontier.len(),
                 },
             )?;
             thread_pool.install(|| {

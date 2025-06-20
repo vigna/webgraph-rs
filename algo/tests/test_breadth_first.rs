@@ -175,8 +175,8 @@ macro_rules! test_bfv_algo_seq {
                         if let breadth_first::EventPred::Unknown { distance, .. } = event {
                             *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
                         }
-                        if let breadth_first::EventPred::FrontierSize { nodes, distance } = event {
-                            *distance_to_quantity.entry(distance).or_insert(0) += nodes;
+                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
+                            *distance_to_quantity.entry(distance).or_insert(0) += size;
                         }
                         Continue(())
                     })
@@ -199,8 +199,8 @@ macro_rules! test_bfv_algo_seq {
                         if let breadth_first::EventPred::Unknown { distance, .. } = event {
                             *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
                         }
-                        if let breadth_first::EventPred::FrontierSize { nodes, distance } = event {
-                            *distance_to_quantity.entry(distance).or_insert(0) += nodes;
+                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
+                            *distance_to_quantity.entry(distance).or_insert(0) += size;
                         }
                         Continue(())
                     })
@@ -358,14 +358,13 @@ macro_rules! test_bfv_algo_par {
                                     .entry(distance)
                                     .or_insert(0) += 1;
                             }
-                            if let breadth_first::EventPred::FrontierSize { nodes, distance } =
-                                event
+                            if let breadth_first::EventPred::FrontierSize { distance, size } = event
                             {
                                 *distance_to_quantity
                                     .lock()
                                     .unwrap()
                                     .entry(distance)
-                                    .or_insert(0) += nodes;
+                                    .or_insert(0) += size;
                             }
                             Continue(())
                         },
@@ -403,14 +402,13 @@ macro_rules! test_bfv_algo_par {
                                     .entry(distance)
                                     .or_insert(0) += 1;
                             }
-                            if let breadth_first::EventPred::FrontierSize { nodes, distance } =
-                                event
+                            if let breadth_first::EventPred::FrontierSize { distance, size } = event
                             {
                                 *distance_to_quantity
                                     .lock()
                                     .unwrap()
                                     .entry(distance)
-                                    .or_insert(0) += nodes;
+                                    .or_insert(0) += size;
                             }
                             Continue(())
                         },

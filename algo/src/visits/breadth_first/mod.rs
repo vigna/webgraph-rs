@@ -69,10 +69,11 @@ pub enum EventPred {
     /// distance or when all nodes at that distance have been visited, depending
     /// on the implementation.
     FrontierSize {
-        /// The number of nodes visited at that distance.
-        nodes: usize,
-        /// The distance of the nodes visited.
+        /// A distance.
         distance: usize,
+        /// The number of nodes at
+        /// [`distance`](`EventNoPred::FrontierSize::distance`) from the roots.
+        size: usize,
     },
     /// The visit has been completed.
     ///
@@ -137,10 +138,11 @@ pub enum EventNoPred {
     /// distance or when all nodes at that distance have been visited, depending
     /// on the implementation.
     FrontierSize {
-        /// The number of nodes visited at that distance.
-        nodes: usize,
-        /// The distance of the nodes visited.
+        /// A distance.
         distance: usize,
+        /// The number of nodes at
+        /// [`distance`](`EventNoPred::FrontierSize::distance`) from the roots.
+        sizes: usize,
     },
     /// The visit has been completed.
     ///

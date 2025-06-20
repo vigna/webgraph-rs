@@ -192,7 +192,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                 &mut init,
                 EventNoPred::FrontierSize {
                     distance,
-                    nodes: curr_frontier.len(),
+                    sizes: curr_frontier.len(),
                 },
             )?;
             let distance_plus_one = distance + 1;
@@ -301,7 +301,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
                 &mut init,
                 EventPred::FrontierSize {
                     distance,
-                    nodes: curr_frontier.len(),
+                    size: curr_frontier.len(),
                 },
             )?;
             let distance_plus_one = distance + 1;
