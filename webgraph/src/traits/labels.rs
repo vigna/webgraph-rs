@@ -323,7 +323,7 @@ pub type Labels<'succ, 'node, S> =
 /// ```rust
 /// use webgraph::traits::*;
 ///
-/// fn takes_graph_with_sorted_lender<G>(g: G) where
+/// fn takes_labeling_with_sorted_lender<G>(g: G) where
 ///     G: SequentialLabeling,
 ///     for<'a> G::Lender<'a>: SortedLender,
 /// {
@@ -398,9 +398,9 @@ where
 /// ```rust
 /// use webgraph::traits::*;
 ///
-/// fn takes_graph_with_sorted_iterators<G>(g: G) where
+/// fn takes_labeling_with_sorted_iterators<G>(g: G) where
 ///     G: SequentialLabeling,
-///     for<'a','b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+///     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
 /// {
 ///     // ...
 /// }
