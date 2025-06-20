@@ -56,12 +56,19 @@ pub enum EventPred {
         /// The predecessor of [node](`EventPred::Known::node`).
         pred: usize,
     },
-    /// The nodes at new distance are being processed.
+    /// The size of the frontier at a given distance.
     ///
-    /// Note that this event is emitted either just before starting to visit nodes at
-    /// a given distance or when all nodes at that distance have been visited depending
+    /// This even will happen with increasing value of
+    /// [`distance`](`EventPred::FrontierSize::distance`), starting at 0.
+    ///
+    /// If the root is formed by a single node, this is the size of the sphere
+    /// with center at the root and radius
+    /// [`distance`](`EventPred::FrontierSize::distance`).
+    ///
+    /// This event will happen just before starting to visit nodes at a given
+    /// distance or when all nodes at that distance have been visited, depending
     /// on the implementation.
-    DistanceChanged {
+    FrontierSize {
         /// The number of nodes visited at that distance.
         nodes: usize,
         /// The distance of the nodes visited.
@@ -117,12 +124,19 @@ pub enum EventNoPred {
         /// The current node.
         node: usize,
     },
-    /// The nodes at new distance are being processed.
+    /// The size of the frontier at a given distance.
     ///
-    /// Note that this event is emitted either just before starting to visit nodes at
-    /// a given distance or when all nodes at that distance have been visited depending
+    /// This even will happen with increasing value of
+    /// [`distance`](`EventPred::FrontierSize::distance`), starting at 0.
+    ///
+    /// If the root is formed by a single node, this is the size of the sphere
+    /// with center at the root and radius
+    /// [`distance`](`EventPred::FrontierSize::distance`).
+    ///
+    /// This event will happen just before starting to visit nodes at a given
+    /// distance or when all nodes at that distance have been visited, depending
     /// on the implementation.
-    DistanceChanged {
+    FrontierSize {
         /// The number of nodes visited at that distance.
         nodes: usize,
         /// The distance of the nodes visited.

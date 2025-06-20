@@ -175,8 +175,7 @@ macro_rules! test_bfv_algo_seq {
                         if let breadth_first::EventPred::Unknown { distance, .. } = event {
                             *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
                         }
-                        if let breadth_first::EventPred::DistanceChanged { nodes, distance } = event
-                        {
+                        if let breadth_first::EventPred::FrontierSize { nodes, distance } = event {
                             *distance_to_quantity.entry(distance).or_insert(0) += nodes;
                         }
                         Continue(())
@@ -200,8 +199,7 @@ macro_rules! test_bfv_algo_seq {
                         if let breadth_first::EventPred::Unknown { distance, .. } = event {
                             *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
                         }
-                        if let breadth_first::EventPred::DistanceChanged { nodes, distance } = event
-                        {
+                        if let breadth_first::EventPred::FrontierSize { nodes, distance } = event {
                             *distance_to_quantity.entry(distance).or_insert(0) += nodes;
                         }
                         Continue(())
@@ -360,7 +358,7 @@ macro_rules! test_bfv_algo_par {
                                     .entry(distance)
                                     .or_insert(0) += 1;
                             }
-                            if let breadth_first::EventPred::DistanceChanged { nodes, distance } =
+                            if let breadth_first::EventPred::FrontierSize { nodes, distance } =
                                 event
                             {
                                 *distance_to_quantity
@@ -405,7 +403,7 @@ macro_rules! test_bfv_algo_par {
                                     .entry(distance)
                                     .or_insert(0) += 1;
                             }
-                            if let breadth_first::EventPred::DistanceChanged { nodes, distance } =
+                            if let breadth_first::EventPred::FrontierSize { nodes, distance } =
                                 event
                             {
                                 *distance_to_quantity

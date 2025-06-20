@@ -179,7 +179,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
         while !curr_frontier.is_empty() {
             callback(
                 &mut init,
-                EventPred::DistanceChanged {
+                EventPred::FrontierSize {
                     distance: distance - 1,
                     nodes: curr_frontier.len(),
                 },

@@ -190,7 +190,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
         while !curr_frontier.is_empty() {
             callback(
                 &mut init,
-                EventNoPred::DistanceChanged {
+                EventNoPred::FrontierSize {
                     distance,
                     nodes: curr_frontier.len(),
                 },
@@ -299,7 +299,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
         while !curr_frontier.is_empty() {
             callback(
                 &mut init,
-                EventPred::DistanceChanged {
+                EventPred::FrontierSize {
                     distance,
                     nodes: curr_frontier.len(),
                 },

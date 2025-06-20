@@ -166,7 +166,7 @@ impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
 
         callback(
             &mut init,
-            EventPred::DistanceChanged {
+            EventPred::FrontierSize {
                 distance: 0,
                 nodes: self.queue.len(),
             },
@@ -218,7 +218,7 @@ impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
                     if !self.queue.is_empty() {
                         callback(
                             &mut init,
-                            EventPred::DistanceChanged {
+                            EventPred::FrontierSize {
                                 distance,
                                 nodes: self.queue.len(),
                             },
