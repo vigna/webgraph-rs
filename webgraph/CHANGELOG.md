@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.3.1] -
+## [0.4.0] -
 
 ### New
 
@@ -14,6 +14,9 @@
 
 * `graph::eq_labeled` function that checks equality between labeled graphs with
   sorted lenders.
+
+* `SortedIter` has been renamed `AssumeSortedIterator` for consistency with
+  `AssumeSortedLender`.
 
 ### Fixed
 

@@ -309,8 +309,9 @@ impl<D: Decode> Iter<D> {
 
 impl<'succ, D: Decode> NodeLabelsLender<'succ> for Iter<D> {
     type Label = usize;
-    type IntoIterator =
-        crate::traits::labels::SortedIter<std::iter::Copied<std::slice::Iter<'succ, Self::Label>>>;
+    type IntoIterator = crate::traits::labels::AssumeSortedIterator<
+        std::iter::Copied<std::slice::Iter<'succ, Self::Label>>,
+    >;
 }
 
 impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
@@ -331,7 +332,7 @@ impl<D: Decode> Lender for Iter<D> {
         let node_id = self.current_node;
         self.current_node += 1;
         Some((node_id, unsafe {
-            crate::traits::labels::SortedIter::new(res.iter().copied())
+            crate::traits::labels::AssumeSortedIterator::new(res.iter().copied())
         }))
     }
 }

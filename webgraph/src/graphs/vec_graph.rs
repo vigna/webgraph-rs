@@ -264,7 +264,7 @@ impl<'a, L: Clone + 'static> IntoLender for &'a LabeledVecGraph<L> {
 impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledVecGraph<L> {}
 
 impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
-    type Labels<'succ> = SortedIter<
+    type Labels<'succ> = AssumeSortedIterator<
         core::iter::Map<
             core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>,
             fn(LabelledArc<L>) -> (usize, L),
@@ -282,7 +282,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        unsafe { SortedIter::new(self.succ[node].iter().cloned().map(Into::into)) }
+        unsafe { AssumeSortedIterator::new(self.succ[node].iter().cloned().map(Into::into)) }
     }
 }
 
@@ -462,7 +462,7 @@ impl SequentialLabeling for VecGraph {
 impl SequentialGraph for VecGraph {}
 
 impl RandomAccessLabeling for VecGraph {
-    type Labels<'succ> = SortedIter<
+    type Labels<'succ> = AssumeSortedIterator<
         core::iter::Map<
             core::iter::Copied<core::slice::Iter<'succ, LabelledArc<()>>>,
             fn(LabelledArc<()>) -> usize,
@@ -481,7 +481,9 @@ impl RandomAccessLabeling for VecGraph {
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         // this is safe as we maintain each vector of successors sorted
-        unsafe { SortedIter::new(self.0.succ[node].iter().copied().map(|LabelledArc(x, _)| x)) }
+        unsafe {
+            AssumeSortedIterator::new(self.0.succ[node].iter().copied().map(|LabelledArc(x, _)| x))
+        }
     }
 }
 

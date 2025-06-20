@@ -308,10 +308,28 @@ pub type Labels<'succ, 'node, S> =
 /// Marker trait for lenders returned by [`SequentialLabeling::iter`] yielding
 /// node ids in ascending order.
 ///
+/// The [`AssumeSortedLender`] type can be used to wrap a lender and
+/// unsafely implement this trait.
+///
 /// # Safety
 ///
 /// The first element of the pairs returned by the iterator must go from zero to
 /// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
+///
+/// # Examples
+///
+/// To bind the lender returned by [`SequentialLabeling::iter`] to implement this
+/// trait, you must use higher-rank trait bounds:
+/// ```rust
+/// use webgraph::traits::*;
+///
+/// fn takes_graph_with_sorted_lender<G>(g: G) where
+///     G: SequentialLabeling,
+///     for<'a> G::Lender<'a>: SortedLender,
+/// {
+///     // ...
+/// }
+/// ```
 pub unsafe trait SortedLender: Lender {}
 
 /// A transparent wrapper for a [`NodeLabelsLender`] unsafely implementing
@@ -364,21 +382,42 @@ where
 /// Marker trait for [`Iterator`]s yielding labels in the order induced by
 /// enumerating the successors in ascending order.
 ///
+/// The [`AssumeSortedIterator`] type can be used to wrap an iterator and
+/// unsafely implement this trait.
+///
 /// # Safety
 ///
 /// The labels returned by the iterator must be in the order in which they would
 /// be if successors were returned in ascending order.
+///
+/// # Examples
+///
+/// To bind the iterators returned by the lender returned by
+/// [`SequentialLabeling::iter`] to implement this trait, you must use
+/// higher-rank trait bounds:
+/// ```rust
+/// use webgraph::traits::*;
+///
+/// fn takes_graph_with_sorted_iterators<G>(g: G) where
+///     G: SequentialLabeling,
+///     for<'a','b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+/// {
+///     // ...
+/// }
+/// ```
 pub unsafe trait SortedIterator: Iterator {}
 
-/// A wrapper to attach `SortedIterator` to an iterator. This is needed when
-/// the iterator is not directly a `SortedIterator`, but it is known that it
-/// returns elements in sorted order, e.g. like iterating on a vector that was
-/// sorted.
-pub struct SortedIter<I> {
+/// A transparent wrapper for an [`Iterator`] unsafely implementing
+/// [`SortedIterator`].
+///
+/// This wrapper is useful when an iterator is known to return labels in sorted
+/// order, but the trait is not implemented, and it is not possible to implement
+/// it directly because of the orphan rule.
+pub struct AssumeSortedIterator<I> {
     iter: I,
 }
 
-impl<I> SortedIter<I> {
+impl<I> AssumeSortedIterator<I> {
     /// # Safety
     /// This is unsafe as the propose of this struct is to attach an unsafe
     /// trait to a struct that does not implement it.
@@ -387,9 +426,9 @@ impl<I> SortedIter<I> {
     }
 }
 
-unsafe impl<I: Iterator> SortedIterator for SortedIter<I> {}
+unsafe impl<I: Iterator> SortedIterator for AssumeSortedIterator<I> {}
 
-impl<I: Iterator> Iterator for SortedIter<I> {
+impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -397,7 +436,7 @@ impl<I: Iterator> Iterator for SortedIter<I> {
     }
 }
 
-impl<I: ExactSizeIterator> ExactSizeIterator for SortedIter<I> {
+impl<I: ExactSizeIterator> ExactSizeIterator for AssumeSortedIterator<I> {
     fn len(&self) -> usize {
         self.iter.len()
     }
