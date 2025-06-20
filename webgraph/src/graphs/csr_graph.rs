@@ -264,6 +264,11 @@ pub struct LenderImpl<I: Iterator<Item = usize>, D: Iterator<Item = usize>> {
     successors_iter: D,
 }
 
+unsafe impl<I: Iterator<Item = usize>, D: Iterator<Item = usize>> SortedLender
+    for LenderImpl<I, D>
+{
+}
+
 impl<'succ, I, D> NodeLabelsLender<'succ> for LenderImpl<I, D>
 where
     I: Iterator<Item = usize>,
@@ -367,32 +372,12 @@ mod test {
         let g = VecGraph::from_arcs(arcs.iter().copied());
 
         let csr = <CsrGraph>::from_seq_graph(&g);
-        dbg!(&csr);
-        //super::labels::eq(&g, &csr);
+        labels::check_impl(&csr);
+        // We should be able to use eq_sorted
+        graph::eq(&g, &csr);
 
-        //let csr = CompressedCsrGraph::from_graph(&g);
-        //check_graph_equivalence(&g, &csr);
-    }
-
-    fn check_graph_equivalence(g1: impl RandomAccessGraph, g2: impl RandomAccessGraph) {
-        assert_eq!(g1.num_nodes(), g2.num_nodes());
-        assert_eq!(g1.num_arcs(), g2.num_arcs());
-        for node in 0..g1.num_nodes() {
-            let labels1: Vec<_> = g1.successors(node).into_iter().collect();
-            let labels2: Vec<_> = g2.successors(node).into_iter().collect();
-            assert_eq!(labels1, labels2);
-        }
-        for start in 0..g1.num_nodes() {
-            let mut iter1 = g1.iter_from(start);
-            let mut iter2 = g2.iter_from(start);
-
-            while let Some(((n1, succ1), (n2, succ2))) = iter1.next().zip(iter2.next()) {
-                assert_eq!(n1, n2);
-                assert_eq!(
-                    succ1.into_iter().collect::<Vec<_>>(),
-                    succ2.into_iter().collect::<Vec<_>>()
-                );
-            }
-        }
+        let csr = CompressedCsrGraph::from_graph(&g);
+        /*graph::eq(&g, &csr);
+        labels::check_impl(&csr);*/
     }
 }
