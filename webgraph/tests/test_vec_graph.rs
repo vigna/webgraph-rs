@@ -5,7 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use webgraph::traits::graph;
+use webgraph::{
+    graphs::vec_graph::LabeledVecGraph,
+    prelude::VecGraph,
+    traits::{graph, labels},
+};
 
 #[cfg(feature = "serde")]
 #[test]
@@ -33,5 +37,18 @@ fn test_epserde() -> anyhow::Result<()> {
     let data = file.into_inner();
     let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data).unwrap();
     graph::eq_labeled(&g, &g2)?;
+    Ok(())
+}
+
+#[test]
+fn test_sorted() -> anyhow::Result<()> {
+    // This is just to test that we implemented correctly
+    // the SortedIterator and SortedLender traits.
+    let er = VecGraph::new();
+    labels::eq_sorted(&er, &er)?;
+    // This is just to test that we implemented correctly
+    // the SortedIterator and SortedLender traits.
+    let er = LabeledVecGraph::<usize>::new();
+    labels::eq_sorted(&er, &er)?;
     Ok(())
 }
