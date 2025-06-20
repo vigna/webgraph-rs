@@ -367,17 +367,18 @@ mod test {
 
     use super::*;
     #[test]
-    fn test_csr_graph() {
+    fn test_csr_graph() -> anyhow::Result<()> {
         let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
         let g = VecGraph::from_arcs(arcs.iter().copied());
 
         let csr = <CsrGraph>::from_seq_graph(&g);
-        labels::check_impl(&csr);
+        labels::check_impl(&csr)?;
         // We should be able to use eq_sorted
         assert!(graph::eq(&g, &csr).is_ok());
 
         let _csr = CompressedCsrGraph::from_graph(&g);
         /*graph::eq(&g, &csr);
         labels::check_impl(&csr);*/
+        Ok(())
     }
 }

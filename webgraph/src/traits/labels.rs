@@ -426,6 +426,40 @@ pub trait RandomAccessLabeling: SequentialLabeling {
     fn outdegree(&self, node_id: usize) -> usize;
 }
 
+/// Error types that can occur during checking the implementation of a random
+/// access labeling.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum CheckImplError {
+    /// The number of nodes returned by [`iter`](SequentialLabeling::iter)
+    /// is different from the number returned by
+    /// [`num_nodes`](SequentialLabeling::num_nodes).
+    #[error("Different number of nodes: {iter} (iter) != {method} (num_nodes)")]
+    NumNodes { iter: usize, method: usize },
+
+    /// The number of successors returned by [`iter`](SequentialLabeling::iter)
+    /// is different from the number returned by
+    /// [`num_arcs`](RandomAccessLabeling::num_arcs).
+    #[error("Different number of nodes: {iter} (iter) != {method} (num_arcs)")]
+    NumArcs { iter: u64, method: u64 },
+
+    /// The two implementations return different labels for a specific node.
+    #[error("Different successors for node {node}: at index {index} {sequential} (sequential) != {random_access} (random access)")]
+    Successors {
+        node: usize,
+        index: usize,
+        sequential: String,
+        random_access: String,
+    },
+
+    /// The graphs have different outdegrees for a specific node.
+    #[error("Different outdegree for node {node}: {sequential} (sequential) != {random_access} (random access)")]
+    Outdegree {
+        node: usize,
+        sequential: usize,
+        random_access: usize,
+    },
+}
+
 /// Checks the sequential vs. random-access implementation of a sorted
 /// random-access labeling.
 ///
@@ -433,18 +467,63 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// iterators on labels of each node are identical, and that the number of
 /// nodes returned by the sequential iterator is the same as the number of
 /// nodes returned by [`num_nodes`](SequentialLabeling::num_nodes).
-pub fn check_impl<L: RandomAccessLabeling>(l: L) -> bool
+pub fn check_impl<L: RandomAccessLabeling>(l: L) -> Result<(), CheckImplError>
 where
-    L::Label: PartialEq,
+    L::Label: PartialEq + std::fmt::Debug,
 {
     let mut num_nodes = 0;
-    for_!((node, succ) in l.iter() {
+    let mut num_arcs: u64 = 0;
+    for_!((node, succ_iter) in l.iter() {
         num_nodes += 1;
-        if !succ.into_iter().eq(l.labels(node).into_iter()) {
-            return false;
+        let mut succ_iter = succ_iter.into_iter();
+        let mut succ = l.labels(node).into_iter();
+        let mut index = 0;
+        loop {
+            match (succ_iter.next(), succ.next()) {
+                (None, None) => break,
+                (Some(s0), Some(s1)) => {
+                    if s0 != s1 {
+                        return Err(CheckImplError::Successors {
+                            node,
+                            index,
+                            sequential: format!("{:?}", s0),
+                            random_access: format!("{:?}", s1),
+                        });
+                    }
+                }
+                (None, Some(_)) => {
+                    return Err(CheckImplError::Outdegree {
+                        node,
+                        sequential: index,
+                        random_access: index + 1 + succ.count(),
+                    });
+                }
+                (Some(_), None) => {
+                    return Err(CheckImplError::Outdegree {
+                        node,
+                        sequential: index + 1 + succ_iter.count(),
+                        random_access: index,
+                    });
+                }
+            }
+            index += 1;
         }
+        num_arcs += index as u64;
     });
-    num_nodes == l.num_nodes()
+
+    if num_nodes != l.num_nodes() {
+        Err(CheckImplError::NumNodes {
+            method: l.num_nodes(),
+            iter: num_nodes,
+        })
+    } else if num_arcs != l.num_arcs() {
+        Err(CheckImplError::NumArcs {
+            method: l.num_arcs(),
+            iter: num_arcs,
+        })
+    } else {
+        Ok(())
+    }
 }
 
 /// A struct used to make it easy to implement sequential access
