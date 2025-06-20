@@ -35,6 +35,7 @@ sux.workspace = true
 common_traits.workspace = true
 value-traits.workspace = true
 lender.workspace = true
+value-traits.workspace = true
 
 rand.workspace = true
 tempfile.workspace = true

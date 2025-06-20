@@ -10,6 +10,7 @@
 pub mod arc_list_graph;
 pub mod btree_graph;
 pub mod bvgraph;
+pub mod csr_graph;
 pub mod no_selfloops_graph;
 pub mod permuted_graph;
 pub mod random;

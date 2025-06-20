@@ -1,59 +1,17 @@
-use std::iter::{Copied, Skip};
-
 use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
 use lender::{for_, IntoLender, Lend, Lender, Lending};
 use sux::{
-    bits::BitFieldVec,
-    dict::EliasFanoBuilder,
-    prelude::SelectAdaptConst,
-    traits::{BitFieldSliceCore, IndexedSeq, IntoIteratorFrom, Types},
+    bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst, traits::BitFieldSliceCore,
+};
+use value_traits::{
+    iter::{IterFrom, IterateByValueFrom},
+    slices::{SliceByValue, SliceByValueGet},
 };
 
 pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
-
-pub struct UsizeSeq(pub Box<[usize]>);
-
-impl From<Vec<usize>> for UsizeSeq {
-    fn from(mut v: Vec<usize>) -> Self {
-        v.shrink_to_fit();
-        Self(v.into_boxed_slice())
-    }
-}
-
-impl<'a> IntoIterator for &'a UsizeSeq {
-    type Item = usize;
-    type IntoIter = Copied<core::slice::Iter<'a, usize>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter().copied()
-    }
-}
-
-impl<'a> IntoIteratorFrom for &'a UsizeSeq {
-    type IntoIterFrom = Skip<Copied<core::slice::Iter<'a, usize>>>;
-
-    fn into_iter_from(self, from: usize) -> Self::IntoIterFrom {
-        self.0.iter().copied().skip(from)
-    }
-}
-
-impl Types for UsizeSeq {
-    type Input = usize;
-    type Output = usize;
-}
-
-impl IndexedSeq for UsizeSeq {
-    unsafe fn get_unchecked(&self, index: Self::Input) -> Self::Output {
-        *self.0.get_unchecked(index)
-    }
-
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-}
 
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -68,7 +26,7 @@ impl IndexedSeq for UsizeSeq {
 ///
 /// The fastest format is `CsrGraph<BoxedList, BoxedList>`, while a compressed
 /// representation can be achieved with `CsrGraph<webgraph::bvgraph::DCF, BitFieldVec>`.
-pub struct CsrGraph<DCF = UsizeSeq, S = UsizeSeq> {
+pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
     dcf: DCF,
     successors: S,
 }
@@ -95,29 +53,38 @@ impl<DCF, S> CsrGraph<DCF, S> {
     }
 }
 
-impl core::default::Default for CsrGraph<UsizeSeq, UsizeSeq> {
+impl core::default::Default for CsrGraph {
     fn default() -> Self {
         Self {
-            dcf: vec![0].into(),
-            successors: vec![].into(),
+            dcf: vec![0],
+            successors: vec![],
         }
     }
 }
 
-impl CsrGraph<UsizeSeq, UsizeSeq> {
+impl CsrGraph {
+    /// Creates an empty CSR graph.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Creates a new graph from a [`SequentialGraph`].
-    pub fn from_graph<G: SequentialGraph>(g: &G) -> Self {
+    pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self {
         let mut dcf = Vec::with_capacity(g.num_nodes() + 1);
         let mut successors = Vec::with_capacity(g.num_arcs_hint().unwrap_or(0) as usize);
-        for_!((_, succ) in g.iter() {
+        dcf.push(0);
+        let mut last_src = 0;
+        for_!((src, succ) in g.iter() {
+            while last_src < src {
+                dcf.push(successors.len());
+                last_src += 1;
+            }
             successors.extend(succ);
-            dcf.push(successors.len());
         });
-        unsafe { Self::from_parts(dcf.into(), successors.into()) }
+        for _ in last_src..g.num_nodes() {
+            dcf.push(successors.len());
+        }
+        unsafe { Self::from_parts(dcf, successors) }
     }
 
     /// Creates a new graph from a sorted [`IntoLender`] yielding a
@@ -131,30 +98,49 @@ impl CsrGraph<UsizeSeq, UsizeSeq> {
         I::Lender: SortedLender,
         for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
     {
+        let mut max_node = 0;
         let mut dcf = vec![0];
         let mut successors = vec![];
-        for_!( (_, succ) in iter_nodes {
-            successors.extend(succ);
-            dcf.push(successors.len());
+        let mut last_src = 0;
+        for_!( (src, succs) in iter_nodes {
+            while last_src < src {
+                dcf.push(successors.len());
+                last_src += 1;
+            }
+            max_node = max_node.max(src);
+            for succ in succs {
+                successors.push(succ);
+                max_node = max_node.max(succ);
+            }
         });
+        for _ in last_src..=max_node {
+            dcf.push(successors.len());
+        }
         dcf.shrink_to_fit();
         successors.shrink_to_fit();
-        unsafe { Self::from_parts(dcf.into(), successors.into()) }
+        unsafe { Self::from_parts(dcf, successors) }
     }
 }
 
 impl CompressedCsrGraph {
+    /// Creates a new compressed CSR graph from a random access graph.
     pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self {
         let n = g.num_nodes();
         let u = g.num_arcs();
         let mut efb = EliasFanoBuilder::new(n + 1, u as usize + 1);
         efb.push(0);
         let mut successors = BitFieldVec::with_capacity(n.ilog2_ceil() as usize, u as usize);
-
-        for_!((_, succ) in g.iter() {
+        let mut last_src = 0;
+        for_!((src, succ) in g.iter() {
+            while last_src < src {
+                efb.push(successors.len());
+                last_src += 1;
+            }
             successors.extend(succ);
-            efb.push(successors.len());
         });
+        for _ in last_src..g.num_nodes() {
+            efb.push(successors.len());
+        }
         let ef = efb.build();
         let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
         unsafe { Self::from_parts(ef, successors) }
@@ -163,15 +149,10 @@ impl CompressedCsrGraph {
 
 impl<'a, DCF, S> IntoLender for &'a CsrGraph<DCF, S>
 where
-    DCF: IndexedSeq<Input = usize, Output = usize>,
-    S: IndexedSeq<Input = usize, Output = usize>,
-    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
-    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
-    type Lender = LenderImpl<
-        <&'a DCF as IntoIteratorFrom>::IntoIterFrom,
-        <&'a S as IntoIteratorFrom>::IntoIterFrom,
-    >;
+    type Lender = LenderImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -181,17 +162,12 @@ where
 
 impl<DCF, S> SequentialLabeling for CsrGraph<DCF, S>
 where
-    DCF: IndexedSeq<Input = usize, Output = usize>,
-    S: IndexedSeq<Input = usize, Output = usize>,
-    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
-    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
     type Label = usize;
     type Lender<'a>
-        = LenderImpl<
-        <&'a DCF as IntoIteratorFrom>::IntoIterFrom,
-        <&'a S as IntoIteratorFrom>::IntoIterFrom,
-    >
+        = LenderImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>
     where
         Self: 'a;
 
@@ -202,12 +178,12 @@ where
 
     #[inline(always)]
     fn num_arcs_hint(&self) -> Option<u64> {
-        Some(self.num_arcs())
+        Some(self.successors.len() as u64)
     }
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut offsets_iter = self.dcf.into_iter_from(from);
+        let mut offsets_iter = self.dcf.iter_value_from(from);
         // skip the first offset, we don't start from `from + 1`
         // because it might not exist
         let offset = offsets_iter.next().unwrap_or(0);
@@ -217,29 +193,25 @@ where
             last_offset: offset,
             current_offset: offset,
             offsets_iter,
-            successors_iter: self.successors.into_iter_from(offset),
+            successors_iter: self.successors.iter_value_from(offset),
         }
     }
 }
 
 impl<DCF, S> SequentialGraph for CsrGraph<DCF, S>
 where
-    DCF: IndexedSeq<Input = usize, Output = usize>,
-    S: IndexedSeq<Input = usize, Output = usize>,
-    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
-    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
 }
 
 impl<DCF, S> RandomAccessLabeling for CsrGraph<DCF, S>
 where
-    DCF: IndexedSeq<Input = usize, Output = usize>,
-    S: IndexedSeq<Input = usize, Output = usize>,
-    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
-    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
 {
     type Labels<'succ>
-        = core::iter::Take<<&'succ S as IntoIteratorFrom>::IntoIterFrom>
+        = core::iter::Take<IterFrom<'succ, S>>
     where
         Self: 'succ;
 
@@ -250,23 +222,21 @@ where
 
     #[inline(always)]
     fn outdegree(&self, node: usize) -> usize {
-        self.dcf.get(node + 1) - self.dcf.get(node)
+        self.dcf.index_value(node + 1) - self.dcf.index_value(node)
     }
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        let start = self.dcf.get(node);
-        let end = self.dcf.get(node + 1);
-        self.successors.into_iter_from(start).take(end - start)
+        let start = self.dcf.index_value(node);
+        let end = self.dcf.index_value(node + 1);
+        self.successors.iter_value_from(start).take(end - start)
     }
 }
 
 impl<DCF, S> RandomAccessGraph for CsrGraph<DCF, S>
 where
-    DCF: IndexedSeq<Input = usize, Output = usize>,
-    S: IndexedSeq<Input = usize, Output = usize>,
-    for<'b> &'b DCF: IntoIteratorFrom<Item = usize>,
-    for<'b> &'b S: IntoIteratorFrom<Item = usize>,
+    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
 {
 }
 
@@ -384,10 +354,11 @@ mod test {
     use super::*;
     #[test]
     fn test_csr_graph() {
-        let mut arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+        let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
         let g = VecGraph::from_arcs(arcs.iter().copied());
 
-        let csr = <CsrGraph>::from_graph(&g);
+        let csr = <CsrGraph>::from_seq_graph(&g);
+        dbg!(&csr);
         check_graph_equivalence(&g, &csr);
 
         let csr = CompressedCsrGraph::from_graph(&g);
