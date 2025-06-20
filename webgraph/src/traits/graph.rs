@@ -58,7 +58,7 @@ struct this_method_cannot_be_called_use_successors_instead;
 /// order. The marker traits [`SortedLender`] and [`SortedIterator`] can be used
 /// to force these properties.
 ///
-/// The function [`eq`](eq) can be used to check whether two
+/// The function [`eq`] can be used to check whether two
 /// graphs are equal.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
@@ -66,12 +66,13 @@ pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 /// Checks if the two provided graphs with sorted lenders are equal.
 ///
 /// This associated function can be used to compare graphs with [sorted
-/// lenders](crate::lenders::SortedLender), but whose iterators [are not
-/// sorted](crate::lenders::SortedIterator). If the graphs are sorted,
-/// [`SequentialLabeling::eq_sorted`] should be used instead.
+/// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
+/// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
+/// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
+/// instead.
 ///
-/// If the two graphs are different, an [`EqError`] is returned describing
-/// the first difference found.
+/// If the two graphs are different, an [`EqError`] is returned describing the
+/// first difference found.
 pub fn eq<G0: SequentialGraph, G1: SequentialGraph>(g0: &G0, g1: &G1) -> Result<(), EqError>
 where
     for<'a> G0::Lender<'a>: SortedLender,
@@ -155,7 +156,7 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
 /// `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
 ///
-/// The function [`eq_labeled`](eq_labeled) can be used to check whether two
+/// The function [`eq_labeled`] can be used to check whether two
 /// labeled graphs are equal.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
@@ -163,12 +164,13 @@ pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 /// Checks if the two provided labeled graphs with sorted lenders are equal.
 ///
 /// This associated function can be used to compare graphs with [sorted
-/// lenders](crate::lenders::SortedLender), but whose iterators [are not
-/// sorted](crate::lenders::SortedIterator). If the graphs are sorted,
-/// [`SequentialLabeling::eq_sorted`] should be used instead.
+/// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
+/// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
+/// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
+/// instead.
 ///
-/// If the two graphs are different, an [`EqError`] is returned describing
-/// the first difference found.
+/// If the two graphs are different, an [`EqError`] is returned describing the
+/// first difference found.
 pub fn eq_labeled<M, G0: LabeledSequentialGraph<M>, G1: LabeledSequentialGraph<M>>(
     g0: &G0,
     g1: &G1,

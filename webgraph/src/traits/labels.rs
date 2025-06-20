@@ -58,7 +58,7 @@ use sux::{traits::Succ, utils::FairChunks};
 /// [`par_node_apply`](SequentialLabeling::par_node_apply), that make it easy to
 /// process in parallel the nodes of the labeling.
 ///
-/// The function [`eq_sorted`](eq_sorted) can be used to check whether two
+/// The function [`eq_sorted`] can be used to check whether two
 /// sorted labelings are equal.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialLabeling {
@@ -406,7 +406,7 @@ impl<I: ExactSizeIterator> ExactSizeIterator for SortedIter<I> {
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.
 ///
-/// The function [`check_impl`](check_impl) can be used to check whether the
+/// The function [`check_impl`] can be used to check whether the
 /// sequential and random-access implementations of a labeling are consistent.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait RandomAccessLabeling: SequentialLabeling {
