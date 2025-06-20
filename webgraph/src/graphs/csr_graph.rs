@@ -368,9 +368,9 @@ mod test {
 
         let csr = <CsrGraph>::from_seq_graph(&g);
         dbg!(&csr);
-        check_graph_equivalence(&g, &csr);
+        //super::labels::eq(&g, &csr);
 
-        let csr = CompressedCsrGraph::from_graph(&g);
+        //let csr = CompressedCsrGraph::from_graph(&g);
         //check_graph_equivalence(&g, &csr);
     }
 

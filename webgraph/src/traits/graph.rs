@@ -59,6 +59,36 @@ struct this_method_cannot_be_called_use_successors_instead;
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
+/// Returns true if the two provided graphs with sorted lenders are equal.
+///
+/// This associated function can be used to compare graphs with [sorted
+/// lenders](crate::lenders::SortedLender), but whose iterators [are not
+/// sorted](crate::lenders::SortedIterator). If the graphs are sorted,
+/// [`SequentialLabeling::eq_sorted`] should be used instead.
+pub fn eq<G0: SequentialGraph, G1: SequentialGraph>(g0: &G0, g1: &G1) -> bool
+where
+    for<'a> G0::Lender<'a>: SortedLender,
+    for<'a> G1::Lender<'a>: SortedLender,
+{
+    // In theory we should be able to implement this function using eq_labeled,
+    // but due to current limitations of the borrow checker, we would need to
+    // make G0 and G1 'static.
+    if g0.num_nodes() != g1.num_nodes() {
+        return false;
+    }
+    for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
+        debug_assert_eq!(node0, node1);
+        let mut succ0 = succ0.into_iter().collect::<Vec<_>>();
+        let mut succ1 = succ1.into_iter().collect::<Vec<_>>();
+        succ0.sort();
+        succ1.sort();
+        if succ0 != succ1 {
+            return false;
+        }
+    });
+    true
+}
+
 /// Convenience type alias for the iterator over the successors of a node
 /// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
 pub type Successors<'succ, 'node, S> =
@@ -102,8 +132,8 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
     ///
     /// Note that the default implementation performs a linear scan.
     fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
-        for neighbour_id in self.successors(src_node_id) {
-            if neighbour_id == dst_node_id {
+        for succ in self.successors(src_node_id) {
+            if succ == dst_node_id {
                 return true;
             }
         }
@@ -118,6 +148,38 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
 /// label.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
+
+/// Returns true if the two provided labeled graphs with sorted lenders are
+/// equal.
+///
+/// This associated function can be used to compare graphs with [sorted
+/// lenders](crate::lenders::SortedLender), but whose iterators [are not
+/// sorted](crate::lenders::SortedIterator). If the graphs are sorted,
+/// [`SequentialLabeling::eq_sorted`] should be used instead.
+pub fn eq_labeled<M, G0: LabeledSequentialGraph<M>, G1: LabeledSequentialGraph<M>>(
+    g0: &G0,
+    g1: &G1,
+) -> bool
+where
+    for<'a> G0::Lender<'a>: SortedLender,
+    for<'a> G1::Lender<'a>: SortedLender,
+    M: PartialEq,
+{
+    if g0.num_nodes() != g1.num_nodes() {
+        return false;
+    }
+    for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
+        debug_assert_eq!(node0, node1);
+        let mut succ0 = succ0.into_iter().collect::<Vec<_>>();
+        let mut succ1 = succ1.into_iter().collect::<Vec<_>>();
+        succ0.sort_by_key(|x| x.0);
+        succ1.sort_by_key(|x| x.0);
+        if succ0 != succ1 {
+            return false;
+        }
+    });
+    true
+}
 
 /// A wrapper associating to each successor the label `()`.
 ///
@@ -241,9 +303,9 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
     /// Returns whether there is an arc going from `src_node_id` to `dst_node_id`.
     ///
     /// Note that the default implementation performs a linear scan.
-    fn has_arc(&self, src_node_id: usize, dst_node_id: usize) -> bool {
-        for (neighbour_id, _) in self.successors(src_node_id) {
-            if neighbour_id == dst_node_id {
+    fn has_arc(&self, src: usize, dst: usize) -> bool {
+        for (succ, _) in self.successors(src) {
+            if succ == dst {
                 return true;
             }
         }

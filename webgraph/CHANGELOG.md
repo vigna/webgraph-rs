@@ -4,12 +4,20 @@
 
 ### New
 
-* `SequentialLabeling::eq_sorted` associated function that checks
-  equality between labelings.
+* `labels::eq_sorted` function that checks equality between sorted labelings.
 
-* `RandomAccessLabeling::check_impl` associated function that checks
-  that the sequential and random-access implementations return the
-  same results.
+* `labels::check_impl` associated function that checks that the sequential and
+  random-access implementations of a random-access labeling return the same
+  results.
+
+* `graph::eq` function that checks equality between graphs with sorted lenders.
+
+* `graph::eq_labeled` function that checks equality between labeled graphs with
+  sorted lenders.
+
+### Fixed
+
+* The successors of `LabeledVecGraph` now implement `SortedIterator`.
 
 ## [0.3.0] - 2025-05-23
 

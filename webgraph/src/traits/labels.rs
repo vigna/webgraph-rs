@@ -24,10 +24,7 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use crate::{
-    traits::{LenderIntoIter, RandomAccessGraph},
-    utils::Granularity,
-};
+use crate::{traits::LenderIntoIter, utils::Granularity};
 
 use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
@@ -196,30 +193,33 @@ pub trait SequentialLabeling {
             thread_pool,
         )
     }
+}
 
-    /// Returns true if the two provided sorted labelings are equal.
-    fn equal_sorted<L0: SequentialLabeling, L1: SequentialLabeling<Label = L0::Label>>(
-        l0: &L0,
-        l1: &L1,
-    ) -> bool
-    where
-        for<'a> L0::Lender<'a>: SortedLender,
-        for<'a> L1::Lender<'a>: SortedLender,
-        for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
-        for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
-        L0::Label: PartialEq,
-    {
-        if l0.num_nodes() != l1.num_nodes() {
+/// Returns true if the two provided sorted labelings are equal.
+///
+/// Since graphs are labelings, this function can also be used
+/// to check whether sorted graphs are equal.
+pub fn eq_sorted<L0: SequentialLabeling, L1: SequentialLabeling<Label = L0::Label>>(
+    l0: &L0,
+    l1: &L1,
+) -> bool
+where
+    for<'a> L0::Lender<'a>: SortedLender,
+    for<'a> L1::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
+    for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
+    L0::Label: PartialEq,
+{
+    if l0.num_nodes() != l1.num_nodes() {
+        return false;
+    }
+    for_!(((node0, succ0), (node1, succ1)) in l0.iter().zip(l1.iter()) {
+        debug_assert_eq!(node0, node1);
+        if !succ0.into_iter().eq(succ1.into_iter()) {
             return false;
         }
-        for_!(((node0, succ0), (node1, succ1)) in l0.iter().zip(l1.iter()) {
-            debug_assert_eq!(node0, node1);
-            if !succ0.into_iter().eq(succ1.into_iter()) {
-                return false;
-            }
-        });
-        true
-    }
+    });
+    true
 }
 
 /// Convenience type alias for the iterator over the labels of a node
@@ -343,27 +343,27 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 
     /// Returns the number of labels associated with a node.
     fn outdegree(&self, node_id: usize) -> usize;
+}
 
-    /// Checks the sequential vs. random-access implementation of a sorted
-    /// random-access labeling.
-    ///
-    /// Note that this method will check that the sequential and random-access
-    /// iterators on labels of each node are identical, and that the number of
-    /// nodes returned by the sequential iterator is the same as the number of
-    /// nodes returned by [`num_nodes`](SequentialLabeling::num_nodes).
-    fn check_impl<L: RandomAccessLabeling>(l: L) -> bool
-    where
-        L::Label: PartialEq,
-    {
-        let mut num_nodes = 0;
-        for_!((node, succ) in l.iter() {
-            num_nodes += 1;
-            if !succ.into_iter().eq(l.labels(node).into_iter()) {
-                return false;
-            }
-        });
-        num_nodes == l.num_nodes()
-    }
+/// Checks the sequential vs. random-access implementation of a sorted
+/// random-access labeling.
+///
+/// Note that this method will check that the sequential and random-access
+/// iterators on labels of each node are identical, and that the number of
+/// nodes returned by the sequential iterator is the same as the number of
+/// nodes returned by [`num_nodes`](SequentialLabeling::num_nodes).
+pub fn check_impl<L: RandomAccessLabeling>(l: L) -> bool
+where
+    L::Label: PartialEq,
+{
+    let mut num_nodes = 0;
+    for_!((node, succ) in l.iter() {
+        num_nodes += 1;
+        if !succ.into_iter().eq(l.labels(node).into_iter()) {
+            return false;
+        }
+    });
+    num_nodes == l.num_nodes()
 }
 
 /// A struct used to make it easy to implement sequential access

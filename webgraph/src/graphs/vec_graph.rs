@@ -264,9 +264,11 @@ impl<'a, L: Clone + 'static> IntoLender for &'a LabeledVecGraph<L> {
 impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledVecGraph<L> {}
 
 impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
-    type Labels<'succ> = core::iter::Map<
-        core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>,
-        fn(LabelledArc<L>) -> (usize, L),
+    type Labels<'succ> = SortedIter<
+        core::iter::Map<
+            core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>,
+            fn(LabelledArc<L>) -> (usize, L),
+        >,
     >;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
@@ -280,7 +282,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        self.succ[node].iter().cloned().map(Into::into)
+        unsafe { SortedIter::new(self.succ[node].iter().cloned().map(Into::into)) }
     }
 }
 
