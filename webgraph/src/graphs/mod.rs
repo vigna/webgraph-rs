@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -20,6 +21,7 @@ pub mod vec_graph;
 pub mod prelude {
     pub use super::btree_graph::BTreeGraph;
     pub use super::bvgraph::*;
+    pub use super::csr_graph::CsrGraph;
     pub use super::no_selfloops_graph::NoSelfLoopsGraph;
     pub use super::permuted_graph::PermutedGraph;
     pub use super::union_graph::UnionGraph;

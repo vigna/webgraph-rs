@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
