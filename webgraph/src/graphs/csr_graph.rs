@@ -374,9 +374,9 @@ mod test {
         let csr = <CsrGraph>::from_seq_graph(&g);
         labels::check_impl(&csr);
         // We should be able to use eq_sorted
-        graph::eq(&g, &csr);
+        assert!(graph::eq(&g, &csr).is_ok());
 
-        let csr = CompressedCsrGraph::from_graph(&g);
+        let _csr = CompressedCsrGraph::from_graph(&g);
         /*graph::eq(&g, &csr);
         labels::check_impl(&csr);*/
     }

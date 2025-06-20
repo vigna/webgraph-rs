@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
-use lender::*;
 use log::info;
 use webgraph::prelude::*;
 
@@ -75,7 +74,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
                 .load()?;
 
         info!("Checking that the newly compressed graph is equivalent to the original one...");
-        assert!(graph::eq(&graph, &comp_graph));
+        graph::eq(&graph, &comp_graph)?;
 
         let offsets_path = tmp_basename.with_extension(OFFSETS_EXTENSION);
         let mut offsets_reader =

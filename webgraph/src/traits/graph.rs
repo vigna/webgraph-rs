@@ -43,6 +43,7 @@ use impl_tools::autoimpl;
 use lender::*;
 
 use super::{
+    labels::EqError,
     lenders::{LenderIntoIter, NodeLabelsLender},
     SortedIterator, SortedLender,
 };
@@ -62,13 +63,16 @@ struct this_method_cannot_be_called_use_successors_instead;
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
-/// Returns true if the two provided graphs with sorted lenders are equal.
+/// Checks if the two provided graphs with sorted lenders are equal.
 ///
 /// This associated function can be used to compare graphs with [sorted
 /// lenders](crate::lenders::SortedLender), but whose iterators [are not
 /// sorted](crate::lenders::SortedIterator). If the graphs are sorted,
 /// [`SequentialLabeling::eq_sorted`] should be used instead.
-pub fn eq<G0: SequentialGraph, G1: SequentialGraph>(g0: &G0, g1: &G1) -> bool
+///
+/// If the two graphs are different, an [`EqError`] is returned describing
+/// the first difference found.
+pub fn eq<G0: SequentialGraph, G1: SequentialGraph>(g0: &G0, g1: &G1) -> Result<(), EqError>
 where
     for<'a> G0::Lender<'a>: SortedLender,
     for<'a> G1::Lender<'a>: SortedLender,
@@ -77,7 +81,10 @@ where
     // but due to current limitations of the borrow checker, we would need to
     // make G0 and G1 'static.
     if g0.num_nodes() != g1.num_nodes() {
-        return false;
+        return Err(EqError::NumNodes {
+            first: g0.num_nodes(),
+            second: g1.num_nodes(),
+        });
     }
     for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
         debug_assert_eq!(node0, node1);
@@ -85,11 +92,9 @@ where
         let mut succ1 = succ1.into_iter().collect::<Vec<_>>();
         succ0.sort();
         succ1.sort();
-        if succ0 != succ1 {
-            return false;
-        }
+        super::labels::eq_succs(node0, succ0, succ1)?;
     });
-    true
+    Ok(())
 }
 
 /// Convenience type alias for the iterator over the successors of a node
@@ -155,36 +160,35 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
-/// Returns true if the two provided labeled graphs with sorted lenders are
-/// equal.
+/// Checks if the two provided labeled graphs with sorted lenders are equal.
 ///
 /// This associated function can be used to compare graphs with [sorted
 /// lenders](crate::lenders::SortedLender), but whose iterators [are not
 /// sorted](crate::lenders::SortedIterator). If the graphs are sorted,
 /// [`SequentialLabeling::eq_sorted`] should be used instead.
+///
+/// If the two graphs are different, an [`EqError`] is returned describing
+/// the first difference found.
 pub fn eq_labeled<M, G0: LabeledSequentialGraph<M>, G1: LabeledSequentialGraph<M>>(
     g0: &G0,
     g1: &G1,
-) -> bool
+) -> Result<(), EqError>
 where
     for<'a> G0::Lender<'a>: SortedLender,
     for<'a> G1::Lender<'a>: SortedLender,
-    M: PartialEq,
+    M: PartialEq + std::fmt::Debug,
 {
     if g0.num_nodes() != g1.num_nodes() {
-        return false;
+        return Err(EqError::NumNodes {
+            first: g0.num_nodes(),
+            second: g1.num_nodes(),
+        });
     }
     for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
         debug_assert_eq!(node0, node1);
-        let mut succ0 = succ0.into_iter().collect::<Vec<_>>();
-        let mut succ1 = succ1.into_iter().collect::<Vec<_>>();
-        succ0.sort_by_key(|x| x.0);
-        succ1.sort_by_key(|x| x.0);
-        if succ0 != succ1 {
-            return false;
-        }
+        super::labels::eq_succs(node0, succ0, succ1)?;
     });
-    true
+    Ok(())
 }
 
 /// A wrapper associating to each successor the label `()`.

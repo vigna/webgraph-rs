@@ -34,6 +34,7 @@ use impl_tools::autoimpl;
 use lender::*;
 use rayon::ThreadPool;
 use std::rc::Rc;
+use thiserror::Error;
 
 use sux::{traits::Succ, utils::FairChunks};
 
@@ -198,31 +199,105 @@ pub trait SequentialLabeling {
     }
 }
 
-/// Returns true if the two provided sorted labelings are equal.
+/// Error types that can occur during graph equality checking.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum EqError {
+    /// The graphs have different numbers of nodes.
+    #[error("Different number of nodes: {first} != {second}")]
+    NumNodes { first: usize, second: usize },
+
+    /// The graphs have different numbers of arcs.
+    #[error("Different number of arcs: {first} !={second}")]
+    NumArcs { first: u64, second: u64 },
+
+    /// The graphs have different successors for a specific node.
+    #[error("Different successors for node {node}: at index {index} {first} != {second}")]
+    Successors {
+        node: usize,
+        index: usize,
+        first: String,
+        second: String,
+    },
+
+    /// The graphs have different outdegrees for a specific node.
+    #[error("Different outdegree for node {node}: {first} != {second}")]
+    Outdegree {
+        node: usize,
+        first: usize,
+        second: usize,
+    },
+}
+
+#[doc(hidden)]
+/// Checks whether two sorted successors lists are identical,
+/// returning an appropriate error.
+pub fn eq_succs<L: PartialEq + std::fmt::Debug>(
+    node: usize,
+    succ0: impl IntoIterator<Item = L>,
+    succ1: impl IntoIterator<Item = L>,
+) -> Result<(), EqError> {
+    let mut succ0 = succ0.into_iter();
+    let mut succ1 = succ1.into_iter();
+    let mut index = 0;
+    loop {
+        match (succ0.next(), succ1.next()) {
+            (None, None) => return Ok(()),
+            (Some(s0), Some(s1)) => {
+                if s0 != s1 {
+                    return Err(EqError::Successors {
+                        node,
+                        index,
+                        first: format!("{:?}", s0),
+                        second: format!("{:?}", s1),
+                    });
+                }
+            }
+            (None, Some(_)) => {
+                return Err(EqError::Outdegree {
+                    node,
+                    first: index,
+                    second: index + 1 + succ1.count(),
+                });
+            }
+            (Some(_), None) => {
+                return Err(EqError::Outdegree {
+                    node,
+                    first: index + 1 + succ0.count(),
+                    second: index,
+                });
+            }
+        }
+        index += 1;
+    }
+}
+
+/// Checks if the two provided sorted labelings are equal.
 ///
-/// Since graphs are labelings, this function can also be used
-/// to check whether sorted graphs are equal.
+/// Since graphs are labelings, this function can also be used to check whether
+/// sorted graphs are equal. If the graphs are different, an [`EqError`] is
+/// returned describing the first difference found.
 pub fn eq_sorted<L0: SequentialLabeling, L1: SequentialLabeling<Label = L0::Label>>(
     l0: &L0,
     l1: &L1,
-) -> bool
+) -> Result<(), EqError>
 where
     for<'a> L0::Lender<'a>: SortedLender,
     for<'a> L1::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
     for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
-    L0::Label: PartialEq,
+    L0::Label: PartialEq + std::fmt::Debug,
 {
     if l0.num_nodes() != l1.num_nodes() {
-        return false;
+        return Err(EqError::NumNodes {
+            first: l0.num_nodes(),
+            second: l1.num_nodes(),
+        });
     }
     for_!(((node0, succ0), (node1, succ1)) in l0.iter().zip(l1.iter()) {
         debug_assert_eq!(node0, node1);
-        if !succ0.into_iter().eq(succ1.into_iter()) {
-            return false;
-        }
+        eq_succs(node0, succ0, succ1)?;
     });
-    true
+    Ok(())
 }
 
 /// Convenience type alias for the iterator over the labels of a node
