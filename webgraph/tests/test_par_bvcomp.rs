@@ -12,6 +12,7 @@ use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::*;
+use log::info;
 use webgraph::prelude::*;
 
 #[test]
@@ -72,25 +73,9 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
             webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&tmp_basename)
                 .endianness::<BE>()
                 .load()?;
-        let mut iter = comp_graph.iter();
 
-        let mut pr = ProgressLogger::default();
-        pr.display_memory(true)
-            .item_name("node")
-            .expected_updates(Some(graph.num_nodes()));
-        pr.start("Checking that the newly compressed graph is equivalent to the original one...");
-
-        let mut iter_nodes = graph.iter();
-        while let Some((node, succ_iter)) = iter_nodes.next() {
-            let (new_node, new_succ_iter) = iter.next().unwrap();
-            assert_eq!(node, new_node);
-            let succ = succ_iter.collect::<Vec<_>>();
-            let new_succ = new_succ_iter.collect::<Vec<_>>();
-            assert_eq!(succ, new_succ, "Node {} differs", node);
-            pr.light_update();
-        }
-
-        pr.done();
+        info!("Checking that the newly compressed graph is equivalent to the original one...");
+        assert!(graph::eq(&graph, &comp_graph));
 
         let offsets_path = tmp_basename.with_extension(OFFSETS_EXTENSION);
         let mut offsets_reader =

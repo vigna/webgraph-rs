@@ -56,6 +56,9 @@ struct this_method_cannot_be_called_use_successors_instead;
 /// ascending order, or the successors of a node will be returned in ascending
 /// order. The marker traits [`SortedLender`] and [`SortedIterator`] can be used
 /// to force these properties.
+///
+/// The function [`eq`](eq) can be used to check whether two
+/// graphs are equal.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
@@ -146,6 +149,9 @@ pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGra
 /// A labeled sequential graph is a sequential labeling whose labels are pairs
 /// `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
+///
+/// The function [`eq_labeled`](eq_labeled) can be used to check whether two
+/// labeled graphs are equal.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
