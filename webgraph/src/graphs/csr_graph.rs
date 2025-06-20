@@ -39,10 +39,12 @@ pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
 }
 
 impl<DCF, S> CsrGraph<DCF, S> {
-    /// Creates a new CSR graph from the given degree-cumulative function and successors.
+    /// Creates a new CSR graph from the given degree-cumulative function and
+    /// successors.
     ///
     /// # Safety
-    /// The degree-cumulative function must be monotone and coherent with the successors.
+    /// The degree-cumulative function must be monotone and coherent with the
+    /// successors.
     pub unsafe fn from_parts(dcf: DCF, successors: S) -> Self {
         Self { dcf, successors }
     }
