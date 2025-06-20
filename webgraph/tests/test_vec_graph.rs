@@ -5,20 +5,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use webgraph::traits::graph;
+
 #[cfg(feature = "serde")]
 #[test]
-fn test_serde() {
+fn test_serde() -> anyhow::Result<()> {
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
     let res = serde_json::to_string(&g).unwrap();
     let p: LabeledVecGraph<usize> = serde_json::from_str(&res).unwrap();
-    assert_eq!(g, p);
+    graph::eq_labeled(&g, &p)?;
+    Ok(())
 }
 
 #[test]
-fn test_epserde() {
+fn test_epserde() -> anyhow::Result<()> {
     use epserde::prelude::*;
     use webgraph::graphs::vec_graph::LabeledVecGraph;
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
@@ -29,5 +32,6 @@ fn test_epserde() {
     g.serialize(&mut file).unwrap();
     let data = file.into_inner();
     let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data).unwrap();
-    assert_eq!(g, g2);
+    graph::eq_labeled(&g, &g2)?;
+    Ok(())
 }

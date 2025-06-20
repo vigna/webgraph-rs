@@ -11,7 +11,7 @@ use dsi_bitstream::traits::{BitRead, BitWrite};
 use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::prelude::{transpose, transpose_labeled};
 use webgraph::traits::labels::SequentialLabeling;
-use webgraph::traits::{BitDeserializer, BitSerializer};
+use webgraph::traits::{graph, BitDeserializer, BitSerializer};
 use webgraph::utils::sort_pairs::{BitReader, BitWriter};
 
 #[test]
@@ -26,7 +26,7 @@ fn test_transpose() -> anyhow::Result<()> {
     let trans = transpose(g2, 3)?;
     let g3 = VecGraph::from_lender(&trans);
 
-    assert_eq!(g, g3);
+    graph::eq(&g, &g3)?;
     Ok(())
 }
 
@@ -95,6 +95,6 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
 
     let g4 = LabeledVecGraph::from_lender(g.iter());
 
-    assert_eq!(g3, g4);
+    graph::eq_labeled(&g3, &g4)?;
     Ok(())
 }

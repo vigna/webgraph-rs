@@ -16,11 +16,14 @@ fn test_remove() {
 
 #[cfg(feature = "serde")]
 #[test]
-fn test_serde() {
+fn test_serde() -> anyhow::Result<()> {
+    use webgraph::traits::graph;
+
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
     let g = LabeledBTreeGraph::<usize>::from_arcs(arcs);
     let res = serde_json::to_string(&g).unwrap();
     let p: LabeledBTreeGraph<usize> = serde_json::from_str(&res).unwrap();
-    assert_eq!(g, p);
+    graph::eq_labeled(&g, &p)?;
+    Ok(())
 }

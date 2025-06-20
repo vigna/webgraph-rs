@@ -236,13 +236,13 @@ mod test {
         let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
         let g2 = LabeledBTreeGraph::<_>::from_lender(coo.iter());
 
-        assert_eq!(g, g2);
+        graph::eq_labeled(&g, &g2)?;
 
         let g = LabeledVecGraph::<_>::from_arcs(arcs);
         let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
         let g2 = LabeledVecGraph::<_>::from_lender(coo.iter());
 
-        assert_eq!(g, g2);
+        graph::eq_labeled(&g, &g2)?;
 
         Ok(())
     }
