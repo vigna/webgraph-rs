@@ -9,7 +9,7 @@ use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
-use lender::{for_, IntoLender, Lend, Lender, Lending};
+use lender::{for_, IntoLender, Lend, Lender, Lending, Map};
 use sux::{
     bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst, traits::BitFieldSliceCore,
 };
@@ -36,6 +36,28 @@ pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
 pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
     dcf: DCF,
     successors: S,
+}
+
+/// A wrapper for a [`CsrGraph`] with the additional guarantee that the
+/// successors are sorted.
+pub struct CsrSortedGraph<DCF = Vec<usize>, S = Vec<usize>>(CsrGraph<DCF, S>);
+
+impl CsrSortedGraph {
+    pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self
+    where
+        for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    {
+        CsrSortedGraph(CsrGraph::from_seq_graph(g))
+    }
+
+    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
+    {
+        CsrSortedGraph(CsrGraph::from_sorted_lender(iter_nodes))
+    }
 }
 
 impl<DCF, S> CsrGraph<DCF, S> {
@@ -169,6 +191,19 @@ where
     }
 }
 
+impl<'a, DCF, S> IntoLender for &'a CsrSortedGraph<DCF, S>
+where
+    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    S: SliceByValue + IterateByValueFrom<Item = usize>,
+{
+    type Lender = LenderImpl<IterFrom<'a, DCF>, AssumeSortedIterator<IterFrom<'a, S>>>;
+
+    #[inline(always)]
+    fn into_lender(self) -> Self::Lender {
+        self.iter()
+    }
+}
+
 impl<DCF, S> SequentialLabeling for CsrGraph<DCF, S>
 where
     DCF: SliceByValue + IterateByValueFrom<Item = usize>,
@@ -182,7 +217,7 @@ where
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
-        self.dcf.len().saturating_sub(1)
+        self.dcf.len() - 1
     }
 
     #[inline(always)]
@@ -204,6 +239,38 @@ where
             offsets_iter,
             successors_iter: self.successors.iter_value_from(offset),
         }
+    }
+}
+
+impl<DCF, S> SequentialLabeling for CsrSortedGraph<DCF, S>
+where
+    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    S: SliceByValue + IterateByValueFrom<Item = usize>,
+{
+    type Label = usize;
+    type Lender<'a>
+        = Map<
+        LenderImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>,
+        for<'b> fn((usize, IterFrom<'a, S>)) -> (usize, AssumeSortedIterator<IterFrom<'a, S>>),
+    >
+    where
+        Self: 'a;
+
+    #[inline(always)]
+    fn num_nodes(&self) -> usize {
+        self.0.num_nodes()
+    }
+
+    #[inline(always)]
+    fn num_arcs_hint(&self) -> Option<u64> {
+        self.0.num_arcs_hint()
+    }
+
+    #[inline(always)]
+    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
+        self.0
+            .iter_from(from)
+            .map(|(node, succ)| (node, unsafe { AssumeSortedIterator::new(succ) }))
     }
 }
 
@@ -250,7 +317,7 @@ where
 }
 
 /// Sequential Lender for the CSR graph.
-pub struct LenderImpl<I: Iterator<Item = usize>, D: Iterator<Item = usize>> {
+pub struct LenderImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
     /// The next node to lend labels for.
     node: usize,
     /// This is the offset of the last successor of the previous node.
@@ -259,13 +326,13 @@ pub struct LenderImpl<I: Iterator<Item = usize>, D: Iterator<Item = usize>> {
     /// by the iterator we return.
     current_offset: usize,
     /// The offsets iterator.
-    offsets_iter: I,
+    offsets_iter: O,
     /// The successors iterator.
-    successors_iter: D,
+    successors_iter: S,
 }
 
-unsafe impl<I: Iterator<Item = usize>, D: Iterator<Item = usize>> SortedLender
-    for LenderImpl<I, D>
+unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
+    for LenderImpl<O, S>
 {
 }
 

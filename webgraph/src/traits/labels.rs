@@ -338,6 +338,8 @@ pub unsafe trait SortedLender: Lender {}
 /// This wrapper is useful when the underlying lender is known to return nodes
 /// in ascending order, but the trait is not implemented, and it is not possible
 /// to implement it directly because of the orphan rule.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct AssumeSortedLender<L> {
     lender: L,
 }
@@ -413,6 +415,8 @@ pub unsafe trait SortedIterator: Iterator {}
 /// This wrapper is useful when an iterator is known to return labels in sorted
 /// order, but the trait is not implemented, and it is not possible to implement
 /// it directly because of the orphan rule.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct AssumeSortedIterator<I> {
     iter: I,
 }
