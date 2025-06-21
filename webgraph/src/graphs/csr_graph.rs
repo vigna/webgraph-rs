@@ -10,9 +10,7 @@ use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
 use lender::{for_, IntoLender, Lend, Lender, Lending};
-use sux::{
-    bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst,
-};
+use sux::{bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst};
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},
     slices::{SliceByValue, SliceByValueGet},
@@ -183,7 +181,7 @@ impl CompressedCsrGraph {
 
 impl CompressedCsrSortedGraph {
     /// Creates a new compressed CSR graph from a random access graph.
-    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self 
+    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self
     where
         for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     {
