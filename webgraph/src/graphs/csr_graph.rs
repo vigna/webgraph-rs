@@ -11,7 +11,7 @@ use common_traits::UnsignedInt;
 use epserde::Epserde;
 use lender::{for_, IntoLender, Lend, Lender, Lending};
 use sux::{
-    bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst, traits::BitFieldSliceCore,
+    bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst,
 };
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},
@@ -167,13 +167,13 @@ impl CompressedCsrGraph {
         let mut last_src = 0;
         for_!((src, succ) in g.iter() {
             while last_src < src {
-                efb.push(successors.len());
+                efb.push(SliceByValue::len(&successors));
                 last_src += 1;
             }
             successors.extend(succ);
         });
         for _ in last_src..g.num_nodes() {
-            efb.push(successors.len());
+            efb.push(SliceByValue::len(&successors));
         }
         let ef = efb.build();
         let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
@@ -183,7 +183,7 @@ impl CompressedCsrGraph {
 
 impl CompressedCsrSortedGraph {
     /// Creates a new compressed CSR graph from a random access graph.
-    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self
+    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self 
     where
         for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     {

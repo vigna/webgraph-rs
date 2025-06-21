@@ -64,7 +64,7 @@ fn test_epserde() -> anyhow::Result<()> {
     // This is presently needed because of limitations of the borrow checker
     let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
     let eps = <CompressedCsrGraph>::deserialize_eps(&data)?;
-    //graph::eq(&csr, &eps)?;
+    graph::eq(&csr, &eps)?;
 
     let csr = CompressedCsrSortedGraph::from_graph(&g);
     let mut file = std::io::Cursor::new(vec![]);
@@ -73,7 +73,7 @@ fn test_epserde() -> anyhow::Result<()> {
     // This is presently needed because of limitations of the borrow checker
     let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
     let eps = <CompressedCsrSortedGraph>::deserialize_eps(&data)?;
-    //graph::eq(&csr, &eps)?;
+    graph::eq(&csr, &eps)?;
 
     Ok(())
 }
@@ -88,8 +88,8 @@ fn test_csr_graph() -> anyhow::Result<()> {
     graph::eq(&csr, &g)?;
 
     let csr = CompressedCsrGraph::from_graph(&g);
-    //graph::eq(&csr, &g)?;
-    //labels::check_impl(&csr)?;
+    graph::eq(&csr, &g)?;
+    labels::check_impl(&csr)?;
     Ok(())
 }
 
@@ -103,6 +103,6 @@ fn test_sorted() -> anyhow::Result<()> {
     labels::eq_sorted(&csr_sorted, &csr_sorted)?;
 
     let csr_comp_sorted = CompressedCsrSortedGraph::from_graph(&g);
-    // labels::eq_sorted(&csr_comp_sorted, &csr_comp_sorted)?;
+    labels::eq_sorted(&csr_comp_sorted, &csr_comp_sorted)?;
     Ok(())
 }
