@@ -11,7 +11,7 @@ card-est-array = "0.1.0"
 epserde = "0.8.0"
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
-sux = { version = "0.7.2", features = ["serde"] }
+sux = { git = "https://github.com/vigna/sux-rs" }
 common_traits = "0.11.2"
 lender = "0.3.1"
 log = "0.4.22"
