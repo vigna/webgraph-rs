@@ -40,6 +40,8 @@ pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
 
 /// A wrapper for a [`CsrGraph`] with the additional guarantee that the
 /// successors are sorted.
+#[derive(Debug, Clone, Epserde)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CsrSortedGraph<DCF = Vec<usize>, S = Vec<usize>>(CsrGraph<DCF, S>);
 
 impl CsrSortedGraph {

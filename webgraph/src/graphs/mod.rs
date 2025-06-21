@@ -21,7 +21,7 @@ pub mod vec_graph;
 pub mod prelude {
     pub use super::btree_graph::BTreeGraph;
     pub use super::bvgraph::*;
-    pub use super::csr_graph::CsrGraph;
+    pub use super::csr_graph::{CsrGraph, CsrSortedGraph};
     pub use super::no_selfloops_graph::NoSelfLoopsGraph;
     pub use super::permuted_graph::PermutedGraph;
     pub use super::union_graph::UnionGraph;
