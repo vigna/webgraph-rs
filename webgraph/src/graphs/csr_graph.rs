@@ -19,6 +19,7 @@ use value_traits::{
 };
 
 pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
+pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -43,24 +44,6 @@ pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CsrSortedGraph<DCF = Vec<usize>, S = Vec<usize>>(CsrGraph<DCF, S>);
-
-impl CsrSortedGraph {
-    pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self
-    where
-        for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
-    {
-        CsrSortedGraph(CsrGraph::from_seq_graph(g))
-    }
-
-    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
-    where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        I::Lender: SortedLender,
-        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
-    {
-        CsrSortedGraph(CsrGraph::from_sorted_lender(iter_nodes))
-    }
-}
 
 impl<DCF, S> CsrGraph<DCF, S> {
     /// Creates a new CSR graph from the given degree-cumulative function and
@@ -155,6 +138,24 @@ impl CsrGraph {
     }
 }
 
+impl CsrSortedGraph {
+    pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self
+    where
+        for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    {
+        CsrSortedGraph(CsrGraph::from_seq_graph(g))
+    }
+
+    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
+    {
+        CsrSortedGraph(CsrGraph::from_sorted_lender(iter_nodes))
+    }
+}
+
 impl CompressedCsrGraph {
     /// Creates a new compressed CSR graph from a random access graph.
     pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self {
@@ -177,6 +178,16 @@ impl CompressedCsrGraph {
         let ef = efb.build();
         let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
         unsafe { Self::from_parts(ef, successors) }
+    }
+}
+
+impl CompressedCsrSortedGraph {
+    /// Creates a new compressed CSR graph from a random access graph.
+    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self
+    where
+        for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    {
+        CsrSortedGraph(CsrGraph::from_graph(g))
     }
 }
 
