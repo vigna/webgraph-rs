@@ -9,7 +9,7 @@ use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
-use lender::{for_, IntoLender, Lend, Lender, Lending, Map};
+use lender::{for_, IntoLender, Lend, Lender, Lending};
 use sux::{
     bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst, traits::BitFieldSliceCore,
 };
@@ -196,7 +196,7 @@ where
     DCF: SliceByValue + IterateByValueFrom<Item = usize>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
-    type Lender = LenderImpl<IterFrom<'a, DCF>, AssumeSortedIterator<IterFrom<'a, S>>>;
+    type Lender = <Self as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -249,10 +249,7 @@ where
 {
     type Label = usize;
     type Lender<'a>
-        = Map<
-        LenderImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>,
-        for<'b> fn((usize, IterFrom<'a, S>)) -> (usize, AssumeSortedIterator<IterFrom<'a, S>>),
-    >
+        = LenderSortedImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>
     where
         Self: 'a;
 
@@ -268,9 +265,7 @@ where
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        self.0
-            .iter_from(from)
-            .map(|(node, succ)| (node, unsafe { AssumeSortedIterator::new(succ) }))
+        LenderSortedImpl(self.0.iter_from(from))
     }
 }
 
@@ -317,6 +312,7 @@ where
 }
 
 /// Sequential Lender for the CSR graph.
+#[derive(Debug, Clone)]
 pub struct LenderImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
     /// The next node to lend labels for.
     node: usize,
@@ -382,6 +378,45 @@ where
                 last_offset: &self.last_offset,
             },
         ))
+    }
+}
+
+/// Sequential Lender for the CSR graph.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct LenderSortedImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>>(LenderImpl<O, S>);
+
+unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
+    for LenderSortedImpl<O, S>
+{
+}
+
+impl<'succ, I, D> NodeLabelsLender<'succ> for LenderSortedImpl<I, D>
+where
+    I: Iterator<Item = usize>,
+    D: Iterator<Item = usize>,
+{
+    type Label = usize;
+    type IntoIterator = AssumeSortedIterator<IteratorImpl<'succ, D>>;
+}
+
+impl<'succ, I, D> Lending<'succ> for LenderSortedImpl<I, D>
+where
+    I: Iterator<Item = usize>,
+    D: Iterator<Item = usize>,
+{
+    type Lend = (usize, AssumeSortedIterator<IteratorImpl<'succ, D>>);
+}
+
+impl<I, D> Lender for LenderSortedImpl<I, D>
+where
+    I: Iterator<Item = usize>,
+    D: Iterator<Item = usize>,
+{
+    #[inline(always)]
+    fn next(&mut self) -> Option<Lend<'_, Self>> {
+        let (src, succ) = self.0.next()?;
+        Some((src, unsafe { AssumeSortedIterator::new(succ) }))
     }
 }
 
