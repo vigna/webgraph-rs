@@ -20,10 +20,22 @@ fn test_serde() -> anyhow::Result<()> {
     use webgraph::graphs::vec_graph::VecGraph;
     let arcs = [(0, 1), (0, 2), (1, 2)];
     let g = VecGraph::from_arcs(arcs);
+
     let csr = CsrGraph::from_seq_graph(&g);
     let res = serde_json::to_string(&csr)?;
     let json: CsrGraph = serde_json::from_str(&res)?;
     graph::eq(&csr, &json)?;
+
+    let csr = CsrSortedGraph::from_seq_graph(&g);
+    let res = serde_json::to_string(&csr)?;
+    let json: CsrGraph = serde_json::from_str(&res)?;
+    graph::eq(&csr, &json)?;
+
+    let csr = CompressedCsrGraph::from_graph(&g);
+    let res = serde_json::to_string(&csr)?;
+    let json: CsrGraph = serde_json::from_str(&res)?;
+    graph::eq(&csr, &json)?;
+
     Ok(())
 }
 
