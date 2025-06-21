@@ -18,8 +18,8 @@ fn test_serde() -> anyhow::Result<()> {
     let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
-    let res = serde_json::to_string(&g).unwrap();
-    let p: LabeledVecGraph<usize> = serde_json::from_str(&res).unwrap();
+    let res = serde_json::to_string(&g)?;
+    let p: LabeledVecGraph<usize> = serde_json::from_str(&res)?;
     graph::eq_labeled(&g, &p)?;
     Ok(())
 }
@@ -33,9 +33,9 @@ fn test_epserde() -> anyhow::Result<()> {
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
 
     let mut file = std::io::Cursor::new(vec![]);
-    g.serialize(&mut file).unwrap();
+    g.serialize(&mut file)?;
     let data = file.into_inner();
-    let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data).unwrap();
+    let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data)?;
     graph::eq_labeled(&g, &g2)?;
     Ok(())
 }
