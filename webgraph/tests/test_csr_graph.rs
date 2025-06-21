@@ -11,8 +11,29 @@ use epserde::{deser::Deserialize, ser::Serialize};
 use webgraph::{
     graphs::csr_graph::{CompressedCsrGraph, CompressedCsrSortedGraph, CsrSortedGraph},
     prelude::{CsrGraph, VecGraph},
-    traits::{graph, labels},
+    traits::{graph, labels, SequentialGraph, SortedLender},
 };
+
+/// Helper function to test epserde serialization/deserialization for CSR graph types
+fn test_epserde_roundtrip<T, U>(
+    original: &T,
+    deserializer: impl Fn(&'static [u8]) -> anyhow::Result<U>,
+) -> anyhow::Result<()>
+where
+    T: Serialize + SequentialGraph,
+    U: SequentialGraph,
+    for<'a> T::Lender<'a>: SortedLender,
+    for<'a> U::Lender<'a>: SortedLender,
+{
+    let mut file = std::io::Cursor::new(vec![]);
+    original.serialize(&mut file)?;
+    let data = file.into_inner();
+    // This is presently needed because of limitations of the borrow checker
+    let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
+    let deserialized = deserializer(data)?;
+    graph::eq(original, &deserialized)?;
+    Ok(())
+}
 
 #[cfg(feature = "serde")]
 #[test]
@@ -40,40 +61,21 @@ fn test_epserde() -> anyhow::Result<()> {
     let g = VecGraph::from_arcs(arcs);
 
     let csr = CsrGraph::from_seq_graph(&g);
-    let mut file = std::io::Cursor::new(vec![]);
-    csr.serialize(&mut file)?;
-    let data = file.into_inner();
-    // This is presently needed because of limitations of the borrow checker
-    let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
-    let eps = <CsrGraph>::deserialize_eps(&data)?;
-    graph::eq(&csr, &eps)?;
+    test_epserde_roundtrip(&csr, |data| Ok(<CsrGraph>::deserialize_eps(data)?))?;
 
     let csr = CsrSortedGraph::from_seq_graph(&g);
-    let mut file = std::io::Cursor::new(vec![]);
-    csr.serialize(&mut file)?;
-    let data = file.into_inner();
-    // This is presently needed because of limitations of the borrow checker
-    let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
-    let eps = <CsrSortedGraph>::deserialize_eps(&data)?;
-    graph::eq(&csr, &eps)?;
+    test_epserde_roundtrip(&csr, |data| Ok(<CsrSortedGraph>::deserialize_eps(data)?))?;
 
     let csr = CompressedCsrGraph::from_graph(&g);
-    let mut file = std::io::Cursor::new(vec![]);
-    csr.serialize(&mut file)?;
-    let data = file.into_inner();
-    // This is presently needed because of limitations of the borrow checker
-    let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
-    let eps = <CompressedCsrGraph>::deserialize_eps(&data)?;
-    graph::eq(&csr, &eps)?;
+
+    test_epserde_roundtrip(&csr, |data| {
+        Ok(<CompressedCsrGraph>::deserialize_eps(data)?)
+    })?;
 
     let csr = CompressedCsrSortedGraph::from_graph(&g);
-    let mut file = std::io::Cursor::new(vec![]);
-    csr.serialize(&mut file)?;
-    let data = file.into_inner();
-    // This is presently needed because of limitations of the borrow checker
-    let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
-    let eps = <CompressedCsrSortedGraph>::deserialize_eps(&data)?;
-    graph::eq(&csr, &eps)?;
+    test_epserde_roundtrip(&csr, |data| {
+        Ok(<CompressedCsrSortedGraph>::deserialize_eps(data)?)
+    })?;
 
     Ok(())
 }
@@ -83,13 +85,22 @@ fn test_csr_graph() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arcs(arcs.iter().copied());
 
-    let csr = <CsrGraph>::from_seq_graph(&g);
+    let csr = CsrGraph::from_seq_graph(&g);
     labels::check_impl(&csr)?;
     graph::eq(&csr, &g)?;
 
     let csr = CompressedCsrGraph::from_graph(&g);
-    graph::eq(&csr, &g)?;
     labels::check_impl(&csr)?;
+    graph::eq(&csr, &g)?;
+
+    let csr = CompressedCsrGraph::from_graph(&g);
+    labels::check_impl(&csr)?;
+    graph::eq(&csr, &g)?;
+
+    let csr = CompressedCsrSortedGraph::from_graph(&g);
+    labels::check_impl(&csr)?;
+    labels::eq_sorted(&csr, &g)?;
+
     Ok(())
 }
 
@@ -104,5 +115,6 @@ fn test_sorted() -> anyhow::Result<()> {
 
     let csr_comp_sorted = CompressedCsrSortedGraph::from_graph(&g);
     labels::eq_sorted(&csr_comp_sorted, &csr_comp_sorted)?;
+
     Ok(())
 }
