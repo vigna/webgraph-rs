@@ -276,6 +276,13 @@ where
 {
 }
 
+impl<DCF, S> SequentialGraph for CsrSortedGraph<DCF, S>
+where
+    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    S: SliceByValue + IterateByValueFrom<Item = usize>,
+{
+}
+
 impl<DCF, S> RandomAccessLabeling for CsrGraph<DCF, S>
 where
     DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
@@ -304,7 +311,41 @@ where
     }
 }
 
+impl<DCF, S> RandomAccessLabeling for CsrSortedGraph<DCF, S>
+where
+    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+{
+    type Labels<'succ>
+        = AssumeSortedIterator<core::iter::Take<IterFrom<'succ, S>>>
+    where
+        Self: 'succ;
+
+    #[inline(always)]
+    fn num_arcs(&self) -> u64 {
+        self.0.num_arcs()
+    }
+
+    #[inline(always)]
+    fn outdegree(&self, node: usize) -> usize {
+        self.0.outdegree(node)
+    }
+
+    #[inline(always)]
+    fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
+        let labels = <CsrGraph<DCF, S> as RandomAccessLabeling>::labels(&self.0, node);
+        unsafe { AssumeSortedIterator::new(labels) }
+    }
+}
+
 impl<DCF, S> RandomAccessGraph for CsrGraph<DCF, S>
+where
+    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+{
+}
+
+impl<DCF, S> RandomAccessGraph for CsrSortedGraph<DCF, S>
 where
     DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
     S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
