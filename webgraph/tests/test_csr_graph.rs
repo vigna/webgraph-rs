@@ -1,0 +1,70 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+use epserde::{deser::Deserialize, ser::Serialize};
+use webgraph::{
+    graphs::csr_graph::{CompressedCsrGraph, CsrSortedGraph},
+    prelude::{CsrGraph, VecGraph},
+    traits::{graph, labels},
+};
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_serde() -> anyhow::Result<()> {
+    use webgraph::graphs::vec_graph::VecGraph;
+    let arcs = [(0, 1), (0, 2), (1, 2)];
+    let g = VecGraph::from_arcs(arcs);
+    let csr = CsrGraph::from_seq_graph(&g);
+    let res = serde_json::to_string(&g).unwrap();
+    let json: CsrGraph = serde_json::from_str(&res).unwrap();
+    graph::eq(&csr, &json)?;
+    Ok(())
+}
+
+#[test]
+fn test_epserde() -> anyhow::Result<()> {
+    let arcs = [(0, 1), (0, 2), (1, 2)];
+    let g = VecGraph::from_arcs(arcs);
+    let csr = CsrGraph::from_seq_graph(&g);
+    let mut file = std::io::Cursor::new(vec![]);
+    g.serialize(&mut file).unwrap();
+    let data = file.into_inner();
+    let eps = <CsrGraph>::deserialize_eps(&data).unwrap();
+    graph::eq(&csr, &eps)?;
+    Ok(())
+}
+
+#[test]
+fn test_csr_graph() -> anyhow::Result<()> {
+    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+    let g = VecGraph::from_arcs(arcs.iter().copied());
+
+    let csr = <CsrGraph>::from_seq_graph(&g);
+    labels::check_impl(&csr)?;
+    // We should be able to use eq_sorted
+    assert!(graph::eq(&g, &csr).is_ok());
+
+    let _csr = CompressedCsrGraph::from_graph(&g);
+    graph::eq(&g, &csr);
+    labels::check_impl(&csr);
+    Ok(())
+}
+
+#[test]
+fn test_sorted() -> anyhow::Result<()> {
+    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+    let g = VecGraph::from_arcs(arcs.iter().copied());
+    // This is just to test that we implemented correctly
+    // the SortedLender trait.
+    let csr = CsrGraph::from_seq_graph(&g);
+    graph::eq(&csr, &csr)?;
+    // This is just to test that we implemented correctly
+    // the SortedLender and SortedIterator traits.
+    let csr_sorted = CsrSortedGraph::from_seq_graph(&g);
+    labels::eq_sorted(&csr_sorted, &csr_sorted)?;
+    Ok(())
+}
