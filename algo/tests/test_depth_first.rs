@@ -25,18 +25,18 @@ fn test_depth() {
 
 #[test]
 fn test_dfs_order() {
-    //     0
-    //    / \
-    //   1   2
-    //  / \   \
-    // 3   4   5
+    //     0         7
+    //    / \        |
+    //   1   2       6
+    //  / \   \      |
+    // 3   4   5     8
     //
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5)]);
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (6, 8), (7, 6)]);
 
     let mut order = vec![0; graph.num_nodes()];
     for (i, node) in depth_first::SeqNoPred::new(&graph).into_iter().enumerate() {
         order[i] = node;
     }
 
-    assert_eq!(order, vec![0, 1, 3, 4, 2, 5]);
+    assert_eq!(order, vec![0, 1, 3, 4, 2, 5, 6, 8, 7]);
 }
