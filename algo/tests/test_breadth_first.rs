@@ -449,3 +449,51 @@ test_bfv_algo_par!(
     },
     parallel_fast_callback
 );
+
+#[test]
+fn test_start() -> Result<()> {
+    // 4 -> 0 -> 2
+    //       `-> 3
+    // 1 -> 5
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
+
+    for i in 0..=5 {
+        graph.add_node(i);
+    }
+    graph.add_arc(4, 0);
+    graph.add_arc(0, 2);
+    graph.add_arc(0, 3);
+    graph.add_arc(1, 5);
+
+    let order: Vec<_> = webgraph_algo::visits::breadth_first::Seq::new(&graph)
+        .into_iter()
+        .collect();
+
+    assert_eq!(order, vec![0, 2, 3, 1, 5, 4]);
+
+    Ok(())
+}
+
+#[test]
+fn test_start_orphan() -> Result<()> {
+    // 0 -> 4 -> 2
+    //       `-> 3
+    // 1 -> 5
+    let mut graph = webgraph::graphs::vec_graph::VecGraph::new();
+
+    for i in 0..=5 {
+        graph.add_node(i);
+    }
+    graph.add_arc(0, 4);
+    graph.add_arc(4, 2);
+    graph.add_arc(4, 3);
+    graph.add_arc(1, 5);
+
+    let order: Vec<_> = webgraph_algo::visits::breadth_first::Seq::new(&graph)
+        .into_iter()
+        .collect();
+
+    assert_eq!(order, vec![0, 4, 2, 3, 1, 5]);
+
+    Ok(())
+}

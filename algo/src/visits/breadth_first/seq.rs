@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2024 Matteo Dell'Acqua
  * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Fontana Tommaso
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -86,6 +87,22 @@ use webgraph::traits::RandomAccessGraph;
 /// ).continue_value_no_break();
 /// assert_eq!(count, 3);
 /// ```
+///
+/// The visit also implements the [`IntoIterator`] trait, so it can be used
+/// in a `for` loop to iterate over all nodes in the order they are visited:
+///
+/// ```rust
+/// use webgraph_algo::visits::*;
+/// use webgraph::graphs::vec_graph::VecGraph;
+///
+/// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
+/// for node in &mut breadth_first::Seq::new(&graph) {
+///    println!("Visited node: {}", node);
+/// }
+/// ```
+///
+/// Note that the iterator modifies the state of the visit, so it can re-use
+/// the allocations.
 pub struct Seq<G: RandomAccessGraph> {
     graph: G,
     visited: BitVec,
@@ -236,5 +253,66 @@ impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
     fn reset(&mut self) {
         self.queue.clear();
         self.visited.fill(false);
+    }
+}
+
+impl<'a, G: RandomAccessGraph> IntoIterator for &'a mut Seq<G> {
+    type Item = usize;
+    type IntoIter = BfsOrder<'a, G>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BfsOrder::new(self)
+    }
+}
+
+/// Iterator on **all nodes** of the graph in a BFS order
+pub struct BfsOrder<'a, G: RandomAccessGraph> {
+    visit: &'a mut Seq<G>,
+    /// If the queue is empty, resume the BFS from that node.
+    ///
+    /// This allows initializing the BFS from all orphan nodes without reading
+    /// the reverse graph.
+    start: usize,
+}
+
+impl<G: RandomAccessGraph> BfsOrder<'_, G> {
+    pub fn new(visit: &mut Seq<G>) -> BfsOrder<G> {
+        visit.reset(); // ensure we start from a clean state
+        BfsOrder { visit, start: 0 }
+    }
+}
+
+impl<G: RandomAccessGraph> Iterator for BfsOrder<'_, G> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        let current_node = match self.visit.queue.pop_front() {
+            Some(Some(node)) => node.into(),
+            _ => {
+                while self.visit.visited[self.start] {
+                    self.start += 1;
+                    if self.start >= self.visit.graph.num_nodes() {
+                        return None;
+                    }
+                }
+                self.visit.visited.set(self.start, true);
+                self.start
+            }
+        };
+
+        for succ in self.visit.graph.successors(current_node) {
+            if !self.visit.visited[succ] {
+                self.visit.queue.push_back(NonMaxUsize::new(succ));
+                self.visit.visited.set(succ as _, true);
+            }
+        }
+
+        Some(current_node)
+    }
+}
+
+impl<G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'_, G> {
+    fn len(&self) -> usize {
+        self.visit.graph.num_nodes()
     }
 }

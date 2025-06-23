@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2024 Matteo Dell'Acqua
  * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Fontana Tommaso
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -116,6 +117,25 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 ///     }
 /// ).continue_value_no_break();
 /// ```
+///
+/// The [`SeqNoPred`] visit also implements the [`IntoIterator`] trait, so it
+/// can be used in a `for` loop to iterate over all nodes in the order they are
+/// visited:
+///
+/// ```rust
+/// use webgraph_algo::visits::*;
+/// use webgraph::graphs::vec_graph::VecGraph;
+///
+/// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
+/// for node in &mut depth_first::SeqNoPred::new(&graph) {
+///    println!("Visited node: {}", node);
+/// }
+/// ```
+///
+/// Note that the iterator modifies the state of the visit, so it can re-use
+/// the allocations. Other visits, i.e. [`SeqPred`] and [`SeqPath`],  do not
+/// implement the [`IntoIterator`] trait, as they would require to put the
+/// predecessor on the stack, which would need more space than needed.
 pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
     graph: &'a G,
     /// Entries on this stack represent the iterator on the successors of a node
@@ -164,6 +184,12 @@ impl<'a, S: NodeStates, G: RandomAccessGraph, P, const PRED: bool> SeqIter<'a, S
             stack: Vec::with_capacity(16),
             state: S::new(num_nodes),
         }
+    }
+
+    /// Reset
+    pub fn reset(&mut self) {
+        self.stack.clear();
+        self.state.reset();
     }
 }
 
@@ -512,5 +538,86 @@ impl<G: RandomAccessGraph> Sequential<EventNoPred> for SeqIter<'_, TwoStates, G,
     fn reset(&mut self) {
         self.stack.clear();
         self.state.reset();
+    }
+}
+
+impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'b mut SeqNoPred<'a, G> {
+    type Item = usize;
+    type IntoIter = DfsOrder<'a, 'b, G>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DfsOrder::new(self)
+    }
+}
+
+/// Iterator on **all nodes** of the graph in a DFS order
+pub struct DfsOrder<'a, 'b, G: RandomAccessGraph> {
+    visit: &'b mut SeqNoPred<'a, G>,
+    /// If the queue is empty, resume the DFS from that node.
+    ///
+    /// This allows initializing the DFS from all orphan nodes without reading
+    /// the reverse graph.
+    start: usize,
+}
+
+impl<'a, 'b, G: RandomAccessGraph> DfsOrder<'a, 'b, G> {
+    pub fn new(visit: &'b mut SeqNoPred<'a, G>) -> Self {
+        visit.reset(); // ensure we start from a clean state
+        DfsOrder { visit, start: 0 }
+    }
+}
+
+impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        let state = &mut self.visit.state;
+        let stack = &mut self.visit.stack;
+
+        // while we have a stack
+        while let Some((iter, _)) = stack.last_mut() {
+            // and the top has successors
+            for succ in iter {
+                // Check if node should be visited
+                if state.known(succ) {
+                    continue;
+                }
+
+                // First time seeing node
+                state.set_known(succ);
+                stack.push((self.visit.graph.successors(succ).into_iter(), ()));
+                return Some(succ);
+            }
+            // we exhausted the successors of the top node, so we pop it
+            stack.pop();
+        }
+        // we exhausted the stack, so we need to start a new DFS
+
+        // Find the next node that has not been visited yet
+        while self.start < self.visit.graph.num_nodes() && state.known(self.start) {
+            self.start += 1;
+        }
+
+        // If we have no more nodes to visit, return None
+        if self.start >= self.visit.graph.num_nodes() {
+            return None;
+        }
+
+        // Start a new DFS from the next unvisited node
+        let root = self.start;
+        self.start += 1;
+
+        // Initialize the visit for this root
+        state.set_known(root);
+        stack.push((self.visit.graph.successors(root).into_iter(), ()));
+
+        // return the root node
+        Some(root)
+    }
+}
+
+impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for DfsOrder<'a, 'b, G> {
+    fn len(&self) -> usize {
+        self.visit.graph.num_nodes()
     }
 }

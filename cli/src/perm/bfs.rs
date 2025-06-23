@@ -68,7 +68,8 @@ where
     // create the permutation
     let mut perm = vec![0; graph.num_nodes()];
     pl.start("Computing BFS permutation...");
-    for (i, node_id) in webgraph::algo::BfsOrder::new(&graph).enumerate() {
+    let mut visit = webgraph_algo::visits::breadth_first::Seq::new(&graph);
+    for (i, node_id) in visit.into_iter().enumerate() {
         perm[node_id] = i;
         pl.light_update();
     }
