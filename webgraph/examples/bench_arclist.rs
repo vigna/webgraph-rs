@@ -16,8 +16,9 @@ use std::{hint::black_box, path::PathBuf};
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(about = "Tests the merge speed of SortPairs", long_about = None)]
+#[command(about = "Benchmark the performance of ArcListGraph", long_about = None)]
 struct Args {
+    /// The basename of the graph to use for the benchmark.
     basename: PathBuf,
 
     /// if true, the benchmark compressed the graph, otherwise it only visits it
