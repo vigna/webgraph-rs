@@ -109,7 +109,11 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
 
         // This happens if the user doesn't use the successors iter
         while self.iter.peek()?.0 < self.curr_node {
-            self.iter.next()?;
+            let next = self.iter.next();
+            debug_assert!(
+                next.is_some(),
+                "peek should have already checked this"
+            );
         }
 
         Some((self.curr_node, Succ { node_iter: self }))
@@ -192,7 +196,13 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
         let pair = self
             .node_iter
             .iter
-            .next()?;
+            .next();
+        // Peek already checks this and the compiler doesn't seem to optimize it out
+        // so we use unwrap_unchecked here.
+        debug_assert!(pair.is_some(), "peek should have already checked this");
+        let pair = unsafe{
+            pair.unwrap_unchecked()
+        };
         debug_assert_eq!(pair.0, self.node_iter.curr_node);
         // store the triple and return the previous successor
         // storing the label since it should be one step behind the successor
