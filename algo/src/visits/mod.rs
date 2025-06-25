@@ -15,9 +15,9 @@
 //! [`Interrupted`] when interrupted or [`Infallible`](std::convert::Infallible)
 //! if the visit cannot be interrupted.
 //!
-//! If a callback returns [`Break`](ControlFlow::Break), the visit will be
-//! interrupted, and the interrupt propagated to the caller of the visit method;
-//! for uninterruptible visits we suggest to use the
+//! If a callback returns a [`Break`](ControlFlow::Break), the visit will be
+//! interrupted, and the [`Break`](ControlFlow::Break) value will be the return
+//! value of the visit method; for uninterruptible visits we suggest to use the
 //! [`no-break`](https://crates.io/crates/no-break) crate and its
 //! [`continue_value_no_break`](no_break::NoBreak::continue_value_no_break)
 //! method on the result to let type inference run smoothly.
@@ -27,8 +27,8 @@
 //!
 //! [Sequential visits](Sequential) are visits that are executed in a single
 //! thread, whereas [parallel visits](Parallel) use multiple threads. The
-//! signature of callbacks reflects this difference ([`FnMut`] for the sequential
-//! case vs. [`Fn`] + [`Sync`] for the parallel case).
+//! signature of callbacks reflects this difference ([`FnMut`] for the
+//! sequential case vs. [`Fn`] + [`Sync`] for the parallel case).
 //!
 //! In case of interruption sequential visits usually return immediately to the
 //! caller, whereas in general parallel visits might need to complete part of
@@ -42,8 +42,8 @@
 //! available) due to race conditions.
 //!
 //! All visits have also methods accepting an `init` item similarly to the
-//! [Rayon](rayon) [`map_with`](rayon::iter::ParallelIterator::map_with) method. For
-//! parallel visits, the item will be cloned.
+//! [Rayon](rayon) [`map_with`](rayon::iter::ParallelIterator::map_with) method.
+//! For parallel visits, the item will be cloned.
 //!
 //! There is a blanket implementation of the [`Parallel`] trait for all types
 //! implementing the [`Sequential`] trait. This approach makes it possible to
@@ -111,6 +111,9 @@ pub trait Sequential<A: Event> {
     /// Visits the graph from the specified nodes with an initialization value
     /// and a filter function.
     ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
+    ///
     /// # Arguments
     ///
     /// * `roots`: The nodes to start the visit from.
@@ -136,6 +139,9 @@ pub trait Sequential<A: Event> {
 
     /// Visits the graph from the specified nodes with a filter function.
     ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
+    ///
     /// # Arguments
     ///
     /// * `roots`: The nodes to start the visit from.
@@ -159,6 +165,9 @@ pub trait Sequential<A: Event> {
 
     /// Visits the graph from the specified nodes with an initialization value.
     ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
+    ///
     /// # Arguments
     ///
     /// * `roots`: The nodes to start the visit from.
@@ -181,6 +190,9 @@ pub trait Sequential<A: Event> {
     }
 
     /// Visits the graph from the specified nodes.
+    ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
     ///
     /// # Arguments
     ///
@@ -213,6 +225,9 @@ pub trait Parallel<A: Event> {
     /// Visits the graph from the specified nodes with an initialization value
     /// and a filter function.
     ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
+    ///
     /// # Arguments
     ///
     /// * `roots`: The nodes to start the visit from.
@@ -241,6 +256,9 @@ pub trait Parallel<A: Event> {
     ) -> ControlFlow<E, ()>;
 
     /// Visits the graph from the specified nodes with a filter function.
+    ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
     ///
     /// # Arguments
     ///
@@ -274,6 +292,9 @@ pub trait Parallel<A: Event> {
 
     /// Visits the graph from the specified nodes with an initialization value.
     ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
+    ///
     /// # Arguments
     ///
     /// * `roots`: The nodes to start the visit from.
@@ -300,6 +321,9 @@ pub trait Parallel<A: Event> {
     }
 
     /// Visits the graph from the specified nodes.
+    ///
+    /// See the [module documentation](crate::visits) for more information on
+    /// the return value.
     ///
     /// # Arguments
     ///
