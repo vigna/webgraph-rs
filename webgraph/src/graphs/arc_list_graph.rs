@@ -5,7 +5,6 @@
  */
 
 use crate::traits::*;
-use core::mem::MaybeUninit;
 use lender::*;
 
 /// An adapter exhibiting a list of labeled
@@ -70,8 +69,7 @@ where
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
     curr_node: usize,
-    next_pair: (usize, usize, L),
-    iter: I::IntoIter,
+    iter: core::iter::Peekable<I::IntoIter>,
 }
 
 unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> SortedLender
@@ -80,16 +78,11 @@ unsafe impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> Iter<L, I> {
-    pub fn new(num_nodes: usize, mut iter: I::IntoIter) -> Self {
+    pub fn new(num_nodes: usize, iter: I::IntoIter) -> Self {
         Iter {
             num_nodes,
             curr_node: 0_usize.wrapping_sub(1), // No node seen yet
-            next_pair: iter.next().unwrap_or((usize::MAX, usize::MAX, unsafe {
-                #[allow(clippy::uninit_assumed_init)]
-                // SAFETY: L is Copy
-                MaybeUninit::uninit().assume_init()
-            })),
-            iter,
+            iter: iter.peekable(),
         }
     }
 }
@@ -115,12 +108,8 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
         }
 
         // This happens if the user doesn't use the successors iter
-        while self.next_pair.0 < self.curr_node {
-            self.next_pair = self.iter.next().unwrap_or((usize::MAX, usize::MAX, unsafe {
-                #[allow(clippy::uninit_assumed_init)]
-                // SAFETY: L is Copy
-                MaybeUninit::uninit().assume_init()
-            }));
+        while self.iter.peek()?.0 < self.curr_node {
+            self.iter.next()?;
         }
 
         Some((self.curr_node, Succ { node_iter: self }))
@@ -196,23 +185,18 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     fn next(&mut self) -> Option<Self::Item> {
         // If the source of the next pair is not the current node,
         // we return None.
-        if self.node_iter.next_pair.0 != self.node_iter.curr_node {
-            None
-        } else {
-            // get the next triple
-            let pair = self
-                .node_iter
-                .iter
-                .next()
-                .unwrap_or((usize::MAX, usize::MAX, unsafe {
-                    #[allow(clippy::uninit_assumed_init)]
-                    MaybeUninit::uninit().assume_init()
-                }));
-            // store the triple and return the previous successor
-            // storing the label since it should be one step behind the successor
-            let (_src, dst, label) = core::mem::replace(&mut self.node_iter.next_pair, pair);
-            Some((dst, label))
+        if self.node_iter.iter.peek()?.0 != self.node_iter.curr_node {
+            return None;
         }
+        // get the next triple
+        let pair = self
+            .node_iter
+            .iter
+            .next()?;
+        debug_assert_eq!(pair.0, self.node_iter.curr_node);
+        // store the triple and return the previous successor
+        // storing the label since it should be one step behind the successor
+        Some((pair.1, pair.2))
     }
 }
 
