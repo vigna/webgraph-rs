@@ -11,7 +11,7 @@ use lender::prelude::*;
 use std::collections::BTreeMap;
 
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
-/// [`BTreeSet`].
+/// [`BTreeMap`].
 ///
 /// This implementation is slower and uses more resources than a
 /// [`LabeledVecGraph`](crate::graphs::vec_graph::LabeledVecGraph),
@@ -146,7 +146,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// # Implementation Notes
     ///
     /// This method just shrinks the capacity of the successor vector, as
-    /// [`BTreeSet`] does not have a `shrink_to_fit` method.
+    /// [`BTreeMap`] does not have a `shrink_to_fit` method.
     pub fn shrink_to_fit(&mut self) {
         self.succ.shrink_to_fit();
     }
@@ -213,7 +213,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
-/// [`BTreeSet`].
+/// [`BTreeMap`].
 ///
 /// This implementation is slower and uses more resources than a [`VecGraph`],
 /// but it is more flexible as arcs can be added in any order.
@@ -294,7 +294,7 @@ impl BTreeGraph {
     /// # Implementation Notes
     ///
     /// This method just shrinks the capacity of the successor vector, as
-    /// [`BTreeSet`] does not have a `shrink_to_fit` method.
+    /// [`BTreeMap`] does not have a `shrink_to_fit` method.
     pub fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit();
     }
