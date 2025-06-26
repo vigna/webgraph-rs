@@ -558,12 +558,18 @@ pub struct DfsOrder<'a, 'b, G: RandomAccessGraph> {
     /// This allows initializing the DFS from all orphan nodes without reading
     /// the reverse graph.
     start: usize,
+    /// Number of visited nodes, used to compute the length of the iterator.
+    visited_nodes: usize,
 }
 
 impl<'a, 'b, G: RandomAccessGraph> DfsOrder<'a, 'b, G> {
     pub fn new(visit: &'b mut SeqNoPred<'a, G>) -> Self {
         visit.reset(); // ensure we start from a clean state
-        DfsOrder { visit, start: 0 }
+        DfsOrder {
+            visit,
+            start: 0,
+            visited_nodes: 0,
+        }
     }
 }
 
@@ -586,6 +592,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
                 // First time seeing node
                 state.set_known(succ);
                 stack.push((self.visit.graph.successors(succ).into_iter(), ()));
+                self.visited_nodes += 1;
                 return Some(succ);
             }
             // we exhausted the successors of the top node, so we pop it
@@ -606,6 +613,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
         // Start a new DFS from the next unvisited node
         let root = self.start;
         self.start += 1;
+        self.visited_nodes += 1;
 
         // Initialize the visit for this root
         state.set_known(root);
@@ -618,6 +626,6 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
 
 impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for DfsOrder<'a, 'b, G> {
     fn len(&self) -> usize {
-        self.visit.graph.num_nodes()
+        self.visit.graph.num_nodes() - self.visited_nodes
     }
 }

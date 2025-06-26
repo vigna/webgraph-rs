@@ -273,12 +273,18 @@ pub struct BfsOrder<'a, G: RandomAccessGraph> {
     /// This allows initializing the BFS from all orphan nodes without reading
     /// the reverse graph.
     start: usize,
+    /// Number of visited nodes, used to compute the length of the iterator.
+    visited_nodes: usize,
 }
 
 impl<G: RandomAccessGraph> BfsOrder<'_, G> {
     pub fn new(visit: &mut Seq<G>) -> BfsOrder<G> {
         visit.reset(); // ensure we start from a clean state
-        BfsOrder { visit, start: 0 }
+        BfsOrder {
+            visit,
+            start: 0,
+            visited_nodes: 0,
+        }
     }
 }
 
@@ -306,13 +312,13 @@ impl<G: RandomAccessGraph> Iterator for BfsOrder<'_, G> {
                 self.visit.visited.set(succ as _, true);
             }
         }
-
+        self.visited_nodes += 1;
         Some(current_node)
     }
 }
 
 impl<G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'_, G> {
     fn len(&self) -> usize {
-        self.visit.graph.num_nodes()
+        self.visit.graph.num_nodes() - self.visited_nodes
     }
 }
