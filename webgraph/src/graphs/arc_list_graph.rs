@@ -68,9 +68,6 @@ where
 #[derive(Clone)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
-    /// The current node we are iterating over.
-    /// Note that while we are in the returned iterator,
-    /// `curr_node` will be the source of the next successor pair.
     curr_node: usize,
     iter: core::iter::Peekable<I::IntoIter>,
 }
@@ -84,7 +81,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> Iter<L, I> {
     pub fn new(num_nodes: usize, iter: I::IntoIter) -> Self {
         Iter {
             num_nodes,
-            curr_node: 0_usize,
+            curr_node: 0_usize.wrapping_sub(1),
             iter: iter.peekable(),
         }
     }
@@ -105,9 +102,10 @@ impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender for Iter<L, I> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        if self.curr_node == self.num_nodes {
+        if self.curr_node == self.num_nodes.saturating_sub(1) {
             return None;
         }
+        self.curr_node = self.curr_node.wrapping_add(1);
 
         // This happens if the user doesn't use the successors iter.
         // This doesn't use `.peek()?` because we need to return empty iterators
@@ -120,9 +118,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
             debug_assert!(next.is_some(), "peek should have already checked this");
         }
 
-        let src = self.curr_node;
-        self.curr_node += 1;
-        Some((src, Succ { node_iter: self }))
+        Some((self.curr_node, Succ { node_iter: self }))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -135,7 +131,8 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Exac
     for Iter<L, I>
 {
     fn len(&self) -> usize {
-        self.num_nodes - self.curr_node
+        self.num_nodes
+            .saturating_sub(self.curr_node.wrapping_add(1))
     }
 }
 
@@ -198,11 +195,8 @@ unsafe impl<L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Suc
 impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
-        // The lender already increased its `curr_node` by one,
-        // so here we are looking for the next successor.
-
-        // So if we encounter it, or something bigger, we are done for this node.
-        if self.node_iter.iter.peek()?.0 >= self.node_iter.curr_node {
+        // So if we encounter a new src, we are done for this node.
+        if self.node_iter.iter.peek()?.0 != self.node_iter.curr_node {
             return None;
         }
         // get the next triple
@@ -211,8 +205,7 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
         // so we use unwrap_unchecked here.
         debug_assert!(pair.is_some(), "peek should have already checked this");
         let pair = unsafe { pair.unwrap_unchecked() };
-        // Here `curr_node` is always >= 1 because it's incremented by the lender
-        debug_assert_eq!(pair.0, self.node_iter.curr_node - 1);
+        debug_assert_eq!(pair.0, self.node_iter.curr_node);
         // store the triple and return the previous successor
         // storing the label since it should be one step behind the successor
         Some((pair.1, pair.2))
