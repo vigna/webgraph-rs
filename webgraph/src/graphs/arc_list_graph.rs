@@ -117,6 +117,11 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
 
         Some((src, Succ { node_iter: self }))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
 }
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ExactSizeLender

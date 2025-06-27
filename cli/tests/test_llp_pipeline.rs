@@ -52,6 +52,25 @@ fn test_llp_pipeline() -> Result<()> {
         "--permutation",
         &format!("{}.bfs", basename),
     ])?;
+    // re-build the offsets and compare with original
+    let simpl_offsets = format!("{}-simple.{}", basename, OFFSETS_EXTENSION);
+    let simpl_offsets_orig = format!("{}-simple.{}.orig", basename, OFFSETS_EXTENSION);
+    std::fs::rename(&simpl_offsets, &simpl_offsets_orig)?;
+    cli_main(vec![
+        "webgraph",
+        "build",
+        "offsets",
+        &format!("{}-simple", basename),
+    ])?;
+    // check that the offsets are the same
+    let original_offsets = std::fs::read(&simpl_offsets_orig)?;
+    let simplified_offsets = std::fs::read(simpl_offsets)?;
+    assert_eq!(
+        original_offsets, simplified_offsets,
+        "Offsets do not match after simplification"
+    );
+    std::fs::remove_file(simpl_offsets_orig)?;
+
     log::info!("Step 4: Creates the Elias Fano for the simplified graph");
     cli_main(vec![
         "webgraph",
@@ -93,6 +112,26 @@ fn test_llp_pipeline() -> Result<()> {
         "--permutation",
         &format!("{}.composed", basename),
     ])?;
+
+    // re-build the offsets and compare with original
+    let final_offsets = format!("{}-final.{}", basename, OFFSETS_EXTENSION);
+    let final_offsets_orig = format!("{}-final.{}.orig", basename, OFFSETS_EXTENSION);
+    std::fs::rename(&final_offsets, &final_offsets_orig)?;
+    cli_main(vec![
+        "webgraph",
+        "build",
+        "offsets",
+        &format!("{}-final", basename),
+    ])?;
+    // check that the offsets are the same
+    let original_offsets = std::fs::read(&final_offsets_orig)?;
+    let finalified_offsets = std::fs::read(final_offsets)?;
+    assert_eq!(
+        original_offsets, finalified_offsets,
+        "Offsets do not match after finalification"
+    );
+    std::fs::remove_file(final_offsets_orig)?;
+
     log::info!("Step 9: Creates the final Elias Fano");
     cli_main(vec![
         "webgraph",

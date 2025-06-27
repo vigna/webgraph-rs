@@ -35,9 +35,13 @@ pub fn permute(
         graph.num_nodes(),
     );
     let dir = Builder::new().prefix("permute_").tempdir()?;
+    log::info!(
+        "Creating a temporary directory for the sorted pairs: {}",
+        dir.path().display()
+    );
 
     // create a stream where to dump the sorted pairs
-    let mut sorted = SortPairs::new(batch_size, dir)?;
+    let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
     // get a premuted view
     let pgraph = PermutedGraph { graph, perm };
@@ -49,7 +53,7 @@ pub fn permute(
     // create batches of sorted edges
     for_!( (src, succ) in pgraph.iter() {
         for dst in succ {
-            sorted.push(dst, src)?;
+            sorted.push(src, dst)?;
         }
         pl.light_update();
     });

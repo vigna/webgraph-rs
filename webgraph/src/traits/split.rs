@@ -103,6 +103,10 @@ pub mod seq {
             self.remaining -= 1;
             Some(self.lender.clone().take(self.nodes_per_iter))
         }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (self.remaining, Some(self.remaining))
+        }
     }
 
     impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {

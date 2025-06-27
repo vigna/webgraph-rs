@@ -40,6 +40,10 @@ impl<D: Decode + BitSeek> Iterator for OffsetDegIter<D> {
         let offset = self.get_pos();
         Some((offset, self.next_degree().unwrap()))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len(), Some(self.len()))
+    }
 }
 
 impl<D: Decode + BitSeek> ExactSizeIterator for OffsetDegIter<D> {

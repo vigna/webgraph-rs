@@ -406,6 +406,16 @@ impl<D: BitDeserializer<NE, BitReader>> Iterator for BatchIterator<D> {
         self.current += 1;
         Some((src, dst, label))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+impl<D: BitDeserializer<NE, BitReader>> ExactSizeIterator for BatchIterator<D> {
+    fn len(&self) -> usize {
+        self.len
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -514,6 +524,19 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
                 Some(std::mem::replace(&mut head_tail.head, (src, dst, label)))
             }
         }
+    }
+}
+impl<T, I: Iterator<Item = (usize, usize, T)> + ExactSizeIterator> ExactSizeIterator
+    for KMergeIters<I, T>
+{
+    fn len(&self) -> usize {
+        self.heap
+            .iter()
+            .map(|head_tail| {
+                // The head is always a triple, so we can count it
+                1 + head_tail.tail.len()
+            })
+            .sum()
     }
 }
 

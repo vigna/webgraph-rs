@@ -335,6 +335,11 @@ impl<D: Decode> Lender for Iter<D> {
             crate::traits::labels::AssumeSortedIterator::new(res.iter().copied())
         }))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
 }
 
 unsafe impl<D: Decode> SortedLender for Iter<D> {}

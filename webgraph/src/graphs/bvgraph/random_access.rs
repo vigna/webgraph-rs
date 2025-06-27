@@ -478,6 +478,10 @@ impl<D: Decode> Iterator for Succ<D> {
 
         Some(min)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.size, Some(self.size))
+    }
 }
 
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BvGraph<F> {
