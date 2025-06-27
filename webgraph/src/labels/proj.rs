@@ -19,7 +19,7 @@ use crate::prelude::{
     RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
 };
 use crate::traits::SplitLabeling;
-use lender::{IntoLender, Lend, Lender, Lending};
+use lender::{ExactSizeLender, IntoLender, Lend, Lender, Lending};
 
 // The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -47,6 +47,20 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
+impl<L: ExactSizeLender> ExactSizeLender for LeftIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct LeftIntoIterator<I: IntoIterator>(pub I)
 where
@@ -65,6 +79,28 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().0)
+    }
+}
+
+impl<I: ExactSizeIterator> ExactSizeIterator for LeftIntoIter<I>
+where
+    I::Item: Pair,
+{
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<I: DoubleEndedIterator> DoubleEndedIterator for LeftIntoIter<I>
+where
+    I::Item: Pair,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back().map(|x| x.into_pair().0)
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n).map(|x| x.into_pair().0)
     }
 }
 
@@ -213,6 +249,20 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
+impl<L: ExactSizeLender> ExactSizeLender for RightIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct RightIntoIterator<I: IntoIterator>(pub I)
 where
@@ -231,6 +281,28 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().1)
+    }
+}
+
+impl<I: ExactSizeIterator> ExactSizeIterator for RightIntoIter<I>
+where
+    I::Item: Pair,
+{
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<I: DoubleEndedIterator> DoubleEndedIterator for RightIntoIter<I>
+where
+    I::Item: Pair,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back().map(|x| x.into_pair().1)
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n).map(|x| x.into_pair().1)
     }
 }
 

@@ -183,10 +183,11 @@ pub fn build_eliasfano_from_offsets<E: Endianness>(
     pl.start("Translating offsets to EliasFano...");
     // read the graph a write the offsets
     let mut offset = 0;
-    for _node_id in 0..num_nodes + 1 {
+    for node_id in 0..num_nodes + 1 {
         // write where
         offset += reader.read_gamma().context("Could not read gamma")?;
         efb.push(offset as _);
+        println!("Reading node {} {}", node_id, offset);
         // decode the next nodes so we know where the next node_id starts
         pl.light_update();
     }

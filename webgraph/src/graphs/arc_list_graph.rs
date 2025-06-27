@@ -81,7 +81,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> Iter<L, I> {
     pub fn new(num_nodes: usize, iter: I::IntoIter) -> Self {
         Iter {
             num_nodes,
-            curr_node: 0_usize.wrapping_sub(1), // No node seen yet
+            curr_node: 0_usize,
             iter: iter.peekable(),
         }
     }
@@ -102,7 +102,6 @@ impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender for Iter<L, I> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        self.curr_node = self.curr_node.wrapping_add(1);
         if self.curr_node == self.num_nodes {
             return None;
         }
@@ -113,7 +112,10 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
             debug_assert!(next.is_some(), "peek should have already checked this");
         }
 
-        Some((self.curr_node, Succ { node_iter: self }))
+        let src = self.curr_node;
+        self.curr_node += 1;
+
+        Some((src, Succ { node_iter: self }))
     }
 }
 
@@ -121,7 +123,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Exac
     for Iter<L, I>
 {
     fn len(&self) -> usize {
-        self.num_nodes - self.curr_node.wrapping_add(1)
+        self.num_nodes - self.curr_node
     }
 }
 
@@ -186,7 +188,7 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     fn next(&mut self) -> Option<Self::Item> {
         // If the source of the next pair is not the current node,
         // we return None.
-        if self.node_iter.iter.peek()?.0 != self.node_iter.curr_node {
+        if self.node_iter.iter.peek()?.0 >= self.node_iter.curr_node {
             return None;
         }
         // get the next triple
@@ -195,7 +197,7 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
         // so we use unwrap_unchecked here.
         debug_assert!(pair.is_some(), "peek should have already checked this");
         let pair = unsafe { pair.unwrap_unchecked() };
-        debug_assert_eq!(pair.0, self.node_iter.curr_node);
+        debug_assert_eq!(pair.0, self.node_iter.curr_node - 1);
         // store the triple and return the previous successor
         // storing the label since it should be one step behind the successor
         Some((pair.1, pair.2))
