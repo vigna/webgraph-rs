@@ -68,6 +68,9 @@ where
 #[derive(Clone)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
+    /// The current node we are iterating over.
+    /// Note that while we are in the returned iterator,
+    /// `curr_node` will be the source of the next successor pair.
     curr_node: usize,
     iter: core::iter::Peekable<I::IntoIter>,
 }
@@ -106,15 +109,19 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
             return None;
         }
 
-        // This happens if the user doesn't use the successors iter
-        while self.iter.peek()?.0 < self.curr_node {
+        // This happens if the user doesn't use the successors iter.
+        // This doesn't use `.peek()?` because we need to return empty iterators
+        // for the trailing nodes with no successors.
+        while let Some(pair) = self.iter.peek() {
+            if pair.0 >= self.curr_node {
+                break;
+            }
             let next = self.iter.next();
             debug_assert!(next.is_some(), "peek should have already checked this");
         }
 
         let src = self.curr_node;
         self.curr_node += 1;
-
         Some((src, Succ { node_iter: self }))
     }
 
@@ -191,8 +198,10 @@ unsafe impl<L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Suc
 impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
-        // If the source of the next pair is not the current node,
-        // we return None.
+        // The lender already increased its `curr_node` by one,
+        // so here we are looking for the next successor.
+
+        // So if we encounter it, or something bigger, we are done for this node.
         if self.node_iter.iter.peek()?.0 >= self.node_iter.curr_node {
             return None;
         }
@@ -202,6 +211,7 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
         // so we use unwrap_unchecked here.
         debug_assert!(pair.is_some(), "peek should have already checked this");
         let pair = unsafe { pair.unwrap_unchecked() };
+        // Here `curr_node` is always >= 1 because it's incremented by the lender
         debug_assert_eq!(pair.0, self.node_iter.curr_node - 1);
         // store the triple and return the previous successor
         // storing the label since it should be one step behind the successor
