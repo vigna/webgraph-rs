@@ -115,7 +115,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lend
             if node >= self.next_node {
                 break;
             }
-            debug_assert!(node == self.next_node - 1);
+            assert!(node == self.next_node - 1);
             self.iter.next();
         }
 
@@ -204,10 +204,9 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
         let triple = self.node_iter.iter.next();
         // Peek already checks this and the compiler doesn't seem to optimize it out
         // so we use unwrap_unchecked here.
-        debug_assert!(triple.is_some(), "peek should have already checked this");
-        let triple = unsafe { triple.unwrap_unchecked() };
+        let (curr, succ, label) = unsafe { triple.unwrap_unchecked() };
         // Here `next_node` is one beyond the node whose successors we are returning
-        debug_assert_eq!(triple.0, self.node_iter.next_node - 1);
-        Some((triple.1, triple.2))
+        assert_eq!(curr, self.node_iter.next_node - 1);
+        Some((succ, label))
     }
 }
