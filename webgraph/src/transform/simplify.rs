@@ -98,7 +98,7 @@ pub fn simplify(
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), iter);
     pl.done();
 
-    Ok(Left(sorted))
+    Ok(sorted)
 }
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided

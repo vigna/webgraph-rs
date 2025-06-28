@@ -18,6 +18,8 @@
 * `SortedIter` has been renamed `AssumeSortedIterator` for consistency with
   `AssumeSortedLender`.
 
+* `ArcListGraph::new` now returns directly a left projection.
+
 ### Fixed
 
 * The successors of `LabeledVecGraph` now implement `SortedIterator`.

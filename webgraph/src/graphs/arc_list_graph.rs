@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::*;
+use crate::{labels::Left, traits::*};
 use lender::*;
 
 /// An adapter exhibiting a list of labeled
@@ -19,7 +19,7 @@ pub struct ArcListGraph<I: Clone> {
 }
 
 impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ArcListGraph<I> {
-    /// Creates a new arc list graph from the given [`IntoIterator`].
+    /// Creates a new arc-list graph from the given [`IntoIterator`].
     #[inline(always)]
     pub fn new_labeled(num_nodes: usize, iter: I) -> Self {
         Self {
@@ -32,16 +32,19 @@ impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 impl<I: Iterator<Item = (usize, usize)> + Clone>
     ArcListGraph<std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>
 {
-    /// Creates a new arc list graph from the given [`IntoIterator`].
+    /// Creates a new arc-list graph from the given [`IntoIterator`].
     ///
-    /// Note that the resulting graph will be labeled by the unit type `()`.
-    /// To obtain an unlabeled graph, use a [left projection](crate::prelude::proj::Left).
+    /// # Implementation Notes
+    ///
+    /// Note that the resulting graph will be an arc-list graph labeled by the
+    /// unit type `()` wrapped into a  [left
+    /// projection](crate::prelude::proj::Left).
     #[inline(always)]
-    pub fn new(num_nodes: usize, iter: impl IntoIterator<IntoIter = I>) -> Self {
-        Self {
+    pub fn new(num_nodes: usize, iter: impl IntoIterator<IntoIter = I>) -> Left<Self> {
+        Left(Self {
             num_nodes,
             into_iter: iter.into_iter().map(|(src, dst)| (src, dst, ())),
-        }
+        })
     }
 }
 
@@ -68,10 +71,8 @@ where
 #[derive(Clone)]
 pub struct Iter<L, I: IntoIterator<Item = (usize, usize, L)>> {
     num_nodes: usize,
-    /// The current node we are iterating over.
-    /// Note that while we are in the returned iterator,
-    /// `curr_node` will be the source of the next successor pair.
-    curr_node: usize,
+    /// The next node that will be returned by the lender.
+    next_node: usize,
     iter: core::iter::Peekable<I::IntoIter>,
 }
 
@@ -84,7 +85,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)>> Iter<L, I> {
     pub fn new(num_nodes: usize, iter: I::IntoIter) -> Self {
         Iter {
             num_nodes,
-            curr_node: 0_usize,
+            next_node: 0,
             iter: iter.peekable(),
         }
     }
@@ -105,23 +106,21 @@ impl<'succ, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Lender for Iter<L, I> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
-        if self.curr_node == self.num_nodes {
+        if self.next_node == self.num_nodes {
             return None;
         }
 
-        // This happens if the user doesn't use the successors iter.
-        // This doesn't use `.peek()?` because we need to return empty iterators
-        // for the trailing nodes with no successors.
-        while let Some(pair) = self.iter.peek() {
-            if pair.0 >= self.curr_node {
+        // Discard residual arcs from the previous iteration
+        while let Some(&(node, _, _)) = self.iter.peek() {
+            if node >= self.next_node {
                 break;
             }
-            let next = self.iter.next();
-            debug_assert!(next.is_some(), "peek should have already checked this");
+            debug_assert!(node == self.next_node - 1);
+            self.iter.next();
         }
 
-        let src = self.curr_node;
-        self.curr_node += 1;
+        let src = self.next_node;
+        self.next_node += 1;
         Some((src, Succ { node_iter: self }))
     }
 
@@ -135,7 +134,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Exac
     for Iter<L, I>
 {
     fn len(&self) -> usize {
-        self.num_nodes - self.curr_node
+        self.num_nodes - self.next_node
     }
 }
 
@@ -185,7 +184,6 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
     }
 }
 
-/// Iter until we found a triple with src different than curr_node
 pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
     node_iter: &'succ mut Iter<L, I>,
 }
@@ -198,55 +196,18 @@ unsafe impl<L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Suc
 impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
-        // The lender already increased its `curr_node` by one,
-        // so here we are looking for the next successor.
-
-        // So if we encounter it, or something bigger, we are done for this node.
-        if self.node_iter.iter.peek()?.0 >= self.node_iter.curr_node {
+        // If the next pair is not there, or it has a different source, we are done
+        if self.node_iter.iter.peek()?.0 >= self.node_iter.next_node {
             return None;
         }
         // get the next triple
-        let pair = self.node_iter.iter.next();
+        let triple = self.node_iter.iter.next();
         // Peek already checks this and the compiler doesn't seem to optimize it out
         // so we use unwrap_unchecked here.
-        debug_assert!(pair.is_some(), "peek should have already checked this");
-        let pair = unsafe { pair.unwrap_unchecked() };
-        // Here `curr_node` is always >= 1 because it's incremented by the lender
-        debug_assert_eq!(pair.0, self.node_iter.curr_node - 1);
-        // store the triple and return the previous successor
-        // storing the label since it should be one step behind the successor
-        Some((pair.1, pair.2))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[cfg_attr(test, test)]
-    fn test_arclist() -> anyhow::Result<()> {
-        use crate::graphs::btree_graph::LabeledBTreeGraph;
-        use crate::graphs::vec_graph::LabeledVecGraph;
-
-        let arcs = [
-            (0, 1, Some(1.0)),
-            (0, 2, None),
-            (1, 2, Some(2.0)),
-            (2, 4, Some(f64::INFINITY)),
-            (3, 4, Some(f64::NEG_INFINITY)),
-        ];
-        let g = LabeledBTreeGraph::<_>::from_arcs(arcs);
-        let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
-        let g2 = LabeledBTreeGraph::<_>::from_lender(coo.iter());
-
-        graph::eq_labeled(&g, &g2)?;
-
-        let g = LabeledVecGraph::<_>::from_arcs(arcs);
-        let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
-        let g2 = LabeledVecGraph::<_>::from_lender(coo.iter());
-
-        graph::eq_labeled(&g, &g2)?;
-
-        Ok(())
+        debug_assert!(triple.is_some(), "peek should have already checked this");
+        let triple = unsafe { triple.unwrap_unchecked() };
+        // Here `next_node` is one beyond the node whose successors we are returning
+        debug_assert_eq!(triple.0, self.node_iter.next_node - 1);
+        Some((triple.1, triple.2))
     }
 }

@@ -63,7 +63,7 @@ pub fn transpose(
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
-    Ok(Left(sorted))
+    Ok(sorted)
 }
 
 fn bench_impl<E: Endianness>(args: Args) -> Result<()>

@@ -2,14 +2,17 @@ use dsi_bitstream::traits::BE;
 use lender::prelude::*;
 
 use webgraph::{
-    graphs::arc_list_graph::Iter,
-    labels::Left,
+    graphs::{
+        arc_list_graph::{ArcListGraph, Iter},
+        btree_graph::LabeledBTreeGraph,
+        vec_graph::LabeledVecGraph,
+    },
     prelude::BvGraph,
-    traits::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling, SplitLabeling},
+    traits::{graph, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling, SplitLabeling},
 };
 
 #[test]
-fn test_arclist_graph_iter() {
+fn test_arc_list_graph_iter() {
     let iter = Iter::<Box<u64>, Vec<_>>::new(10, vec![].into_iter());
     for_!((_succ, labels) in iter {
         for_!(item in labels {
@@ -57,7 +60,7 @@ where
 }
 
 #[test]
-fn test_arclist_graph_cnr2000() {
+fn test_arc_list_graph_cnr2000() {
     let graph = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()
@@ -73,7 +76,6 @@ fn test_arclist_graph_cnr2000() {
 
     let arcgraph =
         webgraph::graphs::arc_list_graph::ArcListGraph::new(graph.num_nodes(), arcs.into_iter());
-    let arcgraph = Left(arcgraph);
 
     assert_eq!(arcgraph.num_nodes(), graph.num_nodes());
     test_graph_iters(arcgraph.iter(), graph.iter());
@@ -94,4 +96,28 @@ fn test_arclist_graph_cnr2000() {
             test_graph_iters(iter, titer);
         }
     }
+}
+
+#[test]
+fn test_arc_list_graph() -> anyhow::Result<()> {
+    let arcs = [
+        (0, 1, Some(1.0)),
+        (0, 2, None),
+        (1, 2, Some(2.0)),
+        (2, 4, Some(f64::INFINITY)),
+        (3, 4, Some(f64::NEG_INFINITY)),
+    ];
+    let g = LabeledBTreeGraph::<_>::from_arcs(arcs);
+    let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
+    let g2 = LabeledBTreeGraph::<_>::from_lender(coo.iter());
+
+    graph::eq_labeled(&g, &g2)?;
+
+    let g = LabeledVecGraph::<_>::from_arcs(arcs);
+    let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
+    let g2 = LabeledBTreeGraph::<_>::from_lender(coo.iter());
+
+    graph::eq_labeled(&g, &g2)?;
+
+    Ok(())
 }
