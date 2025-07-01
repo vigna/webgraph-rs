@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::traits::{RandomAccessGraph, RandomAccessLabeling};
 use crate::visits::{
     depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
     Sequential,
@@ -13,7 +14,6 @@ use crate::visits::{
 use sealed::sealed;
 use std::ops::ControlFlow::{self, Continue};
 use sux::bits::BitVec;
-use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling};
 
 /// A depth-first visit which does not keep track of predecessors, or nodes on the stack.
 pub type SeqNoPred<'a, G> = SeqIter<'a, TwoStates, G, (), false>;

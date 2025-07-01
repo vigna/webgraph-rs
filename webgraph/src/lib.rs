@@ -24,6 +24,7 @@ pub mod labels;
 pub mod traits;
 pub mod transform;
 pub mod utils;
+pub mod visits;
 
 pub mod prelude {
     pub use crate::graphs::prelude::*;
@@ -31,4 +32,6 @@ pub mod prelude {
     pub use crate::traits::*;
     pub use crate::transform::*;
     pub use crate::utils::*;
+    pub use crate::visits::breadth_first;
+    pub use crate::visits::depth_first;
 }

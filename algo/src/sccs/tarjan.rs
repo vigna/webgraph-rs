@@ -6,11 +6,11 @@
  */
 
 use super::Sccs;
-use crate::visits::{depth_first::*, Sequential, StoppedWhenDone};
 use dsi_progress_logger::ProgressLog;
 use std::ops::ControlFlow::{Break, Continue};
 use sux::bits::BitVec;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::visits::{depth_first::*, Sequential, StoppedWhenDone};
 
 /// Tarjan's algorithm for strongly connected components.
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {

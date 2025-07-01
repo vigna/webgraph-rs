@@ -5,10 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{
-    prelude::*,
-    visits::breadth_first::{EventNoPred, ParFairNoPred},
-};
+use crate::prelude::*;
 use dsi_progress_logger::ConcurrentProgressLog;
 use no_break::NoBreak;
 use rayon::ThreadPool;
@@ -19,6 +16,10 @@ use std::{
 };
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::visits::{
+    breadth_first::{EventNoPred, ParFairNoPred},
+    Parallel,
+};
 
 /// Connected components of symmetric graphs by parallel visits.
 pub fn symm_par(

@@ -6,14 +6,15 @@
  */
 
 use super::Sccs;
-use crate::{
-    prelude::*,
-    visits::depth_first::{EventNoPred, SeqNoPred},
-};
+use crate::prelude::*;
 use dsi_progress_logger::ProgressLog;
 use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::visits::{
+    depth_first::{EventNoPred, SeqNoPred},
+    Sequential,
+};
 
 /// Computes the strongly connected components of a graph using Kosaraju's algorithm.
 ///

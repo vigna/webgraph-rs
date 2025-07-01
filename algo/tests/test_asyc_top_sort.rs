@@ -8,10 +8,8 @@
 use dsi_progress_logger::no_logging;
 use no_break::NoBreak;
 use webgraph::prelude::VecGraph;
-use webgraph_algo::{
-    prelude::{depth_first, is_acyclic, top_sort},
-    visits::Sequential,
-};
+use webgraph::visits::{depth_first, Sequential};
+use webgraph_algo::prelude::{is_acyclic, top_sort};
 
 #[test]
 fn test_top_sort() {

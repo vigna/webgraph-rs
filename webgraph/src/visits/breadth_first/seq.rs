@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::traits::{RandomAccessGraph, RandomAccessLabeling};
 use crate::visits::{
     breadth_first::{EventPred, FilterArgsPred},
     Sequential,
@@ -13,7 +14,6 @@ use crate::visits::{
 use nonmax::NonMaxUsize;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};
 use sux::bits::BitVec;
-use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling};
 
 /// A sequential breadth-first visit.
 ///

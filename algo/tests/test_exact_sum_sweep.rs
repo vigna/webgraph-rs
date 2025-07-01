@@ -16,10 +16,10 @@ use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::BTreeGraph;
 use webgraph::traits::SequentialLabeling;
 use webgraph::transform::transpose;
+use webgraph::visits::breadth_first::{EventPred, Seq};
+use webgraph::visits::Sequential;
 use webgraph_algo::distances::exact_sum_sweep::*;
-use webgraph_algo::prelude::breadth_first::{EventPred, Seq};
 use webgraph_algo::thread_pool;
-use webgraph_algo::visits::Sequential;
 
 #[test]
 fn test_path() -> Result<()> {

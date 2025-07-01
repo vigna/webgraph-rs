@@ -6,6 +6,7 @@
  */
 
 use crate::visits::{breadth_first::*, Parallel};
+use crate::{traits::RandomAccessGraph, utils::Granularity};
 use parallel_frontier::Frontier;
 use rayon::{prelude::*, ThreadPool};
 use std::{
@@ -13,7 +14,6 @@ use std::{
     sync::atomic::Ordering,
 };
 use sux::bits::AtomicBitVec;
-use webgraph::{traits::RandomAccessGraph, utils::Granularity};
 
 /// Fair parallel breadth-first visits.
 ///

@@ -30,12 +30,11 @@ rand.workspace = true
 log.workspace = true
 rayon.workspace = true
 sync-cell-slice.workspace = true
+no-break.workspace = true
+nonmax.workspace = true
 
-nonmax = "0.5.5"
 sealed = "0.6.0"
 thiserror = "2.0.12"
-parallel_frontier = "0.1.1"
-no-break = "0.1.2"
 kahan = "0.1.4"
 
 [features]

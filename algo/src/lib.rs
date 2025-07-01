@@ -19,13 +19,9 @@ pub mod sccs;
 mod top_sort;
 pub use top_sort::top_sort;
 pub mod distances;
-pub mod visits;
 pub mod prelude {
     pub use crate::acyclicity::is_acyclic;
     pub use crate::sccs::*;
     pub use crate::thread_pool;
     pub use crate::top_sort::top_sort;
-    pub use crate::visits::breadth_first;
-    pub use crate::visits::depth_first;
-    pub use crate::visits::*;
 }

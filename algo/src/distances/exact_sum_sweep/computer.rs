@@ -9,10 +9,6 @@ use crate::{
     distances::exact_sum_sweep::scc_graph::SccGraph,
     sccs::{self, Sccs},
     utils::math,
-    visits::{
-        breadth_first::{EventNoPred, ParFairNoPred},
-        FilterArgs, Parallel,
-    },
 };
 use dsi_progress_logger::*;
 use no_break::NoBreak;
@@ -28,6 +24,10 @@ use std::{
 use sux::bits::AtomicBitVec;
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::visits::{
+    breadth_first::{EventNoPred, ParFairNoPred},
+    FilterArgs, Parallel,
+};
 
 use super::{Level, Missing};
 

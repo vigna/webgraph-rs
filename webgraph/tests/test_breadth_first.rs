@@ -10,13 +10,13 @@ use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_cell_slice::SyncSlice;
+use webgraph::prelude::*;
+use webgraph::thread_pool;
 use webgraph::utils::Granularity;
 use webgraph::{
     prelude::{BvGraph, VecGraph},
     traits::{RandomAccessGraph, SequentialLabeling},
 };
-use webgraph_algo::prelude::*;
-use webgraph_algo::thread_pool;
 
 fn correct_distances<G: RandomAccessGraph>(graph: &G, start: usize) -> Vec<usize> {
     let mut distances = Vec::new();

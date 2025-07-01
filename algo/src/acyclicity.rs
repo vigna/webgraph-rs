@@ -5,13 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{
-    visits::depth_first::{EventPred, SeqPath},
-    visits::{Sequential, StoppedWhenDone},
-};
 use dsi_progress_logger::prelude::*;
 use std::ops::ControlFlow::{Break, Continue};
 use webgraph::traits::RandomAccessGraph;
+use webgraph::{
+    visits::depth_first::{EventPred, SeqPath},
+    visits::{Sequential, StoppedWhenDone},
+};
 
 /// Returns whether the graph is acyclic.
 ///

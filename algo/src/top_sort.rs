@@ -5,14 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{
-    visits::depth_first::SeqPred,
-    visits::{depth_first::*, Sequential},
-};
 use dsi_progress_logger::ProgressLog;
 use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
 use webgraph::traits::RandomAccessGraph;
+use webgraph::{
+    visits::depth_first::SeqPred,
+    visits::{depth_first::*, Sequential},
+};
 
 /// Returns the node of the graph in topological-sort order, if the graph is
 /// acyclic.
