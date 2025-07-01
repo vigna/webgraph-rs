@@ -57,12 +57,12 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 ///   [`Revisit`](`EventPred::Revisit`) is always false.
 /// * [`SeqPath`] generates events of type [`EventPred`].
 ///
-/// With respect to [`EventNoPred`], [`EventPred`] provides the predecessor of the
-/// current node and a [postvisit event](EventPred::Postvisit).
+/// With respect to [`EventNoPred`], [`EventPred`] provides the predecessor of
+/// the current node and a [postvisit event](EventPred::Postvisit).
 ///
 /// If the visit was interrupted, the nodes still on the visit path can be
-/// retrieved using the [`stack`](SeqPred::stack) method (only for [`SeqPred`] and
-/// [`SeqPath`]).
+/// retrieved using the [`stack`](SeqPred::stack) method (only for [`SeqPred`]
+/// and [`SeqPath`]).
 ///
 /// # Examples
 ///
@@ -118,8 +118,8 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// ).continue_value_no_break();
 /// ```
 ///
-/// The [`SeqNoPred`] visit also implements the [`IntoIterator`] trait, so it
-/// can be used in a `for` loop to iterate over all nodes in the order they are
+/// The [`SeqPred`] visit also implements the [`IntoIterator`] trait, so it can
+/// be used in a `for` loop to iterate over all nodes in the order they are
 /// visited:
 ///
 /// ```rust
@@ -127,13 +127,13 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// use webgraph::graphs::vec_graph::VecGraph;
 ///
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
-/// for node in &mut depth_first::SeqNoPred::new(&graph) {
-///    println!("Visited node: {:?}", node);
+/// for event in &mut depth_first::SeqPred::new(&graph) {
+///    println!("Event: {:?}", event);
 /// }
 /// ```
 ///
-/// Note that the iterator modifies the state of the visit, so it can re-use
-/// the allocations. Other visits, i.e. [`SeqPred`] and [`SeqPath`],  do not
+/// Note that the iterator modifies the state of the visit, so it can re-use the
+/// allocations. Other visits, i.e. [`SeqPred`] and [`SeqPath`],  do not
 /// implement the [`IntoIterator`] trait, as they would require to put the
 /// predecessor on the stack, which would need more space than needed.
 pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {

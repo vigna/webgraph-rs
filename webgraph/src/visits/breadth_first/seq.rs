@@ -96,8 +96,8 @@ use sux::bits::BitVec;
 /// use webgraph::graphs::vec_graph::VecGraph;
 ///
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
-/// for node in &mut breadth_first::Seq::new(&graph) {
-///    println!("Visited node: {}", node);
+/// for event in &mut breadth_first::Seq::new(&graph) {
+///    println!("Event: {:?}", event);
 /// }
 /// ```
 ///
