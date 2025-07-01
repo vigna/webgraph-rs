@@ -330,27 +330,31 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
             }
 
             // the successors are exhausted, so we need to move to the next node
-            self.current_node = match self.visit.queue.pop_front() {
-                // if we have a node, we can continue visiting its successors
-                Some(Some(node)) => node.into(),
-                // new level separator, so we increment the distance
-                Some(None) => {
-                    self.distance += 1;
-                    self.visit.queue.push_back(None);
-                    // TODO: this assumes the iter are fuse
-                    continue;
-                }
-                // if the queue is empty, we need to find the next unvisited node
-                None => {
-                    while self.visit.visited[self.start] {
-                        self.start += 1;
-                        if self.start >= self.visit.graph.num_nodes() {
-                            return None;
+            self.current_node = loop {
+                match self.visit.queue.pop_front() {
+                    // if we have a node, we can continue visiting its successors
+                    Some(Some(node)) => break node.into(),
+                    // new level separator, so we increment the distance
+                    Some(None) => {
+                        self.distance += 1;
+                        // if the queue is not empty, we need to add a new level separator
+                        if !self.visit.queue.is_empty() {
+                            self.visit.queue.push_back(None);
                         }
+                        continue;
                     }
-                    self.visit.visited.set(self.start, true);
-                    self.distance = 0; // new visits, new distance
-                    self.start
+                    // if the queue is empty, we need to find the next unvisited node
+                    None => {
+                        while self.visit.visited[self.start] {
+                            self.start += 1;
+                            if self.start >= self.visit.graph.num_nodes() {
+                                return None;
+                            }
+                        }
+                        self.visit.visited.set(self.start, true);
+                        self.distance = 0; // new visits, new distance
+                        break self.start
+                    }
                 }
             };
             // reset the successors iterator for the new current node
