@@ -578,8 +578,8 @@ pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
 /// for the graph. The endianness is checked against the expected one.
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
     let name = path.as_ref().display();
-    let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open property file {name}"))?;
+    let f =
+        std::fs::File::open(&path).with_context(|| format!("Cannot open property file {name}"))?;
     let map = java_properties::read(BufReader::new(f))
         .with_context(|| format!("cannot parse {name} as a java properties file"))?;
 
