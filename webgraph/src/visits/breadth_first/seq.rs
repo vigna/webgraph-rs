@@ -303,6 +303,7 @@ impl<'a, 'b, G: RandomAccessGraph> BfsOrder<'a, 'b, G> {
 }
 
 /// An event returned by the BFS iterator [`BfsOrder`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IterEvent {
     /// The root of the current visit
     pub root: usize,
