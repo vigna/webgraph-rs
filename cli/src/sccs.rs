@@ -13,7 +13,7 @@ use dsi_progress_logger::{progress_logger, ProgressLog};
 use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
-use webgraph_algo::thread_pool;
+use webgraph::thread_pool;
 
 use super::GlobalArgs;
 

@@ -11,10 +11,10 @@ use lender::for_;
 use sux::bit_vec;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::prelude::{BTreeGraph, BvGraph};
+use webgraph::thread_pool;
 use webgraph::transform;
 use webgraph::{graphs::vec_graph::VecGraph, traits::SequentialLabeling};
 use webgraph_algo::sccs::{self, Sccs};
-use webgraph_algo::thread_pool;
 
 #[test]
 fn test_compute_sizes() -> Result<()> {

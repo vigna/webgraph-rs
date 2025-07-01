@@ -22,6 +22,5 @@ pub mod distances;
 pub mod prelude {
     pub use crate::acyclicity::is_acyclic;
     pub use crate::sccs::*;
-    pub use crate::thread_pool;
     pub use crate::top_sort::top_sort;
 }

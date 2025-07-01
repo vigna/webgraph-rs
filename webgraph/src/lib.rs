@@ -23,8 +23,10 @@ pub mod graphs;
 pub mod labels;
 pub mod traits;
 pub mod transform;
-pub mod utils;
 pub mod visits;
+
+#[macro_use]
+pub mod utils;
 
 pub mod prelude {
     pub use crate::graphs::prelude::*;

@@ -16,6 +16,7 @@ use webgraph::utils::Granularity;
 use webgraph::{
     prelude::{BvGraph, VecGraph},
     traits::{RandomAccessGraph, SequentialLabeling},
+    visits::{Parallel, Sequential},
 };
 
 fn correct_distances<G: RandomAccessGraph>(graph: &G, start: usize) -> Vec<usize> {
@@ -422,26 +423,15 @@ macro_rules! test_bfv_algo_par {
     };
 }
 
-test_bfv_algo_seq!(
-    webgraph_algo::prelude::breadth_first::Seq::<_>::new,
-    sequential
-);
+test_bfv_algo_seq!(webgraph::visits::breadth_first::Seq::<_>::new, sequential);
 test_bfv_algo_par!(
     |g| {
-        webgraph_algo::prelude::breadth_first::ParFairPred::with_granularity(
-            g,
-            Granularity::Nodes(32),
-        )
+        webgraph::visits::breadth_first::ParFairPred::with_granularity(g, Granularity::Nodes(32))
     },
     parallel_fair_pred
 );
 test_bfv_algo_par!(
-    |g| {
-        webgraph_algo::prelude::breadth_first::ParLowMem::with_granularity(
-            g,
-            Granularity::Nodes(32),
-        )
-    },
+    |g| { webgraph::visits::breadth_first::ParLowMem::with_granularity(g, Granularity::Nodes(32)) },
     parallel_fast_callback
 );
 
@@ -460,7 +450,7 @@ fn test_start() -> Result<()> {
     graph.add_arc(0, 3);
     graph.add_arc(1, 5);
 
-    let order: Vec<_> = webgraph_algo::visits::breadth_first::Seq::new(&graph)
+    let order: Vec<_> = webgraph::visits::breadth_first::Seq::new(&graph)
         .into_iter()
         .map(|x| x.node)
         .collect();
@@ -485,7 +475,7 @@ fn test_start_orphan() -> Result<()> {
     graph.add_arc(4, 3);
     graph.add_arc(1, 5);
 
-    let order: Vec<_> = webgraph_algo::visits::breadth_first::Seq::new(&graph)
+    let order: Vec<_> = webgraph::visits::breadth_first::Seq::new(&graph)
         .into_iter()
         .map(|x| x.node)
         .collect();

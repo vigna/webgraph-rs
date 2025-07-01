@@ -1233,6 +1233,7 @@ mod test {
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
     use rand::SeedableRng;
+    use webgraph::thread_pool;
     use webgraph::{
         prelude::{BvGraph, DCF},
         traits::SequentialLabeling,

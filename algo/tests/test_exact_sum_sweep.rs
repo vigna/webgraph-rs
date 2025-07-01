@@ -14,12 +14,12 @@ use sux::bits::AtomicBitVec;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::BTreeGraph;
+use webgraph::thread_pool;
 use webgraph::traits::SequentialLabeling;
 use webgraph::transform::transpose;
 use webgraph::visits::breadth_first::{EventPred, Seq};
 use webgraph::visits::Sequential;
 use webgraph_algo::distances::exact_sum_sweep::*;
-use webgraph_algo::thread_pool;
 
 #[test]
 fn test_path() -> Result<()> {
