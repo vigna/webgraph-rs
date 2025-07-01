@@ -6,6 +6,7 @@
  */
 
 //! Facilities to sort externally pairs of nodes with an associated label.
+#![allow(clippy::non_canonical_partial_ord_impl)]
 
 use super::{ArcMmapHelper, MmapHelper};
 use crate::traits::{BitDeserializer, BitSerializer, SortedIterator};
