@@ -75,7 +75,7 @@ use webgraph::{traits::RandomAccessGraph, utils::Granularity};
 ///     [0],
 ///     |event| {
 ///         // Set distance from 0
-///         if let EventNoPred::Unknown { node, distance, ..} = event {
+///         if let EventNoPred::Visit { node, distance, ..} = event {
 ///             // There will be exactly one set for each node
 ///             unsafe { d_sync[node].set(distance) };
 ///         }

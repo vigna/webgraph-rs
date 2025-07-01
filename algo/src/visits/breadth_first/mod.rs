@@ -121,7 +121,7 @@ pub enum EventNoPred {
     /// forward arc, or a cross arc.
     ///
     /// Note however that in parallel contexts it might happen that callback
-    /// with event [`Unknown`](`EventNoPred::Unknown`) has not been called yet
+    /// with event [`Unknown`](`EventNoPred::Visit`) has not been called yet
     /// by the thread who discovered the node.
     Revisit {
         /// The current node.

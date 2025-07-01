@@ -46,7 +46,7 @@ use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling};
 ///     [0],
 ///     |event| {
 ///          // Set distance from 0
-///          if let breadth_first::EventPred::Unknown { node, distance, .. } = event {
+///          if let breadth_first::EventPred::Visit { node, distance, .. } = event {
 ///              d[node] = distance;
 ///          }
 ///          Continue(())
