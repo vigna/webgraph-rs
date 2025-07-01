@@ -40,9 +40,9 @@ use sux::bits::AtomicBitVec;
 /// to store the parent of each node.
 ///
 /// ```
-/// use webgraph_algo::visits::Parallel;
-/// use webgraph_algo::visits::breadth_first::{*, self};
-/// use webgraph_algo::thread_pool;
+/// use webgraph::visits::Parallel;
+/// use webgraph::visits::breadth_first::{*, self};
+/// use webgraph::thread_pool;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::sync::atomic::AtomicUsize;

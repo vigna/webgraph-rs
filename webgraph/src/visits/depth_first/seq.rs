@@ -69,8 +69,8 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// Let's test acyclicity:
 ///
 /// ```
-/// use webgraph_algo::visits::*;
-/// use webgraph_algo::visits::depth_first::*;
+/// use webgraph::visits::*;
+/// use webgraph::visits::depth_first::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::traits::SequentialLabeling;
 /// use webgraph::labels::proj::Left;
@@ -95,8 +95,8 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// topological sort:
 ///
 /// ```
-/// use webgraph_algo::visits::*;
-/// use webgraph_algo::visits::depth_first::*;
+/// use webgraph::visits::*;
+/// use webgraph::visits::depth_first::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use webgraph::traits::labels::SequentialLabeling;
@@ -123,12 +123,12 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// visited:
 ///
 /// ```rust
-/// use webgraph_algo::visits::*;
+/// use webgraph::visits::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 ///
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
 /// for node in &mut depth_first::SeqNoPred::new(&graph) {
-///    println!("Visited node: {}", node);
+///    println!("Visited node: {:?}", node);
 /// }
 /// ```
 ///

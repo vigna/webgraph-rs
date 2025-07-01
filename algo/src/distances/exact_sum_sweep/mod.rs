@@ -32,7 +32,7 @@
 //!
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use webgraph_algo::thread_pool;
+//! use webgraph::thread_pool;
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //! use webgraph::labels::proj::Left;
@@ -70,7 +70,7 @@
 //! Note how certain information is not available if not computed.
 //! ```compile_fail
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use webgraph_algo::thread_pool;
+//! use webgraph::thread_pool;
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //!
@@ -96,7 +96,7 @@
 //! [run_symm](Level::run_symm).
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use webgraph_algo::thread_pool;
+//! use webgraph::thread_pool;
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //!

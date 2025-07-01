@@ -121,12 +121,12 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
 /// There are two forms of this macro:
 /// * Create a [`ThreadPool`](rayon::ThreadPool) with the default settings:
 /// ```
-/// # use webgraph_algo::thread_pool;
+/// # use webgraph::thread_pool;
 /// let t: rayon::ThreadPool = thread_pool![];
 /// ```
 /// * Create a [`ThreadPool`](rayon::ThreadPool) with a given number of threads:
 /// ```
-/// # use webgraph_algo::thread_pool;
+/// # use webgraph::thread_pool;
 /// let t: rayon::ThreadPool = thread_pool![7];
 /// assert_eq!(t.current_num_threads(), 7);
 /// ```

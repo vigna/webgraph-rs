@@ -33,7 +33,7 @@ use sux::bits::BitVec;
 /// Let's compute the distances from 0:
 ///
 /// ```
-/// use webgraph_algo::visits::*;
+/// use webgraph::visits::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::ops::ControlFlow::Continue;
@@ -64,7 +64,7 @@ use sux::bits::BitVec;
 ///
 /// ```
 /// use std::convert::Infallible;
-/// use webgraph_algo::visits::*;
+/// use webgraph::visits::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::ops::ControlFlow::Continue;
@@ -92,7 +92,7 @@ use sux::bits::BitVec;
 /// in a `for` loop to iterate over all nodes in the order they are visited:
 ///
 /// ```rust
-/// use webgraph_algo::visits::*;
+/// use webgraph::visits::*;
 /// use webgraph::graphs::vec_graph::VecGraph;
 ///
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
