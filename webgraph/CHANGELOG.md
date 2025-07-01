@@ -20,6 +20,8 @@
 
 * `ArcListGraph::new` now returns directly a left projection.
 
+* Visits have been moved here.
+
 ### Fixed
 
 * The successors of `LabeledVecGraph` now implement `SortedIterator`.
