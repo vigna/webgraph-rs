@@ -541,8 +541,8 @@ impl<G: RandomAccessGraph> Sequential<EventNoPred> for SeqIter<'_, TwoStates, G,
     }
 }
 
-impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'b mut SeqNoPred<'a, G> {
-    type Item = usize;
+impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'b mut SeqPred<'a, G> {
+    type Item = IterEvent;
     type IntoIter = DfsOrder<'a, 'b, G>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -552,37 +552,48 @@ impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'b mut SeqNoPred<'a, G> {
 
 /// Iterator on **all nodes** of the graph in a DFS order
 pub struct DfsOrder<'a, 'b, G: RandomAccessGraph> {
-    visit: &'b mut SeqNoPred<'a, G>,
-    /// If the queue is empty, resume the DFS from that node.
-    ///
-    /// This allows initializing the DFS from all orphan nodes without reading
-    /// the reverse graph.
-    start: usize,
+    visit: &'b mut SeqPred<'a, G>,
+    /// The root of the current visit
+    root: usize,
     /// Number of visited nodes, used to compute the length of the iterator.
     visited_nodes: usize,
 }
 
 impl<'a, 'b, G: RandomAccessGraph> DfsOrder<'a, 'b, G> {
-    pub fn new(visit: &'b mut SeqNoPred<'a, G>) -> Self {
+    pub fn new(visit: &'b mut SeqPred<'a, G>) -> Self {
         visit.reset(); // ensure we start from a clean state
         DfsOrder {
             visit,
-            start: 0,
+            root: 0,
             visited_nodes: 0,
         }
     }
 }
 
-impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
-    type Item = usize;
+/// An event returned by the DFS iterator [`DfsOrder`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IterEvent {
+    /// The root of the current visit
+    pub root: usize,
+    /// The parent of the current node
+    pub parent: usize,
+    /// The current node being visited
+    pub node: usize,
+    /// The depth of the current node in the DFS tree
+    pub depth: usize,
+}
 
-    fn next(&mut self) -> Option<usize> {
+impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
+    type Item = IterEvent;
+
+    fn next(&mut self) -> Option<Self::Item> {
         let state = &mut self.visit.state;
         let stack = &mut self.visit.stack;
 
         // while we have a stack
-        while let Some((iter, _)) = stack.last_mut() {
-            // and the top has successors
+        while let Some((iter, parent)) = stack.last_mut() {
+            let parent = *parent; // we need to deref
+                                  // and the top has successors
             for succ in iter {
                 // Check if node should be visited
                 if state.known(succ) {
@@ -591,9 +602,14 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
 
                 // First time seeing node
                 state.set_known(succ);
-                stack.push((self.visit.graph.successors(succ).into_iter(), ()));
+                stack.push((self.visit.graph.successors(succ).into_iter(), succ));
                 self.visited_nodes += 1;
-                return Some(succ);
+                return Some(IterEvent {
+                    root: self.root,
+                    parent,
+                    node: succ,
+                    depth: stack.len() - 1,
+                });
             }
             // we exhausted the successors of the top node, so we pop it
             stack.pop();
@@ -601,26 +617,31 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
         // we exhausted the stack, so we need to start a new DFS
 
         // Find the next node that has not been visited yet
-        while self.start < self.visit.graph.num_nodes() && state.known(self.start) {
-            self.start += 1;
+        while self.root < self.visit.graph.num_nodes() && state.known(self.root) {
+            self.root += 1;
         }
 
         // If we have no more nodes to visit, return None
-        if self.start >= self.visit.graph.num_nodes() {
+        if self.root >= self.visit.graph.num_nodes() {
             return None;
         }
 
         // Start a new DFS from the next unvisited node
-        let root = self.start;
-        self.start += 1;
+        let root = self.root;
+        self.root += 1;
         self.visited_nodes += 1;
 
         // Initialize the visit for this root
         state.set_known(root);
-        stack.push((self.visit.graph.successors(root).into_iter(), ()));
+        stack.push((self.visit.graph.successors(root).into_iter(), root));
 
         // return the root node
-        Some(root)
+        Some(IterEvent {
+            root,
+            parent: root,
+            node: root,
+            depth: 0,
+        })
     }
 }
 
