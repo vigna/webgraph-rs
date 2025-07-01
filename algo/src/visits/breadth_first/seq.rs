@@ -119,6 +119,11 @@ impl<'a, G: RandomAccessGraph> Seq<'a, G> {
     /// * `graph`: an immutable reference to the graph to visit.
     pub fn new(graph: &'a G) -> Self {
         let num_nodes = graph.num_nodes();
+        assert_ne!(
+            num_nodes,
+            usize::MAX,
+            "The BFS Seq visit cannot be used on graphs with usize::MAX nodes."
+        );
         Self {
             graph,
             visited: BitVec::new(num_nodes),
@@ -257,7 +262,7 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
 }
 
 impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'a mut Seq<'b, G> {
-    type Item = IterItem;
+    type Item = IterEvent;
     type IntoIter = BfsOrder<'a, 'b, G>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -268,17 +273,15 @@ impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'a mut Seq<'b, G> {
 /// Iterator on **all nodes** of the graph in a BFS order
 pub struct BfsOrder<'a, 'b, G: RandomAccessGraph> {
     visit: &'a mut Seq<'b, G>,
-    /// If the queue is empty, resume the BFS from that node.
-    ///
-    /// This allows initializing the BFS from all orphan nodes without reading
-    /// the reverse graph.
-    start: usize,
-    /// The current node being visited.
-    current_node: usize,
+    /// The root of the current visit.
+    root: usize,
+    /// The current node being enumerated, i.e. the parent of the nodes returned
+    /// by `succ`
+    parent: usize,
     /// The current distance from the root.
     distance: usize,
-    /// The successors of the current node, this is done to be able to return
-    /// also the predecessor.
+    /// The successors of the `parent` node, this is done to be able to return
+    /// also the parent.
     succ: <<G as RandomAccessLabeling>::Labels<'a> as IntoIterator>::IntoIter,
     /// Number of visited nodes, used to compute the length of the iterator.
     visited_nodes: usize,
@@ -290,8 +293,8 @@ impl<'a, 'b, G: RandomAccessGraph> BfsOrder<'a, 'b, G> {
         let succ = visit.graph.successors(0).into_iter();
         BfsOrder {
             visit,
-            start: 0,
-            current_node: 0,
+            root: 0,
+            parent: 0,
             distance: 0,
             succ,
             visited_nodes: 0,
@@ -299,72 +302,105 @@ impl<'a, 'b, G: RandomAccessGraph> BfsOrder<'a, 'b, G> {
     }
 }
 
-pub struct IterItem {
+/// An event returned by the BFS iterator [`BfsOrder`].
+pub struct IterEvent {
+    /// The root of the current visit
+    pub root: usize,
+    /// The parent of the current node
     pub parent: usize,
+    /// The current node being visited
     pub node: usize,
+    /// The distance of the current node from the root
     pub distance: usize,
 }
 
 impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
-    type Item = IterItem;
+    type Item = IterEvent;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // handle the first node separately, as we need to pre-fill the succ
+        // iterator to be able to implement `new`
+        if self.visited_nodes == 0 {
+            self.visited_nodes += 1;
+            self.visit.visited.set(self.root, true);
+            self.visit.queue.push_back(None);
+            return Some(IterEvent {
+                root: self.root,
+                parent: self.root,
+                node: self.root,
+                distance: 0,
+            });
+        }
         loop {
             // fast path, if the successors iterator is not exhausted, we can just return the next node
-            if let Some(succ) = self.succ.next() {
+            for succ in &mut self.succ {
                 if self.visit.visited[succ] {
                     continue; // skip already visited nodes
                 }
+
                 // if it's a new node, we visit it and add it to the queue
                 // of nodes whose successors we will visit
-                self.visit.queue.push_back(Some(
-                    NonMaxUsize::new(succ).expect("node index should never be usize::MAX"),
-                ));
+                let node = NonMaxUsize::new(succ);
+                debug_assert!(node.is_some(), "Node index should never be usize::MAX");
+                let node = unsafe { node.unwrap_unchecked() };
+                self.visit.queue.push_back(Some(node));
+
                 self.visit.visited.set(succ as _, true);
                 self.visited_nodes += 1;
-                return Some(IterItem {
-                    parent: self.current_node,
+                return Some(IterEvent {
+                    root: self.root,
+                    parent: self.parent,
                     node: succ,
                     distance: self.distance,
                 });
             }
 
             // the successors are exhausted, so we need to move to the next node
-            self.current_node = loop {
-                match self.visit.queue.pop_front() {
+            loop {
+                match self.visit.queue.pop_front().expect(
+                    "Queue should never be empty here, as we always add a level separator after the first node.",
+                ) {
                     // if we have a node, we can continue visiting its successors
-                    Some(Some(node)) => break node.into(),
+                    Some(node) => {
+                        self.parent = node.into();
+                        // reset the successors iterator for the new current node
+                        self.succ = self.visit.graph.successors(self.parent).into_iter();
+                        break;
+                    }
                     // new level separator, so we increment the distance
-                    Some(None) => {
-                        self.distance += 1;
+                    None => {
                         // if the queue is not empty, we need to add a new level separator
                         if !self.visit.queue.is_empty() {
+                            self.distance += 1;
                             self.visit.queue.push_back(None);
+                            continue;
                         }
-                        continue;
-                    }
-                    // if the queue is empty, we need to find the next unvisited node
-                    None => {
-                        while self.visit.visited[self.start] {
-                            self.start += 1;
-                            if self.start >= self.visit.graph.num_nodes() {
+                        self.distance = 0; // new visits, new distance
+
+                        // the queue is empty, we need to find the next unvisited node
+                        while self.visit.visited[self.root] {
+                            self.root += 1;
+                            if self.root >= self.visit.graph.num_nodes() {
                                 return None;
                             }
                         }
-                        self.visit.visited.set(self.start, true);
-                        self.distance = 0; // new visits, new distance
-                        break self.start
+
+                        self.visited_nodes += 1;
+                        self.visit.visited.set(self.root, true);
+                        self.visit.queue.push_back(None);
+
+                        self.parent = self.root;
+                        self.succ = self.visit.graph.successors(self.root).into_iter();
+
+                        return Some(IterEvent {
+                            root: self.root,
+                            parent: self.root,
+                            node: self.root,
+                            distance: self.distance,
+                        });
                     }
                 }
-            };
-            // reset the successors iterator for the new current node
-            self.succ = self.visit.graph.successors(self.current_node).into_iter();
-            self.visited_nodes += 1;
-            return Some(IterItem {
-                parent: self.current_node,
-                node: self.current_node,
-                distance: self.distance,
-            });
+            }
         }
     }
 }
