@@ -13,7 +13,7 @@ use crate::visits::{
 use nonmax::NonMaxUsize;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};
 use sux::bits::BitVec;
-use webgraph::traits::RandomAccessGraph;
+use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling};
 
 /// A sequential breadth-first visit.
 ///
@@ -103,8 +103,8 @@ use webgraph::traits::RandomAccessGraph;
 ///
 /// Note that the iterator modifies the state of the visit, so it can re-use
 /// the allocations.
-pub struct Seq<G: RandomAccessGraph> {
-    graph: G,
+pub struct Seq<'a, G: RandomAccessGraph> {
+    graph: &'a G,
     visited: BitVec,
     /// The visit queue; to avoid storing distances, we use `None` as a
     /// separator between levels. [`NonMaxUsize`] is used to avoid
@@ -112,12 +112,12 @@ pub struct Seq<G: RandomAccessGraph> {
     queue: VecDeque<Option<NonMaxUsize>>,
 }
 
-impl<G: RandomAccessGraph> Seq<G> {
+impl<'a, G: RandomAccessGraph> Seq<'a, G> {
     /// Creates a new sequential visit.
     ///
     /// # Arguments
     /// * `graph`: an immutable reference to the graph to visit.
-    pub fn new(graph: G) -> Self {
+    pub fn new(graph: &'a G) -> Self {
         let num_nodes = graph.num_nodes();
         Self {
             graph,
@@ -127,7 +127,7 @@ impl<G: RandomAccessGraph> Seq<G> {
     }
 }
 
-impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
+impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
     fn visit_filtered_with<
         R: IntoIterator<Item = usize>,
         T,
@@ -256,9 +256,9 @@ impl<G: RandomAccessGraph> Sequential<EventPred> for Seq<G> {
     }
 }
 
-impl<'a, G: RandomAccessGraph> IntoIterator for &'a mut Seq<G> {
+impl<'a, 'b, G: RandomAccessGraph> IntoIterator for &'a mut Seq<'b, G> {
     type Item = usize;
-    type IntoIter = BfsOrder<'a, G>;
+    type IntoIter = BfsOrder<'a, 'b, G>;
 
     fn into_iter(self) -> Self::IntoIter {
         BfsOrder::new(self)
@@ -266,29 +266,32 @@ impl<'a, G: RandomAccessGraph> IntoIterator for &'a mut Seq<G> {
 }
 
 /// Iterator on **all nodes** of the graph in a BFS order
-pub struct BfsOrder<'a, G: RandomAccessGraph> {
-    visit: &'a mut Seq<G>,
+pub struct BfsOrder<'a, 'b, G: RandomAccessGraph> {
+    visit: &'a mut Seq<'b, G>,
     /// If the queue is empty, resume the BFS from that node.
     ///
     /// This allows initializing the BFS from all orphan nodes without reading
     /// the reverse graph.
     start: usize,
+    succ: <<G as RandomAccessLabeling>::Labels<'a> as IntoIterator>::IntoIter,
     /// Number of visited nodes, used to compute the length of the iterator.
     visited_nodes: usize,
 }
 
-impl<G: RandomAccessGraph> BfsOrder<'_, G> {
-    pub fn new(visit: &mut Seq<G>) -> BfsOrder<G> {
+impl<'a, 'b, G: RandomAccessGraph> BfsOrder<'a, 'b, G> {
+    pub fn new(visit: &'a mut Seq<'b, G>) -> BfsOrder<'a, 'b, G> {
         visit.reset(); // ensure we start from a clean state
+        let succ = visit.graph.successors(0).into_iter();
         BfsOrder {
             visit,
             start: 0,
+            succ,
             visited_nodes: 0,
         }
     }
 }
 
-impl<G: RandomAccessGraph> Iterator for BfsOrder<'_, G> {
+impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
     type Item = usize;
 
     fn next(&mut self) -> Option<usize> {
@@ -317,7 +320,7 @@ impl<G: RandomAccessGraph> Iterator for BfsOrder<'_, G> {
     }
 }
 
-impl<G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'_, G> {
+impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, 'b, G> {
     fn len(&self) -> usize {
         self.visit.graph.num_nodes() - self.visited_nodes
     }
