@@ -462,6 +462,7 @@ fn test_start() -> Result<()> {
 
     let order: Vec<_> = webgraph_algo::visits::breadth_first::Seq::new(&graph)
         .into_iter()
+        .map(|x| x.node)
         .collect();
 
     assert_eq!(order, vec![0, 2, 3, 1, 5, 4]);
@@ -486,6 +487,7 @@ fn test_start_orphan() -> Result<()> {
 
     let order: Vec<_> = webgraph_algo::visits::breadth_first::Seq::new(&graph)
         .into_iter()
+        .map(|x| x.node)
         .collect();
 
     assert_eq!(order, vec![0, 4, 2, 3, 1, 5]);
