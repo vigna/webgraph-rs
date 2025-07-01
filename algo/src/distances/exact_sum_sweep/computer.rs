@@ -508,7 +508,7 @@ impl<
                 [v],
                 pl.clone(),
                 |pl, event| {
-                    if let EventNoPred::Unknown { node, .. } = event {
+                    if let EventNoPred::Visit { node, .. } = event {
                         pl.light_update();
                         radial_vertices.set(node, true, Ordering::Relaxed)
                     }
@@ -576,7 +576,7 @@ impl<
                 [start],
                 pl.clone(),
                 |pl, event| {
-                    if let EventNoPred::Unknown { node, distance, .. } = event {
+                    if let EventNoPred::Visit { node, distance, .. } = event {
                         pl.light_update();
                         // Safety for unsafe blocks: each node gets accessed exactly once, so no data races can happen
                         max_dist.fetch_max(distance, Ordering::Relaxed);
@@ -655,7 +655,7 @@ impl<
                 [start],
                 pl.clone(),
                 |pl, event| {
-                    if let EventNoPred::Unknown { node, distance, .. } = event {
+                    if let EventNoPred::Visit { node, distance, .. } = event {
                         // SAFETY: each node gets accessed exactly once, so no data races can happen
                         pl.light_update();
                         max_dist.fetch_max(distance, Ordering::Relaxed);
@@ -759,7 +759,7 @@ impl<
                 bfs.par_visit_filtered(
                     [p],
                     |event| {
-                        if let EventNoPred::Unknown { node, distance, .. } = event {
+                        if let EventNoPred::Visit { node, distance, .. } = event {
                             // Safety: each node is accessed exactly once
                             unsafe { dist_pivot_mut[node].set(distance) };
                             component_ecc_pivot.store(distance, Ordering::Relaxed);

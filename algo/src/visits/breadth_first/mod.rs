@@ -14,7 +14,7 @@
 //!
 //! Note that since [`EventPred`] contains the predecessor of the visited node,
 //! all post-initialization visit events can be interpreted as arc events. The
-//! only exception is the [`Unknown`](EventPred::Unknown) event at the root.
+//! only exception is the [`Visit`](EventPred::Visit) event at the root.
 
 mod seq;
 pub use seq::*;
@@ -36,10 +36,12 @@ pub enum EventPred {
     Init {},
     /// The node has been encountered for the first time: we are traversing a
     /// new tree arc, unless all node fields are equal to the root.
-    Unknown {
+    Visit {
         /// The current node.
         node: usize,
-        /// The predecessor of [node](`EventPred::Unknown::node`).
+        /// The parent of [node](`EventPred::Visit::node`) in the visit tree,
+        /// or [`node`](`EventPred::Visit::node`) if
+        /// [`node`](`EventPred::Visit::node`) is one of the roots.
         pred: usize,
         /// The distance of the current node from the roots.
         distance: usize,
@@ -48,12 +50,12 @@ pub enum EventPred {
     /// forward arc, or a cross arc.
     ///
     /// Note however that in parallel contexts it might happen that callback
-    /// with event [`Unknown`](`EventPred::Unknown`) has not been called yet by
+    /// with event [`Visit`](`EventPred::Visit`) has not been called yet by
     /// the thread who discovered the node.
-    Known {
+    Revisit {
         /// The current node.
         node: usize,
-        /// The predecessor of [node](`EventPred::Known::node`).
+        /// The predecessor of [node](`EventPred::Revisit::node`).
         pred: usize,
     },
     /// The size of the frontier at a given distance.
@@ -108,8 +110,8 @@ pub enum EventNoPred {
     /// is, all of the roots are already visited or filtered.
     Init {},
     /// The node has been encountered for the first time: we are traversing a
-    /// new tree arc, unless all node fields are equal to the root.
-    Unknown {
+    /// new tree arc, unless the node is one of the roots.
+    Visit {
         /// The current node.
         node: usize,
         /// The distance of the current node from the roots.
@@ -121,7 +123,7 @@ pub enum EventNoPred {
     /// Note however that in parallel contexts it might happen that callback
     /// with event [`Unknown`](`EventNoPred::Unknown`) has not been called yet
     /// by the thread who discovered the node.
-    Known {
+    Revisit {
         /// The current node.
         node: usize,
     },

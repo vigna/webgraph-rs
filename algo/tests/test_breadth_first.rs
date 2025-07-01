@@ -98,8 +98,7 @@ macro_rules! test_bfv_algo_seq {
                 for root in 0..graph.num_nodes() {
                     visit
                         .visit([root], |event| {
-                            if let breadth_first::EventPred::Unknown { node, distance, .. } = event
-                            {
+                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
                                 distances[node].store(distance, Ordering::Relaxed);
                             }
                             Continue(())
@@ -122,7 +121,7 @@ macro_rules! test_bfv_algo_seq {
 
                 visit
                     .visit([0, 3], |event| {
-                        if let breadth_first::EventPred::Unknown { node, distance, .. } = event {
+                        if let breadth_first::EventPred::Visit { node, distance, .. } = event {
                             distances[node] = distance;
                         }
                         Continue(())
@@ -147,8 +146,7 @@ macro_rules! test_bfv_algo_seq {
                     let root = (i + 10000) % graph.num_nodes();
                     visit
                         .visit([root], |event| {
-                            if let breadth_first::EventPred::Unknown { node, distance, .. } = event
-                            {
+                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
                                 distances[node].store(distance, Ordering::Relaxed);
                             }
                             Continue(())
@@ -172,7 +170,7 @@ macro_rules! test_bfv_algo_seq {
 
                 visit
                     .visit([0], |event| {
-                        if let breadth_first::EventPred::Unknown { distance, .. } = event {
+                        if let breadth_first::EventPred::Visit { distance, .. } = event {
                             *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
                         }
                         if let breadth_first::EventPred::FrontierSize { distance, size } = event {
@@ -196,7 +194,7 @@ macro_rules! test_bfv_algo_seq {
 
                 visit
                     .visit([0, graph.num_nodes() / 2, graph.num_nodes() - 1], |event| {
-                        if let breadth_first::EventPred::Unknown { distance, .. } = event {
+                        if let breadth_first::EventPred::Visit { distance, .. } = event {
                             *expected_distance_to_quantity.entry(distance).or_insert(0) += 1;
                         }
                         if let breadth_first::EventPred::FrontierSize { distance, size } = event {
@@ -254,9 +252,8 @@ macro_rules! test_bfv_algo_par {
                         .par_visit(
                             [root],
                             |event| {
-                                if let breadth_first::EventPred::Unknown {
-                                    node, distance, ..
-                                } = event
+                                if let breadth_first::EventPred::Visit { node, distance, .. } =
+                                    event
                                 {
                                     distances[node].store(distance, Ordering::Relaxed);
                                 }
@@ -285,8 +282,7 @@ macro_rules! test_bfv_algo_par {
                     .par_visit(
                         [0, 3],
                         |event| {
-                            if let breadth_first::EventPred::Unknown { node, distance, .. } = event
-                            {
+                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
                                 unsafe { sync_distances[node].set(distance) };
                             }
                             Continue(())
@@ -316,9 +312,8 @@ macro_rules! test_bfv_algo_par {
                         .par_visit(
                             [root],
                             |event| {
-                                if let breadth_first::EventPred::Unknown {
-                                    node, distance, ..
-                                } = event
+                                if let breadth_first::EventPred::Visit { node, distance, .. } =
+                                    event
                                 {
                                     distances[node].store(distance, Ordering::Relaxed);
                                 }
@@ -351,7 +346,7 @@ macro_rules! test_bfv_algo_par {
                     .par_visit(
                         [0],
                         |event| {
-                            if let breadth_first::EventPred::Unknown { distance, .. } = event {
+                            if let breadth_first::EventPred::Visit { distance, .. } = event {
                                 *expected_distance_to_quantity
                                     .lock()
                                     .unwrap()
@@ -395,7 +390,7 @@ macro_rules! test_bfv_algo_par {
                     .par_visit(
                         [0, graph.num_nodes() / 2, graph.num_nodes() - 1],
                         |event| {
-                            if let breadth_first::EventPred::Unknown { distance, .. } = event {
+                            if let breadth_first::EventPred::Visit { distance, .. } = event {
                                 *expected_distance_to_quantity
                                     .lock()
                                     .unwrap()

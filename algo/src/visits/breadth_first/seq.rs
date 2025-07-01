@@ -60,7 +60,7 @@ use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling};
 /// minimize resource usage, we count nodes in the filter function, rather than
 /// as the result of an event. In this way, node at distance two are counted but
 /// not included in the queue, as it would happen if we were counting during an
-/// [`EventPred::Unknown`] event.
+/// [`EventPred::Visit`] event.
 ///
 /// ```
 /// use std::convert::Infallible;
@@ -169,7 +169,7 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
 
             callback(
                 &mut init,
-                EventPred::Unknown {
+                EventPred::Visit {
                     node: root,
                     pred: root,
                     distance: 0,
@@ -212,7 +212,7 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
                                 self.visited.set(succ, true);
                                 callback(
                                     &mut init,
-                                    EventPred::Unknown {
+                                    EventPred::Visit {
                                         node,
                                         pred,
 
@@ -225,7 +225,7 @@ impl<'a, G: RandomAccessGraph> Sequential<EventPred> for Seq<'a, G> {
                                 ))
                             }
                         } else {
-                            callback(&mut init, EventPred::Known { node, pred })?;
+                            callback(&mut init, EventPred::Revisit { node, pred })?;
                         }
                     }
                 }

@@ -202,7 +202,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                     .chunks(self.granularity)
                     .try_for_each_with(init.clone(), |init, chunk| {
                         chunk.into_iter().try_for_each(|&node| {
-                            callback(init, EventNoPred::Unknown { node, distance })?;
+                            callback(init, EventNoPred::Visit { node, distance })?;
                             self.graph
                                 .successors(node)
                                 .into_iter()
@@ -219,7 +219,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                                         if !self.visited.swap(succ, true, Ordering::Relaxed) {
                                             next_frontier.push(succ);
                                         } else {
-                                            callback(init, EventNoPred::Known { node })?;
+                                            callback(init, EventNoPred::Revisit { node })?;
                                         }
                                     }
 
@@ -313,7 +313,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
                         chunk.into_iter().try_for_each(|&(node, pred)| {
                             callback(
                                 init,
-                                EventPred::Unknown {
+                                EventPred::Visit {
                                     node,
                                     pred,
                                     distance,
@@ -335,7 +335,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
                                         if !self.visited.swap(succ, true, Ordering::Relaxed) {
                                             next_frontier.push((node, pred));
                                         } else {
-                                            callback(init, EventPred::Known { node, pred })?;
+                                            callback(init, EventPred::Revisit { node, pred })?;
                                         }
                                     }
 

@@ -325,7 +325,7 @@ fn test_er() -> Result<()> {
         let mut ecc = [0; 100];
         for root in 0..100 {
             pll.visit([root], |event| {
-                if let EventPred::Unknown { distance, .. } = event {
+                if let EventPred::Visit { distance, .. } = event {
                     ecc[root] = ecc[root].max(distance);
                 }
                 Continue(())

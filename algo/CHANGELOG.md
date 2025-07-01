@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.3.0] -
+
+### Changed
+
+* Visits have been moved to the main WebGraph crate.
+
 ## [0.2.0] - 2025-05-23
 
 ### Changed

@@ -76,7 +76,9 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
                         }
                     }
                 }
-                EventPred::Postvisit { node, pred, .. } => {
+                EventPred::Postvisit {
+                    node, parent: pred, ..
+                } => {
                     // Safe as the stack is never empty
                     if lead.pop().unwrap() {
                         // Set the component index of nodes in the component

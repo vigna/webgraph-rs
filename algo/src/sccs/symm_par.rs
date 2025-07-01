@@ -47,7 +47,7 @@ pub fn symm_par(
                 |pl, event| {
                     match event {
                         EventNoPred::Init { .. } => {}
-                        EventNoPred::Unknown { node, .. } => {
+                        EventNoPred::Visit { node, .. } => {
                             pl.light_update();
                             unsafe {
                                 slice[node].set(MaybeUninit::new(

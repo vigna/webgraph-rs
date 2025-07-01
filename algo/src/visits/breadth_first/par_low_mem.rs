@@ -60,7 +60,7 @@ use webgraph::{traits::RandomAccessGraph, utils::Granularity};
 ///     |event|
 ///     {
 ///         // Store the parent
-///         if let EventPred::Unknown { node, pred, ..} = event {
+///         if let EventPred::Visit { node, pred, ..} = event {
 ///             // There will be exactly one set for each node
 ///             unsafe { tree_sync[node].set(pred) };
 ///         }
@@ -155,7 +155,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
 
             callback(
                 &mut init,
-                EventPred::Unknown {
+                EventPred::Visit {
                     node: root,
                     pred: root,
                     distance: 0,
@@ -206,7 +206,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                                         if !self.visited.swap(succ, true, Ordering::Relaxed) {
                                             callback(
                                                 init,
-                                                EventPred::Unknown {
+                                                EventPred::Visit {
                                                     node,
                                                     pred,
                                                     distance,
@@ -214,7 +214,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                                             )?;
                                             next_frontier.push(succ);
                                         } else {
-                                            callback(init, EventPred::Known { node, pred })?;
+                                            callback(init, EventPred::Revisit { node, pred })?;
                                         }
                                     }
 
