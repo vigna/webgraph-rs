@@ -34,8 +34,8 @@ fn test_dfs_order() {
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (6, 8), (7, 6)]);
 
     let mut order = vec![0; graph.num_nodes()];
-    for (i, node) in depth_first::SeqNoPred::new(&graph).into_iter().enumerate() {
-        order[i] = node;
+    for (i, event) in depth_first::SeqPred::new(&graph).into_iter().enumerate() {
+        order[i] = event.node;
     }
 
     assert_eq!(order, vec![0, 1, 3, 4, 2, 5, 6, 8, 7]);
