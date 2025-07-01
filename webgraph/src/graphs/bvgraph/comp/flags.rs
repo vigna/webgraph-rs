@@ -96,8 +96,8 @@ impl CompFlags {
         }
         s.push_str(&format!("endianness={}\n", E::NAME));
 
-        s.push_str(&format!("nodes={}\n", num_nodes));
-        s.push_str(&format!("arcs={}\n", num_arcs));
+        s.push_str(&format!("nodes={num_nodes}\n"));
+        s.push_str(&format!("arcs={num_arcs}\n"));
         s.push_str(&format!("minintervallength={}\n", self.min_interval_length));
         s.push_str(&format!("maxrefcount={}\n", self.max_ref_count));
         s.push_str(&format!("windowsize={}\n", self.compression_window));
@@ -109,7 +109,7 @@ impl CompFlags {
             "bitspernode={}\n",
             bitstream_len as f64 / num_nodes as f64
         ));
-        s.push_str(&format!("length={}\n", bitstream_len));
+        s.push_str(&format!("length={bitstream_len}\n"));
 
         fn stirling(n: u64) -> f64 {
             let n = n as f64;

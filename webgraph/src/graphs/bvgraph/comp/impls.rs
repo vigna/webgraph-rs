@@ -166,9 +166,7 @@ impl BvComp<()> {
         if let Some(num_nodes) = num_nodes {
             if num_nodes != real_num_nodes {
                 log::warn!(
-                    "The expected number of nodes is {} but the actual number of nodes is {}",
-                    num_nodes,
-                    real_num_nodes
+                    "The expected number of nodes is {num_nodes} but the actual number of nodes is {real_num_nodes}"
                 );
             }
         }
@@ -288,7 +286,7 @@ impl BvComp<()> {
 
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let thread_path = |thread_id: usize| tmp_dir.join(format!("{:016x}.bitstream", thread_id));
+        let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
         threads.in_place_scope(|s| {
             let cp_flags = &compression_flags;
@@ -300,7 +298,7 @@ impl BvComp<()> {
                 let tx = tx.clone();
                 // Spawn the thread
                 s.spawn(move |_| {
-                    log::info!("Thread {} started", thread_id);
+                    log::info!("Thread {thread_id} started");
                     let first_node;
                     let mut bvcomp;
                     let mut offsets_writer;
@@ -346,10 +344,7 @@ impl BvComp<()> {
                     offsets_writer.flush().unwrap();
 
                     log::info!(
-                        "Finished Compression thread {} and wrote {} bits for the graph and {} bits for the offsets",
-                        thread_id,
-                        written_bits,
-                        offsets_written_bits,
+                        "Finished Compression thread {thread_id} and wrote {written_bits} bits for the graph and {offsets_written_bits} bits for the offsets",
                     );
                     tx.send(Job {
                         job_id: thread_id,

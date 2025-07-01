@@ -247,8 +247,8 @@ pub fn eq_succs<L: PartialEq + std::fmt::Debug>(
                     return Err(EqError::Successors {
                         node,
                         index,
-                        first: format!("{:?}", s0),
-                        second: format!("{:?}", s1),
+                        first: format!("{s0:?}"),
+                        second: format!("{s1:?}"),
                     });
                 }
             }
@@ -529,8 +529,8 @@ where
                         return Err(CheckImplError::Successors {
                             node,
                             index,
-                            sequential: format!("{:?}", s0),
-                            random_access: format!("{:?}", s1),
+                            sequential: format!("{s0:?}"),
+                            random_access: format!("{s1:?}"),
                         });
                     }
                 }

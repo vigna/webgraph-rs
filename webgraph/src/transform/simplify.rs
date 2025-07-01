@@ -128,13 +128,13 @@ where
         for iter in graph.split_iter(num_threads) {
             let tx = tx.clone();
             let dir = Builder::new()
-                .prefix(&format!("simplify_split_{}_", thread_id))
+                .prefix(&format!("simplify_split_{thread_id}_"))
                 .tempdir()
                 .expect("Could not create a temporary directory");
             let dir_path = dir.path().to_path_buf();
             dirs.push(dir);
             scope.spawn(move |_| {
-                log::debug!("Spawned thread {}", thread_id);
+                log::debug!("Spawned thread {thread_id}");
                 let mut sorted = SortPairs::new(batch_size / num_threads, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
@@ -146,7 +146,7 @@ where
                 });
                 let result = sorted.iter().context("Could not read arcs").unwrap();
                 tx.send(result).expect("Could not send the sorted pairs");
-                log::debug!("Thread {} finished", thread_id);
+                log::debug!("Thread {thread_id} finished");
             });
             thread_id += 1;
         }

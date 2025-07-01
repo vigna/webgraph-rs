@@ -121,7 +121,7 @@ impl<W> MmapHelper<W> {
         let mmap = unsafe {
             // Length must be > 0, or we get a panic.
             mmap_rs::MmapOptions::new(mmap_len.max(size_of::<W>()))
-                .with_context(|| format!("Cannot initialize mmap of size {}", mmap_len))?
+                .with_context(|| format!("Cannot initialize mmap of size {mmap_len}"))?
                 .with_flags(flags)
                 .with_file(&file, 0)
                 .map()
@@ -179,7 +179,7 @@ impl<W> MmapHelper<W, MmapMut> {
 
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(mmap_len.max(1))
-                .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
+                .with_context(|| format!("Cannot initialize mmap of size {file_len}"))?
                 .with_flags(flags)
                 .with_file(&file, 0)
                 .map_mut()
@@ -226,7 +226,7 @@ impl<W> MmapHelper<W, MmapMut> {
         }
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)
-                .with_context(|| format!("Cannot initialize mmap of size {}", file_len))?
+                .with_context(|| format!("Cannot initialize mmap of size {file_len}"))?
                 .with_flags(flags)
                 .with_file(&file, 0)
                 .map_mut()

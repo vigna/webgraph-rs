@@ -206,7 +206,7 @@ where
     /// Cancels all the files that were created.
     pub fn delete_batches(&mut self) -> anyhow::Result<()> {
         for i in 0..self.num_batches {
-            let batch_name = self.dir.join(format!("{:06x}", i));
+            let batch_name = self.dir.join(format!("{i:06x}"));
             // It's OK if something is not OK here
             std::fs::remove_file(&batch_name)
                 .with_context(|| format!("Could not remove file {}", batch_name.display()))?;
@@ -222,7 +222,7 @@ where
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
             BatchIterator::new_labeled(
-                self.dir.join(format!("{:06x}", batch_idx)),
+                self.dir.join(format!("{batch_idx:06x}")),
                 if batch_idx == self.num_batches - 1 {
                     self.last_batch_len
                 } else {
@@ -328,7 +328,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
             // write the source gap as gamma
             stream
                 .write_gamma((src - prev_src) as _)
-                .with_context(|| format!("Could not write {} after {}", src, prev_src))?;
+                .with_context(|| format!("Could not write {src} after {prev_src}"))?;
             if *src != prev_src {
                 // Reset prev_y
                 prev_dst = 0;
@@ -336,7 +336,7 @@ impl<D: BitDeserializer<NE, BitReader>> BatchIterator<D> {
             // write the destination gap as gamma
             stream
                 .write_gamma((dst - prev_dst) as _)
-                .with_context(|| format!("Could not write {} after {}", dst, prev_dst))?;
+                .with_context(|| format!("Could not write {dst} after {prev_dst}"))?;
             // write the label
             serializer
                 .serialize(label, &mut stream)

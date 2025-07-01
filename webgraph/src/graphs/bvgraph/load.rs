@@ -579,22 +579,22 @@ pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
     let name = path.as_ref().display();
     let f = std::fs::File::open(&path)
-        .with_context(|| format!("Cannot open property file {}", name))?;
+        .with_context(|| format!("Cannot open property file {name}"))?;
     let map = java_properties::read(BufReader::new(f))
-        .with_context(|| format!("cannot parse {} as a java properties file", name))?;
+        .with_context(|| format!("cannot parse {name} as a java properties file"))?;
 
     let num_nodes = map
         .get("nodes")
-        .with_context(|| format!("Missing 'nodes' property in {}", name))?
+        .with_context(|| format!("Missing 'nodes' property in {name}"))?
         .parse::<usize>()
-        .with_context(|| format!("Cannot parse 'nodes' as usize in {}", name))?;
+        .with_context(|| format!("Cannot parse 'nodes' as usize in {name}"))?;
     let num_arcs = map
         .get("arcs")
-        .with_context(|| format!("Missing 'arcs' property in {}", name))?
+        .with_context(|| format!("Missing 'arcs' property in {name}"))?
         .parse::<u64>()
-        .with_context(|| format!("Cannot parse arcs as usize in {}", name))?;
+        .with_context(|| format!("Cannot parse arcs as usize in {name}"))?;
 
     let comp_flags = CompFlags::from_properties::<E>(&map)
-        .with_context(|| format!("Cannot parse compression flags from {}", name))?;
+        .with_context(|| format!("Cannot parse compression flags from {name}"))?;
     Ok((num_nodes, num_arcs, comp_flags))
 }
