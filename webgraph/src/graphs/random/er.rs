@@ -64,7 +64,7 @@ impl SequentialLabeling for ErdosRenyi {
 }
 
 unsafe impl SortedLender for Iter {}
-unsafe impl SortedIterator for <Succ as IntoIterator>::IntoIter {}
+unsafe impl SortedIterator for SuccIntoIter {}
 
 #[derive(Debug, Clone)]
 pub struct Iter {
