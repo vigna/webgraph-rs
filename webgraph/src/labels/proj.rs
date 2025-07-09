@@ -415,12 +415,3 @@ where
 impl<S: SequentialLabeling> SequentialGraph for Right<S> where S::Label: Pair<Right = usize> {}
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}
-
-unsafe impl<L: SortedLender> SortedLender for RightIterator<L>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-    for<'next> LenderLabel<'next, L>: Pair,
-{
-}
-
-unsafe impl<I: SortedIterator> SortedIterator for RightIntoIter<I> where I::Item: Pair {}
