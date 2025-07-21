@@ -11,6 +11,7 @@ use crate::visits::{
     breadth_first::{EventPred, FilterArgsPred},
     Sequential,
 };
+use anyhow::Result;
 use nonmax::NonMaxUsize;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};
 use sux::bits::BitVec;
@@ -129,6 +130,14 @@ impl<'a, G: RandomAccessGraph> Seq<'a, G> {
             visited: BitVec::new(num_nodes),
             queue: VecDeque::new(),
         }
+    }
+
+    /// Returns an iterator over the nodes visited by a BFS visit starting in parallel from multiple nodes.
+    pub fn iter_from_roots(
+        &mut self,
+        roots: impl IntoIterator<Item = usize>,
+    ) -> Result<BfsOrderFromRoots<'_, 'a, G>> {
+        BfsOrderFromRoots::new(self, roots)
     }
 }
 
@@ -409,5 +418,133 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
 impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, 'b, G> {
     fn len(&self) -> usize {
         self.visit.graph.num_nodes() - self.visited_nodes
+    }
+}
+
+/// Iterator on the nodes reachable from the given roots in a BFS order
+pub struct BfsOrderFromRoots<'a, 'b, G: RandomAccessGraph> {
+    visit: &'a mut Seq<'b, G>,
+    /// The current node being enumerated, i.e. the parent of the nodes returned
+    /// by `succ`
+    parent: usize,
+    /// The current distance from the root.
+    distance: usize,
+    /// The successors of the `parent` node, this is done to be able to return
+    /// also the parent.
+    succ: <<G as RandomAccessLabeling>::Labels<'a> as IntoIterator>::IntoIter,
+}
+
+/// An event returned by the BFS iterator that starts from possibly multiple roots [`BfsOrderFromRoots`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IterFromRootsEvent {
+    /// The parent of the current node
+    pub parent: usize,
+    /// The current node being visited
+    pub node: usize,
+    /// The distance of the current node from the root
+    pub distance: usize,
+}
+
+impl<'a, 'b, G: RandomAccessGraph> BfsOrderFromRoots<'a, 'b, G> {
+    pub fn new(
+        visit: &'a mut Seq<'b, G>,
+        roots: impl IntoIterator<Item = usize>,
+    ) -> Result<BfsOrderFromRoots<'a, 'b, G>> {
+        visit.reset(); // ensure we start from a clean state
+                       // put the roots in the queue, and add a level separator
+        visit.queue.extend(
+            roots
+                .into_iter()
+                .map(|root| Some(NonMaxUsize::new(root).unwrap())),
+        );
+        visit.queue.push_back(None);
+
+        // setup the succ iterator for after we finish visiting the roots
+        let first_root: usize = visit.queue[0].unwrap().into();
+        let succ = visit.graph.successors(first_root).into_iter();
+        Ok(BfsOrderFromRoots {
+            visit,
+            parent: first_root,
+            distance: 0,
+            succ,
+        })
+    }
+}
+
+impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrderFromRoots<'a, 'b, G> {
+    type Item = IterFromRootsEvent;
+    fn next(&mut self) -> Option<Self::Item> {
+        // if the distance is zero, we are visiting the roots, so we need to
+        // return the roots as the first nodes, and put themself as their parents
+        // and then re-enqueue them so we can visit their successors
+        if self.distance == 0 {
+            // we always put the None level separator at the end of the queue, so there will
+            // always be at least one element in the queue
+            let element = self.visit.queue.pop_front().unwrap();
+
+            if let Some(node) = element {
+                let node = node.into();
+                self.visit.visited.set(node, true);
+                self.visit.queue.push_back(element); // re-enqueue the node to visit its successors later
+                return Some(IterFromRootsEvent {
+                    parent: node,
+                    node,
+                    distance: 0,
+                });
+            } else {
+                // finished the roots
+                // add a level separator so we know where the distance 1 nodes start
+                self.visit.queue.push_back(None);
+                // succ and parent were already set to the first root, so we can fall through
+            }
+        }
+
+        loop {
+            // now that the roots are handled, we can proceed as the BFSOrder
+            for succ in &mut self.succ {
+                if self.visit.visited[succ] {
+                    continue; // skip already visited nodes
+                }
+
+                // if it's a new node, we visit it and add it to the queue
+                let node = NonMaxUsize::new(succ);
+                debug_assert!(node.is_some(), "Node index should never be usize::MAX");
+                let node = unsafe { node.unwrap_unchecked() };
+                self.visit.queue.push_back(Some(node));
+
+                self.visit.visited.set(succ as _, true);
+                return Some(IterFromRootsEvent {
+                    parent: self.parent,
+                    node: succ,
+                    distance: self.distance,
+                });
+            }
+
+            'inner: loop {
+                // succesors exhausted, we must look in the queue
+                match self.visit.queue.pop_front().expect(
+                    "Queue should never be empty here, as we always add a level separator after the first node.",
+                ) {
+                    // if we have a node, we can continue visiting its successors
+                    Some(node) => {
+                        self.parent = node.into();
+                        // reset the successors iterator for the new current node
+                        self.succ = self.visit.graph.successors(self.parent).into_iter();
+                        break 'inner;
+                    }
+                    // new level separator, so we increment the distance
+                    None => {
+                        // if the queue is empty, we are done
+                        if self.visit.queue.is_empty() {
+                            return None; // no more nodes to visit
+                        }
+                        // we need to add a new level separator
+                        self.visit.queue.push_back(None);
+                        self.distance += 1;
+                        continue 'inner;
+                    }
+                }
+            }
+        }
     }
 }
