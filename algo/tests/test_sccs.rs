@@ -7,6 +7,7 @@
 
 use anyhow::Result;
 use dsi_progress_logger::prelude::*;
+use epserde::{deser::Deserialize, ser::Serialize};
 use lender::for_;
 use sux::bit_vec;
 use webgraph::graphs::random::ErdosRenyi;
@@ -32,6 +33,21 @@ fn test_sort_by_size() -> Result<()> {
     sccs.sort_by_size();
 
     assert_eq!(sccs.components().to_owned(), vec![1, 0, 0, 0, 1, 2]);
+
+    Ok(())
+}
+
+#[test]
+fn test_epserde_roundtrip() -> Result<()> {
+    let original = Sccs::new(3, vec![0, 0, 0, 1, 2, 2, 1, 2, 0, 0].into_boxed_slice());
+
+    let mut file = std::io::Cursor::new(vec![]);
+    original.serialize(&mut file)?;
+    let data = file.into_inner();
+    let deserialized = <Sccs>::deserialize_eps(&data)?;
+
+    assert_eq!(original.num_components(), deserialized.num_components());
+    assert_eq!(original.components(), deserialized.components());
 
     Ok(())
 }

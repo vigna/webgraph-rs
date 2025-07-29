@@ -34,6 +34,13 @@
 //! assert_eq!(scc.components(), &vec![0, 0, 0, 1]);
 //! ```
 
+use crate::llp;
+use epserde::prelude::*;
+use rayon::{
+    iter::{IntoParallelRefMutIterator, ParallelIterator},
+    slice::ParallelSliceMut,
+};
+
 mod tarjan;
 pub use tarjan::*;
 
@@ -45,12 +52,7 @@ pub use symm_seq::*;
 mod symm_par;
 pub use symm_par::*;
 
-use crate::llp;
-use rayon::{
-    iter::{IntoParallelRefMutIterator, ParallelIterator},
-    slice::ParallelSliceMut,
-};
-
+#[derive(Epserde)]
 /// Strongly connected components.
 ///
 /// An instance of this structure stores the [index of the
@@ -60,13 +62,13 @@ use rayon::{
 /// Moreover, this structure makes it possible to [sort the components by
 /// size](Sccs::sort_by_size), possibly using [parallel
 /// methods](Sccs::par_sort_by_size).
-pub struct Sccs {
+pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
     num_components: usize,
-    components: Box<[usize]>,
+    components: C,
 }
 
-impl Sccs {
-    pub fn new(num_components: usize, components: Box<[usize]>) -> Self {
+impl<C: AsRef<[usize]>> Sccs<C> {
+    pub fn new(num_components: usize, components: C) -> Self {
         Sccs {
             num_components,
             components,
@@ -82,7 +84,7 @@ impl Sccs {
     /// it belongs to.
     #[inline(always)]
     pub fn components(&self) -> &[usize] {
-        &self.components
+        self.components.as_ref()
     }
 
     /// Returns the sizes of all components.
@@ -93,7 +95,9 @@ impl Sccs {
         }
         sizes.into_boxed_slice()
     }
+}
 
+impl<C: AsMut<[usize]> + AsRef<[usize]>> Sccs<C> {
     /// Renumbers the components by decreasing size.
     ///
     /// After a call to this method, the sizes of strongly connected components
@@ -111,6 +115,7 @@ impl Sccs {
             .for_each(|(i, &x)| inv_perm[x] = i);
 
         self.components
+            .as_mut()
             .iter_mut()
             .for_each(|node_component| *node_component = inv_perm[*node_component]);
         sizes.sort_by(|&x, &y| y.cmp(&x));
@@ -130,6 +135,7 @@ impl Sccs {
         let mut inv_perm = vec![0; sizes.len()];
         llp::invert_permutation(&sort_perm, &mut inv_perm);
         self.components
+            .as_mut()
             .par_iter_mut()
             .for_each(|node_component| *node_component = inv_perm[*node_component]);
         sizes.sort_by(|&x, &y| y.cmp(&x));
