@@ -62,6 +62,7 @@ pub use symm_par::*;
 /// Moreover, this structure makes it possible to [sort the components by
 /// size](Sccs::sort_by_size), possibly using [parallel
 /// methods](Sccs::par_sort_by_size).
+#[derive(Clone, Copy)]
 pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
     num_components: usize,
     components: C,
