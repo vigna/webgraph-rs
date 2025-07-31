@@ -67,6 +67,14 @@ pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
     components: C,
 }
 
+impl<C: AsRef<[usize]> + Copy> Clone for Sccs<C> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<C: AsRef<[usize]> + Copy> Copy for Sccs<C> {}
+
 impl<C: AsRef<[usize]>> Sccs<C> {
     pub fn new(num_components: usize, components: C) -> Self {
         Sccs {
