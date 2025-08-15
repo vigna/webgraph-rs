@@ -381,6 +381,29 @@ where
     type IntoIterator = <L as NodeLabelsLender<'lend>>::IntoIterator;
 }
 
+// SAFETY: they all preserve order
+unsafe impl<L: SortedLender> SortedLender for Cloned<L> where Self: Lender {}
+unsafe impl<L: SortedLender> SortedLender for Copied<L> where Self: Lender {}
+unsafe impl<L: SortedLender, P> SortedLender for Filter<L, P> where Self: Lender {}
+unsafe impl<L: SortedLender> SortedLender for Fuse<L> where Self: Lender {}
+unsafe impl<L: SortedLender, F> SortedLender for Inspect<L, F> where Self: Lender {}
+unsafe impl<'this, L: SortedLender + 'this> SortedLender for Iter<'this, L> where Self: Lender {}
+unsafe impl<'this, L: SortedLender> SortedLender for Peekable<'this, L> where Self: Lender {}
+unsafe impl<L: SortedLender> SortedLender for Skip<L> where Self: Lender {}
+unsafe impl<L: SortedLender, P> SortedLender for SkipWhile<L, P> where Self: Lender {}
+unsafe impl<L: SortedLender> SortedLender for StepBy<L> where Self: Lender {}
+unsafe impl<L: SortedLender> SortedLender for Take<L> where Self: Lender {}
+unsafe impl<L: SortedLender, P> SortedLender for TakeWhile<L, P> where Self: Lender {}
+
+// SAFETY: they have 1 item or less, so they can't be non-sorted
+unsafe impl<L> SortedLender for Empty<L> where Self: Lender {}
+unsafe impl<'a, L: ?Sized + for<'all> Lending<'all>> SortedLender for Once<'a, L> {}
+unsafe impl<St, F> SortedLender for OnceWith<St, F> where Self: Lender {}
+
+// SAFETY: adapters that preserve order
+unsafe impl<L: SortedLender> SortedIterator for Owned<L> where Self: Iterator {}
+unsafe impl<L: SortedIterator> SortedLender for FromIter<L> where Self: Lender {}
+
 /// Marker trait for [`Iterator`]s yielding labels in the order induced by
 /// enumerating the successors in ascending order.
 ///
@@ -408,6 +431,29 @@ where
 /// }
 /// ```
 pub unsafe trait SortedIterator: Iterator {}
+
+mod _impl {
+    use super::SortedIterator;
+    use std::iter::*;
+
+    // SAFETY: they all preserve order
+    unsafe impl<T: SortedIterator> SortedIterator for Cloned<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator> SortedIterator for Copied<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator, P> SortedIterator for Filter<T, P> where Self: Iterator {}
+    unsafe impl<T: SortedIterator> SortedIterator for Fuse<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator, F> SortedIterator for Inspect<T, F> where Self: Iterator {}
+    unsafe impl<T: SortedIterator> SortedIterator for Peekable<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator> SortedIterator for Skip<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator, P> SortedIterator for SkipWhile<T, P> where Self: Iterator {}
+    unsafe impl<T: SortedIterator> SortedIterator for StepBy<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator> SortedIterator for Take<T> where Self: Iterator {}
+    unsafe impl<T: SortedIterator, P> SortedIterator for TakeWhile<T, P> where Self: Iterator {}
+
+    // SAFETY: they have 1 item or less, so they can't be non-sorted
+    unsafe impl<T> SortedIterator for Empty<T> where Self: Iterator {}
+    unsafe impl<T> SortedIterator for Once<T> {}
+    unsafe impl<F> SortedIterator for OnceWith<F> where Self: Iterator {}
+}
 
 /// A transparent wrapper for an [`Iterator`] unsafely implementing
 /// [`SortedIterator`].

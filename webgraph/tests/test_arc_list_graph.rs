@@ -121,3 +121,30 @@ fn test_arc_list_graph() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_arc_list_graph_skip() -> anyhow::Result<()> {
+    let offset = 1_000;
+    let arcs = vec![
+        (offset + 0, 1),
+        (offset + 0, 2),
+        (offset + 1, 2),
+        (offset + 2, 4),
+        (offset + 3, 4),
+    ];
+
+    for iter_from in [offset - 10, offset, offset + 1, offset + 10] {
+        let arcs1 = ArcListGraph::new(offset + 4, arcs.iter().copied())
+            .iter()
+            .skip(iter_from);
+        let mut arcs2 = ArcListGraph::new(offset + 4, arcs.iter().copied()).iter_from(iter_from);
+        for_!((node1, succ1) in arcs1 {
+            let (node2, succ2) = arcs2.next().unwrap();
+            assert_eq!(node1, node2);
+            assert_eq!(succ1.into_iter().collect::<Vec<_>>(), succ2.into_iter().collect::<Vec<_>>());
+        });
+        assert!(arcs2.next().is_none());
+    }
+
+    Ok(())
+}
