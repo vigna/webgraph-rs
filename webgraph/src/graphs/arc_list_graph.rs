@@ -147,7 +147,7 @@ impl<'lend, L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> IntoLender
     for &ArcListGraph<I>
 {
-    type Lender = Iter<L, I>;
+    type Lender = Skip<Iter<L, I>>;
 
     fn into_lender(self) -> Self::Lender {
         self.iter()
@@ -159,7 +159,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 {
     type Label = (usize, L);
     type Lender<'node>
-        = Iter<L, I>
+        = Skip<Iter<L, I>>
     where
         Self: 'node;
 
@@ -175,12 +175,24 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = Iter::new(self.num_nodes, self.into_iter.clone().into_iter());
-        for _ in 0..from {
-            iter.next();
+        let mut iter = self.into_iter.clone().into_iter().peekable();
+        if let Some(&(node, _, _)) = iter.peek() {
+            let trivially_skippable = node.min(from);
+            Iter {
+                num_nodes: self.num_nodes,
+                next_node: trivially_skippable,
+                iter,
+            }
+            .skip(from - trivially_skippable)
+        } else {
+            // empty iterator
+            Iter {
+                num_nodes: self.num_nodes,
+                next_node: 0,
+                iter,
+            }
+            .skip(from)
         }
-
-        iter
     }
 }
 
