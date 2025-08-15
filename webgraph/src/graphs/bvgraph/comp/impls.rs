@@ -15,6 +15,7 @@ use rayon::ThreadPool;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 /// A queue that pulls jobs with ids in a contiguous initial segment of the
 /// natural numbers from an iterator out of order and implement an iterator in
@@ -127,10 +128,11 @@ impl BvComp<()> {
             0,
         );
 
-        let mut pl = ProgressLogger::default();
-        pl.display_memory(true)
-            .item_name("node")
-            .expected_updates(num_nodes);
+        let mut pl = progress_logger!(
+            display_memory = true,
+            item_name = "node",
+            expected_updates = num_nodes,
+        );
         pl.start("Compressing successors...");
         let mut bitstream_len = 0;
 
@@ -288,6 +290,15 @@ impl BvComp<()> {
 
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
+        let mut comp_pl = progress_logger!(
+            log_target = "webgraph::graphs::bvgraph::comp::impls::parallel_iter::comp",
+            display_memory = true,
+            item_name = "node",
+            local_speed = true,
+            expected_updates = Some(num_nodes),
+        );
+        comp_pl.start("Compressing successors in parallel...");
+        let comp_pl = Arc::new(Mutex::new(comp_pl));
         threads.in_place_scope(|s| {
             let cp_flags = &compression_flags;
 
@@ -296,9 +307,10 @@ impl BvComp<()> {
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let tx = tx.clone();
+                let comp_pl = comp_pl.clone();
                 // Spawn the thread
                 s.spawn(move |_| {
-                    log::info!("Thread {thread_id} started");
+                    log::debug!("Thread {thread_id} started");
                     let first_node;
                     let mut bvcomp;
                     let mut offsets_writer;
@@ -328,6 +340,7 @@ impl BvComp<()> {
                             );
                             written_bits = bvcomp.push(successors).unwrap();
                             offsets_written_bits = offsets_writer.write_gamma(written_bits).unwrap() as u64;
+
                         }
                     };
 
@@ -342,8 +355,11 @@ impl BvComp<()> {
                     let num_arcs = bvcomp.arcs;
                     bvcomp.flush().unwrap();
                     offsets_writer.flush().unwrap();
+                    comp_pl.lock().unwrap().update_with_count(last_node - first_node + 1);
 
-                    log::info!(
+
+
+                    log::debug!(
                         "Finished Compression thread {thread_id} and wrote {written_bits} bits for the graph and {offsets_written_bits} bits for the offsets",
                     );
                     tx.send(Job {
@@ -361,6 +377,15 @@ impl BvComp<()> {
             }
 
             drop(tx);
+
+            let mut copy_pl = progress_logger!(
+                log_target = "webgraph::graphs::bvgraph::comp::impls::parallel_iter::copy",
+                display_memory = true,
+                item_name = "node",
+                local_speed = true,
+                expected_updates = Some(num_nodes),
+            );
+            copy_pl.start("Copying compressed successors to final graph");
 
             let file = File::create(&graph_path)
                 .with_context(|| format!("Could not create graph {}", graph_path.display()))?;
@@ -401,7 +426,7 @@ impl BvComp<()> {
 
                 next_node = last_node + 1;
                 total_arcs += num_arcs;
-                log::info!(
+                log::debug!(
                     "Copying {} [{}..{}) bits from {} to {}",
                     written_bits,
                     total_written_bits,
@@ -426,7 +451,7 @@ impl BvComp<()> {
                         )
                     })?;
 
-                log::info!(
+                log::debug!(
                     "Copying offsets {} [{}..{}) bits from {} to {}",
                     offsets_written_bits,
                     total_offsets_written_bits,
@@ -450,11 +475,19 @@ impl BvComp<()> {
                             offsets_path.display()
                         )
                     })?;
+
+                copy_pl.update_with_count(last_node - first_node + 1);
             }
+
 
             log::info!("Flushing the merged bitstreams");
             graph_writer.flush()?;
             offsets_writer.flush()?;
+
+            Arc::into_inner(comp_pl)
+                .expect("comp_pl reference leaked or compression thread still running")
+                .into_inner().unwrap().done();
+            copy_pl.done();
 
             log::info!("Writing the .properties file");
             let properties = compression_flags
