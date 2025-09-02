@@ -19,9 +19,9 @@ use webgraph::prelude::*;
 #[command(name = "endianness", about = "Inverts the endianness of a BvGraph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the source graph.
-    src: PathBuf,
+    pub src: PathBuf,
     /// The basename of the destination graph.
-    dst: PathBuf,
+    pub dst: PathBuf,
 }
 
 macro_rules! impl_convert {

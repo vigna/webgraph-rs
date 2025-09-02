@@ -596,7 +596,7 @@ pub struct GlobalArgs {
     /// suffix is provided it is assumed to be in milliseconds.
     /// Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4
     /// seconds + 567 milliseconds = 93784567 milliseconds.
-    log_interval: Option<Duration>,
+    pub log_interval: Option<Duration>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -636,9 +636,9 @@ pub enum SubCommands {
 ///   <https://docs.rs/env_logger/latest/env_logger/>
 pub struct Cli {
     #[command(subcommand)]
-    command: SubCommands,
+    pub command: SubCommands,
     #[clap(flatten)]
-    args: GlobalArgs,
+    pub args: GlobalArgs,
 }
 
 pub mod dist;

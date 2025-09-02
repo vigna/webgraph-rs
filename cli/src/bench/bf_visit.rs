@@ -30,7 +30,7 @@ pub struct CliArgs {
 
     #[clap(long, default_value = "false")]
     /// Whether to use mmap for the graph, otherwise it will be load in memory
-    mmap: bool,
+    pub mmap: bool,
 }
 
 pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
