@@ -86,7 +86,7 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: IndexedSeq<Input = usize, Output = usize>;
+    type Offsets: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>;
 
     fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets>;
 }

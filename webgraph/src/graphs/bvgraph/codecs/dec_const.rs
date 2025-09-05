@@ -148,7 +148,7 @@ impl<
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
+    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
     const BLOCKS: usize = { code_consts::GAMMA },
@@ -167,7 +167,7 @@ pub struct ConstCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -210,7 +210,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -246,7 +246,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -276,7 +276,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,

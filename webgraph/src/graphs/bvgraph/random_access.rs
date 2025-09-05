@@ -44,7 +44,7 @@ impl BvGraph<()> {
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 {
     /// Remaps the offsets in a slice of `usize`.
@@ -69,7 +69,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
 {
     /// Remaps the offsets in a slice of `usize`.
