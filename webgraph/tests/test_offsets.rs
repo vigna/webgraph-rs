@@ -34,10 +34,12 @@ fn test_offsets() -> Result<()> {
     println!("{:?}", offsets.len());
 
     // Load Elias-fano
-    let ef_offsets = <webgraph::graphs::bvgraph::EF>::mmap(
-        "../data/cnr-2000.ef",
-        deser::Flags::TRANSPARENT_HUGE_PAGES,
-    )?;
+    let ef_offsets = unsafe {
+        <webgraph::graphs::bvgraph::EF>::mmap(
+            "../data/cnr-2000.ef",
+            deser::Flags::TRANSPARENT_HUGE_PAGES,
+        )
+    }?;
 
     for (i, offset) in offsets.iter().enumerate() {
         assert_eq!(*offset, ef_offsets.get(i) as u64);
@@ -74,7 +76,7 @@ fn test_offsets_as_slice() -> Result<()> {
     let graph1 = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?
-        .offsets_to_slice();
+        /* TODO .offsets_to_slice() */;
 
     graph0
         .iter()

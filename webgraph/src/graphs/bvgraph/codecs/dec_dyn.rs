@@ -8,8 +8,6 @@
 
 use std::marker::PhantomData;
 
-use epserde::deser::MemCase;
-
 use super::super::*;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::dispatch::CodesReaderFactory;
@@ -138,12 +136,12 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+    OFF: IndexedSeq<Input = usize, Output = usize>,
 > {
     /// The owned data we will read as a bitstream.
     factory: F,
     /// The offsets into the data.
-    offsets: MemCase<OFF>,
+    offsets: OFF,
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
@@ -164,7 +162,7 @@ pub struct DynCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
     > DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
@@ -204,7 +202,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
     > DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
@@ -214,7 +212,7 @@ impl<
     }
 
     /// Creates a new builder from the data and the compression flags.
-    pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(factory: F, offsets: OFF, cf: CompFlags) -> anyhow::Result<Self> {
         Ok(Self {
             factory,
             offsets,
@@ -236,7 +234,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
     > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
@@ -270,7 +268,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
     > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>

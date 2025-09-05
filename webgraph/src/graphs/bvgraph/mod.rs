@@ -32,6 +32,7 @@ pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
+use epserde::Epserde;
 pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
@@ -70,7 +71,7 @@ pub type DCF = sux::dict::EliasFano<
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SliceSeq<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>>(
     A,
     std::marker::PhantomData<O>,
@@ -93,23 +94,6 @@ where
 {
     fn from(slice: A) -> Self {
         Self::new(slice)
-    }
-}
-
-// Specific implementation for SliceSeq<usize, Box<[usize]>>
-unsafe impl epserde::deser::DeserializeInner for SliceSeq<usize, Box<[usize]>> {
-    type DeserType<'a> = SliceSeq<usize, &'a [usize]>;
-
-    unsafe fn _deserialize_full_inner(
-        backend: &mut impl epserde::deser::ReadWithPos,
-    ) -> epserde::deser::Result<Self> {
-        Ok(Self::new(Box::<[usize]>::_deserialize_full_inner(backend)?))
-    }
-
-    unsafe fn _deserialize_eps_inner<'a>(
-        backend: &mut epserde::deser::SliceWithPos<'a>,
-    ) -> epserde::deser::Result<Self::DeserType<'a>> {
-        Ok(SliceSeq::new(<&[usize]>::_deserialize_eps_inner(backend)?))
     }
 }
 

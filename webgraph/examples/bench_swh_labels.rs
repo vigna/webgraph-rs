@@ -83,7 +83,7 @@ impl Supply for MmapReaderSupplier<BE> {
 pub fn mmap<D>(
     path: impl AsRef<Path>,
     bit_deser: D,
-) -> Result<BitStreamLabeling<BE, MmapReaderSupplier<BE>, D, MemCase<DeserType<'static, EF>>>>
+) -> Result<BitStreamLabeling<BE, MmapReaderSupplier<BE>, D, MemCase<EF>>>
 where
     for<'a> D: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
 {
@@ -97,8 +97,10 @@ where
             _marker: std::marker::PhantomData,
         },
         bit_deser,
-        EF::mmap(&ef_path, Flags::empty())
-            .with_context(|| format!("Could not parse {}", ef_path.display()))?,
+        unsafe {
+            EF::mmap(&ef_path, Flags::empty())
+                .with_context(|| format!("Could not parse {}", ef_path.display()))
+        }?,
     ))
 }
 

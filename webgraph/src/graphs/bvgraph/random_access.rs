@@ -44,7 +44,7 @@ impl BvGraph<()> {
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
     > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
@@ -71,7 +71,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
+        OFF: IndexedSeq<Input = usize, Output = usize>,
     > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
 where
     for<'a> &'a OFF: IntoIterator<Item = usize>,
