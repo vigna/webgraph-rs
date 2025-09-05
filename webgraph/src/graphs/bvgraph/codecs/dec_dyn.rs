@@ -162,8 +162,10 @@ pub struct DynCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: for<'b> IndexedSeq<Input = usize, Output<'b> = usize>,
     > DynCodesDecoderFactory<E, F, OFF>
+where
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -173,16 +175,14 @@ impl<
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
     pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>> {
-        // TODO: rewrite with iterator
-        let mut offsets = Vec::with_capacity(self.offsets.len());
-        for i in 0..self.offsets.len() {
-            offsets.push(self.offsets.get(i));
-        }
         DynCodesDecoderFactory {
             factory: self.factory,
-            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                offsets.into_boxed_slice(),
-            ),
+            offsets: self
+                .offsets
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
