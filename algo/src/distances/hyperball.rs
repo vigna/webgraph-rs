@@ -1277,7 +1277,7 @@ mod test {
 
         let graph = BvGraph::with_basename(basename).load()?;
         let transpose = BvGraph::with_basename(basename.to_owned() + "-t").load()?;
-        let cumulative = DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty())?;
+        let cumulative = unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
 
         let num_nodes = graph.num_nodes();
 
@@ -1293,7 +1293,7 @@ mod test {
         let mut hyperball = HyperBallBuilder::with_transpose(
             &graph,
             &transpose,
-            cumulative.as_ref(),
+            cumulative.uncase(),
             par_bits,
             par_result_bits,
         )

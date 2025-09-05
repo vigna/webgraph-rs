@@ -390,9 +390,11 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
             gap_cost,
             gamma: *gamma,
         };
-        labels_store
-            .store(labels_path(gamma_index))
-            .context("Could not serialize labels")?;
+        unsafe {
+            labels_store
+                .store(labels_path(gamma_index))
+                .context("Could not serialize labels")
+        }?;
 
         gamma_pl.update_and_display();
     }
@@ -422,8 +424,13 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         let path = work_dir.as_ref().join(path.file_name());
         // we only need the cost and gamma here, so we mmap it to ignore the
         // actual labels which will be needed only later
-        let res = <LabelsStore<Vec<usize>>>::mmap(&path, Flags::default())
-            .with_context(|| format!("Could not load labels from {}", path.to_string_lossy(),))?;
+        let res = unsafe {
+            <LabelsStore<Vec<usize>>>::mmap(&path, Flags::default())
+                .with_context(|| format!("Could not load labels from {}", path.to_string_lossy(),))
+        }?;
+
+        let res = res.uncase();
+
         info!(
             "Found labels from {:?} with gamma {} and cost {} and num_nodes {}",
             path.to_string_lossy(),
@@ -471,10 +478,13 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         worst_gamma, worst_gamma_cost
     );
 
-    let mut result_labels = <LabelsStore<Vec<usize>>>::load_mem(best_gamma_path)
-        .context("Could not load labels from best gamma")?
-        .labels
-        .to_vec();
+    let mut result_labels = unsafe {
+        <LabelsStore<Vec<usize>>>::load_mem(best_gamma_path)
+            .context("Could not load labels from best gamma")
+    }?
+    .uncase()
+    .labels
+    .to_vec();
 
     let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
     for (i, (cost, gamma, gamma_path)) in gammas.iter().enumerate() {
@@ -482,9 +492,12 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
             "Starting step {} with gamma {} cost {} and labels {:?}...",
             i, gamma, cost, gamma_path
         );
-        let labels = <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
-            .context("Could not load labels")?;
-        combine(&mut result_labels, labels.labels, &mut temp_perm)
+        let labels = unsafe {
+            <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
+                .context("Could not load labels")
+        }?;
+
+        combine(&mut result_labels, labels.uncase().labels, &mut temp_perm)
             .context("Could not combine labels")?;
         drop(labels); // explicit drop so we free labels before loading best_labels
 
@@ -496,9 +509,15 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
             "Recombining with gamma {} cost {} and labels {:?}...",
             best_gamma, best_gamma_cost, best_gamma_path
         );
-        let best_labels = <LabelsStore<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
-            .context("Could not load labels from best gamma")?;
-        let number_of_labels = combine(&mut result_labels, best_labels.labels, &mut temp_perm)?;
+        let best_labels = unsafe {
+            <LabelsStore<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
+                .context("Could not load labels from best gamma")
+        }?;
+        let number_of_labels = combine(
+            &mut result_labels,
+            best_labels.uncase().labels,
+            &mut temp_perm,
+        )?;
         info!("Number of labels: {}", number_of_labels);
     }
 

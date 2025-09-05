@@ -46,8 +46,6 @@ impl<
         F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
     > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
-where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -73,8 +71,6 @@ impl<
         F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
     > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
-where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -249,8 +245,8 @@ where
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
-            let neighbours = self.successors(reference_node_id);
-            debug_assert!(neighbours.len() != 0);
+            let neighbors = self.successors(reference_node_id);
+            debug_assert!(neighbors.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count() as usize;
             // add +1 if the number of blocks is even, so we have capacity for
@@ -266,7 +262,7 @@ where
                 }
             }
             // create the masked iterator
-            let res = MaskedIterator::new(neighbours, blocks);
+            let res = MaskedIterator::new(neighbors, blocks);
             nodes_left_to_decode -= res.len();
 
             result.copied_nodes_iter = Some(res);

@@ -164,9 +164,6 @@ impl<
         F: CodesReaderFactoryHelper<E>,
         OFF: IndexedSeq<Input = usize, Output = usize>,
     > DynCodesDecoderFactory<E, F, OFF>
-where
-    // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -176,13 +173,15 @@ where
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
     pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>> {
+        // TODO: rewrite with iterator
+        let mut offsets = Vec::with_capacity(self.offsets.len());
+        for i in 0..self.offsets.len() {
+            offsets.push(self.offsets.get(i));
+        }
         DynCodesDecoderFactory {
             factory: self.factory,
             offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                self.offsets
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
+                offsets.into_boxed_slice(),
             ),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,

@@ -76,8 +76,10 @@ where
     pl.done();
 
     if args.epserde {
-        perm.store(&args.perm)
-            .with_context(|| format!("Could not write permutation to {}", args.perm.display()))?;
+        unsafe {
+            perm.store(&args.perm)
+                .with_context(|| format!("Could not write permutation to {}", args.perm.display()))
+        }?;
     } else {
         let mut file = std::fs::File::create(&args.perm)
             .with_context(|| format!("Could not create permutation at {}", args.perm.display()))?;
