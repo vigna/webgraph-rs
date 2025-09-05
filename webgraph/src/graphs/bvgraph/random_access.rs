@@ -46,6 +46,8 @@ impl<
         F: CodesReaderFactoryHelper<E>,
         OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
+where
+    for<'a> &'a OFF: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
