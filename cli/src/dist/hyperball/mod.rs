@@ -144,10 +144,12 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
             args.basename.display()
         );
     }
-    let deg_cumul = DCF::mmap(
-        args.basename.with_extension(DEG_CUMUL_EXTENSION),
-        Flags::RANDOM_ACCESS,
-    )?;
+    let deg_cumul = unsafe {
+        DCF::mmap(
+            args.basename.with_extension(DEG_CUMUL_EXTENSION),
+            Flags::RANDOM_ACCESS,
+        )
+    }?;
 
     log::info!("Loading Transposed graph...");
     let mut transposed = None;
@@ -162,7 +164,7 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
     let mut hb = HyperBallBuilder::with_hyper_log_log(
         &graph,
         transposed_ref,
-        deg_cumul.as_ref(),
+        deg_cumul.uncase(),
         args.log2m,
         None,
     )?

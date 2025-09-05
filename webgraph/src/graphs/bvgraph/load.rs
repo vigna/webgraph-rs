@@ -192,9 +192,8 @@ impl LoadMode for LoadMem {
     fn load_offsets<P: AsRef<Path>>(offsets: P, _flags: MemoryFlags) -> Result<Self::Offsets> {
         let path = offsets.as_ref();
         unsafe {
-            Ok(MemCase::from(EF::load_mem(path).with_context(|| {
-                format!("Cannot load Elias-Fano pointer list {}", path.display())
-            })?))
+            EF::load_mem(path)
+                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
         }
     }
 }
@@ -219,11 +218,8 @@ impl LoadMode for LoadMmap {
     fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets> {
         let path = offsets.as_ref();
         unsafe {
-            Ok(MemCase::from(
-                EF::load_mmap(path, flags.into()).with_context(|| {
-                    format!("Cannot load Elias-Fano pointer list {}", path.display())
-                })?,
-            ))
+            EF::load_mmap(path, flags.into())
+                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
         }
     }
 }

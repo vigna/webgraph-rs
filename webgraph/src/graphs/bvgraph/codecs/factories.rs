@@ -23,6 +23,10 @@ or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
 decoupling the choice of encoder from the underlying support.
 
 */
+use crate::{
+    prelude::{FileBufReader, MemBufReader},
+    utils::MmapHelper,
+};
 use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
@@ -31,6 +35,7 @@ use dsi_bitstream::{
     prelude::{CodesRead, CodesReaderFactory},
     traits::{BitRead, Endianness},
 };
+use epserde::Epserde;
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -38,11 +43,6 @@ use std::{
     path::Path,
 };
 use sux::traits::{IndexedSeq, Types};
-use epserde::Epserde;
-use crate::{
-    prelude::{FileBufReader, MemBufReader},
-    utils::MmapHelper,
-};
 
 #[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {

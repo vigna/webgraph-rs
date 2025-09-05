@@ -98,12 +98,14 @@ where
 
     info!("Writing to disk...");
 
-    ef.serialize(&mut ef_file).with_context(|| {
-        format!(
-            "Could not serialize degree cumulative list to {}",
-            ef_path.display()
-        )
-    })?;
+    unsafe {
+        ef.serialize(&mut ef_file).with_context(|| {
+            format!(
+                "Could not serialize degree cumulative list to {}",
+                ef_path.display()
+            )
+        })
+    }?;
 
     info!("Completed.");
 

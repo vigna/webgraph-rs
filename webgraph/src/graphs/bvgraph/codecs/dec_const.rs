@@ -174,8 +174,6 @@ impl<
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-where
-    for<'a> &'a OFF: IntoIterator<Item = usize>, // This dependence can soon be removed, as there will be a IndexedSeq::iter method
 {
     /// Remaps the offsets in a slice of `usize`.
     ///

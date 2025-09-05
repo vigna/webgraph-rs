@@ -51,7 +51,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `reader_supplier`: A supplier of readers on the bitsteam containing
+    /// * `reader_supplier`: A supplier of readers on the bitstream containing
     ///   the labels.
     ///
     /// * `bit_deser_supplier`: A supplier of deserializers for the labels.
