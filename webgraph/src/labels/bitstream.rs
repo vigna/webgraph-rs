@@ -17,7 +17,7 @@ use crate::prelude::BitDeserializer;
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
 use lender::*;
-use sux::traits::{IndexedSeq, Types};
+use sux::traits::IndexedSeq;
 
 /// A basic supplier trait.
 ///
@@ -81,7 +81,7 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: IndexedSeq + Types<Input = usize, Output = usize>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
@@ -93,7 +93,7 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: IndexedSeq + Types<Input = usize, Output = usize>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > Lending<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
@@ -103,7 +103,7 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: IndexedSeq + Types<Input = usize, Output = usize>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > Lender for Iter<'_, '_, E, BR, D, O>
 {
     #[inline(always)]
@@ -149,7 +149,7 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<L, E: Endianness, S: Supply, D, O: IndexedSeq + Types<Input = usize, Output = usize>>
+impl<L, E: Endianness, S: Supply, D, O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>>
     SequentialLabeling for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
@@ -200,7 +200,7 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<L, E: Endianness, S: Supply, D, O: IndexedSeq + Types<Input = usize, Output = usize>>
+impl<L, E: Endianness, S: Supply, D, O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>>
     RandomAccessLabeling for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,

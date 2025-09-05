@@ -136,7 +136,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
+    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
 > {
     /// The owned data we will read as a bitstream.
     factory: F,
@@ -162,7 +162,7 @@ pub struct DynCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > DynCodesDecoderFactory<E, F, OFF>
 {
     /// Remaps the offsets in a slice of `usize`.
@@ -201,7 +201,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
@@ -233,7 +233,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
@@ -267,7 +267,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>

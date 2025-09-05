@@ -93,7 +93,7 @@ pub struct LabelsStore<A> {
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
-    deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+    deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     chunk_size: Option<usize>,
@@ -124,7 +124,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 /// For the arguments look at [`layered_label_propagation`].
 pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     sym_graph: R,
-    deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+    deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
     num_threads: Option<usize>,
     chunk_size: Option<usize>,

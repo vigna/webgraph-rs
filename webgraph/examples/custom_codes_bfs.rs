@@ -37,7 +37,7 @@ struct Args {
 pub struct CustomDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
+    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
 > {
     pub factory: F,
     // The [`MemoryCase`]` here is needed to memory-map the offsets, otherwise
@@ -49,7 +49,7 @@ pub struct CustomDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > CustomDecoderFactory<E, F, OFF>
 {
     pub fn new(factory: F, offsets: OFF) -> Self {
@@ -64,7 +64,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
@@ -83,7 +83,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,

@@ -250,15 +250,15 @@ pub struct EmptyDict<I, O> {
 
 impl<I, O> Types for EmptyDict<I, O> {
     type Input = usize;
-    type Output = usize;
+    type Output<'a> = usize;
 }
 
 impl<I, O> IndexedSeq for EmptyDict<I, O> {
-    fn get(&self, _key: Self::Input) -> Self::Output {
+    fn get(&self, _key: Self::Input) -> Self::Output<'_> {
         panic!();
     }
 
-    unsafe fn get_unchecked(&self, _index: usize) -> Self::Output {
+    unsafe fn get_unchecked(&self, _index: usize) -> Self::Output<'_> {
         panic!();
     }
 
