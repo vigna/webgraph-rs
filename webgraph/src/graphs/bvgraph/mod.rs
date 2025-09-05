@@ -96,6 +96,23 @@ where
     }
 }
 
+// Specific implementation for SliceSeq<usize, Box<[usize]>>
+unsafe impl epserde::deser::DeserializeInner for SliceSeq<usize, Box<[usize]>> {
+    type DeserType<'a> = SliceSeq<usize, &'a [usize]>;
+
+    unsafe fn _deserialize_full_inner(
+        backend: &mut impl epserde::deser::ReadWithPos,
+    ) -> epserde::deser::Result<Self> {
+        Ok(Self::new(Box::<[usize]>::_deserialize_full_inner(backend)?))
+    }
+
+    unsafe fn _deserialize_eps_inner<'a>(
+        backend: &mut epserde::deser::SliceWithPos<'a>,
+    ) -> epserde::deser::Result<Self::DeserType<'a>> {
+        Ok(SliceSeq::new(<&[usize]>::_deserialize_eps_inner(backend)?))
+    }
+}
+
 impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> Types for SliceSeq<O, A>
 where
     usize: PartialEq<O>,
