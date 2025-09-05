@@ -39,7 +39,7 @@ env_logger.workspace = true
 zstd.workspace = true
 
 jiff = "0.2.5"
-sysinfo = "0.35.1"
+sysinfo = "0.37.0"
 clap_complete = { version = "4.4.11" }
 
 [build-dependencies]

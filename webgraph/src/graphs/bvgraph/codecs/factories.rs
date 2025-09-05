@@ -275,6 +275,22 @@ impl<I, O> Default for EmptyDict<I, O> {
     }
 }
 
+unsafe impl<I, O> epserde::deser::DeserializeInner for EmptyDict<I, O> {
+    type DeserType<'a> = Self;
+
+    unsafe fn _deserialize_full_inner(
+        _backend: &mut impl epserde::deser::ReadWithPos,
+    ) -> epserde::deser::Result<Self> {
+        Ok(Self::default())
+    }
+
+    unsafe fn _deserialize_eps_inner<'a>(
+        _backend: &mut epserde::deser::SliceWithPos<'a>,
+    ) -> epserde::deser::Result<Self::DeserType<'a>> {
+        Ok(Self::default())
+    }
+}
+
 impl<E: Endianness> CodesReaderFactory<E> for MmapHelper<u32>
 where
     for<'a> MemBufReader<'a, E>: CodesRead<E>,

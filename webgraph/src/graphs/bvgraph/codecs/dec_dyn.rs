@@ -8,11 +8,13 @@
 
 use std::marker::PhantomData;
 
+use epserde::deser::MemCase;
+
 use super::super::*;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::prelude::*;
-use epserde::deser::MemCase;
+
 use sux::traits::IndexedSeq;
 
 #[derive(Debug)]
@@ -136,7 +138,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
+    OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
 > {
     /// The owned data we will read as a bitstream.
     factory: F,
@@ -162,7 +164,7 @@ pub struct DynCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
     > DynCodesDecoderFactory<E, F, OFF>
 where
     // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
@@ -183,8 +185,7 @@ where
                     .into_iter()
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
-            )
-            .into(),
+            ),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
@@ -203,7 +204,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
     > DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
@@ -235,7 +236,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
     > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
@@ -248,7 +249,7 @@ where
     #[inline(always)]
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.get_unchecked(node) } as u64)?;
 
         Ok(DynCodesDecoder {
             code_reader,
@@ -269,7 +270,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner,
     > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>

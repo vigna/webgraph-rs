@@ -86,7 +86,10 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: IndexedSeq<Input = usize, Output = usize>;
+    type Offsets: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner
+    where
+        for<'a> <Self::Offsets as epserde::deser::DeserializeInner>::DeserType<'a>:
+            IndexedSeq<Input = usize, Output = usize>;
 
     fn load_offsets<P: AsRef<Path>>(
         offsets: P,
@@ -147,9 +150,11 @@ impl LoadMode for File {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        Ok(EF::load_full(path)
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))?
-            .into())
+        unsafe {
+            Ok(MemCase::from(EF::load_full(path).with_context(|| {
+                format!("Cannot load Elias-Fano pointer list {}", path.display())
+            })?))
+        }
     }
 }
 
@@ -161,7 +166,7 @@ pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapHelper<u32>;
-    type Offsets = DeserType<'static, EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -175,8 +180,10 @@ impl LoadMode for Mmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::mmap(path, flags.into())
-            .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
+        unsafe {
+            EF::mmap(path, flags.into())
+                .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
+        }
     }
 }
 
@@ -186,7 +193,7 @@ pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = DeserType<'static, EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -200,8 +207,11 @@ impl LoadMode for LoadMem {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::load_mem(path)
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        unsafe {
+            Ok(MemCase::from(EF::load_mem(path).with_context(|| {
+                format!("Cannot load Elias-Fano pointer list {}", path.display())
+            })?))
+        }
     }
 }
 
@@ -213,7 +223,7 @@ pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
-    type Offsets = DeserType<'static, EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -227,8 +237,13 @@ impl LoadMode for LoadMmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::load_mmap(path, flags.into())
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        unsafe {
+            Ok(MemCase::from(
+                EF::load_mmap(path, flags.into()).with_context(|| {
+                    format!("Cannot load Elias-Fano pointer list {}", path.display())
+                })?,
+            ))
+        }
     }
 }
 
@@ -439,7 +454,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
+            DynCodesDecoderFactory::new(factory, EmptyDict::default(), comp_flags)?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,
@@ -545,11 +560,7 @@ impl<
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            ConstCodesDecoderFactory::new(
-                factory,
-                MemCase::from(EmptyDict::default()),
-                comp_flags,
-            )?,
+            ConstCodesDecoderFactory::new(factory, EmptyDict::default(), comp_flags)?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,
