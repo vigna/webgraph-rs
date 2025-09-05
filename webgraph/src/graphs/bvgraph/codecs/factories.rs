@@ -38,7 +38,7 @@ use std::{
     path::Path,
 };
 use sux::traits::{IndexedSeq, Types};
-
+use epserde::Epserde;
 use crate::{
     prelude::{FileBufReader, MemBufReader},
     utils::MmapHelper,
@@ -243,7 +243,7 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Epserde, Debug, Clone)]
 pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
@@ -272,22 +272,6 @@ impl<I, O> Default for EmptyDict<I, O> {
         Self {
             _marker: PhantomData,
         }
-    }
-}
-
-unsafe impl<I, O> epserde::deser::DeserializeInner for EmptyDict<I, O> {
-    type DeserType<'a> = Self;
-
-    unsafe fn _deserialize_full_inner(
-        _backend: &mut impl epserde::deser::ReadWithPos,
-    ) -> epserde::deser::Result<Self> {
-        Ok(Self::default())
-    }
-
-    unsafe fn _deserialize_eps_inner<'a>(
-        _backend: &mut epserde::deser::SliceWithPos<'a>,
-    ) -> epserde::deser::Result<Self::DeserType<'a>> {
-        Ok(Self::default())
     }
 }
 

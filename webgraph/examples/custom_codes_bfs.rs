@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
-use epserde::deser::{Deserialize, Flags, MemCase};
+use epserde::deser::{Deserialize, Flags};
 use mmap_rs::MmapFlags;
 use sux::{bits::BitVec, traits::IndexedSeq};
 use webgraph::prelude::*;
@@ -42,7 +42,7 @@ pub struct CustomDecoderFactory<
     pub factory: F,
     // The [`MemoryCase`]` here is needed to memory-map the offsets, otherwise
     // it can just be `OFF`
-    pub offsets: MemCase<OFF>,
+    pub offsets: OFF,
     _marker: std::marker::PhantomData<E>,
 }
 
@@ -52,7 +52,7 @@ impl<
         OFF: IndexedSeq<Input = usize, Output = usize>,
     > CustomDecoderFactory<E, F, OFF>
 {
-    pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
+    pub fn new(factory: F, offsets: OFF) -> Self {
         Self {
             factory,
             offsets,
@@ -162,7 +162,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let offsets = EF::load_mmap(args.basename.with_extension(EF_EXTENSION), Flags::default())?;
+    let offsets =
+        unsafe { EF::load_mmap(args.basename.with_extension(EF_EXTENSION), Flags::default()) }?;
 
     if args.mmap {
         let graph = BvGraph::new(

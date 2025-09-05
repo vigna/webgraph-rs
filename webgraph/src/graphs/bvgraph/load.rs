@@ -86,15 +86,9 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: IndexedSeq<Input = usize, Output = usize> + epserde::deser::DeserializeInner
-    where
-        for<'a> <Self::Offsets as epserde::deser::DeserializeInner>::DeserType<'a>:
-            IndexedSeq<Input = usize, Output = usize>;
+    type Offsets: IndexedSeq<Input = usize, Output = usize>;
 
-    fn load_offsets<P: AsRef<Path>>(
-        offsets: P,
-        flags: MemoryFlags,
-    ) -> Result<MemCase<Self::Offsets>>;
+    fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets>;
 }
 
 /// A type alias for a buffered reader that reads from a memory buffer a `u32` at a time.
@@ -145,15 +139,11 @@ impl LoadMode for File {
         FileFactory::<E>::new(graph)
     }
 
-    fn load_offsets<P: AsRef<Path>>(
-        offsets: P,
-        _flags: MemoryFlags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(offsets: P, _flags: MemoryFlags) -> Result<Self::Offsets> {
         let path = offsets.as_ref();
         unsafe {
-            Ok(MemCase::from(EF::load_full(path).with_context(|| {
-                format!("Cannot load Elias-Fano pointer list {}", path.display())
-            })?))
+            EF::load_full(path)
+                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
         }
     }
 }
@@ -166,7 +156,7 @@ pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapHelper<u32>;
-    type Offsets = EF;
+    type Offsets = MemCase<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -175,10 +165,7 @@ impl LoadMode for Mmap {
         MmapHelper::mmap(graph, flags.into())
     }
 
-    fn load_offsets<P: AsRef<Path>>(
-        offsets: P,
-        flags: MemoryFlags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets> {
         let path = offsets.as_ref();
         unsafe {
             EF::mmap(path, flags.into())
@@ -193,7 +180,7 @@ pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = EF;
+    type Offsets = MemCase<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -202,10 +189,7 @@ impl LoadMode for LoadMem {
         MemoryFactory::<E, _>::new_mem(graph)
     }
 
-    fn load_offsets<P: AsRef<Path>>(
-        offsets: P,
-        _flags: MemoryFlags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(offsets: P, _flags: MemoryFlags) -> Result<Self::Offsets> {
         let path = offsets.as_ref();
         unsafe {
             Ok(MemCase::from(EF::load_mem(path).with_context(|| {
@@ -223,7 +207,7 @@ pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
-    type Offsets = EF;
+    type Offsets = MemCase<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -232,10 +216,7 @@ impl LoadMode for LoadMmap {
         MemoryFactory::<E, _>::new_mmap(graph, flags)
     }
 
-    fn load_offsets<P: AsRef<Path>>(
-        offsets: P,
-        flags: MemoryFlags,
-    ) -> Result<MemCase<Self::Offsets>> {
+    fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets> {
         let path = offsets.as_ref();
         unsafe {
             Ok(MemCase::from(
