@@ -35,6 +35,7 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     marker::PhantomData,
+    mem::MaybeUninit,
     path::Path,
 };
 use sux::traits::{IndexedSeq, Types};
@@ -170,26 +171,25 @@ impl<E: Endianness> MemoryFactory<E, Box<[u32]>> {
             .len() as usize;
         let mut file = std::fs::File::open(path)
             .with_context(|| format!("Could not open {}", path.display()))?;
-        let capacity = file_len.align_to(16);
+        let vec_len = file_len.div_ceil(usize::try_from(u32::BITS / 8).unwrap());
 
-        // SAFETY: the entire vector will be filled with data read from the file,
-        // or with zeroes if the file is shorter than the vector.
-        let mut bytes = unsafe {
-            Vec::from_raw_parts(
-                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, 16)?),
-                capacity,
-                capacity,
-            )
-        };
+        let mut data = Vec::<u32>::with_capacity(vec_len);
+        *data.spare_capacity_mut().last_mut().unwrap() = MaybeUninit::zeroed();
 
-        file.read_exact(&mut bytes[..file_len])
+        // SAFETY: it's necessarily aligned (because it's a slice of bytes), and not out of bound
+        // by construction
+        let bytes =
+            unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, file_len) };
+
+        file.read_exact(bytes)
             .with_context(|| format!("Could not read {}", path.display()))?;
-        // Fixes the last few bytes to guarantee zero-extension semantics
-        // for bit vectors and full-vector initialization.
-        bytes[file_len..].fill(0);
+
+        // SAFETY: the entire vector but the last item was filled with bytes from disk;
+        // and the last item was pre-initialized with zeros.
+        unsafe { data.set_len(vec_len) };
+
         Ok(Self {
-            // Safety: the length is a multiple of 16.
-            data: unsafe { std::mem::transmute::<Box<[u8]>, Box<[u32]>>(bytes.into_boxed_slice()) },
+            data: data.into_boxed_slice(),
             _marker: core::marker::PhantomData,
         })
     }
