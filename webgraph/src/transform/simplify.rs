@@ -12,7 +12,7 @@ use crate::traits::{LenderIntoIter, SequentialGraph, SortedIterator, SortedLende
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
-use itertools::{Dedup, Itertools};
+use itertools::Itertools;
 use lender::*;
 use rayon::ThreadPool;
 use tempfile::Builder;
@@ -58,18 +58,7 @@ pub fn simplify(
 ) -> Result<
     Left<
         arc_list_graph::ArcListGraph<
-            std::iter::Map<
-                Dedup<
-                    core::iter::Filter<
-                        core::iter::Map<
-                            KMergeIters<BatchIterator<()>>,
-                            fn((usize, usize, ())) -> (usize, usize),
-                        >,
-                        fn(&(usize, usize)) -> bool,
-                    >,
-                >,
-                fn((usize, usize)) -> (usize, usize, ()),
-            >,
+            impl Iterator<Item = (usize, usize, ())> + Clone + Send + Sync + 'static,
         >,
     >,
 > {

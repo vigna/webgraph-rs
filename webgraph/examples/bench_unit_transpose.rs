@@ -31,19 +31,7 @@ struct Args {
 pub fn transpose(
     graph: &impl SequentialGraph,
     batch_size: usize,
-) -> Result<
-    Left<
-        ArcListGraph<
-            std::iter::Map<
-                std::iter::Map<
-                    KMergeIters<BatchIterator>,
-                    fn((usize, usize, ())) -> (usize, usize),
-                >,
-                fn((usize, usize)) -> (usize, usize, ()),
-            >,
-        >,
-    >,
-> {
+) -> Result<Left<ArcListGraph<impl Iterator<(usize, usize, ())>>>> {
     let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
