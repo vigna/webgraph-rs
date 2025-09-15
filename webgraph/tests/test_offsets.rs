@@ -10,7 +10,7 @@ use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use lender::*;
 use std::io::prelude::*;
-use sux::prelude::*;
+use sux::traits::IndexedSeq;
 use webgraph::prelude::*;
 
 #[test]

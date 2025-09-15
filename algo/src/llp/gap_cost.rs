@@ -8,7 +8,7 @@
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use rayon::ThreadPool;
-use sux::prelude::*;
+use sux::traits::Succ;
 use webgraph::{traits::*, utils::Granularity};
 
 /// Computes the gap cost, that is, the sum of the costs of the logarithms
