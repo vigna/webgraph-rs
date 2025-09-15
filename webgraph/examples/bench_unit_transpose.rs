@@ -31,7 +31,7 @@ struct Args {
 pub fn transpose(
     graph: &impl SequentialGraph,
     batch_size: usize,
-) -> Result<Left<ArcListGraph<impl Iterator<(usize, usize, ())>>>> {
+) -> Result<Left<ArcListGraph<impl Iterator<Item = (usize, usize, ())> + Clone>>> {
     let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
     let mut sorted = SortPairs::new(batch_size, dir.path())?;
 
