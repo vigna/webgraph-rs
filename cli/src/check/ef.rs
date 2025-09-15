@@ -15,7 +15,7 @@ use log::info;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use sux::prelude::*;
+use sux::traits::IndexedSeq;
 use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 
 #[derive(Parser, Debug)]

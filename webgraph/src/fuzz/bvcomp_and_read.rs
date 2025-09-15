@@ -10,6 +10,7 @@ use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
 use lender::prelude::*;
 use sux::prelude::*;
+use sux::traits::IndexedSeq;
 
 #[derive(Clone, Debug, arbitrary::Arbitrary)]
 pub enum CodeFuzz {
@@ -120,13 +121,13 @@ pub fn harness(data: FuzzCase) {
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
-        MemCase::from(<EmptyDict<usize, usize>>::default()),
+        MemCase::<EmptyDict<usize, usize>>::encase(<EmptyDict<usize, usize>>::default()),
         comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
-        MemCase::from(<EmptyDict<usize, usize>>::default()),
+        MemCase::<EmptyDict<usize, usize>>::encase(<EmptyDict<usize, usize>>::default()),
         comp_flags,
     )
     .unwrap();
@@ -205,13 +206,13 @@ pub fn harness(data: FuzzCase) {
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
-        MemCase::from(ef.clone()),
+        ef.clone(),
         comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
-        MemCase::from(ef.clone()),
+        ef.clone(),
         comp_flags,
     )
     .unwrap();
