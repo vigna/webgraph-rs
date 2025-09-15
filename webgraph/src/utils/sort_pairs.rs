@@ -477,7 +477,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 /// });
 /// drop(tx);
 /// // merge the KMergeIters
-/// let merged = rx.iter().sum::<KMergeIters<_, _>, usize>>();
+/// let merged = rx.iter().sum::<KMergeIters<core::iter::Map<core::ops::Range<usize>, _>, usize>>();
 /// ```
 /// or with plain iterators:
 /// ```rust
