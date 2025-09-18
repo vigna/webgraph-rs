@@ -43,15 +43,15 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///     .unwrap()
 ///     .expected_num_pairs(unsorted_pairs.len())
 ///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
-/// let partitioned_sorted_pairs = || pair_sorter.par_sort_pairs(
-///     unsorted_pairs.par_iter().copied()
-/// ).unwrap();
 ///
 /// assert_eq!(
-///     partitioned_sorted_pairs()
+///     pair_sorter.par_sort_pairs(
+///         unsorted_pairs.par_iter().copied()
+///     )
+///         .unwrap()
 ///         .into_iter()
 ///         .map(|partition| partition.into_iter().collect::<Vec<_>>())
-///     .collect::<Vec<_>>(),
+///         .collect::<Vec<_>>(),
 ///     vec![
 ///         vec![(0, 4), (1, 0), (1, 3), (2, 1)], // nodes 0, 1, and 2 are in partition 0
 ///         vec![(3, 2)], // nodes 3 and 4 are in partition 1
@@ -63,7 +63,11 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///
 /// BvComp::parallel_iter::<LittleEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     partitioned_sorted_pairs()
+///     pair_sorter.par_sort_pairs(
+///         unsorted_pairs.par_iter().copied()
+///     )
+///         .unwrap()
+///         .into_iter()
 ///         .into_iter()
 ///         .enumerate()
 ///         .map(|(partition_id, partition)| {
