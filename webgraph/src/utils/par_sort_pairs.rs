@@ -118,9 +118,7 @@ impl ParSortPairs<()> {
 }
 
 impl<L> ParSortPairs<L> {
-    pub fn new(
-        num_nodes: usize,
-    ) -> Result<Self> {
+    pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
             expected_num_triples: None,
@@ -154,10 +152,7 @@ impl<L> ParSortPairs<L> {
     /// Larger values are logarithmically faster (by reducing the number of merges
     /// to do afterward) but consume linearly more memory.
     pub fn batch_size(self, batch_size: NonZeroUsize) -> Self {
-        Self {
-            batch_size,
-            ..self
-        }
+        Self { batch_size, ..self }
     }
 
     pub fn par_sort_triples<S, D>(
