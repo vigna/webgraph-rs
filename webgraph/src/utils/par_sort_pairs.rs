@@ -236,7 +236,7 @@ impl<L> ParSortPairs<L> {
                 let buf_len = buf.len();
                 flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, &mut sorted_triples, &mut buf).context("Could not flush buffer at the end")?;
                 assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                actual_num_triples.fetch_add(buf.len().try_into().expect("number of triples overflowed u64"), Ordering::Relaxed);
+                actual_num_triples.fetch_add(buf_len.try_into().expect("number of triples overflowed u64"), Ordering::Relaxed);
                 shared_pl.lock().unwrap().update_with_count(buf_len);
 
                 partitioned_sorted_triples.push(sorted_triples);
