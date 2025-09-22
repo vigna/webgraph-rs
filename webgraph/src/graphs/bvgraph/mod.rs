@@ -75,9 +75,7 @@ pub type DCF = sux::dict::EliasFano<
 pub struct SliceSeq<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>>(
     A,
     std::marker::PhantomData<O>,
-)
-where
-    usize: PartialEq<O>;
+);
 
 impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> SliceSeq<O, A>
 where
