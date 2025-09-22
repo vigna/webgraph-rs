@@ -231,7 +231,7 @@ impl<L> ParSortPairs<L> {
         // flush remaining buffers
         .map(|res: Result<(u64, PartitionedWorkerData<D, L>)>| {
             let (worker_id, worker_data) = res?;
-            let mut partioned_sorted_triples = Vec::with_capacity(num_partitions);
+            let mut partitioned_sorted_triples = Vec::with_capacity(num_partitions);
             for (partition_id, (mut sorted_triples, mut buf)) in worker_data.into_iter().enumerate() {
                 let buf_len = buf.len();
                 flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, &mut sorted_triples, &mut buf).context("Could not flush buffer at the end")?;
@@ -239,9 +239,9 @@ impl<L> ParSortPairs<L> {
                 actual_num_triples.fetch_add(buf.len().try_into().expect("number of triples overflowed u64"), Ordering::Relaxed);
                 shared_pl.lock().unwrap().update_with_count(buf_len);
 
-                partioned_sorted_triples.push(sorted_triples);
+                partitioned_sorted_triples.push(sorted_triples);
             }
-            Ok(partioned_sorted_triples)
+            Ok(partitioned_sorted_triples)
         })
         // At this point, the iterator could be collected into
         // {worker_id -> {partition_id -> [iterators]}}
