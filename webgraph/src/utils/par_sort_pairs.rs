@@ -86,7 +86,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// ```
 pub struct ParSortPairs<L = ()> {
     num_nodes: usize,
-    expected_num_triples: Option<usize>,
+    expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     batch_size: NonZeroUsize,
     marker: PhantomData<L>,
@@ -98,7 +98,7 @@ impl ParSortPairs<()> {
         pairs: impl ParallelIterator<Item = (usize, usize)>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
         Ok(self
-            .par_sort_triples(&(), (), pairs.map(|(src, dst)| (src, dst, ())))?
+            .par_sort_labeled_pairs(&(), (), pairs.map(|(src, dst)| (src, dst, ())))?
             .into_iter()
             .map(|into_iter| {
                 into_iter
@@ -107,20 +107,13 @@ impl ParSortPairs<()> {
             })
             .collect())
     }
-
-    /// Approximate number of pairs to be sorted. Used only for progress reporting
-    ///
-    /// This is an alias for [`Self::expected_num_triples`]
-    pub fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
-        self.expected_num_triples(expected_num_pairs)
-    }
 }
 
 impl<L> ParSortPairs<L> {
     pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
-            expected_num_triples: None,
+            expected_num_pairs: None,
             num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
             // TODO: compute default batch_size from available RAM and number of threads
             batch_size: NonZeroUsize::new(100_000_000).unwrap(),
@@ -128,10 +121,10 @@ impl<L> ParSortPairs<L> {
         })
     }
 
-    /// Approximate number of triples to be sorted. Used only for progress reporting
-    pub fn expected_num_triples(self, expected_num_triples: usize) -> Self {
+    /// Approximate number of pairs to be sorted. Used only for progress reporting
+    pub fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
         Self {
-            expected_num_triples: Some(expected_num_triples),
+            expected_num_pairs: Some(expected_num_pairs),
             ..self
         }
     }
@@ -154,11 +147,11 @@ impl<L> ParSortPairs<L> {
         Self { batch_size, ..self }
     }
 
-    pub fn par_sort_triples<S, D>(
+    pub fn par_sort_labeled_pairs<S, D>(
         &self,
         serializer: &S,
         deserializer: D,
-        triples: impl ParallelIterator<Item = (usize, usize, L)>,
+        pairs: impl ParallelIterator<Item = (usize, usize, L)>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize, L), IntoIter: Clone + Send + Sync>>>
     where
         L: Copy + Send + Sync + BitDeserializer<NE, BitReader, DeserType = L>,
@@ -183,9 +176,9 @@ impl<L> ParSortPairs<L> {
         // and no one wants to deal with that kind of type.
         //
         // Plus, it constrains future changes to this function's internals too much.
-        let unsorted_triples = triples;
+        let unsorted_pairs = pairs;
 
-        // {partition_id: ([BatchIterator], [triple])}
+        // {partition_id: ([BatchIterator], [pair])}
         type PartitionedWorkerData<D, L> = Vec<(Vec<BatchIterator<D>>, Vec<Triple<L>>)>;
 
         let num_partitions = self.num_partitions.into();
@@ -194,32 +187,32 @@ impl<L> ParSortPairs<L> {
 
         let mut pl = progress_logger!(
             display_memory = true,
-            item_name = "triple",
+            item_name = "pair",
             local_speed = true,
-            expected_updates = self.expected_num_triples,
+            expected_updates = self.expected_num_pairs,
         );
-        pl.start("[1/2] Reading and sorting triples");
+        pl.start("[1/2] Reading and sorting pairs");
 
         let shared_pl = Mutex::new(&mut pl);
-        let actual_num_triples = AtomicU64::new(0);
+        let actual_num_pairs = AtomicU64::new(0);
         let worker_id = AtomicU64::new(0);
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
 
-        // iterators in partitioned_presorted_triples[partition_id] contain all triples (src, dst, label)
+        // iterators in partitioned_presorted_pairs[partition_id] contain all pairs (src, dst, label)
         // where num_nodes_per_partition*partition_id <= src < num_nodes_per_partition*(partition_id+1)
-        let partitioned_presorted_triples: Vec<Vec<BatchIterator<D>>> = unsorted_triples
+        let partitioned_presorted_pairs: Vec<Vec<BatchIterator<D>>> = unsorted_pairs
         .try_fold(
             || (worker_id.fetch_add(1, Ordering::Relaxed), (0..num_partitions).map(|_| (Vec::new(), Vec::with_capacity(batch_size))).collect()),
             |(worker_id, mut worker_data): (_, PartitionedWorkerData<D, L>), (src, dst, label)| -> Result<_> {
                 ensure!(src < self.num_nodes, "Expected {}, but got {src}", self.num_nodes);
                 let partition_id = src / num_nodes_per_partition;
-                let (sorted_triples, ref mut buf) = &mut worker_data[partition_id];
+                let (sorted_pairs, ref mut buf) = &mut worker_data[partition_id];
                 if buf.len() >= buf.capacity() {
                     let buf_len = buf.len();
-                    flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, sorted_triples, buf).context("Could not flush buffer")?;
+                    flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, sorted_pairs, buf).context("Could not flush buffer")?;
                     assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                    actual_num_triples.fetch_add(buf_len.try_into().expect("number of triples overflowed u64"), Ordering::Relaxed);
+                    actual_num_pairs.fetch_add(buf_len.try_into().expect("number of pairs overflowed u64"), Ordering::Relaxed);
                     shared_pl.lock().unwrap().update_with_count(buf_len);
                 }
 
@@ -230,17 +223,17 @@ impl<L> ParSortPairs<L> {
         // flush remaining buffers
         .map(|res: Result<(u64, PartitionedWorkerData<D, L>)>| {
             let (worker_id, worker_data) = res?;
-            let mut partitioned_sorted_triples = Vec::with_capacity(num_partitions);
-            for (partition_id, (mut sorted_triples, mut buf)) in worker_data.into_iter().enumerate() {
+            let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
+            for (partition_id, (mut sorted_pairs, mut buf)) in worker_data.into_iter().enumerate() {
                 let buf_len = buf.len();
-                flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, &mut sorted_triples, &mut buf).context("Could not flush buffer at the end")?;
+                flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
                 assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                actual_num_triples.fetch_add(buf_len.try_into().expect("number of triples overflowed u64"), Ordering::Relaxed);
+                actual_num_pairs.fetch_add(buf_len.try_into().expect("number of pairs overflowed u64"), Ordering::Relaxed);
                 shared_pl.lock().unwrap().update_with_count(buf_len);
 
-                partitioned_sorted_triples.push(sorted_triples);
+                partitioned_sorted_pairs.push(sorted_pairs);
             }
-            Ok(partitioned_sorted_triples)
+            Ok(partitioned_sorted_pairs)
         })
         // At this point, the iterator could be collected into
         // {worker_id -> {partition_id -> [iterators]}}
@@ -249,13 +242,13 @@ impl<L> ParSortPairs<L> {
         // Let's merge the {partition_id -> [iterators]} maps of each worker
         .try_reduce(
             || (0..num_partitions).map(|_| Vec::new()).collect(),
-            |mut triple_partitions1: Vec<Vec<BatchIterator<D>>>, triple_partitions2: Vec<Vec<BatchIterator<D>>>| -> Result<Vec<Vec<BatchIterator<D>>>> {
-            assert_eq!(triple_partitions1.len(), num_partitions);
-            assert_eq!(triple_partitions2.len(), num_partitions);
-            for (partition1, partition2) in triple_partitions1.iter_mut().zip(triple_partitions2.into_iter()) {
+            |mut pair_partitions1: Vec<Vec<BatchIterator<D>>>, pair_partitions2: Vec<Vec<BatchIterator<D>>>| -> Result<Vec<Vec<BatchIterator<D>>>> {
+            assert_eq!(pair_partitions1.len(), num_partitions);
+            assert_eq!(pair_partitions2.len(), num_partitions);
+            for (partition1, partition2) in pair_partitions1.iter_mut().zip(pair_partitions2.into_iter()) {
                 partition1.extend(partition2.into_iter());
             }
-            Ok(triple_partitions1)
+            Ok(pair_partitions1)
         })?
         // At this point, the iterator was turned into
         // {partition_id -> [iterators]}
@@ -263,17 +256,17 @@ impl<L> ParSortPairs<L> {
         ;
         pl.done();
 
-        let actual_num_triples = actual_num_triples.into_inner();
+        let actual_num_pairs = actual_num_pairs.into_inner();
 
         let merge_tmp_dir = tempfile::tempdir().context("Could not create temporary directory")?;
         let mut pl = concurrent_progress_logger!(
             display_memory = true,
-            item_name = "triple",
+            item_name = "pair",
             local_speed = true,
-            expected_updates = actual_num_triples.try_into().ok(),
+            expected_updates = actual_num_pairs.try_into().ok(),
         );
         pl.start("[2/2] Merging subiterators");
-        let partitioned_triples: Vec<Vec<BatchIterator<D>>> = partitioned_presorted_triples
+        let partitioned_pairs: Vec<Vec<BatchIterator<D>>> = partitioned_presorted_pairs
         .into_par_iter()
         .enumerate()
         .map_with(
@@ -324,9 +317,9 @@ impl<L> ParSortPairs<L> {
 
         drop(presort_tmp_dir); // don't need this anymore, we can free disk space early
 
-        Ok(partitioned_triples
+        Ok(partitioned_pairs
             .into_iter()
-            .map(|triple_partition: Vec<BatchIterator<D>>| triple_partition.into_iter().flatten())
+            .map(|pair_partition: Vec<BatchIterator<D>>| pair_partition.into_iter().flatten())
             .collect())
     }
 }
@@ -341,14 +334,14 @@ fn flush_buffer<
     deserializer: D,
     worker_id: u64,
     partition_id: usize,
-    sorted_triples: &mut Vec<BatchIterator<D>>,
+    sorted_pairs: &mut Vec<BatchIterator<D>>,
     buf: &mut Vec<Triple<L>>,
 ) -> Result<()> {
     buf.radix_sort_unstable();
     assert!(buf.windows(2).all(|w| w[0] <= w[1]), "buffer is not sorted");
     let path = tmp_dir.join(format!(
         "sorted_batch_{worker_id}_{partition_id}_{}",
-        sorted_triples.len()
+        sorted_pairs.len()
     ));
 
     // Safety check. It's not foolproof (TOCTOU) but should catch most programming errors.
@@ -357,7 +350,7 @@ fn flush_buffer<
         "Can't create temporary file {}, it already exists",
         path.display()
     );
-    sorted_triples.push(
+    sorted_pairs.push(
         BatchIterator::new_from_vec_sorted_labeled(&path, buf, serializer, deserializer)
             .with_context(|| format!("Could not write sorted batch to {}", path.display()))?,
     );
