@@ -104,7 +104,6 @@ impl ParSortPairs<()> {
                 into_iter
                     .into_iter()
                     .map(|(src, dst, ())| (src, dst))
-                    .collect::<Vec<_>>()
             })
             .collect())
     }
