@@ -100,11 +100,7 @@ impl ParSortPairs<()> {
         Ok(self
             .par_sort_labeled_pairs(&(), (), pairs.map(|(src, dst)| (src, dst, ())))?
             .into_iter()
-            .map(|into_iter| {
-                into_iter
-                    .into_iter()
-                    .map(|(src, dst, ())| (src, dst))
-            })
+            .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
             .collect())
     }
 }
@@ -152,7 +148,18 @@ impl<L> ParSortPairs<L> {
         serializer: &S,
         deserializer: D,
         pairs: impl ParallelIterator<Item = (usize, usize, L)>,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize, <D as BitDeserializer<NE, BitReader>>::DeserType), IntoIter: Clone + Send + Sync>>>
+    ) -> Result<
+        Vec<
+            impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Clone + Send + Sync,
+            >,
+        >,
+    >
     where
         L: Copy + Send + Sync,
         S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
@@ -236,21 +243,19 @@ impl<L> ParSortPairs<L> {
         pl.done();
 
         Ok(partitioned_presorted_pairs
-        .into_iter()
-        .map(
-            |partition| {
+            .into_iter()
+            .map(|partition| {
                 // 'partition' contains N iterators that are not sorted with respect to each other.
                 // We merge them and turn them into a single sorted iterator.
                 KMergeIters::new(partition)
-            },
-        )
-        .collect())
+            })
+            .collect())
     }
 }
 
 fn flush_buffer<
     L: Copy + Send + Sync,
-    S: BitSerializer<NE, BitWriter, SerType=L>,
+    S: BitSerializer<NE, BitWriter, SerType = L>,
     D: BitDeserializer<NE, BitReader>,
 >(
     tmp_dir: &Path,
