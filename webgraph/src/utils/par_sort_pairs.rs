@@ -154,7 +154,7 @@ impl<L> ParSortPairs<L> {
         pairs: impl ParallelIterator<Item = (usize, usize, L)>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize, <D as BitDeserializer<NE, BitReader>>::DeserType), IntoIter: Clone + Send + Sync>>>
     where
-        L: Copy + Send + Sync + BitDeserializer<NE, BitReader>,
+        L: Copy + Send + Sync,
         S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
         D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
     {
@@ -249,7 +249,7 @@ impl<L> ParSortPairs<L> {
 }
 
 fn flush_buffer<
-    L: Copy + Send + Sync + BitDeserializer<NE, BitReader>,
+    L: Copy + Send + Sync,
     S: BitSerializer<NE, BitWriter, SerType=L>,
     D: BitDeserializer<NE, BitReader>,
 >(
