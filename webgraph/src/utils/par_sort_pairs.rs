@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 use anyhow::{ensure, Context, Result};
 use dsi_bitstream::traits::NE;
-use dsi_progress_logger::{concurrent_progress_logger, progress_logger, ProgressLog};
+use dsi_progress_logger::{progress_logger, ProgressLog};
 use rayon::prelude::*;
 use rdst::RadixSort;
 
@@ -152,30 +152,12 @@ impl<L> ParSortPairs<L> {
         serializer: &S,
         deserializer: D,
         pairs: impl ParallelIterator<Item = (usize, usize, L)>,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize, L), IntoIter: Clone + Send + Sync>>>
+    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize, <D as BitDeserializer<NE, BitReader>>::DeserType), IntoIter: Clone + Send + Sync>>>
     where
-        L: Copy + Send + Sync + BitDeserializer<NE, BitReader, DeserType = L>,
+        L: Copy + Send + Sync + BitDeserializer<NE, BitReader>,
         S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType = L>,
+        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
     {
-        // we could relax `L: BitDeserializer<NE, BitReader, DeserType=L>` as:
-        // `BitDeserializer<NE, BitReader, DeserType: BitDeserializer<NE, BitReader> >`,
-        // but then the return type would have to be:
-        //
-        // ```
-        // Result<Vec<impl IntoIterator<Item = (
-        //     usize,
-        //     usize,
-        //     <
-        //         <L as BitDeserializer<NE, BitReader>>::DeserType
-        //         as BitDeserializer<NE, BitReader>
-        //      >::DeserType
-        // )>>>
-        // ```
-        //
-        // and no one wants to deal with that kind of type.
-        //
-        // Plus, it constrains future changes to this function's internals too much.
         let unsorted_pairs = pairs;
 
         // {partition_id: ([BatchIterator], [pair])}
@@ -191,10 +173,9 @@ impl<L> ParSortPairs<L> {
             local_speed = true,
             expected_updates = self.expected_num_pairs,
         );
-        pl.start("[1/2] Reading and sorting pairs");
+        pl.start("Reading and sorting pairs");
 
         let shared_pl = Mutex::new(&mut pl);
-        let actual_num_pairs = AtomicU64::new(0);
         let worker_id = AtomicU64::new(0);
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
@@ -212,7 +193,6 @@ impl<L> ParSortPairs<L> {
                     let buf_len = buf.len();
                     flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, sorted_pairs, buf).context("Could not flush buffer")?;
                     assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                    actual_num_pairs.fetch_add(buf_len.try_into().expect("number of pairs overflowed u64"), Ordering::Relaxed);
                     shared_pl.lock().unwrap().update_with_count(buf_len);
                 }
 
@@ -228,7 +208,6 @@ impl<L> ParSortPairs<L> {
                 let buf_len = buf.len();
                 flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
                 assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                actual_num_pairs.fetch_add(buf_len.try_into().expect("number of pairs overflowed u64"), Ordering::Relaxed);
                 shared_pl.lock().unwrap().update_with_count(buf_len);
 
                 partitioned_sorted_pairs.push(sorted_pairs);
@@ -256,78 +235,23 @@ impl<L> ParSortPairs<L> {
         ;
         pl.done();
 
-        let actual_num_pairs = actual_num_pairs.into_inner();
-
-        let merge_tmp_dir = tempfile::tempdir().context("Could not create temporary directory")?;
-        let mut pl = concurrent_progress_logger!(
-            display_memory = true,
-            item_name = "pair",
-            local_speed = true,
-            expected_updates = actual_num_pairs.try_into().ok(),
-        );
-        pl.start("[2/2] Merging subiterators");
-        let partitioned_pairs: Vec<Vec<BatchIterator<D>>> = partitioned_presorted_pairs
-        .into_par_iter()
-        .enumerate()
-        .map_with(
-            pl.clone(),
-            |pl, (partition_id, partition)| -> Result<Vec<BatchIterator<D>>> {
+        Ok(partitioned_presorted_pairs
+        .into_iter()
+        .map(
+            |partition| {
                 // 'partition' contains N iterators that are not sorted with respect to each other.
-                // We merge them and turn them into N iterator that are in ascending order.
-                let mut iterators = Vec::with_capacity(partition.len());
-                let mut buf = Vec::with_capacity(batch_size);
-                for (src, dst, label) in KMergeIters::new(partition) {
-                    assert!(partition_id * num_nodes_per_partition <= src, "partition_id={partition_id}, num_nodes_per_partition={num_nodes_per_partition}, src={src}");
-                    assert!(src < (partition_id + 1) * num_nodes_per_partition, "partition_id={partition_id}, num_nodes_per_partition={num_nodes_per_partition}, src={src}");
-                    if buf.len() == buf.capacity() {
-                        flush_buffer(
-                            merge_tmp_dir.path(),
-                            serializer,
-                            deserializer.clone(),
-                            0,
-                            partition_id,
-                            &mut iterators,
-                            &mut buf,
-                        )
-                        .context("Could not flush buffer")?;
-                    }
-                    assert!(
-                        buf.len() < buf.capacity(),
-                        "flush_buffer did not flush the buffer"
-                    );
-                    buf.push(Triple { pair: [src, dst], label });
-                    pl.light_update();
-                }
-                flush_buffer(
-                    merge_tmp_dir.path(),
-                    serializer,
-                    deserializer.clone(),
-                    0,
-                    partition_id,
-                    &mut iterators,
-                    &mut buf,
-                )
-                .context("Could not flush buffer at the end")?;
-                Ok(iterators)
+                // We merge them and turn them into a single sorted iterator.
+                KMergeIters::new(partition)
             },
         )
-        .collect::<Result<_>>()?;
-
-        pl.done();
-
-        drop(presort_tmp_dir); // don't need this anymore, we can free disk space early
-
-        Ok(partitioned_pairs
-            .into_iter()
-            .map(|pair_partition: Vec<BatchIterator<D>>| pair_partition.into_iter().flatten())
-            .collect())
+        .collect())
     }
 }
 
 fn flush_buffer<
     L: Copy + Send + Sync + BitDeserializer<NE, BitReader>,
-    S: BitSerializer<NE, BitWriter, SerType = L>,
-    D: BitDeserializer<NE, BitReader, DeserType = L>,
+    S: BitSerializer<NE, BitWriter, SerType=L>,
+    D: BitDeserializer<NE, BitReader>,
 >(
     tmp_dir: &Path,
     serializer: &S,
