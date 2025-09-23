@@ -9,7 +9,7 @@ webgraph-cli = { path = "./cli", version = "0.1.0" }
 
 card-est-array = "0.1.0"
 #epserde = "0.8.0"
-epserde = { git = "https://github.com/vigna/epserde-rs" }
+epserde = { git = "https://github.com/vigna/epserde-rs", branch = "unified_vec_box" }
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
 #sux = "0.8.0"
@@ -58,4 +58,5 @@ debug-assertions = false # Enables debug assertions.
 codegen-units = 1        # slower compile times, but maybe better perf
 
 [patch.crates-io]
-epserde = { git = "https://github.com/vigna/epserde-rs" }
+epserde = { git = "https://github.com/vigna/epserde-rs", branch = "unified_vec_box" }
+sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"] }
