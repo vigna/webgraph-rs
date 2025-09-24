@@ -31,7 +31,7 @@ pub struct BvGraphSeq<F> {
 impl BvGraphSeq<()> {
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap> {
+    ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap, EF> {
         LoadConfig {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),

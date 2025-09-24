@@ -37,20 +37,22 @@ struct Args {
 pub struct CustomDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+    OFF: AsRef<O>,
+    O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
 > {
     pub factory: F,
     // The [`MemoryCase`]` here is needed to memory-map the offsets, otherwise
     // it can just be `OFF`
     pub offsets: OFF,
-    _marker: std::marker::PhantomData<E>,
+    _marker: std::marker::PhantomData<(E, O)>,
 }
 
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > CustomDecoderFactory<E, F, OFF>
+        OFF: AsRef<O>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+    > CustomDecoderFactory<E, F, OFF, O>
 {
     pub fn new(factory: F, offsets: OFF) -> Self {
         Self {
@@ -64,8 +66,9 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
+        OFF: AsRef<O>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+    > RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF, O>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -75,7 +78,7 @@ where
         Self: 'a;
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
+        code_reader.set_bit_pos(self.offsets.as_ref().get(node) as u64)?;
         Ok(CustomDecoder::new(code_reader))
     }
 }
@@ -83,8 +86,9 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
+        OFF: AsRef<O>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+    > SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF, O>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -167,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.mmap {
         let graph = BvGraph::new(
-            CustomDecoderFactory::<LE, _, _>::new(
+            CustomDecoderFactory::<LE, _, _, _>::new(
                 // This is MMap
                 MmapHelper::mmap(
                     args.basename.with_extension(GRAPH_EXTENSION),

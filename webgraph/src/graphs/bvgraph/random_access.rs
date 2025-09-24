@@ -31,7 +31,7 @@ impl BvGraph<()> {
     /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
-    ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap> {
+    ) -> LoadConfig<BE, Random, Dynamic, Mmap, Mmap, EF> {
         LoadConfig {
             basename: PathBuf::from(basename.as_ref()),
             graph_load_flags: Flags::empty(),
@@ -44,10 +44,9 @@ impl BvGraph<()> {
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
-where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: AsRef<O>,
+    > BvGraph<DynCodesDecoderFactory<E, F, OFF, O>>
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -57,7 +56,14 @@ where
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> BvGraph<DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+    ) -> BvGraph<
+        DynCodesDecoderFactory<
+            E,
+            F,
+            Identity<SliceSeq<usize, Box<[usize]>>>,
+            SliceSeq<usize, Box<[usize]>>,
+        >,
+    > {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -71,8 +77,9 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: AsRef<O>,
+    > BvGraph<ConstCodesDecoderFactory<E, F, OFF, O>>
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -82,7 +89,14 @@ impl<
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> BvGraph<ConstCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+    ) -> BvGraph<
+        ConstCodesDecoderFactory<
+            E,
+            F,
+            Identity<SliceSeq<usize, Box<[usize]>>>,
+            SliceSeq<usize, Box<[usize]>>,
+        >,
+    > {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
