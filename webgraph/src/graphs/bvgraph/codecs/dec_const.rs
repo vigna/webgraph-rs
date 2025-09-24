@@ -14,7 +14,7 @@ use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
-use epserde::deser::EncaseWrapper;
+use epserde::deser::Encase;
 use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
 
@@ -193,7 +193,7 @@ where
     ) -> ConstCodesDecoderFactory<
         E,
         F,
-        EncaseWrapper<SliceSeq<usize, Box<[usize]>>>,
+        Encase<SliceSeq<usize, Box<[usize]>>>,
         OUTDEGREES,
         REFERENCES,
         BLOCKS,
@@ -203,14 +203,13 @@ where
         let offsets = self.offsets.uncase();
         ConstCodesDecoderFactory {
             factory: self.factory,
-            offsets: <MemCase<EncaseWrapper<SliceSeq<usize, Box<[usize]>>>>>::encase(
-                <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                    (0..offsets.len())
-                        .map(|i| unsafe { offsets.get_unchecked(i) })
-                        .collect::<Vec<_>>()
-                        .into_boxed_slice(),
-                ),
-            ),
+            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
+                (0..offsets.len())
+                    .map(|i| unsafe { offsets.get_unchecked(i) })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            )
+            .into(),
             _marker: PhantomData,
         }
     }

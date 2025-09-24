@@ -146,7 +146,7 @@ impl<
     /// * `array_1`: A second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
-        assert!(array_0.logic() == array_1.logic(), "Incompatible logics");
+        assert!(array_0.logic() == array_1.logic(), "Incompatible logic");
         assert_eq!(
             graph.num_nodes(),
             array_0.len(),
@@ -232,7 +232,7 @@ impl<
             graph.num_arcs(),
             transpose.num_arcs()
         );
-        /* TODOdebug_assert!(
+        /* TOD Odebug_assert!(
             check_transposed(graph, transpose),
             "the transpose should be the transpose of the graph"
         );*/
@@ -536,7 +536,7 @@ where
         pl.item_name("iteration");
         pl.expected_updates(None);
         pl.start(format!(
-            "Running Hyperball for a maximum of {} iterations and a threshold of {:?}",
+            "Running HyperBall for a maximum of {} iterations and a threshold of {:?}",
             upper_bound, threshold
         ));
 

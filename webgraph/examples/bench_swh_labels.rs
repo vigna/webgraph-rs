@@ -14,7 +14,7 @@ use dsi_bitstream::codes::GammaRead;
 use dsi_bitstream::impls::{BufBitReader, MemWordReader};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness, BE};
 use dsi_progress_logger::prelude::*;
-use epserde::deser::{Deserialize, Flags, MemCase};
+use epserde::deser::{Deserialize, Flags};
 use lender::*;
 use mmap_rs::MmapFlags;
 use std::hint::black_box;
