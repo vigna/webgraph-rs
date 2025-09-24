@@ -12,6 +12,7 @@ use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{Endianness, BE};
+use epserde::deser::{DeserializeInner, EncaseWrapper};
 use lender::IntoLender;
 use std::path::PathBuf;
 use sux::traits::IndexedSeq;
@@ -41,13 +42,11 @@ impl BvGraph<()> {
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+    for<'a> OFF::DeserType<'a>: Offsets,
+    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -57,7 +56,7 @@ where
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> BvGraph<DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+    ) -> BvGraph<DynCodesDecoderFactory<E, F, EncaseWrapper<SliceSeq<usize, Box<[usize]>>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -68,11 +67,10 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -82,7 +80,7 @@ impl<
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> BvGraph<ConstCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+    ) -> BvGraph<ConstCodesDecoderFactory<E, F, EncaseWrapper<SliceSeq<usize, Box<[usize]>>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,

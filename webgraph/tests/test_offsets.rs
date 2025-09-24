@@ -41,6 +41,8 @@ fn test_offsets() -> Result<()> {
         )
     }?;
 
+    let ef_offsets = ef_offsets.uncase();
+
     for (i, offset) in offsets.iter().enumerate() {
         assert_eq!(*offset, ef_offsets.get(i) as u64);
     }

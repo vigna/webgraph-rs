@@ -249,6 +249,22 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
 
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 
+impl<L: Clone + Sync> SplitLabeling for LabeledBTreeGraph<L> {
+    type SplitLender<'a>
+        = split::ra::Lender<'a, LabeledBTreeGraph<L>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, LabeledBTreeGraph<L>>
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
+    }
+}
+
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// [`BTreeSet`].
 ///
@@ -455,6 +471,22 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl SplitLabeling for BTreeGraph {
+    type SplitLender<'a>
+        = split::ra::Lender<'a, BTreeGraph>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, BTreeGraph>
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
     }
 }
 

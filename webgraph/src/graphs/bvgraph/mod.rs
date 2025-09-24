@@ -32,7 +32,7 @@ pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
-use epserde::Epserde;
+use epserde::{deser::DeserializeInner, Epserde};
 pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
@@ -59,6 +59,15 @@ pub type EF = sux::dict::EliasFano<
     sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
+
+/// Compound trait expressing the trait bounds for offsets.
+///
+/// We need [`DeserializeInner`] to be able to put the offsets in a [`MemCase`].
+/// If you have an in-memory structure the requirement is irrelevant as
+/// [`MemCase::encase`] will put the structure in a [`deserializable
+/// wrapper`](epserde::deser::DeserializableWrapper).
+pub trait Offsets: for<'a> IndexedSeq<Input = usize, Output<'a> = usize> {}
+impl<T: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>> Offsets for T {}
 
 /// The default version of EliasFano we use for the cumulative function of degrees.
 pub type DCF = sux::dict::EliasFano<

@@ -13,9 +13,10 @@
 //!
 //! See the examples for a complete implementation based on memory mapping.
 
-use crate::prelude::BitDeserializer;
+use crate::prelude::{BitDeserializer, Offsets};
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
+use epserde::deser::{DeserializeInner, MemCase};
 use lender::*;
 use sux::traits::IndexedSeq;
 
@@ -31,18 +32,18 @@ pub trait Supply {
 }
 
 /// A labeling based on a bitstream of labels and an indexed sequence of offsets.
-pub struct BitStreamLabeling<E: Endianness, S: Supply, D, O>
+pub struct BitStreamLabeling<E: Endianness, S: Supply, D, O: DeserializeInner>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
 {
     reader_supplier: S,
     bit_deser: D,
-    offsets: O,
+    offsets: MemCase<O>,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, S: Supply, D, O> BitStreamLabeling<E, S, D, O>
+impl<E: Endianness, S: Supply, D, O: DeserializeInner> BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
@@ -57,7 +58,7 @@ where
     /// * `bit_deser_supplier`: A supplier of deserializers for the labels.
     ///
     /// * `offsets`: An indexed sequence of offsets into the bitstream.
-    pub fn new(reader_supplier: S, bit_deser: D, offsets: O) -> Self {
+    pub fn new(reader_supplier: S, bit_deser: D, offsets: MemCase<O>) -> Self {
         Self {
             reader_supplier,
             bit_deser,
@@ -67,10 +68,10 @@ where
     }
 }
 
-pub struct Iter<'a, 'b, E, BR, D, O> {
+pub struct Iter<'a, 'b, E, BR, D, O: DeserializeInner> {
     reader: BR,
     bit_deser: &'a D,
-    offsets: &'b O,
+    offsets: &'b MemCase<O>,
     next_node: usize,
     num_nodes: usize,
     _marker: std::marker::PhantomData<E>,
@@ -81,8 +82,10 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        O: DeserializeInner,
     > NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
+where
+    for<'a> O::DeserType<'a>: Offsets,
 {
     type Label = D::DeserType;
     type IntoIterator = SeqLabels<'succ, E, BR, D>;
@@ -93,18 +96,18 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        O: DeserializeInner,
     > Lending<'succ> for Iter<'_, '_, E, BR, D, O>
+where
+    for<'a> O::DeserType<'a>: Offsets,
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<
-        E: Endianness,
-        BR: BitRead<E> + BitSeek,
-        D: BitDeserializer<E, BR>,
-        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > Lender for Iter<'_, '_, E, BR, D, O>
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: DeserializeInner> Lender
+    for Iter<'_, '_, E, BR, D, O>
+where
+    for<'a> O::DeserType<'a>: Offsets,
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -112,14 +115,14 @@ impl<
             return None;
         }
         self.reader
-            .set_bit_pos(self.offsets.get(self.next_node) as u64)
+            .set_bit_pos(self.offsets.uncase().get(self.next_node) as u64)
             .unwrap();
         let res = (
             self.next_node,
             SeqLabels {
                 reader: &mut self.reader,
                 bit_deser: self.bit_deser,
-                end_pos: self.offsets.get(self.next_node + 1) as u64,
+                end_pos: self.offsets.uncase().get(self.next_node + 1) as u64,
                 _marker: std::marker::PhantomData,
             },
         );
@@ -149,9 +152,10 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<L, E: Endianness, S: Supply, D, O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>>
-    SequentialLabeling for BitStreamLabeling<E, S, D, O>
+impl<L, E: Endianness, S: Supply, D, O: DeserializeInner> SequentialLabeling
+    for BitStreamLabeling<E, S, D, O>
 where
+    for<'a> O::DeserType<'a>: Offsets,
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
@@ -162,7 +166,7 @@ where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
-        self.offsets.len() - 1
+        self.offsets.uncase().len() - 1
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
@@ -200,9 +204,10 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<L, E: Endianness, S: Supply, D, O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>>
-    RandomAccessLabeling for BitStreamLabeling<E, S, D, O>
+impl<L, E: Endianness, S: Supply, D, O: DeserializeInner> RandomAccessLabeling
+    for BitStreamLabeling<E, S, D, O>
 where
+    for<'a> O::DeserType<'a>: Offsets,
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
@@ -218,12 +223,12 @@ where
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         let mut reader = self.reader_supplier.request();
         reader
-            .set_bit_pos(self.offsets.get(node_id) as u64)
+            .set_bit_pos(self.offsets.uncase().get(node_id) as u64)
             .unwrap();
         RanLabels {
             reader,
             deserializer: &self.bit_deser,
-            end_pos: self.offsets.get(node_id + 1) as u64,
+            end_pos: self.offsets.uncase().get(node_id + 1) as u64,
             _marker: std::marker::PhantomData,
         }
     }
