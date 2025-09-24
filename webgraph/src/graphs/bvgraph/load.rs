@@ -10,7 +10,7 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
-use epserde::deser::EncaseWrapper;
+use epserde::deser::Encase;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
@@ -133,7 +133,7 @@ pub struct File {}
 #[sealed]
 impl LoadMode for File {
     type Factory<E: Endianness> = FileFactory<E>;
-    type Offsets = EncaseWrapper<EF>;
+    type Offsets = Encase<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -150,7 +150,7 @@ impl LoadMode for File {
         unsafe {
             EF::load_full(path)
                 .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
-                .map(<MemCase<EncaseWrapper<EF>>>::encase)
+                .map(Into::into)
         }
     }
 }
@@ -436,9 +436,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BvGraphSeq<
-            DynCodesDecoderFactory<E, GLM::Factory<E>, EncaseWrapper<EmptyDict<usize, usize>>>,
-        >,
+        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, Encase<EmptyDict<usize, usize>>>>,
     >
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
@@ -450,11 +448,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            DynCodesDecoderFactory::new(
-                factory,
-                <MemCase<EncaseWrapper<EmptyDict<usize, usize>>>>::encase(EmptyDict::default()),
-                comp_flags,
-            )?,
+            DynCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,
@@ -542,7 +536,7 @@ impl<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
-                EncaseWrapper<EmptyDict<usize, usize>>,
+                Encase<EmptyDict<usize, usize>>,
                 OUTDEGREES,
                 REFERENCES,
                 BLOCKS,
@@ -561,11 +555,7 @@ impl<
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            ConstCodesDecoderFactory::new(
-                factory,
-                <MemCase<EncaseWrapper<EmptyDict<usize, usize>>>>::encase(EmptyDict::default()),
-                comp_flags,
-            )?,
+            ConstCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,

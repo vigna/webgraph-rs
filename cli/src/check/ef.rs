@@ -40,6 +40,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let of_file_path = args.src.with_extension(OFFSETS_EXTENSION);
 
     let ef = unsafe { EF::mmap(args.src.with_extension(EF_EXTENSION), Flags::default()) }?;
+    let ef = ef.uncase();
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
