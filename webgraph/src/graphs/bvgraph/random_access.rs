@@ -12,7 +12,7 @@ use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{Endianness, BE};
-use epserde::deser::{DeserializeInner, Encase};
+use epserde::deser::Encase;
 use lender::IntoLender;
 use std::path::PathBuf;
 
@@ -41,10 +41,9 @@ impl BvGraph<()> {
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
-    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
@@ -66,10 +65,8 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///

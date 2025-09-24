@@ -66,8 +66,14 @@ pub type EF = sux::dict::EliasFano<
 /// If you have an in-memory structure the requirement is irrelevant as
 /// [`MemCase::encase`] will put the structure in a [`deserializable
 /// wrapper`](epserde::deser::DeserializableWrapper).
-pub trait Offsets: for<'a> IndexedSeq<Input = usize, Output<'a> = usize> {}
-impl<T: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>> Offsets for T {}
+pub trait Offsets:
+    for<'a> DeserializeInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>
+{
+}
+impl<T: for<'a> DeserializeInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>>
+    Offsets for T
+{
+}
 
 /// The default version of EliasFano we use for the cumulative function of degrees.
 pub type DCF = sux::dict::EliasFano<

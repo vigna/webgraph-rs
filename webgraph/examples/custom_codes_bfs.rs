@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
-use epserde::deser::{Deserialize, DeserializeInner, Flags, MemCase};
+use epserde::deser::{Deserialize, Flags, MemCase};
 use mmap_rs::MmapFlags;
 use sux::{bits::BitVec, traits::IndexedSeq};
 use webgraph::prelude::*;
@@ -34,13 +34,7 @@ struct Args {
 }
 
 /// This is the factory that we can plug in BVGraph to read the custom codes
-pub struct CustomDecoderFactory<
-    E: Endianness,
-    F: CodesReaderFactoryHelper<E>,
-    OFF: DeserializeInner,
-> where
-    for<'a> OFF::DeserType<'a>: Offsets,
-{
+pub struct CustomDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> {
     pub factory: F,
     // The [`MemCase`]` here is needed to memory-map the offsets, otherwise
     // it can just be `OFF`
@@ -48,11 +42,7 @@ pub struct CustomDecoderFactory<
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
-    CustomDecoderFactory<E, F, OFF>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
-{
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> CustomDecoderFactory<E, F, OFF> {
     pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
         Self {
             factory,
@@ -62,10 +52,9 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
-    RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> RandomAccessDecoderFactory
+    for CustomDecoderFactory<E, F, OFF>
 where
-    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
@@ -79,10 +68,9 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner> SequentialDecoderFactory
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> SequentialDecoderFactory
     for CustomDecoderFactory<E, F, OFF>
 where
-    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
