@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
-use epserde::deser::{Deserialize, Flags};
+use epserde::deser::{Deserialize, DeserializeInner, Flags, MemCase};
 use mmap_rs::MmapFlags;
 use sux::{bits::BitVec, traits::IndexedSeq};
 use webgraph::prelude::*;
@@ -37,22 +37,23 @@ struct Args {
 pub struct CustomDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-> {
+    OFF: DeserializeInner,
+> where
+    for<'a> OFF::DeserType<'a>: Offsets,
+{
     pub factory: F,
-    // The [`MemoryCase`]` here is needed to memory-map the offsets, otherwise
+    // The [`MemCase`]` here is needed to memory-map the offsets, otherwise
     // it can just be `OFF`
-    pub offsets: OFF,
+    pub offsets: MemCase<OFF>,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    CustomDecoderFactory<E, F, OFF>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
-    pub fn new(factory: F, offsets: OFF) -> Self {
+    pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
         Self {
             factory,
             offsets,
@@ -61,12 +62,10 @@ impl<
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
 where
+    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
@@ -75,17 +74,15 @@ where
         Self: 'a;
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
+        code_reader.set_bit_pos(self.offsets.uncase().get(node) as u64)?;
         Ok(CustomDecoder::new(code_reader))
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner> SequentialDecoderFactory
+    for CustomDecoderFactory<E, F, OFF>
 where
+    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>

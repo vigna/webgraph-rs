@@ -13,6 +13,7 @@ use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::prelude::*;
 
+use epserde::deser::{EncaseWrapper, MemCase};
 use sux::traits::IndexedSeq;
 
 #[derive(Debug)]
@@ -132,16 +133,17 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
     }
 }
 
-#[derive(Debug)]
 pub struct DynCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-> {
+    OFF: DeserializeInner,
+> where
+    for<'a> OFF::DeserType<'a>: Offsets,
+{
     /// The owned data we will read as a bitstream.
     factory: F,
     /// The offsets into the data.
-    offsets: OFF,
+    offsets: MemCase<OFF>,
     /// The compression flags.
     compression_flags: CompFlags,
     // The cached functions to read the codes.
@@ -159,13 +161,11 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'b> IndexedSeq<Input = usize, Output<'b> = usize>,
-    > DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+    for<'a> OFF::DeserType<'a>: Offsets,
+    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -174,15 +174,18 @@ where
     /// memory footprint.
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
-    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>> {
+    pub fn offsets_to_slice(
+        self,
+    ) -> DynCodesDecoderFactory<E, F, EncaseWrapper<SliceSeq<usize, Box<[usize]>>>> {
         DynCodesDecoderFactory {
             factory: self.factory,
-            offsets: self
-                .offsets
-                .into_iter()
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-                .into(),
+            offsets: <MemCase<SliceSeq<usize, Box<[usize]>>>>::encase(SliceSeq::new(
+                self.offsets
+                    .uncase()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            )),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
@@ -198,11 +201,10 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    DynCodesDecoderFactory<E, F, OFF>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
     #[inline(always)]
     /// Returns a clone of the compression flags.
@@ -211,7 +213,7 @@ impl<
     }
 
     /// Creates a new builder from the data and the compression flags.
-    pub fn new(factory: F, offsets: OFF, cf: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(factory: F, offsets: MemCase<OFF>, cf: CompFlags) -> anyhow::Result<Self> {
         Ok(Self {
             factory,
             offsets,
@@ -230,12 +232,10 @@ impl<
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+    RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
 where
+    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
@@ -246,7 +246,7 @@ where
     #[inline(always)]
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(unsafe { self.offsets.get_unchecked(node) } as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(node) } as u64)?;
 
         Ok(DynCodesDecoder {
             code_reader,
@@ -264,11 +264,10 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
-    > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner> SequentialDecoderFactory
+    for DynCodesDecoderFactory<E, F, OFF>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>

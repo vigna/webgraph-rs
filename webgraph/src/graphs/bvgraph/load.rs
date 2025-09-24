@@ -10,13 +10,13 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
+use epserde::deser::EncaseWrapper;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
-use sux::traits::IndexedSeq;
 
 /// Sequential or random access.
 #[doc(hidden)]
@@ -86,9 +86,12 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>;
+    type Offsets: DeserializeInner;
 
-    fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets>;
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>>;
 }
 
 /// A type alias for a buffered reader that reads from a memory buffer a `u32` at a time.
@@ -130,7 +133,7 @@ pub struct File {}
 #[sealed]
 impl LoadMode for File {
     type Factory<E: Endianness> = FileFactory<E>;
-    type Offsets = EF;
+    type Offsets = EncaseWrapper<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -139,11 +142,15 @@ impl LoadMode for File {
         FileFactory::<E>::new(graph)
     }
 
-    fn load_offsets<P: AsRef<Path>>(offsets: P, _flags: MemoryFlags) -> Result<Self::Offsets> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        _flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
         unsafe {
             EF::load_full(path)
                 .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+                .map(<MemCase<EncaseWrapper<EF>>>::encase)
         }
     }
 }
@@ -156,7 +163,7 @@ pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapHelper<u32>;
-    type Offsets = MemCase<EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -165,7 +172,10 @@ impl LoadMode for Mmap {
         MmapHelper::mmap(graph, flags.into())
     }
 
-    fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
         unsafe {
             EF::mmap(path, flags.into())
@@ -180,7 +190,7 @@ pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = MemCase<EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -189,7 +199,10 @@ impl LoadMode for LoadMem {
         MemoryFactory::<E, _>::new_mem(graph)
     }
 
-    fn load_offsets<P: AsRef<Path>>(offsets: P, _flags: MemoryFlags) -> Result<Self::Offsets> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        _flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
         unsafe {
             EF::load_mem(path)
@@ -206,7 +219,7 @@ pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
-    type Offsets = MemCase<EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -215,7 +228,10 @@ impl LoadMode for LoadMmap {
         MemoryFactory::<E, _>::new_mmap(graph, flags)
     }
 
-    fn load_offsets<P: AsRef<Path>>(offsets: P, flags: MemoryFlags) -> Result<Self::Offsets> {
+    fn load_offsets<P: AsRef<Path>>(
+        offsets: P,
+        flags: MemoryFlags,
+    ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
         unsafe {
             EF::load_mmap(path, flags.into())
@@ -390,6 +406,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
+        for<'a> <OLM::Offsets as DeserializeInner>::DeserType<'a>: Offsets,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
@@ -419,7 +436,9 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
+        BvGraphSeq<
+            DynCodesDecoderFactory<E, GLM::Factory<E>, EncaseWrapper<EmptyDict<usize, usize>>>,
+        >,
     >
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
@@ -431,7 +450,11 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            DynCodesDecoderFactory::new(factory, EmptyDict::default(), comp_flags)?,
+            DynCodesDecoderFactory::new(
+                factory,
+                <MemCase<EncaseWrapper<EmptyDict<usize, usize>>>>::encase(EmptyDict::default()),
+                comp_flags,
+            )?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,
@@ -473,6 +496,7 @@ impl<
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
+        for<'a> <OLM::Offsets as DeserializeInner>::DeserType<'a>: Offsets,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
@@ -518,7 +542,7 @@ impl<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
-                EmptyDict<usize, usize>,
+                EncaseWrapper<EmptyDict<usize, usize>>,
                 OUTDEGREES,
                 REFERENCES,
                 BLOCKS,
@@ -537,7 +561,11 @@ impl<
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            ConstCodesDecoderFactory::new(factory, EmptyDict::default(), comp_flags)?,
+            ConstCodesDecoderFactory::new(
+                factory,
+                <MemCase<EncaseWrapper<EmptyDict<usize, usize>>>>::encase(EmptyDict::default()),
+                comp_flags,
+            )?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,

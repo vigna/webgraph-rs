@@ -83,7 +83,7 @@ impl Supply for MmapReaderSupplier<BE> {
 pub fn mmap<D>(
     path: impl AsRef<Path>,
     bit_deser: D,
-) -> Result<BitStreamLabeling<BE, MmapReaderSupplier<BE>, D, MemCase<EF>>>
+) -> Result<BitStreamLabeling<BE, MmapReaderSupplier<BE>, D, EF>>
 where
     for<'a> D: BitDeserializer<BE, <MmapReaderSupplier<BE> as Supply>::Item<'a>>,
 {

@@ -14,6 +14,8 @@ use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
+use epserde::deser::EncaseWrapper;
+use epserde::deser::MemCase;
 use sux::traits::IndexedSeq;
 
 #[repr(transparent)]
@@ -148,17 +150,19 @@ impl<
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+    OFF: DeserializeInner,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
     const BLOCKS: usize = { code_consts::GAMMA },
     const INTERVALS: usize = { code_consts::GAMMA },
     const RESIDUALS: usize = { code_consts::ZETA3 },
-> {
+> where
+    for<'a> OFF::DeserType<'a>: Offsets,
+{
     /// The owned data
     factory: F,
     /// The offsets into the data.
-    offsets: OFF,
+    offsets: MemCase<OFF>,
     /// Tell the compiler that's Ok that we don't store `E` but we need it
     /// for typing.
     _marker: core::marker::PhantomData<E>,
@@ -167,13 +171,15 @@ pub struct ConstCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: DeserializeInner,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -187,20 +193,23 @@ impl<
     ) -> ConstCodesDecoderFactory<
         E,
         F,
-        SliceSeq<usize, Box<[usize]>>,
+        EncaseWrapper<SliceSeq<usize, Box<[usize]>>>,
         OUTDEGREES,
         REFERENCES,
         BLOCKS,
         INTERVALS,
         RESIDUALS,
     > {
+        let offsets = self.offsets.uncase();
         ConstCodesDecoderFactory {
             factory: self.factory,
-            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                (0..self.offsets.len())
-                    .map(|i| unsafe { self.offsets.get_unchecked(i) })
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
+            offsets: <MemCase<EncaseWrapper<SliceSeq<usize, Box<[usize]>>>>>::encase(
+                <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
+                    (0..offsets.len())
+                        .map(|i| unsafe { offsets.get_unchecked(i) })
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice(),
+                ),
             ),
             _marker: PhantomData,
         }
@@ -210,16 +219,18 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: DeserializeInner,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
     /// Creates a new builder from the given data and compression flags.
-    pub fn new(factory: F, offsets: OFF, comp_flags: CompFlags) -> anyhow::Result<Self> {
+    pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
         if comp_flags.outdegrees.to_code_const()? != OUTDEGREES {
             bail!("Code for outdegrees does not match");
         }
@@ -246,7 +257,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: DeserializeInner,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -255,6 +266,7 @@ impl<
     > RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
+    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
@@ -264,7 +276,7 @@ where
 
     fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(unsafe { self.offsets.get_unchecked(offset) } as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(offset) } as u64)?;
 
         Ok(ConstCodesDecoder {
             code_reader,
@@ -276,7 +288,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
+        OFF: DeserializeInner,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -284,6 +296,8 @@ impl<
         const RESIDUALS: usize,
     > SequentialDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+where
+    for<'a> OFF::DeserType<'a>: Offsets,
 {
     type Decoder<'a>
         = ConstCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
