@@ -458,7 +458,7 @@ impl BvComp<()> {
 
             log::info!("Writing the .properties file");
             let properties = compression_flags
-                .to_properties::<BE>(num_nodes, total_arcs, total_written_bits)
+                .to_properties::<E>(num_nodes, total_arcs, total_written_bits)
                 .context("Could not serialize properties")?;
             let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
             std::fs::write(&properties_path, properties).with_context(|| {
