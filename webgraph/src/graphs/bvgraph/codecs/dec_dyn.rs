@@ -133,13 +133,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
     }
 }
 
-pub struct DynCodesDecoderFactory<
-    E: Endianness,
-    F: CodesReaderFactoryHelper<E>,
-    OFF: DeserializeInner,
-> where
-    for<'a> OFF::DeserType<'a>: Offsets,
-{
+pub struct DynCodesDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> {
     /// The owned data we will read as a bitstream.
     factory: F,
     /// The offsets into the data.
@@ -161,10 +155,8 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
-    DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
@@ -201,10 +193,8 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     DynCodesDecoderFactory<E, F, OFF>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
 {
     #[inline(always)]
     /// Returns a clone of the compression flags.
@@ -232,10 +222,9 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner>
-    RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> RandomAccessDecoderFactory
+    for DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
@@ -264,10 +253,8 @@ where
     }
 }
 
-impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: DeserializeInner> SequentialDecoderFactory
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> SequentialDecoderFactory
     for DynCodesDecoderFactory<E, F, OFF>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>

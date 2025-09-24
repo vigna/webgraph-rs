@@ -86,7 +86,7 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: DeserializeInner;
+    type Offsets: Offsets;
 
     fn load_offsets<P: AsRef<Path>>(
         offsets: P,
@@ -406,7 +406,6 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
-        for<'a> <OLM::Offsets as DeserializeInner>::DeserType<'a>: Offsets,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
@@ -490,7 +489,6 @@ impl<
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
-        for<'a> <OLM::Offsets as DeserializeInner>::DeserType<'a>: Offsets,
     {
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;

@@ -150,15 +150,13 @@ impl<
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: DeserializeInner,
+    OFF: Offsets,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
     const BLOCKS: usize = { code_consts::GAMMA },
     const INTERVALS: usize = { code_consts::GAMMA },
     const RESIDUALS: usize = { code_consts::ZETA3 },
-> where
-    for<'a> OFF::DeserType<'a>: Offsets,
-{
+> {
     /// The owned data
     factory: F,
     /// The offsets into the data.
@@ -171,15 +169,13 @@ pub struct ConstCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: DeserializeInner,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -218,15 +214,13 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: DeserializeInner,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
 {
     /// Creates a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
@@ -256,7 +250,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: DeserializeInner,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -265,7 +259,6 @@ impl<
     > RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
-    for<'a> OFF::DeserType<'a>: Offsets,
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
     type Decoder<'a>
@@ -287,7 +280,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: DeserializeInner,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -295,8 +288,6 @@ impl<
         const RESIDUALS: usize,
     > SequentialDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-where
-    for<'a> OFF::DeserType<'a>: Offsets,
 {
     type Decoder<'a>
         = ConstCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>
