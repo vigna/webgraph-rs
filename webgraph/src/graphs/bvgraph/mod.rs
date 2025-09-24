@@ -32,6 +32,7 @@ pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
+use epserde::Epserde;
 pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
@@ -70,13 +71,11 @@ pub type DCF = sux::dict::EliasFano<
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SliceSeq<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>>(
     A,
     std::marker::PhantomData<O>,
-)
-where
-    usize: PartialEq<O>;
+);
 
 impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> SliceSeq<O, A>
 where
@@ -101,14 +100,14 @@ where
     usize: PartialEq<O>,
 {
     type Input = usize;
-    type Output = O;
+    type Output<'a> = O;
 }
 
 impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> IndexedSeq for SliceSeq<O, A>
 where
     usize: PartialEq<O>,
 {
-    unsafe fn get_unchecked(&self, index: usize) -> Self::Output {
+    unsafe fn get_unchecked(&self, index: usize) -> Self::Output<'_> {
         unsafe { *self.0.as_ref().get_unchecked(index) }
     }
 

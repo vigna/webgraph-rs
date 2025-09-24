@@ -8,7 +8,7 @@
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use rayon::ThreadPool;
-use sux::prelude::*;
+use sux::traits::Succ;
 use webgraph::{traits::*, utils::Granularity};
 
 /// Computes the gap cost, that is, the sum of the costs of the logarithms
@@ -19,7 +19,7 @@ use webgraph::{traits::*, utils::Granularity};
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
     arc_granularity: Granularity,
-    deg_cumul: &(impl Succ<Input = usize, Output = usize> + Send + Sync),
+    deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     thread_pool: &ThreadPool,
     pr: &mut impl ConcurrentProgressLog,
 ) -> f64 {

@@ -76,11 +76,11 @@ where
     // progress bar
     pl.start("Building the degree cumulative function...");
     // read the graph a write the offsets
-    let mut iter = seq_graph.offset_deg_iter();
+    let iter = seq_graph.offset_deg_iter();
     let mut cumul_deg = 0;
 
     efb.push(0);
-    for (_new_offset, degree) in iter.by_ref() {
+    for (_new_offset, degree) in iter {
         cumul_deg += degree;
         // write where
         efb.push(cumul_deg as _);
@@ -98,12 +98,14 @@ where
 
     info!("Writing to disk...");
 
-    ef.serialize(&mut ef_file).with_context(|| {
-        format!(
-            "Could not serialize degree cumulative list to {}",
-            ef_path.display()
-        )
-    })?;
+    unsafe {
+        ef.serialize(&mut ef_file).with_context(|| {
+            format!(
+                "Could not serialize degree cumulative list to {}",
+                ef_path.display()
+            )
+        })
+    }?;
 
     info!("Completed.");
 

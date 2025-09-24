@@ -33,9 +33,9 @@ fn test_epserde() -> anyhow::Result<()> {
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
 
     let mut file = std::io::Cursor::new(vec![]);
-    g.serialize(&mut file)?;
+    unsafe { g.serialize(&mut file) }?;
     let data = file.into_inner();
-    let g2 = <LabeledVecGraph<usize>>::deserialize_eps(&data)?;
+    let g2 = unsafe { <LabeledVecGraph<usize>>::deserialize_eps(&data) }?;
     graph::eq_labeled(&g, &g2)?;
     Ok(())
 }

@@ -35,8 +35,10 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     perm.shuffle(&mut rng);
 
     if args.epserde {
-        perm.store(&args.dst)
-            .with_context(|| format!("Could not store permutation to {}", args.dst.display()))?;
+        unsafe {
+            perm.store(&args.dst)
+                .with_context(|| format!("Could not store permutation to {}", args.dst.display()))
+        }?;
     } else {
         let mut pl = ProgressLogger::default();
         pl.display_memory(true).item_name("index");

@@ -30,7 +30,7 @@ pub struct HyperBallBuilder<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: Succ<Input = usize, Output = usize>,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
     L: MergeEstimationLogic<Item = G1::Label>,
     A: EstimatorArrayMut<L>,
 > {
@@ -62,7 +62,7 @@ impl<
         'a,
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
     >
     HyperBallBuilder<
         'a,
@@ -131,7 +131,7 @@ impl<
 
 impl<
         'a,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
         G: RandomAccessGraph + Sync,
         L: MergeEstimationLogic<Item = G::Label> + PartialEq,
         A: EstimatorArrayMut<L>,
@@ -181,7 +181,7 @@ impl<
         'a,
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
         L: MergeEstimationLogic<Item = G1::Label>,
         A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G1, G2, D, L, A>
@@ -304,7 +304,7 @@ impl<
         'a,
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
         L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
         A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G1, G2, D, L, A>
@@ -461,7 +461,7 @@ pub struct HyperBall<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: Succ<Input = usize, Output = usize>,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
     L: MergeEstimationLogic<Item = G1::Label> + Sync,
     A: EstimatorArrayMut<L>,
 > {
@@ -500,7 +500,7 @@ pub struct HyperBall<
 impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize> + Sync,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
         L: MergeEstimationLogic<Item = usize> + Sync,
         A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
     > HyperBall<'_, G1, G2, D, L, A>
@@ -746,7 +746,7 @@ where
 impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize> + Sync,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
         L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
         A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
     > HyperBall<'_, G1, G2, D, L, A>
@@ -1277,7 +1277,7 @@ mod test {
 
         let graph = BvGraph::with_basename(basename).load()?;
         let transpose = BvGraph::with_basename(basename.to_owned() + "-t").load()?;
-        let cumulative = DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty())?;
+        let cumulative = unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
 
         let num_nodes = graph.num_nodes();
 
@@ -1293,7 +1293,7 @@ mod test {
         let mut hyperball = HyperBallBuilder::with_transpose(
             &graph,
             &transpose,
-            cumulative.as_ref(),
+            cumulative.uncase(),
             par_bits,
             par_result_bits,
         )

@@ -17,8 +17,7 @@ use crate::prelude::BitDeserializer;
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
 use lender::*;
-use std::ops::Deref;
-use sux::traits::{IndexedSeq, Types};
+use sux::traits::IndexedSeq;
 
 /// A basic supplier trait.
 ///
@@ -52,7 +51,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `reader_supplier`: A supplier of readers on the bitsteam containing
+    /// * `reader_supplier`: A supplier of readers on the bitstream containing
     ///   the labels.
     ///
     /// * `bit_deser_supplier`: A supplier of deserializers for the labels.
@@ -82,7 +81,7 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
@@ -94,7 +93,7 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > Lending<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
@@ -104,7 +103,7 @@ impl<
         E: Endianness,
         BR: BitRead<E> + BitSeek,
         D: BitDeserializer<E, BR>,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
+        O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>,
     > Lender for Iter<'_, '_, E, BR, D, O>
 {
     #[inline(always)]
@@ -150,13 +149,8 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<
-        L,
-        E: Endianness,
-        S: Supply,
-        D,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > SequentialLabeling for BitStreamLabeling<E, S, D, O>
+impl<L, E: Endianness, S: Supply, D, O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>>
+    SequentialLabeling for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
@@ -206,13 +200,8 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<
-        L,
-        E: Endianness,
-        S: Supply,
-        D,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > RandomAccessLabeling for BitStreamLabeling<E, S, D, O>
+impl<L, E: Endianness, S: Supply, D, O: for<'a> IndexedSeq<Input = usize, Output<'a> = usize>>
+    RandomAccessLabeling for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,

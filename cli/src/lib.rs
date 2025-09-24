@@ -213,9 +213,11 @@ impl FloatVectorFormat {
         match self {
             FloatVectorFormat::Epserde => {
                 log::info!("Storing in ε-serde format at {}", path_display);
-                values
-                    .serialize(&mut file)
-                    .with_context(|| format!("Could not write vector to {}", path_display))?;
+                unsafe {
+                    values
+                        .serialize(&mut file)
+                        .with_context(|| format!("Could not write vector to {}", path_display))
+                }?;
             }
             FloatVectorFormat::Java => {
                 log::info!("Storing in Java format at {}", path_display);
@@ -289,9 +291,11 @@ impl IntVectorFormat {
         match self {
             IntVectorFormat::Epserde => {
                 log::info!("Storing in epserde format at {}", path.as_ref().display());
-                data.serialize(&mut buf).with_context(|| {
-                    format!("Could not write vector to {}", path.as_ref().display())
-                })?;
+                unsafe {
+                    data.serialize(&mut buf).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })
+                }?;
             }
             IntVectorFormat::BitFieldVec => {
                 log::info!(
@@ -308,9 +312,11 @@ impl IntVectorFormat {
                 log::info!("Using {} bits per element", bit_width);
                 let mut bit_field_vec = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
-                bit_field_vec.store(&path).with_context(|| {
-                    format!("Could not write vector to {}", path.as_ref().display())
-                })?;
+                unsafe {
+                    bit_field_vec.store(&path).with_context(|| {
+                        format!("Could not write vector to {}", path.as_ref().display())
+                    })
+                }?;
             }
             IntVectorFormat::Java => {
                 log::info!("Storing in Java format at {}", path.as_ref().display());

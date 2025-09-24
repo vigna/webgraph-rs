@@ -168,7 +168,7 @@ pub trait SequentialLabeling {
         F: Fn(Range<usize>) -> A + Sync,
         A: Default + Send,
         R: Fn(A, A) -> A + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'a> Succ<Input = usize, Output<'a> = usize>,
     >(
         &self,
         func: F,

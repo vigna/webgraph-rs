@@ -42,9 +42,9 @@ fn test_epserde_roundtrip() -> Result<()> {
     let original = Sccs::new(3, vec![0, 0, 0, 1, 2, 2, 1, 2, 0, 0].into_boxed_slice());
 
     let mut file = std::io::Cursor::new(vec![]);
-    original.serialize(&mut file)?;
+    unsafe { original.serialize(&mut file) }?;
     let data = file.into_inner();
-    let deserialized = <Sccs>::deserialize_eps(&data)?;
+    let deserialized = unsafe { <Sccs>::deserialize_eps(&data) }?;
 
     assert_eq!(original.num_components(), deserialized.num_components());
     assert_eq!(original.components(), deserialized.components());

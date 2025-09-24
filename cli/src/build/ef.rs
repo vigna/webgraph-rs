@@ -255,8 +255,10 @@ pub fn serialize_eliasfano(
     );
 
     // serialize and dump the schema to disk
-    ef.serialize(&mut ef_file)
-        .with_context(|| format!("Could not serialize EliasFano to {}", ef_path.display()))?;
+    unsafe {
+        ef.serialize(&mut ef_file)
+            .with_context(|| format!("Could not serialize EliasFano to {}", ef_path.display()))
+    }?;
 
     pl.done();
     Ok(())
