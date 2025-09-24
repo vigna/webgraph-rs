@@ -26,7 +26,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// ```
 /// use std::num::NonZeroUsize;
 ///
-/// use dsi_bitstream::traits::LittleEndian;
+/// use dsi_bitstream::traits::BigEndian;
 /// use lender::Lender;
 /// use rayon::prelude::*;
 /// use webgraph::traits::SequentialLabeling;
@@ -61,7 +61,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// let bvcomp_tmp_dir = tempfile::tempdir().unwrap();
 /// let bvcomp_out_dir = tempfile::tempdir().unwrap();
 ///
-/// BvComp::parallel_iter::<LittleEndian, _>(
+/// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
 ///     pair_sorter.par_sort_pairs(
 ///         unsorted_pairs.par_iter().copied()
