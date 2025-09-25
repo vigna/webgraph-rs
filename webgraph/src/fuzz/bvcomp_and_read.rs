@@ -7,7 +7,6 @@
 use crate::prelude::*;
 use arbitrary::Arbitrary;
 use dsi_bitstream::prelude::*;
-use epserde::prelude::*;
 use lender::prelude::*;
 use sux::prelude::*;
 use sux::traits::IndexedSeq;
@@ -206,13 +205,13 @@ pub fn harness(data: FuzzCase) {
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
-        ef.clone(),
+        ef.clone().into(),
         comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
-        ef.clone(),
+        ef.clone().into(),
         comp_flags,
     )
     .unwrap();
