@@ -18,7 +18,6 @@ use lender::prelude::*;
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
-use webgraph::utils::sort_pairs::{BatchIterator, KMergeIters};
 use webgraph::{prelude::*, transform};
 
 #[derive(Parser, Debug)]
