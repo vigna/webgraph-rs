@@ -32,6 +32,7 @@ rayon.workspace = true
 sync-cell-slice.workspace = true
 no-break.workspace = true
 nonmax.workspace = true
+crossbeam-utils.workspace = true
 
 sealed = "0.6.0"
 thiserror = "2.0.12"

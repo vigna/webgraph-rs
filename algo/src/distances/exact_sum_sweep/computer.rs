@@ -10,6 +10,7 @@ use crate::{
     sccs::{self, Sccs},
     utils::math,
 };
+use crossbeam_utils::CachePadded;
 use dsi_progress_logger::*;
 use no_break::NoBreak;
 use nonmax::NonMaxUsize;
@@ -565,7 +566,7 @@ impl<
         pl.expected_updates(None);
         pl.start(message(start));
 
-        let max_dist = AtomicUsize::new(0);
+        let max_dist = CachePadded::new(AtomicUsize::new(0));
         let radius = RwLock::new((self.radius_high, self.radius_vertex));
 
         let forward_low = self.forward_low.as_sync_slice();
@@ -644,7 +645,7 @@ impl<
         pl.expected_updates(None);
         pl.start(message(start));
 
-        let max_dist = AtomicUsize::new(0);
+        let max_dist = CachePadded::new(AtomicUsize::new(0));
 
         let backward_low = self.backward_low.as_sync_slice();
         let backward_tot = self.backward_tot.as_sync_slice();
@@ -746,7 +747,7 @@ impl<
         ecc_pivot.resize_with(self.scc.num_components(), || AtomicUsize::new(0));
         let mut dist_pivot = vec![0; self.num_nodes];
         let dist_pivot_mut = dist_pivot.as_sync_slice();
-        let current_index = AtomicUsize::new(0);
+        let current_index = CachePadded::new(AtomicUsize::new(0));
 
         thread_pool.broadcast(|_| {
             let mut bfs = ParFairNoPred::new(graph);

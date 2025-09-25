@@ -11,6 +11,7 @@ use card_est_array::traits::{
     AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
     MergeEstimationLogic, SyncEstimatorArray,
 };
+use crossbeam_utils::CachePadded;
 use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
 use rayon::{prelude::*, ThreadPool};
@@ -232,7 +233,7 @@ impl<
             graph.num_arcs(),
             transpose.num_arcs()
         );
-        /* TOD Odebug_assert!(
+        /* TODO debug_assert!(
             check_transposed(graph, transpose),
             "the transpose should be the transpose of the graph"
         );*/
@@ -372,10 +373,10 @@ impl<
                 iteration: 0,
                 current_nf: Mutex::new(0.0),
                 arc_granularity: 0,
-                node_cursor: AtomicUsize::new(0),
+                node_cursor: AtomicUsize::new(0).into(),
                 arc_cursor: Mutex::new((0, 0)),
-                visited_arcs: AtomicU64::new(0),
-                modified_estimators: AtomicU64::new(0),
+                visited_arcs: AtomicU64::new(0).into(),
+                modified_estimators: AtomicU64::new(0).into(),
                 systolic: false,
                 local: false,
                 pre_local: false,
@@ -410,14 +411,14 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// of arcs.
     arc_granularity: usize,
     /// A cursor scanning the nodes to process during local computations.
-    node_cursor: AtomicUsize,
+    node_cursor: CachePadded<AtomicUsize>,
     /// A cursor scanning the nodes and arcs to process during non-local
     /// computations.
     arc_cursor: Mutex<(usize, usize)>,
     /// The number of arcs visited during the current iteration.
-    visited_arcs: AtomicU64,
+    visited_arcs: CachePadded<AtomicU64>,
     /// The number of estimators modified during the current iteration.
-    modified_estimators: AtomicU64,
+    modified_estimators: CachePadded<AtomicU64>,
     /// `true` if we started a systolic computation.
     systolic: bool,
     /// `true` if we started a local computation.

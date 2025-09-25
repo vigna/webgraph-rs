@@ -28,6 +28,7 @@
 //! necessary to load the graph.
 //!
 use anyhow::{Context, Result};
+use crossbeam_utils::CachePadded;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use predicates::Predicate;
@@ -169,7 +170,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     // init the update progress logger
     let mut update_pl = concurrent_progress_logger!(item_name = "node", local_speed = true);
 
-    let seed = AtomicU64::new(seed);
+    let seed = CachePadded::new(AtomicU64::new(seed));
     let mut costs = Vec::with_capacity(gammas.len());
 
     gamma_pl.start(format!("Running {} threads", num_threads));
@@ -216,7 +217,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
             });
 
             // If this iteration modified anything (early stop)
-            let modified = AtomicUsize::new(0);
+            let modified = CachePadded::new(AtomicUsize::new(0));
 
             let delta_obj_func = sym_graph.par_apply(
                 |range| {
