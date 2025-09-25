@@ -14,8 +14,8 @@ use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
-use epserde::deser::Encase;
 use epserde::deser::MemCase;
+use epserde::deser::Owned;
 use sux::traits::IndexedSeq;
 
 #[repr(transparent)]
@@ -189,7 +189,7 @@ impl<
     ) -> ConstCodesDecoderFactory<
         E,
         F,
-        Encase<SliceSeq<usize, Box<[usize]>>>,
+        Owned<SliceSeq<usize, Box<[usize]>>>,
         OUTDEGREES,
         REFERENCES,
         BLOCKS,

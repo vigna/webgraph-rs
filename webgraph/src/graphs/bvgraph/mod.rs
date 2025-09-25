@@ -32,7 +32,7 @@ pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
-use epserde::{deser::DeserializeInner, Epserde};
+use epserde::{deser::DeserInner, Epserde};
 pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
@@ -62,16 +62,16 @@ pub type EF = sux::dict::EliasFano<
 
 /// Compound trait expressing the trait bounds for offsets.
 ///
-/// We need [`DeserializeInner`] to be able to put the offsets in a [`MemCase`].
+/// We need [`DeserInner`] to be able to put the offsets in a [`MemCase`].
 /// If you have an in-memory structure the requirement is irrelevant as
 /// [`MemCase::encase`] will put the structure in a [`deserializable
 /// wrapper`](epserde::deser::DeserializableWrapper).
 pub trait Offsets:
-    for<'a> DeserializeInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>
+    for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>
 {
 }
-impl<T: for<'a> DeserializeInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>>
-    Offsets for T
+impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>> Offsets
+    for T
 {
 }
 

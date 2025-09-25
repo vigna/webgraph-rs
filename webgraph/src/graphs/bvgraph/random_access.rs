@@ -12,7 +12,7 @@ use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{Endianness, BE};
-use epserde::deser::Encase;
+use epserde::deser::Owned;
 use lender::IntoLender;
 use std::path::PathBuf;
 
@@ -54,7 +54,7 @@ where
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> BvGraph<DynCodesDecoderFactory<E, F, Encase<SliceSeq<usize, Box<[usize]>>>>> {
+    ) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<SliceSeq<usize, Box<[usize]>>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -76,7 +76,7 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> BvGraph<ConstCodesDecoderFactory<E, F, Encase<SliceSeq<usize, Box<[usize]>>>>> {
+    ) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<SliceSeq<usize, Box<[usize]>>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
