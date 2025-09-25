@@ -10,7 +10,7 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
-use epserde::deser::Encase;
+use epserde::deser::Owned;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
@@ -133,7 +133,7 @@ pub struct File {}
 #[sealed]
 impl LoadMode for File {
     type Factory<E: Endianness> = FileFactory<E>;
-    type Offsets = Encase<EF>;
+    type Offsets = Owned<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -435,7 +435,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, Encase<EmptyDict<usize, usize>>>>,
+        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, Owned<EmptyDict<usize, usize>>>>,
     >
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
@@ -534,7 +534,7 @@ impl<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
-                Encase<EmptyDict<usize, usize>>,
+                Owned<EmptyDict<usize, usize>>,
                 OUTDEGREES,
                 REFERENCES,
                 BLOCKS,

@@ -13,7 +13,7 @@ use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::prelude::*;
 
-use epserde::deser::{Encase, MemCase};
+use epserde::deser::{MemCase, Owned};
 use sux::traits::IndexedSeq;
 
 #[derive(Debug)]
@@ -168,7 +168,7 @@ where
     /// This method is used by [`BvGraph::offsets_to_slice`].
     pub fn offsets_to_slice(
         self,
-    ) -> DynCodesDecoderFactory<E, F, Encase<SliceSeq<usize, Box<[usize]>>>> {
+    ) -> DynCodesDecoderFactory<E, F, Owned<SliceSeq<usize, Box<[usize]>>>> {
         DynCodesDecoderFactory {
             factory: self.factory,
             offsets: <MemCase<SliceSeq<usize, Box<[usize]>>>>::encase(SliceSeq::new(
