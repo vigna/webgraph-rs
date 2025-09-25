@@ -189,7 +189,7 @@ impl<
     ) -> ConstCodesDecoderFactory<
         E,
         F,
-        Owned<SliceSeq<usize, Box<[usize]>>>,
+        Owned<Box<[usize]>>,
         OUTDEGREES,
         REFERENCES,
         BLOCKS,
@@ -199,13 +199,11 @@ impl<
         let offsets = self.offsets.uncase();
         ConstCodesDecoderFactory {
             factory: self.factory,
-            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                (0..offsets.len())
-                    .map(|i| unsafe { offsets.get_unchecked(i) })
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-            )
-            .into(),
+            offsets: (0..offsets.len())
+                .map(|i| unsafe { offsets.get_unchecked(i) })
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
             _marker: PhantomData,
         }
     }

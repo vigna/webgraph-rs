@@ -166,18 +166,16 @@ where
     /// memory footprint.
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
-    pub fn offsets_to_slice(
-        self,
-    ) -> DynCodesDecoderFactory<E, F, Owned<SliceSeq<usize, Box<[usize]>>>> {
+    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>> {
         DynCodesDecoderFactory {
             factory: self.factory,
-            offsets: <MemCase<SliceSeq<usize, Box<[usize]>>>>::encase(SliceSeq::new(
-                self.offsets
-                    .uncase()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-            )),
+            offsets: self
+                .offsets
+                .uncase()
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,

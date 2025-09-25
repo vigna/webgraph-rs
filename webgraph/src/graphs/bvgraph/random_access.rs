@@ -52,9 +52,7 @@ where
     /// representing the offsets as a slice increasing significantly the
     /// memory footprint. It just replaces current decoder factory with
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(
-        self,
-    ) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<SliceSeq<usize, Box<[usize]>>>>> {
+    pub fn offsets_to_slice(self) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -74,9 +72,7 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     /// representing the offsets as a slice increasing significantly the
     /// memory footprint. It just replaces current decoder factory with
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(
-        self,
-    ) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<SliceSeq<usize, Box<[usize]>>>>> {
+    pub fn offsets_to_slice(self) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
