@@ -13,6 +13,7 @@ authors = [
 	"Matteo Dell'Acqua <dellacqua.matteo99@gmail.com>",
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
+rust-version = "1.85"
 
 [dependencies]
 card-est-array.workspace = true

@@ -8,8 +8,8 @@ webgraph-algo = { path = "./algo", version = "0.2.0" }
 webgraph-cli = { path = "./cli", version = "0.1.0" }
 
 card-est-array = "0.1.0"
-#epserde = "0.8.0"
-epserde = { git = "https://github.com/vigna/epserde-rs" }
+epserde = "0.10.2"
+#epserde = { git = "https://github.com/vigna/epserde-rs" }
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
 #sux = "0.8.0"
@@ -57,7 +57,3 @@ overflow-checks = false  # Disable integer overflow checks.
 debug = true             # Include debug info.
 debug-assertions = false # Enables debug assertions.
 codegen-units = 1        # slower compile times, but maybe better perf
-
-[patch.crates-io]
-epserde = { git = "https://github.com/vigna/epserde-rs" }
-sux = { git = "https://github.com/vigna/sux-rs" }
