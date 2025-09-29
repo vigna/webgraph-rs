@@ -15,7 +15,6 @@ use rayon::ThreadPool;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 /// A queue that pulls jobs with ids in a contiguous initial segment of the
 /// natural numbers from an iterator out of order and implement an iterator in
@@ -290,7 +289,7 @@ impl BvComp<()> {
 
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
-        let mut comp_pl = progress_logger!(
+        let mut comp_pl = concurrent_progress_logger!(
             log_target = "webgraph::graphs::bvgraph::comp::impls::parallel_iter::comp",
             display_memory = true,
             item_name = "node",
@@ -298,7 +297,6 @@ impl BvComp<()> {
             expected_updates = Some(num_nodes),
         );
         comp_pl.start("Compressing successors in parallel...");
-        let comp_pl = Arc::new(Mutex::new(comp_pl));
         threads.in_place_scope(|s| {
             let cp_flags = &compression_flags;
 
@@ -307,7 +305,7 @@ impl BvComp<()> {
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let tx = tx.clone();
-                let comp_pl = comp_pl.clone();
+                let mut comp_pl = comp_pl.clone();
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
@@ -355,7 +353,7 @@ impl BvComp<()> {
                     let num_arcs = bvcomp.arcs;
                     bvcomp.flush().unwrap();
                     offsets_writer.flush().unwrap();
-                    comp_pl.lock().unwrap().update_with_count(last_node - first_node + 1);
+                    comp_pl.update_with_count(last_node - first_node + 1);
 
 
 
@@ -484,9 +482,7 @@ impl BvComp<()> {
             graph_writer.flush()?;
             offsets_writer.flush()?;
 
-            Arc::into_inner(comp_pl)
-                .expect("comp_pl reference leaked or compression thread still running")
-                .into_inner().unwrap().done();
+            comp_pl.done();
             copy_pl.done();
 
             log::info!("Writing the .properties file");
