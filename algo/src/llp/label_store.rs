@@ -64,7 +64,9 @@ impl LabelStore {
     pub(crate) fn labels_and_volumes(&mut self) -> (&mut [usize], &mut [usize]) {
         unsafe {
             (
+                // This is just a transparent wrapper
                 std::mem::transmute::<&mut [UnsafeCell<usize>], &mut [usize]>(&mut self.labels),
+                // Transmuting &mut from atomic to non-atomic is sound
                 std::mem::transmute::<&mut [AtomicUsize], &mut [usize]>(&mut self.volumes),
             )
         }
