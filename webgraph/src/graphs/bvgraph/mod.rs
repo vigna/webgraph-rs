@@ -62,10 +62,9 @@ pub type EF = sux::dict::EliasFano<
 
 /// Compound trait expressing the trait bounds for offsets.
 ///
-/// We need [`DeserInner`] to be able to put the offsets in a [`MemCase`].
-/// If you have an in-memory structure the requirement is irrelevant as
-/// [`MemCase::encase`] will put the structure in a [`deserializable
-/// wrapper`](epserde::deser::DeserializableWrapper).
+/// See the [`MemCase`](epserde::deser::MemCase) documentation for an
+/// explanation as to why we bound first with [`DeserInner`] and then require
+/// the bound we are interested in on the associated deserialization type.
 pub trait Offsets:
     for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>
 {

@@ -7,11 +7,19 @@
 use crate::{labels::Left, traits::*};
 use lender::*;
 
-/// An adapter exhibiting a list of labeled
-/// arcs sorted by source as a [labeled sequential graph](LabeledSequentialGraph).
+/// An adapter exhibiting a list of labeled arcs sorted by source as a [labeled
+/// sequential graph](LabeledSequentialGraph).
 ///
-/// If for every source the arcs are sorted by destination, the
-/// successors of the graph will be sorted.
+/// If for every source the arcs are sorted by destination, the successors of
+/// the graph will be sorted.
+///
+/// The structure [`Iter`] implementing the [`Lender`] returned by the
+/// [`iter`](SequentialLabeling::iter) method of this graph can be [built
+/// independently](Iter::new). This is useful in circumstances in which one has
+/// a list of arcs sorted by source that represent only part of a graph, but
+/// need to exhibit them has a [`NodeLabelsLender`], for example, for feeding
+/// such lenders to
+/// [`parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 #[derive(Clone)]
 pub struct ArcListGraph<I: Clone> {
     num_nodes: usize,
