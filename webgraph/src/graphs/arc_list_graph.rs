@@ -183,7 +183,7 @@ impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> Sequ
                 next_node: trivially_skippable,
                 iter,
             }
-            .skip(from - trivially_skippable)
+            .skip(from.saturating_sub(trivially_skippable))
         } else {
             // empty iterator
             Iter {
