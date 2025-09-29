@@ -8,19 +8,37 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_MIN_STACK: 67108864 # 64MiB
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Adding baremetal arm target
-        run: rustup target add aarch64-unknown-none
       - name: Check formatting
         run: cargo fmt -- --check
-      - name: Build
-        run: cargo build --verbose
-      - name: Run tests
-        run: cargo test --verbose --target x86_64-unknown-linux-gnu
       - name: Run clippy
         run: cargo clippy #-- -Dclippy::all -Dclippy::cargo
+      - name: Run tests
+        run: RUST_BACKTRACE=full cargo test --verbose
+
+  coverage:
+    needs: build
+    name: coverage
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --engine llvm --all-features --workspace --out Lcov
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: "lcov.info"

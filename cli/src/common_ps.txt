@@ -1,0 +1,3 @@
+Note that on shells supporting process substitution you compress the results
+using a suitable syntax. For example on bash / zsh, you can use the path `>(zstd
+> sccs.zstd)`.

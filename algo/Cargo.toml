@@ -1,0 +1,41 @@
+[package]
+name = "webgraph-algo"
+version = "0.2.0"
+edition = "2021"
+description = "Algorithms for the Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
+repository = "https://github.com/vigna/webgraph-rs/"
+license = "Apache-2.0 OR LGPL-2.1-or-later"
+readme = "README.md"
+keywords = ["graph", "compression", "codes", "webgraph"]
+categories = ["compression", "data-structures", "algorithms"]
+authors = [
+	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Matteo Dell'Acqua <dellacqua.matteo99@gmail.com>",
+	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
+]
+
+[dependencies]
+card-est-array.workspace = true
+webgraph.workspace = true
+dsi-progress-logger.workspace = true
+sux.workspace = true
+epserde.workspace = true
+lender.workspace = true
+value-traits.workspace= true
+
+anyhow.workspace = true
+predicates.workspace = true
+num_cpus.workspace = true
+rand.workspace = true
+log.workspace = true
+rayon.workspace = true
+sync-cell-slice.workspace = true
+no-break.workspace = true
+nonmax.workspace = true
+
+sealed = "0.6.0"
+thiserror = "2.0.12"
+kahan = "0.1.4"
+
+[features]
+slow_tests = []
