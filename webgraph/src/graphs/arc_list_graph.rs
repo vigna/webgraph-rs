@@ -98,8 +98,8 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Iter<L, I> {
     }
 }
 
-impl<'succ, L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>>
-    NodeLabelsLender<'succ> for Iter<L, I>
+impl<'succ, L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> NodeLabelsLender<'succ>
+    for Iter<L, I>
 {
     type Label = (usize, L);
     type IntoIterator = Succ<'succ, L, I>;
@@ -137,9 +137,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Lender for Iter<
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> ExactSizeLender
-    for Iter<L, I>
-{
+impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> ExactSizeLender for Iter<L, I> {
     fn len(&self) -> usize {
         self.num_nodes - self.next_node
     }
