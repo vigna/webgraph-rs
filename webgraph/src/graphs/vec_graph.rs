@@ -288,6 +288,22 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledVecGraph<L> {}
 
+impl<L: Clone + Sync> SplitLabeling for LabeledVecGraph<L> {
+    type SplitLender<'a>
+        = split::ra::Lender<'a, LabeledVecGraph<L>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, LabeledVecGraph<L>>
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
+    }
+}
+
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// vectors.
 ///
@@ -492,6 +508,22 @@ impl RandomAccessGraph for VecGraph {}
 impl From<LabeledVecGraph<()>> for VecGraph {
     fn from(g: LabeledVecGraph<()>) -> Self {
         VecGraph(g)
+    }
+}
+
+impl SplitLabeling for VecGraph {
+    type SplitLender<'a>
+        = split::ra::Lender<'a, VecGraph>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, VecGraph>
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
     }
 }
 

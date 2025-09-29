@@ -38,9 +38,11 @@ pub trait SplitLabeling: SequentialLabeling {
         + Sync
     where
         Self: 'a;
+
     type IntoIterator<'a>: IntoIterator<Item = Self::SplitLender<'a>>
     where
         Self: 'a;
+
     fn split_iter(&self, n: usize) -> Self::IntoIterator<'_>;
 }
 
@@ -60,7 +62,7 @@ pub trait SplitLabeling: SequentialLabeling {
 /// where
 ///     for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync,
 /// {
-///     type Lender<'a> = split::seq::Lender<'a, BvGraphSeq<F>> where Self: 'a;
+///     type SplitLender<'a> = split::seq::Lender<'a, BvGraphSeq<F>> where Self: 'a;
 ///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
 ///
 ///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
@@ -135,7 +137,7 @@ pub mod seq {
 /// where
 ///     for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync,
 /// {
-///     type Lender<'a> = split::ra::Lender<'a, BvGraph<F>> where Self: 'a;
+///     type SplitLender<'a> = split::ra::Lender<'a, BvGraph<F>> where Self: 'a;
 ///     type IntoIterator<'a> = split::ra::IntoIterator<'a, BvGraph<F>> where Self: 'a;
 ///
 ///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {

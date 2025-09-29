@@ -34,24 +34,15 @@ struct Args {
 }
 
 /// This is the factory that we can plug in BVGraph to read the custom codes
-pub struct CustomDecoderFactory<
-    E: Endianness,
-    F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
-> {
+pub struct CustomDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> {
     pub factory: F,
-    // The [`MemoryCase`]` here is needed to memory-map the offsets, otherwise
+    // The [`MemCase`]` here is needed to memory-map the offsets, otherwise
     // it can just be `OFF`
     pub offsets: MemCase<OFF>,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > CustomDecoderFactory<E, F, OFF>
-{
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> CustomDecoderFactory<E, F, OFF> {
     pub fn new(factory: F, offsets: MemCase<OFF>) -> Self {
         Self {
             factory,
@@ -61,11 +52,8 @@ impl<
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > RandomAccessDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> RandomAccessDecoderFactory
+    for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -75,16 +63,13 @@ where
         Self: 'a;
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
+        code_reader.set_bit_pos(self.offsets.uncase().get(node) as u64)?;
         Ok(CustomDecoder::new(code_reader))
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > SequentialDecoderFactory for CustomDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> SequentialDecoderFactory
+    for CustomDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -162,7 +147,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let offsets = EF::load_mmap(args.basename.with_extension(EF_EXTENSION), Flags::default())?;
+    let offsets =
+        unsafe { EF::load_mmap(args.basename.with_extension(EF_EXTENSION), Flags::default()) }?;
 
     if args.mmap {
         let graph = BvGraph::new(

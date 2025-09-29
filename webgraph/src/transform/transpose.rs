@@ -38,11 +38,11 @@ where
     let dir = Builder::new().prefix("transpose_").tempdir()?;
     let mut sorted = SortPairs::new_labeled(batch_size, dir.path(), serializer, deserializer)?;
 
-    let mut pl = progress_logger!(
+    let mut pl = progress_logger![
         item_name = "node",
         expected_updates = Some(graph.num_nodes()),
         display_memory = true
-    );
+    ];
     pl.start("Creating batches...");
     // create batches of sorted edges
     for_!( (src, succ) in graph.iter() {

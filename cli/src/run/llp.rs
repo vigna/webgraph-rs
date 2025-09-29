@@ -106,8 +106,11 @@ pub struct CliArgs {
 /// Helper method that stores labels with or without epserde
 pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
-        data.store(&perm)
-            .with_context(|| format!("Could not write permutation to {}", perm.as_ref().display()))
+        unsafe {
+            data.store(&perm).with_context(|| {
+                format!("Could not write permutation to {}", perm.as_ref().display())
+            })
+        }
     } else {
         let mut file = std::fs::File::create(&perm).with_context(|| {
             format!(
@@ -176,16 +179,18 @@ where
 
     // Load degree cumulative function in THP memory
     log::info!("Loading DCF in THP memory...");
-    let deg_cumul = DCF::load_mmap(
-        args.src.with_extension(DEG_CUMUL_EXTENSION),
-        Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
-    )
-    .with_context(|| {
-        format!(
-            "Could not load degree cumulative function for basename {}",
-            args.src.display()
+    let deg_cumul = unsafe {
+        DCF::load_mmap(
+            args.src.with_extension(DEG_CUMUL_EXTENSION),
+            Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
         )
-    })?;
+        .with_context(|| {
+            format!(
+                "Could not load degree cumulative function for basename {}",
+                args.src.display()
+            )
+        })
+    }?;
 
     // parse the gamma format
     let mut gammas = vec![];
@@ -224,7 +229,7 @@ where
     // compute the LLP
     webgraph_algo::llp::layered_label_propagation_labels_only(
         graph,
-        &*deg_cumul,
+        deg_cumul.uncase(),
         gammas,
         Some(args.num_threads.num_threads),
         args.chunk_size,

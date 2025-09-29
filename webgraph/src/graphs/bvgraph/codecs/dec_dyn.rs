@@ -12,7 +12,8 @@ use super::super::*;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::dispatch::CodesReaderFactory;
 use dsi_bitstream::prelude::*;
-use epserde::deser::MemCase;
+
+use epserde::deser::{MemCase, Owned};
 use sux::traits::IndexedSeq;
 
 #[derive(Debug)]
@@ -132,12 +133,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
     }
 }
 
-#[derive(Debug)]
-pub struct DynCodesDecoderFactory<
-    E: Endianness,
-    F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
-> {
+pub struct DynCodesDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> {
     /// The owned data we will read as a bitstream.
     factory: F,
     /// The offsets into the data.
@@ -159,14 +155,9 @@ pub struct DynCodesDecoderFactory<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> DynCodesDecoderFactory<E, F, OFF>
 where
-    // TODO!: This dependence can soon be removed, as there will be a IndexedSeq::iter method
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -175,16 +166,16 @@ where
     /// memory footprint.
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
-    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>> {
+    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>> {
         DynCodesDecoderFactory {
             factory: self.factory,
-            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                self.offsets
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-            )
-            .into(),
+            offsets: self
+                .offsets
+                .uncase()
+                .into_iter()
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
             compression_flags: self.compression_flags,
             read_outdegree: self.read_outdegree,
             read_reference_offset: self.read_reference_offset,
@@ -200,11 +191,8 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
+    DynCodesDecoderFactory<E, F, OFF>
 {
     #[inline(always)]
     /// Returns a clone of the compression flags.
@@ -232,11 +220,8 @@ impl<
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > RandomAccessDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> RandomAccessDecoderFactory
+    for DynCodesDecoderFactory<E, F, OFF>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
 {
@@ -248,7 +233,7 @@ where
     #[inline(always)]
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(node) as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(node) } as u64)?;
 
         Ok(DynCodesDecoder {
             code_reader,
@@ -266,11 +251,8 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > SequentialDecoderFactory for DynCodesDecoderFactory<E, F, OFF>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> SequentialDecoderFactory
+    for DynCodesDecoderFactory<E, F, OFF>
 {
     type Decoder<'a>
         = DynCodesDecoder<E, <F as CodesReaderFactory<E>>::CodesReader<'a>>

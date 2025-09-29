@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023-2025 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
@@ -9,10 +9,10 @@
 use crate::prelude::*;
 
 use lender::prelude::*;
-use std::{collections::BTreeSet, mem::MaybeUninit};
+use std::collections::BTreeMap;
 
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
-/// [`BTreeSet`].
+/// [`BTreeMap`].
 ///
 /// This implementation is slower and uses more resources than a
 /// [`LabeledVecGraph`](crate::graphs::vec_graph::LabeledVecGraph),
@@ -21,12 +21,12 @@ use std::{collections::BTreeSet, mem::MaybeUninit};
 /// By setting the feature `serde`, this struct can be serialized and
 /// deserialized using [serde](https://crates.io/crates/serde).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
     number_of_arcs: u64,
     /// For each node, its list of successors.
-    succ: Vec<BTreeSet<Successor<L>>>,
+    succ: Vec<BTreeMap<usize, L>>,
 }
 
 impl<L: Clone + 'static> core::default::Default for LabeledBTreeGraph<L> {
@@ -34,38 +34,6 @@ impl<L: Clone + 'static> core::default::Default for LabeledBTreeGraph<L> {
         Self::new()
     }
 }
-
-/// Manual implementation of [`PartialEq`]. This implementation is necessary
-/// because the private struct [`Successor`] that we use to store in a
-/// [`BTreeSet`] the tuple `(usize, Label)` implements [`PartialEq`] ignoring
-/// the label so to enforce the absence of duplicate arcs. This implies that the
-/// derived implementation of [`PartialEq`] would not check labels, so the same
-/// graph with different labels would be equal, and this is not the intended
-/// semantics.
-impl<L: Clone + 'static + PartialEq> PartialEq for LabeledBTreeGraph<L> {
-    fn eq(&self, other: &Self) -> bool {
-        if self.number_of_arcs != other.number_of_arcs {
-            return false;
-        }
-        if self.succ.len() != other.succ.len() {
-            return false;
-        }
-        for (s, o) in self.succ.iter().zip(other.succ.iter()) {
-            if s.len() != o.len() {
-                return false;
-            }
-            let s_iter = s.iter().map(|x| (x.0, &x.1));
-            let o_iter = o.iter().map(|x| (x.0, &x.1));
-            for (v1, v2) in s_iter.zip(o_iter) {
-                if v1 != v2 {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-}
-impl<L: Clone + 'static + Eq> Eq for LabeledBTreeGraph<L> {}
 
 impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// Creates a new empty graph.
@@ -80,7 +48,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     pub fn empty(n: usize) -> Self {
         Self {
             number_of_arcs: 0,
-            succ: Vec::from_iter((0..n).map(|_| BTreeSet::new())),
+            succ: Vec::from_iter((0..n).map(|_| BTreeMap::new())),
         }
     }
 
@@ -92,7 +60,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// than the number of nodes in the graph.
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
-        self.succ.extend((len..=node).map(|_| BTreeSet::new()));
+        self.succ.extend((len..=node).map(|_| BTreeMap::new()));
         len <= node
     }
 
@@ -106,9 +74,9 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
                 self.succ.len(),
             );
         }
-        let result = self.succ[u].insert(Successor(v, l));
-        self.number_of_arcs += result as u64;
-        result
+        let is_new_arc = self.succ[u].insert(v, l).is_none();
+        self.number_of_arcs += is_new_arc as u64;
+        is_new_arc
     }
 
     /// Remove an arc from the graph and return whether it was present or not.
@@ -121,13 +89,9 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
                 self.succ.len(),
             );
         }
-        // SAFETY: the label is not used by Eq/Ord.
-        let result = self.succ[u].remove(&Successor(v, unsafe {
-            #[allow(clippy::uninit_assumed_init)]
-            MaybeUninit::<L>::uninit().assume_init()
-        }));
-        self.number_of_arcs -= result as u64;
-        result
+        let arc_existed = self.succ[u].remove(&v).is_some();
+        self.number_of_arcs -= arc_existed as u64;
+        arc_existed
     }
 
     /// Add nodes and labeled successors from an [`IntoLender`] yielding a
@@ -183,7 +147,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// # Implementation Notes
     ///
     /// This method just shrinks the capacity of the successor vector, as
-    /// [`BTreeSet`] does not have a `shrink_to_fit` method.
+    /// [`BTreeMap`] does not have a `shrink_to_fit` method.
     pub fn shrink_to_fit(&mut self) {
         self.succ.shrink_to_fit();
     }
@@ -249,8 +213,24 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
 
 impl<L: Clone + 'static> LabeledRandomAccessGraph<L> for LabeledBTreeGraph<L> {}
 
+impl<L: Clone + Sync> SplitLabeling for LabeledBTreeGraph<L> {
+    type SplitLender<'a>
+        = split::ra::Lender<'a, LabeledBTreeGraph<L>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, LabeledBTreeGraph<L>>
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
+    }
+}
+
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
-/// [`BTreeSet`].
+/// [`BTreeMap`].
 ///
 /// This implementation is slower and uses more resources than a [`VecGraph`],
 /// but it is more flexible as arcs can be added in any order.
@@ -331,7 +311,7 @@ impl BTreeGraph {
     /// # Implementation Notes
     ///
     /// This method just shrinks the capacity of the successor vector, as
-    /// [`BTreeSet`] does not have a `shrink_to_fit` method.
+    /// [`BTreeMap`] does not have a `shrink_to_fit` method.
     pub fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit();
     }
@@ -375,10 +355,8 @@ impl SequentialLabeling for BTreeGraph {
 impl SequentialGraph for BTreeGraph {}
 
 impl RandomAccessLabeling for BTreeGraph {
-    type Labels<'succ> = std::iter::Map<
-        std::collections::btree_set::Iter<'succ, Successor<()>>,
-        fn(&Successor<()>) -> usize,
-    >;
+    type Labels<'succ> =
+        std::iter::Map<std::collections::btree_map::Keys<'succ, usize, ()>, fn(&usize) -> usize>;
 
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
@@ -392,7 +370,7 @@ impl RandomAccessLabeling for BTreeGraph {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        self.0.succ[node].iter().map(|x| x.0)
+        self.0.succ[node].keys().map(|&key| key)
     }
 }
 
@@ -405,41 +383,8 @@ impl From<LabeledBTreeGraph<()>> for BTreeGraph {
 }
 
 #[doc(hidden)]
-/// A struct containing a successor.
-///
-/// By implementing equality and order on the first coordinate only, we
-/// can store the successors of a node and their labels as a
-/// [`BTreeSet`] of pairs `(usize, L)`.
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Successor<L: Clone + 'static>(usize, L);
-
-impl<L: Clone + 'static> PartialEq for Successor<L> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<L: Clone + 'static> Eq for Successor<L> {}
-
-impl<L: Clone + 'static> PartialOrd for Successor<L> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.0.cmp(&other.0))
-    }
-}
-
-impl<L: Clone + 'static> Ord for Successor<L> {
-    #[inline(always)]
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-}
-
-#[doc(hidden)]
 #[repr(transparent)]
-pub struct Successors<'a, L: Clone + 'static>(std::collections::btree_set::Iter<'a, Successor<L>>);
+pub struct Successors<'a, L: Clone + 'static>(std::collections::btree_map::Iter<'a, usize, L>);
 
 unsafe impl<L: Clone + 'static> SortedIterator for Successors<'_, L> {}
 
@@ -447,7 +392,7 @@ impl<L: Clone + 'static> Iterator for Successors<'_, L> {
     type Item = (usize, L);
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().cloned().map(|x| (x.0, x.1))
+        self.0.next().map(|(succ, labels)| (*succ, labels.clone()))
     }
 }
 
@@ -455,6 +400,22 @@ impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl SplitLabeling for BTreeGraph {
+    type SplitLender<'a>
+        = split::ra::Lender<'a, BTreeGraph>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = split::ra::IntoIterator<'a, BTreeGraph>
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, how_many)
     }
 }
 

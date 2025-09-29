@@ -52,7 +52,6 @@ pub use symm_seq::*;
 mod symm_par;
 pub use symm_par::*;
 
-#[derive(Epserde)]
 /// Strongly connected components.
 ///
 /// An instance of this structure stores the [index of the
@@ -62,6 +61,7 @@ pub use symm_par::*;
 /// Moreover, this structure makes it possible to [sort the components by
 /// size](Sccs::sort_by_size), possibly using [parallel
 /// methods](Sccs::par_sort_by_size).
+#[derive(Epserde, Clone, Copy, Debug)]
 pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
     num_components: usize,
     components: C,

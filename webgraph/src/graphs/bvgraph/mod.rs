@@ -32,6 +32,7 @@ pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
+use epserde::deser::DeserInner;
 pub use offset_deg_iter::OffsetDegIter;
 
 pub mod sequential;
@@ -51,13 +52,27 @@ pub use comp::*;
 
 mod load;
 pub use load::*;
-use sux::traits::{IndexedSeq, Types};
+use sux::traits::IndexedSeq;
 
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
     sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
+
+/// Compound trait expressing the trait bounds for offsets.
+///
+/// See the [`MemCase`](epserde::deser::MemCase) documentation for an
+/// explanation as to why we bound first with [`DeserInner`] and then require
+/// the bound we are interested in on the associated deserialization type.
+pub trait Offsets:
+    for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>
+{
+}
+impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>> Offsets
+    for T
+{
+}
 
 /// The default version of EliasFano we use for the cumulative function of degrees.
 pub type DCF = sux::dict::EliasFano<
@@ -69,50 +84,3 @@ pub type DCF = sux::dict::EliasFano<
     >,
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SliceSeq<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>>(
-    A,
-    std::marker::PhantomData<O>,
-)
-where
-    usize: PartialEq<O>;
-
-impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> SliceSeq<O, A>
-where
-    usize: PartialEq<O>,
-{
-    pub fn new(slice: A) -> Self {
-        Self(slice, std::marker::PhantomData)
-    }
-}
-
-impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> From<A> for SliceSeq<O, A>
-where
-    usize: PartialEq<O>,
-{
-    fn from(slice: A) -> Self {
-        Self::new(slice)
-    }
-}
-
-impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> Types for SliceSeq<O, A>
-where
-    usize: PartialEq<O>,
-{
-    type Input = usize;
-    type Output = O;
-}
-
-impl<O: PartialEq<usize> + PartialEq + Copy, A: AsRef<[O]>> IndexedSeq for SliceSeq<O, A>
-where
-    usize: PartialEq<O>,
-{
-    unsafe fn get_unchecked(&self, index: usize) -> Self::Output {
-        unsafe { *self.0.as_ref().get_unchecked(index) }
-    }
-
-    fn len(&self) -> usize {
-        self.0.as_ref().len()
-    }
-}

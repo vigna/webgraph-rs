@@ -13,6 +13,7 @@ readme = "README.md"
 keywords = ["graph", "compression", "codes", "webgraph"]
 categories = ["compression", "data-structures", "algorithms", "command-line-interface"]
 default-run = "webgraph"
+rust-version = "1.85"
 
 [dependencies]
 webgraph.workspace = true
@@ -39,7 +40,7 @@ env_logger.workspace = true
 zstd.workspace = true
 
 jiff = "0.2.5"
-sysinfo = "0.35.1"
+sysinfo = ">=0.35.0,<0.38"
 clap_complete = { version = "4.4.11" }
 
 [build-dependencies]

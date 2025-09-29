@@ -13,12 +13,12 @@
 //!
 //! See the examples for a complete implementation based on memory mapping.
 
-use crate::prelude::BitDeserializer;
+use crate::prelude::{BitDeserializer, Offsets};
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
+use epserde::deser::MemCase;
 use lender::*;
-use std::ops::Deref;
-use sux::traits::{IndexedSeq, Types};
+use sux::traits::IndexedSeq;
 
 /// A basic supplier trait.
 ///
@@ -32,18 +32,18 @@ pub trait Supply {
 }
 
 /// A labeling based on a bitstream of labels and an indexed sequence of offsets.
-pub struct BitStreamLabeling<E: Endianness, S: Supply, D, O>
+pub struct BitStreamLabeling<E: Endianness, S: Supply, D, O: Offsets>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
 {
     reader_supplier: S,
     bit_deser: D,
-    offsets: O,
+    offsets: MemCase<O>,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E: Endianness, S: Supply, D, O> BitStreamLabeling<E, S, D, O>
+impl<E: Endianness, S: Supply, D, O: Offsets> BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>>,
@@ -52,13 +52,13 @@ where
     ///
     /// # Arguments
     ///
-    /// * `reader_supplier`: A supplier of readers on the bitsteam containing
+    /// * `reader_supplier`: A supplier of readers on the bitstream containing
     ///   the labels.
     ///
     /// * `bit_deser_supplier`: A supplier of deserializers for the labels.
     ///
     /// * `offsets`: An indexed sequence of offsets into the bitstream.
-    pub fn new(reader_supplier: S, bit_deser: D, offsets: O) -> Self {
+    pub fn new(reader_supplier: S, bit_deser: D, offsets: MemCase<O>) -> Self {
         Self {
             reader_supplier,
             bit_deser,
@@ -68,44 +68,30 @@ where
     }
 }
 
-pub struct Iter<'a, 'b, E, BR, D, O> {
+pub struct Iter<'a, 'b, E, BR, D, O: Offsets> {
     reader: BR,
     bit_deser: &'a D,
-    offsets: &'b O,
+    offsets: &'b MemCase<O>,
     next_node: usize,
     num_nodes: usize,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<
-        'succ,
-        E: Endianness,
-        BR: BitRead<E> + BitSeek,
-        D: BitDeserializer<E, BR>,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
+impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
+    NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
     type IntoIterator = SeqLabels<'succ, E, BR, D>;
 }
 
-impl<
-        'succ,
-        E: Endianness,
-        BR: BitRead<E> + BitSeek,
-        D: BitDeserializer<E, BR>,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > Lending<'succ> for Iter<'_, '_, E, BR, D, O>
+impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
+    Lending<'succ> for Iter<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<
-        E: Endianness,
-        BR: BitRead<E> + BitSeek,
-        D: BitDeserializer<E, BR>,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > Lender for Iter<'_, '_, E, BR, D, O>
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets> Lender
+    for Iter<'_, '_, E, BR, D, O>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -113,14 +99,14 @@ impl<
             return None;
         }
         self.reader
-            .set_bit_pos(self.offsets.get(self.next_node) as u64)
+            .set_bit_pos(self.offsets.uncase().get(self.next_node) as u64)
             .unwrap();
         let res = (
             self.next_node,
             SeqLabels {
                 reader: &mut self.reader,
                 bit_deser: self.bit_deser,
-                end_pos: self.offsets.get(self.next_node + 1) as u64,
+                end_pos: self.offsets.uncase().get(self.next_node + 1) as u64,
                 _marker: std::marker::PhantomData,
             },
         );
@@ -150,13 +136,8 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<
-        L,
-        E: Endianness,
-        S: Supply,
-        D,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > SequentialLabeling for BitStreamLabeling<E, S, D, O>
+impl<L, E: Endianness, S: Supply, D, O: Offsets> SequentialLabeling
+    for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
@@ -168,7 +149,7 @@ where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
-        self.offsets.len() - 1
+        self.offsets.uncase().len() - 1
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
@@ -206,13 +187,8 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
-impl<
-        L,
-        E: Endianness,
-        S: Supply,
-        D,
-        O: Deref<Target: IndexedSeq + Types<Input = usize, Output = usize>>,
-    > RandomAccessLabeling for BitStreamLabeling<E, S, D, O>
+impl<L, E: Endianness, S: Supply, D, O: Offsets> RandomAccessLabeling
+    for BitStreamLabeling<E, S, D, O>
 where
     for<'a> S::Item<'a>: BitRead<E> + BitSeek,
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
@@ -229,12 +205,12 @@ where
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         let mut reader = self.reader_supplier.request();
         reader
-            .set_bit_pos(self.offsets.get(node_id) as u64)
+            .set_bit_pos(self.offsets.uncase().get(node_id) as u64)
             .unwrap();
         RanLabels {
             reader,
             deserializer: &self.bit_deser,
-            end_pos: self.offsets.get(node_id + 1) as u64,
+            end_pos: self.offsets.uncase().get(node_id + 1) as u64,
             _marker: std::marker::PhantomData,
         }
     }

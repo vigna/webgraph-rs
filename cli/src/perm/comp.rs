@@ -43,27 +43,28 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     if args.epserde {
         let mut perm = Vec::new();
         for path in args.perms {
-            let p = <Vec<usize>>::mmap(&path, Flags::RANDOM_ACCESS)?;
+            let p = unsafe { <Vec<usize>>::mmap(&path, Flags::RANDOM_ACCESS) }?;
             perm.push(p);
         }
         let mut merged = Vec::new();
-
+        // TODO: reduce the number of uncase
         ensure!(
-            perm.iter().all(|p| p.len() == perm[0].len()),
+            perm.iter()
+                .all(|p| p.uncase().len() == perm[0].uncase().len()),
             "All permutations must have the same length"
         );
 
         pl.start("Combining permutations...");
-        for i in 0..perm[0].len() {
+        for i in 0..perm[0].uncase().len() {
             let mut v = i;
             for p in &perm {
-                v = p[v];
+                v = p.uncase()[v];
             }
             merged.push(v);
             pl.light_update();
         }
         pl.done();
-        merged.store(&args.dst)?;
+        unsafe { merged.store(&args.dst) }?;
     } else {
         let mut writer = BufWriter::new(std::fs::File::create(&args.dst)?);
         let mut perm = Vec::new();

@@ -12,9 +12,9 @@ use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{Endianness, BE};
+use epserde::deser::Owned;
 use lender::IntoLender;
 use std::path::PathBuf;
-use sux::traits::IndexedSeq;
 
 use self::sequential::Iter;
 
@@ -41,13 +41,10 @@ impl BvGraph<()> {
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > BvGraph<DynCodesDecoderFactory<E, F, OFF>>
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
+    BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -55,9 +52,7 @@ where
     /// representing the offsets as a slice increasing significantly the
     /// memory footprint. It just replaces current decoder factory with
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(
-        self,
-    ) -> BvGraph<DynCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+    pub fn offsets_to_slice(self) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -68,13 +63,8 @@ where
     }
 }
 
-impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
-    > BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
-where
-    for<'a> &'a OFF: IntoIterator<Item = usize>,
+impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
+    BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -82,9 +72,7 @@ where
     /// representing the offsets as a slice increasing significantly the
     /// memory footprint. It just replaces current decoder factory with
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(
-        self,
-    ) -> BvGraph<ConstCodesDecoderFactory<E, F, SliceSeq<usize, Box<[usize]>>>> {
+    pub fn offsets_to_slice(self) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -249,8 +237,8 @@ where
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
-            let neighbours = self.successors(reference_node_id);
-            debug_assert!(neighbours.len() != 0);
+            let neighbors = self.successors(reference_node_id);
+            debug_assert!(neighbors.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count() as usize;
             // add +1 if the number of blocks is even, so we have capacity for
@@ -266,7 +254,7 @@ where
                 }
             }
             // create the masked iterator
-            let res = MaskedIterator::new(neighbours, blocks);
+            let res = MaskedIterator::new(neighbors, blocks);
             nodes_left_to_decode -= res.len();
 
             result.copied_nodes_iter = Some(res);

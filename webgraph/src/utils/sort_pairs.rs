@@ -77,6 +77,11 @@ impl<T: Copy> Ord for Triple<T> {
 /// Small batches are inefficient because they requires significantly
 /// more I/O, and more effort during the merge phase.
 ///
+/// Note that batches will be memory-mapped. If you encounter OS-level errors
+/// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
+/// the limitations of your OS regarding memory-mapping (e.g.,
+/// `/proc/sys/vm/max_map_count` under Linux).
+///
 /// The structure accept as type parameter a [`BitSerializer`] and a
 /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
 /// In case they are both `()`, the structure behaves as if there is no label.

@@ -8,11 +8,13 @@ webgraph-algo = { path = "./algo", version = "0.2.0" }
 webgraph-cli = { path = "./cli", version = "0.1.0" }
 
 card-est-array = "0.1.0"
-epserde = "0.8.0"
+epserde = "0.10.2"
+#epserde = { git = "https://github.com/vigna/epserde-rs" }
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
-sux = "0.8.0"
-common_traits = "0.11.2"
+#sux = "0.8.0"
+sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"] }
+common_traits = "0.12.0"
 lender = "0.3.1"
 log = "0.4.22"
 num_cpus = "1.16.0"
@@ -38,6 +40,7 @@ value-traits = "0.1.4"
 thiserror = "2.0.12"
 no-break = "0.1.2"
 nonmax = "0.5.5"
+crossbeam-utils = "0.8.21"
 
 [profile.release]
 opt-level = 3 # like --release

@@ -23,6 +23,10 @@ or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
 decoupling the choice of encoder from the underlying support.
 
 */
+use crate::{
+    prelude::{FileBufReader, MemBufReader},
+    utils::MmapHelper,
+};
 use anyhow::{ensure, Context};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
@@ -31,6 +35,7 @@ use dsi_bitstream::{
     prelude::{CodesRead, CodesReaderFactory},
     traits::{BitRead, Endianness},
 };
+use epserde::Epserde;
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -39,11 +44,6 @@ use std::{
     path::Path,
 };
 use sux::traits::{IndexedSeq, Types};
-
-use crate::{
-    prelude::{FileBufReader, MemBufReader},
-    utils::MmapHelper,
-};
 
 #[derive(Debug, Clone)]
 pub struct FileFactory<E: Endianness> {
@@ -243,22 +243,22 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Epserde, Debug, Clone)]
 pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
 
 impl<I, O> Types for EmptyDict<I, O> {
     type Input = usize;
-    type Output = usize;
+    type Output<'a> = usize;
 }
 
 impl<I, O> IndexedSeq for EmptyDict<I, O> {
-    fn get(&self, _key: Self::Input) -> Self::Output {
+    fn get(&self, _key: Self::Input) -> Self::Output<'_> {
         panic!();
     }
 
-    unsafe fn get_unchecked(&self, _index: usize) -> Self::Output {
+    unsafe fn get_unchecked(&self, _index: usize) -> Self::Output<'_> {
         panic!();
     }
 

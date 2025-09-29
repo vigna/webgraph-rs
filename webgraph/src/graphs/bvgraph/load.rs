@@ -10,13 +10,13 @@ use crate::prelude::*;
 use anyhow::{Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_bitstream::{dispatch::code_consts, dispatch::factory::CodesReaderFactoryHelper};
+use epserde::deser::Owned;
 use epserde::prelude::*;
 use sealed::sealed;
 use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
-use sux::traits::IndexedSeq;
 
 /// Sequential or random access.
 #[doc(hidden)]
@@ -86,7 +86,7 @@ pub trait LoadMode: 'static {
         flags: codecs::MemoryFlags,
     ) -> Result<Self::Factory<E>>;
 
-    type Offsets: IndexedSeq<Input = usize, Output = usize>;
+    type Offsets: Offsets;
 
     fn load_offsets<P: AsRef<Path>>(
         offsets: P,
@@ -133,7 +133,7 @@ pub struct File {}
 #[sealed]
 impl LoadMode for File {
     type Factory<E: Endianness> = FileFactory<E>;
-    type Offsets = EF;
+    type Offsets = Owned<EF>;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -147,9 +147,11 @@ impl LoadMode for File {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        Ok(EF::load_full(path)
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))?
-            .into())
+        unsafe {
+            EF::load_full(path)
+                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+                .map(Into::into)
+        }
     }
 }
 
@@ -161,7 +163,7 @@ pub struct Mmap {}
 #[sealed]
 impl LoadMode for Mmap {
     type Factory<E: Endianness> = MmapHelper<u32>;
-    type Offsets = DeserType<'static, EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -175,8 +177,10 @@ impl LoadMode for Mmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::mmap(path, flags.into())
-            .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
+        unsafe {
+            EF::mmap(path, flags.into())
+                .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
+        }
     }
 }
 
@@ -186,7 +190,7 @@ pub struct LoadMem {}
 #[sealed]
 impl LoadMode for LoadMem {
     type Factory<E: Endianness> = MemoryFactory<E, Box<[u32]>>;
-    type Offsets = DeserType<'static, EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -200,8 +204,10 @@ impl LoadMode for LoadMem {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::load_mem(path)
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        unsafe {
+            EF::load_mem(path)
+                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        }
     }
 }
 
@@ -213,7 +219,7 @@ pub struct LoadMmap {}
 #[sealed]
 impl LoadMode for LoadMmap {
     type Factory<E: Endianness> = MemoryFactory<E, MmapHelper<u32>>;
-    type Offsets = DeserType<'static, EF>;
+    type Offsets = EF;
 
     fn new_factory<E: Endianness, P: AsRef<Path>>(
         graph: P,
@@ -227,8 +233,10 @@ impl LoadMode for LoadMmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
-        EF::load_mmap(path, flags.into())
-            .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        unsafe {
+            EF::load_mmap(path, flags.into())
+                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+        }
     }
 }
 
@@ -427,7 +435,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, EmptyDict<usize, usize>>>,
+        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, Owned<EmptyDict<usize, usize>>>>,
     >
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
@@ -439,7 +447,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            DynCodesDecoderFactory::new(factory, MemCase::from(EmptyDict::default()), comp_flags)?,
+            DynCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,
@@ -526,7 +534,7 @@ impl<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
-                EmptyDict<usize, usize>,
+                Owned<EmptyDict<usize, usize>>,
                 OUTDEGREES,
                 REFERENCES,
                 BLOCKS,
@@ -545,11 +553,7 @@ impl<
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)?;
 
         Ok(BvGraphSeq::new(
-            ConstCodesDecoderFactory::new(
-                factory,
-                MemCase::from(EmptyDict::default()),
-                comp_flags,
-            )?,
+            ConstCodesDecoderFactory::new(factory, EmptyDict::default().into(), comp_flags)?,
             num_nodes,
             Some(num_arcs),
             comp_flags.compression_window,

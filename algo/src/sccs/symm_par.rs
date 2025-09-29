@@ -6,6 +6,7 @@
  */
 
 use crate::prelude::*;
+use crossbeam_utils::CachePadded;
 use dsi_progress_logger::ConcurrentProgressLog;
 use no_break::NoBreak;
 use rayon::ThreadPool;
@@ -37,7 +38,7 @@ pub fn symm_par(
     let mut visit = ParFairNoPred::new(&graph);
     let mut component = Box::new_uninit_slice(num_nodes);
 
-    let number_of_components = AtomicUsize::new(0);
+    let number_of_components = CachePadded::new(AtomicUsize::new(0));
     let slice = component.as_sync_slice();
 
     for node in 0..num_nodes {

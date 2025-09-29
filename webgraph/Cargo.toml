@@ -12,6 +12,7 @@ authors = [
 	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
+rust-version = "1.85"
 
 [features]
 default = []
@@ -61,7 +62,7 @@ crossbeam-channel = "0.5"
 parallel_frontier = "0.1.1"
 
 # Fuzzing deps
-zip = { version = "4.0.0", optional = true }
+zip = { version = "5.0.0", optional = true }
 
 [dev-dependencies]
 serde.workspace = true

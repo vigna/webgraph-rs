@@ -11,6 +11,7 @@ use card_est_array::traits::{
     AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
     MergeEstimationLogic, SyncEstimatorArray,
 };
+use crossbeam_utils::CachePadded;
 use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
 use rayon::{prelude::*, ThreadPool};
@@ -30,7 +31,7 @@ pub struct HyperBallBuilder<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: Succ<Input = usize, Output = usize>,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
     L: MergeEstimationLogic<Item = G1::Label>,
     A: EstimatorArrayMut<L>,
 > {
@@ -62,7 +63,7 @@ impl<
         'a,
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
     >
     HyperBallBuilder<
         'a,
@@ -131,7 +132,7 @@ impl<
 
 impl<
         'a,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
         G: RandomAccessGraph + Sync,
         L: MergeEstimationLogic<Item = G::Label> + PartialEq,
         A: EstimatorArrayMut<L>,
@@ -146,7 +147,7 @@ impl<
     /// * `array_1`: A second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
-        assert!(array_0.logic() == array_1.logic(), "Incompatible logics");
+        assert!(array_0.logic() == array_1.logic(), "Incompatible logic");
         assert_eq!(
             graph.num_nodes(),
             array_0.len(),
@@ -181,7 +182,7 @@ impl<
         'a,
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
         L: MergeEstimationLogic<Item = G1::Label>,
         A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G1, G2, D, L, A>
@@ -232,7 +233,7 @@ impl<
             graph.num_arcs(),
             transpose.num_arcs()
         );
-        /* TODOdebug_assert!(
+        /* TODO debug_assert!(
             check_transposed(graph, transpose),
             "the transpose should be the transpose of the graph"
         );*/
@@ -304,7 +305,7 @@ impl<
         'a,
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize>,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
         L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
         A: EstimatorArrayMut<L>,
     > HyperBallBuilder<'a, G1, G2, D, L, A>
@@ -372,10 +373,10 @@ impl<
                 iteration: 0,
                 current_nf: Mutex::new(0.0),
                 arc_granularity: 0,
-                node_cursor: AtomicUsize::new(0),
+                node_cursor: AtomicUsize::new(0).into(),
                 arc_cursor: Mutex::new((0, 0)),
-                visited_arcs: AtomicU64::new(0),
-                modified_estimators: AtomicU64::new(0),
+                visited_arcs: AtomicU64::new(0).into(),
+                modified_estimators: AtomicU64::new(0).into(),
                 systolic: false,
                 local: false,
                 pre_local: false,
@@ -410,14 +411,14 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// of arcs.
     arc_granularity: usize,
     /// A cursor scanning the nodes to process during local computations.
-    node_cursor: AtomicUsize,
+    node_cursor: CachePadded<AtomicUsize>,
     /// A cursor scanning the nodes and arcs to process during non-local
     /// computations.
     arc_cursor: Mutex<(usize, usize)>,
     /// The number of arcs visited during the current iteration.
-    visited_arcs: AtomicU64,
+    visited_arcs: CachePadded<AtomicU64>,
     /// The number of estimators modified during the current iteration.
-    modified_estimators: AtomicU64,
+    modified_estimators: CachePadded<AtomicU64>,
     /// `true` if we started a systolic computation.
     systolic: bool,
     /// `true` if we started a local computation.
@@ -461,7 +462,7 @@ pub struct HyperBall<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: Succ<Input = usize, Output = usize>,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
     L: MergeEstimationLogic<Item = G1::Label> + Sync,
     A: EstimatorArrayMut<L>,
 > {
@@ -500,7 +501,7 @@ pub struct HyperBall<
 impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize> + Sync,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
         L: MergeEstimationLogic<Item = usize> + Sync,
         A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
     > HyperBall<'_, G1, G2, D, L, A>
@@ -536,7 +537,7 @@ where
         pl.item_name("iteration");
         pl.expected_updates(None);
         pl.start(format!(
-            "Running Hyperball for a maximum of {} iterations and a threshold of {:?}",
+            "Running HyperBall for a maximum of {} iterations and a threshold of {:?}",
             upper_bound, threshold
         ));
 
@@ -746,7 +747,7 @@ where
 impl<
         G1: RandomAccessGraph + Sync,
         G2: RandomAccessGraph + Sync,
-        D: Succ<Input = usize, Output = usize> + Sync,
+        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
         L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
         A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
     > HyperBall<'_, G1, G2, D, L, A>
@@ -1277,7 +1278,7 @@ mod test {
 
         let graph = BvGraph::with_basename(basename).load()?;
         let transpose = BvGraph::with_basename(basename.to_owned() + "-t").load()?;
-        let cumulative = DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty())?;
+        let cumulative = unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
 
         let num_nodes = graph.num_nodes();
 
@@ -1293,7 +1294,7 @@ mod test {
         let mut hyperball = HyperBallBuilder::with_transpose(
             &graph,
             &transpose,
-            cumulative.as_ref(),
+            cumulative.uncase(),
             par_bits,
             par_result_bits,
         )

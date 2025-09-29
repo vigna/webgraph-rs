@@ -26,7 +26,7 @@ where
     for<'a> U::Lender<'a>: SortedLender,
 {
     let mut file = std::io::Cursor::new(vec![]);
-    original.serialize(&mut file)?;
+    unsafe { original.serialize(&mut file) }?;
     let data = file.into_inner();
     // This is presently needed because of limitations of the borrow checker
     let data = unsafe { transmute::<&'_ [u8], &'static [u8]>(&data) };
@@ -61,20 +61,24 @@ fn test_epserde() -> anyhow::Result<()> {
     let g = VecGraph::from_arcs(arcs);
 
     let csr = CsrGraph::from_seq_graph(&g);
-    test_epserde_roundtrip(&csr, |data| Ok(<CsrGraph>::deserialize_eps(data)?))?;
+    test_epserde_roundtrip(&csr, |data| {
+        Ok(unsafe { <CsrGraph>::deserialize_eps(data) }?)
+    })?;
 
     let csr = CsrSortedGraph::from_seq_graph(&g);
-    test_epserde_roundtrip(&csr, |data| Ok(<CsrSortedGraph>::deserialize_eps(data)?))?;
+    test_epserde_roundtrip(&csr, |data| {
+        Ok(unsafe { <CsrSortedGraph>::deserialize_eps(data) }?)
+    })?;
 
     let csr = CompressedCsrGraph::from_graph(&g);
 
     test_epserde_roundtrip(&csr, |data| {
-        Ok(<CompressedCsrGraph>::deserialize_eps(data)?)
+        Ok(unsafe { <CompressedCsrGraph>::deserialize_eps(data) }?)
     })?;
 
     let csr = CompressedCsrSortedGraph::from_graph(&g);
     test_epserde_roundtrip(&csr, |data| {
-        Ok(<CompressedCsrSortedGraph>::deserialize_eps(data)?)
+        Ok(unsafe { <CompressedCsrSortedGraph>::deserialize_eps(data) }?)
     })?;
 
     Ok(())

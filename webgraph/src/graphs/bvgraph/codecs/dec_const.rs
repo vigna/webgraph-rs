@@ -13,7 +13,9 @@ use anyhow::Result;
 use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
+
 use epserde::deser::MemCase;
+use epserde::deser::Owned;
 use sux::traits::IndexedSeq;
 
 #[repr(transparent)]
@@ -148,7 +150,7 @@ impl<
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
-    OFF: IndexedSeq<Input = usize, Output = usize>,
+    OFF: Offsets,
     const OUTDEGREES: usize = { code_consts::GAMMA },
     const REFERENCES: usize = { code_consts::UNARY },
     const BLOCKS: usize = { code_consts::GAMMA },
@@ -167,15 +169,13 @@ pub struct ConstCodesDecoderFactory<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
         const INTERVALS: usize,
         const RESIDUALS: usize,
     > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
-where
-    for<'a> &'a OFF: IntoIterator<Item = usize>, // This dependence can soon be removed, as there will be a IndexedSeq::iter method
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -189,22 +189,21 @@ where
     ) -> ConstCodesDecoderFactory<
         E,
         F,
-        SliceSeq<usize, Box<[usize]>>,
+        Owned<Box<[usize]>>,
         OUTDEGREES,
         REFERENCES,
         BLOCKS,
         INTERVALS,
         RESIDUALS,
     > {
+        let offsets = self.offsets.uncase();
         ConstCodesDecoderFactory {
             factory: self.factory,
-            offsets: <Box<[usize]> as Into<SliceSeq<usize, Box<[usize]>>>>::into(
-                self.offsets
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-            )
-            .into(),
+            offsets: (0..offsets.len())
+                .map(|i| unsafe { offsets.get_unchecked(i) })
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+                .into(),
             _marker: PhantomData,
         }
     }
@@ -213,7 +212,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -249,7 +248,7 @@ impl<
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
@@ -267,7 +266,7 @@ where
 
     fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.get(offset) as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(offset) } as u64)?;
 
         Ok(ConstCodesDecoder {
             code_reader,
@@ -279,7 +278,7 @@ where
 impl<
         E: Endianness,
         F: CodesReaderFactoryHelper<E>,
-        OFF: IndexedSeq<Input = usize, Output = usize>,
+        OFF: Offsets,
         const OUTDEGREES: usize,
         const REFERENCES: usize,
         const BLOCKS: usize,
