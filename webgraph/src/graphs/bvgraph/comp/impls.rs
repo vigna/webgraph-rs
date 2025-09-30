@@ -10,8 +10,7 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
-use rayon::ThreadPool;
-
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
@@ -104,8 +103,187 @@ impl BvComp<()> {
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
     {
-        let basename = basename.as_ref();
-        let graph_path = basename.with_extension(GRAPH_EXTENSION);
+        BvCompBuilder::new(basename)
+            .with_compression_flags(compression_flags)
+            .single_thread::<E, L>(iter, build_offsets, num_nodes)
+    }
+
+    /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
+    /// endianness as a string.
+    ///
+    /// Endianness can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
+    ///
+    ///  A given endianness is enabled only if the corresponding feature is
+    /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
+    /// neither features are enabled.
+    pub fn parallel_endianness<P: AsRef<Path>, G: SplitLabeling + SequentialGraph>(
+        basename: impl AsRef<Path> + Send + Sync,
+        graph: &G,
+        num_nodes: usize,
+        compression_flags: CompFlags,
+        threads: &ThreadPool,
+        tmp_dir: P,
+        endianness: &str,
+    ) -> Result<u64>
+    where
+        for<'a> <G as SplitLabeling>::SplitLender<'a>: Send + Sync,
+    {
+        BvCompBuilder::new(basename)
+            .with_compression_flags(compression_flags)
+            .with_threads(threads)
+            .with_tmp_dir(tmp_dir)
+            .parallel_endianness(graph, num_nodes, endianness)
+    }
+
+    /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
+    pub fn parallel_graph<E: Endianness>(
+        basename: impl AsRef<Path> + Send + Sync,
+        graph: &(impl SequentialGraph + SplitLabeling),
+        compression_flags: CompFlags,
+        threads: &ThreadPool,
+        tmp_dir: impl AsRef<Path>,
+    ) -> Result<u64>
+    where
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
+    {
+        BvCompBuilder::new(basename)
+            .with_compression_flags(compression_flags)
+            .with_threads(threads)
+            .with_tmp_dir(tmp_dir)
+            .parallel_graph::<E>(graph)
+    }
+
+    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
+    /// of the graph bitstream.
+    pub fn parallel_iter<
+        E: Endianness,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
+    >(
+        basename: impl AsRef<Path> + Send + Sync,
+        iter: impl Iterator<Item = L>,
+        num_nodes: usize,
+        compression_flags: CompFlags,
+        threads: &ThreadPool,
+        tmp_dir: impl AsRef<Path>,
+    ) -> Result<u64>
+    where
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
+    {
+        BvCompBuilder::new(basename)
+            .with_compression_flags(compression_flags)
+            .with_threads(threads)
+            .with_tmp_dir(tmp_dir)
+            .parallel_iter::<E, L>(iter, num_nodes)
+    }
+}
+
+/// Like [`std::borrow::Cow`] but does not require `T: ToOwned`
+#[derive(Debug)]
+enum MaybeOwned<'a, T> {
+    Borrowed(&'a T),
+    Owned(T),
+}
+
+#[derive(Debug)]
+pub struct BvCompBuilder<'t> {
+    basename: PathBuf,
+    compression_flags: CompFlags,
+    threads: Option<MaybeOwned<'t, ThreadPool>>,
+    tmp_dir: Option<PathBuf>,
+    /// owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default
+    owned_tmp_dir: Option<tempfile::TempDir>,
+}
+
+impl BvCompBuilder<'static> {
+    pub fn new(basename: impl AsRef<Path>) -> Self {
+        Self {
+            basename: basename.as_ref().into(),
+            compression_flags: CompFlags::default(),
+            threads: None,
+            tmp_dir: None,
+            owned_tmp_dir: None,
+        }
+    }
+}
+
+impl<'t> BvCompBuilder<'t> {
+    pub fn with_compression_flags(mut self, compression_flags: CompFlags) -> Self {
+        self.compression_flags = compression_flags;
+        self
+    }
+
+    pub fn with_tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
+        self.tmp_dir = Some(tmp_dir.as_ref().into()).into();
+        self
+    }
+
+    pub fn with_threads(self, threads: &'_ ThreadPool) -> BvCompBuilder<'_> {
+        let Self {
+            basename,
+            compression_flags,
+            threads: _,
+            tmp_dir,
+            owned_tmp_dir,
+        } = self;
+        BvCompBuilder {
+            basename,
+            compression_flags,
+            threads: Some(MaybeOwned::Borrowed(threads)).into(),
+            tmp_dir,
+            owned_tmp_dir,
+        }
+    }
+
+    fn ensure_tmp_dir(&mut self) -> Result<()> {
+        if self.tmp_dir.is_none() {
+            let tmp_dir = tempfile::tempdir()?;
+            self.tmp_dir = Some(tmp_dir.path().to_owned());
+            self.owned_tmp_dir = Some(tmp_dir);
+        }
+
+        Ok(())
+    }
+
+    fn tmp_dir(&self) -> &PathBuf {
+        self.tmp_dir.as_ref().unwrap()
+    }
+
+    fn ensure_threads(&mut self) -> Result<()> {
+        if self.threads.is_none() {
+            self.threads = Some(MaybeOwned::Owned(
+                ThreadPoolBuilder::default()
+                    .build()
+                    .context("Could not build default thread pool")?,
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn threads(&self) -> &ThreadPool {
+        match self.threads.as_ref().unwrap() {
+            MaybeOwned::Owned(threads) => threads,
+            MaybeOwned::Borrowed(threads) => threads,
+        }
+    }
+
+    /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
+    /// graph bitstream.
+    pub fn single_thread<E, L>(
+        &mut self,
+        iter: L,
+        build_offsets: bool,
+        num_nodes: Option<usize>,
+    ) -> Result<u64>
+    where
+        E: Endianness,
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    {
+        let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
 
         // Compress the graph
         let bit_write = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
@@ -121,9 +299,9 @@ impl BvComp<()> {
 
         let mut bvcomp = BvComp::new(
             codes_writer,
-            compression_flags.compression_window,
-            compression_flags.max_ref_count,
-            compression_flags.min_interval_length,
+            self.compression_flags.compression_window,
+            self.compression_flags.max_ref_count,
+            self.compression_flags.min_interval_length,
             0,
         );
 
@@ -137,7 +315,7 @@ impl BvComp<()> {
 
         let mut real_num_nodes = 0;
         if build_offsets {
-            let offsets_path = basename.with_extension(OFFSETS_EXTENSION);
+            let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
             let file = std::fs::File::create(&offsets_path)
                 .with_context(|| format!("Could not create {}", offsets_path.display()))?;
             // create a bit writer on the file
@@ -175,10 +353,11 @@ impl BvComp<()> {
         bitstream_len += bvcomp.flush().context("Could not flush bvcomp")? as u64;
 
         log::info!("Writing the .properties file");
-        let properties = compression_flags
+        let properties = self
+            .compression_flags
             .to_properties::<E>(real_num_nodes, num_arcs, bitstream_len)
             .context("Could not serialize properties")?;
-        let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
+        let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
         std::fs::write(&properties_path, properties)
             .with_context(|| format!("Could not write {}", properties_path.display()))?;
 
@@ -193,18 +372,18 @@ impl BvComp<()> {
     ///  A given endianness is enabled only if the corresponding feature is
     /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
     /// neither features are enabled.
-    pub fn parallel_endianness<P: AsRef<Path>, G: SplitLabeling + SequentialGraph>(
-        basename: impl AsRef<Path> + Send + Sync,
+    pub fn parallel_endianness<G: SplitLabeling + SequentialGraph>(
+        &mut self,
         graph: &G,
         num_nodes: usize,
-        compression_flags: CompFlags,
-        threads: &ThreadPool,
-        tmp_dir: P,
         endianness: &str,
     ) -> Result<u64>
     where
         for<'a> <G as SplitLabeling>::SplitLender<'a>: Send + Sync,
     {
+        self.ensure_threads()?;
+        let num_threads = self.threads().current_num_threads();
+
         match endianness {
             #[cfg(any(
                 feature = "be_bins",
@@ -212,13 +391,9 @@ impl BvComp<()> {
             ))]
             BE::NAME => {
                 // compress the transposed graph
-                Self::parallel_iter::<BigEndian, _>(
-                    basename,
-                    graph.split_iter(threads.current_num_threads()).into_iter(),
+                self.parallel_iter::<BigEndian, _>(
+                    graph.split_iter(num_threads).into_iter(),
                     num_nodes,
-                    compression_flags,
-                    threads,
-                    tmp_dir,
                 )
             }
             #[cfg(any(
@@ -227,13 +402,9 @@ impl BvComp<()> {
             ))]
             LE::NAME => {
                 // compress the transposed graph
-                Self::parallel_iter::<LittleEndian, _>(
-                    basename,
-                    graph.split_iter(threads.current_num_threads()).into_iter(),
+                self.parallel_iter::<LittleEndian, _>(
+                    graph.split_iter(num_threads).into_iter(),
                     num_nodes,
-                    compression_flags,
-                    threads,
-                    tmp_dir,
                 )
             }
             x => anyhow::bail!("Unknown endianness {}", x),
@@ -242,24 +413,16 @@ impl BvComp<()> {
 
     /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
     pub fn parallel_graph<E: Endianness>(
-        basename: impl AsRef<Path> + Send + Sync,
+        &mut self,
         graph: &(impl SequentialGraph + SplitLabeling),
-        compression_flags: CompFlags,
-        threads: &ThreadPool,
-        tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        Self::parallel_iter(
-            basename,
-            graph.split_iter(threads.current_num_threads()).into_iter(),
-            graph.num_nodes(),
-            compression_flags,
-            threads,
-            tmp_dir,
-        )
+        self.ensure_threads()?;
+        let num_threads = self.threads().current_num_threads();
+        self.parallel_iter(graph.split_iter(num_threads).into_iter(), graph.num_nodes())
     }
 
     /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
@@ -268,22 +431,21 @@ impl BvComp<()> {
         E: Endianness,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
     >(
-        basename: impl AsRef<Path> + Send + Sync,
+        &mut self,
         iter: impl Iterator<Item = L>,
         num_nodes: usize,
-        compression_flags: CompFlags,
-        threads: &ThreadPool,
-        tmp_dir: impl AsRef<Path>,
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        let tmp_dir = tmp_dir.as_ref();
-        let basename = basename.as_ref();
+        self.ensure_threads()?;
+        self.ensure_tmp_dir()?;
+        let threads = self.threads();
+        let tmp_dir = self.tmp_dir();
 
-        let graph_path = basename.with_extension(GRAPH_EXTENSION);
-        let offsets_path = basename.with_extension(OFFSETS_EXTENSION);
+        let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
+        let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
 
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -298,7 +460,7 @@ impl BvComp<()> {
         ];
         comp_pl.start("Compressing successors in parallel...");
         threads.in_place_scope(|s| {
-            let cp_flags = &compression_flags;
+            let cp_flags = &self.compression_flags;
 
             for (thread_id, mut thread_lender) in iter.enumerate() {
                 let tmp_path = thread_path(thread_id);
@@ -486,10 +648,10 @@ impl BvComp<()> {
             copy_pl.done();
 
             log::info!("Writing the .properties file");
-            let properties = compression_flags
+            let properties = self.compression_flags
                 .to_properties::<E>(num_nodes, total_arcs, total_written_bits)
                 .context("Could not serialize properties")?;
-            let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
+            let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
             std::fs::write(&properties_path, properties).with_context(|| {
                 format!(
                     "Could not write properties to {}",
