@@ -31,7 +31,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// use rayon::prelude::*;
 /// use webgraph::traits::SequentialLabeling;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
-/// use webgraph::graphs::arc_list_graph::ArcListGraph;
+/// use webgraph::graphs::arc_list_graph::Iter;
 /// use webgraph::utils::par_sort_pairs::ParSortPairs;
 ///
 /// let num_partitions = 2;
@@ -71,12 +71,11 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///         .into_iter()
 ///         .enumerate()
 ///         .map(|(partition_id, partition)| {
-///             ArcListGraph::new(
-///                 num_nodes,
-///                 partition.into_iter(),
-///             )
-///             .iter_from(partition_id * num_nodes_per_partition)
-///             .take(num_nodes_per_partition)
+///             webgraph::prelude::LeftIterator(Iter::<(), _>::new_from(
+///                 num_nodes_per_partition,
+///                 partition.into_iter().map(|(src, dst)| (src, dst, ())),
+///                 partition_id*num_nodes_per_partition,
+///             ).unwrap())
 ///         }),
 ///     num_nodes,
 ///     CompFlags::default(),
