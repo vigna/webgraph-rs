@@ -9,6 +9,7 @@ mod bvcomp;
 pub use bvcomp::*;
 
 mod impls;
+pub use impls::BvCompBuilder;
 
 mod flags;
 pub use flags::*;
