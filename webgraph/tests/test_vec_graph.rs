@@ -6,10 +6,30 @@
  */
 
 use webgraph::{
-    graphs::vec_graph::LabeledVecGraph,
+    graphs::{random::ErdosRenyi, vec_graph::LabeledVecGraph},
+    labels::Zip,
     prelude::VecGraph,
-    traits::{graph, labels},
+    traits::{graph, labels, SequentialLabeling},
 };
+
+#[test]
+fn test_random() {
+    let graph = ErdosRenyi::new(10, 0.1, 0);
+    let a = VecGraph::from_lender(graph.iter());
+    let b = VecGraph::from_sorted_lender(graph.iter());
+    let c = VecGraph::from_exact_lender(b.iter());
+    assert!(graph::eq(&graph, &a).is_ok());
+    assert_eq!(a, b);
+    assert_eq!(b, c);
+
+    let graph = Zip(a, b);
+    let a = LabeledVecGraph::from_lender(graph.iter());
+    let b = LabeledVecGraph::from_sorted_lender(graph.iter());
+    let c = LabeledVecGraph::from_exact_lender(b.iter());
+    assert!(graph::eq_labeled(&graph, &a).is_ok());
+    assert_eq!(a, b);
+    assert_eq!(b, c);
+}
 
 #[cfg(feature = "serde")]
 #[test]

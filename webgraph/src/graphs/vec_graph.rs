@@ -40,7 +40,7 @@ impl<L> From<LabelledArc<L>> for (usize, L) {
 #[derive(Epserde, Clone, Debug, PartialEq, Eq)]
 pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
-    number_of_arcs: u64,
+    num_arcs: u64,
     /// For each node, its list of successors.
     succ: Vec<Vec<LabelledArc<L>>>,
 }
@@ -55,7 +55,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
-            number_of_arcs: 0,
+            num_arcs: 0,
             succ: vec![],
         }
     }
@@ -63,7 +63,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
-            number_of_arcs: 0,
+            num_arcs: 0,
             succ: Vec::from_iter((0..n).map(|_| Vec::new())),
         }
     }
@@ -101,7 +101,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         match succ.last() {
             None => {
                 succ.push((v, l).into());
-                self.number_of_arcs += 1;
+                self.num_arcs += 1;
             }
             Some(LabelledArc(last, _label)) => {
                 if v <= *last {
@@ -111,7 +111,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
                     );
                 }
                 succ.push((v, l).into());
-                self.number_of_arcs += 1;
+                self.num_arcs += 1;
             }
         }
     }
@@ -190,6 +190,46 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     {
         let mut g = Self::new();
         g.add_sorted_lender(iter_nodes);
+        g
+    }
+
+    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
+    ///
+    /// This method has a better memory behavior than
+    /// [`add_sorted_lender`](Self::add_sorted_lender) as it can allocate
+    /// the right amount of memory for each node at once.
+    pub fn add_exact_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator + ExactSizeIterator,
+    {
+        for_!( (node, succ) in iter_nodes {
+            self.add_node(node);
+            let succ = succ.into_iter();
+            let d = succ.len();
+            self.succ[node].reserve_exact(d);
+            self.succ[node].extend(succ.map(Into::into));
+            self.num_arcs += d as u64;
+        });
+        self
+    }
+
+    /// Creates a new graph from a sorted [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
+    ///
+    /// This method has a better memory behavior than
+    /// [`from_sorted_lender`](Self::from_sorted_lender) as it can allocate
+    /// the right amount of memory for each node at once.
+    pub fn from_exact_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator + ExactSizeIterator,
+    {
+        let mut g = Self::new();
+        g.add_exact_lender(iter_nodes);
         g
     }
 
@@ -272,7 +312,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
     >;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
-        self.number_of_arcs
+        self.num_arcs
     }
 
     #[inline(always)]
@@ -415,6 +455,46 @@ impl VecGraph {
     {
         let mut g = Self::new();
         g.add_sorted_lender(iter_nodes);
+        g
+    }
+
+    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
+    ///
+    /// This method has a better memory behavior than
+    /// [`add_sorted_lender`](Self::add_sorted_lender) as it can allocate
+    /// the right amount of memory for each node at once.
+    pub fn add_exact_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator + ExactSizeIterator,
+    {
+        for_!( (node, succ) in iter_nodes {
+            self.add_node(node);
+            let succ = succ.into_iter();
+            let d = succ.len();
+            self.0.succ[node].reserve_exact(d);
+            self.0.succ[node].extend(succ.map(|x| LabelledArc(x, ())));
+            self.0.num_arcs += d as u64;
+        });
+        self
+    }
+
+    /// Creates a new graph from a sorted [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
+    ///
+    /// This method has a better memory behavior than
+    /// [`from_sorted_lender`](Self::from_sorted_lender) as it can allocate
+    /// the right amount of memory for each node at once.
+    pub fn from_exact_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        I::Lender: SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator + ExactSizeIterator,
+    {
+        let mut g = Self::new();
+        g.add_exact_lender(iter_nodes);
         g
     }
 

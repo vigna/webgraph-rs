@@ -22,6 +22,9 @@
 
 * Visits have been moved here.
 
+* `VecGraph` has new, more efficient constructors from sorted lenders returning
+  `ExactSizeIterator`.
+
 ### Fixed
 
 * The successors of `LabeledVecGraph` now implement `SortedIterator`.
