@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -15,6 +16,8 @@ use dsi_bitstream::traits::NE;
 use dsi_progress_logger::{progress_logger, ProgressLog};
 use rayon::prelude::*;
 use rdst::RadixSort;
+use sysinfo::System;
+use thread_local::ThreadLocal;
 
 use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
 use crate::traits::{BitDeserializer, BitSerializer};
@@ -87,7 +90,7 @@ pub struct ParSortPairs<L = ()> {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
-    batch_size: NonZeroUsize,
+    buffers_size: Option<NonZeroUsize>,
     marker: PhantomData<L>,
 }
 
@@ -110,8 +113,7 @@ impl<L> ParSortPairs<L> {
             num_nodes,
             expected_num_pairs: None,
             num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
-            // TODO: compute default batch_size from available RAM and number of threads
-            batch_size: NonZeroUsize::new(100_000_000).unwrap(),
+            buffers_size: None,
             marker: PhantomData,
         })
     }
@@ -134,12 +136,29 @@ impl<L> ParSortPairs<L> {
         }
     }
 
-    /// How many pairs **per thread** to keep in memory before flushing to disk
+    /// How many pairs to keep in memory before flushing to disk
     ///
     /// Larger values are logarithmically faster (by reducing the number of merges
     /// to do afterward) but consume linearly more memory.
-    pub fn batch_size(self, batch_size: NonZeroUsize) -> Self {
-        Self { batch_size, ..self }
+    ///
+    /// Defaults to half of the system's total memory.
+    pub fn buffers_size(self, buffers_size: NonZeroUsize) -> Self {
+        Self {
+            buffers_size: Some(buffers_size),
+            ..self
+        }
+    }
+
+    /// The total memory a single thread may use
+    fn get_batch_size(&self) -> usize {
+        let buffers_size = self.buffers_size.map(usize::from).unwrap_or_else(|| {
+            let mut system = System::new();
+            system.refresh_memory();
+            usize::try_from(system.total_memory() / 2).expect("System memory overflows usize")
+        });
+
+        let num_buffers = usize::from(self.num_partitions) * rayon::max_num_threads();
+        buffers_size / num_buffers
     }
 
     pub fn par_sort_labeled_pairs<S, D>(
@@ -166,11 +185,8 @@ impl<L> ParSortPairs<L> {
     {
         let unsorted_pairs = pairs;
 
-        // {partition_id: ([BatchIterator], [pair])}
-        type PartitionedWorkerData<D, L> = Vec<(Vec<BatchIterator<D>>, Vec<Triple<L>>)>;
-
         let num_partitions = self.num_partitions.into();
-        let batch_size = self.batch_size.into();
+        let batch_size = self.get_batch_size();
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
         let mut pl = progress_logger!(
@@ -186,33 +202,86 @@ impl<L> ParSortPairs<L> {
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
 
+        let sorter_thread_states = ThreadLocal::<RefCell<SorterThreadState<L, D>>>::new();
+
         // iterators in partitioned_presorted_pairs[partition_id] contain all pairs (src, dst, label)
         // where num_nodes_per_partition*partition_id <= src < num_nodes_per_partition*(partition_id+1)
-        let partitioned_presorted_pairs: Vec<Vec<BatchIterator<D>>> = unsorted_pairs
-        .try_fold(
-            || (worker_id.fetch_add(1, Ordering::Relaxed), (0..num_partitions).map(|_| (Vec::new(), Vec::with_capacity(batch_size))).collect()),
-            |(worker_id, mut worker_data): (_, PartitionedWorkerData<D, L>), (src, dst, label)| -> Result<_> {
-                ensure!(src < self.num_nodes, "Expected {}, but got {src}", self.num_nodes);
+        unsorted_pairs.try_for_each_init(
+            // Rayon calls this initializer on every sequential iterator inside the parallel
+            // iterator. Depending on how the parallel iterator was constructor (and if
+            // IndexedParallelIterator::with_min_len was not used) this can result in lots of:
+            // * tiny iterators, and we don't want to create as many tiny BatchIterators because that's
+            //   extremely inefficient.
+            // * unsorted_buffers arrays with batch_size as capacity, but are mostly empty and sit
+            //   in memory until we flush them
+            || {
+                sorter_thread_states
+                    .get_or(|| {
+                        RefCell::new(SorterThreadState {
+                            worker_id: worker_id.fetch_add(1, Ordering::Relaxed),
+                            unsorted_buffers: (0..num_partitions)
+                                .map(|_| Vec::with_capacity(batch_size))
+                                .collect(),
+                            sorted_pairs: (0..num_partitions).map(|_| Vec::new()).collect(),
+                        })
+                    })
+                    .borrow_mut()
+            },
+            |thread_state, (src, dst, label)| -> Result<_> {
+                ensure!(
+                    src < self.num_nodes,
+                    "Expected {}, but got {src}",
+                    self.num_nodes
+                );
                 let partition_id = src / num_nodes_per_partition;
-                let (sorted_pairs, ref mut buf) = &mut worker_data[partition_id];
+                let SorterThreadState {
+                    worker_id,
+                    ref mut sorted_pairs,
+                    ref mut unsorted_buffers,
+                } = &mut **thread_state;
+                /*
+                let sorted_pairs = &mut thread_state.sorted_pairs[partition_id];
+                let buf: &mut Vec<Triple<L>> = &mut thread_state.unsorted_buffers[partition_id];
+                */
+                let sorted_pairs = &mut sorted_pairs[partition_id];
+                let buf = &mut unsorted_buffers[partition_id];
                 if buf.len() >= buf.capacity() {
                     let buf_len = buf.len();
-                    flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, sorted_pairs, buf).context("Could not flush buffer")?;
+                    flush_buffer(
+                        presort_tmp_dir.path(),
+                        serializer,
+                        deserializer.clone(),
+                        *worker_id,
+                        partition_id,
+                        sorted_pairs,
+                        buf,
+                    )
+                    .context("Could not flush buffer")?;
                     assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
                     shared_pl.lock().unwrap().update_with_count(buf_len);
                 }
 
-                buf.push(Triple { pair: [src, dst], label });
-                Ok((worker_id, worker_data))
+                buf.push(Triple {
+                    pair: [src, dst],
+                    label,
+                });
+                Ok(())
             },
-        )
+        )?;
+
         // flush remaining buffers
-        .map(|res: Result<(u64, PartitionedWorkerData<D, L>)>| {
-            let (worker_id, worker_data) = res?;
+        let partitioned_presorted_pairs: Vec<Vec<BatchIterator<D>>> = sorter_thread_states
+        .into_iter()
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .map(|thread_state: RefCell<SorterThreadState<L, D>>| {
+            let thread_state = thread_state.into_inner();
             let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
-            for (partition_id, (mut sorted_pairs, mut buf)) in worker_data.into_iter().enumerate() {
+            assert_eq!(thread_state.sorted_pairs.len(), num_partitions);
+            assert_eq!(thread_state.unsorted_buffers.len(), num_partitions);
+            for (partition_id, (mut sorted_pairs, mut buf)) in thread_state.sorted_pairs.into_iter().zip(thread_state.unsorted_buffers.into_iter()).enumerate() {
                 let buf_len = buf.len();
-                flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
+                flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), thread_state.worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
                 assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
                 shared_pl.lock().unwrap().update_with_count(buf_len);
 
@@ -250,6 +319,12 @@ impl<L> ParSortPairs<L> {
             })
             .collect())
     }
+}
+
+struct SorterThreadState<L: Copy, D: BitDeserializer<NE, BitReader>> {
+    worker_id: u64,
+    sorted_pairs: Vec<Vec<BatchIterator<D>>>,
+    unsorted_buffers: Vec<Vec<Triple<L>>>,
 }
 
 fn flush_buffer<
