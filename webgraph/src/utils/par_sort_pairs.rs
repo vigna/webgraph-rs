@@ -9,11 +9,10 @@ use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
 
 use anyhow::{ensure, Context, Result};
 use dsi_bitstream::traits::NE;
-use dsi_progress_logger::{progress_logger, ProgressLog};
+use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
 use rayon::prelude::*;
 use rdst::RadixSort;
 use sysinfo::System;
@@ -189,7 +188,7 @@ impl<L> ParSortPairs<L> {
         let batch_size = self.get_batch_size();
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
-        let mut pl = progress_logger!(
+        let mut pl = concurrent_progress_logger!(
             display_memory = true,
             item_name = "pair",
             local_speed = true,
@@ -197,7 +196,6 @@ impl<L> ParSortPairs<L> {
         );
         pl.start("Reading and sorting pairs");
 
-        let shared_pl = Mutex::new(&mut pl);
         let worker_id = AtomicU64::new(0);
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
@@ -215,19 +213,22 @@ impl<L> ParSortPairs<L> {
             // * unsorted_buffers arrays with batch_size as capacity, but are mostly empty and sit
             //   in memory until we flush them
             || {
-                sorter_thread_states
-                    .get_or(|| {
-                        RefCell::new(SorterThreadState {
-                            worker_id: worker_id.fetch_add(1, Ordering::Relaxed),
-                            unsorted_buffers: (0..num_partitions)
-                                .map(|_| Vec::with_capacity(batch_size))
-                                .collect(),
-                            sorted_pairs: (0..num_partitions).map(|_| Vec::new()).collect(),
+                (
+                    pl.clone(),
+                    sorter_thread_states
+                        .get_or(|| {
+                            RefCell::new(SorterThreadState {
+                                worker_id: worker_id.fetch_add(1, Ordering::Relaxed),
+                                unsorted_buffers: (0..num_partitions)
+                                    .map(|_| Vec::with_capacity(batch_size))
+                                    .collect(),
+                                sorted_pairs: (0..num_partitions).map(|_| Vec::new()).collect(),
+                            })
                         })
-                    })
-                    .borrow_mut()
+                        .borrow_mut(),
+                )
             },
-            |thread_state, (src, dst, label)| -> Result<_> {
+            |(pl, thread_state), (src, dst, label)| -> Result<_> {
                 ensure!(
                     src < self.num_nodes,
                     "Expected {}, but got {src}",
@@ -258,7 +259,7 @@ impl<L> ParSortPairs<L> {
                     )
                     .context("Could not flush buffer")?;
                     assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                    shared_pl.lock().unwrap().update_with_count(buf_len);
+                    pl.update_with_count(buf_len);
                 }
 
                 buf.push(Triple {
@@ -274,7 +275,7 @@ impl<L> ParSortPairs<L> {
         .into_iter()
         .collect::<Vec<_>>()
         .into_par_iter()
-        .map(|thread_state: RefCell<SorterThreadState<L, D>>| {
+        .map_with(pl.clone(), |pl, thread_state: RefCell<SorterThreadState<L, D>>| {
             let thread_state = thread_state.into_inner();
             let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
             assert_eq!(thread_state.sorted_pairs.len(), num_partitions);
@@ -283,7 +284,7 @@ impl<L> ParSortPairs<L> {
                 let buf_len = buf.len();
                 flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), thread_state.worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
                 assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                shared_pl.lock().unwrap().update_with_count(buf_len);
+                pl.update_with_count(buf_len);
 
                 partitioned_sorted_pairs.push(sorted_pairs);
             }
