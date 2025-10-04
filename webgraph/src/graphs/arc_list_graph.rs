@@ -5,6 +5,7 @@
  */
 
 use crate::{labels::Left, traits::*};
+use anyhow::{ensure, Result};
 use lender::*;
 
 /// An adapter exhibiting a list of labeled arcs sorted by source as a [labeled
@@ -89,12 +90,26 @@ unsafe impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> S
 }
 
 impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Iter<L, I> {
+    /// Creates an [`Iter`] of outgoing arcs for nodes from `0` to `num_nodes-1`
     pub fn new(num_nodes: usize, iter: I) -> Self {
         Iter {
             num_nodes,
             next_node: 0,
             iter: iter.peekable(),
         }
+    }
+
+    /// Creates an [`Iter`] of outgoing arcs for nodes from `from` to `from+num_nodes-1`.
+    pub fn new_from(num_nodes: usize, iter: I, from: usize) -> Result<Self> {
+        let mut iter = iter.peekable();
+        if let Some((first_src, _, _)) = iter.peek() {
+            ensure!(*first_src >= from, "Tried to create arc_list_graph::Iter starting from {from} using an iterator starting from {first_src}");
+        }
+        Ok(Iter {
+            num_nodes: num_nodes + from,
+            next_node: from,
+            iter,
+        })
     }
 }
 
