@@ -240,10 +240,7 @@ impl<L> ParSortPairs<L> {
                     ref mut sorted_pairs,
                     ref mut unsorted_buffers,
                 } = &mut **thread_state;
-                /*
-                let sorted_pairs = &mut thread_state.sorted_pairs[partition_id];
-                let buf: &mut Vec<Triple<L>> = &mut thread_state.unsorted_buffers[partition_id];
-                */
+
                 let sorted_pairs = &mut sorted_pairs[partition_id];
                 let buf = &mut unsorted_buffers[partition_id];
                 if buf.len() >= buf.capacity() {
