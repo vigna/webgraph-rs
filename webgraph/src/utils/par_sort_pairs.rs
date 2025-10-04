@@ -206,7 +206,7 @@ impl<L> ParSortPairs<L> {
         // where num_nodes_per_partition*partition_id <= src < num_nodes_per_partition*(partition_id+1)
         unsorted_pairs.try_for_each_init(
             // Rayon calls this initializer on every sequential iterator inside the parallel
-            // iterator. Depending on how the parallel iterator was constructor (and if
+            // iterator. Depending on how the parallel iterator was constructed (and if
             // IndexedParallelIterator::with_min_len was not used) this can result in lots of:
             // * tiny iterators, and we don't want to create as many tiny BatchIterators because that's
             //   extremely inefficient.
