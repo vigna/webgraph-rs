@@ -13,9 +13,6 @@ use std::path::PathBuf;
 /// An enum expressing the memory requirements for batched algorithms
 /// such as [`SortPairs`] and [`ParSortPairs`].
 pub enum MemoryUsage {
-    /// Use half of the physical memory
-    /// as returned by [`sysinfo::System::total_memory`].
-    Half,
     /// The target overall memory usage in bytes.
     MemorySize(usize),
     /// The number of elements in a batch.
@@ -29,9 +26,16 @@ pub enum MemoryUsage {
     BatchSize(usize),
 }
 
+/// Default implementation, returning half of the physical RAM.
 impl Default for MemoryUsage {
     fn default() -> Self {
-        MemoryUsage::Half
+        let system = sysinfo::System::new_with_specifics(
+            sysinfo::RefreshKind::nothing()
+                .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
+        );
+        MemoryUsage::MemorySize(
+            usize::try_from(system.total_memory() / 2).expect("System memory overflows usize"),
+        )
     }
 }
 
