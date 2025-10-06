@@ -10,6 +10,7 @@ use crate::graphs::{
 use crate::labels::Left;
 use crate::traits::{LenderIntoIter, SequentialGraph, SortedIterator, SortedLender, SplitLabeling};
 use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
+use crate::utils::MemoryUsage;
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
@@ -63,7 +64,7 @@ pub fn simplify(
     >,
 > {
     let dir = Builder::new().prefix("simplify_").tempdir()?;
-    let mut sorted = SortPairs::new(batch_size, dir.path())?;
+    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -124,7 +125,9 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted = SortPairs::new(batch_size / num_threads, dir_path).unwrap();
+                let mut sorted =
+                    SortPairs::new(MemoryUsage::BatchSize(batch_size / num_threads), dir_path)
+                        .unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         if src != dst {

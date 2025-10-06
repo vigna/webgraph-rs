@@ -10,6 +10,7 @@ use crate::prelude::proj::Left;
 use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, SortPairs};
 use crate::prelude::{BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
+use crate::utils::MemoryUsage;
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
 use dsi_progress_logger::prelude::*;
@@ -36,7 +37,12 @@ where
     D::DeserType: Clone + Copy,
 {
     let dir = Builder::new().prefix("transpose_").tempdir()?;
-    let mut sorted = SortPairs::new_labeled(batch_size, dir.path(), serializer, deserializer)?;
+    let mut sorted = SortPairs::new_labeled(
+        MemoryUsage::BatchSize(batch_size),
+        dir.path(),
+        serializer,
+        deserializer,
+    )?;
 
     let mut pl = progress_logger![
         item_name = "node",

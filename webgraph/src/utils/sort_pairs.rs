@@ -9,7 +9,10 @@
 #![allow(clippy::non_canonical_partial_ord_impl)]
 
 use super::{ArcMmapHelper, MmapHelper};
-use crate::traits::{BitDeserializer, BitSerializer, SortedIterator};
+use crate::{
+    traits::{BitDeserializer, BitSerializer, SortedIterator},
+    utils::MemoryUsage,
+};
 use anyhow::{anyhow, Context};
 use dary_heap::PeekMut;
 use dsi_bitstream::prelude::*;
@@ -133,8 +136,8 @@ impl SortPairs<(), ()> {
     /// with other `SortPairs` instances. Please use the
     /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
     /// a suitable directory.
-    pub fn new<P: AsRef<Path>>(batch_size: usize, dir: P) -> anyhow::Result<Self> {
-        Self::new_labeled(batch_size, dir, (), ())
+    pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, dir: P) -> anyhow::Result<Self> {
+        Self::new_labeled(memory_usage, dir, (), ())
     }
     /// Adds a unlabeled pair to the graph.
     pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
@@ -153,7 +156,7 @@ where
     /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
     /// a suitable directory.
     pub fn new_labeled<P: AsRef<Path>>(
-        batch_size: usize,
+        memory_usage: MemoryUsage,
         dir: P,
         serializer: S,
         deserializer: D,
@@ -164,6 +167,7 @@ where
         if dir_entries.next().is_some() {
             Err(anyhow!("{} is not empty", dir.display()))
         } else {
+            let batch_size = memory_usage.batch_size::<(usize, usize)>();
             Ok(SortPairs {
                 batch_size,
                 serializer,
@@ -660,7 +664,8 @@ mod tests {
             }
         }
         let dir = Builder::new().prefix("test_sort_pairs_").tempdir()?;
-        let mut sp = SortPairs::new_labeled(10, dir.path(), MyDessert, MyDessert)?;
+        let mut sp =
+            SortPairs::new_labeled(MemoryUsage::BatchSize(10), dir.path(), MyDessert, MyDessert)?;
         let n = 25;
         for i in 0..n {
             sp.push_labeled(i, i + 1, i + 2)?;

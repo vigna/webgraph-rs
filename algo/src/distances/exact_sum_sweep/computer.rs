@@ -134,7 +134,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     ) -> Self {
         assert_eq!(graph.num_nodes(), transpose.num_nodes());
         assert_eq!(graph.num_arcs(), transpose.num_arcs());
-        /* TODOdebug_assert!(
+        /* TODO debug_assert!(
             check_transposed(graph, transpose),
             "transpose should be the transpose of graph"
         );*/

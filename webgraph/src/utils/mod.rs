@@ -46,6 +46,23 @@ impl MemoryUsage {
                 .expect("System memory overflows usize"),
         )
     }
+
+    /// Returns the batch size for elements of type `T`.
+    ///
+    /// If the [memory usage is expressed as a number of
+    /// bytes](MemoryUsage::MemorySize), this method divides the number of bytes
+    /// by the size of `T` to obtain the number of elements. Otherwise, [it just
+    /// returns specified batch size](MemoryUsage::BatchSize).
+    pub fn batch_size<T>(&self) -> usize {
+        match &self {
+            MemoryUsage::MemorySize(memory_size) => {
+                let elem_size = std::mem::size_of::<T>();
+                assert!(elem_size > 0, "Element size cannot be zero");
+                memory_size / elem_size
+            }
+            MemoryUsage::BatchSize(batch_size) => *batch_size,
+        }
+    }
 }
 
 /// Creates a new random dir inside the given folder

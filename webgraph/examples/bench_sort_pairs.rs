@@ -62,7 +62,12 @@ pub fn main() -> Result<()> {
     let dir = Builder::new().prefix("bench_sort_pairs").tempdir()?;
 
     if args.labeled {
-        let mut sp = SortPairs::<Mock, Mock>::new_labeled(args.batch, dir.path(), Mock(), Mock())?;
+        let mut sp = SortPairs::<Mock, Mock>::new_labeled(
+            MemoryUsage::BatchSize(args.batch),
+            dir.path(),
+            Mock(),
+            Mock(),
+        )?;
 
         let mut r = SmallRng::seed_from_u64(0);
 
@@ -84,7 +89,7 @@ pub fn main() -> Result<()> {
         }
         pl.done();
     } else {
-        let mut sp = SortPairs::new(args.batch, dir.path())?;
+        let mut sp = SortPairs::new(MemoryUsage::BatchSize(args.batch), dir.path())?;
 
         let mut r = SmallRng::seed_from_u64(0);
 

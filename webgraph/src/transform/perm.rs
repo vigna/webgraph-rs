@@ -41,7 +41,7 @@ pub fn permute(
     );
 
     // create a stream where to dump the sorted pairs
-    let mut sorted = SortPairs::new(batch_size, dir.path())?;
+    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
 
     // get a premuted view
     let pgraph = PermutedGraph { graph, perm };
@@ -113,7 +113,9 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted = SortPairs::new(batch_size / num_threads, dir_path).unwrap();
+                let mut sorted =
+                    SortPairs::new(MemoryUsage::BatchSize(batch_size / num_threads), dir_path)
+                        .unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         sorted.push(src, dst).unwrap();
