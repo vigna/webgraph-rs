@@ -175,7 +175,7 @@ where
 
             $(
                 let (code, new) = $stats.$code.best_code();
-                println!("{:>17} {:>16} {:>12} {:>8} {:>10} {:>16}",
+                println!("{:>17} {:>18} {:>12} {:>8} {:>10} {:>16}",
                     stringify!($code), format!("{:?}", code),
                     format!("{:.3}%", 100.0 * ($old - new) as f64 / $old as f64),
                     format!("{:.3}", (($old - new) as f64 / ($old_bits - $new_bits) as f64)),
