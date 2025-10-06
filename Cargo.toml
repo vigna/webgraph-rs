@@ -13,7 +13,7 @@ epserde = "0.10.2"
 dsi-bitstream = "0.5.0"
 dsi-progress-logger = "0.8.1"
 #sux = "0.8.0"
-sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"] }
+sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"], rev = "c56b15a17b21cdbc8d7b6ac1ed57a58bbaa664a1" }
 common_traits = "0.12.0"
 lender = "0.3.1"
 log = "0.4.22"
