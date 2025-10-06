@@ -176,7 +176,7 @@ impl<L> ParSortPairs<L> {
                 let pair_size = size_of::<usize>() * 2 + size_of::<L>();
                 let num_buffers = rayon::max_num_threads() * num_partitions;
                 num_bytes / (pair_size * num_buffers)
-            },
+            }
             MemoryUsage::BatchSize(batch_size) => batch_size,
         };
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
