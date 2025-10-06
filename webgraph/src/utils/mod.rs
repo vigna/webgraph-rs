@@ -29,12 +29,21 @@ pub enum MemoryUsage {
 /// Default implementation, returning half of the physical RAM.
 impl Default for MemoryUsage {
     fn default() -> Self {
+        Self::from_perc(0.5)
+    }
+}
+
+impl MemoryUsage {
+    /// Creates a new memory usage expressed as a percentage of the
+    /// physical RAM.
+    pub fn from_perc(perc: f64) -> Self {
         let system = sysinfo::System::new_with_specifics(
             sysinfo::RefreshKind::nothing()
                 .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
         );
         MemoryUsage::MemorySize(
-            usize::try_from(system.total_memory() / 2).expect("System memory overflows usize"),
+            usize::try_from((system.total_memory() as f64 * perc / 100.0) as u64)
+                .expect("System memory overflows usize"),
         )
     }
 }
