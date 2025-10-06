@@ -215,39 +215,25 @@ impl<'t> BvCompBuilder<'t> {
     }
 
     pub fn with_tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
-        self.tmp_dir = Some(tmp_dir.as_ref().into()).into();
+        self.tmp_dir = Some(tmp_dir.as_ref().into());
         self
     }
 
     pub fn with_threads(self, threads: &'_ ThreadPool) -> BvCompBuilder<'_> {
-        let Self {
-            basename,
-            compression_flags,
-            threads: _,
-            tmp_dir,
-            owned_tmp_dir,
-        } = self;
         BvCompBuilder {
-            basename,
-            compression_flags,
-            threads: Some(MaybeOwned::Borrowed(threads)).into(),
-            tmp_dir,
-            owned_tmp_dir,
+            threads: Some(MaybeOwned::Borrowed(threads)),
+            ..self
         }
     }
 
-    fn ensure_tmp_dir(&mut self) -> Result<()> {
+    fn tmp_dir(&mut self) -> Result<PathBuf> {
         if self.tmp_dir.is_none() {
             let tmp_dir = tempfile::tempdir()?;
             self.tmp_dir = Some(tmp_dir.path().to_owned());
             self.owned_tmp_dir = Some(tmp_dir);
         }
 
-        Ok(())
-    }
-
-    fn tmp_dir(&self) -> &PathBuf {
-        self.tmp_dir.as_ref().unwrap()
+        Ok(self.tmp_dir.clone().unwrap())
     }
 
     fn ensure_threads(&mut self) -> Result<()> {
@@ -440,9 +426,8 @@ impl<'t> BvCompBuilder<'t> {
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         self.ensure_threads()?;
-        self.ensure_tmp_dir()?;
+        let tmp_dir = self.tmp_dir()?;
         let threads = self.threads();
-        let tmp_dir = self.tmp_dir();
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
@@ -672,7 +657,7 @@ impl<'t> BvCompBuilder<'t> {
             );
 
             // cleanup the temp files
-            std::fs::remove_dir_all(tmp_dir).with_context(|| {
+            std::fs::remove_dir_all(&tmp_dir).with_context(|| {
                 format!("Could not clean temporary directory {}", tmp_dir.display())
             })?;
             Ok(total_written_bits)
