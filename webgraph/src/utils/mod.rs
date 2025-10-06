@@ -12,6 +12,7 @@ use std::path::PathBuf;
 
 /// An enum expressing the memory requirements for batched algorithms
 /// such as [`SortPairs`] and [`ParSortPairs`].
+#[derive(Clone, Copy, Debug)]
 pub enum MemoryUsage {
     /// The target overall memory usage in bytes.
     MemorySize(usize),
