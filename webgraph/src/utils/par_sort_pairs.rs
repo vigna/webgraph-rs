@@ -15,10 +15,10 @@ use dsi_bitstream::traits::NE;
 use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
 use rayon::prelude::*;
 use rdst::RadixSort;
-use sysinfo::System;
 use thread_local::ThreadLocal;
 
 use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
+use super::MemoryUsage;
 use crate::traits::{BitDeserializer, BitSerializer};
 
 /// Takes a parallel iterator of pairs as input, and returns them into a vector of sorted iterators
@@ -87,7 +87,7 @@ pub struct ParSortPairs<L = ()> {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
-    buffers_size: Option<NonZeroUsize>,
+    memory_usage: MemoryUsage,
     marker: PhantomData<L>,
 }
 
@@ -110,7 +110,7 @@ impl<L> ParSortPairs<L> {
             num_nodes,
             expected_num_pairs: None,
             num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
-            buffers_size: None,
+            memory_usage: MemoryUsage::default(),
             marker: PhantomData,
         })
     }
@@ -139,23 +139,11 @@ impl<L> ParSortPairs<L> {
     /// to do afterward) but consume linearly more memory.
     ///
     /// Defaults to half of the system's total memory.
-    pub fn buffers_size(self, buffers_size: NonZeroUsize) -> Self {
+    pub fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
         Self {
-            buffers_size: Some(buffers_size),
+            memory_usage,
             ..self
         }
-    }
-
-    /// The total memory a single thread may use
-    fn get_batch_size(&self) -> usize {
-        let buffers_size = self.buffers_size.map(usize::from).unwrap_or_else(|| {
-            let mut system = System::new();
-            system.refresh_memory();
-            usize::try_from(system.total_memory() / 2).expect("System memory overflows usize")
-        });
-
-        let num_buffers = usize::from(self.num_partitions) * rayon::max_num_threads();
-        buffers_size / num_buffers
     }
 
     pub fn par_sort_labeled_pairs<S, D>(
@@ -183,7 +171,14 @@ impl<L> ParSortPairs<L> {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();
-        let batch_size = self.get_batch_size();
+        let batch_size = match self.memory_usage {
+            MemoryUsage::MemorySize(num_bytes) => {
+                let pair_size = size_of::<usize>() * 2 + size_of::<L>();
+                let num_buffers = rayon::max_num_threads() * num_partitions;
+                num_bytes / (pair_size * num_buffers)
+            },
+            MemoryUsage::BatchSize(batch_size) => batch_size,
+        };
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
         let mut pl = concurrent_progress_logger!(
