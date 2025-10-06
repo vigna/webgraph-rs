@@ -13,8 +13,8 @@ use std::path::PathBuf;
 /// An enum expressing the memory requirements for batched algorithms
 /// such as [`SortPairs`] and [`ParSortPairs`].
 pub enum MemoryUsage {
-    /// Use half of the available memory.
-    HalfMemory,
+    /// Use half of the physical memory.
+    Half,
     /// The target overall memory usage in bytes.
     MemorySize(usize),
     /// The number of elements in a batch.
@@ -30,7 +30,7 @@ pub enum MemoryUsage {
 
 impl Default for MemoryUsage {
     fn default() -> Self {
-        MemoryUsage::HalfMemory
+        MemoryUsage::Half
     }
 }
 
