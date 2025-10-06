@@ -100,7 +100,12 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Iter<L, I> {
     }
 
     /// Creates an [`Iter`] of outgoing arcs for nodes from `from` to `from+num_nodes-1`.
-    pub fn new_from(num_nodes: usize, iter: I, from: usize) -> Result<Self> {
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if the given iterator yields arcs
+    /// starting from a source node smaller than `from`.
+    pub fn try_new_from(num_nodes: usize, iter: I, from: usize) -> Result<Self> {
         let mut iter = iter.peekable();
         if let Some((first_src, _, _)) = iter.peek() {
             ensure!(*first_src >= from, "Tried to create arc_list_graph::Iter starting from {from} using an iterator starting from {first_src}");

@@ -41,16 +41,14 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// let num_nodes_per_partition = num_nodes.div_ceil(num_partitions);
 /// let unsorted_pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
 ///
-/// let pair_sorter = ParSortPairs::new(num_nodes)
-///     .unwrap()
+/// let pair_sorter = ParSortPairs::new(num_nodes)?
 ///     .expected_num_pairs(unsorted_pairs.len())
 ///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
 ///
 /// assert_eq!(
 ///     pair_sorter.par_sort_pairs(
 ///         unsorted_pairs.par_iter().copied()
-///     )
-///         .unwrap()
+///     )?
 ///         .into_iter()
 ///         .map(|partition| partition.into_iter().collect::<Vec<_>>())
 ///         .collect::<Vec<_>>(),
@@ -60,20 +58,19 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///     ],
 /// );
 ///
-/// let bvcomp_tmp_dir = tempfile::tempdir().unwrap();
-/// let bvcomp_out_dir = tempfile::tempdir().unwrap();
+/// let bvcomp_tmp_dir = tempfile::tempdir()?;
+/// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
 ///     pair_sorter.par_sort_pairs(
 ///         unsorted_pairs.par_iter().copied()
-///     )
-///         .unwrap()
+///     )?
 ///         .into_iter()
 ///         .into_iter()
 ///         .enumerate()
 ///         .map(|(partition_id, partition)| {
-///             webgraph::prelude::LeftIterator(Iter::<(), _>::new_from(
+///             webgraph::prelude::LeftIterator(Iter::<(), _>::try_new_from(
 ///                 num_nodes_per_partition,
 ///                 partition.into_iter().map(|(src, dst)| (src, dst, ())),
 ///                 partition_id*num_nodes_per_partition,
@@ -81,9 +78,10 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///         }),
 ///     num_nodes,
 ///     CompFlags::default(),
-///     &rayon::ThreadPoolBuilder::default().build().unwrap(),
+///     &rayon::ThreadPoolBuilder::default().build()?,
 ///     bvcomp_tmp_dir.path(),
-/// ).unwrap();
+/// )?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct ParSortPairs<L = ()> {
     num_nodes: usize,
