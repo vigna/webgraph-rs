@@ -10,6 +10,22 @@
 use rand::Rng;
 use std::path::PathBuf;
 
+/// An enum expressing the memory requirements for batched algorithms
+/// such as [`SortPairs`] and [`ParSortPairs`].
+pub enum MemoryUsage {
+    /// The target overall memory usage in bytes.
+    MemorySize(usize),
+    /// The number of elements in a batch.
+    ///
+    /// Note that the size of elements depends on the size of
+    /// labels for labelled graphs, and that the actual memory
+    /// usage may depend on the implementation (e.g., [`SortPairs`]
+    /// will use this number of elements, but [`ParSortPairs`] will
+    /// use this number of elements multiplied by the square of
+    /// the number of threads).
+    BatchSize(usize),
+}
+
 /// Creates a new random dir inside the given folder
 pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     let mut base = base.as_ref().to_owned();
@@ -48,6 +64,7 @@ pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 
 pub mod par_sort_pairs;
+pub use par_sort_pairs::ParSortPairs;
 
 use crate::graphs::bvgraph::{Decode, Encode};
 
