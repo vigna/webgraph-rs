@@ -96,8 +96,22 @@ impl ParSortPairs<()> {
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
+        self.try_par_sort_pairs::<std::convert::Infallible>(pairs.map(Ok))
+    }
+
+    pub fn try_par_sort_pairs<E: Into<anyhow::Error>>(
+        &self,
+        pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
+    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
         Ok(self
-            .par_sort_labeled_pairs(&(), (), pairs.map(|(src, dst)| (src, dst, ())))?
+            .try_par_sort_labeled_pairs(
+                &(),
+                (),
+                pairs.map(|pair| -> Result<_> {
+                    let (src, dst) = pair.map_err(Into::into)?;
+                    Ok((src, dst, ()))
+                }),
+            )?
             .into_iter()
             .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
             .collect())
@@ -168,6 +182,35 @@ impl<L> ParSortPairs<L> {
         S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
         D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
     {
+        self.try_par_sort_labeled_pairs::<S, D, std::convert::Infallible>(
+            serializer,
+            deserializer,
+            pairs.map(Ok),
+        )
+    }
+
+    pub fn try_par_sort_labeled_pairs<S, D, E: Into<anyhow::Error>>(
+        &self,
+        serializer: &S,
+        deserializer: D,
+        pairs: impl ParallelIterator<Item = Result<(usize, usize, L), E>>,
+    ) -> Result<
+        Vec<
+            impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Clone + Send + Sync,
+            >,
+        >,
+    >
+    where
+        L: Copy + Send + Sync,
+        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
+        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
+    {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();
@@ -221,7 +264,8 @@ impl<L> ParSortPairs<L> {
                         .borrow_mut(),
                 )
             },
-            |(pl, thread_state), (src, dst, label)| -> Result<_> {
+            |(pl, thread_state), pair| -> Result<_> {
+                let (src, dst, label) = pair.map_err(Into::into)?;
                 ensure!(
                     src < self.num_nodes,
                     "Expected {}, but got {src}",
