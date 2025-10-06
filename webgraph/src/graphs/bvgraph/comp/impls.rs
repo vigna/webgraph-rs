@@ -233,7 +233,14 @@ impl<'t> BvCompBuilder<'t> {
             self.owned_tmp_dir = Some(tmp_dir);
         }
 
-        Ok(self.tmp_dir.clone().unwrap())
+        let tmp_dir = self.tmp_dir.clone().unwrap();
+        if !std::fs::exists(&tmp_dir)
+            .with_context(|| format!("Could not check whether {} exists", tmp_dir.display()))?
+        {
+            std::fs::create_dir_all(&tmp_dir)
+                .with_context(|| format!("Could not create {}", tmp_dir.display()))?;
+        }
+        Ok(tmp_dir)
     }
 
     fn ensure_threads(&mut self) -> Result<()> {
