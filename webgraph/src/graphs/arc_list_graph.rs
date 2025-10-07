@@ -200,7 +200,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = Iter::new(self.num_nodes, self.into_iter.clone().into_iter());
+        let mut iter = Iter::new(self.num_nodes, self.into_iter.clone());
         for _ in 0..from {
             iter.next();
         }

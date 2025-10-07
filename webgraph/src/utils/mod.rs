@@ -18,10 +18,10 @@ pub enum MemoryUsage {
     MemorySize(usize),
     /// The number of elements in a batch.
     ///
-    /// Note that the size of elements depends on the size of
-    /// labels for labelled graphs, and that the actual memory
-    /// usage may depend on the implementation (e.g., [`SortPairs`]
-    /// will use this number of elements, but [`ParSortPairs`] will
+    /// Note that the size of elements depends on the size of labels for labeled
+    /// graphs, and that the actual memory usage may depend on the
+    /// implementation (e.g., [`SortPairs`] will use this number of elements,
+    /// but [`ParSortPairs`] will
     /// use this number of elements multiplied by the square of
     /// the number of threads).
     BatchSize(usize),

@@ -33,7 +33,7 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
     // component. In this way unvisited nodes and emitted nodes have always
     // a lower value than index. This strategy is analogous to that
     // described in https://www.timl.id.au/scc, but in that case using
-    // increasing timestamps results in components not being labelled
+    // increasing timestamps results in components not being labeled
     // starting from zero, which is the case here instead.
     let mut index = num_nodes;
     let mut root_low_link = 0;
