@@ -107,8 +107,6 @@ impl<T: Copy> Ord for Triple<T> {
 /// the [resulting iterator](SortPairs::iter) is labeled, and returns pairs
 /// labeled with `()`. Use [`Left`](crate::prelude::proj::Left) to project away
 /// the labels if needed.
-///
-
 pub struct SortPairs<
     S: BitSerializer<NE, BitWriter> = (),
     D: BitDeserializer<NE, BitReader> + Clone = (),

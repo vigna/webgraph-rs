@@ -100,6 +100,7 @@ pub struct ParSortPairs<L = ()> {
 }
 
 impl ParSortPairs<()> {
+    /// See [`try_sort`](ParSortPairs::try_sort).
     pub fn sort(
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
@@ -107,6 +108,8 @@ impl ParSortPairs<()> {
         self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
     }
 
+    /// Sorts the output of the provided parallel iterator,
+    /// returning a vector of sorted iterators, one per partition.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
@@ -137,7 +140,9 @@ impl<L> ParSortPairs<L> {
         })
     }
 
-    /// Approximate number of pairs to be sorted. Used only for progress reporting
+    /// Approximate number of pairs to be sorted.
+    ///
+    /// Used only for progress reporting.
     pub fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
         Self {
             expected_num_pairs: Some(expected_num_pairs),
@@ -147,7 +152,7 @@ impl<L> ParSortPairs<L> {
 
     /// How many partitions to split the nodes into.
     ///
-    /// Defaults to `num_cpus::get()` which is usually the optimal value
+    /// Defaults to `num_cpus::get()`.
     pub fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
         Self {
             num_partitions,
@@ -155,12 +160,23 @@ impl<L> ParSortPairs<L> {
         }
     }
 
-    /// How many pairs to keep in memory before flushing to disk
+    /// How much memory to use for in-memory sorts.
     ///
-    /// Larger values are logarithmically faster (by reducing the number of merges
-    /// to do afterward) but consume linearly more memory.
+    /// Using the `MemoryUsage::MemorySize` variant you will set the overall
+    /// memory size. The batch size will be determined dividing the
+    /// overall memory size by `num_partitions * num_threads`. This
+    /// is usually the best option.
     ///
-    /// Defaults to half of the system's total memory.
+    /// Using the `MemoryUsage::BatchSize` variant you will
+    /// set the exact size of each batch to sort in memory. The overall
+    /// number of elements will be `batch_size * num_partitions * num_threads`.
+    /// This option is useful for fine tuning the memory usage, in particular
+    /// when the number of threads and partitions is known in advance.
+    ///
+    /// Larger values yield faster merges (by reducing logarithmically the
+    /// number of batches to merge) but consume linearly more memory. We suggest
+    /// to set this parameter as large as possible, depending on the available
+    /// memory.
     pub fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
         Self {
             memory_usage,
@@ -168,6 +184,9 @@ impl<L> ParSortPairs<L> {
         }
     }
 
+    /// See [`try_sort_labeled`](ParSortPairs::try_sort_labeled).
+    ///
+    /// This is a convenience method for parallel iterators that cannot fail.
     pub fn sort_labeled<S, D>(
         &self,
         serializer: &S,
@@ -197,6 +216,15 @@ impl<L> ParSortPairs<L> {
         )
     }
 
+    /// Sorts the output of the provided parallel iterator,
+    /// returning a vector of sorted iterators, one per partition.
+    ///
+    /// This  method accept as type parameter a [`BitSerializer`] and a
+    /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
+    ///
+    /// The bit deserializer must be [`Clone`] because we need one for each
+    /// [`BatchIterator`], and there are possible scenarios in which the
+    /// deserializer might be stateful.
     pub fn try_sort_labeled<S, D, E: Into<anyhow::Error>>(
         &self,
         serializer: &S,
