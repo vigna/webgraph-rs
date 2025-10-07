@@ -108,10 +108,7 @@ impl<T: Copy> Ord for Triple<T> {
 /// labeled with `()`. Use [`Left`](crate::prelude::proj::Left) to project away
 /// the labels if needed.
 ///
-/// Note that batches must be deleted manually using
-/// [`SortPairs::delete_batches`] after usage, unless you stored them in a
-/// self-deleting temporary directory, such as those created by the
-/// [`tempfile`](https://crates.io/crates/tempfile) crate.
+
 pub struct SortPairs<
     S: BitSerializer<NE, BitWriter> = (),
     D: BitDeserializer<NE, BitReader> + Clone = (),
@@ -245,20 +242,6 @@ where
         self.last_batch_len = self.batch.len();
         self.batch.clear();
         self.num_batches += 1;
-        Ok(())
-    }
-
-    /// Cancels all the files that were created.
-    pub fn delete_batches(&mut self) -> anyhow::Result<()> {
-        for i in 0..self.num_batches {
-            let batch_name = self.tmp_dir.join(format!("{i:06x}"));
-            // It's OK if something is not OK here
-            std::fs::remove_file(&batch_name)
-                .with_context(|| format!("Could not remove file {}", batch_name.display()))?;
-        }
-        self.num_batches = 0;
-        self.last_batch_len = 0;
-        self.batch.clear();
         Ok(())
     }
 
