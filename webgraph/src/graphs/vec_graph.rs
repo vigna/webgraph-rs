@@ -11,16 +11,16 @@ use lender::prelude::*;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct LabelledArc<L>(usize, L);
+pub struct LabeledArc<L>(usize, L);
 
-impl<L> From<(usize, L)> for LabelledArc<L> {
+impl<L> From<(usize, L)> for LabeledArc<L> {
     fn from((v, l): (usize, L)) -> Self {
         Self(v, l)
     }
 }
 
-impl<L> From<LabelledArc<L>> for (usize, L) {
-    fn from(value: LabelledArc<L>) -> (usize, L) {
+impl<L> From<LabeledArc<L>> for (usize, L) {
+    fn from(value: LabeledArc<L>) -> (usize, L) {
         (value.0, value.1)
     }
 }
@@ -42,7 +42,7 @@ pub struct LabeledVecGraph<L: Clone + 'static> {
     /// The number of arcs in the graph.
     num_arcs: u64,
     /// For each node, its list of successors.
-    succ: Vec<Vec<LabelledArc<L>>>,
+    succ: Vec<Vec<LabeledArc<L>>>,
 }
 
 impl<L: Clone + 'static> core::default::Default for LabeledVecGraph<L> {
@@ -103,7 +103,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
                 succ.push((v, l).into());
                 self.num_arcs += 1;
             }
-            Some(LabelledArc(last, _label)) => {
+            Some(LabeledArc(last, _label)) => {
                 if v <= *last {
                     // arcs have to be inserted in increasing successor order
                     panic!(
@@ -306,8 +306,8 @@ impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledVecGraph<L> {}
 impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
     type Labels<'succ> = AssumeSortedIterator<
         core::iter::Map<
-            core::iter::Cloned<core::slice::Iter<'succ, LabelledArc<L>>>,
-            fn(LabelledArc<L>) -> (usize, L),
+            core::iter::Cloned<core::slice::Iter<'succ, LabeledArc<L>>>,
+            fn(LabeledArc<L>) -> (usize, L),
         >,
     >;
     #[inline(always)]
@@ -475,7 +475,7 @@ impl VecGraph {
             let succ = succ.into_iter();
             let d = succ.len();
             self.0.succ[node].reserve_exact(d);
-            self.0.succ[node].extend(succ.map(|x| LabelledArc(x, ())));
+            self.0.succ[node].extend(succ.map(|x| LabeledArc(x, ())));
             self.0.num_arcs += d as u64;
         });
         self
@@ -560,8 +560,8 @@ impl SequentialGraph for VecGraph {}
 impl RandomAccessLabeling for VecGraph {
     type Labels<'succ> = AssumeSortedIterator<
         core::iter::Map<
-            core::iter::Copied<core::slice::Iter<'succ, LabelledArc<()>>>,
-            fn(LabelledArc<()>) -> usize,
+            core::iter::Copied<core::slice::Iter<'succ, LabeledArc<()>>>,
+            fn(LabeledArc<()>) -> usize,
         >,
     >;
     #[inline(always)]
@@ -578,7 +578,7 @@ impl RandomAccessLabeling for VecGraph {
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         // this is safe as we maintain each vector of successors sorted
         unsafe {
-            AssumeSortedIterator::new(self.0.succ[node].iter().copied().map(|LabelledArc(x, _)| x))
+            AssumeSortedIterator::new(self.0.succ[node].iter().copied().map(|LabeledArc(x, _)| x))
         }
     }
 }
