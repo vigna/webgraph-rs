@@ -37,11 +37,11 @@ pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 /// successors can be stored in different formats. The default is to use boxed
 /// slices for both the DCF and successors, which is the fastest choice.
 ///
-/// A [`CompressedCsrGraph`], instead, is a [`CsrGraph`] where the DCF is represented
-/// using an Elias-Fano encoding, and the successors are represented using a
-/// [`BitFieldVec`](sux::bits::BitFieldVec). There is also a [version with
-/// sorted successors](CompressedCsrSortedGraph). Their construction requires
-/// a sequential graph providing the number of arcs.
+/// A [`CompressedCsrGraph`], instead, is a [`CsrGraph`] where the DCF is
+/// represented using an Elias-Fano encoding, and the successors are represented
+/// using a [`BitFieldVec`]. There is also a [version with sorted
+/// successors](CompressedCsrSortedGraph). Their construction requires a
+/// sequential graph providing the number of arcs.
 pub struct CsrGraph<DCF = Box<[usize]>, S = Box<[usize]>> {
     dcf: DCF,
     successors: S,
