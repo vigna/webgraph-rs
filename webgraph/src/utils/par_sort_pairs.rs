@@ -6,6 +6,9 @@
 
 #![allow(clippy::type_complexity)]
 
+//! Facilities to sort in parallel externally pairs of nodes with an associated
+//! label returned by a [`ParallelIterator`].
+
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
@@ -284,6 +287,8 @@ impl<L> ParSortPairs<L> {
             //   extremely inefficient.
             // * unsorted_buffers arrays with batch_size as capacity, but are mostly empty and sit
             //   in memory until we flush them
+            // Thus, we use ThreadLocal to have one SorterThreadState per thread, which is reused
+            // across multiple sequential iterators.
             || {
                 (
                     pl.clone(),
