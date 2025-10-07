@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(clippy::type_complexity)]
+
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
@@ -21,9 +23,15 @@ use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple
 use super::MemoryUsage;
 use crate::traits::{BitDeserializer, BitSerializer};
 
-/// Takes a parallel iterator of pairs as input, and returns them into a vector of sorted iterators
-/// (which can be flattened into a single iterator), suitable for
-/// [`BvComp::parallel_iter`](webgraph::graphs::bvgraph::BvComp::parallel_iter).
+/// Takes a parallel iterator of pairs as input, and returns them into a vector
+/// of sorted iterators (which can be flattened into a single iterator),
+/// suitable for
+/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+///
+/// Note that batches will be memory-mapped. If you encounter OS-level errors
+/// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
+/// the limitations of your OS regarding memory-mapping (e.g.,
+/// `/proc/sys/vm/max_map_count` under Linux).
 ///
 /// ```
 /// use std::num::NonZeroUsize;
@@ -46,7 +54,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
 ///
 /// assert_eq!(
-///     pair_sorter.par_sort_pairs(
+///     pair_sorter.sort(
 ///         unsorted_pairs.par_iter().copied()
 ///     )?
 ///         .into_iter()
@@ -63,7 +71,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     pair_sorter.par_sort_pairs(
+///     pair_sorter.sort(
 ///         unsorted_pairs.par_iter().copied()
 ///     )?
 ///         .into_iter()
@@ -92,19 +100,19 @@ pub struct ParSortPairs<L = ()> {
 }
 
 impl ParSortPairs<()> {
-    pub fn par_sort_pairs(
+    pub fn sort(
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
-        self.try_par_sort_pairs::<std::convert::Infallible>(pairs.map(Ok))
+        self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
     }
 
-    pub fn try_par_sort_pairs<E: Into<anyhow::Error>>(
+    pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
         Ok(self
-            .try_par_sort_labeled_pairs(
+            .try_sort_labeled(
                 &(),
                 (),
                 pairs.map(|pair| -> Result<_> {
@@ -160,7 +168,7 @@ impl<L> ParSortPairs<L> {
         }
     }
 
-    pub fn par_sort_labeled_pairs<S, D>(
+    pub fn sort_labeled<S, D>(
         &self,
         serializer: &S,
         deserializer: D,
@@ -182,14 +190,14 @@ impl<L> ParSortPairs<L> {
         S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
         D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
     {
-        self.try_par_sort_labeled_pairs::<S, D, std::convert::Infallible>(
+        self.try_sort_labeled::<S, D, std::convert::Infallible>(
             serializer,
             deserializer,
             pairs.map(Ok),
         )
     }
 
-    pub fn try_par_sort_labeled_pairs<S, D, E: Into<anyhow::Error>>(
+    pub fn try_sort_labeled<S, D, E: Into<anyhow::Error>>(
         &self,
         serializer: &S,
         deserializer: D,
@@ -376,7 +384,7 @@ fn flush_buffer<
     buf: &mut Vec<Triple<L>>,
 ) -> Result<()> {
     buf.radix_sort_unstable();
-    assert!(buf.windows(2).all(|w| w[0] <= w[1]), "buffer is not sorted");
+
     let path = tmp_dir.join(format!(
         "sorted_batch_{worker_id}_{partition_id}_{}",
         sorted_pairs.len()
