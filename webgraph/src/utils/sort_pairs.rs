@@ -93,13 +93,20 @@ impl<T: Copy> Ord for Triple<T> {
 /// [`BatchIterator`], and there are possible scenarios in which the
 /// deserializer might be stateful.
 ///
-/// You create a new instance using [`SortPairs::new_labeled`], and add labeled
-/// pairs using [`SortPairs::push_labeled`]. Then you can iterate over the pairs
-/// using [`SortPairs::iter`].
+/// You can use this structure in two ways: either create an instance with
+/// [`new_labeled`](SortPairs::new_labeled) and add labeled pairs using
+/// [`push_labeled`](SortPairs::push_labeled), and then iterate over the sorted
+/// pairs using [`iter`](SortPairs::iter), or create a new instance and
+/// immediately sort an iterator of pairs using
+/// [`sort_labeled`](SortPairs::sort_labeled) or
+/// [`try_sort_labeled`](SortPairs::try_sort_labeled).
 ///
-/// `SortPars<(), ()>` has commodity [`SortPairs::new`] and [`SortPairs::push`]
-/// methods without labels. Note however that the [resulting
-/// iterator](SortPairs::iter) is labeled, and returns pairs labeled with `()`.
+/// `SortPairs<(), ()>` has commodity [`new`](SortPairs::new),
+/// [`push`](SortPairs::push), [`sort`](SortPairs::sort), and
+/// [`try_sort`](SortPairs::try_sort) methods without labels. Note however that
+/// the [resulting iterator](SortPairs::iter) is labeled, and returns pairs
+/// labeled with `()`. Use [`Left`](crate::prelude::proj::Left) to project away
+/// the labels if needed.
 ///
 /// Note that batches must be deleted manually using
 /// [`SortPairs::delete_batches`] after usage, unless you stored them in a
@@ -114,7 +121,7 @@ pub struct SortPairs<
     /// The batch size.
     batch_size: usize,
     /// Where we are going to store the batches.
-    dir: PathBuf,
+    tmp_dir: PathBuf,
     /// A stateful serializer we will pass to batch iterators to serialize
     /// the labels to a bitstream.
     serializer: S,
@@ -132,16 +139,44 @@ pub struct SortPairs<
 impl SortPairs<(), ()> {
     /// Creates a new `SortPairs` without labels.
     ///
-    /// The `dir` must be empty, and in particular it must not be shared
+    /// The `tmp_dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances. Please use the
-    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
-    /// a suitable directory.
-    pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, dir: P) -> anyhow::Result<Self> {
-        Self::new_labeled(memory_usage, dir, (), ())
+    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain a
+    /// suitable directory.
+    pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, tmp_dir: P) -> anyhow::Result<Self> {
+        Self::new_labeled(memory_usage, tmp_dir, (), ())
     }
     /// Adds a unlabeled pair to the graph.
     pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
         self.push_labeled(x, y, ())
+    }
+
+    /// Takes an iterator of pairs, pushes all elements, and returns an iterator
+    /// over the sorted pairs.
+    ///
+    /// This is a convenience method that combines multiple
+    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
+    pub fn sort(
+        &mut self,
+        pairs: impl IntoIterator<Item = (usize, usize)>,
+    ) -> anyhow::Result<KMergeIters<BatchIterator<()>, ()>> {
+        self.try_sort::<std::convert::Infallible>(pairs.into_iter().map(Ok))
+    }
+
+    /// Takes an iterator of fallible pairs, pushes all elements, and returns an
+    /// iterator over the sorted pairs.
+    ///
+    /// This is a convenience method that combines multiple
+    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
+    pub fn try_sort<E: Into<anyhow::Error>>(
+        &mut self,
+        pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
+    ) -> anyhow::Result<KMergeIters<BatchIterator<()>, ()>> {
+        for pair in pairs {
+            let (x, y) = pair.map_err(Into::into)?;
+            self.push(x, y)?;
+        }
+        self.iter()
     }
 }
 
@@ -171,7 +206,7 @@ where
             Ok(SortPairs {
                 batch_size,
                 serializer,
-                dir: dir.to_owned(),
+                tmp_dir: dir.to_owned(),
                 deserializer,
                 num_batches: 0,
                 last_batch_len: 0,
@@ -200,7 +235,7 @@ where
         }
 
         // Creates a batch file where to dump
-        let batch_name = self.dir.join(format!("{:06x}", self.num_batches));
+        let batch_name = self.tmp_dir.join(format!("{:06x}", self.num_batches));
         BatchIterator::new_from_vec_labeled(
             batch_name,
             &mut self.batch,
@@ -216,7 +251,7 @@ where
     /// Cancels all the files that were created.
     pub fn delete_batches(&mut self) -> anyhow::Result<()> {
         for i in 0..self.num_batches {
-            let batch_name = self.dir.join(format!("{i:06x}"));
+            let batch_name = self.tmp_dir.join(format!("{i:06x}"));
             // It's OK if something is not OK here
             std::fs::remove_file(&batch_name)
                 .with_context(|| format!("Could not remove file {}", batch_name.display()))?;
@@ -232,7 +267,7 @@ where
         self.dump()?;
         Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
             BatchIterator::new_labeled(
-                self.dir.join(format!("{batch_idx:06x}")),
+                self.tmp_dir.join(format!("{batch_idx:06x}")),
                 if batch_idx == self.num_batches - 1 {
                     self.last_batch_len
                 } else {
@@ -242,6 +277,36 @@ where
             )
             .unwrap()
         })))
+    }
+
+    /// Takes an iterator of labeled pairs, pushes all elements, and returns an
+    /// iterator over the sorted pairs.
+    ///
+    /// This is a convenience method that combines multiple
+    /// [`push_labeled`](SortPairs::push_labeled) calls with
+    /// [`iter`](SortPairs::iter).
+    pub fn sort_labeled(
+        &mut self,
+        pairs: impl IntoIterator<Item = (usize, usize, S::SerType)>,
+    ) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
+        self.try_sort_labeled::<std::convert::Infallible>(pairs.into_iter().map(Ok))
+    }
+
+    /// Takes an iterator of fallible labeled pairs, pushes all elements, and
+    /// returns an iterator over the sorted pairs.
+    ///
+    /// This is a convenience method that combines multiple
+    /// [`push_labeled`](SortPairs::push_labeled) calls with
+    /// [`iter`](SortPairs::iter).
+    pub fn try_sort_labeled<E: Into<anyhow::Error>>(
+        &mut self,
+        pairs: impl IntoIterator<Item = Result<(usize, usize, S::SerType), E>>,
+    ) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
+        for pair in pairs {
+            let (x, y, label) = pair.map_err(Into::into)?;
+            self.push_labeled(x, y, label)?;
+        }
+        self.iter()
     }
 }
 
@@ -636,33 +701,35 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Extend<KMergeIters<I, T>> for KMe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Clone, Debug)]
+    struct MyDessert;
+
+    impl BitDeserializer<NE, BitReader> for MyDessert {
+        type DeserType = usize;
+        fn deserialize(
+            &self,
+            bitstream: &mut BitReader,
+        ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
+            bitstream.read_delta().map(|x| x as usize)
+        }
+    }
+
+    impl BitSerializer<NE, BitWriter> for MyDessert {
+        type SerType = usize;
+        fn serialize(
+            &self,
+            value: &Self::SerType,
+            bitstream: &mut BitWriter,
+        ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
+            bitstream.write_delta(*value as u64)
+        }
+    }
+
     #[test]
     fn test_sort_pairs() -> anyhow::Result<()> {
         use tempfile::Builder;
 
-        #[derive(Clone, Debug)]
-        struct MyDessert;
-
-        impl BitDeserializer<NE, BitReader> for MyDessert {
-            type DeserType = usize;
-            fn deserialize(
-                &self,
-                bitstream: &mut BitReader,
-            ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
-                bitstream.read_delta().map(|x| x as usize)
-            }
-        }
-
-        impl BitSerializer<NE, BitWriter> for MyDessert {
-            type SerType = usize;
-            fn serialize(
-                &self,
-                value: &Self::SerType,
-                bitstream: &mut BitWriter,
-            ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
-                bitstream.write_delta(*value as u64)
-            }
-        }
         let dir = Builder::new().prefix("test_sort_pairs_").tempdir()?;
         let mut sp =
             SortPairs::new_labeled(MemoryUsage::BatchSize(10), dir.path(), MyDessert, MyDessert)?;
@@ -686,6 +753,43 @@ mod tests {
             assert_eq!(x + 1, y);
             assert_eq!(x + 2, p);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_sort_and_sort_labeled() -> anyhow::Result<()> {
+        use tempfile::Builder;
+
+        // Test unlabeled sort
+        let dir = Builder::new().prefix("test_sort_").tempdir()?;
+        let mut sp = SortPairs::new(MemoryUsage::BatchSize(10), dir.path())?;
+
+        let pairs = vec![(3, 4), (1, 2), (5, 6), (0, 1), (2, 3)];
+        let mut iter = sp.sort(pairs)?;
+
+        let mut sorted_pairs = Vec::new();
+        while let Some((x, y, _)) = iter.next() {
+            sorted_pairs.push((x, y));
+        }
+        assert_eq!(sorted_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 4), (5, 6)]);
+
+        // Test labeled sort
+        let dir2 = Builder::new().prefix("test_sort_labeled_").tempdir()?;
+        let mut sp2 =
+            SortPairs::new_labeled(MemoryUsage::BatchSize(5), dir2.path(), MyDessert, MyDessert)?;
+
+        let labeled_pairs = vec![(3, 4, 7), (1, 2, 5), (5, 6, 9), (0, 1, 4), (2, 3, 6)];
+        let mut iter2 = sp2.sort_labeled(labeled_pairs)?;
+
+        let mut sorted_labeled = Vec::new();
+        while let Some((x, y, label)) = iter2.next() {
+            sorted_labeled.push((x, y, label));
+        }
+        assert_eq!(
+            sorted_labeled,
+            vec![(0, 1, 4), (1, 2, 5), (2, 3, 6), (3, 4, 7), (5, 6, 9)]
+        );
+
         Ok(())
     }
 }
