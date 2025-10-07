@@ -70,13 +70,13 @@ fn test_epserde() -> anyhow::Result<()> {
         Ok(unsafe { <CsrSortedGraph>::deserialize_eps(data) }?)
     })?;
 
-    let csr = CompressedCsrGraph::from_graph(&g);
+    let csr = CompressedCsrGraph::try_from_graph(&g)?;
 
     test_epserde_roundtrip(&csr, |data| {
         Ok(unsafe { <CompressedCsrGraph>::deserialize_eps(data) }?)
     })?;
 
-    let csr = CompressedCsrSortedGraph::from_graph(&g);
+    let csr = CompressedCsrSortedGraph::try_from_graph(&g)?;
     test_epserde_roundtrip(&csr, |data| {
         Ok(unsafe { <CompressedCsrSortedGraph>::deserialize_eps(data) }?)
     })?;
@@ -93,15 +93,15 @@ fn test_csr_graph() -> anyhow::Result<()> {
     labels::check_impl(&csr)?;
     graph::eq(&csr, &g)?;
 
-    let csr = CompressedCsrGraph::from_graph(&g);
+    let csr = CompressedCsrGraph::try_from_graph(&g)?;
     labels::check_impl(&csr)?;
     graph::eq(&csr, &g)?;
 
-    let csr = CompressedCsrGraph::from_graph(&g);
+    let csr = CompressedCsrGraph::try_from_graph(&g)?;
     labels::check_impl(&csr)?;
     graph::eq(&csr, &g)?;
 
-    let csr = CompressedCsrSortedGraph::from_graph(&g);
+    let csr = CompressedCsrSortedGraph::try_from_graph(&g)?;
     labels::check_impl(&csr)?;
     labels::eq_sorted(&csr, &g)?;
 
@@ -117,7 +117,7 @@ fn test_sorted() -> anyhow::Result<()> {
     let csr_sorted = CsrSortedGraph::from_seq_graph(&g);
     labels::eq_sorted(&csr_sorted, &csr_sorted)?;
 
-    let csr_comp_sorted = CompressedCsrSortedGraph::from_graph(&g);
+    let csr_comp_sorted = CompressedCsrSortedGraph::try_from_graph(&g)?;
     labels::eq_sorted(&csr_comp_sorted, &csr_comp_sorted)?;
 
     Ok(())

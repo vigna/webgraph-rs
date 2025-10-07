@@ -21,18 +21,28 @@ pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// A compressed sparse row graph.
-/// It is a graph representation that stores the degree-cumulative function (DCF)
-/// and the successors in a compressed format.
-/// The DCF is a sequence of offsets that indicates the start of the neighbors
-/// for each node in the graph.
+/// A compressed sparse-row graph.
+///
+/// It is a graph representation that stores the degree-cumulative function
+/// (DCF) and the successors in a compressed format. The DCF is a sequence of
+/// offsets that indicates the start of the neighbors for each node in the
+/// graph. Building a CSR graph requires always a sorted lender.
+///
+/// The lenders returned by a CSR graph are sorted; however, the successors may
+/// be unsorted. If you need the additional guarantee that the successors are
+/// sorted, use [`CsrSortedGraph`], which however requires a lender returning
+/// sorted successors.
 ///
 /// Depending on the performance and memory requirements, both the DCF and
-/// successors can be stored in different formats.
+/// successors can be stored in different formats. The default is to use boxed
+/// slices for both the DCF and successors, which is the fastest choice.
 ///
-/// The fastest format is `CsrGraph<BoxedList, BoxedList>`, while a compressed
-/// representation can be achieved with `CsrGraph<webgraph::bvgraph::DCF, BitFieldVec>`.
-pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
+/// A [`CompressedCsrGraph`], instead, is a [`CsrGraph`] where the DCF is represented
+/// using an Elias-Fano encoding, and the successors are represented using a
+/// [`BitFieldVec`](sux::bits::BitFieldVec). There is also a [version with
+/// sorted successors](CompressedCsrSortedGraph). Their construction requires
+/// a sequential graph providing the number of arcs.
+pub struct CsrGraph<DCF = Box<[usize]>, S = Box<[usize]>> {
     dcf: DCF,
     successors: S,
 }
@@ -41,7 +51,7 @@ pub struct CsrGraph<DCF = Vec<usize>, S = Vec<usize>> {
 /// successors are sorted.
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct CsrSortedGraph<DCF = Vec<usize>, S = Vec<usize>>(CsrGraph<DCF, S>);
+pub struct CsrSortedGraph<DCF = Box<[usize]>, S = Box<[usize]>>(CsrGraph<DCF, S>);
 
 impl<DCF, S> CsrGraph<DCF, S> {
     /// Creates a new CSR graph from the given degree-cumulative function and
@@ -70,8 +80,8 @@ impl<DCF, S> CsrGraph<DCF, S> {
 impl core::default::Default for CsrGraph {
     fn default() -> Self {
         Self {
-            dcf: vec![0],
-            successors: vec![],
+            dcf: vec![0].into(),
+            successors: vec![].into(),
         }
     }
 }
@@ -82,39 +92,24 @@ impl CsrGraph {
         Self::default()
     }
 
-    /// Creates a new graph from a [`SequentialGraph`].
-    pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self {
-        let mut dcf = Vec::with_capacity(g.num_nodes() + 1);
-        let mut successors = Vec::with_capacity(g.num_arcs_hint().unwrap_or(0) as usize);
-        dcf.push(0);
-        let mut last_src = 0;
-        for_!((src, succ) in g.iter() {
-            while last_src < src {
-                dcf.push(successors.len());
-                last_src += 1;
-            }
-            successors.extend(succ);
-        });
-        for _ in last_src..g.num_nodes() {
-            dcf.push(successors.len());
-        }
-        unsafe { Self::from_parts(dcf, successors) }
-    }
-
-    /// Creates a new graph from a sorted [`IntoLender`] yielding a
-    /// [`NodeLabelsLender`].
+    /// Internal method to create a graph from a lender with optional size hints.
     ///
-    /// This method is faster than [`from_lender`](Self::from_lender) as
-    /// it does not need to sort the output of the lender.
-    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
+    /// The `num_nodes_hint` and `num_arcs_hint` parameters are used to
+    /// pre-allocate the vectors, improving performance when the sizes are known
+    /// in advance.
+    fn _from_lender<I: IntoLender>(
+        iter_nodes: I,
+        num_nodes_hint: Option<usize>,
+        num_arcs_hint: Option<usize>,
+    ) -> Self
     where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        I::Lender: SortedLender,
-        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
     {
         let mut max_node = 0;
-        let mut dcf = vec![0];
-        let mut successors = vec![];
+        let mut dcf = Vec::with_capacity(num_nodes_hint.unwrap_or(0) + 1);
+        dcf.push(0);
+        let mut successors = Vec::with_capacity(num_arcs_hint.unwrap_or(0));
+
         let mut last_src = 0;
         for_!( (src, succs) in iter_nodes {
             while last_src < src {
@@ -132,60 +127,117 @@ impl CsrGraph {
         }
         dcf.shrink_to_fit();
         successors.shrink_to_fit();
-        unsafe { Self::from_parts(dcf, successors) }
+        unsafe { Self::from_parts(dcf.into(), successors.into()) }
+    }
+
+    /// Creates a new CSR graph from an [`IntoLender`] yielding a
+    /// [`NodeLabelsLender`].
+    ///
+    /// This method will determine the number of nodes from the maximum node ID
+    /// encountered.
+    pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+    {
+        Self::_from_lender(iter_nodes, None, None)
+    }
+
+    /// Creates a new CSR graph from a sorted [`IntoLender`] yielding a
+    /// sorted [`NodeLabelsLender`].
+    ///
+    /// This method is an alias for [`from_lender`](Self::from_lender), as both
+    /// sorted and unsorted lenders are handled identically in the unsorted case.
+    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
+    {
+        Self::from_lender(iter_nodes)
+    }
+
+    /// Creates a new CSR graph from a [`SequentialGraph`].
+    ///
+    /// This method uses the graph's size hints for efficient pre-allocation.
+    pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self
+    where
+        for<'a> G::Lender<'a>: SortedLender,
+    {
+        Self::_from_lender(
+            g.iter(),
+            Some(g.num_nodes()),
+            g.num_arcs_hint().map(|n| n as usize),
+        )
     }
 }
 
 impl CsrSortedGraph {
+    /// Creates a new sorted CSR graph from an [`IntoLender`] yielding a sorted
+    /// [`NodeLabelsLender`] with sorted successors.
+    pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
+    where
+        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
+    {
+        CsrSortedGraph(CsrGraph::from_lender(iter_nodes))
+    }
+
+    /// Creates a new sorted CSR graph from a [`SequentialGraph`] with
+    /// sorted lenders and sorted successors.
     pub fn from_seq_graph<G: SequentialGraph>(g: &G) -> Self
     where
+        for<'a> G::Lender<'a>: SortedLender,
         for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     {
         CsrSortedGraph(CsrGraph::from_seq_graph(g))
     }
-
-    pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
-    where
-        I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        I::Lender: SortedLender,
-        for<'succ> LenderIntoIter<'succ, I::Lender>: SortedIterator,
-    {
-        CsrSortedGraph(CsrGraph::from_sorted_lender(iter_nodes))
-    }
 }
 
 impl CompressedCsrGraph {
-    /// Creates a new compressed CSR graph from a random access graph.
-    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self {
+    /// Creates a new compressed CSR graph from a sequential graph with sorted
+    /// lender and providing the number of arcs.
+    ///
+    /// This method will return an error if the graph does not provide
+    /// the number of arcs.
+    pub fn try_from_graph<G: SequentialGraph>(g: &G) -> anyhow::Result<Self>
+    where
+        for<'a> G::Lender<'a>: SortedLender,
+    {
         let n = g.num_nodes();
-        let u = g.num_arcs();
+        let u = g.num_arcs_hint().ok_or(anyhow::Error::msg(
+            "This sequential graph does not provide the number of arcs",
+        ))?;
         let mut efb = EliasFanoBuilder::new(n + 1, u as usize + 1);
         efb.push(0);
         let mut successors = BitFieldVec::with_capacity(n.ilog2_ceil() as usize, u as usize);
         let mut last_src = 0;
         for_!((src, succ) in g.iter() {
             while last_src < src {
-                efb.push(SliceByValue::len(&successors));
+                efb.push(successors.len());
                 last_src += 1;
             }
             successors.extend(succ);
         });
         for _ in last_src..g.num_nodes() {
-            efb.push(SliceByValue::len(&successors));
+            efb.push(successors.len());
         }
         let ef = efb.build();
         let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
-        unsafe { Self::from_parts(ef, successors) }
+        unsafe { Ok(Self::from_parts(ef, successors)) }
     }
 }
 
 impl CompressedCsrSortedGraph {
-    /// Creates a new compressed CSR graph from a random access graph.
-    pub fn from_graph<G: RandomAccessGraph>(g: &G) -> Self
+    /// Creates a new compressed CSR sorted graph from a sequential graph with
+    /// sorted lender, sorted successors, and providing the number of arcs.
+    ///
+    /// This method will return an error if the graph does not provide
+    /// the number of arcs.
+    pub fn try_from_graph<G: SequentialGraph>(g: &G) -> anyhow::Result<Self>
     where
+        for<'a> G::Lender<'a>: SortedLender,
         for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     {
-        CsrSortedGraph(CsrGraph::from_graph(g))
+        Ok(CsrSortedGraph(CsrGraph::try_from_graph(g)?))
     }
 }
 
@@ -473,16 +525,15 @@ where
 }
 
 /// The iterator returned by the lender.
-/// This is different from the Random access iterator because
-/// for better efficiency we have a single successors iterators
-/// that is forwarded by the lender.
 ///
-/// If the dcf and the successors are compressed representations,
-/// this might be much faster than the random access iterator,
-/// like we do in BVGraph. When using vectors it might be
-/// slower, but it is still a good idea to use this
-/// iterator to avoid the overhead of creating a new iterator
-/// for each node.
+/// This is different from the random-access iterator because for better
+/// efficiency we have a single successors iterators that is forwarded by the
+/// lender.
+///
+/// If the DCF and the successors are compressed representations, this might be
+/// much faster than the random access iterator. When using vectors it might be
+/// slower, but it is still a good idea to use this iterator to avoid the
+/// overhead of creating a new iterator for each node.
 pub struct IteratorImpl<'a, D> {
     succ_iter: &'a mut D,
     current_offset: &'a mut usize,
