@@ -17,6 +17,7 @@ as an argument, say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::exten
 
 */
 use lender::*;
+
 // missing implementations for [Cloned, Copied, Owned] because they don't
 // implement Lender but Iterator.
 
