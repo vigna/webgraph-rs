@@ -16,7 +16,7 @@ Without the implementations, one would obtain a normal [`Lender`], which would n
 as an argument, say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
 */
-use std::cell::RefCell;
+use lender::{Lend, Lender, Lending, DoubleEndedLender};
 
 use crate::traits::Pair;
 // missing implementations for [Cloned, Copied, Owned] because they don't
@@ -98,7 +98,7 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
         IntoPairs {
             lender: Box::new(self),
             current_node: 0,
-            current_iter: RefCell::new(None),
+            current_iter: None,
         }
     }
 }
@@ -106,7 +106,7 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
 pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> {
     lender: Box<L>,
     current_node: usize,
-    current_iter: RefCell<Option<LenderIntoIter<'a, L>>>,
+    current_iter: Option<LenderIntoIter<'a, L>>,
 }
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
@@ -126,11 +126,7 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     )> {
         loop {
-            // SAFETY: Polonius return
-            /*let reborrow = unsafe {
-                &mut *(&mut self.current_iter as *mut Option<<<L as NodeLabelsLender<'this, Ref<'this, L>>>::IntoIterator as IntoIterator>::IntoIter>)
-            };*/
-            if let Some(inner) = self.current_iter.get_mut() {
+            if let Some(inner) = &mut self.current_iter {
                 if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
                     return Some((self.current_node, dst, label));
                 }
@@ -142,7 +138,7 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
                 .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
             {
                 self.current_node = next_node;
-                *self.current_iter.get_mut() = Some(next_iter);
+                self.current_iter = Some(next_iter);
             } else {
                 return None;
             }
