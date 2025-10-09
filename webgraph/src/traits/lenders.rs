@@ -6,22 +6,18 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-The [main iteration trait](NodeLabelsLender), convenience types and associated implementations.
-
-The implementations in this module have the effect that most of the methods of a [`Lender`]
-(e.g., [`lender::Map`]) will return a [`NodeLabelsLender`] when applied to a [`NodeLabelsLender`].
-Without the implementations, one would obtain a normal [`Lender`], which would not be usable
-as an argument, say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
-
-*/
+//! The [main iteration trait](NodeLabelsLender), convenience types and
+//! associated implementations.
+//!
+//! The implementations in this module have the effect that most of the methods
+//! of a [`Lender`] (e.g., [`lender::Map`]) will return a [`NodeLabelsLender`]
+//! when applied to a [`NodeLabelsLender`]. Without the implementations, one
+//! would obtain a normal [`Lender`], which would not be usable as an argument,
+//! say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
 use lender::{DoubleEndedLender, Lend, Lender, Lending};
 
 use crate::traits::Pair;
-// missing implementations for [Cloned, Copied, Owned] because they don't
-// implement Lender but Iterator.
 
 /// Iteration on nodes and associated labels.
 ///
@@ -34,7 +30,13 @@ use crate::traits::Pair;
 /// For those types we provide convenience type aliases [`LenderIntoIterator`],
 /// [`LenderIntoIter`], and [`LenderLabel`].
 ///
-/// # Extension of [`Lender`] methods
+/// # Flattening Facilities
+///
+/// The methods [`into_pairs`](NodeLabelsLender::into_pairs) and
+/// [`into_labeled_pairs`](NodeLabelsLender::into_labeled_pairs) convert a
+/// [`NodeLabelsLender`] into an iterator of pairs or triples, respectively.
+///
+/// # Extension of [`Lender`] Methods
 ///
 /// Methods defined on [`Lender`], such as [`Lender::zip`], normally would
 /// return a [`Lender`], but not a [`NodeLabelsLender`]. However, the module
@@ -92,11 +94,11 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     type Label;
     type IntoIterator: IntoIterator<Item = Self::Label>;
 
-    /// Converts the lender into an iterator of triples, provided
+    /// Converts this lender into an iterator of triples, provided
     /// that the label type implements [`Pair`] with `Left = usize`.
     ///
     /// Typically, this method is used to convert a lender on a labeled graph
-    /// into an iterator of labeled edges expressed as triples.
+    /// into an iterator of labeled arcs expressed as triples.
     fn into_labeled_pairs<'a>(self) -> IntoLabeledPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
@@ -108,11 +110,11 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
         }
     }
 
-    /// Converts the lender into an iterator of triples, provided
-    /// that the label type implements [`Pair`] with `Left = usize`.
+    /// Converts this lender into an iterator of pairs, provided that the label
+    /// type is `usize`.
     ///
-    /// Typically, this method is used to convert a lender on a graph
-    /// into an iterator of arcs expressed as pairs.
+    /// Typically, this method is used to convert a lender on a graph into an
+    /// iterator of arcs expressed as pairs.
     fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
@@ -239,6 +241,9 @@ pub type LenderIntoIterator<'lend, L> = <L as NodeLabelsLender<'lend>>::IntoIter
 /// associated type of a [`NodeLabelsLender`].
 pub type LenderIntoIter<'lend, L> =
     <<L as NodeLabelsLender<'lend>>::IntoIterator as IntoIterator>::IntoIter;
+
+// Missing implementations for [Cloned, Copied, Owned] because they don't
+// implement Lender but Iterator
 
 impl<'lend, A, B> NodeLabelsLender<'lend> for lender::Chain<A, B>
 where
