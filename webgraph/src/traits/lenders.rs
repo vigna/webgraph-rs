@@ -16,7 +16,9 @@ Without the implementations, one would obtain a normal [`Lender`], which would n
 as an argument, say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
 */
-use lender::*;
+use std::cell::RefCell;
+
+use crate::traits::Pair;
 // missing implementations for [Cloned, Copied, Owned] because they don't
 // implement Lender but Iterator.
 
@@ -44,8 +46,8 @@ use lender::*;
 /// use webgraph::prelude::*;
 /// use webgraph::graphs::random::ErdosRenyi;
 /// use lender::*;
-/// use itertools::Itertools;  
-///  
+/// use itertools::Itertools;
+///
 /// // First random graph
 /// let g = ErdosRenyi::new(100, 0.1, 0);
 /// // Second random graph
@@ -88,6 +90,64 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
 {
     type Label;
     type IntoIterator: IntoIterator<Item = Self::Label>;
+
+    fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
+    where
+        Self: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
+    {
+        IntoPairs {
+            lender: Box::new(self),
+            current_node: 0,
+            current_iter: RefCell::new(None),
+        }
+    }
+}
+
+pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> {
+    lender: Box<L>,
+    current_node: usize,
+    current_iter: RefCell<Option<LenderIntoIter<'a, L>>>,
+}
+
+impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
+    for IntoPairs<'a, L>
+{
+    type Item = (
+        usize,
+        usize,
+        <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
+    );
+
+    fn next(
+        &mut self,
+    ) -> Option<(
+        usize,
+        usize,
+        <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
+    )> {
+        loop {
+            // SAFETY: Polonius return
+            /*let reborrow = unsafe {
+                &mut *(&mut self.current_iter as *mut Option<<<L as NodeLabelsLender<'this, Ref<'this, L>>>::IntoIterator as IntoIterator>::IntoIter>)
+            };*/
+            if let Some(inner) = self.current_iter.get_mut() {
+                if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
+                    return Some((self.current_node, dst, label));
+                }
+            }
+            // SAFETY: current_iter is manually guaranteed to be the only lend alive of the inner iterator
+            if let Some((next_node, next_iter)) = self
+                .lender
+                .next()
+                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
+            {
+                self.current_node = next_node;
+                *self.current_iter.get_mut() = Some(next_iter);
+            } else {
+                return None;
+            }
+        }
+    }
 }
 
 /// Convenience type alias for the associated type `Label` of a [`NodeLabelsLender`].
