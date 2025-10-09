@@ -118,7 +118,7 @@ where
     <S as SplitLabeling>::SplitLender<'a>: Clone,
 {
     let mut iter = g.iter();
-    for lender in g.split_iter(10) {
+    for (_start_node, lender) in g.split_iter(10) {
         for_![(split_node_id, split_succ) in lender {
             let Some((seq_node_id, seq_succ)) = iter.next() else {
                 bail!("Too many nodes in split_iter");

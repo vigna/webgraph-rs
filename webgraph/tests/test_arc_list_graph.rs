@@ -88,8 +88,8 @@ fn test_arc_list_graph_cnr2000() {
     test_graph_iters(arc_graph.iter(), graph.iter());
 
     for n in 1..=11 {
-        let iters = arc_graph.split_iter(n);
-        let truth_iters = graph.split_iter(n);
+        let iters: Vec<_> = arc_graph.split_iter(n).collect();
+        let truth_iters: Vec<_> = graph.split_iter(n).collect();
 
         assert_eq!(truth_iters.len(), n, "Expected {} iterators", n);
         assert_eq!(
@@ -98,7 +98,8 @@ fn test_arc_list_graph_cnr2000() {
             "Mismatch in split iterators length"
         );
 
-        for (iter, titer) in iters.zip(truth_iters) {
+        for ((start1, iter), (start2, titer)) in iters.into_iter().zip(truth_iters) {
+            assert_eq!(start1, start2, "Mismatch in split start nodes");
             assert_eq!(iter.len(), titer.len(), "Mismatch in iterator lengths");
             test_graph_iters(iter, titer);
         }

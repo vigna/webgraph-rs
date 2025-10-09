@@ -22,6 +22,9 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 /// [`split_iter`](SplitLabeling::split_iter) to split the labeling
 /// [iterator](SequentialLabeling::Lender) into `n` parts.
 ///
+/// Each part is returned as a tuple `(usize, SplitLender)` where the first
+/// element indicates the first node ID covered by that lender.
+///
 /// Note that the parts are required to be [`Send`] and [`Sync`], so that they
 /// can be safely shared among threads.
 ///
@@ -39,7 +42,7 @@ pub trait SplitLabeling: SequentialLabeling {
     where
         Self: 'a;
 
-    type IntoIterator<'a>: IntoIterator<Item = Self::SplitLender<'a>, IntoIter: ExactSizeIterator>
+    type IntoIterator<'a>: IntoIterator<Item = (usize, Self::SplitLender<'a>), IntoIter: ExactSizeIterator>
     where
         Self: 'a;
 
@@ -66,7 +69,7 @@ pub trait SplitLabeling: SequentialLabeling {
 ///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
 ///
 ///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-///         split::seq::Iter::new(self.iter(), how_many)
+///         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
 ///     }
 /// }
 /// ```
@@ -78,6 +81,7 @@ pub mod seq {
         nodes_per_iter: usize,
         how_many: usize,
         remaining: usize,
+        current_node: usize,
     }
 
     impl<L: lender::Lender> Iter<L> {
@@ -88,22 +92,25 @@ pub mod seq {
                 nodes_per_iter,
                 how_many,
                 remaining: how_many,
+                current_node: 0,
             }
         }
     }
 
     impl<L: lender::Lender + Clone> Iterator for Iter<L> {
-        type Item = lender::Take<L>;
+        type Item = (usize, lender::Take<L>);
 
         fn next(&mut self) -> Option<Self::Item> {
             if self.remaining == 0 {
                 return None;
             }
+            let start_node = self.current_node;
             if self.remaining != self.how_many {
                 self.lender.advance_by(self.nodes_per_iter).ok()?;
             }
+            self.current_node += self.nodes_per_iter;
             self.remaining -= 1;
-            Some(self.lender.clone().take(self.nodes_per_iter))
+            Some((start_node, self.lender.clone().take(self.nodes_per_iter)))
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
@@ -168,7 +175,7 @@ pub mod ra {
     }
 
     impl<'a, R: RandomAccessLabeling> Iterator for Iter<'a, R> {
-        type Item = Lender<'a, R>;
+        type Item = (usize, Lender<'a, R>);
 
         fn next(&mut self) -> Option<Self::Item> {
             use lender::Lender;
@@ -176,12 +183,14 @@ pub mod ra {
             if self.i == self.how_many {
                 return None;
             }
+            let start_node = self.i * self.nodes_per_iter;
             self.i += 1;
-            Some(
+            Some((
+                start_node,
                 self.labeling
-                    .iter_from((self.i - 1) * self.nodes_per_iter)
+                    .iter_from(start_node)
                     .take(self.nodes_per_iter),
-            )
+            ))
         }
     }
 

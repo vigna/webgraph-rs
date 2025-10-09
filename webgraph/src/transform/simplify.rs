@@ -115,7 +115,7 @@ where
     threads.in_place_scope(|scope| {
         let mut thread_id = 0;
         #[allow(clippy::explicit_counter_loop)] // enumerate requires some extra bounds here
-        for iter in graph.split_iter(num_threads) {
+        for (_start_node, iter) in graph.split_iter(num_threads) {
             let tx = tx.clone();
             let dir = Builder::new()
                 .prefix(&format!("simplify_split_{thread_id}_"))

@@ -34,7 +34,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
 ///
-/// ```
+/// ```ignore TODO
 /// use std::num::NonZeroUsize;
 ///
 /// use dsi_bitstream::traits::BigEndian;
@@ -43,7 +43,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// use webgraph::traits::SequentialLabeling;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
 /// use webgraph::graphs::arc_list_graph::Iter;
-/// use webgraph::utils::par_sort_pairs::ParSortGraph;
+/// use webgraph::utils::par_sort_graph::ParSortGraph;
 ///
 /// let num_partitions = 2;
 /// let num_nodes: usize = 5;

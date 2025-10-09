@@ -110,15 +110,8 @@ pub fn par_transpose_labeled<
     serializer: S,
     deserializer: D,
 ) -> Result<
-    Vec<
-        impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Clone + Send + Sync,
-            > + 'graph,
+    impl Iterator<
+        Item: for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph,
     >,
 >
 where
@@ -129,16 +122,19 @@ where
     let par_sort_graph = ParSortGraph::new(graph.num_nodes())?;
     let parts = num_cpus::get();
 
-    let pair = graph
+    let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
         .split_iter(parts)
         .into_iter()
-        .map(|iter| iter.into_labeled_pairs::<'graph>());
+        .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs::<'graph>()))
+        .unzip();
 
-    let sorted = par_sort_graph.try_sort_labeled::<S, D, std::convert::Infallible>(
-        &serializer,
-        deserializer,
-        pair,
-    )?;
-
-    Ok(sorted)
+    Ok(par_sort_graph
+        .try_sort_labeled::<S, D, std::convert::Infallible>(&serializer, deserializer, pairs)?
+        .into_iter()
+        .enumerate()
+        .map(|(i, res)| {
+            arc_list_graph::Iter::try_new_from(graph.num_nodes(), res.into_iter(), start_nodes[i])
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter())
 }

@@ -45,6 +45,7 @@ use lender::*;
 use super::{
     labels::EqError,
     lenders::{LenderIntoIter, NodeLabelsLender},
+    split::SplitLabeling,
     SortedIterator, SortedLender,
 };
 
@@ -273,6 +274,31 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
 }
 
 impl<G: SequentialGraph> LabeledSequentialGraph<()> for UnitLabelGraph<G> {}
+
+impl<G: SequentialGraph + SplitLabeling> SplitLabeling for UnitLabelGraph<G>
+where
+    for<'a> <G::IntoIterator<'a> as IntoIterator>::IntoIter: Send + Sync,
+{
+    type SplitLender<'a>
+        = UnitLender<G::SplitLender<'a>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = core::iter::Map<
+            <G::IntoIterator<'a> as IntoIterator>::IntoIter,
+            fn((usize, G::SplitLender<'a>)) -> (usize, Self::SplitLender<'a>),
+        >
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        self.0
+            .split_iter(how_many)
+            .into_iter()
+            .map(|(start, lender)| (start, UnitLender(lender)))
+    }
+}
 
 /// A labeled random-access graph.
 ///
