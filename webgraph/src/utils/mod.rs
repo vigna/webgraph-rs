@@ -30,7 +30,7 @@ pub enum MemoryUsage {
 /// Default implementation, returning half of the physical RAM.
 impl Default for MemoryUsage {
     fn default() -> Self {
-        Self::from_perc(0.5)
+        Self::from_perc(50.0)
     }
 }
 

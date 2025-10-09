@@ -5,12 +5,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::rc::Rc;
+
 use crate::graphs::arc_list_graph;
+use crate::labels::LeftIterator;
 use crate::prelude::proj::Left;
 use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, SortPairs};
 use crate::prelude::{BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
-use crate::traits::{NodeLabelsLender, SplitLabeling};
+use crate::traits::{NodeLabelsLender, SplitLabeling, UnitLender};
 use crate::utils::{MemoryUsage, ParSortGraph};
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
@@ -110,9 +113,7 @@ pub fn par_transpose_labeled<
     serializer: S,
     deserializer: D,
 ) -> Result<
-    impl Iterator<
-        Item: for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph,
-    >,
+    Vec<impl for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph>,
 >
 where
     S: 'graph,
@@ -128,13 +129,57 @@ where
         .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs::<'graph>()))
         .unzip();
 
-    Ok(par_sort_graph
+    par_sort_graph
         .try_sort_labeled::<S, D, std::convert::Infallible>(&serializer, deserializer, pairs)?
         .into_iter()
         .enumerate()
         .map(|(i, res)| {
             arc_list_graph::Iter::try_new_from(graph.num_nodes(), res.into_iter(), start_nodes[i])
         })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter())
+        .collect()
+}
+
+pub fn par_transpose<
+    'graph,
+    G: 'graph
+        + SequentialGraph
+        + for<'a> SplitLabeling<
+            SplitLender<'a>: for<'b> NodeLabelsLender<
+                'b,
+                Label = usize,
+                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+            > + Send
+                                 + Sync,
+            IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
+        >,
+>(
+    graph: &'graph G,
+    _batch_size: usize,
+) -> Result<Vec<impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync>> {
+    let num_nodes = graph.num_nodes();
+    let par_sort_graph = ParSortGraph::new(num_nodes)?;
+    let parts = num_cpus::get();
+
+    let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
+        .split_iter(parts)
+        .into_iter()
+        .map(|(start_node, iter)| (start_node, UnitLender(iter).into_labeled_pairs::<'graph>()))
+        .unzip();
+
+    Ok(par_sort_graph
+        .try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)?
+        .into_iter()
+        .enumerate()
+        .map(|(i, res)| {
+            LeftIterator(
+                arc_list_graph::Iter::try_new_from(
+                    graph.num_nodes(),
+                    res.into_iter(),
+                    start_nodes[i],
+                )
+                .unwrap()
+                .take(*start_nodes.get(i + 1).unwrap_or(&num_nodes) - start_nodes[i]),
+            )
+        })
+        .collect::<Vec<_>>())
 }

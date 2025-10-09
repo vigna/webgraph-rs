@@ -263,7 +263,8 @@ impl<L> ParSortGraph<L> {
         let batch_size = match self.memory_usage {
             MemoryUsage::MemorySize(num_bytes) => {
                 let pair_size = size_of::<usize>() * 2 + size_of::<L>();
-                let num_buffers = rayon::max_num_threads() * num_partitions;
+                dbg!(rayon::max_num_threads(), num_partitions, pair_size);
+                let num_buffers = rayon::current_num_threads() * num_partitions;
                 num_bytes / (pair_size * num_buffers)
             }
             MemoryUsage::BatchSize(batch_size) => batch_size,
@@ -277,6 +278,7 @@ impl<L> ParSortGraph<L> {
             expected_updates = self.expected_num_pairs,
         );
         pl.start("Reading and sorting pairs");
+        pl.info(format_args!("Per-processor batch size: {}", batch_size));
 
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
