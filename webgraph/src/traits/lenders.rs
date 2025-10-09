@@ -15,6 +15,8 @@
 //! would obtain a normal [`Lender`], which would not be usable as an argument,
 //! say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
+use std::marker::PhantomData;
+
 use lender::{DoubleEndedLender, Lend, Lender, Lending};
 
 use crate::traits::Pair;
@@ -107,6 +109,7 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
             lender: Box::new(self),
             current_node: 0,
             current_iter: None,
+            _marker: PhantomData,
         }
     }
 
@@ -123,6 +126,7 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
             lender: Box::new(self),
             current_node: 0,
             current_iter: None,
+            _marker: PhantomData,
         }
     }
 }
@@ -138,6 +142,7 @@ pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left
     lender: Box<L>,
     current_node: usize,
     current_iter: Option<LenderIntoIter<'a, L>>,
+    _marker: PhantomData<&'a L>, // That is, L: 'a
 }
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
@@ -196,6 +201,7 @@ pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
     lender: Box<L>,
     current_node: usize,
     current_iter: Option<LenderIntoIter<'a, L>>,
+    _marker: PhantomData<&'a L>, // That is, L: 'a
 }
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {

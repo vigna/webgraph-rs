@@ -5,8 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::rc::Rc;
-
 use crate::graphs::arc_list_graph;
 use crate::labels::LeftIterator;
 use crate::prelude::proj::Left;
@@ -126,7 +124,7 @@ where
     let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
         .split_iter(parts)
         .into_iter()
-        .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs::<'graph>()))
+        .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs()))
         .unzip();
 
     par_sort_graph
@@ -163,7 +161,7 @@ pub fn par_transpose<
     let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
         .split_iter(parts)
         .into_iter()
-        .map(|(start_node, iter)| (start_node, UnitLender(iter).into_labeled_pairs::<'graph>()))
+        .map(|(start_node, iter)| (start_node, UnitLender(iter).into_labeled_pairs()))
         .unzip();
 
     Ok(par_sort_graph
