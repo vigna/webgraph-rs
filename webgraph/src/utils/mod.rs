@@ -106,6 +106,9 @@ pub use sort_pairs::SortPairs;
 pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
 
+pub mod par_sort_graph;
+pub use par_sort_graph::ParSortGraph;
+
 use crate::graphs::bvgraph::{Decode, Encode};
 
 /// A decoder that encodes the read values using the given encoder.
