@@ -16,7 +16,8 @@ Without the implementations, one would obtain a normal [`Lender`], which would n
 as an argument, say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
 */
-use lender::{Lend, Lender, Lending, DoubleEndedLender};
+
+use lender::{DoubleEndedLender, Lend, Lender, Lending};
 
 use crate::traits::Pair;
 // missing implementations for [Cloned, Copied, Owned] because they don't
@@ -91,9 +92,30 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     type Label;
     type IntoIterator: IntoIterator<Item = Self::Label>;
 
-    fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
+    /// Converts the lender into an iterator of triples, provided
+    /// that the label type implements [`Pair`] with `Left = usize`.
+    ///
+    /// Typically, this method is used to convert a lender on a labeled graph
+    /// into an iterator of labeled edges expressed as triples.
+    fn into_labeled_pairs<'a>(self) -> IntoLabeledPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
+    {
+        IntoLabeledPairs {
+            lender: Box::new(self),
+            current_node: 0,
+            current_iter: None,
+        }
+    }
+
+    /// Converts the lender into an iterator of triples, provided
+    /// that the label type implements [`Pair`] with `Left = usize`.
+    ///
+    /// Typically, this method is used to convert a lender on a graph
+    /// into an iterator of arcs expressed as pairs.
+    fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
+    where
+        Self: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
     {
         IntoPairs {
             lender: Box::new(self),
@@ -103,14 +125,21 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     }
 }
 
-pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> {
+/// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
+/// iterator of triples.
+///
+/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
+/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
+/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
+/// comes from the inner iterator.
+pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
     lender: Box<L>,
     current_node: usize,
     current_iter: Option<LenderIntoIter<'a, L>>,
 }
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
-    for IntoPairs<'a, L>
+    for IntoLabeledPairs<'a, L>
 {
     type Item = (
         usize,
@@ -131,7 +160,61 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
                     return Some((self.current_node, dst, label));
                 }
             }
-            // SAFETY: current_iter is manually guaranteed to be the only lend alive of the inner iterator
+            // SAFETY: We use transmute to extend the lifetime of the iterator from the
+            // temporary borrow of `self.lender` to `'a`. This is sound because:
+            // 1. The previous iterator in `current_iter` is dropped before we create a new one
+            // 2. We only call `lender.next()` after the previous iterator is fully consumed
+            // 3. Therefore, at most one iterator borrowed from `lender` exists at any time
+            // 4. The iterator will be dropped before `lender` is dropped (it's in `current_iter`)
+            //
+            // This pattern is necessary because Rust's borrow checker cannot express the
+            // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
+            if let Some((next_node, next_iter)) = self
+                .lender
+                .next()
+                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
+            {
+                self.current_node = next_node;
+                self.current_iter = Some(next_iter);
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+/// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
+/// iterator of triples.
+///
+/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
+/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
+/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
+/// comes from the inner iterator.
+pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
+    lender: Box<L>,
+    current_node: usize,
+    current_iter: Option<LenderIntoIter<'a, L>>,
+}
+
+impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {
+    type Item = (usize, usize);
+
+    fn next(&mut self) -> Option<(usize, usize)> {
+        loop {
+            if let Some(inner) = &mut self.current_iter {
+                if let Some(dst) = inner.next() {
+                    return Some((self.current_node, dst));
+                }
+            }
+            // SAFETY: We use transmute to extend the lifetime of the iterator from the
+            // temporary borrow of `self.lender` to `'a`. This is sound because:
+            // 1. The previous iterator in `current_iter` is dropped before we create a new one
+            // 2. We only call `lender.next()` after the previous iterator is fully consumed
+            // 3. Therefore, at most one iterator borrowed from `lender` exists at any time
+            // 4. The iterator will be dropped before `lender` is dropped (it's in `current_iter`)
+            //
+            // This pattern is necessary because Rust's borrow checker cannot express the
+            // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
             if let Some((next_node, next_iter)) = self
                 .lender
                 .next()
