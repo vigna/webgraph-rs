@@ -125,7 +125,7 @@ where
     let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
         .split_iter(parts)
         .into_iter()
-        .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs::<'graph>()))
+        .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs::<S::SerType>()))
         .unzip();
 
     Ok(par_sort_graph

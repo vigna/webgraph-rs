@@ -99,15 +99,12 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     ///
     /// Typically, this method is used to convert a lender on a labeled graph
     /// into an iterator of labeled arcs expressed as triples.
-    fn into_labeled_pairs<'a>(self) -> IntoLabeledPairs<'a, Self>
+    fn into_labeled_pairs<R>(self) -> IntoLabeledPairs<Self, R>
     where
-        Self: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
+        Self: Sized + for<'a> NodeLabelsLender<'a, Label: Pair<Left = usize, Right = R>>,
+        R: Copy,
     {
-        IntoLabeledPairs {
-            lender: Box::new(self),
-            current_node: 0,
-            current_iter: None,
-        }
+        IntoLabeledPairs::new(self)
     }
 
     /// Converts this lender into an iterator of pairs, provided that the label
@@ -115,69 +112,62 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     ///
     /// Typically, this method is used to convert a lender on a graph into an
     /// iterator of arcs expressed as pairs.
-    fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
+    fn into_pairs(self) -> IntoPairs<Self>
     where
-        Self: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
+        Self: Sized + for<'a> NodeLabelsLender<'a, Label = usize>,
     {
-        IntoPairs {
-            lender: Box::new(self),
-            current_node: 0,
-            current_iter: None,
-        }
+        IntoPairs::new(self)
     }
 }
 
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
 /// iterator of triples.
 ///
-/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
-/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
-/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
+/// This struct is created by the
+/// [`into_labeled_pairs`](NodeLabelsLender::into_labeled_pairs) method. It
+/// converts a lender that yields `(usize, IntoIterator)` pairs into a flat
+/// iterator of `(src, dst, label)` triples, where each `(dst, label)`
 /// comes from the inner iterator.
-pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
-    lender: Box<L>,
+pub struct IntoLabeledPairs<L, R> {
+    lender: L,
     current_node: usize,
-    current_iter: Option<LenderIntoIter<'a, L>>,
+    current_iter: std::vec::IntoIter<(usize, R)>,
 }
 
-impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
-    for IntoLabeledPairs<'a, L>
+impl<L, R> IntoLabeledPairs<L, R>
+where
+    L: for<'a> NodeLabelsLender<'a, Label: Pair<Left = usize, Right = R>>,
+    R: Copy,
 {
-    type Item = (
-        usize,
-        usize,
-        <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
-    );
+    fn new(lender: L) -> Self {
+        Self {
+            lender,
+            current_node: 0,
+            current_iter: Vec::new().into_iter(),
+        }
+    }
+}
 
-    fn next(
-        &mut self,
-    ) -> Option<(
-        usize,
-        usize,
-        <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
-    )> {
+impl<L, R> Iterator for IntoLabeledPairs<L, R>
+where
+    L: for<'a> NodeLabelsLender<'a, Label: Pair<Left = usize, Right = R>>,
+    R: Copy,
+{
+    type Item = (usize, usize, R);
+
+    fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(inner) = &mut self.current_iter {
-                if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
-                    return Some((self.current_node, dst, label));
-                }
+            if let Some((dst, label)) = self.current_iter.next() {
+                return Some((self.current_node, dst, label));
             }
-            // SAFETY: We use transmute to extend the lifetime of the iterator from the
-            // temporary borrow of `self.lender` to `'a`. This is sound because:
-            // 1. The previous iterator in `current_iter` is dropped before we create a new one
-            // 2. We only call `lender.next()` after the previous iterator is fully consumed
-            // 3. Therefore, at most one iterator borrowed from `lender` exists at any time
-            // 4. The iterator will be dropped before `lender` is dropped (it's in `current_iter`)
-            //
-            // This pattern is necessary because Rust's borrow checker cannot express the
-            // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
-            if let Some((next_node, next_iter)) = self
-                .lender
-                .next()
-                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
-            {
+
+            if let Some((next_node, next_succ)) = self.lender.next() {
                 self.current_node = next_node;
-                self.current_iter = Some(next_iter);
+                self.current_iter = next_succ
+                    .into_iter()
+                    .map(|l| l.into_pair())
+                    .collect::<Vec<_>>()
+                    .into_iter();
             } else {
                 return None;
             }
@@ -186,44 +176,46 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
 }
 
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
-/// iterator of triples.
+/// iterator of pairs.
 ///
 /// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
 /// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
-/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
-/// comes from the inner iterator.
-pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
-    lender: Box<L>,
+/// a flat iterator of `(src, dst)` pairs, where each `dst` comes from the
+/// inner iterator.
+pub struct IntoPairs<L> {
+    lender: L,
     current_node: usize,
-    current_iter: Option<LenderIntoIter<'a, L>>,
+    current_iter: std::vec::IntoIter<usize>,
 }
 
-impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {
+impl<L> IntoPairs<L>
+where
+    L: for<'a> NodeLabelsLender<'a, Label = usize>,
+{
+    fn new(lender: L) -> Self {
+        Self {
+            lender,
+            current_node: 0,
+            current_iter: Vec::new().into_iter(),
+        }
+    }
+}
+
+impl<L> Iterator for IntoPairs<L>
+where
+    L: for<'a> NodeLabelsLender<'a, Label = usize>,
+{
     type Item = (usize, usize);
 
-    fn next(&mut self) -> Option<(usize, usize)> {
+    fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(inner) = &mut self.current_iter {
-                if let Some(dst) = inner.next() {
-                    return Some((self.current_node, dst));
-                }
+            if let Some(dst) = self.current_iter.next() {
+                return Some((self.current_node, dst));
             }
-            // SAFETY: We use transmute to extend the lifetime of the iterator from the
-            // temporary borrow of `self.lender` to `'a`. This is sound because:
-            // 1. The previous iterator in `current_iter` is dropped before we create a new one
-            // 2. We only call `lender.next()` after the previous iterator is fully consumed
-            // 3. Therefore, at most one iterator borrowed from `lender` exists at any time
-            // 4. The iterator will be dropped before `lender` is dropped (it's in `current_iter`)
-            //
-            // This pattern is necessary because Rust's borrow checker cannot express the
-            // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
-            if let Some((next_node, next_iter)) = self
-                .lender
-                .next()
-                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
-            {
+
+            if let Some((next_node, next_succ)) = self.lender.next() {
                 self.current_node = next_node;
-                self.current_iter = Some(next_iter);
+                self.current_iter = next_succ.into_iter().collect::<Vec<_>>().into_iter();
             } else {
                 return None;
             }
