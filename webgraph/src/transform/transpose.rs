@@ -10,7 +10,8 @@ use crate::prelude::proj::Left;
 use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, SortPairs};
 use crate::prelude::{BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph};
 use crate::traits::graph::UnitLabelGraph;
-use crate::utils::MemoryUsage;
+use crate::traits::{NodeLabelsLender, SplitLabeling};
+use crate::utils::{MemoryUsage, ParSortGraph};
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
 use dsi_progress_logger::prelude::*;
@@ -80,4 +81,64 @@ pub fn transpose(
         (),
         (),
     )?))
+}
+
+/// Returns the transpose of the provided labeled graph as a [sequential
+/// graph](crate::traits::SequentialGraph).
+///
+/// For the meaning of the additional parameters, see
+/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+#[allow(clippy::type_complexity)]
+pub fn par_transpose_labeled<
+    'graph,
+    G: 'graph
+        + LabeledSequentialGraph<S::SerType>
+        + for<'a> SplitLabeling<
+            SplitLender<'a>: for<'b> NodeLabelsLender<
+                'b,
+                Label: crate::traits::Pair<Left = usize, Right = S::SerType> + Copy,
+                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+            > + Send
+                                 + Sync,
+            IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
+        >,
+    S: BitSerializer<NE, BitWriter> + Clone + Send + Sync,
+    D: BitDeserializer<NE, BitReader, DeserType: Clone + Send + Sync> + Clone + Send + Sync + 'static,
+>(
+    graph: &'graph G,
+    _batch_size: usize,
+    serializer: S,
+    deserializer: D,
+) -> Result<
+    Vec<
+        impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Clone + Send + Sync,
+            > + 'graph,
+    >,
+>
+where
+    S: 'graph,
+    S::SerType: Send + Sync + Copy,
+    D::DeserType: Clone + Copy,
+{
+    let par_sort_graph = ParSortGraph::new(graph.num_nodes())?;
+    let parts = num_cpus::get();
+
+    let pair = graph
+        .split_iter(parts)
+        .into_iter()
+        .map(|iter| iter.into_labeled_pairs::<'graph>());
+
+    let sorted = par_sort_graph.try_sort_labeled::<S, D, std::convert::Infallible>(
+        &serializer,
+        deserializer,
+        pair,
+    )?;
+
+    Ok(sorted)
 }
