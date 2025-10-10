@@ -100,13 +100,15 @@ pub struct ParSortGraph<L = ()> {
     marker: PhantomData<L>,
 }
 
-/*
 impl ParSortGraph<()> {
     /// See [`try_sort`](ParSortGraph::try_sort).
     pub fn sort(
         &self,
-        pairs: impl IntoIterator<Item: IntoIterator<Item = (usize, usize)>, IntoIter: ExactSizeIterator>,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
+        pairs: impl IntoIterator<
+            Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
+            IntoIter: ExactSizeIterator,
+        >,
+    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
         self.try_sort::<std::convert::Infallible>(pairs)
     }
 
@@ -114,8 +116,11 @@ impl ParSortGraph<()> {
     /// returning a vector of sorted iterators, one per partition.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
-        pairs: impl IntoIterator<Item: IntoIterator<Item = (usize, usize)>, IntoIter: ExactSizeIterator>,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
+        pairs: impl IntoIterator<
+            Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
+            IntoIter: ExactSizeIterator,
+        >,
+    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
         Ok(<ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
             self,
             &(),
@@ -129,7 +134,6 @@ impl ParSortGraph<()> {
         .collect())
     }
 }
-*/
 
 impl<L> ParSortGraph<L> {
     pub fn new(num_nodes: usize) -> Result<Self> {
