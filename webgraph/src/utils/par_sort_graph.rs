@@ -100,38 +100,36 @@ pub struct ParSortGraph<L = ()> {
     marker: PhantomData<L>,
 }
 
+/*
 impl ParSortGraph<()> {
-    /*/// See [`try_sort`](ParSortGraph::try_sort).
+    /// See [`try_sort`](ParSortGraph::try_sort).
     pub fn sort(
         &self,
-        pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L)>,
-            IntoIter: ExactSizeIterator,
-        >,
+        pairs: impl IntoIterator<Item: IntoIterator<Item = (usize, usize)>, IntoIter: ExactSizeIterator>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
-        self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
+        self.try_sort::<std::convert::Infallible>(pairs)
     }
 
     /// Sorts the output of the provided parallel iterator,
     /// returning a vector of sorted iterators, one per partition.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
-        pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L)>,
-            IntoIter: ExactSizeIterator,
-        >,
+        pairs: impl IntoIterator<Item: IntoIterator<Item = (usize, usize)>, IntoIter: ExactSizeIterator>,
     ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
-        Ok(self
-            .try_sort_labeled(
-                &(),
-                (),
-                pairs.map(
-            )?
-            .into_iter()
-            .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
-            .collect())
-    }*/
+        Ok(<ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
+            self,
+            &(),
+            (),
+            pairs
+                .into_iter()
+                .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ()))),
+        )?
+        .into_iter()
+        .map(|iter| iter.into_iter().map(|(src, dst, ())| (src, dst)))
+        .collect())
+    }
 }
+*/
 
 impl<L> ParSortGraph<L> {
     pub fn new(num_nodes: usize) -> Result<Self> {
@@ -188,7 +186,7 @@ impl<L> ParSortGraph<L> {
         }
     }
 
-    /*/// See [`try_sort_labeled`](ParSortGraph::try_sort_labeled).
+    /// See [`try_sort_labeled`](ParSortGraph::try_sort_labeled).
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
     pub fn sort_labeled<S, D>(
@@ -196,7 +194,7 @@ impl<L> ParSortGraph<L> {
         serializer: &S,
         deserializer: D,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L)>,
+            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
@@ -207,7 +205,7 @@ impl<L> ParSortGraph<L> {
                     usize,
                     <D as BitDeserializer<NE, BitReader>>::DeserType,
                 ),
-                IntoIter: Clone + Send + Sync,
+                IntoIter: Send + Sync,
             >,
         >,
     >
@@ -216,12 +214,8 @@ impl<L> ParSortGraph<L> {
         S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
         D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
     {
-        self.try_sort_labeled::<S, D, std::convert::Infallible>(
-            serializer,
-            deserializer,
-            pairs.map(Ok),
-        )
-    }*/
+        self.try_sort_labeled::<S, D, std::convert::Infallible>(serializer, deserializer, pairs)
+    }
 
     /// Sorts the output of the provided parallel iterator,
     /// returning a vector of sorted iterators, one per partition.
@@ -237,8 +231,8 @@ impl<L> ParSortGraph<L> {
         serializer: &S,
         deserializer: D,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send + Sync> + Send + Sync,
-            IntoIter: ExactSizeIterator + Send + Sync,
+            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send> + Send,
+            IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
         Vec<
@@ -248,7 +242,7 @@ impl<L> ParSortGraph<L> {
                     usize,
                     <D as BitDeserializer<NE, BitReader>>::DeserType,
                 ),
-                IntoIter: Clone + Send + Sync,
+                IntoIter: Send + Sync,
             >,
         >,
     >
