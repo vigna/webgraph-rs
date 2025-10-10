@@ -129,7 +129,7 @@ impl SequentialGraph for ErdosRenyi {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transform;
+    use crate::{transform, utils::MemoryUsage};
 
     #[test]
     fn test_er() {
@@ -154,6 +154,6 @@ mod tests {
         // This is just to test that we implemented correctly
         // the SortedIterator and SortedLender traits.
         let er = ErdosRenyi::new(100, 0.1, 0);
-        transform::simplify_sorted(er, 100).unwrap();
+        transform::simplify_sorted(er, MemoryUsage::BatchSize(100)).unwrap();
     }
 }

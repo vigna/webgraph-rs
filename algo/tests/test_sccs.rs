@@ -14,6 +14,7 @@ use webgraph::graphs::random::ErdosRenyi;
 use webgraph::prelude::{BTreeGraph, BvGraph};
 use webgraph::thread_pool;
 use webgraph::transform;
+use webgraph::utils::MemoryUsage;
 use webgraph::{graphs::vec_graph::VecGraph, traits::SequentialLabeling};
 use webgraph_algo::sccs::{self, Sccs};
 
@@ -212,7 +213,9 @@ fn test_er() -> Result<()> {
         for d in 1..10 {
             let graph = VecGraph::from_lender(ErdosRenyi::new(n, (d as f64) / 10.0, 0).iter());
 
-            let transpose = VecGraph::from_lender(transform::transpose(&graph, 10000)?.iter());
+            let transpose = VecGraph::from_lender(
+                transform::transpose(&graph, MemoryUsage::BatchSize(10000))?.iter(),
+            );
             let kosaraju = sccs::kosaraju(&graph, &transpose, no_logging![]);
             let tarjan = sccs::tarjan(&graph, no_logging![]);
 

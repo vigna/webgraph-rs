@@ -42,7 +42,10 @@ pub trait SplitLabeling: SequentialLabeling {
     where
         Self: 'a;
 
-    type IntoIterator<'a>: IntoIterator<Item = (usize, Self::SplitLender<'a>), IntoIter: ExactSizeIterator>
+    type IntoIterator<'a>: IntoIterator<
+        Item = (usize, Self::SplitLender<'a>),
+        IntoIter: ExactSizeIterator,
+    >
     where
         Self: 'a;
 

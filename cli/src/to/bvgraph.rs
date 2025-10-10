@@ -76,7 +76,7 @@ where
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.batch_size.batch_size;
+            let batch_size = args.batch_size.memory_usage;
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();
@@ -115,7 +115,7 @@ where
             .load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.batch_size.batch_size;
+            let batch_size = args.batch_size.memory_usage;
 
             log::info!("Permuting graph with batch size {}", batch_size);
             let start = std::time::Instant::now();

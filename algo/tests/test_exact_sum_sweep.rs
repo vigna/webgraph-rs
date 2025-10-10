@@ -17,6 +17,7 @@ use webgraph::prelude::BTreeGraph;
 use webgraph::thread_pool;
 use webgraph::traits::SequentialLabeling;
 use webgraph::transform::transpose;
+use webgraph::utils::MemoryUsage;
 use webgraph::visits::breadth_first::{EventPred, Seq};
 use webgraph::visits::Sequential;
 use webgraph_algo::distances::exact_sum_sweep::*;
@@ -315,7 +316,7 @@ fn test_er() -> Result<()> {
     for d in 2..=4 {
         let graph = VecGraph::from_lender(ErdosRenyi::new(100, (d as f64) / 100.0, 0).iter());
 
-        let transpose = VecGraph::from_lender(transpose(&graph, 10000)?.iter());
+        let transpose = VecGraph::from_lender(transpose(&graph, MemoryUsage::default())?.iter());
 
         let thread_pool = thread_pool![];
 

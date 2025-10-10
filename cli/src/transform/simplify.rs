@@ -183,7 +183,7 @@ where
 
                 let sorted = webgraph::transform::simplify_split(
                     &perm_graph,
-                    args.batch_size.batch_size,
+                    args.batch_size.memory_usage,
                     &thread_pool,
                 )?;
 
@@ -214,7 +214,7 @@ where
 
             // simplify the graph
             let sorted =
-                webgraph::transform::simplify(&perm_graph, args.batch_size.batch_size).unwrap();
+                webgraph::transform::simplify(&perm_graph, args.batch_size.memory_usage).unwrap();
 
             BvComp::parallel_endianness(
                 &args.dst,
@@ -242,7 +242,7 @@ where
 
                 let sorted = webgraph::transform::simplify_split(
                     &graph,
-                    args.batch_size.batch_size,
+                    args.batch_size.memory_usage,
                     &thread_pool,
                 )?;
 
@@ -269,7 +269,7 @@ where
             let num_nodes = seq_graph.num_nodes();
             // transpose the graph
             let sorted =
-                webgraph::transform::simplify_sorted(seq_graph, args.batch_size.batch_size)
+                webgraph::transform::simplify_sorted(seq_graph, args.batch_size.memory_usage)
                     .unwrap();
 
             BvComp::parallel_endianness(

@@ -8,8 +8,10 @@
 use crate::graphs::arc_list_graph;
 use crate::labels::LeftIterator;
 use crate::prelude::proj::Left;
-use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, SortPairs};
-use crate::prelude::{BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph};
+use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters};
+use crate::prelude::{
+    BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph, SortPairs,
+};
 use crate::traits::graph::UnitLabelGraph;
 use crate::traits::{NodeLabelsLender, SplitLabeling, UnitLender};
 use crate::utils::{MemoryUsage, ParSortGraph};
@@ -30,7 +32,7 @@ pub fn transpose_labeled<
     D: BitDeserializer<NE, BitReader> + Clone + 'static,
 >(
     graph: &impl LabeledSequentialGraph<S::SerType>,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
     serializer: S,
     deserializer: D,
 ) -> Result<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<D>, D::DeserType>>>
@@ -39,12 +41,7 @@ where
     D::DeserType: Clone + Copy,
 {
     let dir = Builder::new().prefix("transpose_").tempdir()?;
-    let mut sorted = SortPairs::new_labeled(
-        MemoryUsage::BatchSize(batch_size),
-        dir.path(),
-        serializer,
-        deserializer,
-    )?;
+    let mut sorted = SortPairs::new_labeled(memory_usage, dir.path(), serializer, deserializer)?;
 
     let mut pl = progress_logger![
         item_name = "node",
@@ -74,11 +71,11 @@ where
 #[allow(clippy::type_complexity)]
 pub fn transpose(
     graph: impl SequentialGraph,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
     Ok(Left(transpose_labeled(
         &UnitLabelGraph(graph),
-        batch_size,
+        memory_usage,
         (),
         (),
     )?))

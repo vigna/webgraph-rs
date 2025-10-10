@@ -30,7 +30,7 @@ use super::transpose;
 #[allow(clippy::type_complexity)]
 pub fn simplify_sorted<G: SequentialGraph>(
     graph: G,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
 ) -> Result<
     NoSelfLoopsGraph<
         UnionGraph<G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>,
@@ -40,7 +40,7 @@ where
     for<'a> G::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'a, G::Lender<'b>>: SortedIterator,
 {
-    let transpose = transpose(&graph, batch_size).context("Could not transpose the graph")?;
+    let transpose = transpose(&graph, memory_usage).context("Could not transpose the graph")?;
     Ok(NoSelfLoopsGraph(UnionGraph(graph, transpose)))
 }
 
@@ -55,7 +55,7 @@ where
 #[allow(clippy::type_complexity)]
 pub fn simplify(
     graph: &impl SequentialGraph,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
 ) -> Result<
     Left<
         arc_list_graph::ArcListGraph<
@@ -64,7 +64,7 @@ pub fn simplify(
     >,
 > {
     let dir = Builder::new().prefix("simplify_").tempdir()?;
-    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
+    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -101,7 +101,7 @@ pub fn simplify(
 #[allow(clippy::type_complexity)]
 pub fn simplify_split<S>(
     graph: &S,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
     threads: &ThreadPool,
 ) -> Result<Left<arc_list_graph::ArcListGraph<itertools::Dedup<KMergeIters<BatchIterator<()>, ()>>>>>
 where
@@ -125,9 +125,7 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted =
-                    SortPairs::new(MemoryUsage::BatchSize(batch_size / num_threads), dir_path)
-                        .unwrap();
+                let mut sorted = SortPairs::new(memory_usage, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         if src != dst {

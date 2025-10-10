@@ -23,9 +23,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
 use sux::bits::BitFieldVec;
-use sysinfo::System;
 use webgraph::prelude::CompFlags;
-use webgraph::utils::Granularity;
+use webgraph::utils::{Granularity, MemoryUsage};
 
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
@@ -166,12 +165,12 @@ impl GranularityArgs {
 /// Shared CLI arguments for commands that specify a batch size.
 #[derive(Args, Debug)]
 pub struct BatchSizeArg {
-    #[clap(short = 'b', long, value_parser = batch_size, default_value = "50%")]
-    /// The number of pairs to be used in batches. Two times this number of
-    /// `usize` will be allocated to sort pairs. You can use the SI and NIST
-    /// multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. You can also use a
-    /// percentage of the available memory by appending a `%` to the number.
-    pub batch_size: usize,
+    #[clap(short = 'b', long = "batch-size", value_parser = batch_size, default_value = "50%")]
+    /// The number of pairs to be used in batches.
+    /// If the number ends with a `b` or `B` it is interpreted as a number of bytes, otherwise as a number of elements.
+    /// You can use the SI and NIST multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi.
+    /// You can also use a percentage of the available memory by appending a `%` to the number.
+    pub memory_usage: MemoryUsage,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -380,8 +379,9 @@ impl IntVectorFormat {
 /// This function accepts either a number (possibly followed by a
 /// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
 /// (followed by a `%`) that is interpreted as a percentage of the core
-/// memory. The function returns the number of pairs to be used for batches.
-pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
+/// memory. If the value ends with a `b` or `B` it is interpreted as a number of
+/// bytes, otherwise as a number of elements.
+pub fn batch_size(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
         ("k", 1E3 as u64),
         ("m", 1E6 as u64),
@@ -400,29 +400,31 @@ pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
     if arg.ends_with('%') {
         let perc = arg[..arg.len() - 1].parse::<f64>()?;
         ensure!(perc >= 0.0 || perc <= 100.0, "percentage out of range");
-        let mut system = System::new();
-        system.refresh_memory();
-        let num_pairs: usize = (((system.total_memory() as f64) * (perc / 100.0)
-            / (std::mem::size_of::<(usize, usize)>() as f64))
-            as u64)
-            .try_into()?;
-        // TODO: try_align_to when available
-        return Ok(num_pairs.align_to(1 << 20)); // Round up to MiBs
+        return Ok(MemoryUsage::from_perc(perc));
     }
 
-    arg.chars().position(|c| c.is_alphabetic()).map_or_else(
-        || Ok(arg.parse::<usize>()?),
-        |pos| {
-            let (num, pref_sym) = arg.split_at(pos);
-            let multiplier = PREF_SYMS
-                .iter()
-                .find(|(x, _)| *x == pref_sym)
-                .map(|(_, m)| m)
-                .ok_or(anyhow!("invalid prefix symbol"))?;
+    let num_digits = arg
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '.')
+        .count();
 
-            Ok((num.parse::<u64>()? * multiplier).try_into()?)
-        },
-    )
+    let number = arg[..num_digits].parse::<f64>()?;
+    let suffix = &arg[num_digits..].trim();
+
+    let multiplier = PREF_SYMS
+        .iter()
+        .find(|(x, _)| suffix.starts_with(x))
+        .map(|(_, m)| m)
+        .ok_or(anyhow!("invalid prefix symbol {}", suffix))?;
+
+    let value = (number * (*multiplier as f64)) as usize;
+    ensure!(value > 0, "batch size must be greater than zero");
+
+    if suffix.ends_with('b') {
+        Ok(MemoryUsage::MemorySize(value))
+    } else {
+        Ok(MemoryUsage::BatchSize(value))
+    }
 }
 
 #[derive(Args, Debug)]

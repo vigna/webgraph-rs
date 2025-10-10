@@ -26,7 +26,7 @@ use tempfile::Builder;
 pub fn permute(
     graph: &impl SequentialGraph,
     perm: &impl BitFieldSlice<usize>,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
     ensure!(
         perm.len() == graph.num_nodes(),
@@ -41,7 +41,7 @@ pub fn permute(
     );
 
     // create a stream where to dump the sorted pairs
-    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
+    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
     // get a premuted view
     let pgraph = PermutedGraph { graph, perm };
@@ -79,7 +79,7 @@ pub fn permute(
 pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
     threads: &ThreadPool,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
 where
@@ -113,9 +113,7 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted =
-                    SortPairs::new(MemoryUsage::BatchSize(batch_size / num_threads), dir_path)
-                        .unwrap();
+                let mut sorted = SortPairs::new(memory_usage / num_threads, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         sorted.push(src, dst).unwrap();

@@ -355,7 +355,7 @@ impl SequentialLabeling for BTreeGraph {
 impl SequentialGraph for BTreeGraph {}
 
 impl RandomAccessLabeling for BTreeGraph {
-    type Labels<'succ> = std::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>;
+    type Labels<'succ> = core::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>;
 
     #[inline(always)]
     fn num_arcs(&self) -> u64 {

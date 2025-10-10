@@ -34,6 +34,37 @@ impl Default for MemoryUsage {
     }
 }
 
+impl core::fmt::Display for MemoryUsage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemoryUsage::MemorySize(size) => write!(f, "{} bytes", size),
+            MemoryUsage::BatchSize(size) => write!(f, "{} elements", size),
+        }
+    }
+}
+
+impl core::ops::Mul<usize> for MemoryUsage {
+    type Output = MemoryUsage;
+
+    fn mul(self, rhs: usize) -> Self::Output {
+        match self {
+            MemoryUsage::MemorySize(size) => MemoryUsage::MemorySize(size * rhs),
+            MemoryUsage::BatchSize(size) => MemoryUsage::BatchSize(size * rhs),
+        }
+    }
+}
+
+impl core::ops::Div<usize> for MemoryUsage {
+    type Output = MemoryUsage;
+
+    fn div(self, rhs: usize) -> Self::Output {
+        match self {
+            MemoryUsage::MemorySize(size) => MemoryUsage::MemorySize(size / rhs),
+            MemoryUsage::BatchSize(size) => MemoryUsage::BatchSize(size / rhs),
+        }
+    }
+}
+
 impl MemoryUsage {
     /// Creates a new memory usage expressed as a percentage of the
     /// physical RAM.

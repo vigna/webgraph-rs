@@ -286,9 +286,9 @@ where
 
     type IntoIterator<'a>
         = core::iter::Map<
-            <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-            fn((usize, G::SplitLender<'a>)) -> (usize, Self::SplitLender<'a>),
-        >
+        <G::IntoIterator<'a> as IntoIterator>::IntoIter,
+        fn((usize, G::SplitLender<'a>)) -> (usize, Self::SplitLender<'a>),
+    >
     where
         Self: 'a;
 

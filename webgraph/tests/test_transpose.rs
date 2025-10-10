@@ -13,6 +13,7 @@ use webgraph::prelude::{transpose, transpose_labeled};
 use webgraph::traits::labels::SequentialLabeling;
 use webgraph::traits::{graph, BitDeserializer, BitSerializer};
 use webgraph::utils::sort_pairs::{BitReader, BitWriter};
+use webgraph::utils::MemoryUsage;
 
 #[test]
 fn test_transpose() -> anyhow::Result<()> {
@@ -20,10 +21,10 @@ fn test_transpose() -> anyhow::Result<()> {
     let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arcs(arcs);
 
-    let trans = transpose(&g, 3)?;
+    let trans = transpose(&g, MemoryUsage::BatchSize(3))?;
     let g2 = VecGraph::from_lender(&trans);
 
-    let trans = transpose(g2, 3)?;
+    let trans = transpose(g2, MemoryUsage::BatchSize(3))?;
     let g3 = VecGraph::from_lender(&trans);
 
     graph::eq(&g, &g3)?;
@@ -87,10 +88,10 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-    let trans = transpose_labeled(&g, 2, BS {}, BD {})?;
+    let trans = transpose_labeled(&g, MemoryUsage::BatchSize(3), BS {}, BD {})?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-    let trans = transpose_labeled(&g2, 2, BS {}, BD {})?;
+    let trans = transpose_labeled(&g2, MemoryUsage::BatchSize(3), BS {}, BD {})?;
     let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
     let g4 = LabeledVecGraph::from_lender(g.iter());
