@@ -30,7 +30,7 @@ pub struct CliArgs {
     pub num_threads: NumThreadsArg,
 
     #[clap(flatten)]
-    pub batch_size: BatchSizeArg,
+    pub memory_usage: MemoryUsageArg,
 
     #[clap(flatten)]
     pub ca: CompressArgs,
@@ -72,7 +72,8 @@ where
         .load()?;
 
     // transpose the graph
-    let sorted = webgraph::transform::transpose(&seq_graph, args.batch_size.memory_usage).unwrap();
+    let sorted =
+        webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage).unwrap();
 
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
@@ -106,7 +107,7 @@ where
 
     // transpose the graph
     let sorted =
-        webgraph::transform::par_transpose(&seq_graph, args.batch_size.batch_size).unwrap();
+        webgraph::transform::par_transpose(&seq_graph, args.memory_usage.memory_usage).unwrap();
 
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     BvComp::parallel_iter::<E, _>(

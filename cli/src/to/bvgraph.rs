@@ -32,7 +32,7 @@ pub struct CliArgs {
     pub permutation: Option<PathBuf>,
 
     #[clap(flatten)]
-    pub batch_size: BatchSizeArg,
+    pub memory_usage: MemoryUsageArg,
 
     #[clap(flatten)]
     pub ca: CompressArgs,
@@ -76,12 +76,16 @@ where
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.batch_size.memory_usage;
+            let memory_usage = args.memory_usage.memory_usage;
 
-            log::info!("Permuting graph with batch size {}", batch_size);
+            log::info!("Permuting graph with memory usage {}", memory_usage);
             let start = std::time::Instant::now();
-            let sorted =
-                webgraph::transform::permute_split(&graph, &permutation, batch_size, &thread_pool)?;
+            let sorted = webgraph::transform::permute_split(
+                &graph,
+                &permutation,
+                memory_usage,
+                &thread_pool,
+            )?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
@@ -115,11 +119,11 @@ where
             .load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.batch_size.memory_usage;
+            let memory_usage = args.memory_usage.memory_usage;
 
-            log::info!("Permuting graph with batch size {}", batch_size);
+            log::info!("Permuting graph with memory usage {}", memory_usage);
             let start = std::time::Instant::now();
-            let permuted = webgraph::transform::permute(&seq_graph, &permutation, batch_size)?;
+            let permuted = webgraph::transform::permute(&seq_graph, &permutation, memory_usage)?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()

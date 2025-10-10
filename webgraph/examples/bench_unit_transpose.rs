@@ -29,10 +29,10 @@ struct Args {
 
 pub fn transpose(
     graph: &impl SequentialGraph,
-    batch_size: usize,
+    memory_usage: MemoryUsage,
 ) -> Result<Left<ArcListGraph<impl Iterator<Item = (usize, usize, ())> + Clone>>> {
     let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
-    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
+    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -67,7 +67,7 @@ where
         let mut pl = ProgressLogger::default();
         pl.start("Transposing standard graph...");
 
-        let mut iter = transpose(&graph, 10_000_000)?.iter();
+        let mut iter = transpose(&graph, MemoryUsage::BatchSize(10_000_000))?.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {

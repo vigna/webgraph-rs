@@ -162,10 +162,10 @@ impl GranularityArgs {
     }
 }
 
-/// Shared CLI arguments for commands that specify a batch size.
+/// Shared CLI arguments for commands that specify a memory usage.
 #[derive(Args, Debug)]
-pub struct BatchSizeArg {
-    #[clap(short = 'b', long = "batch-size", value_parser = batch_size, default_value = "50%")]
+pub struct MemoryUsageArg {
+    #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "50%")]
     /// The number of pairs to be used in batches.
     /// If the number ends with a `b` or `B` it is interpreted as a number of bytes, otherwise as a number of elements.
     /// You can use the SI and NIST multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi.
@@ -381,7 +381,7 @@ impl IntVectorFormat {
 /// (followed by a `%`) that is interpreted as a percentage of the core
 /// memory. If the value ends with a `b` or `B` it is interpreted as a number of
 /// bytes, otherwise as a number of elements.
-pub fn batch_size(arg: &str) -> anyhow::Result<MemoryUsage> {
+pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
         ("k", 1E3 as u64),
         ("m", 1E6 as u64),

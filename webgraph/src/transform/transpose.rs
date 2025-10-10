@@ -104,7 +104,7 @@ pub fn par_transpose_labeled<
     D: BitDeserializer<NE, BitReader, DeserType: Clone + Send + Sync> + Clone + Send + Sync + 'static,
 >(
     graph: &'graph G,
-    _batch_size: usize,
+    memory_usage: MemoryUsage,
     serializer: S,
     deserializer: D,
 ) -> Result<
@@ -115,7 +115,7 @@ where
     S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
-    let par_sort_graph = ParSortGraph::new(graph.num_nodes())?;
+    let par_sort_graph = ParSortGraph::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
     let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
@@ -149,10 +149,10 @@ pub fn par_transpose<
         >,
 >(
     graph: &'graph G,
-    _batch_size: usize,
+    memory_usage: MemoryUsage,
 ) -> Result<Vec<impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync>> {
     let num_nodes = graph.num_nodes();
-    let par_sort_graph = ParSortGraph::new(num_nodes)?;
+    let par_sort_graph = ParSortGraph::new(num_nodes)?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
     let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
