@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2025 Inria
  * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -21,19 +22,17 @@
 //! If your pairs are emitted by a single parallel iterator, consider using
 //! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs) instead.
 
-use std::marker::PhantomData;
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 use sync_cell_slice::SyncSlice;
 
 use anyhow::{Context, Result};
-use dsi_bitstream::traits::NE;
 use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
 use rayon::prelude::*;
 
-use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
+use super::sort_pairs::KMergeIters;
 use super::MemoryUsage;
-use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::SplitIters;
+use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 
 /// Takes a sequence of iterators of (labelled)pairs as input, and turns them
 /// into [`SplitIters`] structure which is suitable for
@@ -103,23 +102,21 @@ use crate::utils::SplitIters;
 /// )?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ParSortIters<L = ()> {
+pub struct ParSortIters {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
-    marker: PhantomData<L>,
 }
 
-impl ParSortIters<()> {
-    /// See [`try_sort`](ParSortIters::try_sort).
-    ///
+impl ParSortIters {
     /// This is a convenience method for iterators that cannot fail.
+    /// See [`try_sort`](ParSortIters::try_sort).
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
-            IntoIter: ExactSizeIterator,
+            Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+            IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
         self.try_sort::<std::convert::Infallible>(pairs)
@@ -130,14 +127,13 @@ impl ParSortIters<()> {
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
-            IntoIter: ExactSizeIterator,
+            Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+            IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
-        let split = <ParSortIters<()>>::try_sort_labeled::<(), (), E>(
+        let split = <ParSortIters>::try_sort_labeled::<DefaultBatchCodec, E>(
             self,
-            &(),
-            (),
+            DefaultBatchCodec::default(),
             pairs
                 .into_iter()
                 .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
@@ -157,7 +153,7 @@ impl ParSortIters<()> {
     }
 }
 
-impl<L> ParSortIters<L> {
+impl ParSortIters {
     /// Creates a new [`ParSortIters`] instance.
     ///
     /// The methods [`num_partitions`](ParSortIters::num_partitions) (which sets
@@ -174,7 +170,6 @@ impl<L> ParSortIters<L> {
             expected_num_pairs: None,
             num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
             memory_usage: MemoryUsage::default(),
-            marker: PhantomData,
         })
     }
 
@@ -216,31 +211,17 @@ impl<L> ParSortIters<L> {
     /// See [`try_sort_labeled`](ParSortIters::try_sort_labeled).
     ///
     /// This is a convenience method for iterators that cannot fail.
-    pub fn sort_labeled<S, D>(
+    pub fn sort_labeled<C: BatchCodec>(
         &self,
-        serializer: &S,
-        deserializer: D,
+        batch_codec: C,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = ((usize, usize), L), IntoIter: Send> + Send,
+            Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
-        SplitIters<
-            impl IntoIterator<
-                Item = (
-                    (usize, usize),
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Send + Sync,
-            >,
-        >,
-    >
-    where
-        L: Copy + Send + Sync,
-        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
-    {
-        self.try_sort_labeled::<S, D, std::convert::Infallible>(serializer, deserializer, pairs)
+        SplitIters<impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>>,
+    > {
+        self.try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs)
     }
 
     /// Sorts the output of the provided sequence of iterators of (labelled)
@@ -252,37 +233,23 @@ impl<L> ParSortIters<L> {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// [`BatchIterator`], and there are possible scenarios in which the
     /// deserializer might be stateful.
-    pub fn try_sort_labeled<S, D, E: Into<anyhow::Error>>(
+    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>>(
         &self,
-        serializer: &S,
-        deserializer: D,
+        batch_codec: C,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = ((usize, usize), L), IntoIter: Send> + Send,
+            Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
-        SplitIters<
-            impl IntoIterator<
-                Item = (
-                    (usize, usize),
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Send + Sync,
-            >,
-        >,
-    >
-    where
-        L: Copy + Send + Sync,
-        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
-    {
+        SplitIters<impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>>,
+    > {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();
         let num_buffers = rayon::current_num_threads() * num_partitions;
         let batch_size = self
             .memory_usage
-            .batch_size::<Triple<L>>()
+            .batch_size::<((usize, usize), C::Label)>()
             .div_ceil(num_buffers);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
@@ -303,12 +270,11 @@ impl<L> ParSortIters<L> {
 
         let mut partitioned_presorted_pairs = vec![vec![]; num_blocks];
         let result = partitioned_presorted_pairs.as_sync_slice();
-
         std::thread::scope(|s| {
             let presort_tmp_dir = &presort_tmp_dir;
             for (block_id, pair) in unsorted_pairs.enumerate() {
-                let deserializer = deserializer.clone();
                 let mut pl = pl.clone();
+                let batch_codec = &batch_codec;
                 s.spawn(move || {
                     let mut unsorted_buffers = (0..num_partitions)
                         .map(|_| Vec::with_capacity(batch_size))
@@ -325,8 +291,7 @@ impl<L> ParSortIters<L> {
                             let buf_len = buf.len();
                             super::par_sort_pairs::flush_buffer(
                                 presort_tmp_dir.path(),
-                                serializer,
-                                deserializer.clone(),
+                                batch_codec,
                                 block_id,
                                 partition_id,
                                 sorted_pairs,
@@ -338,10 +303,7 @@ impl<L> ParSortIters<L> {
                             pl.update_with_count(buf_len);
                         }
 
-                        buf.push(Triple {
-                            pair: [src, dst],
-                            label,
-                        });
+                        buf.push(((src, dst), label));
                     }
 
                     for (partition_id, (pairs, mut buf)) in sorted_pairs
@@ -352,8 +314,7 @@ impl<L> ParSortIters<L> {
                         let buf_len = buf.len();
                         super::par_sort_pairs::flush_buffer(
                             presort_tmp_dir.path(),
-                            serializer,
-                            deserializer.clone(),
+                            batch_codec,
                             block_id,
                             partition_id,
                             pairs,
@@ -379,9 +340,9 @@ impl<L> ParSortIters<L> {
         // Let's merge the {partition_id -> [iterators]} maps of each worker
         let partitioned_presorted_pairs = partitioned_presorted_pairs.into_par_iter().reduce(
             || (0..num_partitions).map(|_| Vec::new()).collect(),
-            |mut pair_partitions1: Vec<Vec<BatchIterator<D>>>,
-             pair_partitions2: Vec<Vec<BatchIterator<D>>>|
-             -> Vec<Vec<BatchIterator<D>>> {
+            |mut pair_partitions1: Vec<Vec<CodecIter<C>>>,
+             pair_partitions2: Vec<Vec<CodecIter<C>>>|
+             -> Vec<Vec<CodecIter<C>>> {
                 assert_eq!(pair_partitions1.len(), num_partitions);
                 assert_eq!(pair_partitions2.len(), num_partitions);
                 for (partition1, partition2) in pair_partitions1

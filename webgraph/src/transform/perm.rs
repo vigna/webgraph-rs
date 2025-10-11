@@ -5,7 +5,7 @@
  */
 
 use crate::graphs::arc_list_graph;
-use crate::prelude::sort_pairs::{BatchIterator, KMergeIters};
+use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::*;
 use anyhow::{ensure, Context, Result};
 use dsi_progress_logger::prelude::*;
@@ -26,7 +26,7 @@ pub fn permute(
     graph: &impl SequentialGraph,
     perm: &impl SliceByValue<Value = usize>,
     memory_usage: MemoryUsage,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>> {
     ensure!(
         perm.len() == graph.num_nodes(),
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
@@ -79,7 +79,7 @@ pub fn permute_split<S, P>(
     perm: &P,
     memory_usage: MemoryUsage,
     threads: &ThreadPool,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
     P: SliceByValue<Value = usize> + Send + Sync + Clone,

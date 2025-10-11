@@ -32,6 +32,9 @@ pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     }
 }
 
+mod batch_codec;
+pub use batch_codec::*;
+
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 

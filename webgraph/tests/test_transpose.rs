@@ -12,6 +12,7 @@ use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::prelude::{transpose, transpose_labeled, transpose_split};
 use webgraph::traits::labels::SequentialLabeling;
 use webgraph::traits::{graph, BitDeserializer, BitSerializer};
+use webgraph::utils::gaps::GapsCodec;
 use webgraph::utils::sort_pairs::{BitReader, BitWriter};
 use webgraph::utils::MemoryUsage;
 
@@ -88,10 +89,24 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-    let trans = transpose_labeled(&g, MemoryUsage::BatchSize(3), BS {}, BD {})?;
+    let trans = transpose_labeled(
+        &g,
+        MemoryUsage::BatchSize(3),
+        GapsCodec::<_, _> {
+            serializer: BS {},
+            deserializer: BD {},
+        },
+    )?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-    let trans = transpose_labeled(&g2, MemoryUsage::BatchSize(3), BS {}, BD {})?;
+    let trans = transpose_labeled(
+        &g2,
+        MemoryUsage::BatchSize(3),
+        GapsCodec::<_, _> {
+            serializer: BS {},
+            deserializer: BD {},
+        },
+    )?;
     let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
     let g4 = LabeledVecGraph::from_lender(g.iter());
