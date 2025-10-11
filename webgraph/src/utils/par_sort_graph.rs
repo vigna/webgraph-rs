@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2025 Inria
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -9,20 +10,17 @@
 //! Facilities to sort in parallel externally pairs of nodes with an associated
 //! label returned by a [`ParallelIterator`].
 
-use std::marker::PhantomData;
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::Mutex;
 
 use anyhow::{ensure, Context, Result};
-use dsi_bitstream::traits::NE;
 use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
 use rayon::prelude::*;
-use rdst::RadixSort;
 
-use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
+use super::sort_pairs::KMergeIters;
 use super::MemoryUsage;
-use crate::traits::{BitDeserializer, BitSerializer};
+use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 
 /// Takes a parallel iterator of pairs as input, and returns them into a vector
 /// of sorted iterators (which can be flattened into a single iterator),
@@ -92,23 +90,22 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// )?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ParSortGraph<L = ()> {
+pub struct ParSortGraph {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
-    marker: PhantomData<L>,
 }
 
-impl ParSortGraph<()> {
+impl ParSortGraph {
     /// See [`try_sort`](ParSortGraph::try_sort).
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
-            IntoIter: ExactSizeIterator,
+            Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+            IntoIter: ExactSizeIterator + Send + Sync,
         >,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
+    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
         self.try_sort::<std::convert::Infallible>(pairs)
     }
 
@@ -117,14 +114,13 @@ impl ParSortGraph<()> {
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
-            IntoIter: ExactSizeIterator,
+            Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+            IntoIter: ExactSizeIterator + Send + Sync,
         >,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
-        Ok(<ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
+    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
+        Ok(<ParSortGraph>::try_sort_labeled::<_, E>(
             self,
-            &(),
-            (),
+            DefaultBatchCodec::default(),
             pairs
                 .into_iter()
                 .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ()))),
@@ -135,14 +131,13 @@ impl ParSortGraph<()> {
     }
 }
 
-impl<L> ParSortGraph<L> {
+impl ParSortGraph {
     pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
             expected_num_pairs: None,
             num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
             memory_usage: MemoryUsage::default(),
-            marker: PhantomData,
         })
     }
 
@@ -193,32 +188,19 @@ impl<L> ParSortGraph<L> {
     /// See [`try_sort_labeled`](ParSortGraph::try_sort_labeled).
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
-    pub fn sort_labeled<S, D>(
+    pub fn sort_labeled<C: BatchCodec>(
         &self,
-        serializer: &S,
-        deserializer: D,
+        batch_codec: C,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send> + Send,
-            IntoIter: ExactSizeIterator,
+            Item: IntoIterator<Item = (usize, usize, C::Label), IntoIter: Send + Sync>
+                      + Send
+                      + Sync,
+            IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<
-        Vec<
-            impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Send + Sync,
-            >,
-        >,
-    >
-    where
-        L: Copy + Send + Sync,
-        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
-    {
-        self.try_sort_labeled::<S, D, std::convert::Infallible>(serializer, deserializer, pairs)
+        Vec<impl IntoIterator<Item = (usize, usize, C::Label), IntoIter: Clone + Send + Sync>>,
+    > {
+        self.try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs)
     }
 
     /// Sorts the output of the provided parallel iterator,
@@ -230,37 +212,24 @@ impl<L> ParSortGraph<L> {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// [`BatchIterator`], and there are possible scenarios in which the
     /// deserializer might be stateful.
-    pub fn try_sort_labeled<S, D, E: Into<anyhow::Error>>(
+    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>>(
         &self,
-        serializer: &S,
-        deserializer: D,
+        batch_codec: C,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send> + Send,
-            IntoIter: ExactSizeIterator,
+            Item: IntoIterator<Item = (usize, usize, C::Label), IntoIter: Send + Sync>
+                      + Send
+                      + Sync,
+            IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<
-        Vec<
-            impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Send + Sync,
-            >,
-        >,
-    >
-    where
-        L: Copy + Send + Sync,
-        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
-    {
+        Vec<impl IntoIterator<Item = (usize, usize, C::Label), IntoIter: Clone + Send + Sync>>,
+    > {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();
         let batch_size = match self.memory_usage {
             MemoryUsage::MemorySize(num_bytes) => {
-                let pair_size = size_of::<usize>() * 2 + size_of::<L>();
+                let pair_size = size_of::<(usize, usize, C::Label)>();
                 dbg!(rayon::max_num_threads(), num_partitions, pair_size);
                 let num_buffers = rayon::current_num_threads() * num_partitions;
                 num_bytes / (pair_size * num_buffers)
@@ -284,14 +253,15 @@ impl<L> ParSortGraph<L> {
         let unsorted_pairs = unsorted_pairs.into_iter();
         let num_blocks = unsorted_pairs.len();
 
-        let partitioned_presorted_pairs = Mutex::new(vec![Vec::new(); num_blocks]);
+        let partitioned_presorted_pairs =
+            Mutex::new((0..num_blocks).map(|_| Vec::new()).collect::<Vec<_>>());
 
         std::thread::scope(|s| {
             let partitioned_presorted_pairs = &partitioned_presorted_pairs;
             let presort_tmp_dir = &presort_tmp_dir;
             for (block_id, pair) in unsorted_pairs.enumerate() {
-                let deserializer = deserializer.clone();
                 let mut pl = pl.clone();
+                let batch_codec = &batch_codec;
                 s.spawn(move || {
                     let mut unsorted_buffers = (0..num_partitions)
                         .map(|_| Vec::with_capacity(batch_size))
@@ -313,8 +283,7 @@ impl<L> ParSortGraph<L> {
                             let buf_len = buf.len();
                             flush_buffer(
                                 presort_tmp_dir.path(),
-                                serializer,
-                                deserializer.clone(),
+                                batch_codec,
                                 block_id,
                                 partition_id,
                                 sorted_pairs,
@@ -326,10 +295,7 @@ impl<L> ParSortGraph<L> {
                             pl.update_with_count(buf_len);
                         }
 
-                        buf.push(Triple {
-                            pair: [src, dst],
-                            label,
-                        });
+                        buf.push((src, dst, label));
                     }
 
                     for (partition_id, (mut pairs, mut buf)) in sorted_pairs
@@ -340,8 +306,7 @@ impl<L> ParSortGraph<L> {
                         let buf_len = buf.len();
                         flush_buffer(
                             presort_tmp_dir.path(),
-                            serializer,
-                            deserializer.clone(),
+                            batch_codec,
                             block_id,
                             partition_id,
                             &mut pairs,
@@ -370,9 +335,9 @@ impl<L> ParSortGraph<L> {
             .into_par_iter()
             .reduce(
                 || (0..num_partitions).map(|_| Vec::new()).collect(),
-                |mut pair_partitions1: Vec<Vec<BatchIterator<D>>>,
-                 pair_partitions2: Vec<Vec<BatchIterator<D>>>|
-                 -> Vec<Vec<BatchIterator<D>>> {
+                |mut pair_partitions1: Vec<Vec<CodecIter<C>>>,
+                 pair_partitions2: Vec<Vec<CodecIter<C>>>|
+                 -> Vec<Vec<CodecIter<C>>> {
                     assert_eq!(pair_partitions1.len(), num_partitions);
                     assert_eq!(pair_partitions2.len(), num_partitions);
                     for (partition1, partition2) in pair_partitions1
@@ -400,21 +365,14 @@ impl<L> ParSortGraph<L> {
     }
 }
 
-fn flush_buffer<
-    L: Copy + Send + Sync,
-    S: BitSerializer<NE, BitWriter, SerType = L>,
-    D: BitDeserializer<NE, BitReader>,
->(
+fn flush_buffer<C: BatchCodec>(
     tmp_dir: &Path,
-    serializer: &S,
-    deserializer: D,
+    batch_codec: &C,
     worker_id: usize,
     partition_id: usize,
-    sorted_pairs: &mut Vec<BatchIterator<D>>,
-    buf: &mut Vec<Triple<L>>,
+    sorted_pairs: &mut Vec<CodecIter<C>>,
+    buf: &mut Vec<(usize, usize, C::Label)>,
 ) -> Result<()> {
-    buf.radix_sort_unstable();
-
     let path = tmp_dir.join(format!(
         "sorted_batch_{worker_id}_{partition_id}_{}",
         sorted_pairs.len()
@@ -426,9 +384,14 @@ fn flush_buffer<
         "Can't create temporary file {}, it already exists",
         path.display()
     );
+    batch_codec
+        .encode_batch(&path, buf)
+        .with_context(|| format!("Could not write sorted batch to {}", path.display()))?;
     sorted_pairs.push(
-        BatchIterator::new_from_vec_sorted_labeled(&path, buf, serializer, deserializer)
-            .with_context(|| format!("Could not write sorted batch to {}", path.display()))?,
+        batch_codec
+            .decode_batch(&path)
+            .with_context(|| format!("Could not read sorted batch from {}", path.display()))?
+            .into_iter(),
     );
     buf.clear();
     Ok(())

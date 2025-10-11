@@ -10,7 +10,8 @@ webgraph-cli = { path = "./cli", version = "0.1.0" }
 card-est-array = "0.1.0"
 epserde = "0.10.2"
 #epserde = { git = "https://github.com/vigna/epserde-rs" }
-dsi-bitstream = "0.5.0"
+#dsi-bitstream = "0.5.0"
+dsi-bitstream = { git = "https://github.com/vigna/dsi-bitstream-rs" }
 dsi-progress-logger = "0.8.1"
 #sux = "0.8.0"
 sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"], rev = "c56b15a17b21cdbc8d7b6ac1ed57a58bbaa664a1" }
