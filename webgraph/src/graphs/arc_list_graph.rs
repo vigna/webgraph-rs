@@ -27,7 +27,7 @@ pub struct ArcListGraph<I: Clone> {
     into_iter: I,
 }
 
-impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ArcListGraph<I> {
+impl<L: Clone + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ArcListGraph<I> {
     /// Creates a new arc-list graph from the given [`IntoIterator`].
     #[inline(always)]
     pub fn new_labeled(num_nodes: usize, iter: I) -> Self {

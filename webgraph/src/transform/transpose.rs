@@ -8,15 +8,12 @@
 use crate::graphs::arc_list_graph;
 use crate::labels::LeftIterator;
 use crate::prelude::proj::Left;
-use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters};
-use crate::prelude::{
-    BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph, SortPairs,
-};
+use crate::prelude::sort_pairs::KMergeIters;
+use crate::prelude::{LabeledSequentialGraph, SequentialGraph, SortPairs};
 use crate::traits::graph::UnitLabelGraph;
 use crate::traits::{NodeLabelsLender, SplitLabeling, UnitLender};
-use crate::utils::{MemoryUsage, ParSortGraph};
+use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortGraph};
 use anyhow::Result;
-use dsi_bitstream::traits::NE;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use tempfile::Builder;
@@ -27,21 +24,17 @@ use tempfile::Builder;
 /// For the meaning of the additional parameters, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
 #[allow(clippy::type_complexity)]
-pub fn transpose_labeled<
-    S: BitSerializer<NE, BitWriter> + Clone,
-    D: BitDeserializer<NE, BitReader> + Clone + 'static,
->(
-    graph: &impl LabeledSequentialGraph<S::SerType>,
+pub fn transpose_labeled<C: BatchCodec>(
+    graph: &impl LabeledSequentialGraph<C::Label>,
     memory_usage: MemoryUsage,
-    serializer: S,
-    deserializer: D,
-) -> Result<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<D>, D::DeserType>>>
+    batch_codec: C,
+) -> Result<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<C>, C::Label>>>
 where
-    S::SerType: Send + Sync + Copy,
-    D::DeserType: Clone + Copy,
+    C::Label: Clone + 'static,
+    CodecIter<C>: Clone + Send + Sync,
 {
     let dir = Builder::new().prefix("transpose_").tempdir()?;
-    let mut sorted = SortPairs::new_labeled(memory_usage, dir.path(), serializer, deserializer)?;
+    let mut sorted = SortPairs::new_labeled(memory_usage, dir.path(), batch_codec)?;
 
     let mut pl = progress_logger![
         item_name = "node",
@@ -72,12 +65,11 @@ where
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>> {
     Ok(Left(transpose_labeled(
         &UnitLabelGraph(graph),
         memory_usage,
-        (),
-        (),
+        DefaultBatchCodec::default(),
     )?))
 }
 
@@ -90,30 +82,25 @@ pub fn transpose(
 pub fn par_transpose_labeled<
     'graph,
     G: 'graph
-        + LabeledSequentialGraph<S::SerType>
+        + LabeledSequentialGraph<C::Label>
         + for<'a> SplitLabeling<
             SplitLender<'a>: for<'b> NodeLabelsLender<
                 'b,
-                Label: crate::traits::Pair<Left = usize, Right = S::SerType> + Copy,
+                Label: crate::traits::Pair<Left = usize, Right = C::Label> + Copy,
                 IntoIterator: IntoIterator<IntoIter: Send + Sync>,
             > + Send
                                  + Sync,
             IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
         >,
-    S: BitSerializer<NE, BitWriter> + Clone + Send + Sync,
-    D: BitDeserializer<NE, BitReader, DeserType: Clone + Send + Sync> + Clone + Send + Sync + 'static,
+    C,
 >(
     graph: &'graph G,
     memory_usage: MemoryUsage,
-    serializer: S,
-    deserializer: D,
-) -> Result<
-    Vec<impl for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph>,
->
+    batch_codec: C,
+) -> Result<Vec<impl for<'a> NodeLabelsLender<'a, Label = (usize, C::Label)> + Send + Sync + 'graph>>
 where
-    S: 'graph,
-    S::SerType: Send + Sync + Copy,
-    D::DeserType: Clone + Copy,
+    C: BatchCodec + 'graph,
+    CodecIter<C>: Clone + Send + Sync,
 {
     let par_sort_graph = ParSortGraph::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
@@ -125,7 +112,7 @@ where
         .unzip();
 
     par_sort_graph
-        .try_sort_labeled::<S, D, std::convert::Infallible>(&serializer, deserializer, pairs)?
+        .try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs)?
         .into_iter()
         .enumerate()
         .map(|(i, res)| {
@@ -134,8 +121,12 @@ where
         .collect()
 }
 
-pub fn par_transpose<
-    'graph,
+pub fn par_transpose<'graph, G>(
+    graph: &'graph G,
+    memory_usage: MemoryUsage,
+) -> Result<Vec<impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync>>
+where
+    // TODO check if 'graph is needed
     G: 'graph
         + SequentialGraph
         + for<'a> SplitLabeling<
@@ -147,10 +138,7 @@ pub fn par_transpose<
                                  + Sync,
             IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
         >,
->(
-    graph: &'graph G,
-    memory_usage: MemoryUsage,
-) -> Result<Vec<impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync>> {
+{
     let num_nodes = graph.num_nodes();
     let par_sort_graph = ParSortGraph::new(num_nodes)?.memory_usage(memory_usage);
     let parts = num_cpus::get();
@@ -161,8 +149,9 @@ pub fn par_transpose<
         .map(|(start_node, iter)| (start_node, UnitLender(iter).into_labeled_pairs()))
         .unzip();
 
+    let batch_codec = DefaultBatchCodec::default();
     Ok(par_sort_graph
-        .try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)?
+        .try_sort_labeled::<_, std::convert::Infallible>(batch_codec, pairs)?
         .into_iter()
         .enumerate()
         .map(|(i, res)| {
