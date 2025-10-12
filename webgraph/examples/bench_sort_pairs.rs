@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::traits::BitRead;
 use dsi_bitstream::traits::BitWrite;
-use dsi_bitstream::traits::Endianness;
+use dsi_bitstream::traits::{Endianness, BE};
 use dsi_progress_logger::prelude::{ProgressLog, ProgressLogger};
 use rand::rngs::SmallRng;
 use rand::RngCore;
@@ -66,10 +66,7 @@ pub fn main() -> Result<()> {
         let mut sp = SortPairs::new_labeled(
             MemoryUsage::BatchSize(args.batch),
             dir.path(),
-            GapsCodec::<_, _> {
-                serializer: Mock(),
-                deserializer: Mock(),
-            },
+            GapsCodec::<BE, _, _>::new(Mock(), Mock()),
         )?;
 
         let mut r = SmallRng::seed_from_u64(0);

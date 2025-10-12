@@ -19,8 +19,8 @@ pub mod grouped_gaps;
 /// The recommended default batch codec for unlabelled batches.
 pub type DefaultBatchCodec = grouped_gaps::GroupedGapsCodec;
 
-pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
-pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
+pub type BitWriter<E> = BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>;
+pub type BitReader<E> = BufBitReader<E, MemWordReader<u32, ArcMmapHelper<u32>>>;
 
 /// A trait for encoding and decoding batches of sorted triples.
 pub trait BatchCodec: Send + Sync {
@@ -115,7 +115,7 @@ impl<L> Eq for Triple<L> {}
 
 impl<L> PartialOrd for Triple<L> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.0 .0.cmp(&other.0 .0).then(self.0 .1.cmp(&other.0 .1)))
+        Some(self.cmp(other))
     }
 }
 
