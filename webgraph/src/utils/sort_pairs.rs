@@ -9,22 +9,13 @@
 //! Facilities to sort externally pairs of nodes with an associated label.
 #![allow(clippy::non_canonical_partial_ord_impl)]
 
-use super::ArcMmapHelper;
 use crate::{
     traits::SortedIterator,
     utils::{BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage},
 };
 use anyhow::{anyhow, Context};
 use dary_heap::PeekMut;
-use dsi_bitstream::prelude::*;
-use std::{
-    fs::File,
-    io::BufWriter,
-    path::{Path, PathBuf},
-};
-
-pub type BitWriter = BufBitWriter<NE, WordAdapter<usize, BufWriter<File>>>;
-pub type BitReader = BufBitReader<NE, MemWordReader<u32, ArcMmapHelper<u32>>>;
+use std::path::{Path, PathBuf};
 
 /// A struct that provides external sorting for pairs of nodes with an
 /// associated label.
@@ -438,29 +429,46 @@ mod tests {
     use super::*;
     use crate::{
         traits::{BitDeserializer, BitSerializer},
-        utils::gaps::GapsCodec,
+        utils::{gaps::GapsCodec, BitReader, BitWriter},
     };
+    use dsi_bitstream::prelude::*;
 
-    #[derive(Clone, Debug, Default)]
-    struct MyDessert;
+    #[derive(Clone, Debug)]
+    struct MyDessert<E: Endianness> {
+        _marker: std::marker::PhantomData<E>,
+    }
 
-    impl BitDeserializer<NE, BitReader> for MyDessert {
+    impl<E: Endianness> Default for MyDessert<E> {
+        fn default() -> Self {
+            MyDessert {
+                _marker: std::marker::PhantomData,
+            }
+        }
+    }
+
+    impl<E: Endianness> BitDeserializer<E, BitReader<E>> for MyDessert<E>
+    where
+        BitReader<E>: BitRead<E> + CodesRead<E>,
+    {
         type DeserType = usize;
         fn deserialize(
             &self,
-            bitstream: &mut BitReader,
-        ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
+            bitstream: &mut BitReader<E>,
+        ) -> Result<Self::DeserType, <BitReader<E> as BitRead<E>>::Error> {
             bitstream.read_delta().map(|x| x as usize)
         }
     }
 
-    impl BitSerializer<NE, BitWriter> for MyDessert {
+    impl<E: Endianness> BitSerializer<E, BitWriter<E>> for MyDessert<E>
+    where
+        BitWriter<E>: BitWrite<E> + CodesWrite<E>,
+    {
         type SerType = usize;
         fn serialize(
             &self,
             value: &Self::SerType,
-            bitstream: &mut BitWriter,
-        ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
+            bitstream: &mut BitWriter<E>,
+        ) -> Result<usize, <BitWriter<E> as BitWrite<E>>::Error> {
             bitstream.write_delta(*value as u64)
         }
     }
@@ -473,7 +481,7 @@ mod tests {
         let mut sp = SortPairs::new_labeled(
             MemoryUsage::BatchSize(10),
             dir.path(),
-            GapsCodec::<MyDessert, MyDessert>::default(),
+            GapsCodec::<BE, MyDessert<BE>, MyDessert<BE>>::default(),
         )?;
 
         let n = 25;
@@ -521,7 +529,7 @@ mod tests {
         let mut sp2 = SortPairs::new_labeled(
             MemoryUsage::BatchSize(5),
             dir2.path(),
-            GapsCodec::<MyDessert, MyDessert>::default(),
+            GapsCodec::<BE, MyDessert<BE>, MyDessert<BE>>::default(),
         )?;
 
         let labeled_pairs = vec![

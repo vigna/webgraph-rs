@@ -19,7 +19,7 @@ use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
 use rdst::*;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 /// A codec for encoding and decoding batches of triples using grouped gap compression.
 ///
 /// This codec encodes triples of the form `(src, dst, label)` by grouping edges with the same source node,
@@ -94,27 +94,76 @@ use rdst::*;
 /// so the recommended defaults are `Gamma` for src gaps, `ExpGolomb3` for outdegree, and `Delta` for dst gaps,
 /// as they are universal codes.
 pub struct GroupedGapsCodec<
-    S: BitSerializer<NE, BitWriter> = (),
-    D: BitDeserializer<NE, BitReader, DeserType = S::SerType> + Clone = (),
+    E: Endianness = BE,
+    S: BitSerializer<E, BitWriter<E>> = (),
+    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone = (),
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::EXP_GOLOMB3 },
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
-> {
+> where
+    BitReader<E>: BitRead<E>,
+    BitWriter<E>: BitWrite<E>,
+{
     /// Serializer for the labels
     pub serializer: S,
     /// Deserializer for the labels
     pub deserializer: D,
+
+    pub _marker: core::marker::PhantomData<E>,
 }
 
-impl<S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize> BatchCodec
-    for GroupedGapsCodec<S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+impl<E, S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize>
+    GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
-    S: BitSerializer<NE, BitWriter> + Send + Sync,
-    D: BitDeserializer<NE, BitReader, DeserType = S::SerType> + Send + Sync + Clone,
+    E: Endianness,
+    S: BitSerializer<E, BitWriter<E>> + Send + Sync,
+    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Send + Sync + Clone,
+    BitReader<E>: BitRead<E>,
+    BitWriter<E>: BitWrite<E>,
+{
+    /// Creates a new `GroupedGapsCodec` with the given serializer and deserializer.
+    pub fn new(serializer: S, deserializer: D) -> Self {
+        Self {
+            serializer,
+            deserializer,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<
+        E: Endianness,
+        S: BitSerializer<E, BitWriter<E>> + Default,
+        D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone + Default,
+        const OUTDEGREE_CODE: usize,
+        const SRC_CODE: usize,
+        const DST_CODE: usize,
+    > Default for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+where
+    BitReader<E>: BitRead<E>,
+    BitWriter<E>: BitWrite<E>,
+{
+    fn default() -> Self {
+        Self {
+            serializer: S::default(),
+            deserializer: D::default(),
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<E, S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize> BatchCodec
+    for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+where
+    E: Endianness,
+    S: BitSerializer<E, BitWriter<E>> + Send + Sync,
+    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Send + Sync + Clone,
     S::SerType: Send + Sync + Copy + 'static, // needed by radix sort
+    BitReader<E>: BitRead<E> + CodesRead<E>,
+    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     type Label = S::SerType;
-    type DecodedBatch = GroupedGapsIterator<D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
+    type DecodedBatch = GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
 
     fn encode_batch(
         &self,
@@ -145,7 +194,7 @@ where
             })?,
         );
         // create a bitstream to write to the file
-        let mut stream = <BufBitWriter<NE, _>>::new(<WordAdapter<usize, _>>::new(file));
+        let mut stream = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(file));
 
         // prefix the stream with the length of the batch
         // we use a delta code since it'll be a big number most of the time
@@ -196,7 +245,7 @@ where
 
     fn decode_batch(&self, path: impl AsRef<std::path::Path>) -> Result<Self::DecodedBatch> {
         // open the file
-        let mut stream = <BufBitReader<NE, _>>::new(MemWordReader::new(ArcMmapHelper(Arc::new(
+        let mut stream = <BufBitReader<E, _>>::new(MemWordReader::new(ArcMmapHelper(Arc::new(
             MmapHelper::mmap(
                 path.as_ref(),
                 MmapFlags::TRANSPARENT_HUGE_PAGES | MmapFlags::SEQUENTIAL,
@@ -223,15 +272,19 @@ where
 #[derive(Clone, Debug)]
 /// An iterator over triples encoded with gaps, this is returned by [`GroupedGapsCodec`].
 pub struct GroupedGapsIterator<
-    D: BitDeserializer<NE, BitReader> = (),
+    E: Endianness = NE,
+    D: BitDeserializer<E, BitReader<E>> = (),
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
-> {
+> where
+    BitReader<E>: BitRead<E>,
+    BitWriter<E>: BitWrite<E>,
+{
     /// Deserializer for the labels
     deserializer: D,
     /// Bitstream to read from
-    stream: BitReader,
+    stream: BitReader<E>,
     /// Length of the iterator (number of triples)
     len: usize,
     /// Current position in the iterator
@@ -245,20 +298,28 @@ pub struct GroupedGapsIterator<
 }
 
 unsafe impl<
-        D: BitDeserializer<NE, BitReader>,
+        E: Endianness,
+        D: BitDeserializer<E, BitReader<E>>,
         const OUTDEGREE_CODE: usize,
         const SRC_CODE: usize,
         const DST_CODE: usize,
-    > SortedIterator for GroupedGapsIterator<D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    > SortedIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+where
+    BitReader<E>: BitRead<E> + CodesRead<E>,
+    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
 }
 
 impl<
-        D: BitDeserializer<NE, BitReader>,
+        E: Endianness,
+        D: BitDeserializer<E, BitReader<E>>,
         const OUTDEGREE_CODE: usize,
         const SRC_CODE: usize,
         const DST_CODE: usize,
-    > Iterator for GroupedGapsIterator<D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    > Iterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+where
+    BitReader<E>: BitRead<E> + CodesRead<E>,
+    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     type Item = ((usize, usize), D::DeserType);
     fn next(&mut self) -> Option<Self::Item> {
@@ -288,11 +349,15 @@ impl<
 }
 
 impl<
-        D: BitDeserializer<NE, BitReader>,
+        E: Endianness,
+        D: BitDeserializer<E, BitReader<E>>,
         const OUTDEGREE_CODE: usize,
         const SRC_CODE: usize,
         const DST_CODE: usize,
-    > ExactSizeIterator for GroupedGapsIterator<D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    > ExactSizeIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+where
+    BitReader<E>: BitRead<E> + CodesRead<E>,
+    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     fn len(&self) -> usize {
         self.len - self.current
