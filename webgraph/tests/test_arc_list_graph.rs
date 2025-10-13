@@ -15,6 +15,7 @@ use webgraph::{
     },
     prelude::BvGraph,
     traits::{graph, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling, SplitLabeling},
+    utils::SplitIters,
 };
 
 #[test]
@@ -132,8 +133,6 @@ fn test_arc_list_graph() -> anyhow::Result<()> {
 
 #[test]
 fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
-    use webgraph::graphs::arc_list_graph::{self, SplitIters};
-
     // Create a graph with 10 nodes where the last 2 nodes have no outgoing arcs
     // Nodes 0-7 have arcs, nodes 8-9 have no arcs
     let num_nodes = 10;
@@ -172,8 +171,7 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
 
     // Convert to lenders using the From trait via SplitIters
     let split_iters = SplitIters::new(partition_boundaries, partitioned_iters.into_boxed_slice());
-    let (boundaries, lenders): (Box<[usize]>, Box<[arc_list_graph::Iter<(), _>]>) =
-        split_iters.into();
+    let lenders: Box<[(usize, _)]> = split_iters.into();
 
     // Verify we got the right number of lenders
     assert_eq!(
@@ -182,16 +180,10 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
         "Should have {} lenders",
         num_partitions
     );
-    assert_eq!(
-        boundaries.len(),
-        num_partitions + 1,
-        "Should have {} boundaries",
-        num_partitions + 1
-    );
 
     // Collect all nodes from all lenders
     let mut all_nodes = Vec::new();
-    for mut lender in lenders.into_vec() {
+    for (_start, mut lender) in lenders {
         while let Some((node_id, successors)) = lender.next() {
             all_nodes.push(node_id);
             let _succs: Vec<_> = successors.into_iter().collect();

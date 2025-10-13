@@ -13,7 +13,7 @@ use crate::prelude::{
 };
 use crate::traits::graph::UnitLabelGraph;
 use crate::traits::{NodeLabelsLender, SplitLabeling, UnitLender};
-use crate::utils::{MemoryUsage, ParSortGraph};
+use crate::utils::{MemoryUsage, ParSortGraph, SplitIters};
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
 use dsi_progress_logger::prelude::*;
@@ -107,7 +107,7 @@ pub fn par_transpose_labeled<
     serializer: S,
     deserializer: D,
 ) -> Result<
-    arc_list_graph::SplitIters<
+    SplitIters<
         impl IntoIterator<Item = (usize, usize, D::DeserType), IntoIter: Send + Sync>
             + use<'graph, G, S, D>,
     >,
@@ -149,7 +149,7 @@ pub fn par_transpose<
     graph: &'graph G,
     memory_usage: MemoryUsage,
 ) -> Result<
-    arc_list_graph::SplitIters<
+    SplitIters<
         impl IntoIterator<Item = (usize, usize, ()), IntoIter: Send + Sync> + use<'graph, G>,
     >,
 > {

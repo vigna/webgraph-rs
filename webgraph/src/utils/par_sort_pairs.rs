@@ -26,6 +26,7 @@ use thread_local::ThreadLocal;
 use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
 use super::MemoryUsage;
 use crate::traits::{BitDeserializer, BitSerializer};
+use crate::utils::SplitIters;
 
 /// Takes a parallel iterator of (labelled) pairs as input, and turns them into
 /// a vector of sorted iterators of (labelled) pairs.
@@ -88,7 +89,8 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///     unsorted_pairs.par_iter().copied()
 /// )?;
 ///
-/// let split_labeled = arc_list_graph::SplitIters::new(
+/// use webgraph::utils::SplitIters;
+/// let split_labeled = SplitIters::new(
 ///     split_iters.boundaries.clone(),
 ///     split_iters.iters
 ///         .into_vec()
@@ -98,13 +100,13 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///         .into_boxed_slice()
 /// );
 ///
-/// // Convert to lenders using From trait
-/// let (boundaries, lenders): (Box<[usize]>, Box<[_]>) = split_labeled.into();
+/// // Convert to (node, lender) pairs using From trait
+/// let pairs: Box<[(usize, _)]> = split_labeled.into();
 ///
 /// // Use with parallel_iter
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     boundaries.into_vec().into_iter().zip(lenders.into_vec())
+///     pairs.into_vec().into_iter()
 ///         .map(|(node, lender)| (node, webgraph::prelude::LeftIterator(lender))),
 ///     num_nodes,
 ///     CompFlags::default(),
@@ -126,24 +128,18 @@ impl ParSortPairs<()> {
     pub fn sort(
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
-    ) -> Result<
-        crate::graphs::arc_list_graph::SplitIters<
-            impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>,
-        >,
-    > {
+    ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>>
+    {
         self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`](crate::graphs::arc_list_graph::SplitIters) structure.
+    /// returning a [`SplitIters`](SplitIters) structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<
-        crate::graphs::arc_list_graph::SplitIters<
-            impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>,
-        >,
-    > {
+    ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>>
+    {
         let split = self.try_sort_labeled(
             &(),
             (),
@@ -160,7 +156,7 @@ impl ParSortPairs<()> {
             .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
             .collect();
 
-        Ok(crate::graphs::arc_list_graph::SplitIters::new(
+        Ok(SplitIters::new(
             split.boundaries,
             iters_without_labels.into_boxed_slice(),
         ))
@@ -220,7 +216,7 @@ impl<L> ParSortPairs<L> {
         deserializer: D,
         pairs: impl ParallelIterator<Item = (usize, usize, L)>,
     ) -> Result<
-        crate::graphs::arc_list_graph::SplitIters<
+        SplitIters<
             impl IntoIterator<
                 Item = (
                     usize,
@@ -244,7 +240,7 @@ impl<L> ParSortPairs<L> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`](crate::graphs::arc_list_graph::SplitIters) structure.
+    /// returning a [`SplitIters`](SplitIters) structure.
     ///
     /// This  method accept as type parameter a [`BitSerializer`] and a
     /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
@@ -258,7 +254,7 @@ impl<L> ParSortPairs<L> {
         deserializer: D,
         pairs: impl ParallelIterator<Item = Result<(usize, usize, L), E>>,
     ) -> Result<
-        crate::graphs::arc_list_graph::SplitIters<
+        SplitIters<
             impl IntoIterator<
                 Item = (
                     usize,
@@ -437,7 +433,7 @@ impl<L> ParSortPairs<L> {
             })
             .collect();
 
-        Ok(crate::graphs::arc_list_graph::SplitIters::new(
+        Ok(SplitIters::new(
             boundaries.into_boxed_slice(),
             iters.into_boxed_slice(),
         ))

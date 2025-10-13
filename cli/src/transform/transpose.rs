@@ -108,17 +108,13 @@ where
     // transpose the graph
     let split = webgraph::transform::par_transpose(&seq_graph, args.memory_usage.memory_usage)?;
 
-    // Convert to lenders
-    let (boundaries, lenders): (Box<[usize]>, Box<[_]>) = split.into();
+    // Convert to (node, lender) pairs
+    let pairs: Box<[(usize, _)]> = split.into();
 
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     BvComp::parallel_iter::<E, _>(
         &args.dst,
-        boundaries
-            .into_vec()
-            .into_iter()
-            .zip(lenders.into_vec())
-            .map(|(node, lender)| (node, webgraph::labels::LeftIterator(lender))),
+        Box::into_iter(pairs).map(|(node, lender)| (node, webgraph::labels::LeftIterator(lender))),
         seq_graph.num_nodes(),
         args.ca.into(),
         &thread_pool,
