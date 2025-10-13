@@ -27,17 +27,15 @@ use rdst::*;
 /// This codec encodes triples of the form `(src, dst, label)` by encoding the
 /// gaps between consecutive sources and destinations using a specified code.
 ///
-/// ## Type Parameters
+/// # Type Parameters
+///
 /// - `S`: Serializer for the labels, implementing [`BitSerializer`] for the label type.
 /// - `D`: Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
 /// - `SRC_CODE`: Code used for encoding source gaps (default: gamma).
 /// - `DST_CODE`: Code used for encoding destination gaps (default: gamma).
 ///
-/// ## Fields
-/// - `serializer`: The label serializer.
-/// - `deserializer`: The label deserializer.
+/// # Encoding Format
 ///
-/// ## Encoding Format
 /// 1. The batch length is written using delta coding.
 /// 2. For each group of triples with the same source:
 ///     - The gap from the previous source is encoded.
@@ -47,39 +45,6 @@ use rdst::*;
 /// The bit deserializer must be [`Clone`] because we need one for each
 /// [`GapsIterator`], and there are possible scenarios in which the
 /// deserializer might be stateful.
-///
-/// ## Choosing the codes
-///
-/// These are the top 10 codes for src and dst gaps when transposing `enwiki-2024`.
-/// ```ignore
-/// Src codes:
-///   Code: Unary        Size: 179553432
-///   Code: Golomb(1)    Size: 179553432
-///   Code: Rice(0)      Size: 179553432
-///   Code: Gamma        Size: 185374984
-///   Code: Zeta(1)      Size: 185374984
-///   Code: ExpGolomb(0) Size: 185374984
-///   Code: Omega        Size: 185439656
-///   Code: Delta        Size: 191544794
-///   Code: Golomb(2)    Size: 345986198
-///   Code: Rice(1)      Size: 345986198
-/// Dst codes:
-///   Code: Pi(2)   Size: 2063880685
-///   Code: Pi(3)   Size: 2074138948
-///   Code: Zeta(3) Size: 2122730298
-///   Code: Zeta(4) Size: 2123948774
-///   Code: Zeta(5) Size: 2169131998
-///   Code: Pi(4)   Size: 2176097847
-///   Code: Zeta(2) Size: 2226573622
-///   Code: Zeta(6) Size: 2237680403
-///   Code: Delta   Size: 2272691460
-///   Code: Zeta(7) Size: 2305354857
-/// ```
-///
-/// So the best combination is `Unary` for src gaps and `Pi(2)` for dst gaps.
-/// But, `Unary` can behave poorly if the distribution of your data changes,
-/// therefore the recommended default is `Gamma` for src gaps and `Delta` for
-/// dst gaps as they are universal codes.
 pub struct GapsCodec<
     E: Endianness = NE,
     S: BitSerializer<E, BitWriter<E>> = (),
