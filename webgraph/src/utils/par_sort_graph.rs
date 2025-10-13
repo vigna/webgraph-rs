@@ -168,17 +168,6 @@ impl<L> ParSortGraph<L> {
 
     /// How much memory to use for in-memory sorts.
     ///
-    /// Using the `MemoryUsage::MemorySize` variant you will set the overall
-    /// memory size. The batch size will be determined dividing the
-    /// overall memory size by `num_partitions * num_threads`. This
-    /// is usually the best option.
-    ///
-    /// Using the `MemoryUsage::BatchSize` variant you will
-    /// set the exact size of each batch to sort in memory. The overall
-    /// number of elements will be `batch_size * num_partitions * num_threads`.
-    /// This option is useful for fine tuning the memory usage, in particular
-    /// when the number of threads and partitions is known in advance.
-    ///
     /// Larger values yield faster merges (by reducing logarithmically the
     /// number of batches to merge) but consume linearly more memory. We suggest
     /// to set this parameter as large as possible, depending on the available
@@ -258,15 +247,11 @@ impl<L> ParSortGraph<L> {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();
-        let batch_size = match self.memory_usage {
-            MemoryUsage::MemorySize(num_bytes) => {
-                let pair_size = size_of::<usize>() * 2 + size_of::<L>();
-                dbg!(rayon::max_num_threads(), num_partitions, pair_size);
-                let num_buffers = rayon::current_num_threads() * num_partitions;
-                num_bytes / (pair_size * num_buffers)
-            }
-            MemoryUsage::BatchSize(batch_size) => batch_size,
-        };
+        let num_buffers = rayon::current_num_threads() * num_partitions;
+        let batch_size = self
+            .memory_usage
+            .batch_size::<Triple<L>>()
+            .div_ceil(num_buffers);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
         let mut pl = concurrent_progress_logger!(
