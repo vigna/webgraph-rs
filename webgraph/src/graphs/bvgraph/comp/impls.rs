@@ -385,9 +385,7 @@ impl<'t> BvCompBuilder<'t> {
             BE::NAME => {
                 // compress the transposed graph
                 self.parallel_iter::<BigEndian, _>(
-                    graph
-                        .split_iter(num_threads)
-                        .into_iter(),
+                    graph.split_iter(num_threads).into_iter(),
                     num_nodes,
                 )
             }
@@ -398,9 +396,7 @@ impl<'t> BvCompBuilder<'t> {
             LE::NAME => {
                 // compress the transposed graph
                 self.parallel_iter::<LittleEndian, _>(
-                    graph
-                        .split_iter(num_threads)
-                        .into_iter(),
+                    graph.split_iter(num_threads).into_iter(),
                     num_nodes,
                 )
             }
@@ -419,12 +415,7 @@ impl<'t> BvCompBuilder<'t> {
     {
         self.ensure_threads()?;
         let num_threads = self.threads().current_num_threads();
-        self.parallel_iter(
-            graph
-                .split_iter(num_threads)
-                .into_iter(),
-            graph.num_nodes(),
-        )
+        self.parallel_iter(graph.split_iter(num_threads).into_iter(), graph.num_nodes())
     }
 
     /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits

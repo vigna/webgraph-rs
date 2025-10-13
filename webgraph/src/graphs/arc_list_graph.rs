@@ -236,56 +236,70 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
     }
 }
 
-/// Converts a vector of `(first_node, iterator)` pairs into a vector of
-/// `(first_node, lender)` pairs, wrapping each iterator into an
-/// [`arc_list_graph::Iter`](Iter).
+/// A structure holding split iterators with their boundaries.
+///
+/// This type holds:
+/// - `boundaries` has `n+1` elements: `boundaries[i]` is the first node for partition `i`,
+///   and `boundaries[n]` is the total number of nodes
+/// - `iters` is an array of `n` iterators yielding `(src, dst, label)` triples
+///
+/// This is returned by [`ParSortPairs`](crate::utils::ParSortPairs) and
+/// [`ParSortGraph`](crate::utils::ParSortGraph) and can be converted into
+/// lenders for use with [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+pub struct SplitIters<IT> {
+    pub boundaries: Box<[usize]>,
+    pub iters: Box<[IT]>,
+}
+
+impl<IT> SplitIters<IT> {
+    pub fn new(boundaries: Box<[usize]>, iters: Box<[IT]>) -> Self {
+        Self { boundaries, iters }
+    }
+}
+
+impl<IT> From<(Box<[usize]>, Box<[IT]>)> for SplitIters<IT> {
+    fn from((boundaries, iters): (Box<[usize]>, Box<[IT]>)) -> Self {
+        Self::new(boundaries, iters)
+    }
+}
+
+/// Implementation of `From` to convert `SplitIters` into `(boundaries, lenders)`.
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`](crate::utils::ParSortPairs) or
 /// [`ParSortGraph`](crate::utils::ParSortGraph) into a form suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 ///
-/// Each lender will iterate from its `first_node` (the start of its partition)
-/// to the `first_node` of the next partition. The last lender iterates up to
-/// `num_nodes`.
-///
-/// # Arguments
-///
-/// * `pairs` - Vector of `(first_node, iterator)` pairs where each iterator yields
-///   `(src, dst, label)` triples
-/// * `num_nodes` - Total number of nodes in the graph
-///
 /// # Example
 ///
 /// ```ignore
-/// let sorted_pairs = par_sort_pairs.sort(...)?;
-/// let lenders = wrap_pairs_as_lenders(sorted_pairs, num_nodes)?;
-/// BvComp::parallel_iter(..., lenders.into_iter(), ...)?;
+/// let split_iters = par_sort_pairs.sort(...)?;
+/// let (boundaries, lenders): (Box<[usize]>, Box<[_]>) = split_iters.into();
+/// BvComp::parallel_iter(..., boundaries, lenders, ...)?;
 /// ```
-pub fn wrap_pairs_as_lenders<
-    L: Clone + Copy + 'static,
-    I: Iterator<Item = (usize, usize, L)> + Send + Sync,
-    IT: IntoIterator<Item = (usize, usize, L), IntoIter = I>,
->(
-    pairs: Vec<(usize, IT)>,
-    num_nodes: usize,
-) -> Result<Vec<(usize, Iter<L, I>)>> {
-    // Extract the first_node values before consuming pairs
-    let mut first_nodes: Vec<usize> = pairs.iter().map(|(first_node, _)| *first_node).collect();
-    first_nodes.push(num_nodes);
+impl<
+        L: Clone + Copy + 'static,
+        I: Iterator<Item = (usize, usize, L)> + Send + Sync,
+        IT: IntoIterator<Item = (usize, usize, L), IntoIter = I>,
+    > From<SplitIters<IT>> for (Box<[usize]>, Box<[Iter<L, I>]>)
+{
+    fn from(split: SplitIters<IT>) -> Self {
+        let lenders: Vec<_> = split
+            .iters
+            .into_vec()
+            .into_iter()
+            .enumerate()
+            .map(|(i, iter)| {
+                let start_node = split.boundaries[i];
+                let end_node = split.boundaries[i + 1];
+                let num_partition_nodes = end_node - start_node;
+                Iter::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
+                    .expect("Iterator should start from the expected first node")
+            })
+            .collect();
 
-    pairs
-        .into_iter()
-        .enumerate()
-        .map(|(i, (first_node, iter))| {
-            Ok((
-                first_node,
-                Iter::try_new_from(
-                    first_nodes[i + 1] - first_node,
-                    iter.into_iter(),
-                    first_node,
-                )?,
-            ))
-        })
-        .collect()
+        (split.boundaries, lenders.into_boxed_slice())
+    }
 }
+
+

@@ -6,7 +6,6 @@
  */
 
 use crate::graphs::arc_list_graph;
-use crate::labels::LeftIterator;
 use crate::prelude::proj::Left;
 use crate::prelude::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters};
 use crate::prelude::{
@@ -100,7 +99,7 @@ pub fn par_transpose_labeled<
                                  + Sync,
             IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
         >,
-    S: BitSerializer<NE, BitWriter> + Clone + Send + Sync,
+    S: BitSerializer<NE, BitWriter> + Clone + Send + Sync + 'graph,
     D: BitDeserializer<NE, BitReader, DeserType: Clone + Send + Sync> + Clone + Send + Sync + 'static,
 >(
     graph: &'graph G,
@@ -108,36 +107,29 @@ pub fn par_transpose_labeled<
     serializer: S,
     deserializer: D,
 ) -> Result<
-    Vec<(usize, impl for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph)>,
+    arc_list_graph::SplitIters<
+        impl IntoIterator<Item = (usize, usize, D::DeserType), IntoIter: Send + Sync>
+            + use<'graph, G, S, D>,
+    >,
 >
 where
-    S: 'graph,
     S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
     let par_sort_graph = ParSortGraph::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
-    let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
+    let pairs: Vec<_> = graph
         .split_iter(parts)
         .into_iter()
-        .map(|(start_node, iter)| (start_node, iter.into_labeled_pairs()))
-        .unzip();
+        .map(|(_start_node, iter)| iter.into_labeled_pairs())
+        .collect();
 
-    par_sort_graph
-        .try_sort_labeled::<S, D, std::convert::Infallible>(&serializer, deserializer, pairs)?
-        .into_iter()
-        .enumerate()
-        .map(|(i, (first_node, res))| {
-            let start_node = start_nodes[i];
-            let end_node = *start_nodes.get(i + 1).unwrap_or(&graph.num_nodes());
-            let num_partition_nodes = end_node - start_node;
-            Ok((
-                first_node,
-                arc_list_graph::Iter::try_new_from(num_partition_nodes, res.into_iter(), start_node)?
-            ))
-        })
-        .collect()
+    par_sort_graph.try_sort_labeled::<S, D, std::convert::Infallible>(
+        &serializer,
+        deserializer,
+        pairs,
+    )
 }
 
 pub fn par_transpose<
@@ -156,32 +148,19 @@ pub fn par_transpose<
 >(
     graph: &'graph G,
     memory_usage: MemoryUsage,
-) -> Result<Vec<(usize, impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync)>> {
-    let num_nodes = graph.num_nodes();
-    let par_sort_graph = ParSortGraph::new(num_nodes)?.memory_usage(memory_usage);
+) -> Result<
+    arc_list_graph::SplitIters<
+        impl IntoIterator<Item = (usize, usize, ()), IntoIter: Send + Sync> + use<'graph, G>,
+    >,
+> {
+    let par_sort_graph = ParSortGraph::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
-    let (start_nodes, pairs): (Vec<usize>, Vec<_>) = graph
+    let pairs: Vec<_> = graph
         .split_iter(parts)
         .into_iter()
-        .map(|(start_node, iter)| (start_node, UnitLender(iter).into_labeled_pairs()))
-        .unzip();
+        .map(|(_start_node, iter)| UnitLender(iter).into_labeled_pairs())
+        .collect();
 
-    Ok(par_sort_graph
-        .try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)?
-        .into_iter()
-        .enumerate()
-        .map(|(i, (first_node, res))| {
-            let start_node = start_nodes[i];
-            let end_node = *start_nodes.get(i + 1).unwrap_or(&num_nodes);
-            let num_partition_nodes = end_node - start_node;
-            (
-                first_node,
-                LeftIterator(
-                    arc_list_graph::Iter::try_new_from(num_partition_nodes, res.into_iter(), start_node)
-                        .unwrap()
-                )
-            )
-        })
-        .collect::<Vec<_>>())
+    par_sort_graph.try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)
 }

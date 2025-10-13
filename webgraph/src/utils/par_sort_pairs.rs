@@ -58,36 +58,54 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///     .expected_num_pairs(unsorted_pairs.len())
 ///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
 ///
+/// let split_iters = pair_sorter.sort(
+///     unsorted_pairs.par_iter().copied()
+/// )?;
+///
+/// assert_eq!(split_iters.boundaries.len(), num_partitions + 1);
+/// assert_eq!(split_iters.boundaries[0], 0);
+/// assert_eq!(split_iters.boundaries[2], num_nodes);
+///
+/// let collected: Vec<_> = split_iters.iters
+///     .into_vec()
+///     .into_iter()
+///     .map(|iter| iter.into_iter().collect::<Vec<_>>())
+///     .collect();
+///
 /// assert_eq!(
-///     pair_sorter.sort(
-///         unsorted_pairs.par_iter().copied()
-///     )?
-///         .into_iter()
-///         .map(|(start_node, partition)| (start_node, partition.into_iter().collect::<Vec<_>>()))
-///         .collect::<Vec<_>>(),
+///     collected,
 ///     vec![
-///         (0, vec![(0, 4), (1, 0), (1, 3), (2, 1)]), // nodes 0, 1, and 2 are in partition 0
-///         (3, vec![(3, 2)]), // nodes 3 and 4 are in partition 1
+///         vec![(0, 4), (1, 0), (1, 3), (2, 1)], // nodes 0, 1, and 2 are in partition 0
+///         vec![(3, 2)], // nodes 3 and 4 are in partition 1
 ///     ],
 /// );
 ///
 /// let bvcomp_tmp_dir = tempfile::tempdir()?;
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
-/// // Convert pairs to labeled form
-/// let sorted_with_labels: Vec<_> = pair_sorter.sort(
+/// // Convert pairs to labeled form and compress
+/// let split_iters = pair_sorter.sort(
 ///     unsorted_pairs.par_iter().copied()
-/// )?
-///     .into_iter()
-///     .map(|(start, iter)| (start, iter.into_iter().map(|(src, dst)| (src, dst, ()))))
-///     .collect();
+/// )?;
 ///
-/// // Convert to lenders (uses first_node from each pair to determine boundaries)
-/// let lenders = arc_list_graph::wrap_pairs_as_lenders(sorted_with_labels, num_nodes)?;
+/// let split_labeled = arc_list_graph::SplitIters::new(
+///     split_iters.boundaries.clone(),
+///     split_iters.iters
+///         .into_vec()
+///         .into_iter()
+///         .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ())))
+///         .collect::<Vec<_>>()
+///         .into_boxed_slice()
+/// );
 ///
+/// // Convert to lenders using From trait
+/// let (boundaries, lenders): (Box<[usize]>, Box<[_]>) = split_labeled.into();
+///
+/// // Use with parallel_iter
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     lenders.into_iter().map(|(start, lender)| (start, webgraph::prelude::LeftIterator(lender))),
+///     boundaries.into_vec().into_iter().zip(lenders.into_vec())
+///         .map(|(node, lender)| (node, webgraph::prelude::LeftIterator(lender))),
 ///     num_nodes,
 ///     CompFlags::default(),
 ///     &rayon::ThreadPoolBuilder::default().build()?,
@@ -108,33 +126,44 @@ impl ParSortPairs<()> {
     pub fn sort(
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
-    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>)>> {
+    ) -> Result<
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>,
+        >,
+    > {
         self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a vector of sorted iterators, one per partition.
+    /// returning a [`SplitIters`](crate::graphs::arc_list_graph::SplitIters) structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>)>> {
-        Ok(self
-            .try_sort_labeled(
-                &(),
-                (),
-                pairs.map(|pair| -> Result<_> {
-                    let (src, dst) = pair.map_err(Into::into)?;
-                    Ok((src, dst, ()))
-                }),
-            )?
+    ) -> Result<
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>,
+        >,
+    > {
+        let split = self.try_sort_labeled(
+            &(),
+            (),
+            pairs.map(|pair| -> Result<_> {
+                let (src, dst) = pair.map_err(Into::into)?;
+                Ok((src, dst, ()))
+            }),
+        )?;
+
+        let iters_without_labels: Vec<_> = split
+            .iters
+            .into_vec()
             .into_iter()
-            .map(|(start_node, into_iter)| {
-                (
-                    start_node,
-                    into_iter.into_iter().map(|(src, dst, ())| (src, dst))
-                )
-            })
-            .collect())
+            .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
+            .collect();
+
+        Ok(crate::graphs::arc_list_graph::SplitIters::new(
+            split.boundaries,
+            iters_without_labels.into_boxed_slice(),
+        ))
     }
 }
 
@@ -191,18 +220,15 @@ impl<L> ParSortPairs<L> {
         deserializer: D,
         pairs: impl ParallelIterator<Item = (usize, usize, L)>,
     ) -> Result<
-        Vec<
-            (
-                usize,
-                impl IntoIterator<
-                    Item = (
-                        usize,
-                        usize,
-                        <D as BitDeserializer<NE, BitReader>>::DeserType,
-                    ),
-                    IntoIter: Clone + Send + Sync,
-                >,
-            )
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Clone + Send + Sync,
+            >,
         >,
     >
     where
@@ -218,7 +244,7 @@ impl<L> ParSortPairs<L> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a vector of sorted iterators, one per partition.
+    /// returning a [`SplitIters`](crate::graphs::arc_list_graph::SplitIters) structure.
     ///
     /// This  method accept as type parameter a [`BitSerializer`] and a
     /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
@@ -232,18 +258,15 @@ impl<L> ParSortPairs<L> {
         deserializer: D,
         pairs: impl ParallelIterator<Item = Result<(usize, usize, L), E>>,
     ) -> Result<
-        Vec<
-            (
-                usize,
-                impl IntoIterator<
-                    Item = (
-                        usize,
-                        usize,
-                        <D as BitDeserializer<NE, BitReader>>::DeserType,
-                    ),
-                    IntoIter: Clone + Send + Sync,
-                >,
-            )
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Clone + Send + Sync,
+            >,
         >,
     >
     where
@@ -399,15 +422,25 @@ impl<L> ParSortPairs<L> {
         ;
         pl.done();
 
-        Ok(partitioned_presorted_pairs
+        // Build boundaries array: [0, nodes_per_partition, 2*nodes_per_partition, ..., num_nodes]
+        let boundaries: Vec<usize> = (0..=num_partitions)
+            .map(|i| (i * num_nodes_per_partition).min(self.num_nodes))
+            .collect();
+
+        // Build iterators array
+        let iters: Vec<_> = partitioned_presorted_pairs
             .into_iter()
-            .enumerate()
-            .map(|(partition_id, partition)| {
+            .map(|partition| {
                 // 'partition' contains N iterators that are not sorted with respect to each other.
                 // We merge them and turn them into a single sorted iterator.
-                (partition_id * num_nodes_per_partition, KMergeIters::new(partition))
+                KMergeIters::new(partition)
             })
-            .collect())
+            .collect();
+
+        Ok(crate::graphs::arc_list_graph::SplitIters::new(
+            boundaries.into_boxed_slice(),
+            iters.into_boxed_slice(),
+        ))
     }
 }
 

@@ -108,35 +108,47 @@ impl ParSortGraph<()> {
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
-    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>)>> {
+    ) -> Result<
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>,
+        >,
+    > {
         self.try_sort::<std::convert::Infallible>(pairs)
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a vector of sorted iterators, one per partition.
+    /// returning a [`SplitIters`](crate::graphs::arc_list_graph::SplitIters) structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
-    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>)>> {
-        Ok(<ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
+    ) -> Result<
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>,
+        >,
+    > {
+        let split = <ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
             self,
             &(),
             (),
             pairs
                 .into_iter()
                 .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ()))),
-        )?
-        .into_iter()
-        .map(|(start_node, iter)| {
-            (
-                start_node,
-                iter.into_iter().map(|(src, dst, ())| (src, dst))
-            )
-        })
-        .collect())
+        )?;
+
+        let iters_without_labels: Vec<_> = split
+            .iters
+            .into_vec()
+            .into_iter()
+            .map(|iter| iter.into_iter().map(|(src, dst, ())| (src, dst)))
+            .collect();
+
+        Ok(crate::graphs::arc_list_graph::SplitIters::new(
+            split.boundaries,
+            iters_without_labels.into_boxed_slice(),
+        ))
     }
 }
 
@@ -196,18 +208,15 @@ impl<L> ParSortGraph<L> {
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
-        Vec<
-            (
-                usize,
-                impl IntoIterator<
-                    Item = (
-                        usize,
-                        usize,
-                        <D as BitDeserializer<NE, BitReader>>::DeserType,
-                    ),
-                    IntoIter: Send + Sync,
-                >,
-            )
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Send + Sync,
+            >,
         >,
     >
     where
@@ -219,7 +228,7 @@ impl<L> ParSortGraph<L> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a vector of sorted iterators, one per partition.
+    /// returning a [`SplitIters`](crate::graphs::arc_list_graph::SplitIters) structure.
     ///
     /// This  method accept as type parameter a [`BitSerializer`] and a
     /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
@@ -236,18 +245,15 @@ impl<L> ParSortGraph<L> {
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
-        Vec<
-            (
-                usize,
-                impl IntoIterator<
-                    Item = (
-                        usize,
-                        usize,
-                        <D as BitDeserializer<NE, BitReader>>::DeserType,
-                    ),
-                    IntoIter: Send + Sync,
-                >,
-            )
+        crate::graphs::arc_list_graph::SplitIters<
+            impl IntoIterator<
+                Item = (
+                    usize,
+                    usize,
+                    <D as BitDeserializer<NE, BitReader>>::DeserType,
+                ),
+                IntoIter: Send + Sync,
+            >,
         >,
     >
     where
@@ -328,7 +334,7 @@ impl<L> ParSortGraph<L> {
                         });
                     }
 
-                    for (partition_id, (mut pairs, mut buf)) in sorted_pairs
+                    for (partition_id, (pairs, mut buf)) in sorted_pairs
                         .iter_mut()
                         .zip(unsorted_buffers.into_iter())
                         .enumerate()
@@ -340,7 +346,7 @@ impl<L> ParSortGraph<L> {
                             deserializer.clone(),
                             block_id,
                             partition_id,
-                            &mut pairs,
+                            pairs,
                             &mut buf,
                         )
                         .context("Could not flush buffer at the end")
@@ -385,15 +391,25 @@ impl<L> ParSortGraph<L> {
         // ie. Vec<Vec<BatchIterator>>>.
         pl.done();
 
-        Ok(partitioned_presorted_pairs
+        // Build boundaries array: [0, nodes_per_partition, 2*nodes_per_partition, ..., num_nodes]
+        let boundaries: Vec<usize> = (0..=num_partitions)
+            .map(|i| (i * num_nodes_per_partition).min(self.num_nodes))
+            .collect();
+
+        // Build iterators array
+        let iters: Vec<_> = partitioned_presorted_pairs
             .into_iter()
-            .enumerate()
-            .map(|(partition_id, partition)| {
+            .map(|partition| {
                 // 'partition' contains N iterators that are not sorted with respect to each other.
                 // We merge them and turn them into a single sorted iterator.
-                (partition_id * num_nodes_per_partition, KMergeIters::new(partition))
+                KMergeIters::new(partition)
             })
-            .collect())
+            .collect();
+
+        Ok(crate::graphs::arc_list_graph::SplitIters::new(
+            boundaries.into_boxed_slice(),
+            iters.into_boxed_slice(),
+        ))
     }
 }
 

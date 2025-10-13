@@ -131,17 +131,18 @@ fn test_arc_list_graph() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_wrap_pairs_as_lenders_with_empty_end_nodes() -> anyhow::Result<()> {
-    use webgraph::graphs::arc_list_graph;
-    use lender::Lender;
+fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
+    use webgraph::graphs::arc_list_graph::{self, SplitIters};
 
     // Create a graph with 10 nodes where the last 2 nodes have no outgoing arcs
     // Nodes 0-7 have arcs, nodes 8-9 have no arcs
     let num_nodes = 10;
     let arcs = vec![
-        (0, 1, ()), (0, 2, ()),
+        (0, 1, ()),
+        (0, 2, ()),
         (1, 3, ()),
-        (2, 4, ()), (2, 5, ()),
+        (2, 4, ()),
+        (2, 5, ()),
         (3, 6, ()),
         (5, 7, ()),
         (6, 7, ()),
@@ -151,66 +152,69 @@ fn test_wrap_pairs_as_lenders_with_empty_end_nodes() -> anyhow::Result<()> {
 
     // Split into 3 partitions: [0-3], [4-6], [7-9]
     // The last partition [7-9] should include nodes 8 and 9 even though they have no arcs
-    let partition_boundaries = vec![0, 4, 7, 10];
+    let partition_boundaries: Box<[usize]> = vec![0, 4, 7, 10].into_boxed_slice();
     let num_partitions = partition_boundaries.len() - 1;
-    
+
     // Create partitioned pairs (simulating what ParSortPairs would return)
-    let mut partitioned_pairs: Vec<(usize, Vec<(usize, usize, ())>)> = Vec::new();
-    
+    let mut partitioned_iters: Vec<Vec<(usize, usize, ())>> = Vec::new();
+
     for i in 0..num_partitions {
         let start = partition_boundaries[i];
         let end = partition_boundaries[i + 1];
-        let partition_arcs: Vec<_> = arcs.iter()
+        let partition_arcs: Vec<_> = arcs
+            .iter()
             .filter(|(src, _, _)| *src >= start && *src < end)
             .copied()
             .collect();
-        
-        if !partition_arcs.is_empty() {
-            // first_node is the first node with data in this partition
-            let first_node = partition_arcs[0].0;
-            partitioned_pairs.push((first_node, partition_arcs));
-        } else if i == num_partitions - 1 {
-            // Last partition might be empty if no nodes have arcs, but we still need to include it
-            partitioned_pairs.push((start, vec![]));
-        }
+
+        partitioned_iters.push(partition_arcs);
     }
-    
-    // Convert to lenders
-    let lenders = arc_list_graph::wrap_pairs_as_lenders(
-        partitioned_pairs,
-        num_nodes,
-    )?;
-    
+
+    // Convert to lenders using the From trait via SplitIters
+    let split_iters = SplitIters::new(partition_boundaries, partitioned_iters.into_boxed_slice());
+    let (boundaries, lenders): (Box<[usize]>, Box<[arc_list_graph::Iter<(), _>]>) =
+        split_iters.into();
+
     // Verify we got the right number of lenders
-    assert_eq!(lenders.len(), num_partitions, "Should have {} lenders", num_partitions);
-    
+    assert_eq!(
+        lenders.len(),
+        num_partitions,
+        "Should have {} lenders",
+        num_partitions
+    );
+    assert_eq!(
+        boundaries.len(),
+        num_partitions + 1,
+        "Should have {} boundaries",
+        num_partitions + 1
+    );
+
     // Collect all nodes from all lenders
     let mut all_nodes = Vec::new();
-    for (expected_first_node, mut lender) in lenders {
-        let mut partition_nodes = Vec::new();
+    for mut lender in lenders.into_vec() {
         while let Some((node_id, successors)) = lender.next() {
-            partition_nodes.push(node_id);
+            all_nodes.push(node_id);
             let _succs: Vec<_> = successors.into_iter().collect();
         }
-        
-        // Verify the first node matches
-        if !partition_nodes.is_empty() {
-            assert_eq!(
-                partition_nodes[0], expected_first_node,
-                "First node mismatch in partition"
-            );
-        }
-        
-        all_nodes.extend(partition_nodes);
     }
-    
+
     // Verify we enumerated ALL nodes 0..9, including the last two without arcs
-    assert_eq!(all_nodes.len(), num_nodes, "Should enumerate all {} nodes", num_nodes);
-    assert_eq!(all_nodes, (0..num_nodes).collect::<Vec<_>>(), "Should enumerate nodes 0..{} in order", num_nodes - 1);
-    
+    assert_eq!(
+        all_nodes.len(),
+        num_nodes,
+        "Should enumerate all {} nodes",
+        num_nodes
+    );
+    assert_eq!(
+        all_nodes,
+        (0..num_nodes).collect::<Vec<_>>(),
+        "Should enumerate nodes 0..{} in order",
+        num_nodes - 1
+    );
+
     // Specifically verify nodes 8 and 9 are included
     assert!(all_nodes.contains(&8), "Node 8 should be enumerated");
     assert!(all_nodes.contains(&9), "Node 9 should be enumerated");
-    
+
     Ok(())
 }
