@@ -161,7 +161,7 @@ impl BvComp<()> {
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
     >(
         basename: impl AsRef<Path> + Send + Sync,
-        iter: impl Iterator<Item = L>,
+        iter: impl Iterator<Item = (usize, L)>,
         num_nodes: usize,
         compression_flags: CompFlags,
         threads: &ThreadPool,
@@ -387,8 +387,7 @@ impl<'t> BvCompBuilder<'t> {
                 self.parallel_iter::<BigEndian, _>(
                     graph
                         .split_iter(num_threads)
-                        .into_iter()
-                        .map(|(_start, lender)| lender),
+                        .into_iter(),
                     num_nodes,
                 )
             }
@@ -401,8 +400,7 @@ impl<'t> BvCompBuilder<'t> {
                 self.parallel_iter::<LittleEndian, _>(
                     graph
                         .split_iter(num_threads)
-                        .into_iter()
-                        .map(|(_start, lender)| lender),
+                        .into_iter(),
                     num_nodes,
                 )
             }
@@ -424,8 +422,7 @@ impl<'t> BvCompBuilder<'t> {
         self.parallel_iter(
             graph
                 .split_iter(num_threads)
-                .into_iter()
-                .map(|(_start, lender)| lender),
+                .into_iter(),
             graph.num_nodes(),
         )
     }
@@ -437,7 +434,7 @@ impl<'t> BvCompBuilder<'t> {
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
     >(
         &mut self,
-        iter: impl Iterator<Item = L>,
+        iter: impl Iterator<Item = (usize, L)>,
         num_nodes: usize,
     ) -> Result<u64>
     where
@@ -466,7 +463,7 @@ impl<'t> BvCompBuilder<'t> {
         threads.in_place_scope(|s| {
             let cp_flags = &self.compression_flags;
 
-            for (thread_id, mut thread_lender) in iter.enumerate() {
+            for (thread_id, (expected_first_node, mut thread_lender)) in iter.enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
@@ -485,6 +482,14 @@ impl<'t> BvCompBuilder<'t> {
                         None => return,
                         Some((node_id, successors)) => {
                             first_node = node_id;
+                            if first_node != expected_first_node {
+                                panic!(
+                                    "Lender {} expected to start from node {} but started from {}",
+                                    thread_id,
+                                    expected_first_node,
+                                    first_node
+                                );
+                            }
 
                             offsets_writer = <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(
                                 BufWriter::new(File::create(&chunk_offsets_path).unwrap()),

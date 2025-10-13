@@ -47,12 +47,11 @@ use crate::traits::{BitDeserializer, BitSerializer};
 /// use rayon::prelude::*;
 /// use webgraph::traits::SequentialLabeling;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
-/// use webgraph::graphs::arc_list_graph::Iter;
+/// use webgraph::graphs::arc_list_graph;
 /// use webgraph::utils::par_sort_pairs::ParSortPairs;
 ///
 /// let num_partitions = 2;
 /// let num_nodes: usize = 5;
-/// let num_nodes_per_partition = num_nodes.div_ceil(num_partitions);
 /// let unsorted_pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
 ///
 /// let pair_sorter = ParSortPairs::new(num_nodes)?
@@ -64,32 +63,31 @@ use crate::traits::{BitDeserializer, BitSerializer};
 ///         unsorted_pairs.par_iter().copied()
 ///     )?
 ///         .into_iter()
-///         .map(|partition| partition.into_iter().collect::<Vec<_>>())
+///         .map(|(start_node, partition)| (start_node, partition.into_iter().collect::<Vec<_>>()))
 ///         .collect::<Vec<_>>(),
 ///     vec![
-///         vec![(0, 4), (1, 0), (1, 3), (2, 1)], // nodes 0, 1, and 2 are in partition 0
-///         vec![(3, 2)], // nodes 3 and 4 are in partition 1
+///         (0, vec![(0, 4), (1, 0), (1, 3), (2, 1)]), // nodes 0, 1, and 2 are in partition 0
+///         (3, vec![(3, 2)]), // nodes 3 and 4 are in partition 1
 ///     ],
 /// );
 ///
 /// let bvcomp_tmp_dir = tempfile::tempdir()?;
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
+/// // Convert pairs to labeled form
+/// let sorted_with_labels: Vec<_> = pair_sorter.sort(
+///     unsorted_pairs.par_iter().copied()
+/// )?
+///     .into_iter()
+///     .map(|(start, iter)| (start, iter.into_iter().map(|(src, dst)| (src, dst, ()))))
+///     .collect();
+///
+/// // Convert to lenders (uses first_node from each pair to determine boundaries)
+/// let lenders = arc_list_graph::wrap_pairs_as_lenders(sorted_with_labels, num_nodes)?;
+///
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     pair_sorter.sort(
-///         unsorted_pairs.par_iter().copied()
-///     )?
-///         .into_iter()
-///         .into_iter()
-///         .enumerate()
-///         .map(|(partition_id, partition)| {
-///             webgraph::prelude::LeftIterator(Iter::<(), _>::try_new_from(
-///                 num_nodes_per_partition,
-///                 partition.into_iter().map(|(src, dst)| (src, dst, ())),
-///                 partition_id*num_nodes_per_partition,
-///             ).unwrap())
-///         }),
+///     lenders.into_iter().map(|(start, lender)| (start, webgraph::prelude::LeftIterator(lender))),
 ///     num_nodes,
 ///     CompFlags::default(),
 ///     &rayon::ThreadPoolBuilder::default().build()?,
@@ -110,7 +108,7 @@ impl ParSortPairs<()> {
     pub fn sort(
         &self,
         pairs: impl ParallelIterator<Item = (usize, usize)>,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
+    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>)>> {
         self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
     }
 
@@ -119,7 +117,7 @@ impl ParSortPairs<()> {
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>> {
+    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>)>> {
         Ok(self
             .try_sort_labeled(
                 &(),
@@ -130,7 +128,12 @@ impl ParSortPairs<()> {
                 }),
             )?
             .into_iter()
-            .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
+            .map(|(start_node, into_iter)| {
+                (
+                    start_node,
+                    into_iter.into_iter().map(|(src, dst, ())| (src, dst))
+                )
+            })
             .collect())
     }
 }
@@ -189,14 +192,17 @@ impl<L> ParSortPairs<L> {
         pairs: impl ParallelIterator<Item = (usize, usize, L)>,
     ) -> Result<
         Vec<
-            impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Clone + Send + Sync,
-            >,
+            (
+                usize,
+                impl IntoIterator<
+                    Item = (
+                        usize,
+                        usize,
+                        <D as BitDeserializer<NE, BitReader>>::DeserType,
+                    ),
+                    IntoIter: Clone + Send + Sync,
+                >,
+            )
         >,
     >
     where
@@ -227,14 +233,17 @@ impl<L> ParSortPairs<L> {
         pairs: impl ParallelIterator<Item = Result<(usize, usize, L), E>>,
     ) -> Result<
         Vec<
-            impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Clone + Send + Sync,
-            >,
+            (
+                usize,
+                impl IntoIterator<
+                    Item = (
+                        usize,
+                        usize,
+                        <D as BitDeserializer<NE, BitReader>>::DeserType,
+                    ),
+                    IntoIter: Clone + Send + Sync,
+                >,
+            )
         >,
     >
     where
@@ -392,10 +401,11 @@ impl<L> ParSortPairs<L> {
 
         Ok(partitioned_presorted_pairs
             .into_iter()
-            .map(|partition| {
+            .enumerate()
+            .map(|(partition_id, partition)| {
                 // 'partition' contains N iterators that are not sorted with respect to each other.
                 // We merge them and turn them into a single sorted iterator.
-                KMergeIters::new(partition)
+                (partition_id * num_nodes_per_partition, KMergeIters::new(partition))
             })
             .collect())
     }

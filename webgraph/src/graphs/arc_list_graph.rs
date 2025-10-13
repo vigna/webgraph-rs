@@ -235,3 +235,57 @@ impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
         Some((succ, label))
     }
 }
+
+/// Converts a vector of `(first_node, iterator)` pairs into a vector of
+/// `(first_node, lender)` pairs, wrapping each iterator into an
+/// [`arc_list_graph::Iter`](Iter).
+///
+/// This is useful for converting the output of sorting utilities like
+/// [`ParSortPairs`](crate::utils::ParSortPairs) or
+/// [`ParSortGraph`](crate::utils::ParSortGraph) into a form suitable for
+/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+///
+/// Each lender will iterate from its `first_node` (the start of its partition)
+/// to the `first_node` of the next partition. The last lender iterates up to
+/// `num_nodes`.
+///
+/// # Arguments
+///
+/// * `pairs` - Vector of `(first_node, iterator)` pairs where each iterator yields
+///   `(src, dst, label)` triples
+/// * `num_nodes` - Total number of nodes in the graph
+///
+/// # Example
+///
+/// ```ignore
+/// let sorted_pairs = par_sort_pairs.sort(...)?;
+/// let lenders = wrap_pairs_as_lenders(sorted_pairs, num_nodes)?;
+/// BvComp::parallel_iter(..., lenders.into_iter(), ...)?;
+/// ```
+pub fn wrap_pairs_as_lenders<
+    L: Clone + Copy + 'static,
+    I: Iterator<Item = (usize, usize, L)> + Send + Sync,
+    IT: IntoIterator<Item = (usize, usize, L), IntoIter = I>,
+>(
+    pairs: Vec<(usize, IT)>,
+    num_nodes: usize,
+) -> Result<Vec<(usize, Iter<L, I>)>> {
+    // Extract the first_node values before consuming pairs
+    let mut first_nodes: Vec<usize> = pairs.iter().map(|(first_node, _)| *first_node).collect();
+    first_nodes.push(num_nodes);
+
+    pairs
+        .into_iter()
+        .enumerate()
+        .map(|(i, (first_node, iter))| {
+            Ok((
+                first_node,
+                Iter::try_new_from(
+                    first_nodes[i + 1] - first_node,
+                    iter.into_iter(),
+                    first_node,
+                )?,
+            ))
+        })
+        .collect()
+}

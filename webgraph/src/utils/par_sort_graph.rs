@@ -108,7 +108,7 @@ impl ParSortGraph<()> {
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
+    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>)>> {
         self.try_sort::<std::convert::Infallible>(pairs)
     }
 
@@ -120,7 +120,7 @@ impl ParSortGraph<()> {
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
-    ) -> Result<Vec<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
+    ) -> Result<Vec<(usize, impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>)>> {
         Ok(<ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
             self,
             &(),
@@ -130,7 +130,12 @@ impl ParSortGraph<()> {
                 .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ()))),
         )?
         .into_iter()
-        .map(|iter| iter.into_iter().map(|(src, dst, ())| (src, dst)))
+        .map(|(start_node, iter)| {
+            (
+                start_node,
+                iter.into_iter().map(|(src, dst, ())| (src, dst))
+            )
+        })
         .collect())
     }
 }
@@ -192,14 +197,17 @@ impl<L> ParSortGraph<L> {
         >,
     ) -> Result<
         Vec<
-            impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Send + Sync,
-            >,
+            (
+                usize,
+                impl IntoIterator<
+                    Item = (
+                        usize,
+                        usize,
+                        <D as BitDeserializer<NE, BitReader>>::DeserType,
+                    ),
+                    IntoIter: Send + Sync,
+                >,
+            )
         >,
     >
     where
@@ -229,14 +237,17 @@ impl<L> ParSortGraph<L> {
         >,
     ) -> Result<
         Vec<
-            impl IntoIterator<
-                Item = (
-                    usize,
-                    usize,
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Send + Sync,
-            >,
+            (
+                usize,
+                impl IntoIterator<
+                    Item = (
+                        usize,
+                        usize,
+                        <D as BitDeserializer<NE, BitReader>>::DeserType,
+                    ),
+                    IntoIter: Send + Sync,
+                >,
+            )
         >,
     >
     where
@@ -376,10 +387,11 @@ impl<L> ParSortGraph<L> {
 
         Ok(partitioned_presorted_pairs
             .into_iter()
-            .map(|partition| {
+            .enumerate()
+            .map(|(partition_id, partition)| {
                 // 'partition' contains N iterators that are not sorted with respect to each other.
                 // We merge them and turn them into a single sorted iterator.
-                KMergeIters::new(partition)
+                (partition_id * num_nodes_per_partition, KMergeIters::new(partition))
             })
             .collect())
     }

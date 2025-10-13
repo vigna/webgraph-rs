@@ -108,7 +108,7 @@ pub fn par_transpose_labeled<
     serializer: S,
     deserializer: D,
 ) -> Result<
-    Vec<impl for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph>,
+    Vec<(usize, impl for<'a> NodeLabelsLender<'a, Label = (usize, D::DeserType)> + Send + Sync + 'graph)>,
 >
 where
     S: 'graph,
@@ -128,8 +128,14 @@ where
         .try_sort_labeled::<S, D, std::convert::Infallible>(&serializer, deserializer, pairs)?
         .into_iter()
         .enumerate()
-        .map(|(i, res)| {
-            arc_list_graph::Iter::try_new_from(graph.num_nodes(), res.into_iter(), start_nodes[i])
+        .map(|(i, (first_node, res))| {
+            let start_node = start_nodes[i];
+            let end_node = *start_nodes.get(i + 1).unwrap_or(&graph.num_nodes());
+            let num_partition_nodes = end_node - start_node;
+            Ok((
+                first_node,
+                arc_list_graph::Iter::try_new_from(num_partition_nodes, res.into_iter(), start_node)?
+            ))
         })
         .collect()
 }
@@ -150,7 +156,7 @@ pub fn par_transpose<
 >(
     graph: &'graph G,
     memory_usage: MemoryUsage,
-) -> Result<Vec<impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync>> {
+) -> Result<Vec<(usize, impl for<'a> NodeLabelsLender<'a, Label = usize> + Send + Sync)>> {
     let num_nodes = graph.num_nodes();
     let par_sort_graph = ParSortGraph::new(num_nodes)?.memory_usage(memory_usage);
     let parts = num_cpus::get();
@@ -165,15 +171,16 @@ pub fn par_transpose<
         .try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)?
         .into_iter()
         .enumerate()
-        .map(|(i, res)| {
-            LeftIterator(
-                arc_list_graph::Iter::try_new_from(
-                    graph.num_nodes(),
-                    res.into_iter(),
-                    start_nodes[i],
+        .map(|(i, (first_node, res))| {
+            let start_node = start_nodes[i];
+            let end_node = *start_nodes.get(i + 1).unwrap_or(&num_nodes);
+            let num_partition_nodes = end_node - start_node;
+            (
+                first_node,
+                LeftIterator(
+                    arc_list_graph::Iter::try_new_from(num_partition_nodes, res.into_iter(), start_node)
+                        .unwrap()
                 )
-                .unwrap()
-                .take(*start_nodes.get(i + 1).unwrap_or(&num_nodes) - start_nodes[i]),
             )
         })
         .collect::<Vec<_>>())
