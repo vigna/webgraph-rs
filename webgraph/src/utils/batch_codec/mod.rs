@@ -4,6 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Traits and implementations to encode and decode batches of sorted triples
+//! to/from disk.
+//!
+//! The traits and implementations in this module are used to customize the
+//! encoding of batches of sorted triples to/from disk. They are used by
+//! [`SortPairs`](crate::utils::sort_pairs::SortPairs) and other utilities built
+//! on that (e.g.,
+//! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs)).
+//!
+//! They usually do not need to be accessed or modified by the end users, albeit
+//! in some specific cases where performance or on-disk occupation is critical
+//! they can be customized.
+
 use anyhow::Result;
 
 use super::ArcMmapHelper;
@@ -40,15 +53,19 @@ pub trait BatchCodec: Send + Sync {
         IntoIter: Send + Sync + Clone,
     >;
 
-    /// Given a batch of sorted triples, encodes them to disk and returns the number of bits written.
+    /// Given a batch of sorted triples, encodes them to disk and returns the
+    /// number of bits written.
+    ///
+    /// Note that the input batch must be already sorted. Use
+    /// [`encode_batch`](Self::encode_batch) otherwise.
     fn encode_sorted_batch(
         &self,
         path: impl AsRef<Path>,
         batch: &[((usize, usize), Self::Label)],
     ) -> Result<usize>;
 
-    /// Given a batch of triples, encodes them to disk and returns the number of bits written.
-    /// The batch needs a mutable reference to allow the coded to sort-in-place if needed.
+    /// Given a batch of triples, sort them, encodes them to disk, and returns
+    /// the number of bits written.
     fn encode_batch(
         &self,
         path: impl AsRef<Path>,
@@ -56,11 +73,13 @@ pub trait BatchCodec: Send + Sync {
     ) -> Result<usize>;
 
     /// Decodes a batch of triples from disk.
+    ///
     /// The returned type's iterator yields the serialized triples in sorted order.
     fn decode_batch(&self, path: impl AsRef<Path>) -> Result<Self::DecodedBatch>;
 }
 
-/// Convenience alias to extract the iterator type of the decoded batch from a [`BatchCodec`].
+/// Convenience alias to extract the iterator type of the decoded batch from a
+/// [`BatchCodec`].
 pub type CodecIter<C> = <<C as BatchCodec>::DecodedBatch as IntoIterator>::IntoIter;
 
 /// An arc expressed as a pair of nodes and the associated label.
@@ -68,27 +87,33 @@ pub type CodecIter<C> = <<C as BatchCodec>::DecodedBatch as IntoIterator>::IntoI
 /// Equality and order are defined only (lexicographically) on the pair of
 /// nodes.
 ///
-/// Since we use this to sort a batch of `(usize, usize, L)` triples, in order to
-/// safely transmute between the two types, Triple HAS TO be `repr(transparent)`
-/// of the same tuple type.
+/// Since we use this to sort a batch of `(usize, usize, L)` triples, in order
+/// to safely transmute between the two types, Triple has to be
+/// `repr(transparent)` of the same tuple type.
 ///
 /// We use this to implement `RadixKey` for sorting batches of triples
-/// using `rdst`.
+/// using the [`rdst`](https://crates.io/crates/rdst) crate.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Triple<L>(((usize, usize), L));
 
 impl<L> Triple<L> {
-    /// Converts a mutable batch of `((usize, usize), L)` triples into a mutable slice of `Triple<L>`.
+    /// slice of `Triple<L>`.
     ///
-    /// This is safe because `Triple` is `repr(transparent)` of the same tuple type.
-    pub fn cast_batch_mut(batch: &mut [((usize, usize), L)]) -> &mut [Triple<L>] {
+    /// The conversion is safe because `Triple` is `repr(transparent)` of the
+    /// same tuple type.
+    pub fn cast_batch(batch: &[((usize, usize), L)]) -> &[Triple<L>] {
+        // SAFETY: `Triple` is `repr(transparent)` of the same tuple type.
         unsafe { std::mem::transmute(batch) }
     }
-    /// Converts a batch of `((usize, usize), L)` triples into a slice of `Triple<L>`.
+
+    /// Converts a mutable reference to a slice of `((usize, usize), L)` triples
+    /// into a mutable reference to a slice of `Triple<L>`.
     ///
-    /// This is safe because `Triple` is `repr(transparent)` of the same tuple type.
-    pub fn cast_batch(batch: &[((usize, usize), L)]) -> &[Triple<L>] {
+    /// The conversion is safe because `Triple` is `repr(transparent)` of the
+    /// same tuple type.
+    pub fn cast_batch_mut(batch: &mut [((usize, usize), L)]) -> &mut [Triple<L>] {
+        // SAFETY: `Triple` is `repr(transparent)` of the same tuple type.
         unsafe { std::mem::transmute(batch) }
     }
 }

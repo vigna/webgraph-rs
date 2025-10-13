@@ -22,22 +22,21 @@ use rdst::*;
 #[derive(Clone, Debug)]
 /// A codec for encoding and decoding batches of triples using grouped gap compression.
 ///
-/// This codec encodes triples of the form `(src, dst, label)` by grouping edges with the same source node,
-/// and encoding the gaps between consecutive sources and destinations using a specified code (default: gamma).
-/// The outdegree (number of edges for each source) is also encoded using the specified code.
+/// This codec encodes triples of the form `(src, dst, label)` by grouping edges
+/// with the same source node, and encoding the gaps between consecutive sources
+/// and destinations using a specified code (default: gamma). The outdegree
+/// (number of edges for each source) is also encoded using the specified code.
 ///
-/// ## Type Parameters
+/// # Type Parameters
+///
 /// - `S`: Serializer for the labels, implementing [`BitSerializer`] for the label type.
 /// - `D`: Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
-/// - `OUTDEGREE_CODE`: Code used for encoding outdegrees (default: gamma).
-/// - `SRC_CODE`: Code used for encoding source gaps (default: gamma).
-/// - `DST_CODE`: Code used for encoding destination gaps (default: gamma).
+/// - `OUTDEGREE_CODE`: Code used for encoding outdegrees (default: [ɣ](dsi_bitstream::codes::gamma)).
+/// - `SRC_CODE`: Code used for encoding source gaps (default: [ɣ](dsi_bitstream::codes::gamma)).
+/// - `DST_CODE`: Code used for encoding destination gaps (default: [ɣ](dsi_bitstream::codes::gamma)).
 ///
-/// ## Fields
-/// - `serializer`: The label serializer.
-/// - `deserializer`: The label deserializer.
+/// # Encoding Format
 ///
-/// ## Encoding Format
 /// 1. The batch length is written using delta coding.
 /// 2. For each group of triples with the same source:
 ///     - The gap from the previous source is encoded.
@@ -49,52 +48,8 @@ use rdst::*;
 /// The bit deserializer must be [`Clone`] because we need one for each
 /// [`GroupedGapsIterator`], and there are possible scenarios in which the
 /// deserializer might be stateful.
-///
-/// ## Choosing the codes
-///
-/// When transposing `enwiki-2024`, these are the top 10 codes for src gaps, outdegree, and dst gaps:
-/// ```ignore
-/// Outdegree stats
-///   Code: ExpGolomb(3) Size: 34004796
-///   Code: ExpGolomb(2) Size: 34101784
-///   Code: ExpGolomb(4) Size: 36036394
-///   Code: Zeta(2)      Size: 36231582
-///   Code: ExpGolomb(1) Size: 36369750
-///   Code: Zeta(3)      Size: 36893285
-///   Code: Pi(2)        Size: 37415701
-///   Code: Zeta(4)      Size: 38905267
-///   Code: Golomb(20)   Size: 38963840
-///   Code: Golomb(19)   Size: 39118201
-/// Src stats
-///   Code: Golomb(2)    Size: 12929998
-///   Code: Rice(1)      Size: 12929998
-///   Code: Unary        Size: 13025332
-///   Code: Golomb(1)    Size: 13025332
-///   Code: Rice(0)      Size: 13025332
-///   Code: ExpGolomb(1) Size: 13319930
-///   Code: Golomb(4)    Size: 18732384
-///   Code: Rice(2)      Size: 18732384
-///   Code: Golomb(3)    Size: 18736573
-///   Code: ExpGolomb(2) Size: 18746122
-/// Dst stats
-///   Code: Pi(2)   Size: 2063880685
-///   Code: Pi(3)   Size: 2074138948
-///   Code: Zeta(3) Size: 2122730298
-///   Code: Zeta(4) Size: 2123948774
-///   Code: Zeta(5) Size: 2169131998
-///   Code: Pi(4)   Size: 2176097847
-///   Code: Zeta(2) Size: 2226573622
-///   Code: Zeta(6) Size: 2237680403
-///   Code: Delta   Size: 2272691460
-///   Code: Zeta(7) Size: 2305354857
-/// ```
-///
-/// The best codes are `Golomb(2)` for src gaps, `ExpGolomb(3)` for outdegree, and `Pi(2)` for dst gaps.
-/// However, `Golomb` can perform poorly if the data don't follow the expected distribution,
-/// so the recommended defaults are `Gamma` for src gaps, `ExpGolomb3` for outdegree, and `Delta` for dst gaps,
-/// as they are universal codes.
 pub struct GroupedGapsCodec<
-    E: Endianness = BE,
+    E: Endianness = NE,
     S: BitSerializer<E, BitWriter<E>> = (),
     D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone = (),
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::EXP_GOLOMB3 },
@@ -104,9 +59,9 @@ pub struct GroupedGapsCodec<
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
 {
-    /// Serializer for the labels
+    /// Serializer for the labels.
     pub serializer: S,
-    /// Deserializer for the labels
+    /// Deserializer for the labels.
     pub deserializer: D,
 
     pub _marker: core::marker::PhantomData<E>,
