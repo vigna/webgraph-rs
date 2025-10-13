@@ -131,6 +131,9 @@ pub use java_perm::*;
 mod granularity;
 pub use granularity::*;
 
+mod batch_codec;
+pub use batch_codec::*;
+
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 

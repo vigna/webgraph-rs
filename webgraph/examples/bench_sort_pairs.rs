@@ -11,13 +11,14 @@ use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::traits::BitRead;
 use dsi_bitstream::traits::BitWrite;
-use dsi_bitstream::traits::Endianness;
+use dsi_bitstream::traits::{Endianness, BE};
 use dsi_progress_logger::prelude::{ProgressLog, ProgressLogger};
 use rand::rngs::SmallRng;
 use rand::RngCore;
 use rand::SeedableRng;
 use tempfile::Builder;
 use webgraph::prelude::*;
+use webgraph::utils::gaps::GapsCodec;
 
 #[derive(Parser, Debug)]
 #[command(about = "Tests the merge speed of SortPairs", long_about = None)]
@@ -62,11 +63,10 @@ pub fn main() -> Result<()> {
     let dir = Builder::new().prefix("bench_sort_pairs").tempdir()?;
 
     if args.labeled {
-        let mut sp = SortPairs::<Mock, Mock>::new_labeled(
+        let mut sp = SortPairs::new_labeled(
             MemoryUsage::BatchSize(args.batch),
             dir.path(),
-            Mock(),
-            Mock(),
+            GapsCodec::<BE, _, _>::new(Mock(), Mock()),
         )?;
 
         let mut r = SmallRng::seed_from_u64(0);
