@@ -291,8 +291,18 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// labels, and the resulting lenders are wrapped with
 /// [`LeftIterator`](crate::labels::proj::LeftIterator) to project out just the
 /// successor nodes.
-impl<I: Iterator<Item = (usize, usize)> + Send + Sync, IT: IntoIterator<Item = (usize, usize), IntoIter = I>>
-    From<SplitIters<IT>> for Box<[(usize, crate::labels::proj::LeftIterator<Iter<(), std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>>)]>
+impl<
+        I: Iterator<Item = (usize, usize)> + Send + Sync,
+        IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
+    > From<SplitIters<IT>>
+    for Vec<
+        (
+            usize,
+            crate::labels::proj::LeftIterator<
+                Iter<(), std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>,
+            >,
+        ),
+    >
 {
     fn from(split: SplitIters<IT>) -> Self {
         split
@@ -312,8 +322,7 @@ impl<I: Iterator<Item = (usize, usize)> + Send + Sync, IT: IntoIterator<Item = (
                 // Wrap with LeftIterator to project out just the successor
                 (start_node, crate::labels::proj::LeftIterator(lender))
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
+            .collect()
     }
 }
 
@@ -328,7 +337,7 @@ impl<
         L: Clone + Copy + 'static,
         I: Iterator<Item = (usize, usize, L)> + Send + Sync,
         IT: IntoIterator<Item = (usize, usize, L), IntoIter = I>,
-    > From<SplitIters<IT>> for Box<[(usize, Iter<L, I>)]>
+    > From<SplitIters<IT>> for Vec<(usize, Iter<L, I>)>
 {
     fn from(split: SplitIters<IT>) -> Self {
         split
@@ -344,7 +353,6 @@ impl<
                     .expect("Iterator should start from the expected first node");
                 (start_node, lender)
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
+            .collect()
     }
 }

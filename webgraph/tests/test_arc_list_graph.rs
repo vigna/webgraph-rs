@@ -171,7 +171,7 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
 
     // Convert to lenders using the From trait via SplitIters
     let split_iters = SplitIters::new(partition_boundaries, partitioned_iters.into_boxed_slice());
-    let lenders: Box<[(usize, _)]> = split_iters.into();
+    let lenders: Vec<_> = split_iters.into();
 
     // Verify we got the right number of lenders
     assert_eq!(

@@ -105,12 +105,12 @@ use crate::utils::SplitIters;
 /// );
 ///
 /// // Convert to (node, lender) pairs using From trait
-/// let pairs: Box<[(usize, _)]> = split_labeled.into();
+/// let pairs: Vec<_> = split_labeled.into();
 ///
 /// // Use with parallel_iter
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     Box::into_iter(pairs)
+///     pairs.into_iter()
 ///         .map(|(node, lender)| (node, webgraph::prelude::LeftIterator(lender))),
 ///     num_nodes,
 ///     CompFlags::default(),

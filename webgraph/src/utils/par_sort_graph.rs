@@ -70,7 +70,7 @@ use crate::utils::SplitIters;
 /// let sorted = pair_sorter.sort(pairs)?;
 ///
 /// // Convert to (node, lender) pairs using From trait
-/// let pairs: Box<[(usize, _)]> = sorted.into();
+/// let pairs: Vec<_> = sorted.into();
 ///
 /// // Compress in parallel using BvComp::parallel_iter
 /// let bvcomp_tmp_dir = tempfile::tempdir()?;
@@ -78,7 +78,7 @@ use crate::utils::SplitIters;
 ///
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     Box::into_iter(pairs),
+///     pairs.into_iter(),
 ///     num_nodes,
 ///     CompFlags::default(),
 ///     &rayon::ThreadPoolBuilder::default().build()?,
