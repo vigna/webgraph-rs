@@ -7,13 +7,20 @@
 #![allow(clippy::type_complexity)]
 
 //! Facilities to sort in parallel externally pairs of nodes with an associated
-//! label returned by a [`ParallelIterator`].
+//! label returned by a [`ParallelIterator`], returning a
+//! [`SplitIters`](crate::utils::SplitIters) structure.
+//!
+//! The typical use of [`ParSortPairs`] is to sort pairs of nodes with an
+//! associated label representing a graph; the resulting
+//! [`SplitIters`](crate::utils::SplitIters) structure can be then used to build
+//! a compressed representation of the graph using, e.g.,
+//! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{ensure, Context, Result};
 use dsi_bitstream::traits::NE;
@@ -29,10 +36,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::SplitIters;
 
 /// Takes a parallel iterator of (labelled) pairs as input, and turns them into
-/// a vector of sorted iterators of (labelled) pairs.
-///
-/// (which can be flattened into a single iterator),
-/// suitable for
+/// a [`SplitIters`](crate::utils::SplitIters) structure which is suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
@@ -106,7 +110,7 @@ use crate::utils::SplitIters;
 /// // Use with parallel_iter
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     pairs.into_vec().into_iter()
+///     Box::into_iter(pairs)
 ///         .map(|(node, lender)| (node, webgraph::prelude::LeftIterator(lender))),
 ///     num_nodes,
 ///     CompFlags::default(),
@@ -288,7 +292,7 @@ impl<L> ParSortPairs<L> {
         );
         pl.start("Reading and sorting pairs");
 
-        let worker_id = AtomicU64::new(0);
+        let worker_id = AtomicUsize::new(0);
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
 
@@ -441,12 +445,12 @@ impl<L> ParSortPairs<L> {
 }
 
 struct SorterThreadState<L: Copy, D: BitDeserializer<NE, BitReader>> {
-    worker_id: u64,
+    worker_id: usize,
     sorted_pairs: Vec<Vec<BatchIterator<D>>>,
     unsorted_buffers: Vec<Vec<Triple<L>>>,
 }
 
-fn flush_buffer<
+pub(crate) fn flush_buffer<
     L: Copy + Send + Sync,
     S: BitSerializer<NE, BitWriter, SerType = L>,
     D: BitDeserializer<NE, BitReader>,
@@ -454,7 +458,7 @@ fn flush_buffer<
     tmp_dir: &Path,
     serializer: &S,
     deserializer: D,
-    worker_id: u64,
+    worker_id: usize,
     partition_id: usize,
     sorted_pairs: &mut Vec<BatchIterator<D>>,
     buf: &mut Vec<Triple<L>>,

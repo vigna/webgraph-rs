@@ -278,6 +278,45 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
     }
 }
 
+/// Conversion of a [`SplitIter`] of iterators on unlabeled pairs into a
+/// sequence of pairs of starting points and associated lenders.
+///
+/// This is useful for converting the output of sorting utilities like
+/// [`ParSortPairs`](crate::utils::ParSortPairs) or
+/// [`ParSortGraph`](crate::utils::ParSortGraph) into a form suitable for
+/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
+/// when working with unlabeled graphs.
+///
+/// The pairs `(src, dst)` are automatically converted to labeled form with unit
+/// labels, and the resulting lenders are wrapped with
+/// [`LeftIterator`](crate::labels::proj::LeftIterator) to project out just the
+/// successor nodes.
+impl<I: Iterator<Item = (usize, usize)> + Send + Sync, IT: IntoIterator<Item = (usize, usize), IntoIter = I>>
+    From<SplitIters<IT>> for Box<[(usize, crate::labels::proj::LeftIterator<Iter<(), std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>>)]>
+{
+    fn from(split: SplitIters<IT>) -> Self {
+        split
+            .iters
+            .into_vec()
+            .into_iter()
+            .enumerate()
+            .map(|(i, iter)| {
+                let start_node = split.boundaries[i];
+                let end_node = split.boundaries[i + 1];
+                let num_partition_nodes = end_node - start_node;
+                // Map pairs to triples with unit labels
+                let map_fn: fn((usize, usize)) -> (usize, usize, ()) = |(src, dst)| (src, dst, ());
+                let labeled_iter = iter.into_iter().map(map_fn);
+                let lender = Iter::try_new_from(num_partition_nodes, labeled_iter, start_node)
+                    .expect("Iterator should start from the expected first node");
+                // Wrap with LeftIterator to project out just the successor
+                (start_node, crate::labels::proj::LeftIterator(lender))
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+    }
+}
+
 /// Conversion of a [`SplitIter`] of iterators on labelled pairs into a
 /// sequences of pairs of starting points and associated lenders.
 ///

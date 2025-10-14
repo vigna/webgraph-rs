@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2025 Inria
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -7,18 +8,16 @@
 #![allow(clippy::type_complexity)]
 
 //! Facilities to sort in parallel externally pairs of nodes with an associated
-//! label returned by a [`ParallelIterator`].
+//! label returned by sequence of iterators.
 
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
-use std::path::Path;
 use std::sync::Mutex;
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use dsi_bitstream::traits::NE;
 use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
 use rayon::prelude::*;
-use rdst::RadixSort;
 
 use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
 use super::MemoryUsage;
@@ -35,57 +34,51 @@ use crate::utils::SplitIters;
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
 ///
-/// ```ignore TODO
+/// ```
 /// use std::num::NonZeroUsize;
 ///
 /// use dsi_bitstream::traits::BigEndian;
-/// use lender::Lender;
 /// use rayon::prelude::*;
-/// use webgraph::traits::SequentialLabeling;
+/// use webgraph::prelude::*;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
-/// use webgraph::graphs::arc_list_graph::Iter;
+/// use webgraph::traits::{SequentialLabeling, SplitLabeling};
 /// use webgraph::utils::par_sort_graph::ParSortGraph;
 ///
-/// let num_partitions = 2;
-/// let num_nodes: usize = 5;
-/// let num_nodes_per_partition = num_nodes.div_ceil(num_partitions);
-/// let unsorted_pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
+/// // Build a small VecGraph
+/// let g = VecGraph::from_arcs([
+///     (0, 4),
+///     (1, 0),
+///     (1, 3),
+///     (2, 1),
+///     (3, 2),
+/// ]);
 ///
+/// let num_nodes = g.num_nodes();
+/// let num_partitions = 2;
+///
+/// // Split the graph into lenders and convert each to pairs
+/// let pairs: Vec<_> = g
+///     .split_iter(num_partitions)
+///     .into_iter()
+///     .map(|(_start_node, lender)| lender.into_pairs())
+///     .collect();
+///
+/// // Sort the pairs using ParSortGraph
 /// let pair_sorter = ParSortGraph::new(num_nodes)?
-///     .expected_num_pairs(unsorted_pairs.len())
 ///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
 ///
-/// assert_eq!(
-///     pair_sorter.sort(
-///         unsorted_pairs.par_iter().copied()
-///     )?
-///         .into_iter()
-///         .map(|partition| partition.into_iter().collect::<Vec<_>>())
-///         .collect::<Vec<_>>(),
-///     vec![
-///         vec![(0, 4), (1, 0), (1, 3), (2, 1)], // nodes 0, 1, and 2 are in partition 0
-///         vec![(3, 2)], // nodes 3 and 4 are in partition 1
-///     ],
-/// );
+/// let sorted = pair_sorter.sort(pairs)?;
 ///
+/// // Convert to (node, lender) pairs using From trait
+/// let pairs: Box<[(usize, _)]> = sorted.into();
+///
+/// // Compress in parallel using BvComp::parallel_iter
 /// let bvcomp_tmp_dir = tempfile::tempdir()?;
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     pair_sorter.sort(
-///         unsorted_pairs.par_iter().copied()
-///     )?
-///         .into_iter()
-///         .into_iter()
-///         .enumerate()
-///         .map(|(partition_id, partition)| {
-///             webgraph::prelude::LeftIterator(Iter::<(), _>::try_new_from(
-///                 num_nodes_per_partition,
-///                 partition.into_iter().map(|(src, dst)| (src, dst, ())),
-///                 partition_id*num_nodes_per_partition,
-///             ).unwrap())
-///         }),
+///     Box::into_iter(pairs),
 ///     num_nodes,
 ///     CompFlags::default(),
 ///     &rayon::ThreadPoolBuilder::default().build()?,
@@ -295,18 +288,13 @@ impl<L> ParSortGraph<L> {
                         (0..num_partitions).map(|_| Vec::new()).collect::<Vec<_>>();
 
                     for (src, dst, label) in pair {
-                        /* ensure!(
-                            src < self.num_nodes,
-                            "Expected {}, but got {src}",
-                            self.num_nodes
-                        ); */
                         let partition_id = src / num_nodes_per_partition;
 
                         let sorted_pairs = &mut sorted_pairs[partition_id];
                         let buf = &mut unsorted_buffers[partition_id];
                         if buf.len() >= buf.capacity() {
                             let buf_len = buf.len();
-                            flush_buffer(
+                            super::par_sort_pairs::flush_buffer(
                                 presort_tmp_dir.path(),
                                 serializer,
                                 deserializer.clone(),
@@ -333,7 +321,7 @@ impl<L> ParSortGraph<L> {
                         .enumerate()
                     {
                         let buf_len = buf.len();
-                        flush_buffer(
+                        super::par_sort_pairs::flush_buffer(
                             presort_tmp_dir.path(),
                             serializer,
                             deserializer.clone(),
@@ -404,38 +392,4 @@ impl<L> ParSortGraph<L> {
             iters.into_boxed_slice(),
         ))
     }
-}
-
-fn flush_buffer<
-    L: Copy + Send + Sync,
-    S: BitSerializer<NE, BitWriter, SerType = L>,
-    D: BitDeserializer<NE, BitReader>,
->(
-    tmp_dir: &Path,
-    serializer: &S,
-    deserializer: D,
-    worker_id: usize,
-    partition_id: usize,
-    sorted_pairs: &mut Vec<BatchIterator<D>>,
-    buf: &mut Vec<Triple<L>>,
-) -> Result<()> {
-    buf.radix_sort_unstable();
-
-    let path = tmp_dir.join(format!(
-        "sorted_batch_{worker_id}_{partition_id}_{}",
-        sorted_pairs.len()
-    ));
-
-    // Safety check. It's not foolproof (TOCTOU) but should catch most programming errors.
-    ensure!(
-        !path.exists(),
-        "Can't create temporary file {}, it already exists",
-        path.display()
-    );
-    sorted_pairs.push(
-        BatchIterator::new_from_vec_sorted_labeled(&path, buf, serializer, deserializer)
-            .with_context(|| format!("Could not write sorted batch to {}", path.display()))?,
-    );
-    buf.clear();
-    Ok(())
 }
