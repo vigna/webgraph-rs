@@ -10,18 +10,22 @@
 //! Facilities to sort in parallel externally (labelled) pairs of nodes
 //! returned by a sequence of iterators.
 //!
-//! The typical use of [`ParSortPairs`] is to sort pairs of nodes with an
-//! associated label representing a graph; the resulting [`SplitIters`]
-//! structure can be then used to build a compressed representation of the graph
-//! using, for example,
+//! The typical use of [`ParSortIters`] is to sort (labelled) pairs of nodes
+//! representing a (labelled) graph; the resulting [`SplitIters`] structure can
+//! be then used to build a compressed representation of the graph using, for
+//! example,
 //! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+//!
+//! For example, when transposing or permuting a
+//! [splittable](crate::traits::SplitLabeling) graph one obtains such a sequence
+//! of iterators.
 //!
 //! If your pairs are emitted by a single parallel iterator, consider using
 //! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs) instead.
 
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
-use std::sync::Mutex;
+use sync_cell_slice::SyncSlice;
 
 use anyhow::{Context, Result};
 use dsi_bitstream::traits::NE;
@@ -57,7 +61,7 @@ use crate::utils::SplitIters;
 /// use webgraph::prelude::*;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
 /// use webgraph::traits::{SequentialLabeling, SplitLabeling};
-/// use webgraph::utils::par_sort_graph::ParSortIters;
+/// use webgraph::utils::par_sort_iters::ParSortIters;
 ///
 /// // Build a small VecGraph
 /// let g = VecGraph::from_arcs([
@@ -111,6 +115,8 @@ pub struct ParSortIters<L = ()> {
 
 impl ParSortIters<()> {
     /// See [`try_sort`](ParSortIters::try_sort).
+    ///
+    /// This is a convenience method for iterators that cannot fail.
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
@@ -121,8 +127,8 @@ impl ParSortIters<()> {
         self.try_sort::<std::convert::Infallible>(pairs)
     }
 
-    /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`] structure.
+    /// Sorts the output of the provided sequence of iterators, returning a
+    /// [`SplitIters`] structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<
@@ -154,6 +160,16 @@ impl ParSortIters<()> {
 }
 
 impl<L> ParSortIters<L> {
+    /// Creates a new [`ParSortIters`] instance.
+    ///
+    /// The methods [`num_partitions`](ParSortIters::num_partitions) (which sets
+    /// the number of iterators in the resulting [`SplitIters`]),
+    /// [`memory_usage`](ParSortIters::memory_usage), and
+    /// [`expected_num_pairs`](ParSortIters::expected_num_pairs) can be used to
+    /// customize the instance.
+    ///
+    /// This method will return an error if the number of CPUs
+    /// returned by [`num_cpus::get()`](num_cpus::get()) is zero.
     pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
@@ -176,6 +192,8 @@ impl<L> ParSortIters<L> {
 
     /// How many partitions to split the nodes into.
     ///
+    /// This is the number of iterators in the resulting [`SplitIters`].
+    ///
     /// Defaults to `num_cpus::get()`.
     pub fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
         Self {
@@ -189,7 +207,7 @@ impl<L> ParSortIters<L> {
     /// Larger values yield faster merges (by reducing logarithmically the
     /// number of batches to merge) but consume linearly more memory. We suggest
     /// to set this parameter as large as possible, depending on the available
-    /// memory.
+    /// memory. The default is the default of [`MemoryUsage`].
     pub fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
         Self {
             memory_usage,
@@ -199,7 +217,7 @@ impl<L> ParSortIters<L> {
 
     /// See [`try_sort_labeled`](ParSortIters::try_sort_labeled).
     ///
-    /// This is a convenience method for parallel iterators that cannot fail.
+    /// This is a convenience method for iterators that cannot fail.
     pub fn sort_labeled<S, D>(
         &self,
         serializer: &S,
@@ -228,8 +246,8 @@ impl<L> ParSortIters<L> {
         self.try_sort_labeled::<S, D, std::convert::Infallible>(serializer, deserializer, pairs)
     }
 
-    /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`] structure.
+    /// Sorts the output of the provided sequence of iterators of (labelled)
+    /// pairs, returning a [`SplitIters`] structure.
     ///
     /// This  method accept as type parameter a [`BitSerializer`] and a
     /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
@@ -287,10 +305,10 @@ impl<L> ParSortIters<L> {
         let unsorted_pairs = unsorted_pairs.into_iter();
         let num_blocks = unsorted_pairs.len();
 
-        let partitioned_presorted_pairs = Mutex::new(vec![Vec::new(); num_blocks]);
+        let mut partitioned_presorted_pairs = vec![vec![]; num_blocks];
+        let result = partitioned_presorted_pairs.as_sync_slice();
 
         std::thread::scope(|s| {
-            let partitioned_presorted_pairs = &partitioned_presorted_pairs;
             let presort_tmp_dir = &presort_tmp_dir;
             for (block_id, pair) in unsorted_pairs.enumerate() {
                 let deserializer = deserializer.clone();
@@ -351,8 +369,9 @@ impl<L> ParSortIters<L> {
                         pl.update_with_count(buf_len);
                     }
 
-                    // TODO: ugly
-                    partitioned_presorted_pairs.lock().unwrap()[block_id] = sorted_pairs;
+                    unsafe {
+                        result[block_id].set(sorted_pairs);
+                    }
                 });
             }
         });
@@ -362,26 +381,22 @@ impl<L> ParSortIters<L> {
         // ie. Vec<Vec<Vec<BatchIterator>>>>.
         //
         // Let's merge the {partition_id -> [iterators]} maps of each worker
-        let partitioned_presorted_pairs = partitioned_presorted_pairs
-            .into_inner()
-            .unwrap()
-            .into_par_iter()
-            .reduce(
-                || (0..num_partitions).map(|_| Vec::new()).collect(),
-                |mut pair_partitions1: Vec<Vec<BatchIterator<D>>>,
-                 pair_partitions2: Vec<Vec<BatchIterator<D>>>|
-                 -> Vec<Vec<BatchIterator<D>>> {
-                    assert_eq!(pair_partitions1.len(), num_partitions);
-                    assert_eq!(pair_partitions2.len(), num_partitions);
-                    for (partition1, partition2) in pair_partitions1
-                        .iter_mut()
-                        .zip(pair_partitions2.into_iter())
-                    {
-                        partition1.extend(partition2.into_iter());
-                    }
-                    pair_partitions1
-                },
-            );
+        let partitioned_presorted_pairs = partitioned_presorted_pairs.into_par_iter().reduce(
+            || (0..num_partitions).map(|_| Vec::new()).collect(),
+            |mut pair_partitions1: Vec<Vec<BatchIterator<D>>>,
+             pair_partitions2: Vec<Vec<BatchIterator<D>>>|
+             -> Vec<Vec<BatchIterator<D>>> {
+                assert_eq!(pair_partitions1.len(), num_partitions);
+                assert_eq!(pair_partitions2.len(), num_partitions);
+                for (partition1, partition2) in pair_partitions1
+                    .iter_mut()
+                    .zip(pair_partitions2.into_iter())
+                {
+                    partition1.extend(partition2.into_iter());
+                }
+                pair_partitions1
+            },
+        );
         // At this point, the iterator was turned into
         // {partition_id -> [iterators]}
         // ie. Vec<Vec<BatchIterator>>>.

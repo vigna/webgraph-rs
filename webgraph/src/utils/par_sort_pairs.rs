@@ -9,14 +9,18 @@
 //! Facilities to sort in parallel externally (labelled) pairs of nodes returned
 //! by a [`ParallelIterator`], returning a [`SplitIters`] structure.
 //!
-//! The typical use of [`ParSortPairs`] is to sort pairs of nodes with an
-//! associated label representing a graph; the resulting [`SplitIters`]
-//! structure can be then used to build a compressed representation of the graph
-//! using, for example,
+//! The typical use of [`ParSortPairs`] is to sort (labelled) pairs of nodes
+//! representing a (labelled) graph; the resulting [`SplitIters`] structure can
+//! be then used to build a compressed representation of the graph using, for
+//! example,
 //! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 //!
+//! For example, when reading a graph from a file containing an arc list one
+//! typically is able to produce a parallel iterator of (labelled) pairs of
+//! nodes.
+//!
 //! If your pairs are emitted by a sequence of sequential iterators, consider
-//! using [`ParSortIters`] instead.
+//! using [`ParSortIters`](crate::utils::par_sort_iters::ParSortIters) instead.
 
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -160,6 +164,16 @@ impl ParSortPairs<()> {
 }
 
 impl<L> ParSortPairs<L> {
+    /// Creates a new [`ParSortPairs`] instance.
+    ///
+    /// The methods [`num_partitions`](ParSortPairs::num_partitions) (which sets
+    /// the number of iterators in the resulting [`SplitIters`]),
+    /// [`memory_usage`](ParSortPairs::memory_usage), and
+    /// [`expected_num_pairs`](ParSortPairs::expected_num_pairs) can be used to
+    /// customize the instance.
+    ///
+    /// This method will return an error if the number of CPUs
+    /// returned by [`num_cpus::get()`](num_cpus::get()) is zero.
     pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
@@ -182,6 +196,8 @@ impl<L> ParSortPairs<L> {
 
     /// How many partitions to split the nodes into.
     ///
+    /// This is the number of iterators in the resulting [`SplitIters`].
+    ///
     /// Defaults to `num_cpus::get()`.
     pub fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
         Self {
@@ -195,7 +211,7 @@ impl<L> ParSortPairs<L> {
     /// Larger values yield faster merges (by reducing logarithmically the
     /// number of batches to merge) but consume linearly more memory. We suggest
     /// to set this parameter as large as possible, depending on the available
-    /// memory.
+    /// memory. The default is the default of [`MemoryUsage`].
     pub fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
         Self {
             memory_usage,

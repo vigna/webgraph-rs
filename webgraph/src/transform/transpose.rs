@@ -116,7 +116,7 @@ where
     S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
-    let par_sort_graph = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
     let pairs: Vec<_> = graph
@@ -125,7 +125,7 @@ where
         .map(|(_start_node, iter)| iter.into_labeled_pairs())
         .collect();
 
-    par_sort_graph.try_sort_labeled::<S, D, std::convert::Infallible>(
+    par_sort_iters.try_sort_labeled::<S, D, std::convert::Infallible>(
         &serializer,
         deserializer,
         pairs,
@@ -153,7 +153,7 @@ pub fn par_transpose<
         impl IntoIterator<Item = (usize, usize, ()), IntoIter: Send + Sync> + use<'graph, G>,
     >,
 > {
-    let par_sort_graph = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
     let pairs: Vec<_> = graph
@@ -162,5 +162,5 @@ pub fn par_transpose<
         .map(|(_start_node, iter)| UnitLender(iter).into_labeled_pairs())
         .collect();
 
-    par_sort_graph.try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)
+    par_sort_iters.try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)
 }
