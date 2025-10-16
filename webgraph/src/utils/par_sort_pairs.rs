@@ -6,14 +6,13 @@
 
 #![allow(clippy::type_complexity)]
 
-//! Facilities to sort in parallel externally pairs of nodes with an associated
-//! label returned by a [`ParallelIterator`], returning a
-//! [`SplitIters`] structure.
+//! Facilities to sort in parallel externally (labelled) pairs of nodes returned
+//! by a [`ParallelIterator`], returning a [`SplitIters`] structure.
 //!
 //! The typical use of [`ParSortPairs`] is to sort pairs of nodes with an
-//! associated label representing a graph; the resulting
-//! [`SplitIters`] structure can be then used to build
-//! a compressed representation of the graph using, e.g.,
+//! associated label representing a graph; the resulting [`SplitIters`]
+//! structure can be then used to build a compressed representation of the graph
+//! using, for example,
 //! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 
 use std::cell::RefCell;
@@ -93,25 +92,13 @@ use crate::utils::SplitIters;
 ///     unsorted_pairs.par_iter().copied()
 /// )?;
 ///
-/// use webgraph::utils::SplitIters;
-/// let split_labeled = SplitIters::new(
-///     split_iters.boundaries.clone(),
-///     split_iters.iters
-///         .into_vec()
-///         .into_iter()
-///         .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ())))
-///         .collect::<Vec<_>>()
-///         .into_boxed_slice()
-/// );
-///
 /// // Convert to (node, lender) pairs using From trait
-/// let pairs: Vec<_> = split_labeled.into();
+/// let pairs: Vec<_> = split_iters.into();
 ///
 /// // Use with parallel_iter
 /// BvComp::parallel_iter::<BigEndian, _>(
 ///     &bvcomp_out_dir.path().join("graph"),
-///     pairs.into_iter()
-///         .map(|(node, lender)| (node, webgraph::prelude::LeftIterator(lender))),
+///     pairs.into_iter(),
 ///     num_nodes,
 ///     CompFlags::default(),
 ///     &rayon::ThreadPoolBuilder::default().build()?,
