@@ -14,6 +14,9 @@
 //! structure can be then used to build a compressed representation of the graph
 //! using, for example,
 //! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+//!
+//! If your pairs are emitted by a sequence of sequential iterators, consider
+//! using [`ParSortIters`] instead.
 
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -42,6 +45,8 @@ use crate::utils::SplitIters;
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
+///
+/// # Examples
 ///
 /// ```
 /// use std::num::NonZeroUsize;
@@ -124,8 +129,8 @@ impl ParSortPairs<()> {
         self.try_sort::<std::convert::Infallible>(pairs.map(Ok))
     }
 
-    /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`] structure.
+    /// Sorts the output of the provided parallel iterator, returning a
+    /// [`SplitIters`] structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,

@@ -7,8 +7,17 @@
 
 #![allow(clippy::type_complexity)]
 
-//! Facilities to sort in parallel externally pairs of nodes with an associated
-//! label returned by sequence of iterators.
+//! Facilities to sort in parallel externally (labelled) pairs of nodes
+//! returned by a sequence of iterators.
+//!
+//! The typical use of [`ParSortPairs`] is to sort pairs of nodes with an
+//! associated label representing a graph; the resulting [`SplitIters`]
+//! structure can be then used to build a compressed representation of the graph
+//! using, for example,
+//! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+//!
+//! If your pairs are emitted by a single parallel iterator, consider using
+//! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs) instead.
 
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
@@ -24,15 +33,21 @@ use super::MemoryUsage;
 use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::SplitIters;
 
-/// Takes a parallel iterator of pairs as input, and returns them into a vector
-/// of sorted iterators (which can be flattened into a single iterator),
-/// suitable for
+/// Takes a sequence of iterators of (labelled)pairs as input, and turns them
+/// into [`SplitIters`] structure which is suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
+///
+/// # Examples
+///
+/// In this example we transpose a graph in parallel by splitting it, exchanging
+/// the source and destination of each arc, sorting the resulting pairs in
+/// parallel using [`ParSortIters`], and then compressing the result using
+/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter):
 ///
 /// ```
 /// use std::num::NonZeroUsize;
@@ -42,7 +57,7 @@ use crate::utils::SplitIters;
 /// use webgraph::prelude::*;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
 /// use webgraph::traits::{SequentialLabeling, SplitLabeling};
-/// use webgraph::utils::par_sort_graph::ParSortGraph;
+/// use webgraph::utils::par_sort_graph::ParSortIters;
 ///
 /// // Build a small VecGraph
 /// let g = VecGraph::from_arcs([
@@ -60,11 +75,11 @@ use crate::utils::SplitIters;
 /// let pairs: Vec<_> = g
 ///     .split_iter(num_partitions)
 ///     .into_iter()
-///     .map(|(_start_node, lender)| lender.into_pairs())
+///     .map(|(_start_node, lender)| lender.into_pairs().map(|(src, dst)| (dst, src)))
 ///     .collect();
 ///
-/// // Sort the pairs using ParSortGraph
-/// let pair_sorter = ParSortGraph::new(num_nodes)?
+/// // Sort the pairs using ParSortIters
+/// let pair_sorter = ParSortIters::new(num_nodes)?
 ///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
 ///
 /// let sorted = pair_sorter.sort(pairs)?;
@@ -86,7 +101,7 @@ use crate::utils::SplitIters;
 /// )?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ParSortGraph<L = ()> {
+pub struct ParSortIters<L = ()> {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
@@ -94,8 +109,8 @@ pub struct ParSortGraph<L = ()> {
     marker: PhantomData<L>,
 }
 
-impl ParSortGraph<()> {
-    /// See [`try_sort`](ParSortGraph::try_sort).
+impl ParSortIters<()> {
+    /// See [`try_sort`](ParSortIters::try_sort).
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
@@ -115,7 +130,7 @@ impl ParSortGraph<()> {
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
-        let split = <ParSortGraph<()>>::try_sort_labeled::<(), (), E>(
+        let split = <ParSortIters<()>>::try_sort_labeled::<(), (), E>(
             self,
             &(),
             (),
@@ -138,7 +153,7 @@ impl ParSortGraph<()> {
     }
 }
 
-impl<L> ParSortGraph<L> {
+impl<L> ParSortIters<L> {
     pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
@@ -182,7 +197,7 @@ impl<L> ParSortGraph<L> {
         }
     }
 
-    /// See [`try_sort_labeled`](ParSortGraph::try_sort_labeled).
+    /// See [`try_sort_labeled`](ParSortIters::try_sort_labeled).
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
     pub fn sort_labeled<S, D>(

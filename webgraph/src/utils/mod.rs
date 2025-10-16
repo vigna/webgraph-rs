@@ -51,7 +51,7 @@ pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
 
 pub mod par_sort_graph;
-pub use par_sort_graph::ParSortGraph;
+pub use par_sort_graph::ParSortIters;
 
 use crate::graphs::{
     arc_list_graph::Iter,
@@ -256,7 +256,7 @@ impl MemoryUsage {
 /// returns (labelled) pairs of nodes, and that the first element of
 /// each pair sits between the boundaries associated with the iterator.
 ///
-/// This structures is returned by [`ParSortPairs`] and [`ParSortGraph`] and can
+/// This structures is returned by [`ParSortPairs`] and [`ParSortIters`] and can
 /// easily be converted into lenders for use with
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
 /// using a convenient implementation of the [`From`] trait.
@@ -281,7 +281,7 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// sequence of pairs of starting points and associated lenders.
 ///
 /// This is useful for converting the output of sorting utilities like
-/// [`ParSortPairs`] or [`ParSortGraph`] into a form suitable for
+/// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
 /// when working with unlabeled graphs.
 ///
@@ -326,7 +326,7 @@ impl<
 /// sequences of pairs of starting points and associated lenders.
 ///
 /// This is useful for converting the output of sorting utilities like
-/// [`ParSortPairs`] or [`ParSortGraph`] into a form suitable for
+/// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 impl<
         L: Clone + Copy + 'static,

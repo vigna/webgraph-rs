@@ -13,7 +13,7 @@ use crate::prelude::{
 };
 use crate::traits::graph::UnitLabelGraph;
 use crate::traits::{NodeLabelsLender, SplitLabeling, UnitLender};
-use crate::utils::{MemoryUsage, ParSortGraph, SplitIters};
+use crate::utils::{MemoryUsage, ParSortIters, SplitIters};
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
 use dsi_progress_logger::prelude::*;
@@ -116,7 +116,7 @@ where
     S::SerType: Send + Sync + Copy,
     D::DeserType: Clone + Copy,
 {
-    let par_sort_graph = ParSortGraph::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let par_sort_graph = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
     let pairs: Vec<_> = graph
@@ -153,7 +153,7 @@ pub fn par_transpose<
         impl IntoIterator<Item = (usize, usize, ()), IntoIter: Send + Sync> + use<'graph, G>,
     >,
 > {
-    let par_sort_graph = ParSortGraph::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let par_sort_graph = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
 
     let pairs: Vec<_> = graph
