@@ -50,8 +50,8 @@ pub use sort_pairs::SortPairs;
 pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
 
-pub mod par_sort_graph;
-pub use par_sort_graph::ParSortIters;
+pub mod par_sort_iters;
+pub use par_sort_iters::ParSortIters;
 
 use crate::graphs::{
     arc_list_graph::Iter,
