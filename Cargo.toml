@@ -7,7 +7,7 @@ webgraph = { path = "./webgraph", version = "0.3.0" }
 webgraph-algo = { path = "./algo", version = "0.2.0" }
 webgraph-cli = { path = "./cli", version = "0.1.0" }
 
-card-est-array = "0.1.0"
+card-est-array = "0.2.0"
 epserde = "0.11.0"
 dsi-bitstream = "0.5.2"
 dsi-progress-logger = "0.8.2"
