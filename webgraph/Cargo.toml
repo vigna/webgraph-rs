@@ -42,7 +42,6 @@ itertools.workspace = true
 rayon.workspace = true
 mmap-rs.workspace = true
 num_cpus.workspace = true
-predicates.workspace = true
 java-properties.workspace = true
 sync-cell-slice.workspace = true
 arbitrary = { workspace = true, optional = true }
@@ -53,7 +52,6 @@ sysinfo.workspace = true
 
 libc = "0.2.155"
 impl-tools = "0.11.2"
-impl-tools-lib = "0.11.2"
 bitflags = "2.6.0"
 dary_heap = "0.3.6"
 rdst = { version = "0.20.14", features = ["multi-threaded"] }
