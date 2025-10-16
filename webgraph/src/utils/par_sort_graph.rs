@@ -107,7 +107,7 @@ impl ParSortGraph<()> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`](SplitIters) structure.
+    /// returning a [`SplitIters`] structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<
@@ -214,7 +214,7 @@ impl<L> ParSortGraph<L> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`](SplitIters) structure.
+    /// returning a [`SplitIters`] structure.
     ///
     /// This  method accept as type parameter a [`BitSerializer`] and a
     /// [`BitDeserializer`] that are used to serialize and deserialize the labels.

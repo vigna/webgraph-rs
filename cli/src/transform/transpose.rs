@@ -114,7 +114,9 @@ where
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     BvComp::parallel_iter::<E, _>(
         &args.dst,
-        pairs.into_iter().map(|(node, lender)| (node, webgraph::labels::LeftIterator(lender))),
+        pairs
+            .into_iter()
+            .map(|(node, lender)| (node, webgraph::labels::LeftIterator(lender))),
         seq_graph.num_nodes(),
         args.ca.into(),
         &thread_pool,

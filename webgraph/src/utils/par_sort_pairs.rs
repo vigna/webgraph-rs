@@ -8,11 +8,11 @@
 
 //! Facilities to sort in parallel externally pairs of nodes with an associated
 //! label returned by a [`ParallelIterator`], returning a
-//! [`SplitIters`](crate::utils::SplitIters) structure.
+//! [`SplitIters`] structure.
 //!
 //! The typical use of [`ParSortPairs`] is to sort pairs of nodes with an
 //! associated label representing a graph; the resulting
-//! [`SplitIters`](crate::utils::SplitIters) structure can be then used to build
+//! [`SplitIters`] structure can be then used to build
 //! a compressed representation of the graph using, e.g.,
 //! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 
@@ -36,7 +36,7 @@ use crate::traits::{BitDeserializer, BitSerializer};
 use crate::utils::SplitIters;
 
 /// Takes a parallel iterator of (labelled) pairs as input, and turns them into
-/// a [`SplitIters`](crate::utils::SplitIters) structure which is suitable for
+/// a [`SplitIters`] structure which is suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
@@ -138,7 +138,7 @@ impl ParSortPairs<()> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`](SplitIters) structure.
+    /// returning a [`SplitIters`] structure.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl ParallelIterator<Item = Result<(usize, usize), E>>,
@@ -244,7 +244,7 @@ impl<L> ParSortPairs<L> {
     }
 
     /// Sorts the output of the provided parallel iterator,
-    /// returning a [`SplitIters`](SplitIters) structure.
+    /// returning a [`SplitIters`] structure.
     ///
     /// This  method accept as type parameter a [`BitSerializer`] and a
     /// [`BitDeserializer`] that are used to serialize and deserialize the labels.

@@ -84,7 +84,7 @@ named `BASENAME.ef`.
 Then, to load the graph you need to call
 
 ```ignore
-let graph = BVGraph::with_basename("BASENAME").load()?;
+let graph = BvGraph::with_basename("BASENAME").load()?;
 ```
 
 The [`with_basename`] method returns a [`LoadConfig`] instance that can be
@@ -124,7 +124,7 @@ CLI is the main method of the library, so it can be executed with `cargo run`.
 
 ## More Options
 
-- By starting from the [`BVGraphSeq`] class you can obtain an instance that does
+- By starting from the [`BvGraphSeq`] class you can obtain an instance that does
   not need the `BASENAME.ef` file, but provides only [iteration].
 
 - Graphs can be labeled by [zipping] them together with a [labeling]. In fact,
@@ -140,7 +140,7 @@ There are many operations available on graphs, such as [transpose],
 A simple way to compress a graph is to provide it as a list of arcs. The
 `webgraph` CLI provides a command `from` with a subcommand `arcs` that reads a
 list of TAB-separated list of arcs from standard input and writes a compressed
-[`BvGraph`]. For example,
+graph in BvGraph format. For example,
 
 ```bash
 echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
@@ -194,8 +194,8 @@ Union nor the Italian MUR can be held responsible for them.
 [simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html>
 [permute]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html>
 [`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename>
-[`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html>
-[`BVGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraph.html>
+[`BvGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html>
+[`BvGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html>
 [`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html>
 [iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
 [zipping]: <https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html>

@@ -176,11 +176,13 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
             //
             // This pattern is necessary because Rust's borrow checker cannot express the
             // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
-            if let Some((next_node, next_iter)) = self
-                .lender
-                .next()
-                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
-            {
+            if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
+                (x, unsafe {
+                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
+                        it.into_iter(),
+                    )
+                })
+            }) {
                 self.current_node = next_node;
                 self.current_iter = Some(next_iter);
             } else {
@@ -223,11 +225,13 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<
             //
             // This pattern is necessary because Rust's borrow checker cannot express the
             // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
-            if let Some((next_node, next_iter)) = self
-                .lender
-                .next()
-                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
-            {
+            if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
+                (x, unsafe {
+                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
+                        it.into_iter(),
+                    )
+                })
+            }) {
                 self.current_node = next_node;
                 self.current_iter = Some(next_iter);
             } else {

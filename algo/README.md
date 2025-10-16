@@ -1,16 +1,38 @@
 # Algorithms for WebGraph
 
-[![downloads](https://img.shields.io/crates/d/webgraph)](https://crates.io/crates/webgraph)
-[![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph)](https://crates.io/crates/webgraph/reverse_dependencies)
+[![downloads](https://img.shields.io/crates/d/webgraph-algo)](https://crates.io/crates/webgraph-algo)
+[![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph-algo)](https://crates.io/crates/webgraph-algo/reverse_dependencies)
 ![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
-![license](https://img.shields.io/crates/l/webgraph)
-[![Line count](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
-[![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
-[![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
-[![Coverage Status](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
+![license](https://img.shields.io/crates/l/webgraph-algo)
+[![Latest version](https://img.shields.io/crates/v/webgraph-algo.svg)](https://crates.io/crates/webgraph-algo)
+[![Documentation](https://docs.rs/webgraph-algo/badge.svg)](https://docs.rs/webgraph-algo)
 
 Algorithms for the Rust implementation of the [WebGraph framework] for graph
 compression.
+
+This crate provides efficient algorithms for analyzing compressed graphs:
+
+## Algorithms
+
+### Graph Structure
+- **Strongly Connected Components** (SCCs): Tarjan's algorithm and variants for
+  computing SCCs in directed graphs
+- **Topological Sorting**: Order vertices of a directed acyclic graph
+- **Acyclicity Testing**: Check if a graph is acyclic
+
+### Distance Computation
+- **HyperBall**: Probabilistic algorithm for computing distances, closeness
+  centrality, and other measures using HyperLogLog counters
+- **ExactSumSweep**: Exact computation of eccentricities, radius, and diameter
+
+### Community Detection
+- **Layered Label Propagation** (LLP): Fast community detection algorithm for
+  large graphs
+
+## CLI Integration
+
+Many algorithms can also be accessed through the `webgraph-cli` command-line
+tool.
 
 ## Acknowledgments
 

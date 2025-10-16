@@ -6,10 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Command-line interface structs, functions, and methods.
-//!
-//! Each module correspond to a group of commands, and each command is
-//! implemented as a submodule.
+#![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
@@ -262,7 +259,7 @@ pub enum IntVectorFormat {
     /// ⌊log₂(max)⌋ + 1 bits. It requires to allocate the `BitFieldVec` in RAM
     /// before serializing it.
     BitFieldVec,
-    /// ASCII format, one float per line.
+    /// ASCII format, one integer per line.
     Ascii,
     /// A JSON Array.
     Json,
@@ -399,7 +396,7 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
 
     if arg.ends_with('%') {
         let perc = arg[..arg.len() - 1].parse::<f64>()?;
-        ensure!(perc >= 0.0 || perc <= 100.0, "percentage out of range");
+        ensure!((0.0..=100.0).contains(&perc), "percentage out of range");
         return Ok(MemoryUsage::from_perc(perc));
     }
 
@@ -632,16 +629,7 @@ pub enum SubCommands {
 #[derive(Parser, Debug)]
 #[command(name = "webgraph", version=build_info::version_string())]
 /// Webgraph tools to build, convert, modify, and analyze graphs.
-///
-/// Noteworthy environment variables:
-///
-/// - RUST_MIN_STACK: minimum thread stack size (in bytes); we suggest
-///   RUST_MIN_STACK=8388608 (8MiB)
-///
-/// - TMPDIR: where to store temporary files (potentially very large ones)
-///
-/// - RUST_LOG: configuration for env_logger
-///   <https://docs.rs/env_logger/latest/env_logger/>
+#[doc = include_str!("common_env.txt")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: SubCommands,

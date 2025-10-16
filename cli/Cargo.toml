@@ -7,7 +7,7 @@ authors = [
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
 repository = "https://github.com/vigna/webgraph-rs/"
-description = "Command line interface of for the Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
+description = "Command line interface for the Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
 license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
 keywords = ["graph", "compression", "codes", "webgraph"]

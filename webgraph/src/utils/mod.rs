@@ -256,11 +256,10 @@ impl MemoryUsage {
 /// returns (labelled) pairs of nodes, and that the first element of
 /// each pair sits between the boundaries associated with the iterator.
 ///
-/// This structures is returned by [`ParSortPairs`](crate::utils::ParSortPairs)
-/// and [`ParSortGraph`](crate::utils::ParSortGraph) and can easily be converted
-/// into lenders for use with
+/// This structures is returned by [`ParSortPairs`] and [`ParSortGraph`] and can
+/// easily be converted into lenders for use with
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
-/// using a convenient implementation of the [`From`](std::convert::From) trait.
+/// using a convenient implementation of the [`From`] trait.
 pub struct SplitIters<I> {
     pub boundaries: Box<[usize]>,
     pub iters: Box<[I]>,
@@ -278,12 +277,11 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
     }
 }
 
-/// Conversion of a [`SplitIter`] of iterators on unlabeled pairs into a
+/// Conversion of a [`SplitIters`] of iterators on unlabeled pairs into a
 /// sequence of pairs of starting points and associated lenders.
 ///
 /// This is useful for converting the output of sorting utilities like
-/// [`ParSortPairs`](crate::utils::ParSortPairs) or
-/// [`ParSortGraph`](crate::utils::ParSortGraph) into a form suitable for
+/// [`ParSortPairs`] or [`ParSortGraph`] into a form suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
 /// when working with unlabeled graphs.
 ///
@@ -295,14 +293,12 @@ impl<
         I: Iterator<Item = (usize, usize)> + Send + Sync,
         IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
     > From<SplitIters<IT>>
-    for Vec<
-        (
-            usize,
-            crate::labels::proj::LeftIterator<
-                Iter<(), std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>,
-            >,
-        ),
-    >
+    for Vec<(
+        usize,
+        crate::labels::proj::LeftIterator<
+            Iter<(), std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>,
+        >,
+    )>
 {
     fn from(split: SplitIters<IT>) -> Self {
         split
@@ -326,12 +322,11 @@ impl<
     }
 }
 
-/// Conversion of a [`SplitIter`] of iterators on labelled pairs into a
+/// Conversion of a [`SplitIters`] of iterators on labelled pairs into a
 /// sequences of pairs of starting points and associated lenders.
 ///
 /// This is useful for converting the output of sorting utilities like
-/// [`ParSortPairs`](crate::utils::ParSortPairs) or
-/// [`ParSortGraph`](crate::utils::ParSortGraph) into a form suitable for
+/// [`ParSortPairs`] or [`ParSortGraph`] into a form suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 impl<
         L: Clone + Copy + 'static,

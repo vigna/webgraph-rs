@@ -14,8 +14,8 @@ pub mod llp_combine;
 pub mod pad;
 
 #[derive(Subcommand, Debug)]
-#[command(name = "transform")]
-/// Apply a transformation to a graph.
+#[command(name = "run")]
+/// Run algorithms on graphs.
 pub enum SubCommands {
     Llp(llp::CliArgs),
     LlpCombine(llp_combine::CliArgs),
