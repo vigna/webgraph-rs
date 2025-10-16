@@ -13,7 +13,7 @@ use epserde::prelude::*;
 use mmap_rs::MmapFlags;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
-use sux::traits::BitFieldSlice;
+use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -83,7 +83,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         for i in 0..perm[0].as_ref().len() {
             let mut v = i;
             for p in &perm {
-                v = p.get(v);
+                v = p.index_value(v);
             }
             writer.write_all(&(v as u64).to_be_bytes())?;
             pl.light_update();

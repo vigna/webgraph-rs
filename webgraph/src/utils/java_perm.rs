@@ -14,7 +14,7 @@ use sux::traits::*;
 use value_traits::slices::{SliceByValue, SliceByValueMut};
 
 /// Maps into memory a file of big-endian 64-bit values, making it accessible as
-/// a [`BitFieldSlice<usize>`].
+/// a [`BitFieldSlice<usize>`](sux::traits::BitFieldSlice).
 ///
 /// The purpose of this helper class make interoperability with the big version
 /// of the Java implementation of WebGraph easier. It is a thin wrapper
@@ -104,15 +104,6 @@ impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
     }
 }
 
-impl BitFieldSlice<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
-    #[inline(always)]
-    fn as_slice(&self) -> &[usize] {
-        unimplemented!(
-            "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
-        );
-    }
-}
-
 impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn set_value_unchecked(&mut self, index: usize, value: usize) {
@@ -132,21 +123,6 @@ impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
         &mut self,
         _chunk_size: usize,
     ) -> Result<Self::ChunksMut<'_>, std::convert::Infallible> {
-        self.perm.as_mut().chunk_mut(_chunk_size)
-    }
-}
-
-impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
-    #[inline(always)]
-    fn reset(&mut self) {
-        self.perm.as_mut().reset();
-    }
-
-    fn par_reset(&mut self) {
-        self.perm.as_mut().par_reset();
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [usize] {
         unimplemented!(
             "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
         );

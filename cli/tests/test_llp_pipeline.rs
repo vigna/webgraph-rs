@@ -3,8 +3,8 @@ use anyhow::Result;
 use dsi_bitstream::traits::BigEndian;
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
-use sux::traits::bit_field_slice::BitFieldSlice;
 use tempfile::Builder;
+use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
 use webgraph::prelude::JavaPermutation;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
@@ -159,15 +159,15 @@ fn test_llp_pipeline() -> Result<()> {
     for node in 0..original.num_nodes() {
         assert_eq!(
             original.outdegree(node),
-            final_graph.outdegree(permutation.get(node))
+            final_graph.outdegree(permutation.index_value(node))
         );
         let mut original_succ = original
             .successors(node)
-            .map(|succ| permutation.get(succ))
+            .map(|succ| permutation.index_value(succ))
             .collect::<Vec<usize>>();
         original_succ.sort_unstable();
         let final_succ = final_graph
-            .successors(permutation.get(node))
+            .successors(permutation.index_value(node))
             .collect::<Vec<usize>>();
         assert_eq!(original_succ, final_succ);
     }

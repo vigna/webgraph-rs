@@ -11,6 +11,7 @@ use lender::prelude::*;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[epserde_deep_copy]
 pub struct LabeledArc<L>(usize, L);
 
 impl<L> From<(usize, L)> for LabeledArc<L> {

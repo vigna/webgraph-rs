@@ -27,6 +27,7 @@ sux.workspace = true
 common_traits.workspace = true
 lender.workspace = true
 card-est-array.workspace = true
+value-traits.workspace = true
 
 rand.workspace = true
 tempfile.workspace = true

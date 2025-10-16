@@ -17,6 +17,7 @@ use kahan::KahanSum;
 use rayon::{prelude::*, ThreadPool};
 use std::hash::{BuildHasherDefault, DefaultHasher};
 use std::sync::{atomic::*, Mutex};
+use sux::traits::AtomicBitVecOps;
 use sux::{bits::AtomicBitVec, traits::Succ};
 use sync_cell_slice::{SyncCell, SyncSlice};
 use webgraph::traits::{RandomAccessGraph, SequentialLabeling};

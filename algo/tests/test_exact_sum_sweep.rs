@@ -11,6 +11,7 @@ use anyhow::Result;
 use dsi_progress_logger::no_logging;
 use no_break::NoBreak;
 use sux::bits::AtomicBitVec;
+use sux::traits::AtomicBitVecOps;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::BTreeGraph;

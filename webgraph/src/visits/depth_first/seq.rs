@@ -14,6 +14,7 @@ use crate::visits::{
 use sealed::sealed;
 use std::ops::ControlFlow::{self, Continue};
 use sux::bits::BitVec;
+use sux::traits::{BitVecOps, BitVecOpsMut};
 
 /// A depth-first visit which does not keep track of predecessors, or nodes on the stack.
 pub type SeqNoPred<'a, G> = SeqIter<'a, TwoStates, G, (), false>;

@@ -4,6 +4,8 @@
 
 ### New
 
+* Updated to last versions of dependencies.
+
 * `labels::eq_sorted` function that checks equality between sorted labelings.
 
 * `labels::check_impl` associated function that checks that the sequential and
@@ -24,6 +26,11 @@
 
 * `VecGraph` has new, more efficient constructors from sorted lenders returning
   `ExactSizeIterator`.
+
+### Changed
+
+* `JavaPermutation` just implements `SliceByValue` and `SliceByValueMut`,
+  rather than `BitFieldSlice` and `BitFieldSliceMut`.
 
 ### Fixed
 

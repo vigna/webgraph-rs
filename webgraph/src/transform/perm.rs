@@ -11,8 +11,8 @@ use anyhow::{ensure, Context, Result};
 use dsi_progress_logger::prelude::*;
 use lender::*;
 use rayon::ThreadPool;
-use sux::traits::BitFieldSlice;
 use tempfile::Builder;
+use value_traits::slices::SliceByValue;
 
 /// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
 ///
@@ -25,7 +25,7 @@ use tempfile::Builder;
 #[allow(clippy::type_complexity)]
 pub fn permute(
     graph: &impl SequentialGraph,
-    perm: &impl BitFieldSlice<usize>,
+    perm: &impl SliceByValue<Value = usize>,
     memory_usage: MemoryUsage,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
     ensure!(
@@ -84,7 +84,7 @@ pub fn permute_split<S, P>(
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
-    P: BitFieldSlice<usize> + Send + Sync + Clone,
+    P: SliceByValue<Value = usize> + Send + Sync + Clone,
     for<'a> <S as SequentialLabeling>::Lender<'a>: Send + Sync + Clone + ExactSizeLender,
 {
     ensure!(
@@ -94,7 +94,7 @@ where
         graph.num_nodes(),
     );
 
-    // get a premuted view
+    // get a permuted view
     let pgraph = PermutedGraph { graph, perm };
 
     let num_threads = threads.current_num_threads();

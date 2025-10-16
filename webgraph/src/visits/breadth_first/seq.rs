@@ -15,6 +15,7 @@ use anyhow::Result;
 use nonmax::NonMaxUsize;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};
 use sux::bits::BitVec;
+use sux::traits::BitVecOpsMut;
 
 /// A sequential breadth-first visit.
 ///

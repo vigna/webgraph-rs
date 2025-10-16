@@ -10,6 +10,7 @@ use dsi_progress_logger::prelude::*;
 use epserde::{deser::Deserialize, ser::Serialize};
 use lender::for_;
 use sux::bit_vec;
+use sux::traits::BitVecOpsMut;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::prelude::{BTreeGraph, BvGraph};
 use webgraph::thread_pool;

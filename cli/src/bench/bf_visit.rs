@@ -14,6 +14,7 @@ use dsi_progress_logger::prelude::*;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use sux::prelude::BitVec;
+use sux::traits::BitVecOpsMut;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]

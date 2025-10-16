@@ -14,6 +14,7 @@ use std::{
     sync::atomic::Ordering,
 };
 use sux::bits::AtomicBitVec;
+use sux::traits::AtomicBitVecOps;
 
 /// Fair parallel breadth-first visits.
 ///

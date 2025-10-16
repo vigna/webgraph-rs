@@ -9,6 +9,7 @@ use super::Sccs;
 use dsi_progress_logger::ProgressLog;
 use std::ops::ControlFlow::{Break, Continue};
 use sux::bits::BitVec;
+use sux::traits::BitVecOpsMut;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{depth_first::*, Sequential, StoppedWhenDone};
 

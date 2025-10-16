@@ -22,7 +22,7 @@ use std::{
         RwLock,
     },
 };
-use sux::bits::AtomicBitVec;
+use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{

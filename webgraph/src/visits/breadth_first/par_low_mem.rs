@@ -16,7 +16,7 @@ use std::{
     ops::ControlFlow::{self, Continue},
     sync::atomic::Ordering,
 };
-use sux::bits::AtomicBitVec;
+use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 
 /// Low-memory parallel breadth-first visits.
 ///

@@ -13,7 +13,7 @@ use lender::{for_, IntoLender, Lend, Lender, Lending};
 use sux::{bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst};
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},
-    slices::{SliceByValue, SliceByValueGet},
+    slices::SliceByValue,
 };
 
 pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
@@ -348,8 +348,8 @@ where
 
 impl<DCF, S> RandomAccessLabeling for CsrGraph<DCF, S>
 where
-    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
-    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
     type Labels<'succ>
         = core::iter::Take<IterFrom<'succ, S>>
@@ -376,8 +376,8 @@ where
 
 impl<DCF, S> RandomAccessLabeling for CsrSortedGraph<DCF, S>
 where
-    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
-    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
     type Labels<'succ>
         = AssumeSortedIterator<core::iter::Take<IterFrom<'succ, S>>>
@@ -403,15 +403,15 @@ where
 
 impl<DCF, S> RandomAccessGraph for CsrGraph<DCF, S>
 where
-    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
-    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
 }
 
 impl<DCF, S> RandomAccessGraph for CsrSortedGraph<DCF, S>
 where
-    DCF: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
-    S: SliceByValueGet<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
 }
 
