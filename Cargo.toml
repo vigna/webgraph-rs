@@ -8,12 +8,10 @@ webgraph-algo = { path = "./algo", version = "0.2.0" }
 webgraph-cli = { path = "./cli", version = "0.1.0" }
 
 card-est-array = "0.1.0"
-epserde = "0.10.2"
-#epserde = { git = "https://github.com/vigna/epserde-rs" }
-dsi-bitstream = "0.5.0"
-dsi-progress-logger = "0.8.1"
-#sux = "0.8.0"
-sux = { git = "https://github.com/vigna/sux-rs", features = ["epserde", "rayon", "mmap"], rev = "c56b15a17b21cdbc8d7b6ac1ed57a58bbaa664a1" }
+epserde = "0.11.0"
+dsi-bitstream = "0.5.2"
+dsi-progress-logger = "0.8.2"
+sux = { version = "0.9.0", features = ["epserde", "rayon", "mmap"] }
 common_traits = "0.12.0"
 lender = "0.3.1"
 log = "0.4.22"
@@ -36,7 +34,7 @@ arbitrary = { version = "1.3.2", features = ["derive"] }
 serde = { version = "1.0.217", features = ["serde_derive"] }
 serde_json = "1.0.137"
 zstd = "0.13"
-value-traits = "0.1.4"
+value-traits = "0.2.0"
 thiserror = "2.0.12"
 no-break = "0.1.2"
 nonmax = "0.5.5"

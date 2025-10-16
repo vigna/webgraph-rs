@@ -11,6 +11,7 @@ use mmap_rs::{MmapFlags, MmapMut};
 use std::path::Path;
 use std::sync::Arc;
 use sux::traits::*;
+use value_traits::slices::{SliceByValue, SliceByValueMut};
 
 /// Maps into memory a file of big-endian 64-bit values, making it accessible as
 /// a [`BitFieldSlice<usize>`].
@@ -67,29 +68,37 @@ impl JavaPermutation {
     }
 }
 
-impl BitFieldSliceCore<usize> for JavaPermutation {
+impl BitWidth<usize> for JavaPermutation {
     fn bit_width(&self) -> usize {
         64
     }
-
-    fn len(&self) -> usize {
-        self.perm.as_ref().len()
-    }
 }
 
-impl BitFieldSliceCore<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl BitWidth<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     fn bit_width(&self) -> usize {
         64
     }
+}
 
+impl SliceByValue for JavaPermutation {
+    type Value = usize;
     fn len(&self) -> usize {
         self.perm.as_ref().len()
     }
-}
-
-impl BitFieldSlice<usize> for JavaPermutation {
     #[inline(always)]
-    unsafe fn get_unchecked(&self, index: usize) -> usize {
+    unsafe fn get_value_unchecked(&self, index: usize) -> usize {
+        u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
+            as usize
+    }
+}
+
+impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
+    type Value = usize;
+    fn len(&self) -> usize {
+        self.perm.as_ref().len()
+    }
+    #[inline(always)]
+    unsafe fn get_value_unchecked(&self, index: usize) -> usize {
         u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
             as usize
     }
@@ -97,20 +106,37 @@ impl BitFieldSlice<usize> for JavaPermutation {
 
 impl BitFieldSlice<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
-    unsafe fn get_unchecked(&self, index: usize) -> usize {
-        u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
-            as usize
+    fn as_slice(&self) -> &[usize] {
+        unimplemented!(
+            "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
+        );
     }
 }
 
-impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
-    unsafe fn set_unchecked(&mut self, index: usize, value: usize) {
+    unsafe fn set_value_unchecked(&mut self, index: usize, value: usize) {
         unsafe {
             *self.perm.as_mut().get_unchecked_mut(index) = value as u64;
         }
     }
 
+    type ChunksMut<'a>
+        = std::slice::ChunksMut<'a, usize>
+    where
+        Self: 'a;
+
+    type ChunksMutError = std::convert::Infallible;
+
+    fn try_chunks_mut(
+        &mut self,
+        _chunk_size: usize,
+    ) -> Result<Self::ChunksMut<'_>, std::convert::Infallible> {
+        self.perm.as_mut().chunk_mut(_chunk_size)
+    }
+}
+
+impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     fn reset(&mut self) {
         self.perm.as_mut().reset();
@@ -124,16 +150,6 @@ impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
         unimplemented!(
             "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
         );
-    }
-
-    type ChunksMut<'a>
-        = std::slice::ChunksMut<'a, usize>
-    where
-        Self: 'a;
-
-    fn try_chunks_mut(&mut self, _chunk_size: usize) -> Result<Self::ChunksMut<'_>, ()> {
-        // Unsupported
-        Err(())
     }
 }
 
