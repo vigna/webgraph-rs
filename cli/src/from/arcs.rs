@@ -194,7 +194,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
         group_by
             .iter()
             .unwrap()
-            .map(|(src, dst, _)| (src, dst))
+            .map(|(pair, _)| pair)
             .dedup(),
     );
 

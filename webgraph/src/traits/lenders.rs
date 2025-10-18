@@ -36,9 +36,10 @@ use crate::traits::Pair;
 ///
 /// The methods [`into_pairs`](NodeLabelsLender::into_pairs) and
 /// [`into_labeled_pairs`](NodeLabelsLender::into_labeled_pairs) convert a
-/// [`NodeLabelsLender`] into an iterator of pairs or triples, respectively.
-/// These are convenience methods that delegate to [`From`] trait
-/// implementations for [`IntoPairs`] and [`IntoLabeledPairs`].
+/// [`NodeLabelsLender`] into an iterator of pairs `(usize, usize)` or labeled
+/// pairs `((usize, usize), Label)`, respectively. These are convenience
+/// methods that delegate to [`From`] trait implementations for [`IntoPairs`]
+/// and [`IntoLabeledPairs`].
 ///
 /// # Extension of [`Lender`] Methods
 ///
@@ -98,11 +99,12 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     type Label;
     type IntoIterator: IntoIterator<Item = Self::Label>;
 
-    /// Converts this lender into an iterator of triples, provided
-    /// that the label type implements [`Pair`] with `Left = usize`.
+    /// Converts this lender into an iterator of labeled pairs of type
+    /// `((usize, usize), Label)`, provided that the label type implements
+    /// [`Pair`] with `Left = usize`.
     ///
     /// Typically, this method is used to convert a lender on a labeled graph
-    /// into an iterator of labeled arcs expressed as triples.
+    /// into an iterator of labeled arcs.
     ///
     /// This is a convenience method that delegates to the [`From`] trait
     /// implementation.
@@ -130,11 +132,11 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
 }
 
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
-/// iterator of triples.
+/// iterator of labeled pairs.
 ///
 /// This struct is created via the [`From`] trait. It converts a lender that
-/// yields `(usize, IntoIterator)` pairs into a flat iterator of `(src, dst, label)`
-/// triples, where each `(dst, label)` comes from the inner iterator.
+/// yields `(usize, IntoIterator)` pairs into a flat iterator of `((src, dst), label)`
+/// labeled pairs, where each `(dst, label)` comes from the inner iterator.
 pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
     lender: Box<L>,
     current_node: usize,
@@ -146,22 +148,20 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
     for IntoLabeledPairs<'a, L>
 {
     type Item = (
-        usize,
-        usize,
+        (usize, usize),
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     );
 
     fn next(
         &mut self,
     ) -> Option<(
-        usize,
-        usize,
+        (usize, usize),
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     )> {
         loop {
             if let Some(inner) = &mut self.current_iter {
                 if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
-                    return Some((self.current_node, dst, label));
+                    return Some(((self.current_node, dst), label));
                 }
             }
             // SAFETY: We use transmute to extend the lifetime of the iterator from the

@@ -112,7 +112,7 @@ pub fn transpose_labeled_split<
     deserializer: D,
 ) -> Result<
     SplitIters<
-        impl IntoIterator<Item = (usize, usize, D::DeserType), IntoIter: Send + Sync>
+        impl IntoIterator<Item = ((usize, usize), D::DeserType), IntoIter: Send + Sync>
             + use<'graph, G, S, D>,
     >,
 >
@@ -163,7 +163,7 @@ pub fn transpose_split<
     memory_usage: MemoryUsage,
 ) -> Result<
     SplitIters<
-        impl IntoIterator<Item = (usize, usize, ()), IntoIter: Send + Sync> + use<'graph, G>,
+        impl IntoIterator<Item = ((usize, usize), ()), IntoIter: Send + Sync> + use<'graph, G>,
     >,
 > {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);

@@ -268,7 +268,7 @@ where
     /// [`iter`](SortPairs::iter).
     pub fn sort_labeled(
         &mut self,
-        pairs: impl IntoIterator<Item = (usize, usize, S::SerType)>,
+        pairs: impl IntoIterator<Item = ((usize, usize), S::SerType)>,
     ) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         self.try_sort_labeled::<std::convert::Infallible>(pairs.into_iter().map(Ok))
     }
@@ -281,10 +281,10 @@ where
     /// [`iter`](SortPairs::iter).
     pub fn try_sort_labeled<E: Into<anyhow::Error>>(
         &mut self,
-        pairs: impl IntoIterator<Item = Result<(usize, usize, S::SerType), E>>,
+        pairs: impl IntoIterator<Item = Result<((usize, usize), S::SerType), E>>,
     ) -> anyhow::Result<KMergeIters<BatchIterator<D>, D::DeserType>> {
         for pair in pairs {
-            let (x, y, label) = pair.map_err(Into::into)?;
+            let ((x, y), label) = pair.map_err(Into::into)?;
             self.push_labeled(x, y, label)?;
         }
         self.iter()
@@ -445,7 +445,7 @@ impl<D: BitDeserializer<NE, BitReader> + Clone> Clone for BatchIterator<D> {
 unsafe impl<D: BitDeserializer<NE, BitReader>> SortedIterator for BatchIterator<D> {}
 
 impl<D: BitDeserializer<NE, BitReader>> Iterator for BatchIterator<D> {
-    type Item = (usize, usize, D::DeserType);
+    type Item = ((usize, usize), D::DeserType);
     fn next(&mut self) -> Option<Self::Item> {
         if self.current == self.len {
             return None;
@@ -460,7 +460,7 @@ impl<D: BitDeserializer<NE, BitReader>> Iterator for BatchIterator<D> {
         self.prev_src = src;
         self.prev_dst = dst;
         self.current += 1;
-        Some((src, dst, label))
+        Some(((src, dst), label))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -475,42 +475,42 @@ impl<D: BitDeserializer<NE, BitReader>> ExactSizeIterator for BatchIterator<D> {
 }
 
 #[derive(Clone, Debug)]
-/// Private struct that can be used to sort triples based only on the pair of
+/// Private struct that can be used to sort labeled pairs based only on the pair of
 /// nodes and ignoring the label.
-struct HeadTail<T, I: Iterator<Item = (usize, usize, T)>> {
-    head: (usize, usize, T),
+struct HeadTail<T, I: Iterator<Item = ((usize, usize), T)>> {
+    head: ((usize, usize), T),
     tail: I,
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> PartialEq for HeadTail<T, I> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> PartialEq for HeadTail<T, I> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        (self.head.0, self.head.1) == (other.head.0, other.head.1)
+        self.head.0 == other.head.0
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> Eq for HeadTail<T, I> {}
+impl<T, I: Iterator<Item = ((usize, usize), T)>> Eq for HeadTail<T, I> {}
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> PartialOrd for HeadTail<T, I> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> PartialOrd for HeadTail<T, I> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some((other.head.0, other.head.1).cmp(&(self.head.0, self.head.1)))
+        Some(other.head.0.cmp(&self.head.0))
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> Ord for HeadTail<T, I> {
     #[inline(always)]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (other.head.0, other.head.1).cmp(&(self.head.0, self.head.1))
+        other.head.0.cmp(&self.head.0)
     }
 }
 
 /// A structure using a [quaternary heap](dary_heap::QuaternaryHeap) to merge sorted iterators.
 ///
-/// The iterators must be sorted by the pair of nodes, and the structure will return the triples
+/// The iterators must be sorted by the pair of nodes, and the structure will return the labeled pairs
 /// sorted by lexicographical order of the pairs of nodes.
 ///
-/// The structure implements [`Iterator`] and returns triples of the form `(src, dst, label)`.
+/// The structure implements [`Iterator`] and returns labeled pairs of the form `((src, dst), label)`.
 ///
 /// The structure implements [`Default`], [`core::iter::Sum`],
 /// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`]
@@ -526,7 +526,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 ///         let tx = tx.clone();
 ///         s.spawn(move || {
 ///             // create a dummy KMergeIters
-///             tx.send(KMergeIters::new(vec![(0..10).map(|j| (j, j, j + j))])).unwrap()
+///             tx.send(KMergeIters::new(vec![(0..10).map(|j| ((j, j), j + j))])).unwrap()
 ///         });
 ///     }
 /// });
@@ -538,22 +538,22 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> Ord for HeadTail<T, I> {
 /// ```rust
 /// use webgraph::utils::sort_pairs::KMergeIters;
 ///
-/// let iter = vec![vec![(0, 0, 0), (0, 1, 1)], vec![(1, 0, 1), (1, 1, 2)]];
+/// let iter = vec![vec![((0, 0), 0), ((0, 1), 1)], vec![((1, 0), 1), ((1, 1), 2)]];
 /// let merged = iter.into_iter().collect::<KMergeIters<_, usize>>();
 /// ```
 #[derive(Clone, Debug)]
-pub struct KMergeIters<I: Iterator<Item = (usize, usize, T)>, T = ()> {
+pub struct KMergeIters<I: Iterator<Item = ((usize, usize), T)>, T = ()> {
     heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
     pub fn new(iters: impl IntoIterator<Item = I>) -> Self {
         let iters = iters.into_iter();
         let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
         for mut iter in iters {
-            if let Some((src, dst, label)) = iter.next() {
+            if let Some((pair, label)) = iter.next() {
                 heap.push(HeadTail {
-                    head: (src, dst, label),
+                    head: (pair, label),
                     tail: iter,
                 });
             }
@@ -562,41 +562,41 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> KMergeIters<I, T> {
     }
 }
 
-unsafe impl<T, I: Iterator<Item = (usize, usize, T)> + SortedIterator> SortedIterator
+unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator> SortedIterator
     for KMergeIters<I, T>
 {
 }
 
 #[allow(clippy::uninit_assumed_init)]
-impl<T, I: Iterator<Item = (usize, usize, T)>> Iterator for KMergeIters<I, T> {
-    type Item = (usize, usize, T);
+impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> {
+    type Item = ((usize, usize), T);
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut head_tail = self.heap.peek_mut()?;
 
         match head_tail.tail.next() {
             None => Some(PeekMut::pop(head_tail).head),
-            Some((src, dst, label)) => {
-                Some(std::mem::replace(&mut head_tail.head, (src, dst, label)))
+            Some((pair, label)) => {
+                Some(std::mem::replace(&mut head_tail.head, (pair, label)))
             }
         }
     }
 }
-impl<T, I: Iterator<Item = (usize, usize, T)> + ExactSizeIterator> ExactSizeIterator
+impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIterator
     for KMergeIters<I, T>
 {
     fn len(&self) -> usize {
         self.heap
             .iter()
             .map(|head_tail| {
-                // The head is always a triple, so we can count it
+                // The head is always a labeled pair, so we can count it
                 1 + head_tail.tail.len()
             })
             .sum()
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> core::default::Default for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> core::default::Default for KMergeIters<I, T> {
     fn default() -> Self {
         KMergeIters {
             heap: dary_heap::QuaternaryHeap::default(),
@@ -604,7 +604,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> core::default::Default for KMerge
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::Sum for KMergeIters<I, T> {
     fn sum<J: Iterator<Item = Self>>(iter: J) -> Self {
         let mut heap = dary_heap::QuaternaryHeap::default();
         for mut kmerge in iter {
@@ -614,7 +614,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::Sum for KMergeIters<I
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::iter::Sum<I>
     for KMergeIters<I::IntoIter, T>
 {
     fn sum<J: Iterator<Item = I>>(iter: J) -> Self {
@@ -622,7 +622,7 @@ impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::Sum<I>
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::FromIterator<Self>
+impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::FromIterator<Self>
     for KMergeIters<I, T>
 {
     fn from_iter<J: IntoIterator<Item = Self>>(iter: J) -> Self {
@@ -630,7 +630,7 @@ impl<T, I: Iterator<Item = (usize, usize, T)>> core::iter::FromIterator<Self>
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::FromIterator<I>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::iter::FromIterator<I>
     for KMergeIters<I::IntoIter, T>
 {
     fn from_iter<J: IntoIterator<Item = I>>(iter: J) -> Self {
@@ -638,40 +638,40 @@ impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::iter::FromIterator<I>
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> core::ops::AddAssign<I>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::ops::AddAssign<I>
     for KMergeIters<I::IntoIter, T>
 {
     fn add_assign(&mut self, rhs: I) {
         let mut rhs = rhs.into_iter();
-        if let Some((src, dst, label)) = rhs.next() {
+        if let Some((pair, label)) = rhs.next() {
             self.heap.push(HeadTail {
-                head: (src, dst, label),
+                head: (pair, label),
                 tail: rhs,
             });
         }
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> core::ops::AddAssign for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> core::ops::AddAssign for KMergeIters<I, T> {
     fn add_assign(&mut self, mut rhs: Self) {
         self.heap.extend(rhs.heap.drain());
     }
 }
 
-impl<T, I: IntoIterator<Item = (usize, usize, T)>> Extend<I> for KMergeIters<I::IntoIter, T> {
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>> Extend<I> for KMergeIters<I::IntoIter, T> {
     fn extend<J: IntoIterator<Item = I>>(&mut self, iter: J) {
         self.heap.extend(iter.into_iter().filter_map(|iter| {
             let mut iter = iter.into_iter();
-            let (src, dst, label) = iter.next()?;
+            let (pair, label) = iter.next()?;
             Some(HeadTail {
-                head: (src, dst, label),
+                head: (pair, label),
                 tail: iter,
             })
         }));
     }
 }
 
-impl<T, I: Iterator<Item = (usize, usize, T)>> Extend<KMergeIters<I, T>> for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>> Extend<KMergeIters<I, T>> for KMergeIters<I, T> {
     fn extend<J: IntoIterator<Item = KMergeIters<I, T>>>(&mut self, iter: J) {
         for mut kmerge in iter {
             self.heap.extend(kmerge.heap.drain());
@@ -722,14 +722,14 @@ mod tests {
         let mut cloned = iter.clone();
 
         for _ in 0..n {
-            let (x, y, p) = iter.next().unwrap();
+            let ((x, y), p) = iter.next().unwrap();
             println!("{} {} {}", x, y, p);
             assert_eq!(x + 1, y);
             assert_eq!(x + 2, p);
         }
 
         for _ in 0..n {
-            let (x, y, p) = cloned.next().unwrap();
+            let ((x, y), p) = cloned.next().unwrap();
             println!("{} {} {}", x, y, p);
             assert_eq!(x + 1, y);
             assert_eq!(x + 2, p);
@@ -749,7 +749,7 @@ mod tests {
         let mut iter = sp.sort(pairs)?;
 
         let mut sorted_pairs = Vec::new();
-        while let Some((x, y, _)) = iter.next() {
+        while let Some(((x, y), _)) = iter.next() {
             sorted_pairs.push((x, y));
         }
         assert_eq!(sorted_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 4), (5, 6)]);
@@ -759,11 +759,11 @@ mod tests {
         let mut sp2 =
             SortPairs::new_labeled(MemoryUsage::BatchSize(5), dir2.path(), MyDessert, MyDessert)?;
 
-        let labeled_pairs = vec![(3, 4, 7), (1, 2, 5), (5, 6, 9), (0, 1, 4), (2, 3, 6)];
+        let labeled_pairs = vec![((3, 4), 7), ((1, 2), 5), ((5, 6), 9), ((0, 1), 4), ((2, 3), 6)];
         let mut iter2 = sp2.sort_labeled(labeled_pairs)?;
 
         let mut sorted_labeled = Vec::new();
-        while let Some((x, y, label)) = iter2.next() {
+        while let Some(((x, y), label)) = iter2.next() {
             sorted_labeled.push((x, y, label));
         }
         assert_eq!(

@@ -9,7 +9,7 @@ use webgraph::graphs::btree_graph::LabeledBTreeGraph;
 
 #[test]
 fn test_remove() {
-    let mut g = LabeledBTreeGraph::<_>::from_arcs([(0, 1, 1), (0, 2, 2), (1, 2, 3)]);
+    let mut g = LabeledBTreeGraph::<_>::from_arcs([((0, 1), 1), ((0, 2), 2), ((1, 2), 3)]);
     assert!(g.remove_arc(0, 2));
     assert!(!g.remove_arc(0, 2));
 }
@@ -19,7 +19,7 @@ fn test_remove() {
 fn test_serde() -> anyhow::Result<()> {
     use webgraph::traits::graph;
 
-    let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
+    let arcs = [((0, 1), 1), ((0, 2), 2), ((1, 2), 3)];
 
     let g = LabeledBTreeGraph::<usize>::from_arcs(arcs);
     let res = serde_json::to_string(&g).unwrap();

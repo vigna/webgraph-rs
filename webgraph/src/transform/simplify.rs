@@ -59,7 +59,7 @@ pub fn simplify(
 ) -> Result<
     Left<
         arc_list_graph::ArcListGraph<
-            impl Iterator<Item = (usize, usize, ())> + Clone + Send + Sync + 'static,
+            impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'static,
         >,
     >,
 > {
@@ -82,7 +82,7 @@ pub fn simplify(
         pl.light_update();
     }
     // merge the batches
-    let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
+    let map: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
     let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
     let iter = Itertools::dedup(sorted.iter()?.map(map).filter(filter));
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), iter);

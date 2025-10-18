@@ -80,11 +80,11 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
         }
     }
     let arcs = [
-        (0, 1, Payload(1.0)),
-        (0, 2, Payload(f64::EPSILON)),
-        (1, 2, Payload(2.0)),
-        (2, 4, Payload(f64::INFINITY)),
-        (3, 4, Payload(f64::NEG_INFINITY)),
+        ((0, 1), Payload(1.0)),
+        ((0, 2), Payload(f64::EPSILON)),
+        ((1, 2), Payload(2.0)),
+        ((2, 4), Payload(f64::INFINITY)),
+        ((3, 4), Payload(f64::NEG_INFINITY)),
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 

@@ -20,12 +20,12 @@ fn test_eq() -> anyhow::Result<()> {
     assert!(graph::eq(&g0, &g1).is_err());
 
     let arcs = vec![
-        (0, 1, 0),
-        (0, 2, 1),
-        (1, 2, 2),
-        (1, 3, 3),
-        (2, 4, 4),
-        (3, 4, 5),
+        ((0, 1), 0),
+        ((0, 2), 1),
+        ((1, 2), 2),
+        ((1, 3), 3),
+        ((2, 4), 4),
+        ((3, 4), 5),
     ];
     let g0 = LabeledVecGraph::<usize>::from_arcs(arcs.iter().copied());
     let mut g1 = g0.clone();
@@ -65,8 +65,8 @@ fn test_graph_eq_error() -> anyhow::Result<()> {
     }
 
     // Test eq_labeled function with different labels
-    let labeled_arcs1 = vec![(0, 1, "a"), (0, 2, "b"), (1, 2, "c")];
-    let labeled_arcs2 = vec![(0, 1, "a"), (0, 2, "x"), (1, 2, "c")]; // Different label for arc (0,2)
+    let labeled_arcs1 = vec![((0, 1), "a"), ((0, 2), "b"), ((1, 2), "c")];
+    let labeled_arcs2 = vec![((0, 1), "a"), ((0, 2), "x"), ((1, 2), "c")]; // Different label for arc (0,2)
     let lg1 = LabeledVecGraph::from_arcs(labeled_arcs1.iter().copied());
     let lg2 = LabeledVecGraph::from_arcs(labeled_arcs2.iter().copied());
 

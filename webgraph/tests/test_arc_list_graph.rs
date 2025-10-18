@@ -21,7 +21,7 @@ use webgraph::{
 #[test]
 fn test_arc_list_graph_iter() {
     let iter =
-        Iter::<Box<u64>, std::vec::IntoIter<(usize, usize, Box<u64>)>>::new(10, vec![].into_iter());
+        Iter::<Box<u64>, std::vec::IntoIter<((usize, usize), Box<u64>)>>::new(10, vec![].into_iter());
     for_!((_succ, labels) in iter {
         for_!(item in labels {
           println!("{:?}", item);
@@ -110,11 +110,11 @@ fn test_arc_list_graph_cnr2000() {
 #[test]
 fn test_arc_list_graph() -> anyhow::Result<()> {
     let arcs = [
-        (0, 1, Some(1.0)),
-        (0, 2, None),
-        (1, 2, Some(2.0)),
-        (2, 4, Some(f64::INFINITY)),
-        (3, 4, Some(f64::NEG_INFINITY)),
+        ((0, 1), Some(1.0)),
+        ((0, 2), None),
+        ((1, 2), Some(2.0)),
+        ((2, 4), Some(f64::INFINITY)),
+        ((3, 4), Some(f64::NEG_INFINITY)),
     ];
     let g = LabeledBTreeGraph::<_>::from_arcs(arcs);
     let coo = ArcListGraph::new_labeled(g.num_nodes(), arcs.iter().copied());
@@ -137,15 +137,15 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
     // Nodes 0-7 have arcs, nodes 8-9 have no arcs
     let num_nodes = 10;
     let arcs = vec![
-        (0, 1, ()),
-        (0, 2, ()),
-        (1, 3, ()),
-        (2, 4, ()),
-        (2, 5, ()),
-        (3, 6, ()),
-        (5, 7, ()),
-        (6, 7, ()),
-        (7, 1, ()),
+        ((0, 1), ()),
+        ((0, 2), ()),
+        ((1, 3), ()),
+        ((2, 4), ()),
+        ((2, 5), ()),
+        ((3, 6), ()),
+        ((5, 7), ()),
+        ((6, 7), ()),
+        ((7, 1), ()),
         // nodes 8 and 9 have no outgoing arcs
     ];
 
@@ -155,14 +155,14 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
     let num_partitions = partition_boundaries.len() - 1;
 
     // Create partitioned pairs (simulating what ParSortPairs would return)
-    let mut partitioned_iters: Vec<Vec<(usize, usize, ())>> = Vec::new();
+    let mut partitioned_iters: Vec<Vec<((usize, usize), ())>> = Vec::new();
 
     for i in 0..num_partitions {
         let start = partition_boundaries[i];
         let end = partition_boundaries[i + 1];
         let partition_arcs: Vec<_> = arcs
             .iter()
-            .filter(|(src, _, _)| *src >= start && *src < end)
+            .filter(|((src, _), _)| *src >= start && *src < end)
             .copied()
             .collect();
 

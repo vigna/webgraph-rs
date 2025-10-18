@@ -122,10 +122,10 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
 
     /// Add labeled arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying an
+    /// The items must be labeled pairs of the form `((usize, usize), l)` specifying an
     /// arc and its label.
-    pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize, L)>) {
-        for (u, v, l) in arcs {
+    pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = ((usize, usize), L)>) {
+        for ((u, v), l) in arcs {
             self.add_node(u);
             self.add_node(v);
             self.add_arc(u, v, l);
@@ -134,9 +134,9 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
 
     /// Creates a new graph from an [`IntoIterator`].
     ///
-    /// The items must be triples of the form `(usize, usize, l)` specifying an
+    /// The items must be labeled pairs of the form `((usize, usize), l)` specifying an
     /// arc and its label.
-    pub fn from_arcs(arcs: impl IntoIterator<Item = (usize, usize, L)>) -> Self {
+    pub fn from_arcs(arcs: impl IntoIterator<Item = ((usize, usize), L)>) -> Self {
         let mut g = Self::new();
         g.add_arcs(arcs);
         g
@@ -293,7 +293,7 @@ impl BTreeGraph {
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying an arc.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
-        self.0.add_arcs(arcs.into_iter().map(|(u, v)| (u, v, ())));
+        self.0.add_arcs(arcs.into_iter().map(|pair| (pair, ())));
     }
 
     /// Creates a new graph from  an [`IntoIterator`].
@@ -424,12 +424,12 @@ mod test {
     #[test]
     fn test_btree_graph() {
         let mut arcs = vec![
-            (0, 1, Some(1.0)),
-            (0, 2, None),
-            (1, 2, Some(2.0)),
-            (2, 4, Some(f64::INFINITY)),
-            (3, 4, Some(f64::NEG_INFINITY)),
-            (1, 3, Some(f64::NAN)),
+            ((0, 1), Some(1.0)),
+            ((0, 2), None),
+            ((1, 2), Some(2.0)),
+            ((2, 4), Some(f64::INFINITY)),
+            ((3, 4), Some(f64::NEG_INFINITY)),
+            ((1, 3), Some(f64::NAN)),
         ];
         let g = LabeledBTreeGraph::<_>::from_arcs(arcs.iter().copied());
         assert_ne!(

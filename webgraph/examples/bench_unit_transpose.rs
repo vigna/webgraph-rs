@@ -30,7 +30,7 @@ struct Args {
 pub fn transpose(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<Left<ArcListGraph<impl Iterator<Item = (usize, usize, ())> + Clone>>> {
+) -> Result<Left<ArcListGraph<impl Iterator<Item = ((usize, usize), ())> + Clone>>> {
     let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
     let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
@@ -46,7 +46,7 @@ pub fn transpose(
         pl.light_update();
     });
     // merge the batches
-    let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
+    let map: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 

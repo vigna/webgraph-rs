@@ -296,7 +296,7 @@ impl<
     for Vec<(
         usize,
         crate::labels::proj::LeftIterator<
-            Iter<(), std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>,
+            Iter<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
         >,
     )>
 {
@@ -310,8 +310,8 @@ impl<
                 let start_node = split.boundaries[i];
                 let end_node = split.boundaries[i + 1];
                 let num_partition_nodes = end_node - start_node;
-                // Map pairs to triples with unit labels
-                let map_fn: fn((usize, usize)) -> (usize, usize, ()) = |(src, dst)| (src, dst, ());
+                // Map pairs to labeled pairs with unit labels
+                let map_fn: fn((usize, usize)) -> ((usize, usize), ()) = |pair| (pair, ());
                 let labeled_iter = iter.into_iter().map(map_fn);
                 let lender = Iter::try_new_from(num_partition_nodes, labeled_iter, start_node)
                     .expect("Iterator should start from the expected first node");
@@ -330,8 +330,8 @@ impl<
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 impl<
         L: Clone + Copy + 'static,
-        I: Iterator<Item = (usize, usize, L)> + Send + Sync,
-        IT: IntoIterator<Item = (usize, usize, L), IntoIter = I>,
+        I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
+        IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
     > From<SplitIters<IT>> for Vec<(usize, Iter<L, I>)>
 {
     fn from(split: SplitIters<IT>) -> Self {

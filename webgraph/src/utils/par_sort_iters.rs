@@ -142,14 +142,14 @@ impl ParSortIters<()> {
             (),
             pairs
                 .into_iter()
-                .map(|iter| iter.into_iter().map(|(src, dst)| (src, dst, ()))),
+                .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
         )?;
 
         let iters_without_labels: Vec<_> = split
             .iters
             .into_vec()
             .into_iter()
-            .map(|iter| iter.into_iter().map(|(src, dst, ())| (src, dst)))
+            .map(|iter| iter.into_iter().map(|(pair, _)| pair))
             .collect();
 
         Ok(SplitIters::new(
@@ -223,15 +223,14 @@ impl<L> ParSortIters<L> {
         serializer: &S,
         deserializer: D,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send> + Send,
+            Item: IntoIterator<Item = ((usize, usize), L), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
         SplitIters<
             impl IntoIterator<
                 Item = (
-                    usize,
-                    usize,
+                    (usize, usize),
                     <D as BitDeserializer<NE, BitReader>>::DeserType,
                 ),
                 IntoIter: Send + Sync,
@@ -260,15 +259,14 @@ impl<L> ParSortIters<L> {
         serializer: &S,
         deserializer: D,
         pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize, L), IntoIter: Send> + Send,
+            Item: IntoIterator<Item = ((usize, usize), L), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
         >,
     ) -> Result<
         SplitIters<
             impl IntoIterator<
                 Item = (
-                    usize,
-                    usize,
+                    (usize, usize),
                     <D as BitDeserializer<NE, BitReader>>::DeserType,
                 ),
                 IntoIter: Send + Sync,
@@ -320,7 +318,7 @@ impl<L> ParSortIters<L> {
                     let mut sorted_pairs =
                         (0..num_partitions).map(|_| Vec::new()).collect::<Vec<_>>();
 
-                    for (src, dst, label) in pair {
+                    for ((src, dst), label) in pair {
                         let partition_id = src / num_nodes_per_partition;
 
                         let sorted_pairs = &mut sorted_pairs[partition_id];

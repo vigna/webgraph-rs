@@ -145,7 +145,7 @@ impl ParSortPairs<()> {
             (),
             pairs.map(|pair| -> Result<_> {
                 let (src, dst) = pair.map_err(Into::into)?;
-                Ok((src, dst, ()))
+                Ok(((src, dst), ()))
             }),
         )?;
 
@@ -153,7 +153,7 @@ impl ParSortPairs<()> {
             .iters
             .into_vec()
             .into_iter()
-            .map(|into_iter| into_iter.into_iter().map(|(src, dst, ())| (src, dst)))
+            .map(|into_iter| into_iter.into_iter().map(|(pair, _)| pair))
             .collect();
 
         Ok(SplitIters::new(
@@ -226,13 +226,12 @@ impl<L> ParSortPairs<L> {
         &self,
         serializer: &S,
         deserializer: D,
-        pairs: impl ParallelIterator<Item = (usize, usize, L)>,
+        pairs: impl ParallelIterator<Item = ((usize, usize), L)>,
     ) -> Result<
         SplitIters<
             impl IntoIterator<
                 Item = (
-                    usize,
-                    usize,
+                    (usize, usize),
                     <D as BitDeserializer<NE, BitReader>>::DeserType,
                 ),
                 IntoIter: Clone + Send + Sync,
@@ -264,13 +263,12 @@ impl<L> ParSortPairs<L> {
         &self,
         serializer: &S,
         deserializer: D,
-        pairs: impl ParallelIterator<Item = Result<(usize, usize, L), E>>,
+        pairs: impl ParallelIterator<Item = Result<((usize, usize), L), E>>,
     ) -> Result<
         SplitIters<
             impl IntoIterator<
                 Item = (
-                    usize,
-                    usize,
+                    (usize, usize),
                     <D as BitDeserializer<NE, BitReader>>::DeserType,
                 ),
                 IntoIter: Clone + Send + Sync,
@@ -350,7 +348,7 @@ impl<L> ParSortPairs<L> {
                 )
             },
             |(pl, thread_state), pair| -> Result<_> {
-                let (src, dst, label) = pair.map_err(Into::into)?;
+                let ((src, dst), label) = pair.map_err(Into::into)?;
                 ensure!(
                     src < self.num_nodes,
                     "Expected {}, but got {src}",
