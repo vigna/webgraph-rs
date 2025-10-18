@@ -161,7 +161,7 @@ impl BvComp<()> {
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
     >(
         basename: impl AsRef<Path> + Send + Sync,
-        iter: impl Iterator<Item = (usize, L)>,
+        iter: impl IntoIterator<Item = (usize, L)>,
         num_nodes: usize,
         compression_flags: CompFlags,
         threads: &ThreadPool,
@@ -425,7 +425,7 @@ impl<'t> BvCompBuilder<'t> {
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
     >(
         &mut self,
-        iter: impl Iterator<Item = (usize, L)>,
+        iter: impl IntoIterator<Item = (usize, L)>,
         num_nodes: usize,
     ) -> Result<u64>
     where
@@ -454,7 +454,7 @@ impl<'t> BvCompBuilder<'t> {
         threads.in_place_scope(|s| {
             let cp_flags = &self.compression_flags;
 
-            for (thread_id, (expected_first_node, mut thread_lender)) in iter.enumerate() {
+            for (thread_id, (expected_first_node, mut thread_lender)) in iter.into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
