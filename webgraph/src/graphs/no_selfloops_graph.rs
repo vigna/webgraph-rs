@@ -59,6 +59,9 @@ where
 
 impl<G: SequentialGraph> SequentialGraph for NoSelfLoopsGraph<G> {}
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
     type Lender = <NoSelfLoopsGraph<G> as SequentialLabeling>::Lender<'b>;
 

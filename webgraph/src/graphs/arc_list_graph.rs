@@ -27,7 +27,9 @@ pub struct ArcListGraph<I: Clone> {
     into_iter: I,
 }
 
-impl<L: Clone + Copy + 'static, I: IntoIterator<Item = ((usize, usize), L)> + Clone> ArcListGraph<I> {
+impl<L: Clone + Copy + 'static, I: IntoIterator<Item = ((usize, usize), L)> + Clone>
+    ArcListGraph<I>
+{
     /// Creates a new arc-list graph from the given [`IntoIterator`].
     #[inline(always)]
     pub fn new_labeled(num_nodes: usize, iter: I) -> Self {
@@ -57,8 +59,8 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync> SplitLabeling
-    for ArcListGraph<I>
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
+    SplitLabeling for ArcListGraph<I>
 where
     L: Send + Sync,
 {
@@ -222,7 +224,7 @@ impl<L, I: IntoIterator<Item = ((usize, usize), L)>> Iterator for Succ<'_, L, I>
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
         // If the next pair is not there, or it has a different source, we are done
-        if self.node_iter.iter.peek()?.0.0 >= self.node_iter.next_node {
+        if self.node_iter.iter.peek()?.0 .0 >= self.node_iter.next_node {
             return None;
         }
         // get the next labeled pair

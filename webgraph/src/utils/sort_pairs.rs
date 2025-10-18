@@ -576,9 +576,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> 
 
         match head_tail.tail.next() {
             None => Some(PeekMut::pop(head_tail).head),
-            Some((pair, label)) => {
-                Some(std::mem::replace(&mut head_tail.head, (pair, label)))
-            }
+            Some((pair, label)) => Some(std::mem::replace(&mut head_tail.head, (pair, label))),
         }
     }
 }
@@ -759,7 +757,13 @@ mod tests {
         let mut sp2 =
             SortPairs::new_labeled(MemoryUsage::BatchSize(5), dir2.path(), MyDessert, MyDessert)?;
 
-        let labeled_pairs = vec![((3, 4), 7), ((1, 2), 5), ((5, 6), 9), ((0, 1), 4), ((2, 3), 6)];
+        let labeled_pairs = vec![
+            ((3, 4), 7),
+            ((1, 2), 5),
+            ((5, 6), 9),
+            ((0, 1), 4),
+            ((2, 3), 6),
+        ];
         let mut iter2 = sp2.sort_labeled(labeled_pairs)?;
 
         let mut sorted_labeled = Vec::new();

@@ -293,6 +293,9 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledVecGraph<L> {
     }
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a, L: Clone + 'static> IntoLender for &'a LabeledVecGraph<L> {
     type Lender = <LabeledVecGraph<L> as SequentialLabeling>::Lender<'a>;
 
@@ -521,6 +524,9 @@ impl VecGraph {
     }
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a> IntoLender for &'a VecGraph {
     type Lender = <VecGraph as SequentialLabeling>::Lender<'a>;
 

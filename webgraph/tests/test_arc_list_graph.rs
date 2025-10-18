@@ -20,8 +20,10 @@ use webgraph::{
 
 #[test]
 fn test_arc_list_graph_iter() {
-    let iter =
-        Iter::<Box<u64>, std::vec::IntoIter<((usize, usize), Box<u64>)>>::new(10, vec![].into_iter());
+    let iter = Iter::<Box<u64>, std::vec::IntoIter<((usize, usize), Box<u64>)>>::new(
+        10,
+        vec![].into_iter(),
+    );
     for_!((_succ, labels) in iter {
         for_!(item in labels {
           println!("{:?}", item);

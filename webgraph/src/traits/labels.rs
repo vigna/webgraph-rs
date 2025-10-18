@@ -45,6 +45,12 @@ use sux::{traits::Succ, utils::FairChunks};
 /// to use the previous one. You can invoke [`Lender::copied`] to get a standard
 /// iterator, at the cost of some allocation and copying.
 ///
+/// It is suggested that all implementors of this trait also implement
+/// [`IntoLender`] on a reference, returning the same lender as
+/// [`iter`](SequentialLabeling::iter). This makes it possible to use the
+/// [`for_!`](lender::for_) macro to iterate over the labeling (see the [module
+/// documentation](crate) for an example).
+///
 /// Note that there is no guarantee that the lender will return nodes in
 /// ascending order, or that the iterators on labels will return them in any
 /// specified order.

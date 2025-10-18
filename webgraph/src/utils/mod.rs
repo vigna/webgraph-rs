@@ -260,6 +260,11 @@ impl MemoryUsage {
 /// easily be converted into lenders for use with
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
 /// using a convenient implementation of the [`From`] trait.
+///
+/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// to perform the conversion. Type inference might not work properly if the
+/// call is embedded in a larger expression, in which case an explicit type
+/// annotation might be necessary.
 pub struct SplitIters<I> {
     pub boundaries: Box<[usize]>,
     pub iters: Box<[I]>,
@@ -289,6 +294,11 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// labels, and the resulting lenders are wrapped with
 /// [`LeftIterator`](crate::labels::proj::LeftIterator) to project out just the
 /// successor nodes.
+///
+/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// to perform the conversion. Type inference might not work properly if the
+/// call is embedded in a larger expression, in which case an explicit type
+/// annotation might be necessary.
 impl<
         I: Iterator<Item = (usize, usize)> + Send + Sync,
         IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
@@ -328,6 +338,11 @@ impl<
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
 /// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+///
+/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// to perform the conversion. Type inference might not work properly if the
+/// call is embedded in a larger expression, in which case an explicit type
+/// annotation might be necessary.
 impl<
         L: Clone + Copy + 'static,
         I: Iterator<Item = ((usize, usize), L)> + Send + Sync,

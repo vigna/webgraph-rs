@@ -179,6 +179,9 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
     }
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a, L: Clone + 'static> IntoLender for &'a LabeledBTreeGraph<L> {
     type Lender = <LabeledBTreeGraph<L> as SequentialLabeling>::Lender<'a>;
 
@@ -317,6 +320,9 @@ impl BTreeGraph {
     }
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a> IntoLender for &'a BTreeGraph {
     type Lender = <BTreeGraph as SequentialLabeling>::Lender<'a>;
 

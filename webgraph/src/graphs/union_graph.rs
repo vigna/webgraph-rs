@@ -73,6 +73,9 @@ where
 {
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'c, G: SequentialGraph, H: SequentialGraph> IntoLender for &'c UnionGraph<G, H>
 where
     for<'a> G::Lender<'a>: SortedLender + Clone,

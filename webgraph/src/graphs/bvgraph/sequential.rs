@@ -94,6 +94,9 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
 impl<F: SequentialDecoderFactory> SequentialGraph for BvGraphSeq<F> {}
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
     type Lender = <BvGraphSeq<F> as SequentialLabeling>::Lender<'a>;
 

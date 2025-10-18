@@ -241,6 +241,9 @@ impl CompressedCsrSortedGraph {
     }
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a, DCF, S> IntoLender for &'a CsrGraph<DCF, S>
 where
     DCF: SliceByValue + IterateByValueFrom<Item = usize>,
@@ -254,6 +257,9 @@ where
     }
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a, DCF, S> IntoLender for &'a CsrSortedGraph<DCF, S>
 where
     DCF: SliceByValue + IterateByValueFrom<Item = usize>,
