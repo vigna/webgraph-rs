@@ -112,8 +112,8 @@ pub struct ArcsArgs {
     pub target_column: usize,
 
     #[arg(long, default_value_t = false)]
-    /// Source and destinations are node identifiers.
-    pub exact: bool,
+    /// Source and destinations are not node identifiers starting from 0, but labels.
+    pub labels: bool,
 }
 
 /// Parses the number of threads from a string.

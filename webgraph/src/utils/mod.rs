@@ -160,7 +160,7 @@ macro_rules! thread_pool {
 }
 
 /// An enum expressing the memory requirements for batched algorithms
-/// such as [`SortPairs`] and [`ParSortPairs`].
+/// such as [`SortPairs`], [`ParSortPairs`], and [`ParSortIters`].
 ///
 /// This type implements [`Mul`](core::ops::Mul) and [`Div`](core::ops::Div) to
 /// scale the memory usage requirements by a given factor, independently of the

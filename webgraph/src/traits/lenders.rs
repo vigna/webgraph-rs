@@ -37,6 +37,8 @@ use crate::traits::Pair;
 /// The methods [`into_pairs`](NodeLabelsLender::into_pairs) and
 /// [`into_labeled_pairs`](NodeLabelsLender::into_labeled_pairs) convert a
 /// [`NodeLabelsLender`] into an iterator of pairs or triples, respectively.
+/// These are convenience methods that delegate to [`From`] trait
+/// implementations for [`IntoPairs`] and [`IntoLabeledPairs`].
 ///
 /// # Extension of [`Lender`] Methods
 ///
@@ -101,16 +103,14 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     ///
     /// Typically, this method is used to convert a lender on a labeled graph
     /// into an iterator of labeled arcs expressed as triples.
+    ///
+    /// This is a convenience method that delegates to the [`From`] trait
+    /// implementation.
     fn into_labeled_pairs<'a>(self) -> IntoLabeledPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
     {
-        IntoLabeledPairs {
-            lender: Box::new(self),
-            current_node: 0,
-            current_iter: None,
-            _marker: PhantomData,
-        }
+        self.into()
     }
 
     /// Converts this lender into an iterator of pairs, provided that the label
@@ -118,26 +118,23 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     ///
     /// Typically, this method is used to convert a lender on a graph into an
     /// iterator of arcs expressed as pairs.
+    ///
+    /// This is a convenience method that delegates to the [`From`] trait
+    /// implementation.
     fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
     {
-        IntoPairs {
-            lender: Box::new(self),
-            current_node: 0,
-            current_iter: None,
-            _marker: PhantomData,
-        }
+        self.into()
     }
 }
 
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
 /// iterator of triples.
 ///
-/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
-/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
-/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
-/// comes from the inner iterator.
+/// This struct is created via the [`From`] trait. It converts a lender that
+/// yields `(usize, IntoIterator)` pairs into a flat iterator of `(src, dst, label)`
+/// triples, where each `(dst, label)` comes from the inner iterator.
 pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
     lender: Box<L>,
     current_node: usize,
@@ -192,13 +189,26 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
     }
 }
 
+impl<'a, L> From<L> for IntoLabeledPairs<'a, L>
+where
+    L: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
+{
+    fn from(lender: L) -> Self {
+        IntoLabeledPairs {
+            lender: Box::new(lender),
+            current_node: 0,
+            current_iter: None,
+            _marker: PhantomData,
+        }
+    }
+}
+
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
-/// iterator of triples.
+/// iterator of pairs.
 ///
-/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
-/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
-/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
-/// comes from the inner iterator.
+/// This struct is created via the [`From`] trait. It converts a lender that
+/// yields `(usize, IntoIterator)` pairs into a flat iterator of `(src, dst)`
+/// pairs, where each `dst` comes from the inner iterator.
 pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
     lender: Box<L>,
     current_node: usize,
@@ -237,6 +247,20 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<
             } else {
                 return None;
             }
+        }
+    }
+}
+
+impl<'a, L> From<L> for IntoPairs<'a, L>
+where
+    L: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
+{
+    fn from(lender: L) -> Self {
+        IntoPairs {
+            lender: Box::new(lender),
+            current_node: 0,
+            current_iter: None,
+            _marker: PhantomData,
         }
     }
 }

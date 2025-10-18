@@ -116,7 +116,10 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
         let dst = vals[args.arcs_args.target_column];
 
         // parse if exact, or build a node list
-        let src_id = if args.arcs_args.exact {
+        let src_id = if args.arcs_args.labels {
+            let node_id = nodes.len();
+            *nodes.entry(src.to_string()).or_insert(node_id)
+        } else {
             match src.parse::<usize>() {
                 Ok(src_id) => src_id,
                 Err(err) => {
@@ -129,11 +132,11 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
                     return Ok(());
                 }
             }
-        } else {
-            let node_id = nodes.len();
-            *nodes.entry(src.to_string()).or_insert(node_id)
         };
-        let dst_id = if args.arcs_args.exact {
+        let dst_id = if args.arcs_args.labels {
+            let node_id = nodes.len();
+            *nodes.entry(dst.to_string()).or_insert(node_id)
+        } else {
             match dst.parse::<usize>() {
                 Ok(dst_id) => dst_id,
                 Err(err) => {
@@ -146,9 +149,6 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
                     return Ok(());
                 }
             }
-        } else {
-            let node_id = nodes.len();
-            *nodes.entry(dst.to_string()).or_insert(node_id)
         };
 
         num_nodes = num_nodes.max(src_id.max(dst_id) + 1);
@@ -158,7 +158,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     }
     pl.done();
 
-    if !args.arcs_args.exact {
+    if args.arcs_args.labels {
         debug_assert_eq!(
             num_nodes,
             nodes.len(),
@@ -216,7 +216,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     .unwrap();
 
     // save the nodes
-    if !args.arcs_args.exact {
+    if args.arcs_args.labels {
         let nodes_file = args.dst.with_extension("nodes");
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)

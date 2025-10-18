@@ -15,10 +15,6 @@ currently being applied to several other types of graphs. It
 provides simple ways to manage very large graphs, exploiting modern compression
 techniques. More precisely, it is currently made of:
 
-- A set of simple codes, called ζ _codes_, which are particularly suitable for
-  storing web graphs (or, in general, integers with a power-law distribution in a
-  certain exponent range).
-
 - Algorithms for compressing web graphs that exploit gap compression and
   differential compression (à la
   [LINK](https://ieeexplore.ieee.org/document/999950)),
@@ -64,19 +60,19 @@ our software useful for research, please cite the following papers in your own:
   Sebastiano Vigna, in _Proc. of the 13th international conference on World
   Wide Web_, WWW 2004, pages 595–602, ACM. [DOI
   10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752).
-  
+
 ## Quick Setup
 
 Assuming you have built all binaries, you will first need a graph in BV format,
-for example downloading it from the [LAW website]. For a graph with basename
-`BASENAME`, you will need the `BASENAME.graph` file (the bitstream containing a
-compressed representation of the graph), the `BASENAME.properties` file
-(metadata), and the `BASENAME.offsets` file (a bitstream containing pointers into
-the graph bitstream).
+for example downloading it from the [LAW web site] or the [Common Crawl web
+site]. For a graph with basename `BASENAME`, you will need the `BASENAME.graph`
+file (the bitstream containing a compressed representation of the graph), the
+`BASENAME.properties` file (metadata), and the `BASENAME.offsets` file (a
+bitstream containing pointers into the graph bitstream).
 
 As a first step, if you need random access to the successors of a node, you need
 to build an [Elias–Fano] representation of the offsets (this part can be skipped
-if you just need sequential access). There is a CLI command `webgraph` with many
+if you just need sequential access). There is a [CLI command `webgraph`] with many
 subcommands, among which `build`, and `webgraph build ef BASENAME` will build
 the representation for you, serializing it with [ε-serde] in a file
 named `BASENAME.ef`.
@@ -108,6 +104,10 @@ for_![(src, succ) in graph {
 }];
 ```
 
+## Compact Representations
+
+[`CsrGraph`] is a classical immutable compact graph representation.
+
 ## Mutable Graphs
 
 A number of structures make it possible to create dynamically growing graphs:
@@ -119,8 +119,9 @@ gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be serialized with
 
 ## Command–Line Interface
 
-We provide a command-line interface to perform various operations on graphs. The
-CLI is the main method of the library, so it can be executed with `cargo run`.
+We provide a [command-line interface] to perform various operations on graphs.
+The CLI is the main method of the library, so it can be executed with `cargo
+run`.
 
 ## More Options
 
@@ -144,20 +145,22 @@ graph in BvGraph format. For example,
 
 ```bash
 echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
-cargo run --release from arcs --exact 3-cycle <3-cycle.tsv
+cargo run --release from arcs 3-cycle <3-cycle.tsv
 ```
 
-will create a file compressed graph with basename `3-cycle`. The `--exact` flag
-is used to specify that the labels provided are exactly the node numbers,
-numbered starting from zero: otherwise, a mapping from assigned node number to
-labels will be created in RAM and store in `3-cycle.nodes` file.
-The labels are stored in a `HashMap`, so, for very large graphs, the mapping
-might not fit in RAM. For example,
+will create a file compressed graph with basename `3-cycle`. The numbers
+represent node ids starting from zero.
+
+If the node ids are not numbers, but labels, you can use the `--labels` flag. A
+mapping from assigned node number (in order of appearance) to labels will be
+created in RAM and stored in `3-cycle.nodes` file (one label per line the first
+label corresponding to node id 0). The labels are stored in a `HashMap`, so, for
+very large graphs, the mapping might not fit in RAM. For example,
 
 ```bash
 echo -e "a\tb\nb\tc\nc\ta" > graph.tsv
 # convert to bvgraph
-cat graph.tsv | cargo run --release from arcs graph
+cat graph.tsv | cargo run --release from arcs --label graph
 ```
 
 The graph can be converted back in the arcs format using the `to arcs` command.
@@ -176,7 +179,7 @@ such as `csv`. For example,
 ```bash
 echo -e "a,b\nb,c\nc,a" > graph.csv
 # convert to bvgraph
-$ cat graph.csv | cargo run --release from arcs --separator=',' graph
+$ cat graph.csv | cargo run --release from arcs --labels --separator=',' graph
 # convert back to csv
 $ cargo run --release to arcs --separator=',' --labels=graph.nodes graph > back.csv
 ```
@@ -211,3 +214,6 @@ Union nor the Italian MUR can be held responsible for them.
 [`LabeledVecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html>
 [`BTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html>
 [`LabeledBTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html>
+[Common Crawl web site]: <https://commoncrawl.org/>
+[CLI command `webgraph`]: <https://docs.rs/webgraph-cli/latest/index.html>
+[`CsrGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html>

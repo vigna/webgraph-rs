@@ -100,13 +100,12 @@ where
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
-    // TODO!: speed it up by using random access graph if possible
     let seq_graph = webgraph::graphs::bvgraph::BvGraph::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
 
     // transpose the graph
-    let split = webgraph::transform::par_transpose(&seq_graph, args.memory_usage.memory_usage)?;
+    let split = webgraph::transform::transpose_split(&seq_graph, args.memory_usage.memory_usage)?;
 
     // Convert to (node, lender) pairs
     let pairs: Vec<_> = split.into();

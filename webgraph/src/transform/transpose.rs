@@ -80,13 +80,17 @@ pub fn transpose(
     )?))
 }
 
-/// Returns the transpose of the provided labeled graph as a [sequential
-/// graph](crate::traits::SequentialGraph).
+/// Returns a [`SplitIters`] structure representing the
+/// transpose of the provided labeled splittable graph.
+///
+/// The [`SplitIters`] structure can easily converted into a vector of `(node,
+/// lender)` pairs using [this `From`
+/// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+Iter<L,+I>)>).
 ///
 /// For the meaning of the additional parameters, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
 #[allow(clippy::type_complexity)]
-pub fn par_transpose_labeled<
+pub fn transpose_labeled_split<
     'graph,
     G: 'graph
         + LabeledSequentialGraph<S::SerType>
@@ -132,7 +136,16 @@ where
     )
 }
 
-pub fn par_transpose<
+/// Returns a [`SplitIters`] structure representing the
+/// transpose of the provided splittable graph.
+///
+/// The [`SplitIters`] structure can easily converted into a vector of `(node,
+/// lender)` pairs using [this `From`
+/// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+LeftIterator<Iter<(),+Map<I,+fn((usize,+usize))+->+(usize,+usize,+())>)>).
+///
+/// For the meaning of the additional parameters, see
+/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+pub fn transpose_split<
     'graph,
     G: 'graph
         + SequentialGraph
