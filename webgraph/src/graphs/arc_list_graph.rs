@@ -22,14 +22,12 @@ use lender::*;
 /// such lenders to
 /// [`parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
 #[derive(Clone)]
-pub struct ArcListGraph<I: Clone> {
+pub struct ArcListGraph<I> {
     num_nodes: usize,
     into_iter: I,
 }
 
-impl<L: Clone + Copy + 'static, I: IntoIterator<Item = ((usize, usize), L)> + Clone>
-    ArcListGraph<I>
-{
+impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> ArcListGraph<I> {
     /// Creates a new arc-list graph from the given [`IntoIterator`].
     #[inline(always)]
     pub fn new_labeled(num_nodes: usize, iter: I) -> Self {
