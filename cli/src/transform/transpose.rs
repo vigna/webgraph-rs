@@ -115,7 +115,7 @@ where
         &args.dst,
         pairs
             .into_iter()
-            .map(|(node, lender)| (node, webgraph::labels::LeftIterator(lender))),
+            .map(|lender| webgraph::labels::LeftIterator(lender)),
         seq_graph.num_nodes(),
         args.ca.into(),
         &thread_pool,

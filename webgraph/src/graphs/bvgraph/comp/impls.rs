@@ -126,7 +126,7 @@ impl BvComp<()> {
         endianness: &str,
     ) -> Result<u64>
     where
-        for<'a> <G as SplitLabeling>::SplitLender<'a>: Send + Sync,
+        for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
     {
         BvCompBuilder::new(basename)
             .with_compression_flags(compression_flags)
@@ -138,7 +138,7 @@ impl BvComp<()> {
     /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
     pub fn parallel_graph<E: Endianness>(
         basename: impl AsRef<Path> + Send + Sync,
-        graph: &(impl SequentialGraph + SplitLabeling),
+        graph: &(impl SequentialGraph + for<'a> SplitLabeling<SplitLender<'a>: ExactSizeLender>),
         compression_flags: CompFlags,
         threads: &ThreadPool,
         tmp_dir: impl AsRef<Path>,
@@ -158,10 +158,10 @@ impl BvComp<()> {
     /// of the graph bitstream.
     pub fn parallel_iter<
         E: Endianness,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,
     >(
         basename: impl AsRef<Path> + Send + Sync,
-        iter: impl IntoIterator<Item = (usize, L)>,
+        iter: impl IntoIterator<Item = L>,
         num_nodes: usize,
         compression_flags: CompFlags,
         threads: &ThreadPool,
@@ -372,7 +372,7 @@ impl<'t> BvCompBuilder<'t> {
         endianness: &str,
     ) -> Result<u64>
     where
-        for<'a> <G as SplitLabeling>::SplitLender<'a>: Send + Sync,
+        for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
     {
         self.ensure_threads()?;
         let num_threads = self.threads().current_num_threads();
@@ -407,7 +407,7 @@ impl<'t> BvCompBuilder<'t> {
     /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
     pub fn parallel_graph<E: Endianness>(
         &mut self,
-        graph: &(impl SequentialGraph + SplitLabeling),
+        graph: &(impl SequentialGraph + for<'a> SplitLabeling<SplitLender<'a>: ExactSizeLender>),
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
@@ -422,10 +422,10 @@ impl<'t> BvCompBuilder<'t> {
     /// of the graph bitstream.
     pub fn parallel_iter<
         E: Endianness,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + Send,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,
     >(
         &mut self,
-        iter: impl IntoIterator<Item = (usize, L)>,
+        iter: impl IntoIterator<Item = L>,
         num_nodes: usize,
     ) -> Result<u64>
     where
@@ -453,8 +453,9 @@ impl<'t> BvCompBuilder<'t> {
         comp_pl.start("Compressing successors in parallel...");
         threads.in_place_scope(|s| {
             let cp_flags = &self.compression_flags;
+            let mut expected_first_node = 0;
 
-            for (thread_id, (expected_first_node, mut thread_lender)) in iter.into_iter().enumerate() {
+            for (thread_id, mut thread_lender) in iter.into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
@@ -468,7 +469,7 @@ impl<'t> BvCompBuilder<'t> {
                     let mut offsets_writer;
                     let mut written_bits;
                     let mut offsets_written_bits;
-
+                    let lender_len = thread_lender.len();
                     match thread_lender.next() {
                         None => return,
                         Some((node_id, successors)) => {
@@ -481,6 +482,7 @@ impl<'t> BvCompBuilder<'t> {
                                     first_node
                                 );
                             }
+                            expected_first_node += lender_len;
 
                             offsets_writer = <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(
                                 BufWriter::new(File::create(&chunk_offsets_path).unwrap()),
@@ -503,6 +505,14 @@ impl<'t> BvCompBuilder<'t> {
 
                         }
                     };
+
+                    if num_nodes != expected_first_node {
+                        panic!(
+                            "The lenders were supposed to return {} nodes but returned {} instead",
+                            num_nodes,
+                            expected_first_node
+                        );
+                    }
 
                     let mut last_node = first_node;
                     let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);

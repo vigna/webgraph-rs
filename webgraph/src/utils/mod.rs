@@ -347,7 +347,7 @@ impl<
         L: Clone + Copy + 'static,
         I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
         IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
-    > From<SplitIters<IT>> for Vec<(usize, Iter<L, I>)>
+    > From<SplitIters<IT>> for Vec<Iter<L, I>>
 {
     fn from(split: SplitIters<IT>) -> Self {
         split
@@ -361,7 +361,7 @@ impl<
                 let num_partition_nodes = end_node - start_node;
                 let lender = Iter::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
                     .expect("Iterator should start from the expected first node");
-                (start_node, lender)
+                lender
             })
             .collect()
     }

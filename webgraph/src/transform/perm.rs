@@ -43,7 +43,7 @@ pub fn permute(
     // create a stream where to dump the sorted pairs
     let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
-    // get a premuted view
+    // get a permuted view
     let pgraph = PermutedGraph { graph, perm };
 
     let mut pl = ProgressLogger::default();
@@ -103,7 +103,7 @@ where
     let edges = threads.in_place_scope(|scope| {
         let (tx, rx) = std::sync::mpsc::channel();
 
-        for (thread_id, (_start_node, iter)) in pgraph.split_iter(num_threads).enumerate() {
+        for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
             let tx = tx.clone();
             let dir = Builder::new()
                 .prefix(&format!("permute_split_{thread_id}_"))

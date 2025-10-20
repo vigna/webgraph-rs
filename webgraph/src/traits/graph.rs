@@ -287,7 +287,7 @@ where
     type IntoIterator<'a>
         = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn((usize, G::SplitLender<'a>)) -> (usize, Self::SplitLender<'a>),
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>,
     >
     where
         Self: 'a;
@@ -296,7 +296,7 @@ where
         self.0
             .split_iter(how_many)
             .into_iter()
-            .map(|(start, lender)| (start, UnitLender(lender)))
+            .map(|lender| UnitLender(lender))
     }
 }
 

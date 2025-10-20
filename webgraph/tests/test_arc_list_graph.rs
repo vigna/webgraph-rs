@@ -101,8 +101,7 @@ fn test_arc_list_graph_cnr2000() {
             "Mismatch in split iterators length"
         );
 
-        for ((start1, iter), (start2, titer)) in iters.into_iter().zip(truth_iters) {
-            assert_eq!(start1, start2, "Mismatch in split start nodes");
+        for (iter, titer) in iters.into_iter().zip(truth_iters) {
             assert_eq!(iter.len(), titer.len(), "Mismatch in iterator lengths");
             test_graph_iters(iter, titer);
         }
@@ -185,7 +184,7 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
 
     // Collect all nodes from all lenders
     let mut all_nodes = Vec::new();
-    for (_start, mut lender) in lenders {
+    for mut lender in lenders {
         while let Some((node_id, successors)) = lender.next() {
             all_nodes.push(node_id);
             let _succs: Vec<_> = successors.into_iter().collect();

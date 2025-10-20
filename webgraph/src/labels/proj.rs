@@ -154,7 +154,7 @@ where
     type IntoIterator<'a>
         = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn((usize, G::SplitLender<'a>)) -> (usize, Self::SplitLender<'a>),
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>,
     >
     where
         Self: 'a;
@@ -163,7 +163,7 @@ where
         self.0
             .split_iter(how_many)
             .into_iter()
-            .map(|(start, lender)| (start, LeftIterator(lender)))
+            .map(|lender| LeftIterator(lender))
     }
 }
 
@@ -359,7 +359,7 @@ where
     type IntoIterator<'a>
         = core::iter::Map<
         <G::IntoIterator<'a> as IntoIterator>::IntoIter,
-        fn((usize, G::SplitLender<'a>)) -> (usize, Self::SplitLender<'a>),
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>,
     >
     where
         Self: 'a;
@@ -368,7 +368,7 @@ where
         self.0
             .split_iter(how_many)
             .into_iter()
-            .map(|(start, lender)| (start, RightIterator(lender)))
+            .map(|lender| RightIterator(lender))
     }
 }
 
