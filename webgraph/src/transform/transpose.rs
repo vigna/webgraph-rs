@@ -126,7 +126,7 @@ where
     let pairs: Vec<_> = graph
         .split_iter(parts)
         .into_iter()
-        .map(|iter| iter.into_labeled_pairs())
+        .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
         .collect();
 
     par_sort_iters.try_sort_labeled::<S, D, std::convert::Infallible>(
@@ -170,7 +170,7 @@ pub fn transpose_split<
     let pairs: Vec<_> = graph
         .split_iter(parts)
         .into_iter()
-        .map(|iter| iter.into_pairs().map(|(a, b)| ((b, a), ())))
+        .map(|iter| iter.into_pairs().map(|(src, dst)| ((dst, src), ())))
         .collect();
 
     let SplitIters { boundaries, iters } =
