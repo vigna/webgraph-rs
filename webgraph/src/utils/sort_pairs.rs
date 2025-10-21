@@ -710,8 +710,7 @@ mod tests {
         use tempfile::Builder;
 
         let dir = Builder::new().prefix("test_sort_pairs_").tempdir()?;
-        let mut sp =
-            SortPairs::new_labeled(MemoryUsage::BatchSize(10), dir.path(), MyDessert, MyDessert)?;
+        let mut sp = SortPairs::new_labeled(MemoryUsage::BatchSize(10), dir, MyDessert, MyDessert)?;
         let n = 25;
         for i in 0..n {
             sp.push_labeled(i, i + 1, i + 2)?;
