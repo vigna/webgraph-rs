@@ -79,7 +79,7 @@ use crate::utils::SplitIters;
 /// let pairs: Vec<_> = g
 ///     .split_iter(num_partitions)
 ///     .into_iter()
-///     .map(|(_start_node, lender)| lender.into_pairs().map(|(src, dst)| (dst, src)))
+///     .map(|lender| lender.into_pairs().map(|(src, dst)| (dst, src)))
 ///     .collect();
 ///
 /// // Sort the pairs using ParSortIters
