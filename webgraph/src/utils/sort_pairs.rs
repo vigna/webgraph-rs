@@ -135,9 +135,14 @@ impl SortPairs<(), ()> {
     /// Creates a new `SortPairs` without labels.
     ///
     /// The `tmp_dir` must be empty, and in particular it must not be shared
-    /// with other `SortPairs` instances. Please use the
-    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain a
-    /// suitable directory.
+    /// with other `SortPairs` instances.
+    ///
+    /// We suggest to use the [`tempfile`](https://crates.io/crates/tempfile)
+    /// crate to obtain a suitable temporary directory, as it will be
+    /// automatically deleted when no longer needed, but be careful to not pass
+    /// the directory obtained directly, but rather its path (i.e., use
+    /// `dir.path()`) because otherwise [the directory will be deleted too
+    /// soon](https://github.com/Stebalien/tempfile/issues/115).
     pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, tmp_dir: P) -> anyhow::Result<Self> {
         Self::new_labeled(memory_usage, tmp_dir, (), ())
     }
@@ -710,7 +715,8 @@ mod tests {
         use tempfile::Builder;
 
         let dir = Builder::new().prefix("test_sort_pairs_").tempdir()?;
-        let mut sp = SortPairs::new_labeled(MemoryUsage::BatchSize(10), dir, MyDessert, MyDessert)?;
+        let mut sp =
+            SortPairs::new_labeled(MemoryUsage::BatchSize(10), dir.path(), MyDessert, MyDessert)?;
         let n = 25;
         for i in 0..n {
             sp.push_labeled(i, i + 1, i + 2)?;
