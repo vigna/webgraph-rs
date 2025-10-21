@@ -451,9 +451,9 @@ impl<'t> BvCompBuilder<'t> {
             expected_updates = Some(num_nodes),
         ];
         comp_pl.start("Compressing successors in parallel...");
+        let mut expected_first_node = 0;
         threads.in_place_scope(|s| {
             let cp_flags = &self.compression_flags;
-            let mut expected_first_node = 0;
 
             for (thread_id, mut thread_lender) in iter.into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
@@ -461,6 +461,7 @@ impl<'t> BvCompBuilder<'t> {
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
+                let lender_len = thread_lender.len();
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
@@ -469,7 +470,6 @@ impl<'t> BvCompBuilder<'t> {
                     let mut offsets_writer;
                     let mut written_bits;
                     let mut offsets_written_bits;
-                    let lender_len = thread_lender.len();
                     match thread_lender.next() {
                         None => return,
                         Some((node_id, successors)) => {
@@ -482,7 +482,6 @@ impl<'t> BvCompBuilder<'t> {
                                     first_node
                                 );
                             }
-                            expected_first_node += lender_len;
 
                             offsets_writer = <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(
                                 BufWriter::new(File::create(&chunk_offsets_path).unwrap()),
@@ -505,14 +504,6 @@ impl<'t> BvCompBuilder<'t> {
 
                         }
                     };
-
-                    if num_nodes != expected_first_node {
-                        panic!(
-                            "The lenders were supposed to return {} nodes but returned {} instead",
-                            num_nodes,
-                            expected_first_node
-                        );
-                    }
 
                     let mut last_node = first_node;
                     let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
@@ -544,6 +535,16 @@ impl<'t> BvCompBuilder<'t> {
                     })
                     .unwrap()
                 });
+
+                expected_first_node += lender_len;
+            }
+
+            if num_nodes != expected_first_node {
+                panic!(
+                    "The lenders were supposed to return {} nodes but returned {} instead",
+                    num_nodes,
+                    expected_first_node
+                );
             }
 
             drop(tx);
