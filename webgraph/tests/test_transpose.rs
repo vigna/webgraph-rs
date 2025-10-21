@@ -9,7 +9,7 @@ use dsi_bitstream::codes::{GammaRead, GammaWrite};
 use dsi_bitstream::traits::NE;
 use dsi_bitstream::traits::{BitRead, BitWrite};
 use webgraph::graphs::vec_graph::LabeledVecGraph;
-use webgraph::prelude::{transpose, transpose_labeled};
+use webgraph::prelude::{transpose, transpose_labeled, transpose_split};
 use webgraph::traits::labels::SequentialLabeling;
 use webgraph::traits::{graph, BitDeserializer, BitSerializer};
 use webgraph::utils::sort_pairs::{BitReader, BitWriter};
@@ -97,5 +97,24 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     let g4 = LabeledVecGraph::from_lender(g.iter());
 
     graph::eq_labeled(&g3, &g4)?;
+    Ok(())
+}
+
+#[test]
+fn test_transpose_split() -> anyhow::Result<()> {
+    use webgraph::graphs::vec_graph::VecGraph;
+    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+    let g = VecGraph::from_arcs(arcs);
+
+    let trans: Vec<_> = transpose_split(&g, MemoryUsage::BatchSize(3))?.into();
+    let mut g2 = VecGraph::new();
+    for lender in trans {
+        g2.add_lender(lender);
+    }
+
+    let trans = transpose(g2, MemoryUsage::BatchSize(3))?;
+    let g3 = VecGraph::from_lender(&trans);
+
+    graph::eq(&g, &g3)?;
     Ok(())
 }

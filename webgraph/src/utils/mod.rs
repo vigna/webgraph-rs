@@ -303,18 +303,14 @@ impl<
         I: Iterator<Item = (usize, usize)> + Send + Sync,
         IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
     > From<SplitIters<IT>>
-    for Vec<(
-        usize,
+    for Vec<
         crate::labels::proj::LeftIterator<
             Iter<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
         >,
-    )>
+    >
 {
     fn from(split: SplitIters<IT>) -> Self {
-        split
-            .iters
-            .into_vec()
-            .into_iter()
+        Box::into_iter(split.iters)
             .enumerate()
             .map(|(i, iter)| {
                 let start_node = split.boundaries[i];
@@ -326,7 +322,7 @@ impl<
                 let lender = Iter::try_new_from(num_partition_nodes, labeled_iter, start_node)
                     .expect("Iterator should start from the expected first node");
                 // Wrap with LeftIterator to project out just the successor
-                (start_node, crate::labels::proj::LeftIterator(lender))
+                crate::labels::proj::LeftIterator(lender)
             })
             .collect()
     }
@@ -350,10 +346,7 @@ impl<
     > From<SplitIters<IT>> for Vec<Iter<L, I>>
 {
     fn from(split: SplitIters<IT>) -> Self {
-        split
-            .iters
-            .into_vec()
-            .into_iter()
+        Box::into_iter(split.iters)
             .enumerate()
             .map(|(i, iter)| {
                 let start_node = split.boundaries[i];

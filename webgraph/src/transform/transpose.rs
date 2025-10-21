@@ -12,7 +12,7 @@ use crate::prelude::{
     BitDeserializer, BitSerializer, LabeledSequentialGraph, SequentialGraph, SortPairs,
 };
 use crate::traits::graph::UnitLabelGraph;
-use crate::traits::{NodeLabelsLender, SplitLabeling, UnitLender};
+use crate::traits::{NodeLabelsLender, SplitLabeling};
 use crate::utils::{MemoryUsage, ParSortIters, SplitIters};
 use anyhow::Result;
 use dsi_bitstream::traits::NE;
@@ -162,9 +162,7 @@ pub fn transpose_split<
     graph: &'graph G,
     memory_usage: MemoryUsage,
 ) -> Result<
-    SplitIters<
-        impl IntoIterator<Item = ((usize, usize), ()), IntoIter: Send + Sync> + use<'graph, G>,
-    >,
+    SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + use<'graph, G>>,
 > {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = num_cpus::get();
@@ -172,8 +170,17 @@ pub fn transpose_split<
     let pairs: Vec<_> = graph
         .split_iter(parts)
         .into_iter()
-        .map(|iter| UnitLender(iter).into_labeled_pairs())
+        .map(|iter| iter.into_pairs().map(|(a, b)| ((b, a), ())))
         .collect();
 
-    par_sort_iters.try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)
+    let SplitIters { boundaries, iters } =
+        par_sort_iters.try_sort_labeled::<(), (), std::convert::Infallible>(&(), (), pairs)?;
+
+    Ok(SplitIters {
+        boundaries,
+        iters: Box::into_iter(iters)
+            .map(|iter| iter.into_iter().map(|(pair, _)| pair))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    })
 }
