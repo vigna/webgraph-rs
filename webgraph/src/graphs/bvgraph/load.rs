@@ -414,10 +414,10 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
             })?;
         self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
-            .with_context(|| format!("Could not graph file {}", self.basename.display()))?;
+            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
-            .with_context(|| format!("Could not offsets file {}", self.basename.display()))?;
+            .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
 
         Ok(BvGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
