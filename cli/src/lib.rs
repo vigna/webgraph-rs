@@ -13,8 +13,6 @@ use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::{ToBytes, UnsignedInt};
 use dsi_bitstream::dispatch::Codes;
 use epserde::ser::Serialize;
-use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
-use jiff::SpanRound;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -556,6 +554,9 @@ fn parse_duration(value: &str) -> Result<Duration> {
 }
 
 pub fn init_env_logger() -> Result<()> {
+    use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
+    use jiff::SpanRound;
+
     let mut builder =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
 
