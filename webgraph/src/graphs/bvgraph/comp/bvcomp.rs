@@ -10,6 +10,31 @@ use core::cmp::Ordering;
 use dsi_bitstream::codes::ToNat;
 use lender::prelude::*;
 
+pub trait GraphCompressor {
+    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64>;
+    fn flush(self) -> anyhow::Result<usize>;
+
+    /// Given an iterator over the nodes successors iterators, push them all.
+    /// The iterator must yield the successors of the node and the nodes HAVE
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// empty iterator).
+    ///
+    /// This most commonly is called with a reference to a graph.
+    fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<u64>
+    where
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+    {
+        let mut count = 0;
+        for_! ( (_, succ) in iter_nodes {
+            count += self.push(succ.into_iter())?;
+        });
+        // WAS
+        // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
+        Ok(count)
+    }
+}
+
 /// A BvGraph compressor, this is used to compress a graph into a BvGraph
 #[derive(Debug, Clone)]
 pub struct BvComp<E> {
@@ -47,7 +72,7 @@ pub struct BvComp<E> {
 /// Compute how to encode the successors of a node, given a reference node.
 /// This could be a function, but we made it a struct so we can reuse the
 /// allocations for performance reasons
-struct Compressor {
+pub(crate) struct Compressor {
     /// The outdegree of the node we are compressing
     outdegree: usize,
     /// The blocks of nodes we are copying from the reference node
@@ -66,10 +91,10 @@ impl Compressor {
     /// Constant used only to make the code more readable.
     /// When min_interval_length is 0, we don't use intervals, which might be
     /// counter-intuitive
-    const NO_INTERVALS: usize = 0;
+    pub(crate) const NO_INTERVALS: usize = 0;
 
     /// Creates a new empty compressor
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Compressor {
             outdegree: 0,
             blocks: Vec::with_capacity(1024),
@@ -85,7 +110,7 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<E: Encode>(
+    pub(crate) fn write<E: Encode>(
         &self,
         writer: &mut E,
         curr_node: usize,
@@ -135,6 +160,8 @@ impl Compressor {
             }
         }
         // write the residuals
+        // first signal the number of residuals to the encoder
+        writer.num_of_residuals(self.residuals.len());
         if !self.residuals.is_empty() {
             written_bits += writer
                 .write_first_residual((self.residuals[0] as i64 - curr_node as i64).to_nat())?
@@ -153,7 +180,7 @@ impl Compressor {
 
     #[inline(always)]
     /// Reset the compressor for a new compression
-    fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.outdegree = 0;
         self.blocks.clear();
         self.extra_nodes.clear();
@@ -163,7 +190,7 @@ impl Compressor {
     }
 
     /// setup the internal buffers for the compression of the given values
-    fn compress(
+    pub(crate) fn compress(
         &mut self,
         curr_list: &[usize],
         ref_list: Option<&[usize]>,
@@ -331,12 +358,14 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             arcs: 0,
         }
     }
+}
 
+impl<E: EncodeAndEstimate> GraphCompressor for BvComp<E> {
     /// Push a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
+    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -434,30 +463,11 @@ impl<E: EncodeAndEstimate> BvComp<E> {
         Ok(written_bits)
     }
 
-    /// Given an iterator over the nodes successors iterators, push them all.
-    /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
-    /// empty iterator).
-    ///
-    /// This most commonly is called with a reference to a graph.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<u64>
-    where
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    {
-        let mut count = 0;
-        for_! ( (_, succ) in iter_nodes {
-            count += self.push(succ.into_iter())?;
-        });
-        // WAS
-        // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
-        Ok(count)
-    }
-
     /// Consume the compressor return the number of bits written by
     /// flushing the encoder (0 for instantaneous codes)
-    pub fn flush(mut self) -> Result<usize, E::Error> {
-        self.encoder.flush()
+    fn flush(mut self) -> anyhow::Result<usize> {
+        let flushed = self.encoder.flush()?;
+        Ok(flushed)
     }
 }
 

@@ -6,7 +6,9 @@
  */
 
 mod bvcomp;
+mod bvcompz;
 pub use bvcomp::*;
+pub use bvcompz::*;
 
 mod impls;
 pub use impls::BvCompBuilder;
