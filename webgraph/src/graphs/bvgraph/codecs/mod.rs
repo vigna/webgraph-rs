@@ -38,6 +38,7 @@ pub trait Decode {
     fn read_interval_count(&mut self) -> u64;
     fn read_interval_start(&mut self) -> u64;
     fn read_interval_len(&mut self) -> u64;
+    fn num_of_residuals(&mut self, _total_residuals: usize) {}
     fn read_first_residual(&mut self) -> u64;
     fn read_residual(&mut self) -> u64;
 }
@@ -57,6 +58,7 @@ pub trait Encode {
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
+    fn num_of_residuals(&mut self, _num_of_residuals: usize) {}
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn flush(&mut self) -> Result<usize, Self::Error>;
     fn end_node(&mut self, node: usize) -> Result<usize, Self::Error>;
