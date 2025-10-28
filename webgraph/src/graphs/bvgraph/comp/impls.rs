@@ -690,3 +690,124 @@ impl<'t> BvCompBuilder<'t> {
         })
     }
 }
+
+// TODO: duplicated from BVComp how can we generalize that for any available compressor.
+//       Actually I am not able to pass a type (like BVComp or BVCompZ) without
+//       specialzation on the type parameter ahead of time.
+impl BvCompZ<()> {
+    pub fn single_thread_endianness<L>(
+        basename: impl AsRef<Path>,
+        iter: L,
+        chunk_size: usize,
+        compression_flags: CompFlags,
+        num_nodes: Option<usize>,
+        endianness: &str,
+    ) -> Result<u64>
+    where
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+    {
+        match endianness {
+            #[cfg(any(
+                feature = "be_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            BE::NAME => Self::single_thread::<BigEndian, _>(
+                basename,
+                iter,
+                chunk_size,
+                compression_flags,
+                num_nodes,
+            ),
+            #[cfg(any(
+                feature = "le_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            LE::NAME => Self::single_thread::<LittleEndian, _>(
+                basename,
+                iter,
+                chunk_size,
+                compression_flags,
+                num_nodes,
+            ),
+            x => anyhow::bail!("Unknown endianness {}", x),
+        }
+    }
+
+    /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
+    /// graph bitstream.
+    pub fn single_thread<E, L>(
+        basename: impl AsRef<Path>,
+        iter: L,
+        chunk_size: usize,
+        compression_flags: CompFlags,
+        num_nodes: Option<usize>,
+    ) -> Result<u64>
+    where
+        E: Endianness,
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    {
+        let basename = basename.as_ref();
+        let graph_path = basename.with_extension(GRAPH_EXTENSION);
+
+        // Compress the graph
+        let bit_write = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+            File::create(&graph_path)
+                .with_context(|| format!("Could not create {}", graph_path.display()))?,
+        )));
+
+        let comp_flags = CompFlags {
+            ..Default::default()
+        };
+
+        let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags)?;
+
+        let mut bvcomp = BvCompZ::new(
+            codes_writer,
+            compression_flags.compression_window,
+            chunk_size,
+            compression_flags.max_ref_count,
+            compression_flags.min_interval_length,
+            0,
+        );
+
+        let mut pl = ProgressLogger::default();
+        pl.display_memory(true)
+            .item_name("node")
+            .expected_updates(num_nodes);
+        pl.start("Compressing successors...");
+        let mut bitstream_len = 0;
+
+        let mut real_num_nodes = 0;
+        for_! ( (_node_id, successors) in iter {
+            bitstream_len += bvcomp.push(successors).context("Could not push successors")?;
+            pl.update();
+            real_num_nodes += 1;
+        });
+        pl.done();
+
+        if let Some(num_nodes) = num_nodes {
+            if num_nodes != real_num_nodes {
+                log::warn!(
+                    "The expected number of nodes is {} but the actual number of nodes is {}",
+                    num_nodes,
+                    real_num_nodes
+                );
+            }
+        }
+        let num_arcs = bvcomp.arcs;
+        bitstream_len += bvcomp.flush().context("Could not flush bvcompz")? as u64;
+
+        log::info!("Writing the .properties file");
+        let properties = compression_flags
+            .to_properties::<BE>(real_num_nodes, num_arcs, bitstream_len)
+            .context("Could not serialize properties")?;
+        let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
+        std::fs::write(&properties_path, properties)
+            .with_context(|| format!("Could not write {}", properties_path.display()))?;
+
+        Ok(bitstream_len)
+    }
+}

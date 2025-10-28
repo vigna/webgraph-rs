@@ -11,6 +11,7 @@ use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
+use lender::IntoLender;
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
@@ -23,6 +24,11 @@ pub struct CliArgs {
     pub src: PathBuf,
     /// The basename of the destination graph.
     pub dst: PathBuf,
+
+    /// Uses the bvgraph's greedy reference selection algorithm if not specified,
+    /// otherwise uses the approximated algorithm proposed by Zuckerli
+    #[arg(long, default_value = "false")]
+    pub approximate_compressor: bool,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -72,6 +78,8 @@ where
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
+    let chunk_size = 10000;
+
     if args.src.with_extension(EF_EXTENSION).exists() {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
@@ -90,25 +98,48 @@ where
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
-            BvComp::parallel_endianness(
-                args.dst,
-                &sorted,
-                sorted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            if !args.approximate_compressor {
+                BvComp::parallel_endianness(
+                    args.dst,
+                    &sorted,
+                    sorted.num_nodes(),
+                    args.ca.into(),
+                    &thread_pool,
+                    dir,
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            } else {
+                // TODO: implement for multiple threads
+                BvCompZ::single_thread_endianness(
+                    args.dst,
+                    sorted.into_lender(),
+                    chunk_size,
+                    args.ca.into(),
+                    None,
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            }
         } else {
-            BvComp::parallel_endianness(
-                args.dst,
-                &graph,
-                graph.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            if !args.approximate_compressor {
+                BvComp::parallel_endianness(
+                    args.dst,
+                    &graph,
+                    graph.num_nodes(),
+                    args.ca.into(),
+                    &thread_pool,
+                    dir,
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            } else {
+                BvCompZ::single_thread_endianness(
+                    args.dst,
+                    graph.into_lender(),
+                    chunk_size,
+                    args.ca.into(),
+                    Some(graph.num_nodes()),
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            }
         }
     } else {
         log::warn!(
@@ -129,25 +160,47 @@ where
                 start.elapsed().as_secs_f64()
             );
 
-            BvComp::parallel_endianness(
-                args.dst,
-                &permuted,
-                permuted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            if !args.approximate_compressor {
+                BvComp::parallel_endianness(
+                    args.dst,
+                    &permuted,
+                    permuted.num_nodes(),
+                    args.ca.into(),
+                    &thread_pool,
+                    dir,
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            } else {
+                BvCompZ::single_thread_endianness(
+                    args.dst,
+                    permuted.into_lender(),
+                    chunk_size,
+                    args.ca.into(),
+                    Some(permuted.num_nodes()),
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            }
         } else {
-            BvComp::parallel_endianness(
-                args.dst,
-                &seq_graph,
-                seq_graph.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            if !args.approximate_compressor {
+                BvComp::parallel_endianness(
+                    args.dst,
+                    &seq_graph,
+                    seq_graph.num_nodes(),
+                    args.ca.into(),
+                    &thread_pool,
+                    dir,
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            } else {
+                BvCompZ::single_thread_endianness(
+                    args.dst,
+                    &seq_graph,
+                    chunk_size,
+                    args.ca.into(),
+                    Some(seq_graph.num_nodes()),
+                    &target_endianness.unwrap_or_else(|| E::NAME.into()),
+                )?;
+            }
         }
     }
     Ok(())
