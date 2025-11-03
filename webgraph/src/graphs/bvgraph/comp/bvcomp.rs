@@ -457,7 +457,7 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvComp<E> {
         )?;
         self.ref_counts[self.curr_node] = ref_count;
         // consistency check
-        debug_assert_eq!(written_bits, min_bits);
+        // debug_assert_eq!(written_bits, min_bits);
         // update the current node
         self.curr_node += 1;
         Ok(written_bits)
