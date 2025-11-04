@@ -125,40 +125,6 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
     }
 }
 
-/// Utility macro to create [`thread_pools`](`rayon::ThreadPool`).
-///
-/// There are two forms of this macro:
-/// * Create a [`ThreadPool`](rayon::ThreadPool) with the default settings:
-/// ```
-/// # use webgraph::thread_pool;
-/// let t: rayon::ThreadPool = thread_pool![];
-/// ```
-/// * Create a [`ThreadPool`](rayon::ThreadPool) with a given number of threads:
-/// ```
-/// # use webgraph::thread_pool;
-/// let t: rayon::ThreadPool = thread_pool![7];
-/// assert_eq!(t.current_num_threads(), 7);
-/// ```
-#[macro_export]
-macro_rules! thread_pool {
-    () => {
-        rayon::ThreadPoolBuilder::new()
-            .build()
-            .expect("Cannot build a ThreadPool with default parameters")
-    };
-    ($num_threads:expr) => {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads($num_threads)
-            .build()
-            .unwrap_or_else(|_| {
-                panic!(
-                    "Cannot build a ThreadPool with default parameters and {} threads",
-                    $num_threads,
-                )
-            })
-    };
-}
-
 /// An enum expressing the memory requirements for batched algorithms
 /// such as [`SortPairs`], [`ParSortPairs`], and [`ParSortIters`].
 ///

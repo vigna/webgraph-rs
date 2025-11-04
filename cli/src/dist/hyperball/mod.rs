@@ -175,7 +175,7 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
 
     log::info!("Starting Hyperball...");
     let rng = rand::rngs::SmallRng::seed_from_u64(args.seed);
-    hb.run(args.upper_bound, args.threshold, &thread_pool, rng, &mut pl)?;
+    thread_pool.install(|| hb.run(args.upper_bound, args.threshold, rng, &mut pl))?;
 
     log::info!("Storing the results...");
 

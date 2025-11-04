@@ -13,7 +13,6 @@ use sux::bit_vec;
 use sux::traits::BitVecOpsMut;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::prelude::{BTreeGraph, BvGraph};
-use webgraph::thread_pool;
 use webgraph::transform;
 use webgraph::utils::MemoryUsage;
 use webgraph::{graphs::vec_graph::VecGraph, traits::SequentialLabeling};
@@ -83,7 +82,7 @@ macro_rules! test_scc_algo {
                 let graph = VecGraph::from_arcs(arcs);
                 let transposed_graph = VecGraph::from_arcs(transposed_arcs);
 
-                let mut components = $scc(&graph, &transposed_graph, &thread_pool![], no_logging![]);
+                let mut components = $scc(&graph, &transposed_graph, no_logging![]);
 
                 assert_eq!(components.components()[3], components.components()[4]);
 
@@ -106,7 +105,7 @@ macro_rules! test_scc_algo {
                 let graph = VecGraph::from_arcs(arcs);
                 let transposed_graph = VecGraph::from_arcs(transposed_arcs);
 
-                let mut components = $scc(&graph, &transposed_graph, &thread_pool![], no_logging![]);
+                let mut components = $scc(&graph, &transposed_graph, no_logging![]);
                 let sizes = components.sort_by_size();
 
                 assert_eq!(sizes, vec![3, 1].into_boxed_slice());
@@ -122,7 +121,7 @@ macro_rules! test_scc_algo {
                 let graph = VecGraph::from_arcs(arcs);
                 let transposed_graph = VecGraph::from_arcs(transposed_arcs);
 
-                let components = $scc(&graph, &transposed_graph, &thread_pool![], no_logging![]);
+                let components = $scc(&graph, &transposed_graph, no_logging![]);
                 let sizes = components.compute_sizes();
 
                 assert_eq!(sizes, vec![4].into_boxed_slice());
@@ -149,7 +148,7 @@ macro_rules! test_scc_algo {
                 let graph = g;
                 let transposed_graph = t;
 
-                let mut components = $scc(&graph, &transposed_graph, &thread_pool![], no_logging![]);
+                let mut components = $scc(&graph, &transposed_graph, no_logging![]);
 
                 let sizes = components.sort_by_size();
 
@@ -169,7 +168,7 @@ macro_rules! test_scc_algo {
                 let graph = VecGraph::from_arcs(arcs);
                 let transposed_graph = VecGraph::from_arcs(transposed_arcs);
 
-                let components = $scc(&graph, &transposed_graph, &thread_pool![], no_logging![]);
+                let components = $scc(&graph, &transposed_graph, no_logging![]);
 
                 assert_eq!(components.num_components(), 7);
 
@@ -179,8 +178,8 @@ macro_rules! test_scc_algo {
     };
 }
 
-test_scc_algo!(|g, _, _, pl| sccs::tarjan(g, pl), tarjan);
-test_scc_algo!(|g, t, _, pl| sccs::kosaraju(g, t, pl), kosaraju);
+test_scc_algo!(|g, _, pl| sccs::tarjan(g, pl), tarjan);
+test_scc_algo!(|g, t, pl| sccs::kosaraju(g, t, pl), kosaraju);
 
 #[test]
 fn test_large() -> Result<()> {
@@ -251,7 +250,7 @@ fn test_er_symm() -> Result<()> {
                     sym_graph.add_arc(dst, src);
                 }
             });
-            let symm_par = sccs::symm_par(&sym_graph, &thread_pool![], no_logging![]);
+            let symm_par = sccs::symm_par(&sym_graph, no_logging![]);
             let symm_seq = sccs::symm_seq(&sym_graph, no_logging![]);
             let tarjan = sccs::tarjan(sym_graph, no_logging![]);
             assert_eq!(symm_seq.num_components(), tarjan.num_components());

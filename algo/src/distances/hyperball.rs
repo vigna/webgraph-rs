@@ -14,7 +14,7 @@ use card_est_array::traits::{
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
-use rayon::{prelude::*, ThreadPool};
+use rayon::prelude::*;
 use std::hash::{BuildHasherDefault, DefaultHasher};
 use std::sync::{atomic::*, Mutex};
 use sux::traits::AtomicBitVecOps;
@@ -47,7 +47,7 @@ pub struct HyperBallBuilder<
     /// Whether to compute the sum of inverse distances (e.g., for harmonic centrality).
     do_sum_of_inv_dists: bool,
     /// Custom discount functions whose sum should be computed.
-    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Sync + 'a>>,
+    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Send + Sync + 'a>>,
     /// The arc granularity.
     arc_granularity: usize,
     /// Integer weights for the nodes, if any.
@@ -289,7 +289,7 @@ impl<
     /// computed.
     pub fn discount_function(
         mut self,
-        discount_function: impl Fn(usize) -> f64 + Sync + 'a,
+        discount_function: impl Fn(usize) -> f64 + Send + Sync + 'a,
     ) -> Self {
         self.discount_functions.push(Box::new(discount_function));
         self
@@ -442,7 +442,7 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// Whether each estimator has been modified during the current iteration.
     next_modified: AtomicBitVec,
     /// Custom discount functions whose sum should be computed.
-    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Sync + 'a>>,
+    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Send + Sync + 'a>>,
 }
 
 impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
@@ -519,20 +519,17 @@ where
     ///   relative increment if the neighborhood function is being computed. If
     ///   [`None`] the computation will stop when no estimators are modified.
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
-    ///
     /// * `pl`: A progress logger.
     pub fn run(
         &mut self,
         upper_bound: usize,
         threshold: Option<f64>,
-        thread_pool: &ThreadPool,
         rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         let upper_bound = std::cmp::min(upper_bound, self.graph.num_nodes());
 
-        self.init(thread_pool, rng, pl)
+        self.init(rng, pl)
             .with_context(|| "Could not initialize estimator")?;
 
         pl.item_name("iteration");
@@ -543,7 +540,7 @@ where
         ));
 
         for i in 0..upper_bound {
-            self.iterate(thread_pool, pl)
+            self.iterate(pl)
                 .with_context(|| format!("Could not perform iteration {}", i + 1))?;
 
             pl.update_and_display();
@@ -580,18 +577,15 @@ where
     ///
     /// * `upper_bound`: an upper bound to the number of iterations.
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
-    ///
     /// * `pl`: A progress logger.
     #[inline(always)]
     pub fn run_until_stable(
         &mut self,
         upper_bound: usize,
-        thread_pool: &ThreadPool,
         rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        self.run(upper_bound, None, thread_pool, rng, pl)
+        self.run(upper_bound, None, rng, pl)
             .with_context(|| "Could not complete run_until_stable")
     }
 
@@ -600,17 +594,14 @@ where
     ///
     /// # Arguments
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
-    ///
     /// * `pl`: A progress logger.
     #[inline(always)]
     pub fn run_until_done(
         &mut self,
-        thread_pool: &ThreadPool,
         rng: impl rand::Rng,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        self.run_until_stable(usize::MAX, thread_pool, rng, pl)
+        self.run_until_stable(usize::MAX, rng, pl)
             .with_context(|| "Could not complete run_until_done")
     }
 
@@ -760,11 +751,7 @@ where
     /// # Arguments
     /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
-    fn iterate(
-        &mut self,
-        thread_pool: &ThreadPool,
-        pl: &mut impl ConcurrentProgressLog,
-    ) -> Result<()> {
+    fn iterate(&mut self, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
         let ic = &mut self.iteration_context;
 
         pl.info(format_args!("Performing iteration {}", ic.iteration + 1));
@@ -812,13 +799,15 @@ where
                 ic.next_modified.set(node, false, Ordering::Relaxed);
             }
         } else {
-            thread_pool.install(|| ic.next_modified.fill(false, Ordering::Relaxed));
+            // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
+            ic.next_modified.fill(false, Ordering::Relaxed);
         }
 
         if ic.local {
             // In case of a local computation, we convert the set of
             // must-be-checked for the next iteration into a check list
-            thread_pool.join(
+            // TODO: Handle thread_pool.join() removal - decide between rayon::join or sequential execution
+            rayon::join(
                 || ic.local_checklist.clear(),
                 || {
                     let mut local_next_must_be_checked =
@@ -832,7 +821,8 @@ where
                 &mut ic.local_next_must_be_checked.lock().unwrap(),
             );
         } else if ic.systolic {
-            thread_pool.join(
+            // TODO: Handle thread_pool.join() removal - decide between rayon::join or sequential execution
+            rayon::join(
                 || {
                     // Systolic, non-local computations store the could-be-modified set implicitly into Self::next_must_be_checked.
                     ic.next_must_be_checked.fill(false, Ordering::Relaxed);
@@ -847,7 +837,7 @@ where
         }
 
         let mut granularity = ic.arc_granularity;
-        let num_threads = thread_pool.current_num_threads();
+        let num_threads = rayon::current_num_threads();
 
         if num_threads > 1 && !ic.local {
             if ic.iteration > 0 {
@@ -878,7 +868,8 @@ where
                 .iter_mut()
                 .map(|s| s.as_sync_slice())
                 .collect::<Vec<_>>();
-            thread_pool.broadcast(|c| {
+            // TODO: Handle thread_pool.broadcast() removal - need to replace with appropriate parallel execution
+            rayon::broadcast(|c| {
                 Self::parallel_task(
                     self.graph,
                     self.transposed,
@@ -888,7 +879,7 @@ where
                     sum_of_dists,
                     sum_of_inv_dists,
                     discounted_centralities,
-                    c,
+                    c
                 )
             });
         }
@@ -1164,12 +1155,7 @@ where
     }
 
     /// Initializes HyperBall.
-    fn init(
-        &mut self,
-        thread_pool: &ThreadPool,
-        mut rng: impl rand::Rng,
-        pl: &mut impl ConcurrentProgressLog,
-    ) -> Result<()> {
+    fn init(&mut self, mut rng: impl rand::Rng, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
         pl.start("Initializing estimators");
         pl.info(format_args!("Clearing all registers"));
 
@@ -1218,7 +1204,8 @@ where
         self.neighborhood_function.push(self.last);
 
         pl.debug(format_args!("Initializing modified estimators"));
-        thread_pool.install(|| ic.curr_modified.fill(true, Ordering::Relaxed));
+        // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
+        ic.curr_modified.fill(true, Ordering::Relaxed);
 
         pl.done();
 
@@ -1235,7 +1222,6 @@ mod test {
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
     use rand::SeedableRng;
-    use webgraph::thread_pool;
     use webgraph::{
         prelude::{BvGraph, DCF},
         traits::SequentialLabeling,
@@ -1307,13 +1293,12 @@ mod test {
         };
 
         let mut modified_estimators = num_nodes as u64;
-        let threads = thread_pool![];
         let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
-        hyperball.init(&threads, &mut rng, no_logging![])?;
+        hyperball.init(&mut rng, no_logging![])?;
         seq_hyperball.init();
 
         while modified_estimators != 0 {
-            hyperball.iterate(&threads, no_logging![])?;
+            hyperball.iterate(no_logging![])?;
             seq_hyperball.iterate();
 
             modified_estimators = hyperball

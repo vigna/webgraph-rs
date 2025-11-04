@@ -32,6 +32,10 @@
 * `JavaPermutation` just implements `SliceByValue` and `SliceByValueMut`,
   rather than `BitFieldSlice` and `BitFieldSliceMut`.
 
+* Removed all instances of `&ThreadPool` from methods. If you need to change
+  the level of concurrency, use the standard `install` method on a 
+  `ThreadPool`.
+
 ### Fixed
 
 * The successors of `LabeledVecGraph` now implement `SortedIterator`.

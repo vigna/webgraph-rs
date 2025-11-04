@@ -15,7 +15,6 @@ use sux::traits::AtomicBitVecOps;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::BTreeGraph;
-use webgraph::thread_pool;
 use webgraph::traits::SequentialLabeling;
 use webgraph::transform::transpose;
 use webgraph::utils::MemoryUsage;
@@ -37,7 +36,7 @@ fn test_path() -> Result<()> {
     let graph = vec_graph;
     let transposed = transposed_vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.forward_eccentricities[0], 2);
     assert_eq!(sum_sweep.forward_eccentricities[1], 1);
@@ -75,7 +74,7 @@ fn test_many_scc() -> Result<()> {
     let graph = VecGraph::from_arcs(arcs);
     let transposed = VecGraph::from_arcs(transposed_arcs);
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 2);
     assert_eq!(sum_sweep.radial_vertex, 1);
@@ -97,7 +96,7 @@ fn test_lozenge() -> Result<()> {
         transpose.add_arc(arc.1, arc.0);
     }
 
-    let sum_sweep = Radius::run(graph, transpose, None, &thread_pool![], no_logging![]);
+    let sum_sweep = Radius::run(graph, transpose, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 2);
     assert!(sum_sweep.radial_vertex == 0 || sum_sweep.radial_vertex == 1);
@@ -135,7 +134,6 @@ fn test_many_dir_path() -> Result<()> {
         graph,
         transpose,
         Some(radial_vertices),
-        &thread_pool![],
         no_logging![],
     );
 
@@ -169,7 +167,7 @@ fn test_cycle() -> Result<()> {
         let transposed = transposed_vec_graph;
 
         let sum_sweep =
-            RadiusDiameter::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+            RadiusDiameter::run(&graph, &transposed, None, no_logging![]);
 
         assert_eq!(sum_sweep.diameter, size - 1);
         assert_eq!(sum_sweep.radius, size - 1);
@@ -209,7 +207,6 @@ fn test_clique() -> Result<()> {
             &graph,
             &transposed,
             Some(radial_vertices),
-            &thread_pool![],
             no_logging![],
         );
 
@@ -232,7 +229,7 @@ fn test_empty() -> Result<()> {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 0);
     assert_eq!(sum_sweep.diameter, 0);
@@ -245,7 +242,7 @@ fn test_sparse() -> Result<()> {
     let arcs = [(10, 32), (10, 65), (65, 10), (21, 44)];
     let graph = BTreeGraph::from_arcs(arcs.iter().copied());
     let transpose = BTreeGraph::from_arcs(arcs.iter().map(|(x, y)| (*y, *x)));
-    let sum_sweep = All::run(graph, transpose, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(graph, transpose, None, no_logging![]);
     assert_eq!(sum_sweep.radius, 1);
     assert_eq!(sum_sweep.radial_vertex, 10);
     Ok(())
@@ -273,7 +270,6 @@ fn test_no_radial_vertices() -> Result<()> {
         &graph,
         &transposed,
         Some(radial_vertices),
-        &thread_pool![],
         no_logging![],
     );
 
@@ -290,7 +286,7 @@ fn test_empty_graph() {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    All::run(&graph, &transposed, None, no_logging![]);
 }
 
 #[test]
@@ -303,7 +299,7 @@ fn test_graph_no_edges() -> Result<()> {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 0);
     assert_eq!(sum_sweep.diameter, 0);
@@ -319,9 +315,7 @@ fn test_er() -> Result<()> {
 
         let transpose = VecGraph::from_lender(transpose(&graph, MemoryUsage::default())?.iter());
 
-        let thread_pool = thread_pool![];
-
-        let ess = All::run(&graph, transpose, None, &thread_pool, no_logging![]);
+        let ess = All::run(&graph, transpose, None, no_logging![]);
 
         let mut pll = Seq::new(&graph);
         let mut ecc = [0; 100];

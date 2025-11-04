@@ -8,7 +8,7 @@
 use crate::visits::{breadth_first::*, Parallel};
 use crate::{traits::RandomAccessGraph, utils::Granularity};
 use parallel_frontier::Frontier;
-use rayon::{prelude::*, ThreadPool};
+use rayon::prelude::*;
 use std::{
     ops::ControlFlow::{self, Continue},
     sync::atomic::Ordering,
@@ -59,7 +59,6 @@ use sux::traits::AtomicBitVecOps;
 /// ```
 /// use webgraph::visits::Parallel;
 /// use webgraph::visits::breadth_first::{*, self};
-/// use webgraph::thread_pool;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::sync::atomic::AtomicUsize;
@@ -82,7 +81,6 @@ use sux::traits::AtomicBitVecOps;
 ///         }
 ///         Continue(())
 ///     },
-///    &thread_pool![],
 /// ).continue_value_no_break();
 ///
 /// assert_eq!(d[0], 0);
@@ -154,7 +152,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
         mut init: T,
         callback: C,
         filter: F,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()> {
         let mut filtered_roots = vec![];
 
@@ -182,10 +179,11 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
         callback(&mut init, EventNoPred::Init {})?;
         // We do not provide a capacity in the hope of allocating dynamically
         // space as the frontiers grow.
-        let mut curr_frontier = Frontier::with_threads(thread_pool, None);
+        // TODO: Frontier::with_threads needs to be updated to work without explicit ThreadPool
+        let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
-        let mut next_frontier = Frontier::with_threads(thread_pool, None);
+        let mut next_frontier = Frontier::new();
         let mut distance = 0;
 
         while !curr_frontier.is_empty() {
@@ -197,7 +195,8 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                 },
             )?;
             let distance_plus_one = distance + 1;
-            thread_pool.install(|| {
+            // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
+            {
                 curr_frontier
                     .par_iter()
                     .chunks(self.granularity)
@@ -230,7 +229,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                             Continue(())
                         })
                     })
-            })?;
+            }?;
 
             distance += 1;
             // Swap the frontiers
@@ -262,7 +261,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
         mut init: T,
         callback: C,
         filter: F,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()> {
         let mut filtered_roots = vec![];
 
@@ -291,10 +289,11 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
         callback(&mut init, EventPred::Init {})?;
         // We do not provide a capacity in the hope of allocating dynamically
         // space as the frontiers grow.
-        let mut curr_frontier = Frontier::with_threads(thread_pool, None);
+        // TODO: Frontier::with_threads needs to be updated to work without explicit ThreadPool
+        let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
-        let mut next_frontier = Frontier::with_threads(thread_pool, None);
+        let mut next_frontier = Frontier::new();
         let mut distance = 0;
 
         while !curr_frontier.is_empty() {
@@ -306,7 +305,8 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
                 },
             )?;
             let distance_plus_one = distance + 1;
-            thread_pool.install(|| {
+            // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
+            {
                 curr_frontier
                     .par_iter()
                     .chunks(self.granularity)
@@ -346,7 +346,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
                             Continue(())
                         })
                     })
-            })?;
+            }?;
             distance += 1;
             // Swap the frontiers
             std::mem::swap(&mut curr_frontier, &mut next_frontier);

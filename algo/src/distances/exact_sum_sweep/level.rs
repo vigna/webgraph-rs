@@ -7,7 +7,6 @@
 
 use super::{computer::DirExactSumSweepComputer, output, output_symm};
 use dsi_progress_logger::ConcurrentProgressLog;
-use rayon::ThreadPool;
 use sux::bits::AtomicBitVec;
 use webgraph::traits::RandomAccessGraph;
 
@@ -50,9 +49,9 @@ impl core::ops::Add for Missing {
 /// See the [module documentation](crate::distances::exact_sum_sweep).
 pub trait Level: Sync {
     /// The type of the result of [`run`](Self::run).
-    type Output;
+    type Output: Send;
     /// The type of the result of [`run_symm`](Self::run_symm).
-    type OutputSymm;
+    type OutputSymm : Send;
 
     /// Runs the ExactSumSweep algorithm on the specified graph.
     ///
@@ -75,7 +74,6 @@ pub trait Level: Sync {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output;
 
@@ -92,7 +90,6 @@ pub trait Level: Sync {
     /// * `pl`: a progress logger.
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm;
 
@@ -113,7 +110,6 @@ impl Level for All {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
@@ -122,7 +118,7 @@ impl Level for All {
             radial_vertices,
             pl,
         );
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.all_iter.is_some(),);
         assert!(computer.forward_iter.is_some(),);
@@ -156,11 +152,10 @@ impl Level for All {
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.forward_iter.is_some(),);
         assert!(computer.diameter_iterations.is_some(),);
@@ -203,7 +198,6 @@ impl Level for AllForward {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
@@ -212,7 +206,7 @@ impl Level for AllForward {
             radial_vertices,
             pl,
         );
-        computer.compute(thread_pool, pl);
+        computer.compute( pl);
 
         assert!(computer.forward_iter.is_some(),);
         assert!(computer.diameter_iterations.is_some());
@@ -242,10 +236,9 @@ impl Level for AllForward {
     #[inline(always)]
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
-        All::run_symm(graph, thread_pool, pl)
+        All::run_symm(graph, pl)
     }
 
     fn missing_nodes(missing: &Missing) -> usize {
@@ -264,7 +257,6 @@ impl Level for RadiusDiameter {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
@@ -273,7 +265,7 @@ impl Level for RadiusDiameter {
             radial_vertices,
             pl,
         );
-        computer.compute(thread_pool, pl);
+        computer.compute( pl);
 
         assert!(computer.diameter_iterations.is_some(),);
         assert!(computer.radius_iterations.is_some(),);
@@ -297,11 +289,10 @@ impl Level for RadiusDiameter {
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.diameter_iterations.is_some(),);
         assert!(computer.radius_iterations.is_some(),);
@@ -340,7 +331,6 @@ impl Level for Diameter {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
@@ -349,7 +339,7 @@ impl Level for Diameter {
             radial_vertices,
             pl,
         );
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.diameter_iterations.is_some(),);
 
@@ -366,11 +356,10 @@ impl Level for Diameter {
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.diameter_iterations.is_some(),);
 
@@ -401,7 +390,6 @@ impl Level for Radius {
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
         radial_vertices: Option<AtomicBitVec>,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::Output {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new(
@@ -410,7 +398,7 @@ impl Level for Radius {
             radial_vertices,
             pl,
         );
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.radius_iterations.is_some(),);
 
@@ -427,11 +415,10 @@ impl Level for Radius {
 
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Self::OutputSymm {
         let mut computer = DirExactSumSweepComputer::<_, _, _, _, Self>::new_symm(&graph, pl);
-        computer.compute(thread_pool, pl);
+        computer.compute(pl);
 
         assert!(computer.radius_iterations.is_some(),);
 

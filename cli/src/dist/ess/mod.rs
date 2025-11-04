@@ -110,14 +110,14 @@ pub fn exact_sum_sweep_level<E: Endianness, L: Level>(
     }
 
     if args.symmetric {
-        let _out = L::run_symm(graph, &thread_pool, &mut pl);
+        let _out = thread_pool.install(|| L::run_symm(graph, &mut pl) );
     } else {
         let transpose_path = args
             .transposed
             .as_ref()
             .expect("You have to pass the transposed graph if the graph is not symmetric.");
         let transpose = BvGraph::with_basename(transpose_path).load()?;
-        let _out = L::run(graph, transpose, None, &thread_pool, &mut pl);
+        let _out =  thread_pool.install(|| L::run(graph, transpose, None, &mut pl) );
     }
 
     todo!("print out and serialize the eccentricities if present");

@@ -11,7 +11,6 @@ use std::ops::ControlFlow::Continue;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_cell_slice::SyncSlice;
 use webgraph::prelude::*;
-use webgraph::thread_pool;
 use webgraph::utils::Granularity;
 use webgraph::{
     prelude::{BvGraph, VecGraph},
@@ -246,8 +245,6 @@ macro_rules! test_bfv_algo_par {
                     .collect();
                 let expected_distances = correct_distances(&graph, 0);
 
-                let t = thread_pool![];
-
                 for root in 0..graph.num_nodes() {
                     visit
                         .par_visit(
@@ -260,8 +257,7 @@ macro_rules! test_bfv_algo_par {
                                 }
                                 Continue(())
                             },
-                            &t,
-                        )
+                                                    )
                         .continue_value_no_break();
                 }
                 let actual_distances = into_non_atomic(distances);
@@ -288,7 +284,6 @@ macro_rules! test_bfv_algo_par {
                             }
                             Continue(())
                         },
-                        &thread_pool![],
                     )
                     .continue_value_no_break();
 
@@ -305,7 +300,6 @@ macro_rules! test_bfv_algo_par {
                     .map(|_| AtomicUsize::new(0))
                     .collect();
                 let expected_distances = correct_distances(&graph, 10000);
-                let t = thread_pool![];
 
                 for i in 0..graph.num_nodes() {
                     let root = (i + 10000) % graph.num_nodes();
@@ -320,7 +314,6 @@ macro_rules! test_bfv_algo_par {
                                 }
                                 Continue(())
                             },
-                            &t,
                         )
                         .continue_value_no_break();
                 }
@@ -336,7 +329,6 @@ macro_rules! test_bfv_algo_par {
             fn test_distance_event_cnr_2000_single_root() -> Result<()> {
                 let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
                 let mut visit = $bfv(&graph);
-                let t = thread_pool![];
 
                 let distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
                     Mutex::new(BTreeMap::new());
@@ -364,7 +356,6 @@ macro_rules! test_bfv_algo_par {
                             }
                             Continue(())
                         },
-                        &t,
                     )
                     .continue_value_no_break();
 
@@ -380,7 +371,6 @@ macro_rules! test_bfv_algo_par {
             fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
                 let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
                 let mut visit = $bfv(&graph);
-                let t = thread_pool![];
 
                 let distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
                     Mutex::new(BTreeMap::new());
@@ -408,7 +398,6 @@ macro_rules! test_bfv_algo_par {
                             }
                             Continue(())
                         },
-                        &t,
                     )
                     .continue_value_no_break();
 

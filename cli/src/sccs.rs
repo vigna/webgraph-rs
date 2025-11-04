@@ -13,7 +13,6 @@ use dsi_progress_logger::{progress_logger, ProgressLog};
 use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
-use webgraph::thread_pool;
 
 use super::GlobalArgs;
 
@@ -112,8 +111,7 @@ where
             sccs.sort_by_size()
         } else {
             log::debug!("Using parallel algorithm with {} threads", args.num_threads);
-            let thread_pool = thread_pool![args.num_threads];
-            thread_pool.install(|| sccs.par_sort_by_size())
+            sccs.par_sort_by_size()
         };
         let max = component_sizes.first().copied();
         args.fmt.store_usizes(&args.sccs, &component_sizes, max)?;

@@ -9,7 +9,6 @@ use crate::prelude::*;
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::ConcurrentProgressLog;
 use no_break::NoBreak;
-use rayon::ThreadPool;
 use std::{
     mem::MaybeUninit,
     ops::ControlFlow::Continue,
@@ -25,7 +24,6 @@ use webgraph::visits::{
 /// Connected components of symmetric graphs by parallel visits.
 pub fn symm_par(
     graph: impl RandomAccessGraph + Sync,
-    thread_pool: &ThreadPool,
     pl: &mut impl ConcurrentProgressLog,
 ) -> Sccs {
     // TODO debug_assert!(check_symmetric(&graph));
@@ -64,7 +62,6 @@ pub fn symm_par(
                     }
                     Continue(())
                 },
-                thread_pool,
             )
             .continue_value_no_break();
     }

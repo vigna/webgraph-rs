@@ -62,7 +62,6 @@
 pub mod breadth_first;
 pub mod depth_first;
 
-use rayon::ThreadPool;
 use std::ops::ControlFlow;
 use thiserror::Error;
 
@@ -238,8 +237,6 @@ pub trait Parallel<A: Event> {
     /// * `callback`: The callback function.
     ///
     /// * `filter`: The filter function.
-    ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     fn par_visit_filtered_with<
         R: IntoIterator<Item = usize>,
         T: Clone + Send + Sync + Sync,
@@ -252,7 +249,6 @@ pub trait Parallel<A: Event> {
         init: T,
         callback: C,
         filter: F,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()>;
 
     /// Visits the graph from the specified nodes with a filter function.
@@ -267,8 +263,6 @@ pub trait Parallel<A: Event> {
     /// * `callback`: The callback function.
     ///
     /// * `filter`: The filter function.
-    ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     fn par_visit_filtered<
         R: IntoIterator<Item = usize>,
         E: Send,
@@ -279,14 +273,12 @@ pub trait Parallel<A: Event> {
         roots: R,
         callback: C,
         filter: F,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()> {
         self.par_visit_filtered_with(
             roots,
             (),
             |(), a| callback(a),
             |(), a| filter(a),
-            thread_pool,
         )
     }
 
@@ -303,8 +295,6 @@ pub trait Parallel<A: Event> {
     ///   function.
     ///
     /// * `callback`: The callback function.
-    ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     fn par_visit_with<
         R: IntoIterator<Item = usize>,
         T: Clone + Send + Sync + Sync,
@@ -315,9 +305,8 @@ pub trait Parallel<A: Event> {
         roots: R,
         init: T,
         callback: C,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()> {
-        self.par_visit_filtered_with(roots, init, callback, |_, _| true, thread_pool)
+        self.par_visit_filtered_with(roots, init, callback, |_, _| true)
     }
 
     /// Visits the graph from the specified nodes.
@@ -330,15 +319,12 @@ pub trait Parallel<A: Event> {
     /// * `roots`: The nodes to start the visit from.
     ///
     /// * `callback`: The callback function.
-    ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     fn par_visit<R: IntoIterator<Item = usize>, E: Send, C: Fn(A) -> ControlFlow<E, ()> + Sync>(
         &mut self,
         roots: R,
         callback: C,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()> {
-        self.par_visit_filtered(roots, callback, |_| true, thread_pool)
+        self.par_visit_filtered(roots, callback, |_| true)
     }
 
     /// Resets the visit status, making it possible to reuse it.
