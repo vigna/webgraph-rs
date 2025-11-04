@@ -67,8 +67,6 @@ pub trait Level: Sync {
     ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
     ///   use the biggest connected component.
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computations.
-    ///
     /// * `pl`: a progress logger.
     fn run(
         graph: impl RandomAccessGraph + Sync,
@@ -84,8 +82,6 @@ pub trait Level: Sync {
     /// * `graph`: a symmetric graph. Note that you are responsible for the
     ///   graph being symmetric. The result of the computation is undefined
     ///   otherwise.
-    ///
-    /// * `thread_pool`: The thread pool to use for parallel computations.
     ///
     /// * `pl`: a progress logger.
     fn run_symm(

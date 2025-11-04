@@ -32,7 +32,6 @@
 //!
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use webgraph::thread_pool;
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //! use webgraph::labels::proj::Left;
@@ -45,7 +44,6 @@
 //!     &graph,
 //!     &transpose,
 //!     None,
-//!     &thread_pool![],
 //!     no_logging![]
 //! );
 //!
@@ -59,7 +57,6 @@
 //!     &graph,
 //!     &transpose,
 //!     None,
-//!     &thread_pool![],
 //!     no_logging![]
 //! );
 //!
@@ -70,7 +67,6 @@
 //! Note how certain information is not available if not computed.
 //! ```compile_fail
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use webgraph::thread_pool;
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //!
@@ -81,7 +77,6 @@
 //!     &graph,
 //!     &transpose,
 //!     None,
-//!     &threads![],
 //!     no_logging![]
 //! );
 //!
@@ -96,7 +91,6 @@
 //! [run_symm](Level::run_symm).
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
-//! use webgraph::thread_pool;
 //! use dsi_progress_logger::no_logging;
 //! use webgraph::graphs::vec_graph::VecGraph;
 //!
@@ -106,7 +100,6 @@
 //!
 //! let result = exact_sum_sweep::RadiusDiameter::run_symm(
 //!     &graph,
-//!     &thread_pool![],
 //!     no_logging![]
 //! );
 //!

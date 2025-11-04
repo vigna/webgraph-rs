@@ -223,8 +223,6 @@ mod tests {
             ]),
         ];
         for i in 0..2 {
-            // TODO: why borrowing doesn't work? I should be able to do
-            // let union = UnionGraph(&g[i], &g[1 - i]);
             let union = UnionGraph(g[i].clone(), g[1 - i].clone());
             assert_eq!(union.num_nodes(), 7);
 

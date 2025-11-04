@@ -244,7 +244,6 @@ impl<
     /// # Arguments
     /// * `start`: The starting vertex.
     /// * `iterations`: The number of iterations.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A concurrent progress logger.
     fn sum_sweep_heuristic(
         &mut self,
@@ -287,7 +286,6 @@ impl<
     /// Computes diameter, radius, and/or all eccentricities.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     pub fn compute(&mut self, pl: &mut impl ProgressLog) {
         if self.num_nodes == 0 {
@@ -466,7 +464,6 @@ impl<
     /// the biggest strongly connected component.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     fn compute_radial_vertices(&mut self, pl: &mut impl ConcurrentProgressLog) {
         if self.num_nodes == 0 {
@@ -519,7 +516,6 @@ impl<
     /// * `start`: The starting vertex of the BFS. If [`None`], no visit happens.
     /// * `forward`: Whether the BFS is performed following the direction of edges or
     ///   in the opposite direction.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     /// * `message`: The message to print to the log.
     fn step_sum_sweep(
@@ -677,7 +673,6 @@ impl<
     ///   component.
     /// * `forward`: Whether the BFS is performed following the direction of edges or
     ///   in the opposite direction.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     ///
     /// # Return
@@ -764,7 +759,6 @@ impl<
     /// For more information see Section 4.2 of the paper.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     fn all_cc_upper_bound(&mut self, pl: &mut impl ProgressLog) {
         pl.item_name("element");
@@ -886,7 +880,6 @@ impl<
     /// Computes how many nodes are still to be processed, before outputting the result.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     fn find_missing_nodes(&mut self, pl: &mut impl ProgressLog) -> usize {
         pl.item_name("node");

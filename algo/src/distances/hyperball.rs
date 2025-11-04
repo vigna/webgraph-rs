@@ -748,7 +748,6 @@ where
     /// Performs a new iteration of HyperBall.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     fn iterate(&mut self, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
         let ic = &mut self.iteration_context;
@@ -798,14 +797,12 @@ where
                 ic.next_modified.set(node, false, Ordering::Relaxed);
             }
         } else {
-            // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
             ic.next_modified.fill(false, Ordering::Relaxed);
         }
 
         if ic.local {
             // In case of a local computation, we convert the set of
             // must-be-checked for the next iteration into a check list
-            // TODO: Handle thread_pool.join() removal - decide between rayon::join or sequential execution
             rayon::join(
                 || ic.local_checklist.clear(),
                 || {
@@ -820,7 +817,6 @@ where
                 &mut ic.local_next_must_be_checked.lock().unwrap(),
             );
         } else if ic.systolic {
-            // TODO: Handle thread_pool.join() removal - decide between rayon::join or sequential execution
             rayon::join(
                 || {
                     // Systolic, non-local computations store the could-be-modified set implicitly into Self::next_must_be_checked.
@@ -867,7 +863,6 @@ where
                 .iter_mut()
                 .map(|s| s.as_sync_slice())
                 .collect::<Vec<_>>();
-            // TODO: Handle thread_pool.broadcast() removal - need to replace with appropriate parallel execution
             rayon::broadcast(|c| {
                 Self::parallel_task(
                     self.graph,
@@ -1203,7 +1198,6 @@ where
         self.neighborhood_function.push(self.last);
 
         pl.debug(format_args!("Initializing modified estimators"));
-        // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
         ic.curr_modified.fill(true, Ordering::Relaxed);
 
         pl.done();

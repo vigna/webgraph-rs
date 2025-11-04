@@ -179,7 +179,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
         callback(&mut init, EventNoPred::Init {})?;
         // We do not provide a capacity in the hope of allocating dynamically
         // space as the frontiers grow.
-        // TODO: Frontier::with_threads needs to be updated to work without explicit ThreadPool
         let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
@@ -195,7 +194,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                 },
             )?;
             let distance_plus_one = distance + 1;
-            // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
             {
                 curr_frontier
                     .par_iter()
@@ -289,7 +287,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
         callback(&mut init, EventPred::Init {})?;
         // We do not provide a capacity in the hope of allocating dynamically
         // space as the frontiers grow.
-        // TODO: Frontier::with_threads needs to be updated to work without explicit ThreadPool
         let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
@@ -305,7 +302,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
                 },
             )?;
             let distance_plus_one = distance + 1;
-            // TODO: Handle thread_pool.install() removal - decide between rayon::scope or direct execution
             {
                 curr_frontier
                     .par_iter()
