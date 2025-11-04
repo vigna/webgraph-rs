@@ -25,7 +25,6 @@ use tempfile::Builder;
 ///
 /// For the meaning of the additional parameters, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn transpose_labeled<
     S: BitSerializer<NE, BitWriter> + Clone,
     D: BitDeserializer<NE, BitReader> + Clone + 'static,
@@ -67,7 +66,6 @@ where
 ///
 /// For the meaning of the additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -89,7 +87,6 @@ pub fn transpose(
 ///
 /// For the meaning of the additional parameters, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn transpose_labeled_split<
     'graph,
     G: 'graph

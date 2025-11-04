@@ -316,7 +316,6 @@ impl<
     /// # Arguments
     ///
     /// * `pl`: A progress logger.
-    #[allow(clippy::type_complexity)]
     pub fn build(self, pl: &mut impl ConcurrentProgressLog) -> HyperBall<'a, G1, G2, D, L, A> {
         let num_nodes = self.graph.num_nodes();
 
@@ -879,7 +878,7 @@ where
                     sum_of_dists,
                     sum_of_inv_dists,
                     discounted_centralities,
-                    c
+                    c,
                 )
             });
         }

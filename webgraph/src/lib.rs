@@ -16,6 +16,7 @@
 #![deny(unreachable_patterns)]
 #![deny(unused_macro_rules)]
 #![deny(unused_doc_comments)]
+#![allow(clippy::type_complexity)]
 
 #[cfg(feature = "fuzz")]
 pub mod fuzz;

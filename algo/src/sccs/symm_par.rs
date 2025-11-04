@@ -22,10 +22,7 @@ use webgraph::visits::{
 };
 
 /// Connected components of symmetric graphs by parallel visits.
-pub fn symm_par(
-    graph: impl RandomAccessGraph + Sync,
-    pl: &mut impl ConcurrentProgressLog,
-) -> Sccs {
+pub fn symm_par(graph: impl RandomAccessGraph + Sync, pl: &mut impl ConcurrentProgressLog) -> Sccs {
     // TODO debug_assert!(check_symmetric(&graph));
 
     let num_nodes = graph.num_nodes();
@@ -41,28 +38,24 @@ pub fn symm_par(
 
     for node in 0..num_nodes {
         visit
-            .par_visit_with(
-                [node],
-                pl.clone(),
-                |pl, event| {
-                    match event {
-                        EventNoPred::Init { .. } => {}
-                        EventNoPred::Visit { node, .. } => {
-                            pl.light_update();
-                            unsafe {
-                                slice[node].set(MaybeUninit::new(
-                                    number_of_components.load(Ordering::Relaxed),
-                                ))
-                            };
-                        }
-                        EventNoPred::Done { .. } => {
-                            number_of_components.fetch_add(1, Ordering::Relaxed);
-                        }
-                        _ => (),
+            .par_visit_with([node], pl.clone(), |pl, event| {
+                match event {
+                    EventNoPred::Init { .. } => {}
+                    EventNoPred::Visit { node, .. } => {
+                        pl.light_update();
+                        unsafe {
+                            slice[node].set(MaybeUninit::new(
+                                number_of_components.load(Ordering::Relaxed),
+                            ))
+                        };
                     }
-                    Continue(())
-                },
-            )
+                    EventNoPred::Done { .. } => {
+                        number_of_components.fetch_add(1, Ordering::Relaxed);
+                    }
+                    _ => (),
+                }
+                Continue(())
+            })
             .continue_value_no_break();
     }
 

@@ -399,7 +399,6 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Lo
 
 impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic, GLM, OLM> {
     /// Load a random-access graph with dynamic dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
@@ -431,7 +430,6 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
 
 impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dynamic, GLM, OLM> {
     /// Load a sequential graph with dynamic dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -469,7 +467,6 @@ impl<
     LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>, GLM, OLM>
 {
     /// Load a random-access graph with static dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -526,7 +523,6 @@ impl<
     >
 {
     /// Load a sequential graph with static dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<

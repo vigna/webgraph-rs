@@ -22,7 +22,6 @@ use value_traits::slices::SliceByValue;
 /// This assumes that the permutation is bijective. For the meaning of the
 /// additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn permute(
     graph: &impl SequentialGraph,
     perm: &impl SliceByValue<Value = usize>,
@@ -75,7 +74,6 @@ pub fn permute(
 /// This assumes that the permutation is bijective. For the meaning of the
 /// additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,

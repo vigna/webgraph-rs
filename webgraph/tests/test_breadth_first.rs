@@ -247,17 +247,12 @@ macro_rules! test_bfv_algo_par {
 
                 for root in 0..graph.num_nodes() {
                     visit
-                        .par_visit(
-                            [root],
-                            |event| {
-                                if let breadth_first::EventPred::Visit { node, distance, .. } =
-                                    event
-                                {
-                                    distances[node].store(distance, Ordering::Relaxed);
-                                }
-                                Continue(())
-                            },
-                                                    )
+                        .par_visit([root], |event| {
+                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
+                                distances[node].store(distance, Ordering::Relaxed);
+                            }
+                            Continue(())
+                        })
                         .continue_value_no_break();
                 }
                 let actual_distances = into_non_atomic(distances);
@@ -276,15 +271,12 @@ macro_rules! test_bfv_algo_par {
                 let sync_distances = distances.as_sync_slice();
 
                 visit
-                    .par_visit(
-                        [0, 3],
-                        |event| {
-                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
-                                unsafe { sync_distances[node].set(distance) };
-                            }
-                            Continue(())
-                        },
-                    )
+                    .par_visit([0, 3], |event| {
+                        if let breadth_first::EventPred::Visit { node, distance, .. } = event {
+                            unsafe { sync_distances[node].set(distance) };
+                        }
+                        Continue(())
+                    })
                     .continue_value_no_break();
 
                 assert_eq!(distances, [0, 1, 1, 0]);
@@ -304,17 +296,12 @@ macro_rules! test_bfv_algo_par {
                 for i in 0..graph.num_nodes() {
                     let root = (i + 10000) % graph.num_nodes();
                     visit
-                        .par_visit(
-                            [root],
-                            |event| {
-                                if let breadth_first::EventPred::Visit { node, distance, .. } =
-                                    event
-                                {
-                                    distances[node].store(distance, Ordering::Relaxed);
-                                }
-                                Continue(())
-                            },
-                        )
+                        .par_visit([root], |event| {
+                            if let breadth_first::EventPred::Visit { node, distance, .. } = event {
+                                distances[node].store(distance, Ordering::Relaxed);
+                            }
+                            Continue(())
+                        })
                         .continue_value_no_break();
                 }
 
@@ -336,27 +323,23 @@ macro_rules! test_bfv_algo_par {
                     Mutex::new(BTreeMap::new());
 
                 visit
-                    .par_visit(
-                        [0],
-                        |event| {
-                            if let breadth_first::EventPred::Visit { distance, .. } = event {
-                                *expected_distance_to_quantity
-                                    .lock()
-                                    .unwrap()
-                                    .entry(distance)
-                                    .or_insert(0) += 1;
-                            }
-                            if let breadth_first::EventPred::FrontierSize { distance, size } = event
-                            {
-                                *distance_to_quantity
-                                    .lock()
-                                    .unwrap()
-                                    .entry(distance)
-                                    .or_insert(0) += size;
-                            }
-                            Continue(())
-                        },
-                    )
+                    .par_visit([0], |event| {
+                        if let breadth_first::EventPred::Visit { distance, .. } = event {
+                            *expected_distance_to_quantity
+                                .lock()
+                                .unwrap()
+                                .entry(distance)
+                                .or_insert(0) += 1;
+                        }
+                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
+                            *distance_to_quantity
+                                .lock()
+                                .unwrap()
+                                .entry(distance)
+                                .or_insert(0) += size;
+                        }
+                        Continue(())
+                    })
                     .continue_value_no_break();
 
                 assert_eq!(
@@ -378,27 +361,23 @@ macro_rules! test_bfv_algo_par {
                     Mutex::new(BTreeMap::new());
 
                 visit
-                    .par_visit(
-                        [0, graph.num_nodes() / 2, graph.num_nodes() - 1],
-                        |event| {
-                            if let breadth_first::EventPred::Visit { distance, .. } = event {
-                                *expected_distance_to_quantity
-                                    .lock()
-                                    .unwrap()
-                                    .entry(distance)
-                                    .or_insert(0) += 1;
-                            }
-                            if let breadth_first::EventPred::FrontierSize { distance, size } = event
-                            {
-                                *distance_to_quantity
-                                    .lock()
-                                    .unwrap()
-                                    .entry(distance)
-                                    .or_insert(0) += size;
-                            }
-                            Continue(())
-                        },
-                    )
+                    .par_visit([0, graph.num_nodes() / 2, graph.num_nodes() - 1], |event| {
+                        if let breadth_first::EventPred::Visit { distance, .. } = event {
+                            *expected_distance_to_quantity
+                                .lock()
+                                .unwrap()
+                                .entry(distance)
+                                .or_insert(0) += 1;
+                        }
+                        if let breadth_first::EventPred::FrontierSize { distance, size } = event {
+                            *distance_to_quantity
+                                .lock()
+                                .unwrap()
+                                .entry(distance)
+                                .or_insert(0) += size;
+                        }
+                        Continue(())
+                    })
                     .continue_value_no_break();
 
                 assert_eq!(

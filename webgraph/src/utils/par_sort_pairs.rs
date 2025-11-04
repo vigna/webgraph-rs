@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![allow(clippy::type_complexity)]
-
 //! Facilities to sort in parallel externally (labelled) pairs of nodes returned
 //! by a [`ParallelIterator`], returning a [`SplitIters`] structure.
 //!

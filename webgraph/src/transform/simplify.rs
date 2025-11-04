@@ -27,7 +27,6 @@ use super::transpose;
 /// This method exploits the fact that the input graph is already sorted,
 /// sorting half the number of arcs of
 /// [`simplify`](crate::transform::simplify::simplify).
-#[allow(clippy::type_complexity)]
 pub fn simplify_sorted<G: SequentialGraph>(
     graph: G,
     memory_usage: MemoryUsage,
@@ -52,7 +51,6 @@ where
 ///
 /// For the meaning of the additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn simplify(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -98,7 +96,6 @@ pub fn simplify(
 ///
 /// For the meaning of the additional parameter, see
 /// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
 pub fn simplify_split<S>(
     graph: &S,
     memory_usage: MemoryUsage,

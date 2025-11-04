@@ -160,10 +160,7 @@ where
         Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        self.0
-            .split_iter(how_many)
-            .into_iter()
-            .map(|lender| LeftIterator(lender))
+        self.0.split_iter(how_many).into_iter().map(LeftIterator)
     }
 }
 
@@ -365,10 +362,7 @@ where
         Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        self.0
-            .split_iter(how_many)
-            .into_iter()
-            .map(|lender| RightIterator(lender))
+        self.0.split_iter(how_many).into_iter().map(RightIterator)
     }
 }
 

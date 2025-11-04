@@ -6,6 +6,7 @@
  */
 
 #![doc = include_str!("../README.md")]
+#![allow(clippy::type_complexity)]
 
 #[macro_use]
 pub mod utils;

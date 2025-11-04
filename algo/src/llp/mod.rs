@@ -90,7 +90,6 @@ pub struct LabelsStore<A> {
 /// * `seed` - The seed to use for pseudorandom number generation.
 /// * `work_dir` - The directory where the labels will be stored, if `None`, a
 ///   temporary directory will be created.
-#[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
@@ -119,7 +118,6 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     combine_labels(work_dir)
 }
 
-#[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 /// Computes and store on disk the labels for the given gammas, but does not combine them.
 /// For the arguments look at [`layered_label_propagation`].

@@ -51,7 +51,7 @@ pub trait Level: Sync {
     /// The type of the result of [`run`](Self::run).
     type Output: Send;
     /// The type of the result of [`run_symm`](Self::run_symm).
-    type OutputSymm : Send;
+    type OutputSymm: Send;
 
     /// Runs the ExactSumSweep algorithm on the specified graph.
     ///
@@ -206,7 +206,7 @@ impl Level for AllForward {
             radial_vertices,
             pl,
         );
-        computer.compute( pl);
+        computer.compute(pl);
 
         assert!(computer.forward_iter.is_some(),);
         assert!(computer.diameter_iterations.is_some());
@@ -265,7 +265,7 @@ impl Level for RadiusDiameter {
             radial_vertices,
             pl,
         );
-        computer.compute( pl);
+        computer.compute(pl);
 
         assert!(computer.diameter_iterations.is_some(),);
         assert!(computer.radius_iterations.is_some(),);

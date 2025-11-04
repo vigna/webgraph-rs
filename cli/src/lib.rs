@@ -7,6 +7,7 @@
  */
 
 #![doc = include_str!("../README.md")]
+#![allow(clippy::type_complexity)]
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};

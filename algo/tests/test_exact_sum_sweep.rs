@@ -130,12 +130,7 @@ fn test_many_dir_path() -> Result<()> {
     radial_vertices.set(16, true, std::sync::atomic::Ordering::Relaxed);
     radial_vertices.set(8, true, std::sync::atomic::Ordering::Relaxed);
 
-    let sum_sweep = All::run(
-        graph,
-        transpose,
-        Some(radial_vertices),
-        no_logging![],
-    );
+    let sum_sweep = All::run(graph, transpose, Some(radial_vertices), no_logging![]);
 
     assert_eq!(sum_sweep.diameter, 6);
     assert_eq!(sum_sweep.radius, 1);
@@ -166,8 +161,7 @@ fn test_cycle() -> Result<()> {
         let graph = vec_graph;
         let transposed = transposed_vec_graph;
 
-        let sum_sweep =
-            RadiusDiameter::run(&graph, &transposed, None, no_logging![]);
+        let sum_sweep = RadiusDiameter::run(&graph, &transposed, None, no_logging![]);
 
         assert_eq!(sum_sweep.diameter, size - 1);
         assert_eq!(sum_sweep.radius, size - 1);
@@ -203,12 +197,7 @@ fn test_clique() -> Result<()> {
         radial_vertices.set(rngs[1], true, std::sync::atomic::Ordering::Relaxed);
         radial_vertices.set(rngs[2], true, std::sync::atomic::Ordering::Relaxed);
 
-        let sum_sweep = All::run(
-            &graph,
-            &transposed,
-            Some(radial_vertices),
-            no_logging![],
-        );
+        let sum_sweep = All::run(&graph, &transposed, Some(radial_vertices), no_logging![]);
 
         for i in 0..size {
             assert_eq!(sum_sweep.forward_eccentricities[i], 1);
@@ -266,12 +255,7 @@ fn test_no_radial_vertices() -> Result<()> {
     let transposed = transposed_vec_graph;
     let radial_vertices = AtomicBitVec::new(2);
 
-    let sum_sweep = All::run(
-        &graph,
-        &transposed,
-        Some(radial_vertices),
-        no_logging![],
-    );
+    let sum_sweep = All::run(&graph, &transposed, Some(radial_vertices), no_logging![]);
 
     assert_eq!(sum_sweep.radius, usize::MAX);
 

@@ -274,12 +274,7 @@ pub trait Parallel<A: Event> {
         callback: C,
         filter: F,
     ) -> ControlFlow<E, ()> {
-        self.par_visit_filtered_with(
-            roots,
-            (),
-            |(), a| callback(a),
-            |(), a| filter(a),
-        )
+        self.par_visit_filtered_with(roots, (), |(), a| callback(a), |(), a| filter(a))
     }
 
     /// Visits the graph from the specified nodes with an initialization value.
