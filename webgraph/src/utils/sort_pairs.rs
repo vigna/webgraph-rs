@@ -164,13 +164,16 @@ impl<C: BatchCodec> SortPairs<C> {
         }
 
         let batch_path = self.tmp_dir.join(format!("{:06x}", self.num_batches));
-        let bit_size = self.batch_codec.encode_batch(batch_path, &mut self.batch)?;
+        let start = std::time::Instant::now();
+        let (bit_size, stats) = self.batch_codec.encode_batch(batch_path, &mut self.batch)?;
         log::info!(
-            "Dumped batch {} with {} arcs ({} bits, {:.2} bits / arc)",
+            "Dumped batch {} with {} arcs ({} bits, {:.2} bits / arc) in {:.3} seconds, stats: {}",
             self.num_batches,
             self.batch.len(),
             bit_size,
-            bit_size as f64 / self.batch.len() as f64
+            bit_size as f64 / self.batch.len() as f64,
+            start.elapsed().as_secs_f64(),
+            stats
         );
         self.last_batch_len = self.batch.len();
         self.batch.clear();

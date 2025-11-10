@@ -218,6 +218,22 @@ impl MemoryUsage {
     }
 }
 
+/// Writes a human-readable representation of a large number using SI prefixes units.
+pub fn humanize(value: f64) -> String {
+    const UNITS: &[&str] = &["", "K", "M", "G", "T", "P", "E"];
+    let mut v = value;
+    let mut unit: usize = 0;
+    while v >= 1000.0 && unit + 1 < UNITS.len() {
+        v /= 1000.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{:.0}{}", v, UNITS[unit])
+    } else {
+        format!("{:.3}{}", v, UNITS[unit])
+    }
+}
+
 /// A structure holding partition iterators and their boundaries.
 ///
 /// This type holds a list of iterators and a list of boundaries, one more

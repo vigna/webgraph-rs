@@ -20,6 +20,7 @@
 use anyhow::Result;
 
 use super::ArcMmapHelper;
+use core::fmt::Display;
 use dsi_bitstream::prelude::*;
 use rdst::*;
 use std::fs::File;
@@ -53,6 +54,10 @@ pub trait BatchCodec: Send + Sync {
         IntoIter: Send + Sync + Clone,
     >;
 
+    /// A type representing statistics about the encoded batch.
+    /// This type has to implement `Display` so that we can log it.
+    type EncodedBatchStats: Display;
+
     /// Given a batch of sorted triples, encodes them to disk and returns the
     /// number of bits written.
     ///
@@ -62,7 +67,7 @@ pub trait BatchCodec: Send + Sync {
         &self,
         path: impl AsRef<Path>,
         batch: &[((usize, usize), Self::Label)],
-    ) -> Result<usize>;
+    ) -> Result<(usize, Self::EncodedBatchStats)>;
 
     /// Given a batch of triples, sort them, encodes them to disk, and returns
     /// the number of bits written.
@@ -70,7 +75,7 @@ pub trait BatchCodec: Send + Sync {
         &self,
         path: impl AsRef<Path>,
         batch: &mut [((usize, usize), Self::Label)],
-    ) -> Result<usize>;
+    ) -> Result<(usize, Self::EncodedBatchStats)>;
 
     /// Decodes a batch of triples from disk.
     ///

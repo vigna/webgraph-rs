@@ -9,7 +9,7 @@ use crate::traits::SortedIterator;
 use crate::utils::{ArcMmapHelper, MmapHelper, Triple};
 use crate::{
     traits::{BitDeserializer, BitSerializer},
-    utils::BatchCodec,
+    utils::{humanize, BatchCodec},
 };
 
 use std::sync::Arc;
@@ -52,7 +52,7 @@ pub struct GroupedGapsCodec<
     E: Endianness = NE,
     S: BitSerializer<E, BitWriter<E>> = (),
     D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone = (),
-    const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::EXP_GOLOMB3 },
+    const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
 > where
@@ -107,6 +107,38 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+/// Statistics about the encoding performed by [`GapsCodec`].
+pub struct GroupedGapsStats {
+    /// Total number of triples encoded
+    pub total_triples: usize,
+    /// Number of bits used for outdegrees
+    pub outdegree_bits: usize,
+    /// Number of bits used for source gaps
+    pub src_bits: usize,
+    //// Number of bits used for destination gaps
+    pub dst_bits: usize,
+    /// Number of bits used for labels
+    pub labels_bits: usize,
+}
+
+impl core::fmt::Display for GroupedGapsStats {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "outdegree: {}B ({:.3} bits / arc), src: {}B ({:.3} bits / arc), dst: {}B ({:.3} bits / arc), labels: {}B ({:.3} bits / arc)",
+            humanize(self.outdegree_bits as f64 / 8.0),
+            self.outdegree_bits as f64 / self.total_triples as f64,
+            humanize(self.src_bits as f64 / 8.0),
+            self.src_bits as f64 / self.total_triples as f64,
+            humanize(self.dst_bits as f64 / 8.0),
+            self.dst_bits as f64 / self.total_triples as f64,
+            humanize(self.labels_bits as f64 / 8.0),
+            self.labels_bits as f64 / self.total_triples as f64,
+        )
+    }
+}
+
 impl<E, S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize> BatchCodec
     for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
@@ -119,12 +151,13 @@ where
 {
     type Label = S::SerType;
     type DecodedBatch = GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
+    type EncodedBatchStats = GroupedGapsStats;
 
     fn encode_batch(
         &self,
         path: impl AsRef<std::path::Path>,
         batch: &mut [((usize, usize), Self::Label)],
-    ) -> Result<usize> {
+    ) -> Result<(usize, Self::EncodedBatchStats)> {
         let start = std::time::Instant::now();
         Triple::cast_batch_mut(batch).radix_sort_unstable();
         log::debug!("Sorted {} arcs in {:?}", batch.len(), start.elapsed());
@@ -135,7 +168,7 @@ where
         &self,
         path: impl AsRef<std::path::Path>,
         batch: &[((usize, usize), Self::Label)],
-    ) -> Result<usize> {
+    ) -> Result<(usize, Self::EncodedBatchStats)> {
         debug_assert!(Triple::cast_batch(batch).is_sorted(), "Batch is not sorted");
         // create a batch file where to dump
         let file_path = path.as_ref();
@@ -157,20 +190,26 @@ where
             .write_delta(batch.len() as u64)
             .context("Could not write length")?;
 
+        let mut stats = GroupedGapsStats {
+            total_triples: batch.len(),
+            outdegree_bits: 0,
+            src_bits: 0,
+            dst_bits: 0,
+            labels_bits: 0,
+        };
         // dump the triples to the bitstream
         let mut prev_src = 0;
-        let mut written_bits = 0;
         let mut i = 0;
         while i < batch.len() {
             let ((src, _), _) = batch[i];
             // write the source gap as gamma
-            written_bits += ConstCode::<SRC_CODE>
+            stats.src_bits += ConstCode::<SRC_CODE>
                 .write(&mut stream, (src - prev_src) as _)
                 .with_context(|| format!("Could not write {src} after {prev_src}"))?;
             // figure out how many edges have this source
             let outdegree = batch[i..].iter().take_while(|t| t.0 .0 == src).count();
             // write the outdegree
-            written_bits += ConstCode::<OUTDEGREE_CODE>
+            stats.outdegree_bits += ConstCode::<OUTDEGREE_CODE>
                 .write(&mut stream, outdegree as _)
                 .with_context(|| format!("Could not write outdegree {outdegree} for {src}"))?;
 
@@ -179,11 +218,11 @@ where
             for _ in 0..outdegree {
                 let ((_, dst), label) = &batch[i];
                 // write the destination gap as gamma
-                written_bits += ConstCode::<DST_CODE>
+                stats.dst_bits += ConstCode::<DST_CODE>
                     .write(&mut stream, (dst - prev_dst) as _)
                     .with_context(|| format!("Could not write {dst} after {prev_dst}"))?;
                 // write the label
-                written_bits += self
+                stats.labels_bits += self
                     .serializer
                     .serialize(label, &mut stream)
                     .context("Could not serialize label")?;
@@ -193,9 +232,10 @@ where
             prev_src = src;
         }
         // flush the stream and reset the buffer
-        written_bits += stream.flush().context("Could not flush stream")?;
+        stream.flush().context("Could not flush stream")?;
 
-        Ok(written_bits)
+        let total_bits = stats.outdegree_bits + stats.src_bits + stats.dst_bits + stats.labels_bits;
+        Ok((total_bits, stats))
     }
 
     fn decode_batch(&self, path: impl AsRef<std::path::Path>) -> Result<Self::DecodedBatch> {
