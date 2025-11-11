@@ -24,6 +24,11 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub granularity: GranularityArgs,
+
+    #[clap(short = 'k', long, default_value_t = 3)]
+    /// How many codes to show for each type, if k is bigger than the number of codes available
+    /// all codes will be shown.
+    pub top_k: usize,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -164,7 +169,7 @@ where
 
     macro_rules! impl_best_code {
         ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident - $old:expr),*) => {
-            println!("{:>17} {:>16} {:>12} {:>8} {:>10} {:>16}",
+            println!("{:>17} {:>20} {:>12} {:>10} {:>10} {:>16}",
                 "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
             );
             $(
@@ -174,14 +179,33 @@ where
             )*
 
             $(
-                let (code, new) = $stats.$code.best_code();
-                println!("{:>17} {:>18} {:>12} {:>8} {:>10} {:>16}",
-                    stringify!($code), format!("{:?}", code),
-                    format!("{:.3}%", 100.0 * ($old - new) as f64 / $old as f64),
-                    format!("{:.3}", (($old - new) as f64 / ($old_bits - $new_bits) as f64)),
-                    normalize(($old - new) as f64 / 8.0),
-                    $old - new,
+                let codes = $stats.$code.get_codes();
+                let (best_code, best_size) = codes[0];
+
+                let improvement = 100.0 * ($old - best_size) as f64 / $old as f64;
+                let weight = 100.0 * ($old as f64 - best_size as f64) / ($old_bits as f64 - $new_bits as f64);
+
+                println!("{:>17} {:>20} {:>12.3}% {:>9.3}% {:>10} {:>16}",
+                    stringify!($code),
+                    format!("{:?}", best_code),
+                    improvement,
+                    weight,
+                    normalize(best_size as f64 / 8.0),
+                    best_size,
                 );
+                for i in 1..args.top_k.min(codes.len()).max(1) {
+                    let (code, size) = codes[i];
+                    let improvement = 100.0 * ($old as f64 - size as f64) / $old as f64;
+                    println!("{:>17} {:>20} {:>12.3}% {:>10.3} {:>10} {:>16}",
+                        stringify!($code),
+                        format!("{:?}", code),
+                        improvement,
+                        "",
+                        normalize(size as f64 / 8.0),
+                        size,
+                    );
+                }
+                print!("\n");
             )*
         };
     }
