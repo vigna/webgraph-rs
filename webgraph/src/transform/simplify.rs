@@ -9,8 +9,8 @@ use crate::graphs::{
 };
 use crate::labels::Left;
 use crate::traits::{LenderIntoIter, SequentialGraph, SortedIterator, SortedLender, SplitLabeling};
-use crate::utils::sort_pairs::{BatchIterator, KMergeIters, SortPairs};
-use crate::utils::MemoryUsage;
+use crate::utils::sort_pairs::{KMergeIters, SortPairs};
+use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
@@ -32,7 +32,10 @@ pub fn simplify_sorted<G: SequentialGraph>(
     memory_usage: MemoryUsage,
 ) -> Result<
     NoSelfLoopsGraph<
-        UnionGraph<G, Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>,
+        UnionGraph<
+            G,
+            Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>,
+        >,
     >,
 >
 where
@@ -100,7 +103,13 @@ pub fn simplify_split<S>(
     graph: &S,
     memory_usage: MemoryUsage,
     threads: &ThreadPool,
-) -> Result<Left<arc_list_graph::ArcListGraph<itertools::Dedup<KMergeIters<BatchIterator<()>, ()>>>>>
+) -> Result<
+    Left<
+        arc_list_graph::ArcListGraph<
+            itertools::Dedup<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>,
+        >,
+    >,
+>
 where
     S: SequentialGraph + SplitLabeling,
 {
@@ -142,7 +151,7 @@ where
 
     // get a graph on the sorted data
     log::debug!("Waiting for threads to finish");
-    let edges: KMergeIters<BatchIterator> = rx.iter().sum();
+    let edges: KMergeIters<CodecIter<DefaultBatchCodec>> = rx.iter().sum();
     let edges = edges.dedup();
     log::debug!("All threads finished");
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);

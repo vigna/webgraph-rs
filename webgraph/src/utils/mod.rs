@@ -32,6 +32,9 @@ pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     }
 }
 
+mod batch_codec;
+pub use batch_codec::*;
+
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 
@@ -212,6 +215,22 @@ impl MemoryUsage {
             }
             MemoryUsage::BatchSize(batch_size) => *batch_size,
         }
+    }
+}
+
+/// Writes a human-readable representation of a large number using SI prefixes units.
+pub fn humanize(value: f64) -> String {
+    const UNITS: &[&str] = &["", "K", "M", "G", "T", "P", "E"];
+    let mut v = value;
+    let mut unit: usize = 0;
+    while v >= 1000.0 && unit + 1 < UNITS.len() {
+        v /= 1000.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{:.0}{}", v, UNITS[unit])
+    } else {
+        format!("{:.3}{}", v, UNITS[unit])
     }
 }
 

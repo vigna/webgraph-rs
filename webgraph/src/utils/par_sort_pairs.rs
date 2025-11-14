@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2025 Inria
+ * SPDX-FileCopyrightText: 2025 Tommaso Fontana
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -21,22 +22,21 @@
 //! using [`ParSortIters`](crate::utils::par_sort_iters::ParSortIters) instead.
 
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{ensure, Context, Result};
-use dsi_bitstream::traits::NE;
 use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
 use rayon::prelude::*;
 use rayon::Yield;
-use rdst::RadixSort;
 use thread_local::ThreadLocal;
 
-use super::sort_pairs::{BatchIterator, BitReader, BitWriter, KMergeIters, Triple};
+use crate::utils::DefaultBatchCodec;
+
+use super::sort_pairs::KMergeIters;
 use super::MemoryUsage;
-use crate::traits::{BitDeserializer, BitSerializer};
+use super::{BatchCodec, CodecIter};
 use crate::utils::SplitIters;
 
 /// Takes a parallel iterator of (labelled) pairs as input, and turns them into
@@ -113,15 +113,14 @@ use crate::utils::SplitIters;
 /// )?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ParSortPairs<L = ()> {
+pub struct ParSortPairs {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
-    marker: PhantomData<L>,
 }
 
-impl ParSortPairs<()> {
+impl ParSortPairs {
     /// See [`try_sort`](ParSortPairs::try_sort).
     pub fn sort(
         &self,
@@ -139,8 +138,7 @@ impl ParSortPairs<()> {
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Clone + Send + Sync>>>
     {
         let split = self.try_sort_labeled(
-            &(),
-            (),
+            &DefaultBatchCodec::default(),
             pairs.map(|pair| -> Result<_> {
                 let (src, dst) = pair.map_err(Into::into)?;
                 Ok(((src, dst), ()))
@@ -161,7 +159,7 @@ impl ParSortPairs<()> {
     }
 }
 
-impl<L> ParSortPairs<L> {
+impl ParSortPairs {
     /// Creates a new [`ParSortPairs`] instance.
     ///
     /// The methods [`num_partitions`](ParSortPairs::num_partitions) (which sets
@@ -178,7 +176,6 @@ impl<L> ParSortPairs<L> {
             expected_num_pairs: None,
             num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
             memory_usage: MemoryUsage::default(),
-            marker: PhantomData,
         })
     }
 
@@ -220,32 +217,16 @@ impl<L> ParSortPairs<L> {
     /// See [`try_sort_labeled`](ParSortPairs::try_sort_labeled).
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
-    pub fn sort_labeled<S, D>(
+    pub fn sort_labeled<C: BatchCodec>(
         &self,
-        serializer: &S,
-        deserializer: D,
-        pairs: impl ParallelIterator<Item = ((usize, usize), L)>,
+        batch_codec: &C,
+        pairs: impl ParallelIterator<Item = ((usize, usize), C::Label)>,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<
-                Item = (
-                    (usize, usize),
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Clone + Send + Sync,
-            >,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>,
         >,
-    >
-    where
-        L: Copy + Send + Sync,
-        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
-    {
-        self.try_sort_labeled::<S, D, std::convert::Infallible>(
-            serializer,
-            deserializer,
-            pairs.map(Ok),
-        )
+    > {
+        self.try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs.map(Ok))
     }
 
     /// Sorts the output of the provided parallel iterator,
@@ -257,34 +238,22 @@ impl<L> ParSortPairs<L> {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// [`BatchIterator`], and there are possible scenarios in which the
     /// deserializer might be stateful.
-    pub fn try_sort_labeled<S, D, E: Into<anyhow::Error>>(
+    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>>(
         &self,
-        serializer: &S,
-        deserializer: D,
-        pairs: impl ParallelIterator<Item = Result<((usize, usize), L), E>>,
+        batch_codec: &C,
+        pairs: impl ParallelIterator<Item = Result<((usize, usize), C::Label), E>>,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<
-                Item = (
-                    (usize, usize),
-                    <D as BitDeserializer<NE, BitReader>>::DeserType,
-                ),
-                IntoIter: Clone + Send + Sync,
-            >,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>,
         >,
-    >
-    where
-        L: Copy + Send + Sync,
-        S: Sync + BitSerializer<NE, BitWriter, SerType = L>,
-        D: Clone + Send + Sync + BitDeserializer<NE, BitReader, DeserType: Copy + Send + Sync>,
-    {
+    > {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();
         let num_buffers = rayon::current_num_threads() * num_partitions;
         let batch_size = self
             .memory_usage
-            .batch_size::<Triple<L>>()
+            .batch_size::<((usize, usize), C::Label)>()
             .div_ceil(num_buffers);
         let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
 
@@ -300,7 +269,7 @@ impl<L> ParSortPairs<L> {
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
 
-        let sorter_thread_states = ThreadLocal::<RefCell<SorterThreadState<L, D>>>::new();
+        let sorter_thread_states = ThreadLocal::<RefCell<SorterThreadState<C>>>::new();
 
         // iterators in partitioned_presorted_pairs[partition_id] contain all pairs (src, dst, label)
         // where num_nodes_per_partition*partition_id <= src < num_nodes_per_partition*(partition_id+1)
@@ -365,8 +334,7 @@ impl<L> ParSortPairs<L> {
                     let buf_len = buf.len();
                     flush_buffer(
                         presort_tmp_dir.path(),
-                        serializer,
-                        deserializer.clone(),
+                        batch_codec,
                         *worker_id,
                         partition_id,
                         sorted_pairs,
@@ -377,27 +345,24 @@ impl<L> ParSortPairs<L> {
                     pl.update_with_count(buf_len);
                 }
 
-                buf.push(Triple {
-                    pair: [src, dst],
-                    label,
-                });
+                buf.push(((src, dst), label));
                 Ok(())
             },
         )?;
 
         // flush remaining buffers
-        let partitioned_presorted_pairs: Vec<Vec<BatchIterator<D>>> = sorter_thread_states
+        let partitioned_presorted_pairs: Vec<Vec<CodecIter<C>>> = sorter_thread_states
         .into_iter()
         .collect::<Vec<_>>()
         .into_par_iter()
-        .map_with(pl.clone(), |pl, thread_state: RefCell<SorterThreadState<L, D>>| {
+        .map_with(pl.clone(), |pl, thread_state: RefCell<SorterThreadState<C>>| {
             let thread_state = thread_state.into_inner();
             let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
             assert_eq!(thread_state.sorted_pairs.len(), num_partitions);
             assert_eq!(thread_state.unsorted_buffers.len(), num_partitions);
             for (partition_id, (mut sorted_pairs, mut buf)) in thread_state.sorted_pairs.into_iter().zip(thread_state.unsorted_buffers.into_iter()).enumerate() {
                 let buf_len = buf.len();
-                flush_buffer(presort_tmp_dir.path(), serializer, deserializer.clone(), thread_state.worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
+                flush_buffer(presort_tmp_dir.path(), batch_codec, thread_state.worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
                 assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
                 pl.update_with_count(buf_len);
 
@@ -412,7 +377,7 @@ impl<L> ParSortPairs<L> {
         // Let's merge the {partition_id -> [iterators]} maps of each worker
         .try_reduce(
             || (0..num_partitions).map(|_| Vec::new()).collect(),
-            |mut pair_partitions1: Vec<Vec<BatchIterator<D>>>, pair_partitions2: Vec<Vec<BatchIterator<D>>>| -> Result<Vec<Vec<BatchIterator<D>>>> {
+            |mut pair_partitions1: Vec<Vec<CodecIter<C>>>, pair_partitions2: Vec<Vec<CodecIter<C>>>| -> Result<Vec<Vec<CodecIter<C>>>> {
             assert_eq!(pair_partitions1.len(), num_partitions);
             assert_eq!(pair_partitions2.len(), num_partitions);
             for (partition1, partition2) in pair_partitions1.iter_mut().zip(pair_partitions2.into_iter()) {
@@ -448,27 +413,20 @@ impl<L> ParSortPairs<L> {
     }
 }
 
-struct SorterThreadState<L: Copy, D: BitDeserializer<NE, BitReader>> {
+struct SorterThreadState<C: BatchCodec> {
     worker_id: usize,
-    sorted_pairs: Vec<Vec<BatchIterator<D>>>,
-    unsorted_buffers: Vec<Vec<Triple<L>>>,
+    sorted_pairs: Vec<Vec<CodecIter<C>>>,
+    unsorted_buffers: Vec<Vec<((usize, usize), C::Label)>>,
 }
 
-pub(crate) fn flush_buffer<
-    L: Copy + Send + Sync,
-    S: BitSerializer<NE, BitWriter, SerType = L>,
-    D: BitDeserializer<NE, BitReader>,
->(
+pub(crate) fn flush_buffer<C: BatchCodec>(
     tmp_dir: &Path,
-    serializer: &S,
-    deserializer: D,
+    batch_codec: &C,
     worker_id: usize,
     partition_id: usize,
-    sorted_pairs: &mut Vec<BatchIterator<D>>,
-    buf: &mut Vec<Triple<L>>,
+    sorted_pairs: &mut Vec<CodecIter<C>>,
+    buf: &mut Vec<((usize, usize), C::Label)>,
 ) -> Result<()> {
-    buf.radix_sort_unstable();
-
     let path = tmp_dir.join(format!(
         "sorted_batch_{worker_id}_{partition_id}_{}",
         sorted_pairs.len()
@@ -480,9 +438,15 @@ pub(crate) fn flush_buffer<
         "Can't create temporary file {}, it already exists",
         path.display()
     );
+
+    batch_codec
+        .encode_batch(&path, buf)
+        .with_context(|| format!("Could not write sorted batch to {}", path.display()))?;
     sorted_pairs.push(
-        BatchIterator::new_from_vec_sorted_labeled(&path, buf, serializer, deserializer)
-            .with_context(|| format!("Could not write sorted batch to {}", path.display()))?,
+        batch_codec
+            .decode_batch(&path)
+            .with_context(|| format!("Could not read sorted batch from {}", path.display()))?
+            .into_iter(),
     );
     buf.clear();
     Ok(())
