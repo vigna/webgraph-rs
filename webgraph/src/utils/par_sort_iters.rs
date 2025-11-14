@@ -131,7 +131,7 @@ impl ParSortIters {
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
-        let split = <ParSortIters>::try_sort_labeled::<DefaultBatchCodec, E>(
+        let split = <ParSortIters>::try_sort_labeled::<DefaultBatchCodec, E, _>(
             self,
             DefaultBatchCodec::default(),
             pairs
@@ -211,17 +211,17 @@ impl ParSortIters {
     /// See [`try_sort_labeled`](ParSortIters::try_sort_labeled).
     ///
     /// This is a convenience method for iterators that cannot fail.
-    pub fn sort_labeled<C: BatchCodec>(
-        &self,
-        batch_codec: C,
-        pairs: impl IntoIterator<
+    pub fn sort_labeled<C: BatchCodec, P: IntoIterator<
             Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
-        >,
+        >>(
+        &self,
+        batch_codec: C,
+        pairs: P,
     ) -> Result<
-        SplitIters<impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>>,
+        SplitIters<impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + use<C, P>>,
     > {
-        self.try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs)
+        self.try_sort_labeled::<C, std::convert::Infallible, P>(batch_codec, pairs)
     }
 
     /// Sorts the output of the provided sequence of iterators of (labelled)
@@ -235,15 +235,15 @@ impl ParSortIters {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// `BatchIterator`, and there are possible
     /// scenarios in which the deserializer might be stateful.
-    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>>(
-        &self,
-        batch_codec: C,
-        pairs: impl IntoIterator<
+    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>, P: IntoIterator<
             Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
             IntoIter: ExactSizeIterator,
-        >,
+        >>(
+        &self,
+        batch_codec: C,
+        pairs: P,
     ) -> Result<
-        SplitIters<impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>>,
+        SplitIters<impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + use<C, E, P>>,
     > {
         let unsorted_pairs = pairs;
 
