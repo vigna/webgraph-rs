@@ -84,8 +84,7 @@ fn test_arc_list_graph_cnr2000() {
     });
     assert_eq!(arcs.len(), graph.num_arcs() as _);
 
-    let arc_graph =
-        webgraph::graphs::arc_list_graph::ArcListGraph::new(graph.num_nodes(), arcs.into_iter());
+    let arc_graph = webgraph::graphs::arc_list_graph::ArcListGraph::new(graph.num_nodes(), arcs);
 
     assert_eq!(arc_graph.num_nodes(), graph.num_nodes());
     test_graph_iters(arc_graph.iter(), graph.iter());
@@ -137,7 +136,7 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
     // Create a graph with 10 nodes where the last 2 nodes have no outgoing arcs
     // Nodes 0-7 have arcs, nodes 8-9 have no arcs
     let num_nodes = 10;
-    let arcs = vec![
+    let arcs = [
         ((0, 1), ()),
         ((0, 2), ()),
         ((1, 3), ()),

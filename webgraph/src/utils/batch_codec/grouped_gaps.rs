@@ -108,7 +108,8 @@ where
 }
 
 #[derive(Debug, Clone, Copy)]
-/// Statistics about the encoding performed by [`GapsCodec`].
+/// Statistics about the encoding performed by
+/// [`GapsCodec`](crate::utils::gaps::GapsCodec).
 pub struct GroupedGapsStats {
     /// Total number of triples encoded
     pub total_triples: usize,

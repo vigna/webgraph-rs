@@ -227,12 +227,14 @@ impl ParSortIters {
     /// Sorts the output of the provided sequence of iterators of (labelled)
     /// pairs, returning a [`SplitIters`] structure.
     ///
-    /// This  method accept as type parameter a [`BitSerializer`] and a
-    /// [`BitDeserializer`] that are used to serialize and deserialize the labels.
+    /// This method accept as type parameter a
+    /// [`BitSerializer`](crate::traits::BitSerializer) and a
+    /// [`BitDeserializer`](crate::traits::BitDeserializer) that are
+    /// used to serialize and deserialize the labels.
     ///
     /// The bit deserializer must be [`Clone`] because we need one for each
-    /// [`BatchIterator`], and there are possible scenarios in which the
-    /// deserializer might be stateful.
+    /// `BatchIterator`, and there are possible
+    /// scenarios in which the deserializer might be stateful.
     pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>>(
         &self,
         batch_codec: C,

@@ -13,7 +13,7 @@ use webgraph::{
 
 #[test]
 fn test() -> anyhow::Result<()> {
-    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+    let arcs = [(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arcs(arcs.iter().copied());
 
     g.iter()
@@ -27,7 +27,7 @@ fn test() -> anyhow::Result<()> {
 
 #[test]
 fn test_labeled() -> anyhow::Result<()> {
-    let arcs = vec![
+    let arcs = [
         ((0, 1), 0),
         ((0, 2), 1),
         ((1, 2), 2),

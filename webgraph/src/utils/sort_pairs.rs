@@ -519,10 +519,10 @@ mod tests {
         let mut sp = SortPairs::new(MemoryUsage::BatchSize(10), dir.path())?;
 
         let pairs = vec![(3, 4), (1, 2), (5, 6), (0, 1), (2, 3)];
-        let mut iter = sp.sort(pairs)?;
+        let iter = sp.sort(pairs)?;
 
         let mut sorted_pairs = Vec::new();
-        while let Some(((x, y), _)) = iter.next() {
+        for ((x, y), _) in iter {
             sorted_pairs.push((x, y));
         }
         assert_eq!(sorted_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 4), (5, 6)]);
@@ -542,10 +542,10 @@ mod tests {
             ((0, 1), 4),
             ((2, 3), 6),
         ];
-        let mut iter2 = sp2.sort_labeled(labeled_pairs)?;
+        let iter2 = sp2.sort_labeled(labeled_pairs)?;
 
         let mut sorted_labeled = Vec::new();
-        while let Some(((x, y), label)) = iter2.next() {
+        for ((x, y), label) in iter2 {
             sorted_labeled.push((x, y, label));
         }
         assert_eq!(

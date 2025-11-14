@@ -179,7 +179,7 @@ macro_rules! test_scc_algo {
 }
 
 test_scc_algo!(|g, _, pl| sccs::tarjan(g, pl), tarjan);
-test_scc_algo!(|g, t, pl| sccs::kosaraju(g, t, pl), kosaraju);
+test_scc_algo!(sccs::kosaraju, kosaraju);
 
 #[test]
 fn test_large() -> Result<()> {

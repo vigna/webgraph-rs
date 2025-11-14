@@ -92,14 +92,14 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     let trans = transpose_labeled(
         &g,
         MemoryUsage::BatchSize(3),
-        GapsCodec::<BE, BS, BD>::new(BS::default(), BD::default()),
+        GapsCodec::<BE, BS, BD>::new(BS, BD),
     )?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
     let trans = transpose_labeled(
         &g2,
         MemoryUsage::BatchSize(3),
-        GapsCodec::<BE, BS, BD>::new(BS::default(), BD::default()),
+        GapsCodec::<BE, BS, BD>::new(BS, BD),
     )?;
     let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 

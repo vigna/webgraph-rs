@@ -82,7 +82,7 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
 
     /// For each edge in the DAG of strongly connected components, finds a
     /// corresponding edge in the graph. This edge is used in the
-    /// [`Self::all_cc_upper_bound`] method.
+    /// `all_cc_upper_bound` method.
     fn find_edges_through_scc(
         graph: &G1,
         transpose: &G2,

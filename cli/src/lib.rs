@@ -554,6 +554,8 @@ fn parse_duration(value: &str) -> Result<Duration> {
     Ok(duration)
 }
 
+/// Initializes the `env_logger` logger with a custom format including
+/// timestamps with elapsed time since initialization.
 pub fn init_env_logger() -> Result<()> {
     use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
     use jiff::SpanRound;

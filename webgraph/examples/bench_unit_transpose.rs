@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(clippy::type_complexity)]
 use std::hint::black_box;
 
 use anyhow::Result;

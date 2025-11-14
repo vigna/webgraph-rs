@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.4.0] -
+## [0.4.0] - 2025-11-15
 
 ### New
 
@@ -26,15 +26,15 @@
 
 * `VecGraph` has new, more efficient constructors from sorted lenders returning
   `ExactSizeIterator`.
-
+  
 ### Changed
+
+* Several methods previously accepting a `&ThreadPool` now
+  they don't. The user can use the standard rayon global thread pool
+  or configure their own and use `ThreadPool::install`.
 
 * `JavaPermutation` just implements `SliceByValue` and `SliceByValueMut`,
   rather than `BitFieldSlice` and `BitFieldSliceMut`.
-
-* Removed all instances of `&ThreadPool` from methods. If you need to change
-  the level of concurrency, use the standard `install` method on a 
-  `ThreadPool`.
 
 ### Fixed
 

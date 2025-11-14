@@ -86,7 +86,7 @@ fn test_epserde() -> anyhow::Result<()> {
 
 #[test]
 fn test_csr_graph() -> anyhow::Result<()> {
-    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+    let arcs = [(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arcs(arcs.iter().copied());
 
     let csr = CsrGraph::from_seq_graph(&g);
@@ -110,7 +110,7 @@ fn test_csr_graph() -> anyhow::Result<()> {
 
 #[test]
 fn test_sorted() -> anyhow::Result<()> {
-    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
+    let arcs = [(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
     let g = VecGraph::from_arcs(arcs.iter().copied());
     // This is just to test that we implemented correctly
     // the SortedLender and SortedIterator traits.

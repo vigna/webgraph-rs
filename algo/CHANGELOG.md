@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.4.0] - 2025-11-15
+
+* Several methods previously accepting a `&ThreadPool` now
+  they don't. The user can use the standard rayon global thread pool
+  or configure their own and use `ThreadPool::install`.
+
 ## [0.3.0] -
 
 ### Changed

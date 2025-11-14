@@ -11,9 +11,9 @@ card-est-array = "0.2.0"
 epserde = "0.11.1"
 dsi-bitstream = "0.5.2"
 dsi-progress-logger = "0.8.2"
-sux = { version = "0.9.0", features = ["epserde", "rayon", "mmap"] }
+sux = { version = "0.10.0", features = ["epserde", "rayon", "mmap"] }
 common_traits = "0.12.0"
-lender = "0.4.0"
+lender = "0.4.1"
 log = "0.4.22"
 num_cpus = "1.16.0"
 anyhow = { version = "1.0.79", features = ["backtrace"] }

@@ -22,8 +22,7 @@ use tempfile::Builder;
 /// Returns the transpose of the provided labeled graph as a [sequential
 /// graph](crate::traits::SequentialGraph).
 ///
-/// For the meaning of the additional parameters, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// For the meaning of the additional parameters, see [`SortPairs`].
 #[allow(clippy::type_complexity)]
 pub fn transpose_labeled<C: BatchCodec>(
     graph: &impl LabeledSequentialGraph<C::Label>,
@@ -60,8 +59,7 @@ where
 /// Returns the transpose of the provided graph as a [sequential
 /// graph](crate::traits::SequentialGraph).
 ///
-/// For the meaning of the additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// For the meaning of the additional parameter, see [`SortPairs`].
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -80,8 +78,7 @@ pub fn transpose(
 /// lender)` pairs using [this `From`
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+Iter<L,+I>)>).
 ///
-/// For the meaning of the additional parameters, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// For the meaning of the additional parameters, see [`SortPairs`].
 pub fn transpose_labeled_split<
     'graph,
     G: 'graph
@@ -127,8 +124,7 @@ where
 /// lender)` pairs using [this `From`
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+LeftIterator<Iter<(),+Map<I,+fn((usize,+usize))+->+(usize,+usize,+())>)>).
 ///
-/// For the meaning of the additional parameters, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// For the meaning of the additional parameters, see [`SortPairs`].
 pub fn transpose_split<
     'graph,
     G: 'graph

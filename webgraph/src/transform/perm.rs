@@ -20,8 +20,7 @@ use value_traits::slices::SliceByValue;
 /// [`permute_split`] will be much faster.
 ///
 /// This assumes that the permutation is bijective. For the meaning of the
-/// additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// additional parameter, see [`SortPairs`].
 pub fn permute(
     graph: &impl SequentialGraph,
     perm: &impl SliceByValue<Value = usize>,
@@ -72,8 +71,7 @@ pub fn permute(
 /// [`permute`], albeit it will be slower.
 ///
 /// This assumes that the permutation is bijective. For the meaning of the
-/// additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// additional parameter, see [`SortPairs`].
 pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,

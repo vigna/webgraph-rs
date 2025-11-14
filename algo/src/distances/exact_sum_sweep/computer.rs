@@ -398,7 +398,7 @@ impl<
     }
 
     /// Uses a heuristic to decide which is the best pivot to choose in each strongly connected
-    /// component, in order to perform the [`Self::all_cc_upper_bound`] method.
+    /// component, in order to call the `all_cc_upper_bound` method.
     ///
     /// # Arguments
     /// * `pl`: A progress logger..

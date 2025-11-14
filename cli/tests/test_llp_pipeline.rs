@@ -172,10 +172,7 @@ fn test_llp_pipeline() -> Result<()> {
         assert_eq!(original_succ, final_succ);
     }
 
-    log::info!(
-        "Loading graph at {}",
-        format!("{}-final.{}", basename, GRAPH_EXTENSION)
-    );
+    log::info!("Loading graph at {}-final.{}", basename, GRAPH_EXTENSION);
     let graph_size = std::fs::metadata(format!("{}-final.{}", basename, GRAPH_EXTENSION))?.len();
     let bits_per_arc = 8.0 * graph_size as f64 / original.num_arcs() as f64;
     log::info!("Graph size: {} bytes", graph_size);

@@ -25,8 +25,7 @@ use super::transpose;
 /// graph](crate::traits::SequentialGraph).
 ///
 /// This method exploits the fact that the input graph is already sorted,
-/// sorting half the number of arcs of
-/// [`simplify`](crate::transform::simplify::simplify).
+/// sorting half the number of arcs of [`simplify`].
 pub fn simplify_sorted<G: SequentialGraph>(
     graph: G,
     memory_usage: MemoryUsage,
@@ -50,10 +49,9 @@ where
 /// graph as a [sequential graph](crate::traits::SequentialGraph).
 ///
 /// Note that if the graph is sorted (both on nodes and successors), it is
-/// recommended to use [`simplify_sorted`](crate::transform::simplify::simplify_sorted).
+/// recommended to use [`simplify_sorted`].
 ///
-/// For the meaning of the additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// For the meaning of the additional parameter, see [`SortPairs`].
 pub fn simplify(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -97,8 +95,7 @@ pub fn simplify(
 ///
 /// This method uses splitting to sort in parallel different parts of the graph.
 ///
-/// For the meaning of the additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
+/// For the meaning of the additional parameter, see [`SortPairs`].
 pub fn simplify_split<S>(
     graph: &S,
     memory_usage: MemoryUsage,

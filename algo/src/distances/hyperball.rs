@@ -491,7 +491,7 @@ pub struct HyperBall<
     sum_of_dists: Option<Vec<f32>>,
     /// The sum of inverse distances from each given node, if requested.
     sum_of_inv_dists: Option<Vec<f32>>,
-    /// The overall discount centrality for every [`Self::discount_functions`].
+    /// The overall discount centrality for every discount function.
     discounted_centralities: Vec<Vec<f32>>,
     /// Context used in a single iteration.
     iteration_context: IterationContext<'a, G1, D>,
