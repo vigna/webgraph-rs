@@ -3,9 +3,9 @@ resolver = "2"
 members = ["algo", "cli", "webgraph"]
 
 [workspace.dependencies]
-webgraph = { path = "./webgraph", version = "0.3.0" }
-webgraph-algo = { path = "./algo", version = "0.2.0" }
-webgraph-cli = { path = "./cli", version = "0.1.0" }
+webgraph = { path = "./webgraph", version = "0.4.0" }
+webgraph-algo = { path = "./algo", version = "0.4.0" }
+webgraph-cli = { path = "./cli", version = "0.2.0" }
 
 card-est-array = "0.2.0"
 epserde = "0.11.1"
