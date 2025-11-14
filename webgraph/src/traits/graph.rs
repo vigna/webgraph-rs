@@ -43,10 +43,10 @@ use impl_tools::autoimpl;
 use lender::*;
 
 use super::{
+    SortedIterator, SortedLender,
     labels::EqError,
     lenders::{LenderIntoIter, NodeLabelsLender},
     split::SplitLabeling,
-    SortedIterator, SortedLender,
 };
 
 #[allow(non_camel_case_types)]

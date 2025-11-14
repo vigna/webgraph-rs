@@ -26,16 +26,16 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use anyhow::{ensure, Context, Result};
-use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
-use rayon::prelude::*;
+use anyhow::{Context, Result, ensure};
+use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use rayon::Yield;
+use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
 use crate::utils::DefaultBatchCodec;
 
-use super::sort_pairs::KMergeIters;
 use super::MemoryUsage;
+use super::sort_pairs::KMergeIters;
 use super::{BatchCodec, CodecIter};
 use crate::utils::SplitIters;
 
@@ -223,7 +223,8 @@ impl ParSortPairs {
         pairs: P,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync> + use<C, P>,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>
+            + use<C, P>,
         >,
     > {
         self.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs.map(Ok))
@@ -240,13 +241,18 @@ impl ParSortPairs {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// `BatchIterator`, and there are possible
     /// scenarios in which the deserializer might be stateful.
-    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>, P: ParallelIterator<Item = Result<((usize, usize), C::Label), E>>>(
+    pub fn try_sort_labeled<
+        C: BatchCodec,
+        E: Into<anyhow::Error>,
+        P: ParallelIterator<Item = Result<((usize, usize), C::Label), E>>,
+    >(
         &self,
         batch_codec: &C,
         pairs: P,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync> + use<C, E, P>,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>
+            + use<C, E, P>,
         >,
     > {
         let unsorted_pairs = pairs;

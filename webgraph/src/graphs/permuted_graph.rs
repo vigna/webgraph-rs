@@ -47,11 +47,8 @@ impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling
     }
 }
 
-impl<
-        'b,
-        G: SequentialGraph + SplitLabeling,
-        P: SliceByValue<Value = usize> + Send + Sync + Clone,
-    > SplitLabeling for PermutedGraph<'b, G, P>
+impl<'b, G: SequentialGraph + SplitLabeling, P: SliceByValue<Value = usize> + Send + Sync + Clone>
+    SplitLabeling for PermutedGraph<'b, G, P>
 where
     for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + Send + Sync,
 {
@@ -93,28 +90,26 @@ pub struct Iter<'node, I, P> {
 }
 
 impl<
-        'succ,
-        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: SliceByValue<Value = usize>,
-    > NodeLabelsLender<'succ> for Iter<'_, I, P>
+    'succ,
+    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> NodeLabelsLender<'succ> for Iter<'_, I, P>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>, P>;
 }
 
 impl<
-        'succ,
-        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: SliceByValue<Value = usize>,
-    > Lending<'succ> for Iter<'_, I, P>
+    'succ,
+    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> Lending<'succ> for Iter<'_, I, P>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: SliceByValue<Value = usize>,
-    > Lender for Iter<'_, L, P>
+impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: SliceByValue<Value = usize>>
+    Lender for Iter<'_, L, P>
 {
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -132,9 +127,9 @@ impl<
 }
 
 impl<
-        L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: SliceByValue<Value = usize>,
-    > ExactSizeLender for Iter<'_, L, P>
+    L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> ExactSizeLender for Iter<'_, L, P>
 {
     fn len(&self) -> usize {
         self.iter.len()

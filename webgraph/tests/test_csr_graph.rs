@@ -11,7 +11,7 @@ use epserde::{deser::Deserialize, ser::Serialize};
 use webgraph::{
     graphs::csr_graph::{CompressedCsrGraph, CompressedCsrSortedGraph, CsrSortedGraph},
     prelude::{CsrGraph, VecGraph},
-    traits::{graph, labels, SequentialGraph, SortedLender},
+    traits::{SequentialGraph, SortedLender, graph, labels},
 };
 
 /// Helper function to test epserde serialization/deserialization for CSR graph types

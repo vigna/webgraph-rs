@@ -285,9 +285,9 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// call is embedded in a larger expression, in which case an explicit type
 /// annotation might be necessary.
 impl<
-        I: Iterator<Item = (usize, usize)> + Send + Sync,
-        IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
-    > From<SplitIters<IT>>
+    I: Iterator<Item = (usize, usize)> + Send + Sync,
+    IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
+> From<SplitIters<IT>>
     for Vec<
         crate::labels::proj::LeftIterator<
             Iter<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
@@ -325,10 +325,10 @@ impl<
 /// call is embedded in a larger expression, in which case an explicit type
 /// annotation might be necessary.
 impl<
-        L: Clone + Copy + 'static,
-        I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
-        IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
-    > From<SplitIters<IT>> for Vec<Iter<L, I>>
+    L: Clone + Copy + 'static,
+    I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
+    IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
+> From<SplitIters<IT>> for Vec<Iter<L, I>>
 {
     fn from(split: SplitIters<IT>) -> Self {
         Box::into_iter(split.iters)

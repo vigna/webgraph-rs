@@ -12,8 +12,8 @@ use crate::utils::CircularBuffer;
 use anyhow::Result;
 use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
-use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
+use dsi_bitstream::traits::BitSeek;
 use lender::*;
 
 /// A sequential BvGraph that can be read from a `codes_reader_builder`.

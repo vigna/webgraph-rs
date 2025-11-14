@@ -9,8 +9,8 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::dispatch::CodesReaderFactory;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
 use epserde::deser::{MemCase, Owned};

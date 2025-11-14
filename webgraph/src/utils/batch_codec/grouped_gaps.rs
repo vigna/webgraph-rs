@@ -9,7 +9,7 @@ use crate::traits::SortedIterator;
 use crate::utils::{ArcMmapHelper, MmapHelper, Triple};
 use crate::{
     traits::{BitDeserializer, BitSerializer},
-    utils::{humanize, BatchCodec},
+    utils::{BatchCodec, humanize},
 };
 
 use std::sync::Arc;
@@ -87,13 +87,13 @@ where
 }
 
 impl<
-        E: Endianness,
-        S: BitSerializer<E, BitWriter<E>> + Default,
-        D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone + Default,
-        const OUTDEGREE_CODE: usize,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > Default for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    E: Endianness,
+    S: BitSerializer<E, BitWriter<E>> + Default,
+    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone + Default,
+    const OUTDEGREE_CODE: usize,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> Default for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
@@ -208,7 +208,7 @@ where
                 .write(&mut stream, (src - prev_src) as _)
                 .with_context(|| format!("Could not write {src} after {prev_src}"))?;
             // figure out how many edges have this source
-            let outdegree = batch[i..].iter().take_while(|t| t.0 .0 == src).count();
+            let outdegree = batch[i..].iter().take_while(|t| t.0.0 == src).count();
             // write the outdegree
             stats.outdegree_bits += ConstCode::<OUTDEGREE_CODE>
                 .write(&mut stream, outdegree as _)
@@ -294,12 +294,12 @@ pub struct GroupedGapsIterator<
 }
 
 unsafe impl<
-        E: Endianness,
-        D: BitDeserializer<E, BitReader<E>>,
-        const OUTDEGREE_CODE: usize,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > SortedIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const OUTDEGREE_CODE: usize,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> SortedIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -307,12 +307,12 @@ where
 }
 
 impl<
-        E: Endianness,
-        D: BitDeserializer<E, BitReader<E>>,
-        const OUTDEGREE_CODE: usize,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > Iterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const OUTDEGREE_CODE: usize,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> Iterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -345,12 +345,12 @@ where
 }
 
 impl<
-        E: Endianness,
-        D: BitDeserializer<E, BitReader<E>>,
-        const OUTDEGREE_CODE: usize,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > ExactSizeIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const OUTDEGREE_CODE: usize,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> ExactSizeIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,

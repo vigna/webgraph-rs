@@ -5,7 +5,7 @@
  */
 
 use crate::{labels::Left, traits::*};
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use lender::*;
 
 /// An adapter exhibiting a list of labeled arcs sorted by source as a [labeled
@@ -108,7 +108,10 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Iter<L, I> {
     pub fn try_new_from(num_nodes: usize, iter: I, from: usize) -> Result<Self> {
         let mut iter = iter.peekable();
         if let Some(((first_src, _), _)) = iter.peek() {
-            ensure!(*first_src >= from, "Tried to create arc_list_graph::Iter starting from {from} using an iterator starting from {first_src}");
+            ensure!(
+                *first_src >= from,
+                "Tried to create arc_list_graph::Iter starting from {from} using an iterator starting from {first_src}"
+            );
         }
         Ok(Iter {
             num_nodes: num_nodes + from,
@@ -222,7 +225,7 @@ impl<L, I: IntoIterator<Item = ((usize, usize), L)>> Iterator for Succ<'_, L, I>
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
         // If the next pair is not there, or it has a different source, we are done
-        if self.node_iter.iter.peek()?.0 .0 >= self.node_iter.next_node {
+        if self.node_iter.iter.peek()?.0.0 >= self.node_iter.next_node {
             return None;
         }
         // get the next labeled pair

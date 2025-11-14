@@ -7,8 +7,8 @@
  */
 
 use no_break::NoBreak;
-use webgraph::{prelude::depth_first, visits::Sequential};
 use webgraph::{prelude::VecGraph, traits::SequentialLabeling};
+use webgraph::{prelude::depth_first, visits::Sequential};
 
 #[test]
 fn test_depth() {

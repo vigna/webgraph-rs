@@ -6,8 +6,8 @@
  */
 
 use crate::visits::{
-    breadth_first::{EventPred, FilterArgsPred},
     Parallel,
+    breadth_first::{EventPred, FilterArgsPred},
 };
 use crate::{traits::RandomAccessGraph, utils::Granularity};
 use parallel_frontier::Frontier;

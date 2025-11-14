@@ -8,8 +8,8 @@
 use std::marker::PhantomData;
 
 use super::super::*;
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use dsi_bitstream::dispatch::code_consts;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -38,14 +38,14 @@ pub struct ConstCodesDecoder<
 }
 
 impl<
-        E: Endianness,
-        CR: CodesRead<E> + BitSeek,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > BitSeek for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    CR: CodesRead<E> + BitSeek,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> BitSeek for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = <CR as BitSeek>::Error;
 
@@ -59,14 +59,14 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        CR: CodesRead<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    CR: CodesRead<E>,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Creates a new [`ConstCodesEncoder`] from a [`CodesRead`] implementation.
     /// and a [`CompFlags`] struct
@@ -96,14 +96,14 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        CR: CodesRead<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > Decode for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    CR: CodesRead<E>,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> Decode for ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
@@ -167,15 +167,15 @@ pub struct ConstCodesDecoderFactory<
 }
 
 impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: Offsets,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    F: CodesReaderFactoryHelper<E>,
+    OFF: Offsets,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Remaps the offsets in a slice of `usize`.
     ///
@@ -210,15 +210,15 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: Offsets,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    F: CodesReaderFactoryHelper<E>,
+    OFF: Offsets,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Creates a new builder from the given data and compression flags.
     pub fn new(factory: F, offsets: MemCase<OFF>, comp_flags: CompFlags) -> anyhow::Result<Self> {
@@ -246,15 +246,15 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: Offsets,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > RandomAccessDecoderFactory
+    E: Endianness,
+    F: CodesReaderFactoryHelper<E>,
+    OFF: Offsets,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> RandomAccessDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 where
     for<'a> <F as CodesReaderFactory<E>>::CodesReader<'a>: BitSeek,
@@ -276,15 +276,15 @@ where
 }
 
 impl<
-        E: Endianness,
-        F: CodesReaderFactoryHelper<E>,
-        OFF: Offsets,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > SequentialDecoderFactory
+    E: Endianness,
+    F: CodesReaderFactoryHelper<E>,
+    OFF: Offsets,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> SequentialDecoderFactory
     for ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Decoder<'a>

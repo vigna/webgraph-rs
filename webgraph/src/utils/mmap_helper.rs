@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use common_traits::UnsignedInt;
 use core::fmt::Debug;
 use mmap_rs::*;

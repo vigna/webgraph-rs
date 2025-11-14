@@ -9,7 +9,7 @@ use webgraph::{
     graphs::{random::ErdosRenyi, vec_graph::LabeledVecGraph},
     labels::Zip,
     prelude::VecGraph,
-    traits::{graph, labels, SequentialLabeling},
+    traits::{SequentialLabeling, graph, labels},
 };
 
 #[test]
