@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.3.0]
+
+* Switched to the 2024 edition.
+
 ## [0.2.0] - 2025-11-15
 
 * Code has been updated to the new WebGraph version.

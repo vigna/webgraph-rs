@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.5.0]
+
+* Switched to the 2024 edition.
+
 ## [0.4.0] - 2025-11-15
 
 * Several methods previously accepting a `&ThreadPool` now
