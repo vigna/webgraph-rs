@@ -14,7 +14,7 @@ use webgraph::{
         vec_graph::LabeledVecGraph,
     },
     prelude::BvGraph,
-    traits::{graph, NodeLabelsLender, RandomAccessLabeling, SequentialLabeling, SplitLabeling},
+    traits::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling, SplitLabeling, graph},
     utils::SplitIters,
 };
 

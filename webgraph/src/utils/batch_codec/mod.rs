@@ -49,10 +49,7 @@ pub trait BatchCodec: Send + Sync {
     /// to use them in [`SortPairs`](crate::utils::sort_pairs::SortPairs) and
     /// then in [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph)
     /// which require them.
-    type DecodedBatch: IntoIterator<
-        Item = ((usize, usize), Self::Label),
-        IntoIter: Send + Sync + Clone,
-    >;
+    type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::Label), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.
     /// This type has to implement `Display` so that we can log it.
@@ -128,16 +125,16 @@ impl<L> RadixKey for Triple<L> {
 
     fn get_level(&self, level: usize) -> u8 {
         (if level < 8 {
-            self.0 .0 .1 >> ((level % 8) * 8)
+            self.0.0.1 >> ((level % 8) * 8)
         } else {
-            self.0 .0 .0 >> ((level % 8) * 8)
+            self.0.0.0 >> ((level % 8) * 8)
         }) as u8
     }
 }
 
 impl<L> PartialEq for Triple<L> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 .0 == other.0 .0
+        self.0.0 == other.0.0
     }
 }
 
@@ -151,6 +148,6 @@ impl<L> PartialOrd for Triple<L> {
 
 impl<L> Ord for Triple<L> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.0 .0.cmp(&other.0 .0)
+        self.0.0.cmp(&other.0.0)
     }
 }

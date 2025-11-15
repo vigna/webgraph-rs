@@ -6,14 +6,14 @@
  */
 
 use dsi_bitstream::codes::{GammaRead, GammaWrite};
+use dsi_bitstream::traits::{BE, Endianness};
 use dsi_bitstream::traits::{BitRead, BitWrite};
-use dsi_bitstream::traits::{Endianness, BE};
 use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::prelude::{transpose, transpose_labeled, transpose_split};
 use webgraph::traits::labels::SequentialLabeling;
-use webgraph::traits::{graph, BitDeserializer, BitSerializer};
-use webgraph::utils::gaps::GapsCodec;
+use webgraph::traits::{BitDeserializer, BitSerializer, graph};
 use webgraph::utils::MemoryUsage;
+use webgraph::utils::gaps::GapsCodec;
 use webgraph::utils::{BitReader, BitWriter};
 
 #[test]

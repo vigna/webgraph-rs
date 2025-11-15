@@ -8,8 +8,8 @@
 
 use crate::traits::{RandomAccessGraph, RandomAccessLabeling};
 use crate::visits::{
-    depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
     Sequential,
+    depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
 };
 use sealed::sealed;
 use std::ops::ControlFlow::{self, Continue};
@@ -595,7 +595,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
         // while we have a stack
         while let Some((iter, parent)) = stack.last_mut() {
             let parent = *parent; // we need to deref
-                                  // and the top has successors
+            // and the top has successors
             for succ in iter {
                 // Check if node should be visited
                 if state.known(succ) {

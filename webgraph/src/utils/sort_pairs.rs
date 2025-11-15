@@ -13,7 +13,7 @@ use crate::{
     traits::SortedIterator,
     utils::{BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage},
 };
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use dary_heap::PeekMut;
 use std::path::{Path, PathBuf};
 
@@ -432,7 +432,7 @@ mod tests {
     use super::*;
     use crate::{
         traits::{BitDeserializer, BitSerializer},
-        utils::{gaps::GapsCodec, BitReader, BitWriter},
+        utils::{BitReader, BitWriter, gaps::GapsCodec},
     };
     use dsi_bitstream::prelude::*;
 

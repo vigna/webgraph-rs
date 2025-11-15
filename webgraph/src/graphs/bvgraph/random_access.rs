@@ -9,7 +9,7 @@ use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
-use dsi_bitstream::traits::{Endianness, BE};
+use dsi_bitstream::traits::{BE, Endianness};
 use epserde::deser::Owned;
 use lender::IntoLender;
 use std::path::PathBuf;

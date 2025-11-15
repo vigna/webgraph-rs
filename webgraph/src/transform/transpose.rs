@@ -114,7 +114,7 @@ where
         .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
         .collect();
 
-    par_sort_iters.try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs)
+    par_sort_iters.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs)
 }
 
 /// Returns a [`SplitIters`] structure representing the
@@ -155,7 +155,7 @@ pub fn transpose_split<
 
     let batch_codec = DefaultBatchCodec::default();
     let SplitIters { boundaries, iters } = par_sort_iters
-        .try_sort_labeled::<DefaultBatchCodec, std::convert::Infallible>(batch_codec, pairs)?;
+        .try_sort_labeled::<DefaultBatchCodec, std::convert::Infallible, _>(batch_codec, pairs)?;
 
     Ok(SplitIters {
         boundaries,

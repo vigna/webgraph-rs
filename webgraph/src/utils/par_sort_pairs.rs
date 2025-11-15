@@ -26,16 +26,16 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use anyhow::{ensure, Context, Result};
-use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
-use rayon::prelude::*;
+use anyhow::{Context, Result, ensure};
+use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use rayon::Yield;
+use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
 use crate::utils::DefaultBatchCodec;
 
-use super::sort_pairs::KMergeIters;
 use super::MemoryUsage;
+use super::sort_pairs::KMergeIters;
 use super::{BatchCodec, CodecIter};
 use crate::utils::SplitIters;
 
@@ -217,16 +217,17 @@ impl ParSortPairs {
     /// See [`try_sort_labeled`](ParSortPairs::try_sort_labeled).
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
-    pub fn sort_labeled<C: BatchCodec>(
+    pub fn sort_labeled<C: BatchCodec, P: ParallelIterator<Item = ((usize, usize), C::Label)>>(
         &self,
         batch_codec: &C,
-        pairs: impl ParallelIterator<Item = ((usize, usize), C::Label)>,
+        pairs: P,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>
+            + use<C, P>,
         >,
     > {
-        self.try_sort_labeled::<C, std::convert::Infallible>(batch_codec, pairs.map(Ok))
+        self.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs.map(Ok))
     }
 
     /// Sorts the output of the provided parallel iterator,
@@ -240,13 +241,18 @@ impl ParSortPairs {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// `BatchIterator`, and there are possible
     /// scenarios in which the deserializer might be stateful.
-    pub fn try_sort_labeled<C: BatchCodec, E: Into<anyhow::Error>>(
+    pub fn try_sort_labeled<
+        C: BatchCodec,
+        E: Into<anyhow::Error>,
+        P: ParallelIterator<Item = Result<((usize, usize), C::Label), E>>,
+    >(
         &self,
         batch_codec: &C,
-        pairs: impl ParallelIterator<Item = Result<((usize, usize), C::Label), E>>,
+        pairs: P,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>
+            + use<C, E, P>,
         >,
     > {
         let unsorted_pairs = pairs;
@@ -326,8 +332,8 @@ impl ParSortPairs {
                 let partition_id = src / num_nodes_per_partition;
                 let SorterThreadState {
                     worker_id,
-                    ref mut sorted_pairs,
-                    ref mut unsorted_buffers,
+                    sorted_pairs,
+                    unsorted_buffers,
                 } = &mut **thread_state;
 
                 let sorted_pairs = &mut sorted_pairs[partition_id];

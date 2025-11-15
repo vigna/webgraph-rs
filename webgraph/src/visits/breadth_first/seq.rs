@@ -8,8 +8,8 @@
 
 use crate::traits::{RandomAccessGraph, RandomAccessLabeling};
 use crate::visits::{
-    breadth_first::{EventPred, FilterArgsPred},
     Sequential,
+    breadth_first::{EventPred, FilterArgsPred},
 };
 use anyhow::Result;
 use nonmax::NonMaxUsize;
@@ -452,7 +452,7 @@ impl<'a, 'b, G: RandomAccessGraph> BfsOrderFromRoots<'a, 'b, G> {
         roots: impl IntoIterator<Item = usize>,
     ) -> Result<BfsOrderFromRoots<'a, 'b, G>> {
         visit.reset(); // ensure we start from a clean state
-                       // put the roots in the queue, and add a level separator
+        // put the roots in the queue, and add a level separator
         visit.queue.extend(
             roots
                 .into_iter()

@@ -27,7 +27,7 @@ use crate::{
     prelude::{FileBufReader, MemBufReader},
     utils::MmapHelper,
 };
-use anyhow::{ensure, Context};
+use anyhow::{Context, ensure};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{

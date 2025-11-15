@@ -11,7 +11,7 @@ use crate::traits::SortedIterator;
 use crate::utils::{ArcMmapHelper, MmapHelper, Triple};
 use crate::{
     traits::{BitDeserializer, BitSerializer},
-    utils::{humanize, BatchCodec},
+    utils::{BatchCodec, humanize},
 };
 
 use std::sync::Arc;
@@ -263,11 +263,11 @@ pub struct GapsIterator<
 }
 
 unsafe impl<
-        E: Endianness,
-        D: BitDeserializer<E, BitReader<E>>,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > SortedIterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> SortedIterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -275,11 +275,11 @@ where
 }
 
 impl<
-        E: Endianness,
-        D: BitDeserializer<E, BitReader<E>>,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > Iterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> Iterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -308,11 +308,11 @@ where
 }
 
 impl<
-        E: Endianness,
-        D: BitDeserializer<E, BitReader<E>>,
-        const SRC_CODE: usize,
-        const DST_CODE: usize,
-    > ExactSizeIterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> ExactSizeIterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,

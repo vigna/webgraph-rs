@@ -9,7 +9,7 @@ use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
-use lender::{for_, IntoLender, Lend, Lender, Lending};
+use lender::{IntoLender, Lend, Lender, Lending, for_};
 use sux::{bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst};
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},

@@ -492,7 +492,9 @@ pub enum CheckImplError {
     NumArcs { iter: u64, method: u64 },
 
     /// The two implementations return different labels for a specific node.
-    #[error("Different successors for node {node}: at index {index} {sequential} (sequential) != {random_access} (random access)")]
+    #[error(
+        "Different successors for node {node}: at index {index} {sequential} (sequential) != {random_access} (random access)"
+    )]
     Successors {
         node: usize,
         index: usize,
@@ -501,7 +503,9 @@ pub enum CheckImplError {
     },
 
     /// The graphs have different outdegrees for a specific node.
-    #[error("Different outdegree for node {node}: {sequential} (sequential) != {random_access} (random access)")]
+    #[error(
+        "Different outdegree for node {node}: {sequential} (sequential) != {random_access} (random access)"
+    )]
     Outdegree {
         node: usize,
         sequential: usize,

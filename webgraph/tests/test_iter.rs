@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use dsi_bitstream::prelude::BE;
 use lender::*;
-use rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng};
+use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
 use webgraph::{graphs::arc_list_graph::ArcListGraph, prelude::*};
 
 #[test]
