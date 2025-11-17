@@ -131,6 +131,21 @@ impl<
             ),
         ))
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (min0, max0) = self.0.size_hint();
+        let (min1, max1) = self.1.size_hint();
+        (
+            min0.max(min1),
+            match (max0, max1) {
+                (None, None) => None,
+                (Some(max), None) => Some(max),
+                (None, Some(max)) => Some(max),
+                (Some(max0), Some(max1)) => Some(max0.max(max1)),
+            },
+        )
+    }
 }
 
 impl<

@@ -124,6 +124,11 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: SliceByVa
             )
         })
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl<

@@ -370,6 +370,11 @@ impl<L: Lender> Lender for AssumeSortedLender<L> {
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.lender.next()
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.lender.size_hint()
+    }
 }
 
 impl<L: ExactSizeLender> ExactSizeLender for AssumeSortedLender<L> {
