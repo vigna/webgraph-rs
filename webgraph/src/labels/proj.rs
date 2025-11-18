@@ -128,6 +128,11 @@ where
             (node, LeftIntoIterator(succ))
         })
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 impl<'a, S: SequentialLabeling> IntoLender for &'a Left<S>
@@ -329,6 +334,11 @@ where
             let (node, succ) = x.into_pair();
             (node, RightIntoIterator(succ))
         })
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
