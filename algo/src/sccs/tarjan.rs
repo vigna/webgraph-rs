@@ -11,7 +11,7 @@ use std::ops::ControlFlow::{Break, Continue};
 use sux::bits::BitVec;
 use sux::traits::BitVecOpsMut;
 use webgraph::traits::RandomAccessGraph;
-use webgraph::visits::{depth_first::*, Sequential, StoppedWhenDone};
+use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 
 /// Tarjan's algorithm for strongly connected components.
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {

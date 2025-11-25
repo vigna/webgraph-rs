@@ -4,12 +4,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{build_info, num_threads_parser, pretty_print_elapsed, IntVectorFormat};
+use crate::{IntVectorFormat, build_info, num_threads_parser, pretty_print_elapsed};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{progress_logger, ProgressLog};
+use dsi_progress_logger::{ProgressLog, progress_logger};
 use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;

@@ -9,7 +9,7 @@ use crate::create_parent_dir;
 use crate::*;
 use anyhow::Result;
 use clap::Parser;
-use dsi_bitstream::prelude::{Endianness, BE};
+use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;

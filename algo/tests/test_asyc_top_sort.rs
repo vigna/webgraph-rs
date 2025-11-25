@@ -8,7 +8,7 @@
 use dsi_progress_logger::no_logging;
 use no_break::NoBreak;
 use webgraph::prelude::VecGraph;
-use webgraph::visits::{depth_first, Sequential};
+use webgraph::visits::{Sequential, depth_first};
 use webgraph_algo::prelude::{is_acyclic, top_sort};
 
 #[test]

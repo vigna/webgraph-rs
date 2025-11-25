@@ -11,7 +11,7 @@ use std::ops::ControlFlow::Continue;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::{
     visits::depth_first::SeqPred,
-    visits::{depth_first::*, Sequential},
+    visits::{Sequential, depth_first::*},
 };
 
 /// Returns the node of the graph in topological-sort order, if the graph is

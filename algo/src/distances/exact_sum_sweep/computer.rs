@@ -18,16 +18,16 @@ use rayon::prelude::*;
 use std::{
     ops::ControlFlow::Continue,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         RwLock,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{
-    breadth_first::{EventNoPred, ParFairNoPred},
     FilterArgs, Parallel,
+    breadth_first::{EventNoPred, ParFairNoPred},
 };
 
 use super::{Level, Missing};
@@ -158,13 +158,13 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        V1: Parallel<EventNoPred> + Sync,
-        V2: Parallel<EventNoPred> + Sync,
-        OL: Level,
-    > DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL>
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    V1: Parallel<EventNoPred> + Sync,
+    V2: Parallel<EventNoPred> + Sync,
+    OL: Level,
+> DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL>
 {
     #[allow(clippy::too_many_arguments)]
     fn _new(
@@ -220,12 +220,12 @@ impl<
 }
 
 impl<
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        V1: Parallel<EventNoPred> + Sync,
-        V2: Parallel<EventNoPred> + Sync,
-        OL: Level,
-    > DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL>
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    V1: Parallel<EventNoPred> + Sync,
+    V2: Parallel<EventNoPred> + Sync,
+    OL: Level,
+> DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL>
 {
     #[inline(always)]
     fn incomplete_forward(&self, index: usize) -> bool {

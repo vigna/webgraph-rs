@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::create_parent_dir;
-use crate::get_thread_pool;
 use crate::GlobalArgs;
 use crate::GranularityArgs;
 use crate::NumThreadsArg;
-use anyhow::{bail, Context, Result};
+use crate::create_parent_dir;
+use crate::get_thread_pool;
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;

@@ -18,8 +18,8 @@ use webgraph::prelude::BTreeGraph;
 use webgraph::traits::SequentialLabeling;
 use webgraph::transform::transpose;
 use webgraph::utils::MemoryUsage;
-use webgraph::visits::breadth_first::{EventPred, Seq};
 use webgraph::visits::Sequential;
+use webgraph::visits::breadth_first::{EventPred, Seq};
 use webgraph_algo::distances::exact_sum_sweep::*;
 
 #[test]

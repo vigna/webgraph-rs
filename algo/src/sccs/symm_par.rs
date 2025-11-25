@@ -17,8 +17,8 @@ use std::{
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{
-    breadth_first::{EventNoPred, ParFairNoPred},
     Parallel,
+    breadth_first::{EventNoPred, ParFairNoPred},
 };
 
 /// Connected components of symmetric graphs by parallel visits.

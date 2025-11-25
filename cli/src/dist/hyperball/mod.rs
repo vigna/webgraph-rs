@@ -4,11 +4,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{get_thread_pool, FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg};
-use anyhow::{ensure, Result};
+use crate::{FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
+use anyhow::{Result, ensure};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
+use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use epserde::deser::{Deserialize, Flags};
 use rand::SeedableRng;
 use std::path::PathBuf;

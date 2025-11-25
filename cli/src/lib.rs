@@ -9,7 +9,7 @@
 #![doc = include_str!("../README.md")]
 #![allow(clippy::type_complexity)]
 
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use common_traits::{ToBytes, UnsignedInt};
 use dsi_bitstream::dispatch::Codes;
@@ -557,8 +557,8 @@ fn parse_duration(value: &str) -> Result<Duration> {
 /// Initializes the `env_logger` logger with a custom format including
 /// timestamps with elapsed time since initialization.
 pub fn init_env_logger() -> Result<()> {
-    use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
     use jiff::SpanRound;
+    use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
 
     let mut builder =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceEstimatorArray};
 use card_est_array::traits::{
     AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
@@ -16,7 +16,7 @@ use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
 use rayon::prelude::*;
 use std::hash::{BuildHasherDefault, DefaultHasher};
-use std::sync::{atomic::*, Mutex};
+use std::sync::{Mutex, atomic::*};
 use sux::traits::AtomicBitVecOps;
 use sux::{bits::AtomicBitVec, traits::Succ};
 use sync_cell_slice::{SyncCell, SyncSlice};
@@ -61,11 +61,11 @@ pub struct HyperBallBuilder<
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-    >
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+>
     HyperBallBuilder<
         'a,
         G1,
@@ -132,12 +132,12 @@ impl<
 }
 
 impl<
-        'a,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-        G: RandomAccessGraph + Sync,
-        L: MergeEstimationLogic<Item = G::Label> + PartialEq,
-        A: EstimatorArrayMut<L>,
-    > HyperBallBuilder<'a, G, G, D, L, A>
+    'a,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    G: RandomAccessGraph + Sync,
+    L: MergeEstimationLogic<Item = G::Label> + PartialEq,
+    A: EstimatorArrayMut<L>,
+> HyperBallBuilder<'a, G, G, D, L, A>
 {
     /// Creates a new builder with default parameters.
     ///
@@ -180,13 +180,13 @@ impl<
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-        L: MergeEstimationLogic<Item = G1::Label>,
-        A: EstimatorArrayMut<L>,
-    > HyperBallBuilder<'a, G1, G2, D, L, A>
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    L: MergeEstimationLogic<Item = G1::Label>,
+    A: EstimatorArrayMut<L>,
+> HyperBallBuilder<'a, G1, G2, D, L, A>
 {
     const DEFAULT_GRANULARITY: usize = 16 * 1024;
 
@@ -303,13 +303,13 @@ impl<
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-        L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
-        A: EstimatorArrayMut<L>,
-    > HyperBallBuilder<'a, G1, G2, D, L, A>
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
+    A: EstimatorArrayMut<L>,
+> HyperBallBuilder<'a, G1, G2, D, L, A>
 {
     /// Builds a [`HyperBall`] instance.
     ///
@@ -499,12 +499,12 @@ pub struct HyperBall<
 }
 
 impl<
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
-        L: MergeEstimationLogic<Item = usize> + Sync,
-        A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
-    > HyperBall<'_, G1, G2, D, L, A>
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
+    L: MergeEstimationLogic<Item = usize> + Sync,
+    A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
+> HyperBall<'_, G1, G2, D, L, A>
 where
     L::Backend: PartialEq,
 {
@@ -626,7 +626,9 @@ where
             // TODO these are COPIES
             Ok(distances)
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute them")
+            bail!(
+                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute them"
+            )
         }
     }
 
@@ -636,7 +638,9 @@ where
         if let Some(distances) = &self.sum_of_inv_dists {
             Ok(distances)
         } else {
-            bail!("Sum of inverse distances were not requested: use builder.with_sum_of_inverse_distances(true) while building HyperBall to compute them")
+            bail!(
+                "Sum of inverse distances were not requested: use builder.with_sum_of_inverse_distances(true) while building HyperBall to compute them"
+            )
         }
     }
 
@@ -663,7 +667,9 @@ where
                 .map(|&d| if d == 0.0 { 0.0 } else { d.recip() })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute closeness centrality")
+            bail!(
+                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute closeness centrality"
+            )
         }
     }
 
@@ -687,7 +693,9 @@ where
                 })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
+            bail!(
+                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality"
+            )
         }
     }
 
@@ -705,7 +713,9 @@ where
                 })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
+            bail!(
+                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality"
+            )
         }
     }
 
@@ -736,12 +746,12 @@ where
 }
 
 impl<
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
-        L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
-        A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
-    > HyperBall<'_, G1, G2, D, L, A>
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
+    L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
+    A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
+> HyperBall<'_, G1, G2, D, L, A>
 where
     L::Backend: PartialEq,
 {

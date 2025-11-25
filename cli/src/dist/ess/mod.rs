@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 use crate::{GlobalArgs, NumThreadsArg};
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
+use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use std::path::PathBuf;
 use webgraph::{graphs::bvgraph::get_endianness, prelude::BvGraph};
 use webgraph_algo::distances::exact_sum_sweep::{
@@ -57,15 +57,30 @@ pub enum LevelArg {
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     println!("{:#4?}", args);
-    ensure!(args.symmetric || args.transposed.is_some(), "You have to either pass --transposed with with the basename of the transposed graph or --symm if the graph is symmetric.");
+    ensure!(
+        args.symmetric || args.transposed.is_some(),
+        "You have to either pass --transposed with with the basename of the transposed graph or --symm if the graph is symmetric."
+    );
     ensure!(
         !(args.symmetric && args.transposed.is_some()),
         "--transposed is needed only if the graph is not symmetric."
     );
-    ensure!(args.forward.is_none() || matches!(args.level, LevelArg::All | LevelArg::AllForward), "You cannot only pass --forward with --level=all or --level=all-forward as the forward eccentricities won't be computed otherwise.");
-    ensure!(!(args.forward.is_none() && matches!(args.level, LevelArg::All | LevelArg::AllForward)), "If --level=all or --level=all-forward, you should pass --forward to store the computed eccentricities.");
-    ensure!(!(args.backward.is_some() && args.level != LevelArg::All), "You cannot only pass --backward with --level=all as the backward eccentricities won't be computed otherwise.");
-    ensure!(!(args.level == LevelArg::All && args.symmetric && args.backward.is_some()), "You cannot pass --backward with --symm and --level=all as the eccentricities of a symmetric graph are the same in both directions.");
+    ensure!(
+        args.forward.is_none() || matches!(args.level, LevelArg::All | LevelArg::AllForward),
+        "You cannot only pass --forward with --level=all or --level=all-forward as the forward eccentricities won't be computed otherwise."
+    );
+    ensure!(
+        !(args.forward.is_none() && matches!(args.level, LevelArg::All | LevelArg::AllForward)),
+        "If --level=all or --level=all-forward, you should pass --forward to store the computed eccentricities."
+    );
+    ensure!(
+        !(args.backward.is_some() && args.level != LevelArg::All),
+        "You cannot only pass --backward with --level=all as the backward eccentricities won't be computed otherwise."
+    );
+    ensure!(
+        !(args.level == LevelArg::All && args.symmetric && args.backward.is_some()),
+        "You cannot pass --backward with --symm and --level=all as the eccentricities of a symmetric graph are the same in both directions."
+    );
 
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
