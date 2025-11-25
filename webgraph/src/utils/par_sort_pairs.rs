@@ -326,7 +326,7 @@ impl ParSortPairs {
                 let ((src, dst), label) = pair.map_err(Into::into)?;
                 ensure!(
                     src < self.num_nodes,
-                    "Expected {}, but got {src}",
+                    "Expected {} nodes, but got node id {src}",
                     self.num_nodes
                 );
                 let partition_id = src / num_nodes_per_partition;
