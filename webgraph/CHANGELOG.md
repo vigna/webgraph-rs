@@ -2,6 +2,8 @@
 
 ## [0.5.0]
 
+### Changed
+
 * Switched to the 2024 edition.
 
 ## [0.4.0] - 2025-11-15

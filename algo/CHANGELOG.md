@@ -2,9 +2,13 @@
 
 ## [0.5.0]
 
+### Changed
+
 * Switched to the 2024 edition.
 
 ## [0.4.0] - 2025-11-15
+
+### Changed
 
 * Several methods previously accepting a `&ThreadPool` now
   they don't. The user can use the standard rayon global thread pool
