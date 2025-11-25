@@ -455,7 +455,7 @@ mod test {
         let compression_window = 32;
         let min_interval_length = 4;
 
-        let seq_graph = BvGraphSeq::with_basename("tests/data/cnr-2000")
+        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
@@ -521,7 +521,7 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = BvGraphSeq::with_basename("tests/data/cnr-2000")
+        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
