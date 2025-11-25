@@ -460,7 +460,7 @@ mod test {
             .load()?;
 
         // Compress the graph
-        let file_path = "tests/data/cnr-2000.bvcompz";
+        let file_path = "../data/cnr-2000.bvcompz";
         let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
             File::create(file_path)?,
         )));
