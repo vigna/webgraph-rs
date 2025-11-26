@@ -44,6 +44,9 @@ pub use java_perm::*;
 mod granularity;
 pub use granularity::*;
 
+pub mod matrix;
+pub use matrix::Matrix;
+
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 

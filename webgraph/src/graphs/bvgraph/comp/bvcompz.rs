@@ -42,7 +42,7 @@ pub struct BvCompZ<E> {
     /// The references to the adjacency list to copy
     references: Vec<usize>,
     /// Saved costs of each reference in the chunk and his compression window
-    reference_costs: Vec<Vec<u64>>,
+    reference_costs: Matrix<u64>,
     /// Estimate costs in saved bits using the current reference selection versus the extensive list   
     saved_costs: Vec<f32>,
     /// The number of nodes for which the reference selection algorithm is executed.
@@ -120,7 +120,7 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
             )?
         };
         let mut saved_cost = 0;
-        self.reference_costs[relative_index_in_chunk][0] = cost;
+        self.reference_costs[(relative_index_in_chunk, 0)] = cost;
         let mut min_bits = cost;
 
         let deltas = 1 + self
@@ -155,7 +155,7 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
                     self.min_interval_length,
                 )?
             };
-            self.reference_costs[relative_index_in_chunk][delta] = bits;
+            self.reference_costs[(relative_index_in_chunk, delta)] = bits;
             // keep track of the best, it's strictly less so we keep the
             // nearest one in the case of multiple equal ones
             if bits < min_bits {
@@ -215,7 +215,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
     ) -> Self {
         BvCompZ {
             backrefs: CircularBuffer::new(chunk_size + 1),
-            reference_costs: vec![vec![0; compression_window + 1]; chunk_size + 1],
+            reference_costs: Matrix::new(chunk_size + 1, compression_window + 1),
             references: Vec::with_capacity(chunk_size + 1),
             saved_costs: Vec::with_capacity(chunk_size + 1),
             chunk_size,
@@ -269,7 +269,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
                 chain_length[relative_index_in_chunk] = chain_length[parent] + 1;
             }
             // first get the number of bits used to compress the current node without references
-            let mut min_bits = self.reference_costs[relative_index_in_chunk][0];
+            let mut min_bits = self.reference_costs[(relative_index_in_chunk, 0)];
 
             let deltas = 1 + self.compression_window.min(relative_index_in_chunk);
             // compression windows is not zero, so compress the current node
@@ -290,7 +290,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
                     continue;
                 }
                 // Read how many bits it would use for this reference
-                let bits = self.reference_costs[relative_index_in_chunk][delta];
+                let bits = self.reference_costs[(relative_index_in_chunk, delta)];
                 // keep track of the best, it's strictly less so we keep the
                 // nearest one in the case of multiple equal ones
                 if bits < min_bits {
@@ -358,19 +358,19 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
         // table for dynamic programming: the entry x, i of the table represent
         // the maximum weight of the subforest rooted in x that has no paths
         // longer than i.
-        // So using dyn[node][max_length] denotes the weight where we are
+        // So using dyn[(node, max_length)] denotes the weight where we are
         // considering "node" to be the root (so without reference).
-        let mut dyn_table = vec![vec![ReferenceTableEntry::default(); self.max_ref_count + 1]; n];
+        let mut dyn_table: Matrix<ReferenceTableEntry> = Matrix::new(n, self.max_ref_count + 1);
 
         for i in (0..n).rev() {
             // in the paper M_r(i) so the case where I don't choose this node to be referred from other lists
             // and favor the children so they can be have paths of the maximum length (n)
             let mut child_sum_full_chain = 0.0;
             for child in out_edges[i].iter() {
-                child_sum_full_chain += dyn_table[child][self.max_ref_count].saved_cost;
+                child_sum_full_chain += dyn_table[(child, self.max_ref_count)].saved_cost;
             }
 
-            dyn_table[i][0] = ReferenceTableEntry {
+            dyn_table[(i, 0)] = ReferenceTableEntry {
                 saved_cost: child_sum_full_chain,
                 choosen: false,
             };
@@ -382,9 +382,9 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
                 let mut child_sum = self.saved_costs[i];
                 // Take it.
                 for child in out_edges[i].iter() {
-                    child_sum += dyn_table[child][links_to_use - 1].saved_cost;
+                    child_sum += dyn_table[(child, links_to_use - 1)].saved_cost;
                 }
-                dyn_table[i][links_to_use] = if child_sum > child_sum_full_chain {
+                dyn_table[(i, links_to_use)] = if child_sum > child_sum_full_chain {
                     ReferenceTableEntry {
                         saved_cost: child_sum,
                         choosen: true,
@@ -401,7 +401,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
         let mut available_length = vec![self.max_ref_count; n];
         // always choose the maximum available lengths calculated in the previous step
         for i in 0..self.references.len() {
-            if dyn_table[i][available_length[i]].choosen {
+            if dyn_table[(i, available_length[i])].choosen {
                 // Taken: push available_length.
                 for child in out_edges[i].iter() {
                     available_length[child] = available_length[i] - 1;
