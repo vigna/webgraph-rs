@@ -139,6 +139,10 @@ pub struct BvCompBuilder<'t> {
     basename: PathBuf,
     compression_flags: CompFlags,
     threads: Option<MaybeOwned<'t, ThreadPool>>,
+    /// Selects the Zuckerli-based BVGraph compressor
+    bvgraphz: bool,
+    /// The chunk size for the Zuckerli-based compressor
+    chunk_size: usize,
     tmp_dir: Option<PathBuf>,
     /// owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default
     owned_tmp_dir: Option<tempfile::TempDir>,
@@ -150,6 +154,8 @@ impl BvCompBuilder<'static> {
             basename: basename.as_ref().into(),
             compression_flags: CompFlags::default(),
             threads: None,
+            bvgraphz: false,
+            chunk_size: 1000,
             tmp_dir: None,
             owned_tmp_dir: None,
         }
@@ -170,6 +176,21 @@ impl<'t> BvCompBuilder<'t> {
     pub fn with_threads(self, threads: &'_ ThreadPool) -> BvCompBuilder<'_> {
         BvCompBuilder {
             threads: Some(MaybeOwned::Borrowed(threads)),
+            ..self
+        }
+    }
+
+    pub fn with_zuckerli(self) -> Self {
+        BvCompBuilder {
+            bvgraphz: true,
+            ..self
+        }
+    }
+
+    pub fn with_chunk_size(self, chunk_size: usize) -> Self {
+        BvCompBuilder {
+            bvgraphz: true,
+            chunk_size,
             ..self
         }
     }
@@ -237,29 +258,48 @@ impl<'t> BvCompBuilder<'t> {
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
         let offset_writer = OffsetsWriter::from_path(offsets_path)?;
 
-        let mut bvcomp = BvComp::new(
-            codes_writer,
-            offset_writer,
-            self.compression_flags.compression_window,
-            self.compression_flags.max_ref_count,
-            self.compression_flags.min_interval_length,
-            0,
-        );
-
         let mut pl = progress_logger![
             display_memory = true,
             item_name = "node",
             expected_updates = num_nodes,
         ];
         pl.start("Compressing successors...");
+        let comp_stats = if self.bvgraphz {
+            let mut bvcompz = BvCompZ::new(
+                codes_writer,
+                offset_writer,
+                self.compression_flags.compression_window,
+                self.chunk_size,
+                self.compression_flags.max_ref_count,
+                self.compression_flags.min_interval_length,
+                0,
+            );
 
-        for_! ( (_node_id, successors) in iter {
-            bvcomp.push(successors).context("Could not push successors")?;
-            pl.update();
-        });
-        pl.done();
+            for_! ( (_node_id, successors) in iter {
+                bvcompz.push(successors).context("Could not push successors")?;
+                pl.update();
+            });
+            pl.done();
 
-        let comp_stats = bvcomp.flush()?;
+            bvcompz.flush()?
+        } else {
+            let mut bvcomp = BvComp::new(
+                codes_writer,
+                offset_writer,
+                self.compression_flags.compression_window,
+                self.compression_flags.max_ref_count,
+                self.compression_flags.min_interval_length,
+                0,
+            );
+
+            for_! ( (_node_id, successors) in iter {
+                bvcomp.push(successors).context("Could not push successors")?;
+                pl.update();
+            });
+            pl.done();
+
+            bvcomp.flush()?
+        };
 
         if let Some(num_nodes) = num_nodes {
             if num_nodes != comp_stats.num_nodes {
@@ -313,10 +353,7 @@ impl<'t> BvCompBuilder<'t> {
             ))]
             BE::NAME => {
                 // compress the transposed graph
-                self.parallel_iter::<BigEndian, _>(
-                    graph.split_iter(num_threads),
-                    num_nodes,
-                )
+                self.parallel_iter::<BigEndian, _>(graph.split_iter(num_threads), num_nodes)
             }
             #[cfg(any(
                 feature = "le_bins",
@@ -324,10 +361,7 @@ impl<'t> BvCompBuilder<'t> {
             ))]
             LE::NAME => {
                 // compress the transposed graph
-                self.parallel_iter::<LittleEndian, _>(
-                    graph.split_iter(num_threads),
-                    num_nodes,
-                )
+                self.parallel_iter::<LittleEndian, _>(graph.split_iter(num_threads), num_nodes)
             }
             x => anyhow::bail!("Unknown endianness {}", x),
         }
@@ -436,8 +470,8 @@ impl<'t> BvCompBuilder<'t> {
                     comp_pl.update_with_count(last_node - first_node + 1);
 
                     log::debug!(
-                        "Finished Compression thread {thread_id} and wrote PIPPO bits for the graph and {offsets_written_bits} bits for the offsets",
-                        offsets_written_bits=stats.offsets_written_bits,
+                        "Finished Compression thread {thread_id} and wrote {} bits for the graph and {} bits for the offsets",
+                        stats.written_bits, stats.offsets_written_bits,
                     );
                     tx.send(Job {
                         job_id: thread_id,
@@ -610,7 +644,7 @@ impl<'t> BvCompBuilder<'t> {
 /*
 // TODO: duplicated from BVComp how can we generalize that for any available compressor.
 //       Actually I am not able to pass a type (like BVComp or BVCompZ) without
-//       specialzation on the type parameter ahead of time.
+//       specialization on the type parameter ahead of time.
 impl BvCompZ<()> {
     pub fn single_thread_endianness<L>(
         basename: impl AsRef<Path>,
