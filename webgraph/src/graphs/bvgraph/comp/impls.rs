@@ -12,6 +12,7 @@ use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::fs::File;
+use std::io::Write;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 
@@ -87,95 +88,42 @@ impl JobId for Job {
     }
 }
 
-impl BvComp<()> {
-    /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
-    /// graph bitstream.
-    pub fn single_thread<E, L>(
-        basename: impl AsRef<Path>,
-        iter: L,
-        compression_flags: CompFlags,
-        build_offsets: bool,
-        num_nodes: Option<usize>,
-    ) -> Result<u64>
-    where
-        E: Endianness,
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    {
-        BvCompBuilder::new(basename)
-            .with_compression_flags(compression_flags)
-            .single_thread::<E, L>(iter, build_offsets, num_nodes)
+/// A writer for offsets.
+///
+/// TODO: This currently uses Write which requires std. To support no_std we will want to make W a WordWriter
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct OffsetsWriter<W: Write> {
+    buffer: BufBitWriter<BigEndian, WordAdapter<usize, BufWriter<W>>>,
+}
+
+impl OffsetsWriter<File> {
+    /// Creates a new writer and writes the first offset value (0).
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
+        let file = std::fs::File::create(&path)
+            .with_context(|| format!("Could not create {}", path.as_ref().display()))?;
+        Self::from_write(file)
+    }
+}
+
+impl<W: Write> OffsetsWriter<W> {
+    /// Creates a new writer and writes the first offset value (0).
+    pub fn from_write(writer: W) -> Result<Self> {
+        let mut buffer = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
+        // the first offset is always zero
+        buffer.write_gamma(0)?;
+        Ok(Self { buffer })
     }
 
-    /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
-    /// endianness as a string.
-    ///
-    /// Endianness can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
-    ///
-    ///  A given endianness is enabled only if the corresponding feature is
-    /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
-    /// neither features are enabled.
-    pub fn parallel_endianness<P: AsRef<Path>, G: SplitLabeling + SequentialGraph>(
-        basename: impl AsRef<Path> + Send + Sync,
-        graph: &G,
-        num_nodes: usize,
-        compression_flags: CompFlags,
-        threads: &ThreadPool,
-        tmp_dir: P,
-        endianness: &str,
-    ) -> Result<u64>
-    where
-        for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
-    {
-        BvCompBuilder::new(basename)
-            .with_compression_flags(compression_flags)
-            .with_threads(threads)
-            .with_tmp_dir(tmp_dir)
-            .parallel_endianness(graph, num_nodes, endianness)
+    /// Pushes a new delta offset.
+    pub fn push(&mut self, delta: u64) -> Result<usize> {
+        Ok(self.buffer.write_gamma(delta)?)
     }
 
-    /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
-    pub fn parallel_graph<E: Endianness>(
-        basename: impl AsRef<Path> + Send + Sync,
-        graph: &(impl SequentialGraph + for<'a> SplitLabeling<SplitLender<'a>: ExactSizeLender>),
-        compression_flags: CompFlags,
-        threads: &ThreadPool,
-        tmp_dir: impl AsRef<Path>,
-    ) -> Result<u64>
-    where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
-        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
-    {
-        BvCompBuilder::new(basename)
-            .with_compression_flags(compression_flags)
-            .with_threads(threads)
-            .with_tmp_dir(tmp_dir)
-            .parallel_graph::<E>(graph)
-    }
-
-    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
-    /// of the graph bitstream.
-    pub fn parallel_iter<
-        E: Endianness,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,
-    >(
-        basename: impl AsRef<Path> + Send + Sync,
-        iter: impl IntoIterator<Item = L>,
-        num_nodes: usize,
-        compression_flags: CompFlags,
-        threads: &ThreadPool,
-        tmp_dir: impl AsRef<Path>,
-    ) -> Result<u64>
-    where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
-        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
-    {
-        BvCompBuilder::new(basename)
-            .with_compression_flags(compression_flags)
-            .with_threads(threads)
-            .with_tmp_dir(tmp_dir)
-            .parallel_iter::<E, L>(iter, num_nodes)
+    /// Flushes the buffer.
+    pub fn flush(&mut self) -> Result<()> {
+        BitWrite::flush(&mut self.buffer)? as u64;
+        Ok(())
     }
 }
 
@@ -264,12 +212,7 @@ impl<'t> BvCompBuilder<'t> {
 
     /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
     /// graph bitstream.
-    pub fn single_thread<E, L>(
-        &mut self,
-        iter: L,
-        build_offsets: bool,
-        num_nodes: Option<usize>,
-    ) -> Result<u64>
+    pub fn single_thread<E, L>(&mut self, iter: L, num_nodes: Option<usize>) -> Result<u64>
     where
         E: Endianness,
         L: IntoLender,
@@ -290,8 +233,13 @@ impl<'t> BvCompBuilder<'t> {
 
         let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags)?;
 
+        // create a file for offsets
+        let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
+        let offset_writer = OffsetsWriter::from_path(offsets_path)?;
+
         let mut bvcomp = BvComp::new(
             codes_writer,
+            offset_writer,
             self.compression_flags.compression_window,
             self.compression_flags.max_ref_count,
             self.compression_flags.min_interval_length,
@@ -304,57 +252,38 @@ impl<'t> BvCompBuilder<'t> {
             expected_updates = num_nodes,
         ];
         pl.start("Compressing successors...");
-        let mut bitstream_len = 0;
 
-        let mut real_num_nodes = 0;
-        if build_offsets {
-            let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
-            let file = std::fs::File::create(&offsets_path)
-                .with_context(|| format!("Could not create {}", offsets_path.display()))?;
-            // create a bit writer on the file
-            let mut writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
-                BufWriter::with_capacity(1 << 20, file),
-            ));
-
-            writer
-                .write_gamma(0)
-                .context("Could not write initial delta")?;
-            for_! ( (_node_id, successors) in iter {
-                let delta = bvcomp.push(successors).context("Could not push successors")?;
-                bitstream_len += delta;
-                writer.write_gamma(delta).context("Could not write delta")?;
-                pl.update();
-                real_num_nodes += 1;
-            });
-        } else {
-            for_! ( (_node_id, successors) in iter {
-                bitstream_len += bvcomp.push(successors).context("Could not push successors")?;
-                pl.update();
-                real_num_nodes += 1;
-            });
-        }
+        for_! ( (_node_id, successors) in iter {
+            bvcomp.push(successors).context("Could not push successors")?;
+            pl.update();
+        });
         pl.done();
 
+        let comp_stats = bvcomp.flush()?;
+
         if let Some(num_nodes) = num_nodes {
-            if num_nodes != real_num_nodes {
+            if num_nodes != comp_stats.num_nodes {
                 log::warn!(
-                    "The expected number of nodes is {num_nodes} but the actual number of nodes is {real_num_nodes}"
+                    "The expected number of nodes is {num_nodes} but the actual number of nodes is {}",
+                    comp_stats.num_nodes,
                 );
             }
         }
-        let num_arcs = bvcomp.arcs;
-        bitstream_len += bvcomp.flush().context("Could not flush bvcomp")? as u64;
 
         log::info!("Writing the .properties file");
         let properties = self
             .compression_flags
-            .to_properties::<E>(real_num_nodes, num_arcs, bitstream_len)
+            .to_properties::<E>(
+                comp_stats.num_nodes,
+                comp_stats.num_arcs,
+                comp_stats.written_bits,
+            )
             .context("Could not serialize properties")?;
         let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
         std::fs::write(&properties_path, properties)
             .with_context(|| format!("Could not write {}", properties_path.display()))?;
 
-        Ok(bitstream_len)
+        Ok(comp_stats.written_bits)
     }
 
     /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
@@ -385,7 +314,7 @@ impl<'t> BvCompBuilder<'t> {
             BE::NAME => {
                 // compress the transposed graph
                 self.parallel_iter::<BigEndian, _>(
-                    graph.split_iter(num_threads).into_iter(),
+                    graph.split_iter(num_threads),
                     num_nodes,
                 )
             }
@@ -396,7 +325,7 @@ impl<'t> BvCompBuilder<'t> {
             LE::NAME => {
                 // compress the transposed graph
                 self.parallel_iter::<LittleEndian, _>(
-                    graph.split_iter(num_threads).into_iter(),
+                    graph.split_iter(num_threads),
                     num_nodes,
                 )
             }
@@ -415,7 +344,7 @@ impl<'t> BvCompBuilder<'t> {
     {
         self.ensure_threads()?;
         let num_threads = self.threads().current_num_threads();
-        self.parallel_iter(graph.split_iter(num_threads).into_iter(), graph.num_nodes())
+        self.parallel_iter(graph.split_iter(num_threads), graph.num_nodes())
     }
 
     /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
@@ -467,9 +396,6 @@ impl<'t> BvCompBuilder<'t> {
                     log::debug!("Thread {thread_id} started");
                     let first_node;
                     let mut bvcomp;
-                    let mut offsets_writer;
-                    let mut written_bits;
-                    let mut offsets_written_bits;
                     match thread_lender.next() {
                         None => return,
                         Some((node_id, successors)) => {
@@ -483,10 +409,6 @@ impl<'t> BvCompBuilder<'t> {
                                 );
                             }
 
-                            offsets_writer = <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(
-                                BufWriter::new(File::create(&chunk_offsets_path).unwrap()),
-                            ));
-
                             let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
                                 BufWriter::new(File::create(&chunk_graph_path).unwrap()),
                             ));
@@ -494,44 +416,38 @@ impl<'t> BvCompBuilder<'t> {
 
                             bvcomp = BvComp::new(
                                 codes_encoder,
+                                OffsetsWriter::from_path(&chunk_offsets_path).unwrap(),
                                 cp_flags.compression_window,
                                 cp_flags.max_ref_count,
                                 cp_flags.min_interval_length,
                                 node_id,
                             );
-                            written_bits = bvcomp.push(successors).unwrap();
-                            offsets_written_bits = offsets_writer.write_gamma(written_bits).unwrap() as u64;
-
+                            // TODO: remove unwrap
+                            bvcomp.push(successors).unwrap();
                         }
                     };
 
                     let mut last_node = first_node;
                     let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                     for_! ( (_, succ) in iter_nodes {
-                        let node_bits = bvcomp.push(succ.into_iter()).unwrap();
-                        written_bits += node_bits;
-                        offsets_written_bits += offsets_writer.write_gamma(node_bits).unwrap() as u64;
+                        bvcomp.push(succ.into_iter()).unwrap();
                     });
-
-                    let num_arcs = bvcomp.arcs;
-                    bvcomp.flush().unwrap();
-                    offsets_writer.flush().unwrap();
+                    let stats = bvcomp.flush().unwrap();
                     comp_pl.update_with_count(last_node - first_node + 1);
 
-
-
                     log::debug!(
-                        "Finished Compression thread {thread_id} and wrote {written_bits} bits for the graph and {offsets_written_bits} bits for the offsets",
+                        "Finished Compression thread {thread_id} and wrote PIPPO bits for the graph and {offsets_written_bits} bits for the offsets",
+                        offsets_written_bits=stats.offsets_written_bits,
                     );
                     tx.send(Job {
                         job_id: thread_id,
                         first_node,
                         last_node,
                         chunk_graph_path,
-                        written_bits,
+                        written_bits: stats.written_bits,
                         chunk_offsets_path,
-                        offsets_written_bits,
-                        num_arcs,
+                        offsets_written_bits: stats.offsets_written_bits,
+                        num_arcs: stats.num_arcs,
                     })
                     .unwrap()
                 });
@@ -653,7 +569,7 @@ impl<'t> BvCompBuilder<'t> {
 
             log::info!("Flushing the merged bitstreams");
             graph_writer.flush()?;
-            offsets_writer.flush()?;
+            BitWrite::flush(&mut offsets_writer)?;
 
             comp_pl.done();
             copy_pl.done();
@@ -691,6 +607,7 @@ impl<'t> BvCompBuilder<'t> {
     }
 }
 
+/*
 // TODO: duplicated from BVComp how can we generalize that for any available compressor.
 //       Actually I am not able to pass a type (like BVComp or BVCompZ) without
 //       specialzation on the type parameter ahead of time.
@@ -811,3 +728,4 @@ impl BvCompZ<()> {
         Ok(bitstream_len)
     }
 }
+*/

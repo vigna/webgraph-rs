@@ -296,7 +296,7 @@ where
         self.0
             .split_iter(how_many)
             .into_iter()
-            .map(|lender| UnitLender(lender))
+            .map(UnitLender)
     }
 }
 

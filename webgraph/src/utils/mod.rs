@@ -359,9 +359,9 @@ impl<
                 let start_node = split.boundaries[i];
                 let end_node = split.boundaries[i + 1];
                 let num_partition_nodes = end_node - start_node;
-                let lender = Iter::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
-                    .expect("Iterator should start from the expected first node");
-                lender
+                
+                Iter::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
+                    .expect("Iterator should start from the expected first node")
             })
             .collect()
     }

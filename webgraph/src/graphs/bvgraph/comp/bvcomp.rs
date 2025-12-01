@@ -5,39 +5,51 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::OffsetsWriter;
 use crate::prelude::*;
 use core::cmp::Ordering;
 use dsi_bitstream::codes::ToNat;
 use lender::prelude::*;
+use std::io::Write;
+
+/// Compression statistics for a BvGraph compression.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CompStats {
+    /// Number of source nodes compressed.
+    pub num_nodes: usize,
+    /// Number of arcs compressed.
+    pub num_arcs: u64,
+    /// Length of the compressed graph's bitstream.
+    pub written_bits: u64,
+    /// Length of the offsets bitstream.
+    pub offsets_written_bits: u64,
+}
 
 pub trait GraphCompressor {
-    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64>;
-    fn flush(self) -> anyhow::Result<usize>;
+    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()>;
+    fn flush(self) -> anyhow::Result<CompStats>;
 
     /// Given an iterator over the nodes successors iterators, push them all.
     /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<u64>
+    fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
-        let mut count = 0;
         for_! ( (_, succ) in iter_nodes {
-            count += self.push(succ.into_iter())?;
+            self.push(succ.into_iter())?;
         });
-        // WAS
-        // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
-        Ok(count)
+        Ok(())
     }
 }
 
 /// A BvGraph compressor, this is used to compress a graph into a BvGraph
-#[derive(Debug, Clone)]
-pub struct BvComp<E> {
+#[derive(Debug)]
+pub struct BvComp<E, W: Write> {
     /// The ring-buffer that stores the neighbors of the last
     /// `compression_window` neighbors
     backrefs: CircularBuffer<Vec<usize>>,
@@ -50,6 +62,8 @@ pub struct BvComp<E> {
     /// do multiple tentative compressions and use the real one once we figured
     /// out how to compress the graph best
     encoder: E,
+    /// The offset writer, we should push the number of bits used by each node.
+    pub offsets_writer: OffsetsWriter<W>,
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
@@ -64,8 +78,8 @@ pub struct BvComp<E> {
     /// The first node we are compressing, this is needed because during
     /// parallel compression we need to work on different chunks
     start_node: usize,
-    /// The number of arcs compressed so far
-    pub arcs: u64,
+    /// The statistics of the compression process.
+    stats: CompStats,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -331,13 +345,14 @@ impl Compressor {
     }
 }
 
-impl<E: EncodeAndEstimate> BvComp<E> {
+impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
     /// Creates a new BvGraph compressor.
     pub fn new(
         encoder: E,
+        offsets_writer: OffsetsWriter<W>,
         compression_window: usize,
         max_ref_count: usize,
         min_interval_length: usize,
@@ -347,6 +362,7 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             backrefs: CircularBuffer::new(compression_window + 1),
             ref_counts: CircularBuffer::new(compression_window + 1),
             encoder,
+            offsets_writer,
             min_interval_length,
             compression_window,
             max_ref_count,
@@ -355,17 +371,17 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             compressors: (0..compression_window + 1)
                 .map(|_| Compressor::new())
                 .collect(),
-            arcs: 0,
+            stats: CompStats::default(),
         }
     }
 }
 
-impl<E: EncodeAndEstimate> GraphCompressor for BvComp<E> {
+impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvComp<E, W> {
     /// Push a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator)
-    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
+    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -376,14 +392,15 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvComp<E> {
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];
-        self.arcs += curr_list.len() as u64;
+        self.stats.num_nodes += 1;
+        self.stats.num_arcs += curr_list.len() as u64;
         // first try to compress the current node without references
         let compressor = &mut self.compressors[0];
         // Compute how we would compress this
         compressor.compress(curr_list, None, self.min_interval_length)?;
         // avoid the mock writing
         if self.compression_window == 0 {
-            let written_bits = compressor.write(
+            compressor.write(
                 &mut self.encoder,
                 self.curr_node,
                 None,
@@ -391,7 +408,7 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvComp<E> {
             )?;
             // update the current node
             self.curr_node += 1;
-            return Ok(written_bits);
+            return Ok(());
         }
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
@@ -460,14 +477,17 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvComp<E> {
         // debug_assert_eq!(written_bits, min_bits);
         // update the current node
         self.curr_node += 1;
-        Ok(written_bits)
+        // write the offset
+        self.stats.offsets_written_bits += self.offsets_writer.push(written_bits)? as u64;
+        self.stats.written_bits += written_bits;
+        Ok(())
     }
 
-    /// Consume the compressor return the number of bits written by
-    /// flushing the encoder (0 for instantaneous codes)
-    fn flush(mut self) -> anyhow::Result<usize> {
-        let flushed = self.encoder.flush()?;
-        Ok(flushed)
+    /// Consume the compressor and return the statistics about compression.
+    fn flush(mut self) -> anyhow::Result<CompStats> {
+        self.encoder.flush()?;
+        self.offsets_writer.flush()?;
+        Ok(self.stats)
     }
 }
 
@@ -481,6 +501,7 @@ mod test {
     use itertools::Itertools;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
+    use tempfile::tempfile;
 
     #[test]
     fn test_compressor_no_ref() -> anyhow::Result<()> {
@@ -591,11 +612,10 @@ mod test {
             .endianness::<BE>()
             .load()?;
 
-        // Compress the graph
+        let tmp_offsets = tempfile()?;
         let file_path = "../data/cnr-2000.bvcomp";
-        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(file_path)?,
-        )));
+        let bit_write =
+            <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(tmp_offsets)));
 
         let comp_flags = CompFlags {
             ..Default::default()
@@ -607,7 +627,16 @@ mod test {
         //);
         let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
 
-        let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
+        let offsets_writer = OffsetsWriter::from_write(tempfile()?)?;
+
+        let mut bvcomp = BvComp::new(
+            codes_writer,
+            offsets_writer,
+            compression_window,
+            3,
+            min_interval_length,
+            0,
+        );
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;
@@ -664,7 +693,15 @@ mod test {
 
         let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
 
-        let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
+        let offsets_writer = OffsetsWriter::from_write(<Vec<u8>>::new())?;
+        let mut bvcomp = BvComp::new(
+            codes_writer,
+            offsets_writer,
+            compression_window,
+            3,
+            min_interval_length,
+            0,
+        );
 
         bvcomp.extend(&seq_graph).unwrap();
         bvcomp.flush()?;

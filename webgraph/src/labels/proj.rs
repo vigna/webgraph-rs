@@ -163,7 +163,7 @@ where
         self.0
             .split_iter(how_many)
             .into_iter()
-            .map(|lender| LeftIterator(lender))
+            .map(LeftIterator)
     }
 }
 
@@ -368,7 +368,7 @@ where
         self.0
             .split_iter(how_many)
             .into_iter()
-            .map(|lender| RightIterator(lender))
+            .map(RightIterator)
     }
 }
 

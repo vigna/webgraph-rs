@@ -4,19 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use super::bvcomp::Compressor;
+use std::io::Write;
+
+use super::bvcomp::{CompStats, Compressor};
+use super::OffsetsWriter;
 use crate::prelude::*;
 use common_traits::Sequence;
 
 /// An Entry for the table used to save the intermediate computation
 /// of the dynamic algorithm to select the best references.
 /// It represents if a reference to a node, with a know amount of previous
-/// references chain length, is choosen and how much less it costs to all his
+/// references chain length, is chosen and how much less it costs to all his
 /// referent with respect to compress the node without any selected reference.
 #[derive(Default, Clone)]
 struct ReferenceTableEntry {
     saved_cost: f32,
-    choosen: bool,
+    chosen: bool,
 }
 
 /// A BvGraph compressor based on the approximate algorithm described in
@@ -34,8 +37,8 @@ struct ReferenceTableEntry {
 /// Note that unlike the standard reference selection algorithm (`BVComp`), it
 /// only writes the adjacency list to the child compressor when the chunk is full or when
 /// `flush` is called.
-#[derive(Debug, Clone)]
-pub struct BvCompZ<E> {
+#[derive(Debug)]
+pub struct BvCompZ<E, W: Write> {
     /// The ring-buffer that stores the neighbors of the last
     /// `compression_window` neighbors
     backrefs: CircularBuffer<Vec<usize>>,
@@ -53,6 +56,8 @@ pub struct BvCompZ<E> {
     /// do multiple tentative compressions and use the real one once we figured
     /// out how to compress the graph best
     encoder: E,
+    /// The offset writer to write the offsets of each node.
+    offsets_writer: OffsetsWriter<W>,
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
@@ -66,19 +71,19 @@ pub struct BvCompZ<E> {
     curr_node: usize,
     /// The first node of the chunk in which the nodes' references are calculated together
     start_chunk_node: usize,
-    /// The number of arcs compressed so far
-    pub arcs: u64,
+    /// The statistics of the compression process.
+    stats: CompStats,
 }
 
-impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
+impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
     /// Push a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbours you have to pass an
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator).
     /// It returns a non-zero value only if is the last element of a chunk and
-    /// so all the pending adjancency lists are optimized and then written to
+    /// so all the pending adjacency lists are optimized and then written to
     /// encoder.
-    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
+    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -89,14 +94,15 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];
-        self.arcs += curr_list.len() as u64;
+        self.stats.num_nodes += 1;
+        self.stats.num_arcs += curr_list.len() as u64;
         // first try to compress the current node without references
         let compressor = &mut self.compressors[0];
         // Compute how we would compress this
         compressor.compress(curr_list, None, self.min_interval_length)?;
         // avoid the mock writing
         if self.compression_window == 0 {
-            let written_bits = compressor.write(
+            compressor.write(
                 &mut self.encoder,
                 self.curr_node,
                 None,
@@ -104,7 +110,7 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
             )?;
             // update the current node
             self.curr_node += 1;
-            return Ok(written_bits);
+            return Ok(());
         }
         let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
         // The delta of the best reference, by default 0 which is no compression
@@ -129,9 +135,9 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
         // compression windows is not zero, so compress the current node
         for delta in 1..deltas {
             let ref_node = self.curr_node - delta;
-            // Get the neighbours of this previous len_zetanode
+            // Get the neighbors of this previous len_zeta_node
             let ref_list = &self.backrefs[ref_node];
-            // No neighbours, no compression
+            // No neighbors, no compression
             if ref_list.is_empty() {
                 continue;
             }
@@ -178,35 +184,31 @@ impl<E: EncodeAndEstimate> GraphCompressor for BvCompZ<E> {
         // reference).
         self.saved_costs.push(saved_cost as f32);
         self.references.push(ref_delta);
-        // update the current node
-        let mut written_bits = 0;
         self.curr_node += 1;
         if self.references.len() >= self.chunk_size {
-            written_bits = self.calculate_reference_selection()?;
+            self.comp_refs()?;
         }
-        Ok(written_bits)
+        Ok(())
     }
 
     /// Consumes the compressor and returns the number of bits written by
     /// flushing the encoder and writing the pending chunk
-    fn flush(mut self) -> anyhow::Result<usize> {
-        let remaining_chunk_bits = if self.compression_window > 0 {
-            self.calculate_reference_selection().unwrap()
-        } else {
-            0
-        };
-        let flushed = self.encoder.flush()?;
-        Ok(remaining_chunk_bits as usize + flushed)
+    fn flush(mut self) -> anyhow::Result<CompStats> {
+        // Flush bits are just padding
+        self.encoder.flush()?;
+        self.offsets_writer.flush()?;
+        Ok(self.stats)
     }
 }
 
-impl<E: EncodeAndEstimate> BvCompZ<E> {
+impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
     /// Creates a new BvGraph compressor.
     pub fn new(
         encoder: E,
+        offsets_writer: OffsetsWriter<W>,
         compression_window: usize,
         chunk_size: usize,
         max_ref_count: usize,
@@ -220,6 +222,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
             saved_costs: Vec::with_capacity(chunk_size + 1),
             chunk_size,
             encoder,
+            offsets_writer,
             min_interval_length,
             compression_window,
             max_ref_count,
@@ -228,11 +231,11 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
             compressors: (0..compression_window + 1)
                 .map(|_| Compressor::new())
                 .collect(),
-            arcs: 0,
+            stats: CompStats::default(),
         }
     }
 
-    fn calculate_reference_selection(&mut self) -> anyhow::Result<u64> {
+    fn comp_refs(&mut self) -> anyhow::Result<()> {
         let n = self.references.len();
         self.update_references_for_max_length();
         assert_eq!(n, self.curr_node - self.start_chunk_node);
@@ -285,7 +288,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
                 }
                 let reference_index = node_index - delta;
                 let ref_list = &self.backrefs[reference_index];
-                // No neighbours, no compression
+                // No neighbors, no compression
                 if ref_list.is_empty() {
                     continue;
                 }
@@ -304,7 +307,6 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
             }
         }
 
-        let mut written_bits = 0;
         let mut compressor = Compressor::new();
         for i in 0..n {
             let node_index = self.curr_node - n + i;
@@ -317,19 +319,21 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
                 Some(self.backrefs[reference_index].as_slice()).filter(|list| !list.is_empty())
             };
             compressor.compress(curr_list, ref_list, self.min_interval_length)?;
-            written_bits += compressor.write(
+            let bits = compressor.write(
                 &mut self.encoder,
                 node_index,
                 Some(reference),
                 self.min_interval_length,
             )?;
+            self.stats.written_bits += bits;
+            self.stats.offsets_written_bits += self.offsets_writer.push(bits)? as u64;
         }
         // reset the chunk starting point
         self.start_chunk_node = self.curr_node;
         // clear the refs array and the backrefs
         self.references.clear();
         self.saved_costs.clear();
-        Ok(written_bits)
+        Ok(())
     }
 
     // Dynamic algorithm to calculate the best subforest of the maximum one
@@ -372,7 +376,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
 
             dyn_table[(i, 0)] = ReferenceTableEntry {
                 saved_cost: child_sum_full_chain,
-                choosen: false,
+                chosen: false,
             };
 
             // counting parent link, if any.
@@ -387,12 +391,12 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
                 dyn_table[(i, links_to_use)] = if child_sum > child_sum_full_chain {
                     ReferenceTableEntry {
                         saved_cost: child_sum,
-                        choosen: true,
+                        chosen: true,
                     }
                 } else {
                     ReferenceTableEntry {
                         saved_cost: child_sum_full_chain,
-                        choosen: false,
+                        chosen: false,
                     }
                 };
             }
@@ -401,7 +405,7 @@ impl<E: EncodeAndEstimate> BvCompZ<E> {
         let mut available_length = vec![self.max_ref_count; n];
         // always choose the maximum available lengths calculated in the previous step
         for i in 0..self.references.len() {
-            if dyn_table[(i, available_length[i])].choosen {
+            if dyn_table[(i, available_length[i])].chosen {
                 // Taken: push available_length.
                 for child in out_edges[i].iter() {
                     available_length[child] = available_length[i] - 1;
@@ -465,6 +469,10 @@ mod test {
             File::create(file_path)?,
         )));
 
+        // Compress the graph
+        let offsets_path = "tests/data/cnr-2000.offsetsz";
+        let offsets_writer = OffsetsWriter::from_path(offsets_path)?;
+
         let comp_flags = CompFlags {
             ..Default::default()
         };
@@ -473,6 +481,7 @@ mod test {
 
         let mut bvcomp = BvCompZ::new(
             codes_writer,
+            offsets_writer,
             compression_window,
             1000,
             3,
@@ -529,6 +538,10 @@ mod test {
         let mut buffer: Vec<u64> = Vec::new();
         let bit_write = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut buffer));
 
+        // Compress the graph
+        let mut buffer: Vec<u8> = Vec::new();
+        let offsets_writer = OffsetsWriter::from_write(&mut buffer)?;
+
         let comp_flags = CompFlags {
             ..Default::default()
         };
@@ -538,6 +551,7 @@ mod test {
         let max_ref_count = 3;
         let mut bvcomp = BvCompZ::new(
             codes_writer,
+            offsets_writer,
             compression_window,
             10000,
             max_ref_count,

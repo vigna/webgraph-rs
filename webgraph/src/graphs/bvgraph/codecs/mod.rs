@@ -45,7 +45,7 @@ pub trait Decode {
 
 use impl_tools::autoimpl;
 
-/// Methods to encode the component of a [`super::BvGraph`] or [`super::BvGraphSeq`].
+/// Methods to encode the components of a [`super::BvGraph`] or [`super::BvGraphSeq`].
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encode {
     type Error: Error + Send + Sync + 'static;
