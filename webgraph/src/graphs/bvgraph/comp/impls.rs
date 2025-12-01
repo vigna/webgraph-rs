@@ -415,9 +415,11 @@ impl<'t> BvCompBuilder<'t> {
         ];
         comp_pl.start("Compressing successors in parallel...");
         let mut expected_first_node = 0;
-        threads.in_place_scope(|s| {
-            let cp_flags = &self.compression_flags;
+        let cp_flags = &self.compression_flags;
+        let bvgraphz = self.bvgraphz;
+        let chunk_size = self.chunk_size;
 
+        threads.in_place_scope(|s| {
             for (thread_id, mut thread_lender) in iter.into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
@@ -428,45 +430,63 @@ impl<'t> BvCompBuilder<'t> {
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
-                    let first_node;
-                    let mut bvcomp;
-                    match thread_lender.next() {
-                        None => return,
-                        Some((node_id, successors)) => {
-                            first_node = node_id;
-                            if first_node != expected_first_node {
-                                panic!(
-                                    "Lender {} expected to start from node {} but started from {}",
-                                    thread_id,
-                                    expected_first_node,
-                                    first_node
-                                );
-                            }
-
-                            let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
-                                BufWriter::new(File::create(&chunk_graph_path).unwrap()),
-                            ));
-                            let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
-
-                            bvcomp = BvComp::new(
-                                codes_encoder,
-                                OffsetsWriter::from_path(&chunk_offsets_path).unwrap(),
-                                cp_flags.compression_window,
-                                cp_flags.max_ref_count,
-                                cp_flags.min_interval_length,
-                                node_id,
-                            );
-                            // TODO: remove unwrap
-                            bvcomp.push(successors).unwrap();
-                        }
+                    
+                    let Some((node_id, successors)) = thread_lender.next() else {
+                        return;
                     };
+                    
+                    let first_node = node_id;
+                    if first_node != expected_first_node {
+                        panic!(
+                            "Lender {} expected to start from node {} but started from {}",
+                            thread_id,
+                            expected_first_node,
+                            first_node
+                        );
+                    }
 
-                    let mut last_node = first_node;
-                    let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
-                    for_! ( (_, succ) in iter_nodes {
-                        bvcomp.push(succ.into_iter()).unwrap();
-                    });
-                    let stats = bvcomp.flush().unwrap();
+                    let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
+                        BufWriter::new(File::create(&chunk_graph_path).unwrap()),
+                    ));
+                    let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, &cp_flags).unwrap();
+                    
+                    let stats;
+                    let mut last_node;
+                    if bvgraphz {
+                        let mut bvcomp = BvCompZ::new(
+                            codes_encoder,
+                            OffsetsWriter::from_path(&chunk_offsets_path).unwrap(),
+                            cp_flags.compression_window,
+                            chunk_size,
+                            cp_flags.max_ref_count,
+                            cp_flags.min_interval_length,
+                            node_id,
+                        );  
+                        bvcomp.push(successors).unwrap();
+                        last_node = first_node;
+                        let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
+                        for_! ( (_, succ) in iter_nodes {
+                            bvcomp.push(succ.into_iter()).unwrap();
+                        });
+                        stats = bvcomp.flush().unwrap();
+                    } else {
+                        let mut bvcomp = BvComp::new(
+                            codes_encoder,
+                            OffsetsWriter::from_path(&chunk_offsets_path).unwrap(),
+                            cp_flags.compression_window,
+                            cp_flags.max_ref_count,
+                            cp_flags.min_interval_length,
+                            node_id,
+                        );
+                        bvcomp.push(successors).unwrap();
+                        last_node = first_node;
+                        let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
+                        for_! ( (_, succ) in iter_nodes {
+                            bvcomp.push(succ.into_iter()).unwrap();
+                        });
+                        stats = bvcomp.flush().unwrap();
+                    }
+
                     comp_pl.update_with_count(last_node - first_node + 1);
 
                     log::debug!(

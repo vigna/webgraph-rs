@@ -464,31 +464,28 @@ mod test {
 
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
+
         BvCompBuilder::new(&basename)
             .with_zuckerli()
             .with_compression_flags(CompFlags {
                 compression_window: 32,
                 ..Default::default()
             })
-            .single_thread::<BE, _>(cnr_2000.iter(), None)?;
+            .single_thread::<BE, _>(&cnr_2000, None)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        let mut cnr_2000_iter = cnr_2000.iter().enumerate();
-        let mut seq_graph_iter = seq_graph.iter();
+        BvCompBuilder::new(&basename)
+            .with_zuckerli()
+            .with_compression_flags(CompFlags {
+                compression_window: 32,
+                ..Default::default()
+            })
+            .parallel_graph::<BE>(&cnr_2000)?;
 
-        while let Some((i, (true_node_id, true_succ))) = cnr_2000_iter.next() {
-            let (seq_node_id, seq_succ) = seq_graph_iter.next().unwrap();
-            assert_eq!(true_node_id, i);
-            assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(
-                true_succ.collect_vec(),
-                seq_succ.into_iter().collect_vec(),
-                "node_id: {}",
-                i
-            );
-        }
-
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
         Ok(())
     }
 

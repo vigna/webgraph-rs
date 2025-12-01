@@ -499,8 +499,6 @@ mod test {
     use super::*;
     use dsi_bitstream::prelude::*;
     use itertools::Itertools;
-    use std::fs::File;
-    use std::io::{BufReader, BufWriter};
     use tempfile::Builder;
 
     #[test]
@@ -605,74 +603,22 @@ mod test {
 
     #[test]
     fn test_writer_cnr() -> anyhow::Result<()> {
-        let compression_window = 7;
-        let min_interval_length = 4;
-
-        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
+        let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
-        let file_path = tmp_dir.path().join("cnr-2000.graph");
-        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&file_path)?,
-        )));
+        let basename = tmp_dir.path().join("cnr-2000");
 
-        let comp_flags = CompFlags {
-            ..Default::default()
-        };
+        BvCompBuilder::new(&basename).single_thread::<BE, _>(&cnr_2000, None)?;
 
-        //let codes_writer = DynamicCodesWriter::new(
-        //    bit_write,
-        //    &comp_flags,
-        //);
-        let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        let offsets_writer = OffsetsWriter::from_path(tmp_dir.path().join("cnr-2000.offsets"))?;
+        BvCompBuilder::new(&basename).parallel_graph::<BE>(&cnr_2000)?;
 
-        let mut bvcomp = BvComp::new(
-            codes_writer,
-            offsets_writer,
-            compression_window,
-            3,
-            min_interval_length,
-            0,
-        );
-
-        bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush()?;
-
-        // Read it back
-
-        let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(&file_path)?,
-        )));
-
-        //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesDecoder<BE, _>>::new(bit_read, &comp_flags)?;
-
-        let mut seq_iter = Iter::new(
-            codes_reader,
-            seq_graph.num_nodes(),
-            compression_window,
-            min_interval_length,
-        );
-        // Check that the graph is the same
-        let mut iter = seq_graph.iter().enumerate();
-        while let Some((i, (true_node_id, true_succ))) = iter.next() {
-            let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
-
-            assert_eq!(true_node_id, i);
-            assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(
-                true_succ.collect_vec(),
-                seq_succ.into_iter().collect_vec(),
-                "node_id: {}",
-                i
-            );
-        }
-        std::fs::remove_file(file_path).unwrap();
-
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
         Ok(())
     }
 

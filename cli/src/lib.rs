@@ -458,6 +458,16 @@ pub struct CompressArgs {
     #[clap(long, default_value = "zeta3")]
     /// The code to use for the residuals
     pub residuals: PrivCode,
+
+    /// Whether to use Zuckerli's reference selection algorithm. This slows down the compression
+    /// process and requires more memory, but improves compression ratio and decoding speed.
+    #[clap(long)]
+    pub zuckerli: bool,
+
+    /// How many nodes to process in a chunk, in our experiments a chunk size of
+    /// 1000 already achieves most the result.
+    #[clap(long, default_value = "1000")]
+    pub chunk_size: usize,
 }
 
 impl From<CompressArgs> for CompFlags {
