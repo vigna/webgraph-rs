@@ -11,6 +11,7 @@ use super::bvcomp::{CompStats, Compressor};
 use super::OffsetsWriter;
 use crate::prelude::*;
 use common_traits::Sequence;
+use lender::prelude::*;
 
 /// An Entry for the table used to save the intermediate computation
 /// of the dynamic algorithm to select the best references.
@@ -89,7 +90,40 @@ impl BvCompZ<(), std::io::Sink> {
     }
 }
 
-impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
+impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
+    /// This value for `min_interval_length` implies that no intervalization will be performed.
+    pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
+
+    /// Creates a new BvGraph compressor.
+    pub fn new(
+        encoder: E,
+        offsets_writer: OffsetsWriter<W>,
+        compression_window: usize,
+        chunk_size: usize,
+        max_ref_count: usize,
+        min_interval_length: usize,
+        start_node: usize,
+    ) -> Self {
+        BvCompZ {
+            backrefs: CircularBuffer::new(chunk_size + 1),
+            reference_costs: Matrix::new(chunk_size + 1, compression_window + 1),
+            references: Vec::with_capacity(chunk_size + 1),
+            saved_costs: Vec::with_capacity(chunk_size + 1),
+            chunk_size,
+            encoder,
+            offsets_writer,
+            min_interval_length,
+            compression_window,
+            max_ref_count,
+            start_chunk_node: start_node,
+            curr_node: start_node,
+            compressors: (0..compression_window + 1)
+                .map(|_| Compressor::new())
+                .collect(),
+            stats: CompStats::default(),
+        }
+    }
+
     /// Push a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
@@ -97,7 +131,7 @@ impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
     /// It returns a non-zero value only if is the last element of a chunk and
     /// so all the pending adjacency lists are optimized and then written to
     /// encoder.
-    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -207,7 +241,7 @@ impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
 
     /// Consumes the compressor and returns the number of bits written by
     /// flushing the encoder and writing the pending chunk
-    fn flush(mut self) -> anyhow::Result<CompStats> {
+    pub fn flush(mut self) -> anyhow::Result<CompStats> {
         if self.compression_window > 0 {
             self.comp_refs()?;
         }
@@ -216,40 +250,22 @@ impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
         self.offsets_writer.flush()?;
         Ok(self.stats)
     }
-}
 
-impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
-    /// This value for `min_interval_length` implies that no intervalization will be performed.
-    pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
-
-    /// Creates a new BvGraph compressor.
-    pub fn new(
-        encoder: E,
-        offsets_writer: OffsetsWriter<W>,
-        compression_window: usize,
-        chunk_size: usize,
-        max_ref_count: usize,
-        min_interval_length: usize,
-        start_node: usize,
-    ) -> Self {
-        BvCompZ {
-            backrefs: CircularBuffer::new(chunk_size + 1),
-            reference_costs: Matrix::new(chunk_size + 1, compression_window + 1),
-            references: Vec::with_capacity(chunk_size + 1),
-            saved_costs: Vec::with_capacity(chunk_size + 1),
-            chunk_size,
-            encoder,
-            offsets_writer,
-            min_interval_length,
-            compression_window,
-            max_ref_count,
-            start_chunk_node: start_node,
-            curr_node: start_node,
-            compressors: (0..compression_window + 1)
-                .map(|_| Compressor::new())
-                .collect(),
-            stats: CompStats::default(),
-        }
+    /// Given an iterator over the nodes successors iterators, push them all.
+    /// The iterator must yield the successors of the node and the nodes HAVE
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
+    /// empty iterator).
+    ///
+    /// This most commonly is called with a reference to a graph.
+    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
+    where
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+    {
+        for_! ( (_, succ) in iter_nodes {
+            self.push(succ.into_iter())?;
+        });
+        Ok(())
     }
 
     fn comp_refs(&mut self) -> anyhow::Result<()> {

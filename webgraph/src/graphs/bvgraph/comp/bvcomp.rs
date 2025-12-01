@@ -25,28 +25,6 @@ pub struct CompStats {
     pub offsets_written_bits: u64,
 }
 
-pub trait GraphCompressor {
-    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()>;
-    fn flush(self) -> anyhow::Result<CompStats>;
-
-    /// Given an iterator over the nodes successors iterators, push them all.
-    /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
-    /// empty iterator).
-    ///
-    /// This most commonly is called with a reference to a graph.
-    fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
-    where
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    {
-        for_! ( (_, succ) in iter_nodes {
-            self.push(succ.into_iter())?;
-        });
-        Ok(())
-    }
-}
-
 /// A BvGraph compressor, this is used to compress a graph into a BvGraph
 #[derive(Debug)]
 pub struct BvComp<E, W: Write> {
@@ -382,14 +360,12 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
             stats: CompStats::default(),
         }
     }
-}
 
-impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvComp<E, W> {
     /// Push a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator)
-    fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
@@ -492,10 +468,27 @@ impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvComp<E, W> {
     }
 
     /// Consume the compressor and return the statistics about compression.
-    fn flush(mut self) -> anyhow::Result<CompStats> {
+    pub fn flush(mut self) -> anyhow::Result<CompStats> {
         self.encoder.flush()?;
         self.offsets_writer.flush()?;
         Ok(self.stats)
+    }
+
+    /// Given an iterator over the nodes successors iterators, push them all.
+    /// The iterator must yield the successors of the node and the nodes HAVE
+    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
+    /// empty iterator).
+    ///
+    /// This most commonly is called with a reference to a graph.
+    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
+    where
+        L: IntoLender,
+        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
+    {
+        for_! ( (_, succ) in iter_nodes {
+            self.push(succ.into_iter())?;
+        });
+        Ok(())
     }
 }
 
