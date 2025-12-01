@@ -437,13 +437,8 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
 
 #[cfg(test)]
 mod test {
-
-    use self::sequential::Iter;
-
     use super::*;
     use dsi_bitstream::prelude::*;
-    use itertools::Itertools;
-    use lender::prelude::*;
     use tempfile::Builder;
 
     #[test]
@@ -494,66 +489,22 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
-            .endianness::<BE>()
-            .load()?;
+        let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000").load()?;
 
-        // Compress the graph
-        let mut buffer: Vec<u64> = Vec::new();
-        let bit_write = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut buffer));
+        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let basename = tmp_dir.path().join("cnr-2000");
 
-        // Compress the graph
-        let mut buffer: Vec<u8> = Vec::new();
-        let offsets_writer = OffsetsWriter::from_write(&mut buffer)?;
+        BvCompZ::with_basename(&basename)
+            .with_comp_flags(CompFlags {
+                compression_window,
+                min_interval_length,
+                ..Default::default()
+            })
+            .comp_graph::<BE>(&cnr_2000)?;
 
-        let comp_flags = CompFlags {
-            ..Default::default()
-        };
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
 
-        let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
-
-        let max_ref_count = 3;
-        let mut bvcomp = BvCompZ::new(
-            codes_writer,
-            offsets_writer,
-            compression_window,
-            10000,
-            max_ref_count,
-            min_interval_length,
-            0,
-        );
-
-        bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush()?;
-
-        // Read it back
-        let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-        let bit_read = <BufBitReader<LE, _>>::new(MemWordReader::new(buffer_32));
-
-        //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesDecoder<LE, _>>::new(bit_read, &comp_flags)?;
-
-        let mut seq_iter = Iter::new(
-            codes_reader,
-            seq_graph.num_nodes(),
-            compression_window,
-            min_interval_length,
-        );
-        // Check that the graph is the same
-        let mut iter = seq_graph.iter().enumerate();
-        while let Some((i, (true_node_id, true_succ))) = iter.next() {
-            let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
-
-            assert_eq!(true_node_id, i);
-            assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(
-                true_succ.collect_vec(),
-                seq_succ.collect_vec(),
-                "node_id: {}",
-                i
-            );
-        }
-
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
         Ok(())
     }
 }
