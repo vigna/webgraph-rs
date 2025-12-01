@@ -91,12 +91,17 @@ where
 {
     let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
         <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(
-            tmp_path.as_ref(),
+            tmp_path.as_ref().with_added_extension(".graph"),
         )?))),
         &compression_flags,
     )?);
+
+    let offsets_writer =
+        OffsetsWriter::from_path(tmp_path.as_ref().with_added_extension(".offsets"))?;
+
     let mut bvcomp = BvComp::new(
         writer,
+        offsets_writer,
         compression_flags.compression_window,
         compression_flags.max_ref_count,
         compression_flags.min_interval_length,
