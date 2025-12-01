@@ -194,6 +194,9 @@ impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
     /// Consumes the compressor and returns the number of bits written by
     /// flushing the encoder and writing the pending chunk
     fn flush(mut self) -> anyhow::Result<CompStats> {
+        if self.compression_window > 0 {
+            self.comp_refs()?;
+        }
         // Flush bits are just padding
         self.encoder.flush()?;
         self.offsets_writer.flush()?;
@@ -429,6 +432,7 @@ mod test {
     use lender::prelude::*;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
+    use tempfile::Builder;
 
     #[test]
     fn test_writer_window_zero() -> anyhow::Result<()> {
@@ -466,11 +470,11 @@ mod test {
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
         let file_path = tmp_dir.path().join("cnr-2000.graph");
         let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(file_path)?,
+            File::create(&file_path)?,
         )));
 
         // Compress the graph
-        let offsets_writer = OffsetsWriter::from_path(offsets_path)?;
+        let offsets_writer = OffsetsWriter::from_path(tmp_dir.path().join("cnr-2000.offsets"))?;
 
         let comp_flags = CompFlags {
             ..Default::default()
@@ -494,7 +498,7 @@ mod test {
         // Read it back
 
         let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(file_path)?,
+            File::open(&file_path)?,
         )));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
@@ -510,7 +514,6 @@ mod test {
         let mut iter = seq_graph.iter().enumerate();
         while let Some((i, (true_node_id, true_succ))) = iter.next() {
             let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
-
             assert_eq!(true_node_id, i);
             assert_eq!(true_node_id, seq_node_id);
             assert_eq!(
