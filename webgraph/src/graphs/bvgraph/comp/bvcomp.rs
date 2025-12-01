@@ -501,7 +501,7 @@ mod test {
     use itertools::Itertools;
     use std::fs::File;
     use std::io::{BufReader, BufWriter};
-    use tempfile::tempfile;
+    use tempfile::Builder;
 
     #[test]
     fn test_compressor_no_ref() -> anyhow::Result<()> {
@@ -612,10 +612,11 @@ mod test {
             .endianness::<BE>()
             .load()?;
 
-        let tmp_offsets = tempfile()?;
-        let file_path = "../data/cnr-2000.bvcomp";
-        let bit_write =
-            <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(tmp_offsets)));
+        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let file_path = tmp_dir.path().join("cnr-2000.graph");
+        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
+            File::create(&file_path)?,
+        )));
 
         let comp_flags = CompFlags {
             ..Default::default()
@@ -627,7 +628,7 @@ mod test {
         //);
         let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
 
-        let offsets_writer = OffsetsWriter::from_write(tempfile()?)?;
+        let offsets_writer = OffsetsWriter::from_path(tmp_dir.path().join("cnr-2000.offsets"))?;
 
         let mut bvcomp = BvComp::new(
             codes_writer,
@@ -644,7 +645,7 @@ mod test {
         // Read it back
 
         let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(file_path)?,
+            File::open(&file_path)?,
         )));
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;

@@ -463,14 +463,13 @@ mod test {
             .endianness::<BE>()
             .load()?;
 
-        // Compress the graph
-        let file_path = "../data/cnr-2000.bvcompz";
+        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let file_path = tmp_dir.path().join("cnr-2000.graph");
         let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
             File::create(file_path)?,
         )));
 
         // Compress the graph
-        let offsets_path = "tests/data/cnr-2000.offsetsz";
         let offsets_writer = OffsetsWriter::from_path(offsets_path)?;
 
         let comp_flags = CompFlags {
