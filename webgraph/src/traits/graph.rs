@@ -293,10 +293,7 @@ where
         Self: 'a;
 
     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        self.0
-            .split_iter(how_many)
-            .into_iter()
-            .map(UnitLender)
+        self.0.split_iter(how_many).into_iter().map(UnitLender)
     }
 }
 
