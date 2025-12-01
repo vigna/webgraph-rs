@@ -100,7 +100,7 @@ where
                 start.elapsed().as_secs_f64()
             );
             thread_pool.install(|| {
-                builder.parallel_endianness(
+                builder.par_comp_lenders_endianness(
                     &sorted,
                     sorted.num_nodes(),
                     &target_endianness.unwrap_or_else(|| BE::NAME.into()),
@@ -108,7 +108,7 @@ where
             })?;
         } else {
             thread_pool.install(|| {
-                builder.parallel_endianness(
+                builder.par_comp_lenders_endianness(
                     &graph,
                     graph.num_nodes(),
                     &target_endianness.unwrap_or_else(|| BE::NAME.into()),
@@ -135,7 +135,7 @@ where
             );
 
             thread_pool.install(|| {
-                builder.parallel_endianness(
+                builder.par_comp_lenders_endianness(
                     &permuted,
                     permuted.num_nodes(),
                     &target_endianness.unwrap_or_else(|| BE::NAME.into()),
@@ -143,7 +143,7 @@ where
             })?;
         } else {
             thread_pool.install(|| {
-                builder.parallel_endianness(
+                builder.par_comp_lenders_endianness(
                     &seq_graph,
                     seq_graph.num_nodes(),
                     &target_endianness.unwrap_or_else(|| BE::NAME.into()),

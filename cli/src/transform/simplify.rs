@@ -117,7 +117,7 @@ where
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
                     thread_pool.install(|| {
-                        builder.parallel_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                        builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
                     })?;
 
                     return Ok(());
@@ -155,7 +155,7 @@ where
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
             thread_pool.install(|| {
-                builder.parallel_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
             })?;
         }
         // apply the permutation, don't care if the transposed graph is already computed
@@ -185,7 +185,7 @@ where
                 )?;
 
                 thread_pool.install(|| {
-                    builder.parallel_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                    builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
                 })?;
 
                 return Ok(());
@@ -208,7 +208,7 @@ where
                 webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage).unwrap();
 
             thread_pool.install(|| {
-                builder.parallel_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
             })?;
         }
         // just compute the transpose on the fly
@@ -232,7 +232,7 @@ where
                 )?;
 
                 thread_pool.install(|| {
-                    builder.parallel_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                    builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
                 })?;
 
                 return Ok(());
@@ -251,7 +251,7 @@ where
                     .unwrap();
 
             thread_pool.install(|| {
-                builder.parallel_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
             })?;
         }
     }

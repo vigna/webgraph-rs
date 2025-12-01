@@ -88,7 +88,7 @@ where
     }
 
     thread_pool.install(|| {
-        builder.parallel_endianness(
+        builder.par_comp_lenders_endianness(
             &sorted,
             sorted.num_nodes(),
             &target_endianness.unwrap_or_else(|| BE::NAME.into()),
