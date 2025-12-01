@@ -618,12 +618,12 @@ mod test {
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
 
-        BvComp::with_basename(&basename).comp::<BE, _>(&cnr_2000, None)?;
+        BvComp::with_basename(&basename).comp_graph::<BE>(&cnr_2000)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        BvCompConfig::new(&basename).par_comp_graph::<BE>(&cnr_2000)?;
+        BvComp::with_basename(&basename).par_comp_graph::<BE>(&cnr_2000)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;

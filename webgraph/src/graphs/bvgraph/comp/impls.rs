@@ -129,9 +129,10 @@ impl<W: Write> OffsetsWriter<W> {
 
 /// A configuration for BvGraph compression.
 ///
-/// Once set up, the methods [`comp`](Self::comp) (sequential compression),
-/// [`par_comp_graph`](Self::par_comp_graph) (parallel compression of a
-/// splittable graph), and [`par_comp_lenders`](Self::par_comp_lenders)
+/// Once set up, the methods [`comp_graph`](Self::comp_graph) (sequential graph
+/// compression), [`comp_lender`](Self::comp_lender) (sequential lender
+/// compression), [`par_comp_graph`](Self::par_comp_graph) (parallel compression
+/// of a splittable graph), and [`par_comp_lenders`](Self::par_comp_lenders)
 /// (parallel compression of multiple lenders) can be used to compress a graph.
 #[derive(Debug)]
 pub struct BvCompConfig {
@@ -209,12 +210,21 @@ impl BvCompConfig {
         Ok(tmp_dir)
     }
 
+    /// Compresses sequentially a [`SequentialGraph`] and returns
+    /// the number of bits written to the graph bitstream.
+    pub fn comp_graph<E: Endianness>(&mut self, graph: impl SequentialGraph) -> Result<u64>
+    where
+        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
+    {
+        self.comp_lender::<E, _>(graph.iter(), Some(graph.num_nodes()))
+    }
+
     /// Compresses sequentially a [`NodeLabelsLender`] and returns
     /// the number of bits written to the graph bitstream.
     ///
     /// The optional `expected_num_nodes` parameter will be used to provide
     /// forecasts on the progress logger.
-    pub fn comp<E, L>(&mut self, iter: L, expected_num_nodes: Option<usize>) -> Result<u64>
+    pub fn comp_lender<E, L>(&mut self, iter: L, expected_num_nodes: Option<usize>) -> Result<u64>
     where
         E: Endianness,
         L: IntoLender,

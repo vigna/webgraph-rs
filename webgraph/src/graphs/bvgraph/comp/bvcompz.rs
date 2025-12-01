@@ -444,7 +444,6 @@ mod test {
     use dsi_bitstream::prelude::*;
     use itertools::Itertools;
     use lender::prelude::*;
-    use rayon::ThreadPoolBuilder;
     use tempfile::Builder;
 
     #[test]
@@ -480,30 +479,12 @@ mod test {
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
 
-        BvCompConfig::new(&basename)
-            .with_bvgraphz()
-            .with_comp_flags(CompFlags {
-                compression_window: 32,
-                ..Default::default()
-            })
-            .comp::<BE, _>(&cnr_2000, None)?;
+        BvCompZ::with_basename(&basename).comp_graph::<BE>(&cnr_2000)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        ThreadPoolBuilder::new()
-            .num_threads(5)
-            .build()?
-            .install(|| {
-                BvCompConfig::new(&basename)
-                    .with_bvgraphz()
-                    .with_comp_flags(CompFlags {
-                        compression_window: 32,
-                        ..Default::default()
-                    })
-                    .par_comp_graph::<BE>(&cnr_2000)
-            })?;
-
+        BvCompZ::with_basename(&basename).par_comp_graph::<BE>(&cnr_2000)?;
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
         Ok(())
