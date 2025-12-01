@@ -466,7 +466,7 @@ mod test {
         let basename = tmp_dir.path().join("cnr-2000");
 
         BvCompBuilder::new(&basename)
-            .with_zuckerli()
+            .with_bvgraphz()
             .with_compression_flags(CompFlags {
                 compression_window: 32,
                 ..Default::default()
@@ -477,7 +477,7 @@ mod test {
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
         BvCompBuilder::new(&basename)
-            .with_zuckerli()
+            .with_bvgraphz()
             .with_compression_flags(CompFlags {
                 compression_window: 32,
                 ..Default::default()

@@ -10,7 +10,7 @@ use anyhow::{ensure, Context, Result};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use rayon::{current_num_threads, in_place_scope};
 use std::fs::File;
 use std::io::Write;
 use std::io::{BufReader, BufWriter};
@@ -127,18 +127,10 @@ impl<W: Write> OffsetsWriter<W> {
     }
 }
 
-/// Like [`std::borrow::Cow`] but does not require `T: ToOwned`
 #[derive(Debug)]
-enum MaybeOwned<'a, T> {
-    Borrowed(&'a T),
-    Owned(T),
-}
-
-#[derive(Debug)]
-pub struct BvCompBuilder<'t> {
+pub struct BvCompBuilder {
     basename: PathBuf,
     compression_flags: CompFlags,
-    threads: Option<MaybeOwned<'t, ThreadPool>>,
     /// Selects the Zuckerli-based BVGraph compressor
     bvgraphz: bool,
     /// The chunk size for the Zuckerli-based compressor
@@ -148,12 +140,11 @@ pub struct BvCompBuilder<'t> {
     owned_tmp_dir: Option<tempfile::TempDir>,
 }
 
-impl BvCompBuilder<'static> {
+impl BvCompBuilder {
     pub fn new(basename: impl AsRef<Path>) -> Self {
         Self {
             basename: basename.as_ref().into(),
             compression_flags: CompFlags::default(),
-            threads: None,
             bvgraphz: false,
             chunk_size: 1000,
             tmp_dir: None,
@@ -162,7 +153,7 @@ impl BvCompBuilder<'static> {
     }
 }
 
-impl<'t> BvCompBuilder<'t> {
+impl<'t> BvCompBuilder {
     pub fn with_compression_flags(mut self, compression_flags: CompFlags) -> Self {
         self.compression_flags = compression_flags;
         self
@@ -173,26 +164,15 @@ impl<'t> BvCompBuilder<'t> {
         self
     }
 
-    pub fn with_threads(self, threads: &'_ ThreadPool) -> BvCompBuilder<'_> {
-        BvCompBuilder {
-            threads: Some(MaybeOwned::Borrowed(threads)),
-            ..self
-        }
+    pub fn with_bvgraphz(mut self) -> Self {
+        self.bvgraphz = true;
+        self
     }
 
-    pub fn with_zuckerli(self) -> Self {
-        BvCompBuilder {
-            bvgraphz: true,
-            ..self
-        }
-    }
-
-    pub fn with_chunk_size(self, chunk_size: usize) -> Self {
-        BvCompBuilder {
-            bvgraphz: true,
-            chunk_size,
-            ..self
-        }
+    pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
+        self.bvgraphz = true;
+        self.chunk_size = chunk_size;
+        self
     }
 
     fn tmp_dir(&mut self) -> Result<PathBuf> {
@@ -212,28 +192,12 @@ impl<'t> BvCompBuilder<'t> {
         Ok(tmp_dir)
     }
 
-    fn ensure_threads(&mut self) -> Result<()> {
-        if self.threads.is_none() {
-            self.threads = Some(MaybeOwned::Owned(
-                ThreadPoolBuilder::default()
-                    .build()
-                    .context("Could not build default thread pool")?,
-            ));
-        }
-
-        Ok(())
-    }
-
-    fn threads(&self) -> &ThreadPool {
-        match self.threads.as_ref().unwrap() {
-            MaybeOwned::Owned(threads) => threads,
-            MaybeOwned::Borrowed(threads) => threads,
-        }
-    }
-
     /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
     /// graph bitstream.
-    pub fn single_thread<E, L>(&mut self, iter: L, num_nodes: Option<usize>) -> Result<u64>
+    /// 
+    /// The optional `expected_num_nodes` parameter will be used to provide
+    /// forecasts on the progress logger.
+    pub fn single_thread<E, L>(&mut self, iter: L, expected_num_nodes: Option<usize>) -> Result<u64>
     where
         E: Endianness,
         L: IntoLender,
@@ -261,7 +225,7 @@ impl<'t> BvCompBuilder<'t> {
         let mut pl = progress_logger![
             display_memory = true,
             item_name = "node",
-            expected_updates = num_nodes,
+            expected_updates = expected_num_nodes,
         ];
         pl.start("Compressing successors...");
         let comp_stats = if self.bvgraphz {
@@ -301,7 +265,7 @@ impl<'t> BvCompBuilder<'t> {
             bvcomp.flush()?
         };
 
-        if let Some(num_nodes) = num_nodes {
+        if let Some(num_nodes) = expected_num_nodes {
             if num_nodes != comp_stats.num_nodes {
                 log::warn!(
                     "The expected number of nodes is {num_nodes} but the actual number of nodes is {}",
@@ -343,8 +307,7 @@ impl<'t> BvCompBuilder<'t> {
     where
         for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
     {
-        self.ensure_threads()?;
-        let num_threads = self.threads().current_num_threads();
+        let num_threads = current_num_threads();
 
         match endianness {
             #[cfg(any(
@@ -368,6 +331,11 @@ impl<'t> BvCompBuilder<'t> {
     }
 
     /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
+    /// 
+    /// Note that the number of parallel compression threads will be
+    /// [`current_num_threads`]. It is your responsibility to ensure that the
+    /// number of threads is appropriate for the number of lenders you pass,
+    /// possibly using [`install`](rayon::ThreadPool::install).
     pub fn parallel_graph<E: Endianness>(
         &mut self,
         graph: &(impl SequentialGraph + for<'a> SplitLabeling<SplitLender<'a>: ExactSizeLender>),
@@ -376,13 +344,17 @@ impl<'t> BvCompBuilder<'t> {
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        self.ensure_threads()?;
-        let num_threads = self.threads().current_num_threads();
+        let num_threads = current_num_threads();
         self.parallel_iter(graph.split_iter(num_threads), graph.num_nodes())
     }
 
     /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
     /// of the graph bitstream.
+    /// 
+    /// Note that the number of parallel compression threads will be
+    /// [`current_num_threads`]. It is your responsibility to ensure that the
+    /// number of threads is appropriate for the number of lenders you pass,
+    /// possibly using [`install`](rayon::ThreadPool::install).
     pub fn parallel_iter<
         E: Endianness,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,
@@ -395,9 +367,7 @@ impl<'t> BvCompBuilder<'t> {
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        self.ensure_threads()?;
         let tmp_dir = self.tmp_dir()?;
-        let threads = self.threads();
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
@@ -419,7 +389,7 @@ impl<'t> BvCompBuilder<'t> {
         let bvgraphz = self.bvgraphz;
         let chunk_size = self.chunk_size;
 
-        threads.in_place_scope(|s| {
+        in_place_scope(|s| {
             for (thread_id, mut thread_lender) in iter.into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
