@@ -127,24 +127,41 @@ impl<W: Write> OffsetsWriter<W> {
     }
 }
 
+/// A configuration for BvGraph compression.
+///
+/// Once set up, the methods [`comp`](Self::comp) (sequential compression),
+/// [`par_comp_graph`](Self::par_comp_graph) (parallel compression of a
+/// splittable graph), and [`par_comp_lenders`](Self::par_comp_lenders)
+/// (parallel compression of multiple lenders) can be used to compress a graph.
 #[derive(Debug)]
-pub struct BvCompBuilder {
+pub struct BvCompConfig {
+    /// The basename of the output files.
     basename: PathBuf,
-    compression_flags: CompFlags,
+    /// Compression flags for BvComp/BvCompZ.
+    comp_flags: CompFlags,
     /// Selects the Zuckerli-based BVGraph compressor
     bvgraphz: bool,
     /// The chunk size for the Zuckerli-based compressor
     chunk_size: usize,
+    /// Temporary directory for all operations.
     tmp_dir: Option<PathBuf>,
-    /// owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default
+    /// Owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default.
     owned_tmp_dir: Option<tempfile::TempDir>,
 }
 
-impl BvCompBuilder {
+impl BvCompConfig {
+    /// Creates a new compression configuration with the given basename and
+    /// default options.
+    ///
+    /// Note that the convenience methods
+    /// [`BvComp::with_basename`](crate::graphs::bvgraph::comp::BvComp::with_basename)
+    /// and
+    /// [`BvCompZ::with_basename`](crate::graphs::bvgraph::comp::BvCompZ::with_basename)
+    /// can be used to create a configuration with default options.
     pub fn new(basename: impl AsRef<Path>) -> Self {
         Self {
             basename: basename.as_ref().into(),
-            compression_flags: CompFlags::default(),
+            comp_flags: CompFlags::default(),
             bvgraphz: false,
             chunk_size: 1000,
             tmp_dir: None,
@@ -153,9 +170,9 @@ impl BvCompBuilder {
     }
 }
 
-impl<'t> BvCompBuilder {
-    pub fn with_compression_flags(mut self, compression_flags: CompFlags) -> Self {
-        self.compression_flags = compression_flags;
+impl BvCompConfig {
+    pub fn with_comp_flags(mut self, compression_flags: CompFlags) -> Self {
+        self.comp_flags = compression_flags;
         self
     }
 
@@ -192,12 +209,12 @@ impl<'t> BvCompBuilder {
         Ok(tmp_dir)
     }
 
-    /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
-    /// graph bitstream.
-    /// 
+    /// Compresses sequentially a [`NodeLabelsLender`] and returns
+    /// the number of bits written to the graph bitstream.
+    ///
     /// The optional `expected_num_nodes` parameter will be used to provide
     /// forecasts on the progress logger.
-    pub fn single_thread<E, L>(&mut self, iter: L, expected_num_nodes: Option<usize>) -> Result<u64>
+    pub fn comp<E, L>(&mut self, iter: L, expected_num_nodes: Option<usize>) -> Result<u64>
     where
         E: Endianness,
         L: IntoLender,
@@ -232,10 +249,10 @@ impl<'t> BvCompBuilder {
             let mut bvcompz = BvCompZ::new(
                 codes_writer,
                 offset_writer,
-                self.compression_flags.compression_window,
+                self.comp_flags.compression_window,
                 self.chunk_size,
-                self.compression_flags.max_ref_count,
-                self.compression_flags.min_interval_length,
+                self.comp_flags.max_ref_count,
+                self.comp_flags.min_interval_length,
                 0,
             );
 
@@ -250,9 +267,9 @@ impl<'t> BvCompBuilder {
             let mut bvcomp = BvComp::new(
                 codes_writer,
                 offset_writer,
-                self.compression_flags.compression_window,
-                self.compression_flags.max_ref_count,
-                self.compression_flags.min_interval_length,
+                self.comp_flags.compression_window,
+                self.comp_flags.max_ref_count,
+                self.comp_flags.min_interval_length,
                 0,
             );
 
@@ -276,7 +293,7 @@ impl<'t> BvCompBuilder {
 
         log::info!("Writing the .properties file");
         let properties = self
-            .compression_flags
+            .comp_flags
             .to_properties::<E>(
                 comp_stats.num_nodes,
                 comp_stats.num_arcs,
@@ -290,7 +307,7 @@ impl<'t> BvCompBuilder {
         Ok(comp_stats.written_bits)
     }
 
-    /// A wrapper over [`parallel_graph`](Self::parallel_graph) that takes the
+    /// A wrapper over [`par_comp_lenders`](Self::par_comp_lenders) that takes the
     /// endianness as a string.
     ///
     /// Endianness can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
@@ -298,7 +315,7 @@ impl<'t> BvCompBuilder {
     ///  A given endianness is enabled only if the corresponding feature is
     /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
     /// neither features are enabled.
-    pub fn parallel_endianness<G: SplitLabeling + SequentialGraph>(
+    pub fn par_comp_lenders_endianness<G: SplitLabeling + SequentialGraph>(
         &mut self,
         graph: &G,
         num_nodes: usize,
@@ -316,7 +333,7 @@ impl<'t> BvCompBuilder {
             ))]
             BE::NAME => {
                 // compress the transposed graph
-                self.parallel_iter::<BigEndian, _>(graph.split_iter(num_threads), num_nodes)
+                self.par_comp_lenders::<BigEndian, _>(graph.split_iter(num_threads), num_nodes)
             }
             #[cfg(any(
                 feature = "le_bins",
@@ -324,19 +341,19 @@ impl<'t> BvCompBuilder {
             ))]
             LE::NAME => {
                 // compress the transposed graph
-                self.parallel_iter::<LittleEndian, _>(graph.split_iter(num_threads), num_nodes)
+                self.par_comp_lenders::<LittleEndian, _>(graph.split_iter(num_threads), num_nodes)
             }
             x => anyhow::bail!("Unknown endianness {}", x),
         }
     }
 
-    /// Compresses a graph in parallel and returns the length in bits of the graph bitstream.
-    /// 
+    /// Compresses a splittable sequential graph in parallel and returns the
+    /// length in bits of the graph bitstream.
+    ///
     /// Note that the number of parallel compression threads will be
-    /// [`current_num_threads`]. It is your responsibility to ensure that the
-    /// number of threads is appropriate for the number of lenders you pass,
-    /// possibly using [`install`](rayon::ThreadPool::install).
-    pub fn parallel_graph<E: Endianness>(
+    /// [`current_num_threads`]. The graph will be split into as many
+    /// lenders as there are threads.
+    pub fn par_comp_graph<E: Endianness>(
         &mut self,
         graph: &(impl SequentialGraph + for<'a> SplitLabeling<SplitLender<'a>: ExactSizeLender>),
     ) -> Result<u64>
@@ -345,17 +362,26 @@ impl<'t> BvCompBuilder {
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         let num_threads = current_num_threads();
-        self.parallel_iter(graph.split_iter(num_threads), graph.num_nodes())
+        self.par_comp_lenders(graph.split_iter(num_threads), graph.num_nodes())
     }
 
-    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns the length in bits
-    /// of the graph bitstream.
-    /// 
+    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns
+    /// a [`CompStats`] instance.
+    ///
+    /// The first lender must start from node 0, and each lender must
+    /// continue from where the previous lender stopped. All in all,
+    /// they must return a total of `num_nodes` nodes.
+    ///
     /// Note that the number of parallel compression threads will be
     /// [`current_num_threads`]. It is your responsibility to ensure that the
     /// number of threads is appropriate for the number of lenders you pass,
     /// possibly using [`install`](rayon::ThreadPool::install).
-    pub fn parallel_iter<
+    ///
+    /// This method is useful to compress graphs that can be iterated upon using
+    /// multiple lenders, but such lenders do not derive from splitting. For
+    /// example, this happens when using
+    /// [`ParSortIters`](crate::utils::par_sort_iters::ParSortIters).
+    pub fn par_comp_lenders<
         E: Endianness,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,
     >(
@@ -377,7 +403,7 @@ impl<'t> BvCompBuilder {
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
         let mut comp_pl = concurrent_progress_logger![
-            log_target = "webgraph::graphs::bvgraph::comp::impls::parallel_iter::comp",
+            log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp_lenders::comp",
             display_memory = true,
             item_name = "node",
             local_speed = true,
@@ -385,7 +411,7 @@ impl<'t> BvCompBuilder {
         ];
         comp_pl.start("Compressing successors in parallel...");
         let mut expected_first_node = 0;
-        let cp_flags = &self.compression_flags;
+        let cp_flags = &self.comp_flags;
         let bvgraphz = self.bvgraphz;
         let chunk_size = self.chunk_size;
 
@@ -482,15 +508,14 @@ impl<'t> BvCompBuilder {
             if num_nodes != expected_first_node {
                 panic!(
                     "The lenders were supposed to return {} nodes but returned {} instead",
-                    num_nodes,
-                    expected_first_node
+                    num_nodes, expected_first_node
                 );
             }
 
             drop(tx);
 
             let mut copy_pl = progress_logger![
-                log_target = "webgraph::graphs::bvgraph::comp::impls::parallel_iter::copy",
+                log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp_lenders::copy",
                 display_memory = true,
                 item_name = "node",
                 local_speed = true,
@@ -505,8 +530,9 @@ impl<'t> BvCompBuilder {
 
             let file = File::create(&offsets_path)
                 .with_context(|| format!("Could not create offsets {}", offsets_path.display()))?;
-            let mut offsets_writer =
-                <BufBitWriter<BigEndian, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
+            let mut offsets_writer = <BufBitWriter<BigEndian, _>>::new(
+                <WordAdapter<usize, _>>::new(BufWriter::new(file)),
+            );
             offsets_writer.write_gamma(0)?;
 
             let mut total_written_bits: u64 = 0;
@@ -547,11 +573,11 @@ impl<'t> BvCompBuilder {
                 );
                 total_written_bits += written_bits;
 
-                let mut reader =
-                    <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-                        File::open(&chunk_graph_path)
-                            .with_context(|| format!("Could not open {}", chunk_graph_path.display()))?,
-                    )));
+                let mut reader = <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(
+                    BufReader::new(File::open(&chunk_graph_path).with_context(|| {
+                        format!("Could not open {}", chunk_graph_path.display())
+                    })?),
+                ));
                 graph_writer
                     .copy_from(&mut reader, written_bits)
                     .with_context(|| {
@@ -572,11 +598,11 @@ impl<'t> BvCompBuilder {
                 );
                 total_offsets_written_bits += offsets_written_bits;
 
-                let mut reader =
-                    <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-                        File::open(&chunk_offsets_path)
-                            .with_context(|| format!("Could not open {}", chunk_offsets_path.display()))?,
-                    )));
+                let mut reader = <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(
+                    BufReader::new(File::open(&chunk_offsets_path).with_context(|| {
+                        format!("Could not open {}", chunk_offsets_path.display())
+                    })?),
+                ));
                 offsets_writer
                     .copy_from(&mut reader, offsets_written_bits)
                     .with_context(|| {
@@ -590,7 +616,6 @@ impl<'t> BvCompBuilder {
                 copy_pl.update_with_count(last_node - first_node + 1);
             }
 
-
             log::info!("Flushing the merged bitstreams");
             graph_writer.flush()?;
             BitWrite::flush(&mut offsets_writer)?;
@@ -599,7 +624,8 @@ impl<'t> BvCompBuilder {
             copy_pl.done();
 
             log::info!("Writing the .properties file");
-            let properties = self.compression_flags
+            let properties = self
+                .comp_flags
                 .to_properties::<E>(num_nodes, total_arcs, total_written_bits)
                 .context("Could not serialize properties")?;
             let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
@@ -630,126 +656,3 @@ impl<'t> BvCompBuilder {
         })
     }
 }
-
-/*
-// TODO: duplicated from BVComp how can we generalize that for any available compressor.
-//       Actually I am not able to pass a type (like BVComp or BVCompZ) without
-//       specialization on the type parameter ahead of time.
-impl BvCompZ<()> {
-    pub fn single_thread_endianness<L>(
-        basename: impl AsRef<Path>,
-        iter: L,
-        chunk_size: usize,
-        compression_flags: CompFlags,
-        num_nodes: Option<usize>,
-        endianness: &str,
-    ) -> Result<u64>
-    where
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-    {
-        match endianness {
-            #[cfg(any(
-                feature = "be_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
-            BE::NAME => Self::single_thread::<BigEndian, _>(
-                basename,
-                iter,
-                chunk_size,
-                compression_flags,
-                num_nodes,
-            ),
-            #[cfg(any(
-                feature = "le_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
-            LE::NAME => Self::single_thread::<LittleEndian, _>(
-                basename,
-                iter,
-                chunk_size,
-                compression_flags,
-                num_nodes,
-            ),
-            x => anyhow::bail!("Unknown endianness {}", x),
-        }
-    }
-
-    /// Compresses s [`NodeLabelsLender`] and returns the length in bits of the
-    /// graph bitstream.
-    pub fn single_thread<E, L>(
-        basename: impl AsRef<Path>,
-        iter: L,
-        chunk_size: usize,
-        compression_flags: CompFlags,
-        num_nodes: Option<usize>,
-    ) -> Result<u64>
-    where
-        E: Endianness,
-        L: IntoLender,
-        L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
-        BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    {
-        let basename = basename.as_ref();
-        let graph_path = basename.with_extension(GRAPH_EXTENSION);
-
-        // Compress the graph
-        let bit_write = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&graph_path)
-                .with_context(|| format!("Could not create {}", graph_path.display()))?,
-        )));
-
-        let comp_flags = CompFlags {
-            ..Default::default()
-        };
-
-        let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags)?;
-
-        let mut bvcomp = BvCompZ::new(
-            codes_writer,
-            compression_flags.compression_window,
-            chunk_size,
-            compression_flags.max_ref_count,
-            compression_flags.min_interval_length,
-            0,
-        );
-
-        let mut pl = ProgressLogger::default();
-        pl.display_memory(true)
-            .item_name("node")
-            .expected_updates(num_nodes);
-        pl.start("Compressing successors...");
-        let mut bitstream_len = 0;
-
-        let mut real_num_nodes = 0;
-        for_! ( (_node_id, successors) in iter {
-            bitstream_len += bvcomp.push(successors).context("Could not push successors")?;
-            pl.update();
-            real_num_nodes += 1;
-        });
-        pl.done();
-
-        if let Some(num_nodes) = num_nodes {
-            if num_nodes != real_num_nodes {
-                log::warn!(
-                    "The expected number of nodes is {} but the actual number of nodes is {}",
-                    num_nodes,
-                    real_num_nodes
-                );
-            }
-        }
-        let num_arcs = bvcomp.arcs;
-        bitstream_len += bvcomp.flush().context("Could not flush bvcompz")? as u64;
-
-        log::info!("Writing the .properties file");
-        let properties = compression_flags
-            .to_properties::<BE>(real_num_nodes, num_arcs, bitstream_len)
-            .context("Could not serialize properties")?;
-        let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
-        std::fs::write(&properties_path, properties)
-            .with_context(|| format!("Could not write {}", properties_path.display()))?;
-
-        Ok(bitstream_len)
-    }
-}
-*/

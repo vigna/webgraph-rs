@@ -5,6 +5,7 @@
  */
 
 use std::io::Write;
+use std::path::Path;
 
 use super::bvcomp::{CompStats, Compressor};
 use super::OffsetsWriter;
@@ -73,6 +74,19 @@ pub struct BvCompZ<E, W: Write> {
     start_chunk_node: usize,
     /// The statistics of the compression process.
     stats: CompStats,
+}
+
+impl BvCompZ<(), std::io::Sink> {
+    /// Convenience method returning a [`BvCompConfig`] with
+    /// settings suitable for the Zuckerli-based compressor.
+    pub fn with_basename(basename: &impl AsRef<Path>) -> BvCompConfig {
+        BvCompConfig::new(basename)
+            .with_bvgraphz()
+            .with_comp_flags(CompFlags {
+                compression_window: 32,
+                ..Default::default()
+            })
+    }
 }
 
 impl<E: EncodeAndEstimate, W: Write> GraphCompressor for BvCompZ<E, W> {
@@ -430,6 +444,7 @@ mod test {
     use dsi_bitstream::prelude::*;
     use itertools::Itertools;
     use lender::prelude::*;
+    use rayon::ThreadPoolBuilder;
     use tempfile::Builder;
 
     #[test]
@@ -465,24 +480,29 @@ mod test {
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
 
-        BvCompBuilder::new(&basename)
+        BvCompConfig::new(&basename)
             .with_bvgraphz()
-            .with_compression_flags(CompFlags {
+            .with_comp_flags(CompFlags {
                 compression_window: 32,
                 ..Default::default()
             })
-            .single_thread::<BE, _>(&cnr_2000, None)?;
+            .comp::<BE, _>(&cnr_2000, None)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        BvCompBuilder::new(&basename)
-            .with_bvgraphz()
-            .with_compression_flags(CompFlags {
-                compression_window: 32,
-                ..Default::default()
-            })
-            .parallel_graph::<BE>(&cnr_2000)?;
+        ThreadPoolBuilder::new()
+            .num_threads(5)
+            .build()?
+            .install(|| {
+                BvCompConfig::new(&basename)
+                    .with_bvgraphz()
+                    .with_comp_flags(CompFlags {
+                        compression_window: 32,
+                        ..Default::default()
+                    })
+                    .par_comp_graph::<BE>(&cnr_2000)
+            })?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;

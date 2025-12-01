@@ -10,7 +10,7 @@ use crate::prelude::*;
 use core::cmp::Ordering;
 use dsi_bitstream::codes::ToNat;
 use lender::prelude::*;
-use std::io::Write;
+use std::{io::Write, path::Path};
 
 /// Compression statistics for a BvGraph compression.
 #[derive(Debug, Clone, Copy, Default)]
@@ -80,6 +80,14 @@ pub struct BvComp<E, W: Write> {
     start_node: usize,
     /// The statistics of the compression process.
     stats: CompStats,
+}
+
+impl BvComp<(), std::io::Sink> {
+    /// Convenience method returning a [`BvCompConfig`] with
+    /// settings suitable for the standard Boldi–Vigna compressor.
+    pub fn with_basename(basename: &impl AsRef<Path>) -> BvCompConfig {
+        BvCompConfig::new(basename)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -610,12 +618,12 @@ mod test {
         let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
         let basename = tmp_dir.path().join("cnr-2000");
 
-        BvCompBuilder::new(&basename).single_thread::<BE, _>(&cnr_2000, None)?;
+        BvComp::with_basename(&basename).comp::<BE, _>(&cnr_2000, None)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        BvCompBuilder::new(&basename).parallel_graph::<BE>(&cnr_2000)?;
+        BvCompConfig::new(&basename).par_comp_graph::<BE>(&cnr_2000)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;

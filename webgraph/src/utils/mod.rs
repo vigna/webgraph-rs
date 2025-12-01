@@ -324,6 +324,7 @@ impl<
                 let end_node = split.boundaries[i + 1];
                 let num_partition_nodes = end_node - start_node;
                 // Map pairs to labeled pairs with unit labels
+                #[allow(clippy::type_complexity)]
                 let map_fn: fn((usize, usize)) -> ((usize, usize), ()) = |pair| (pair, ());
                 let labeled_iter = iter.into_iter().map(map_fn);
                 let lender = Iter::try_new_from(num_partition_nodes, labeled_iter, start_node)

@@ -202,8 +202,8 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompBuilder::new(&args.dst)
-        .with_compression_flags(args.ca.into())
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
 
     if bvgraphz {

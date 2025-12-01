@@ -79,8 +79,8 @@ where
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompBuilder::new(&args.dst)
-        .with_compression_flags(args.ca.into())
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
 
     if bvgraphz {
@@ -121,19 +121,15 @@ where
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
-    let mut builder = BvCompBuilder::new(&args.dst)
-        .with_compression_flags(args.ca.into())
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
 
     if bvgraphz {
         builder = builder.with_chunk_size(chunk_size);
     }
 
-    thread_pool.install(|| {
-        builder.parallel_iter::<E, _>(
-            pairs.into_iter(),
-            seq_graph.num_nodes(),
-        )
-    })?;
+    thread_pool
+        .install(|| builder.par_comp_lenders::<E, _>(pairs.into_iter(), seq_graph.num_nodes()))?;
     Ok(())
 }
