@@ -1,6 +1,5 @@
 use std::ops::{Index, IndexMut};
 
-
 #[derive(Debug, Clone)]
 /// A generic dense matrix stored as a flat Vec in row-major order.
 /// `cols` is the number of columns; the number of rows equals data.len() / cols.

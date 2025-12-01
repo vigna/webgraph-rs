@@ -400,11 +400,11 @@ impl<'t> BvCompBuilder {
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
-                    
+
                     let Some((node_id, successors)) = thread_lender.next() else {
                         return;
                     };
-                    
+
                     let first_node = node_id;
                     if first_node != expected_first_node {
                         panic!(
@@ -418,8 +418,8 @@ impl<'t> BvCompBuilder {
                     let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
                         BufWriter::new(File::create(&chunk_graph_path).unwrap()),
                     ));
-                    let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, &cp_flags).unwrap();
-                    
+                    let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
+
                     let stats;
                     let mut last_node;
                     if bvgraphz {
@@ -431,7 +431,7 @@ impl<'t> BvCompBuilder {
                             cp_flags.max_ref_count,
                             cp_flags.min_interval_length,
                             node_id,
-                        );  
+                        );
                         bvcomp.push(successors).unwrap();
                         last_node = first_node;
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);

@@ -422,7 +422,7 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     }
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 /// Shared CLI arguments for compression.
 pub struct CompressArgs {
     /// The endianness of the graph to write
@@ -462,7 +462,7 @@ pub struct CompressArgs {
     /// Whether to use Zuckerli's reference selection algorithm. This slows down the compression
     /// process and requires more memory, but improves compression ratio and decoding speed.
     #[clap(long)]
-    pub zuckerli: bool,
+    pub bvgraphz: bool,
 
     /// How many nodes to process in a chunk, in our experiments a chunk size of
     /// 1000 already achieves most the result.
