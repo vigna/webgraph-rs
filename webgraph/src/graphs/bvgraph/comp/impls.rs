@@ -164,7 +164,7 @@ impl BvCompConfig {
             basename: basename.as_ref().into(),
             comp_flags: CompFlags::default(),
             bvgraphz: false,
-            chunk_size: 1000,
+            chunk_size: 10_000,
             tmp_dir: None,
             owned_tmp_dir: None,
         }
