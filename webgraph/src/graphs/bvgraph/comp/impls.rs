@@ -98,20 +98,25 @@ pub struct OffsetsWriter<W: Write> {
 }
 
 impl OffsetsWriter<File> {
-    /// Creates a new writer and writes the first offset value (0).
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
+    /// Creates a new writer and writes the first offset value (0) if requested.
+    ///
+    /// Usually, parallel compressor will write autonomously the first offset
+    /// when copying the partial offsets files into the final offsets file.
+    pub fn from_path(path: impl AsRef<Path>, write_zero: bool) -> Result<Self> {
         let file = std::fs::File::create(&path)
             .with_context(|| format!("Could not create {}", path.as_ref().display()))?;
-        Self::from_write(file)
+        Self::from_write(file, write_zero)
     }
 }
 
 impl<W: Write> OffsetsWriter<W> {
     /// Creates a new writer and writes the first offset value (0).
-    pub fn from_write(writer: W) -> Result<Self> {
+    pub fn from_write(writer: W, write_zero: bool) -> Result<Self> {
         let mut buffer = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
-        // the first offset is always zero
-        buffer.write_gamma(0)?;
+        if write_zero {
+            // the first offset (of the first parallel offsets file) is always zero
+            buffer.write_gamma(0)?;
+        }
         Ok(Self { buffer })
     }
 
@@ -247,7 +252,7 @@ impl BvCompConfig {
 
         // create a file for offsets
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
-        let offset_writer = OffsetsWriter::from_path(offsets_path)?;
+        let offset_writer = OffsetsWriter::from_path(offsets_path, true)?;
 
         let mut pl = progress_logger![
             display_memory = true,
@@ -461,7 +466,7 @@ impl BvCompConfig {
                     if bvgraphz {
                         let mut bvcomp = BvCompZ::new(
                             codes_encoder,
-                            OffsetsWriter::from_path(&chunk_offsets_path).unwrap(),
+                            OffsetsWriter::from_path(&chunk_offsets_path, false).unwrap(),
                             cp_flags.compression_window,
                             chunk_size,
                             cp_flags.max_ref_count,
@@ -478,7 +483,7 @@ impl BvCompConfig {
                     } else {
                         let mut bvcomp = BvComp::new(
                             codes_encoder,
-                            OffsetsWriter::from_path(&chunk_offsets_path).unwrap(),
+                            OffsetsWriter::from_path(&chunk_offsets_path, false).unwrap(),
                             cp_flags.compression_window,
                             cp_flags.max_ref_count,
                             cp_flags.min_interval_length,
