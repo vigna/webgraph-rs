@@ -21,6 +21,10 @@ use sux::bits::BitFieldVec;
 use webgraph::prelude::CompFlags;
 use webgraph::utils::{Granularity, MemoryUsage};
 
+macro_rules! SEQ_PROC_WARN {
+    () => {"Processing the graph sequentially: for parallel processing please build the Elias-Fano offsets list using 'webgraph build ef {}'"}
+}
+
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
 
@@ -62,6 +66,10 @@ pub enum PrivCode {
     Zeta5,
     Zeta6,
     Zeta7,
+    Pi1,
+    Pi2,
+    Pi3,
+    Pi4,
 }
 
 impl From<PrivCode> for Codes {
@@ -77,6 +85,10 @@ impl From<PrivCode> for Codes {
             PrivCode::Zeta5 => Codes::Zeta { k: 5 },
             PrivCode::Zeta6 => Codes::Zeta { k: 6 },
             PrivCode::Zeta7 => Codes::Zeta { k: 7 },
+            PrivCode::Pi1 => Codes::Pi { k: 1 },
+            PrivCode::Pi2 => Codes::Pi { k: 2 },
+            PrivCode::Pi3 => Codes::Pi { k: 3 },
+            PrivCode::Pi4 => Codes::Pi { k: 4 },
         }
     }
 }
@@ -464,9 +476,9 @@ pub struct CompressArgs {
     #[clap(long)]
     pub bvgraphz: bool,
 
-    /// How many nodes to process in a chunk, in our experiments a chunk size of
-    /// 1000 already achieves most the result.
-    #[clap(long, default_value = "1000")]
+    /// How many nodes to process in a chunk; the default (10000) is usually a good
+    /// value.
+    #[clap(long, default_value = "10000")]
     pub chunk_size: usize,
 }
 

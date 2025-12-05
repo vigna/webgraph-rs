@@ -54,10 +54,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 }
 
 fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
-    log::warn!(
-        "The .ef file was not found so the simplification will proceed sequentially. This may be slow. To speed it up, you can use `webgraph build ef {}` which would allow us create batches in parallel",
-        basepath.as_ref().display()
-    );
+    log::warn!(SEQ_PROC_WARN![], basepath.as_ref().display());
 }
 
 pub fn simplify<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
@@ -117,7 +114,11 @@ where
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
                     thread_pool.install(|| {
-                        builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                        builder.par_comp_lenders_endianness(
+                            &sorted,
+                            sorted.num_nodes(),
+                            &target_endianness,
+                        )
                     })?;
 
                     return Ok(());
@@ -185,7 +186,11 @@ where
                 )?;
 
                 thread_pool.install(|| {
-                    builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                    builder.par_comp_lenders_endianness(
+                        &sorted,
+                        sorted.num_nodes(),
+                        &target_endianness,
+                    )
                 })?;
 
                 return Ok(());
@@ -232,7 +237,11 @@ where
                 )?;
 
                 thread_pool.install(|| {
-                    builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+                    builder.par_comp_lenders_endianness(
+                        &sorted,
+                        sorted.num_nodes(),
+                        &target_endianness,
+                    )
                 })?;
 
                 return Ok(());

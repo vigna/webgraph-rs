@@ -54,6 +54,13 @@ impl core::default::Default for CompFlags {
     }
 }
 
+const OLD_CODES: [Codes; 4] = [
+    Codes::Unary,
+    Codes::Gamma,
+    Codes::Delta,
+    Codes::Zeta { k: 3 },
+];
+
 impl CompFlags {
     /// Convert a string from the `compflags` field from the `.properties` file
     /// into which code to use.
@@ -65,18 +72,57 @@ impl CompFlags {
             "GAMMA" => Some(Codes::Gamma),
             "DELTA" => Some(Codes::Delta),
             "ZETA" => Some(Codes::Zeta { k }),
+            "PI1" => Some(Codes::Pi { k: 1 }),
+            "PI2" => Some(Codes::Pi { k: 2 }),
+            "PI3" => Some(Codes::Pi { k: 3 }),
+            "PI4" => Some(Codes::Pi { k: 4 }),
+            "ZETA1" => Some(Codes::Zeta { k: 1 }),
+            "ZETA2" => Some(Codes::Zeta { k: 2 }),
+            "ZETA3" => Some(Codes::Zeta { k: 3 }),
+            "ZETA4" => Some(Codes::Zeta { k: 4 }),
+            "ZETA5" => Some(Codes::Zeta { k: 5 }),
+            "ZETA6" => Some(Codes::Zeta { k: 6 }),
+            "ZETA7" => Some(Codes::Zeta { k: 7 }),
             _ => None,
         }
     }
 
-    pub fn code_to_str(c: Codes) -> Option<&'static str> {
-        match c {
-            Codes::Unary => Some("UNARY"),
-            Codes::Gamma => Some("GAMMA"),
-            Codes::Delta => Some("DELTA"),
-            Codes::Zeta { k: _ } => Some("ZETA"),
-            _ => unimplemented!("Code {:?} not supported", c),
+    pub fn code_to_str(c: Codes, version: usize) -> Option<&'static str> {
+        if version == 0 {
+            match c {
+                Codes::Unary => Some("UNARY"),
+                Codes::Gamma => Some("GAMMA"),
+                Codes::Delta => Some("DELTA"),
+                Codes::Zeta { k: _ } => Some("ZETA"),
+                _ => unimplemented!("Code {:?} not supported", c),
+            }
+        } else {
+            match c {
+                Codes::Unary => Some("UNARY"),
+                Codes::Gamma => Some("GAMMA"),
+                Codes::Delta => Some("DELTA"),
+                Codes::Zeta { k: 1 } => Some("ZETA1"),
+                Codes::Zeta { k: 2 } => Some("ZETA2"),
+                Codes::Zeta { k: 3 } => Some("ZETA3"),
+                Codes::Zeta { k: 4 } => Some("ZETA4"),
+                Codes::Zeta { k: 5 } => Some("ZETA5"),
+                Codes::Zeta { k: 6 } => Some("ZETA6"),
+                Codes::Zeta { k: 7 } => Some("ZETA7"),
+                Codes::Pi { k: 1 } => Some("PI1"),
+                Codes::Pi { k: 2 } => Some("PI2"),
+                Codes::Pi { k: 3 } => Some("PI3"),
+                Codes::Pi { k: 4 } => Some("PI4"),
+                _ => unimplemented!("Code {:?} not supported", c),
+            }
         }
+    }
+
+    fn contains_new_codes(&self) -> bool {
+        !OLD_CODES.contains(&self.outdegrees)
+            || !OLD_CODES.contains(&self.references)
+            || !OLD_CODES.contains(&self.blocks)
+            || !OLD_CODES.contains(&self.intervals)
+            || !OLD_CODES.contains(&self.residuals)
     }
 
     pub fn to_properties<E: Endianness>(
@@ -89,11 +135,11 @@ impl CompFlags {
         s.push_str("#BVGraph properties\n");
         s.push_str("graphclass=it.unimi.dsi.webgraph.BVGraph\n");
 
-        if core::any::TypeId::of::<E>() == core::any::TypeId::of::<BigEndian>() {
-            s.push_str("version=0\n");
-        } else {
-            s.push_str("version=1\n");
-        }
+        // Version 1 if we have big-endian or new codes
+        let version = (core::any::TypeId::of::<E>() != core::any::TypeId::of::<BigEndian>()
+            || self.contains_new_codes()) as usize;
+
+        s.push_str(&format!("version={version}\n"));
         s.push_str(&format!("endianness={}\n", E::NAME));
 
         s.push_str(&format!("nodes={num_nodes}\n"));
@@ -130,35 +176,35 @@ impl CompFlags {
         if self.outdegrees != Codes::Gamma {
             s.push_str(&format!(
                 "OUTDEGREES_{}|",
-                Self::code_to_str(self.outdegrees).unwrap()
+                Self::code_to_str(self.outdegrees, version).unwrap()
             ));
             cflags = true;
         }
         if self.references != Codes::Unary {
             s.push_str(&format!(
                 "REFERENCES_{}|",
-                Self::code_to_str(self.references).unwrap()
+                Self::code_to_str(self.references, version).unwrap()
             ));
             cflags = true;
         }
         if self.blocks != Codes::Gamma {
             s.push_str(&format!(
                 "BLOCKS_{}|",
-                Self::code_to_str(self.blocks).unwrap()
+                Self::code_to_str(self.blocks, version).unwrap()
             ));
             cflags = true;
         }
         if self.intervals != Codes::Gamma {
             s.push_str(&format!(
                 "INTERVALS_{}|",
-                Self::code_to_str(self.intervals).unwrap()
+                Self::code_to_str(self.intervals, version).unwrap()
             ));
             cflags = true;
         }
         if !matches!(self.residuals, Codes::Zeta { k: _ }) {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
-                Self::code_to_str(self.residuals).unwrap()
+                Self::code_to_str(self.residuals, version).unwrap()
             ));
             cflags = true;
         }
@@ -166,28 +212,30 @@ impl CompFlags {
             s.pop();
         }
         s.push('\n');
-        // check that if a k is specified, it is the same for all codes
-        let mut k = None;
-        macro_rules! check_and_set_k {
-            ($code:expr) => {
-                match $code {
-                    Codes::Zeta { k: new_k } => {
-                        if let Some(old_k) = k {
-                            ensure!(old_k == new_k, "Only one value of k is supported")
+        if version == 0 {
+            // check that if a k is specified, it is the same for all codes
+            let mut k = None;
+            macro_rules! check_and_set_k {
+                ($code:expr) => {
+                    match $code {
+                        Codes::Zeta { k: new_k } => {
+                            if let Some(old_k) = k {
+                                ensure!(old_k == new_k, "Only one value of k is supported")
+                            }
+                            k = Some(new_k)
                         }
-                        k = Some(new_k)
+                        _ => {}
                     }
-                    _ => {}
-                }
-            };
+                };
+            }
+            check_and_set_k!(self.outdegrees);
+            check_and_set_k!(self.references);
+            check_and_set_k!(self.blocks);
+            check_and_set_k!(self.intervals);
+            check_and_set_k!(self.residuals);
+            // if no k was specified, use the default one (3)
+            s.push_str(&format!("zetak={}\n", k.unwrap_or(3)));
         }
-        check_and_set_k!(self.outdegrees);
-        check_and_set_k!(self.references);
-        check_and_set_k!(self.blocks);
-        check_and_set_k!(self.intervals);
-        check_and_set_k!(self.residuals);
-        // if no k was specified, use the default one (3)
-        s.push_str(&format!("zetak={}\n", k.unwrap_or(3)));
         Ok(s)
     }
 
