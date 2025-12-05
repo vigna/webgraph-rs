@@ -165,6 +165,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             return Ok(());
         }
         let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
+        debug_assert!(relative_index_in_chunk < self.chunk_size);
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
         let cost = {
@@ -396,19 +397,23 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
                 out_edges[i - reference].push(i);
             }
         }
+        // limit the dimensions of the dynamic programming table for edge cases where the maximum reference
+        // chain exceeds the number of elements in the chunk (e.g. high compression, R=+inf).
+        let max_available_references = self.max_ref_count.min(n);
         // table for dynamic programming: the entry x, i of the table represent
         // the maximum weight of the subforest rooted in x that has no paths
         // longer than i.
         // So using dyn[(node, max_length)] denotes the weight where we are
         // considering "node" to be the root (so without reference).
-        let mut dyn_table: Matrix<ReferenceTableEntry> = Matrix::new(n, self.max_ref_count + 1);
+        let mut dyn_table: Matrix<ReferenceTableEntry> =
+            Matrix::new(n, max_available_references + 1);
 
         for i in (0..n).rev() {
             // in the paper M_r(i) so the case where I don't choose this node to be referred from other lists
             // and favor the children so they can be have paths of the maximum length (n)
             let mut child_sum_full_chain = 0.0;
             for child in out_edges[i].iter() {
-                child_sum_full_chain += dyn_table[(child, self.max_ref_count)].saved_cost;
+                child_sum_full_chain += dyn_table[(child, max_available_references)].saved_cost;
             }
 
             dyn_table[(i, 0)] = ReferenceTableEntry {
@@ -417,7 +422,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             };
 
             // counting parent link, if any.
-            for links_to_use in 1..=self.max_ref_count {
+            for links_to_use in 1..=max_available_references {
                 // Now we are choosing i to have at most children chains of 'links_to_use'
                 // (because we used 'max_length - links_to_use' links before somewhere)
                 let mut child_sum = self.saved_costs[i];
@@ -439,7 +444,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             }
         }
 
-        let mut available_length = vec![self.max_ref_count; n];
+        let mut available_length = vec![max_available_references; n];
         // always choose the maximum available lengths calculated in the previous step
         for i in 0..self.references.len() {
             if dyn_table[(i, available_length[i])].chosen {
