@@ -165,7 +165,6 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             return Ok(());
         }
         let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
-        debug_assert!(relative_index_in_chunk < self.chunk_size);
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
         let cost = {
@@ -274,103 +273,18 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     }
 
     fn comp_refs(&mut self) -> anyhow::Result<()> {
-        let n = self.references.len();
-        self.update_references_for_max_length();
-        assert_eq!(n, self.curr_node - self.start_chunk_node);
-        assert_eq!(self.start_chunk_node, self.curr_node - n);
+        // in the case of high compression (R=+inf), the best references can be found
+        // by constructing a maximum-weight directed forest greedily
+        if self.max_ref_count != usize::MAX {
+            // the number of nodes in the chunk is different than the chunk size in the flush case
+            let nodes_in_chunk = self.references.len();
+            self.update_references_for_max_length();
+            assert_eq!(nodes_in_chunk, self.curr_node - self.start_chunk_node);
 
-        // Completing Zuckerli algorithm using greedy algorithm
-        // to add back the available references that are now valid
-        // and not included in the maximum forest
-        // calculate length of previous references' chains
-        let mut chain_length = vec![0usize; self.chunk_size];
-        for i in 0..n {
-            if self.references[i] != 0 {
-                let parent = i - self.references[i];
-                chain_length[i] = chain_length[parent] + 1;
-            }
-        }
-        // calculate the length of next reference chain
-        let mut forward_chain_length = vec![0usize; self.chunk_size];
-        for i in (0..n).rev() {
-            if self.references[i] != 0 {
-                // check if the subsequent length of my chain is greater than the one of
-                // other children of my parent
-                let parent = i - self.references[i];
-                forward_chain_length[parent] =
-                    forward_chain_length[parent].max(forward_chain_length[i] + 1);
-            }
-        }
-        for relative_index_in_chunk in 0..n {
-            let node_index = self.curr_node - n + relative_index_in_chunk;
-            // recalculate the chain length because the reference can be changed
-            // after a greedy re-add in a previous iteration
-            if self.references[relative_index_in_chunk] != 0 {
-                let parent = relative_index_in_chunk - self.references[relative_index_in_chunk];
-                chain_length[relative_index_in_chunk] = chain_length[parent] + 1;
-            }
-            // first get the number of bits used to compress the current node without references
-            let mut min_bits = self.reference_costs[(relative_index_in_chunk, 0)];
-
-            let deltas = 1 + self.compression_window.min(relative_index_in_chunk);
-            // compression windows is not zero, so compress the current node
-            for delta in 1..deltas {
-                // Repeat the reference selection only on the arcs that don't
-                // violate the maximum reference constraint
-                if chain_length[relative_index_in_chunk - delta]
-                    + forward_chain_length[relative_index_in_chunk]
-                    + 1
-                    > self.max_ref_count
-                {
-                    continue;
-                }
-                let reference_index = node_index - delta;
-                let ref_list = &self.backrefs[reference_index];
-                // No neighbors, no compression
-                if ref_list.is_empty() {
-                    continue;
-                }
-                // Read how many bits it would use for this reference
-                let bits = self.reference_costs[(relative_index_in_chunk, delta)];
-                // keep track of the best, it's strictly less so we keep the
-                // nearest one in the case of multiple equal ones
-                if bits < min_bits {
-                    min_bits = bits;
-                    self.references[relative_index_in_chunk] = delta;
-                }
-            }
-            if self.references[relative_index_in_chunk] != 0 {
-                let parent = relative_index_in_chunk - self.references[relative_index_in_chunk];
-                chain_length[relative_index_in_chunk] = chain_length[parent] + 1;
-            }
+            self.find_additional_references_greedily();
         }
 
-        let mut compressor = Compressor::new();
-        for i in 0..n {
-            let node_index = self.curr_node - n + i;
-            let curr_list = &self.backrefs[node_index];
-            let reference = self.references[i];
-            let ref_list = if reference == 0 {
-                None
-            } else {
-                let reference_index = node_index - reference;
-                Some(self.backrefs[reference_index].as_slice()).filter(|list| !list.is_empty())
-            };
-            compressor.compress(curr_list, ref_list, self.min_interval_length)?;
-            let bits = compressor.write(
-                &mut self.encoder,
-                node_index,
-                Some(reference),
-                self.min_interval_length,
-            )?;
-            self.stats.written_bits += bits;
-            self.stats.offsets_written_bits += self.offsets_writer.push(bits)? as u64;
-        }
-        // reset the chunk starting point
-        self.start_chunk_node = self.curr_node;
-        // clear the refs array and the backrefs
-        self.references.clear();
-        self.saved_costs.clear();
+        self.write_and_clear_current_chunk()?;
         Ok(())
     }
 
@@ -457,6 +371,110 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
                 self.references[i] = 0;
             }
         }
+    }
+
+    // Greedily adds to the reference forest new references that are not in
+    // the maximum DAG in the first step, but are still valid.
+    fn find_additional_references_greedily(&mut self) {
+        // Completing Zuckerli algorithm using greedy algorithm
+        // to add back the available references that are now valid
+        // and not included in the maximum forest
+        let n = self.references.len();
+        // calculate length of previous references' chains
+        let mut chain_length = vec![0usize; self.chunk_size];
+        for i in 0..n {
+            if self.references[i] != 0 {
+                let parent = i - self.references[i];
+                chain_length[i] = chain_length[parent] + 1;
+            }
+        }
+        // calculate the length of next reference chain
+        let mut forward_chain_length = vec![0usize; self.chunk_size];
+        for i in (0..n).rev() {
+            if self.references[i] != 0 {
+                // check if the subsequent length of my chain is greater than the one of
+                // other children of my parent
+                let parent = i - self.references[i];
+                forward_chain_length[parent] =
+                    forward_chain_length[parent].max(forward_chain_length[i] + 1);
+            }
+        }
+        for relative_index_in_chunk in 0..n {
+            let node_index = self.curr_node - n + relative_index_in_chunk;
+            // recalculate the chain length because the reference can be changed
+            // after a greedy re-add in a previous iteration
+            if self.references[relative_index_in_chunk] != 0 {
+                let parent = relative_index_in_chunk - self.references[relative_index_in_chunk];
+                chain_length[relative_index_in_chunk] = chain_length[parent] + 1;
+            }
+            // first get the number of bits used to compress the current node without references
+            let mut min_bits = self.reference_costs[(relative_index_in_chunk, 0)];
+
+            let deltas = 1 + self.compression_window.min(relative_index_in_chunk);
+            // compression windows is not zero, so compress the current node
+            for delta in 1..deltas {
+                // Repeat the reference selection only on the arcs that don't
+                // violate the maximum reference constraint
+                if chain_length[relative_index_in_chunk - delta]
+                    + forward_chain_length[relative_index_in_chunk]
+                    + 1
+                    > self.max_ref_count
+                {
+                    continue;
+                }
+                let reference_index = node_index - delta;
+                let ref_list = &self.backrefs[reference_index];
+                // No neighbors, no compression
+                if ref_list.is_empty() {
+                    continue;
+                }
+                // Read how many bits it would use for this reference
+                let bits = self.reference_costs[(relative_index_in_chunk, delta)];
+                // keep track of the best, it's strictly less so we keep the
+                // nearest one in the case of multiple equal ones
+                if bits < min_bits {
+                    min_bits = bits;
+                    self.references[relative_index_in_chunk] = delta;
+                }
+            }
+            if self.references[relative_index_in_chunk] != 0 {
+                let parent = relative_index_in_chunk - self.references[relative_index_in_chunk];
+                chain_length[relative_index_in_chunk] = chain_length[parent] + 1;
+            }
+        }
+    }
+
+    // Write the current chunk to the encoder and clear the compressor's internal
+    // state to start compressing the next chunk.
+    fn write_and_clear_current_chunk(&mut self) -> anyhow::Result<()> {
+        let n = self.references.len();
+        let mut compressor = Compressor::new();
+        for i in 0..n {
+            let node_index = self.curr_node - n + i;
+            let curr_list = &self.backrefs[node_index];
+            let reference = self.references[i];
+            let ref_list = if reference == 0 {
+                None
+            } else {
+                let reference_index = node_index - reference;
+                Some(self.backrefs[reference_index].as_slice()).filter(|list| !list.is_empty())
+            };
+            compressor.compress(curr_list, ref_list, self.min_interval_length)?;
+            let bits = compressor.write(
+                &mut self.encoder,
+                node_index,
+                Some(reference),
+                self.min_interval_length,
+            )?;
+            self.stats.written_bits += bits;
+            self.stats.offsets_written_bits += self.offsets_writer.push(bits)? as u64;
+        }
+        // reset the chunk starting point
+        self.start_chunk_node = self.curr_node;
+        // clear the refs array and the backrefs
+        self.references.clear();
+        self.saved_costs.clear();
+        Ok(())
     }
 }
 
