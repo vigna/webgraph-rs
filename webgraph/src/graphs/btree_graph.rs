@@ -195,7 +195,7 @@ impl<L: Clone + 'static> LabeledSequentialGraph<L> for LabeledBTreeGraph<L> {}
 
 impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
     type Labels<'succ>
-        = Successors<'succ, L>
+        = LabeledSuccessors<'succ, L>
     where
         L: 'succ;
     #[inline(always)]
@@ -210,7 +210,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        Successors(self.succ[node].iter())
+        LabeledSuccessors(self.succ[node].iter())
     }
 }
 
@@ -361,7 +361,7 @@ impl SequentialLabeling for BTreeGraph {
 impl SequentialGraph for BTreeGraph {}
 
 impl RandomAccessLabeling for BTreeGraph {
-    type Labels<'succ> = core::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>;
+    type Labels<'succ> = Successors<'succ>;
 
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
@@ -375,7 +375,7 @@ impl RandomAccessLabeling for BTreeGraph {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        self.0.succ[node].keys().copied()
+        Successors(self.0.succ[node].keys().copied())
     }
 }
 
@@ -389,11 +389,13 @@ impl From<LabeledBTreeGraph<()>> for BTreeGraph {
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct Successors<'a, L: Clone + 'static>(std::collections::btree_map::Iter<'a, usize, L>);
+pub struct LabeledSuccessors<'a, L: Clone + 'static>(
+    std::collections::btree_map::Iter<'a, usize, L>,
+);
 
-unsafe impl<L: Clone + 'static> SortedIterator for Successors<'_, L> {}
+unsafe impl<L: Clone + 'static> SortedIterator for LabeledSuccessors<'_, L> {}
 
-impl<L: Clone + 'static> Iterator for Successors<'_, L> {
+impl<L: Clone + 'static> Iterator for LabeledSuccessors<'_, L> {
     type Item = (usize, L);
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -401,7 +403,30 @@ impl<L: Clone + 'static> Iterator for Successors<'_, L> {
     }
 }
 
-impl<L: Clone + 'static> ExactSizeIterator for Successors<'_, L> {
+impl<L: Clone + 'static> ExactSizeIterator for LabeledSuccessors<'_, L> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+#[doc(hidden)]
+#[repr(transparent)]
+pub struct Successors<'succ>(
+    core::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>,
+);
+
+unsafe impl<'succ> SortedIterator for Successors<'_> {}
+
+impl<'succ> Iterator for Successors<'_> {
+    type Item = usize;
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<'succ> ExactSizeIterator for Successors<'_> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
