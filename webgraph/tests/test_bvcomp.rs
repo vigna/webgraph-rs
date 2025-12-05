@@ -5,15 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use lender::*;
+use lender::Lender;
 use std::{fs::File, io::BufWriter};
 use tempfile::NamedTempFile;
 
-const NODES: usize = 325557;
-
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
-use dsi_progress_logger::prelude::*;
+use dsi_bitstream::prelude::{factory::CodesReaderFactoryHelper, *};
 use std::path::Path;
 use webgraph::{graphs::random::ErdosRenyi, prelude::*};
 use Codes::{Delta, Gamma, Unary, Zeta};
@@ -31,11 +28,11 @@ fn test_bvcomp_slow() -> Result<()> {
 fn _test_bvcomp_slow<E: Endianness>() -> Result<()>
 where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodesRead<E>,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
-    let seq_graph = ErdosRenyi::new(100, 0.1, 0);
+    let seq_graph = BTreeGraph::from_lender(ErdosRenyi::new(100, 0.1, 0).iter());
     for compression_window in [0, 1, 3, 16] {
         for max_ref_count in [0, 1, 3, usize::MAX] {
             for min_interval_length in [0, 1, 3] {
@@ -67,7 +64,7 @@ where
                                         max_ref_count,
                                     };
 
-                                    _test_body::<E, _>(tmp_path, &seq_graph, compression_flags)?;
+                                    _test_body::<E, _, _>(tmp_path, &seq_graph, compression_flags)?;
                                 }
                             }
                         }
@@ -76,82 +73,64 @@ where
             }
         }
     }
+    // Cleanup
     std::fs::remove_file(tmp_path)?;
+    std::fs::remove_file(tmp_path.with_added_extension("graph"))?;
+    std::fs::remove_file(tmp_path.with_added_extension("offsets"))?;
+    std::fs::remove_file(tmp_path.with_added_extension("properties"))?;
     Ok(())
 }
 
-fn _test_body<E: Endianness, P: AsRef<Path>>(
+fn _test_body<E: Endianness, G: SequentialGraph, P: AsRef<Path>>(
     tmp_path: P,
-    seq_graph: &impl SequentialGraph,
-    compression_flags: CompFlags,
+    seq_graph: &G,
+    comp_flags: CompFlags,
 ) -> Result<()>
 where
+    for<'a> G::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodesRead<E>,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
-    let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
-        <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(
-            tmp_path.as_ref().with_added_extension(".graph"),
-        )?))),
-        &compression_flags,
-    )?);
+    let tmp_path = tmp_path.as_ref();
 
-    let offsets_writer =
-        OffsetsWriter::from_path(tmp_path.as_ref().with_added_extension(".offsets"))?;
-
-    let mut bvcomp = BvComp::new(
-        writer,
-        offsets_writer,
-        compression_flags.compression_window,
-        compression_flags.max_ref_count,
-        compression_flags.min_interval_length,
-        0,
-    );
-
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("node")
-        .expected_updates(Some(NODES));
-
-    pl.start("Compressing...");
-
-    // TODO: use LoadConfig
-    let mut iter_nodes = seq_graph.iter();
-    while let Some((_, iter)) = iter_nodes.next() {
-        bvcomp.push(iter)?;
-        pl.light_update();
-    }
-
-    pl.done();
-    bvcomp.flush()?;
-
-    let code_reader = DynCodesDecoder::new(
-        BufBitReader::<E, _>::new(MemWordReader::<u32, _>::new(MmapHelper::mmap(
-            tmp_path.as_ref(),
-            mmap_rs::MmapFlags::empty(),
-        )?)),
-        &compression_flags,
-    )?;
-    let mut seq_reader1 = sequential::Iter::new(
-        code_reader,
-        NODES,
-        compression_flags.compression_window,
-        compression_flags.min_interval_length,
-    );
-
-    pl.start("Checking equality...");
-    let mut iter_nodes = seq_graph.iter();
-    for _ in 0..seq_graph.num_nodes() {
-        let (node0, iter0) = iter_nodes.next().unwrap();
-        let (node1, iter1) = seq_reader1.next().unwrap();
-        assert_eq!(node0, node1);
-        assert_eq!(
-            iter0.into_iter().collect::<Vec<_>>(),
-            iter1.into_iter().collect::<Vec<_>>()
+    let mut iter = seq_graph.iter();
+    while let Some((node, neighbors)) = iter.next() {
+        println!(
+            "Node {}: {:?}",
+            node,
+            neighbors.into_iter().collect::<Vec<_>>()
         );
-        pl.light_update();
     }
-    pl.done();
+
+    BvCompConfig::new(tmp_path)
+        .with_comp_flags(comp_flags)
+        .comp_graph::<E>(&seq_graph)?;
+    let new_graph = BvGraphSeq::with_basename(tmp_path)
+        .endianness::<E>()
+        .load()?;
+
+    let mut iter = new_graph.iter();
+    while let Some((node, neighbors)) = iter.next() {
+        println!(
+            "Node {}: {:?}",
+            node,
+            neighbors.into_iter().collect::<Vec<_>>()
+        );
+    }
+
+    labels::eq_sorted(seq_graph, &new_graph)?;
+
+    /*for chunk_size in [1000] {
+        BvCompConfig::new(tmp_path)
+            .with_comp_flags(comp_flags)
+            .with_chunk_size(chunk_size)
+            .comp_graph::<E>(&seq_graph)?;
+        let new_graph = BvGraphSeq::with_basename(tmp_path)
+            .endianness::<E>()
+            .load()?;
+        labels::eq_sorted(seq_graph, &new_graph)?;
+    }*/
     Ok(())
 }
 
