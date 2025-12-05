@@ -244,11 +244,7 @@ impl BvCompConfig {
                 .with_context(|| format!("Could not create {}", graph_path.display()))?,
         )));
 
-        let comp_flags = CompFlags {
-            ..Default::default()
-        };
-
-        let codes_writer = DynCodesEncoder::new(bit_write, &comp_flags)?;
+        let codes_writer = DynCodesEncoder::new(bit_write, &self.comp_flags)?;
 
         // create a file for offsets
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);

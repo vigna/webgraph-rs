@@ -32,7 +32,7 @@ where
 {
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
-    let seq_graph = BTreeGraph::from_lender(ErdosRenyi::new(100, 0.1, 0).iter());
+    let seq_graph = ErdosRenyi::new(100, 0.1, 0);
     for compression_window in [0, 1, 3, 16] {
         for max_ref_count in [0, 1, 3, usize::MAX] {
             for min_interval_length in [0, 1, 3] {
@@ -106,6 +106,7 @@ where
     BvCompConfig::new(tmp_path)
         .with_comp_flags(comp_flags)
         .comp_graph::<E>(&seq_graph)?;
+
     let new_graph = BvGraphSeq::with_basename(tmp_path)
         .endianness::<E>()
         .load()?;

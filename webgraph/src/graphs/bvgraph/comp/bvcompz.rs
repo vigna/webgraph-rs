@@ -150,7 +150,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         compressor.compress(curr_list, None, self.min_interval_length)?;
         // avoid the mock writing
         if self.compression_window == 0 {
-            compressor.write(
+            let written_bits = compressor.write(
                 &mut self.encoder,
                 self.curr_node,
                 None,
@@ -158,6 +158,10 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             )?;
             // update the current node
             self.curr_node += 1;
+
+            // write the offset
+            self.stats.offsets_written_bits += self.offsets_writer.push(written_bits)? as u64;
+            self.stats.written_bits += written_bits;
             return Ok(());
         }
         let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
