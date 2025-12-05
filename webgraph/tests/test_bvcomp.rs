@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use lender::Lender;
 use std::{fs::File, io::BufWriter};
 use tempfile::NamedTempFile;
 
@@ -93,36 +92,15 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
     let tmp_path = tmp_path.as_ref();
-
-    let mut iter = seq_graph.iter();
-    while let Some((node, neighbors)) = iter.next() {
-        println!(
-            "Node {}: {:?}",
-            node,
-            neighbors.into_iter().collect::<Vec<_>>()
-        );
-    }
-
     BvCompConfig::new(tmp_path)
         .with_comp_flags(comp_flags)
         .comp_graph::<E>(&seq_graph)?;
-
     let new_graph = BvGraphSeq::with_basename(tmp_path)
         .endianness::<E>()
         .load()?;
-
-    let mut iter = new_graph.iter();
-    while let Some((node, neighbors)) = iter.next() {
-        println!(
-            "Node {}: {:?}",
-            node,
-            neighbors.into_iter().collect::<Vec<_>>()
-        );
-    }
-
     labels::eq_sorted(seq_graph, &new_graph)?;
 
-    /*for chunk_size in [1000] {
+    for chunk_size in [1, 10, 1000] {
         BvCompConfig::new(tmp_path)
             .with_comp_flags(comp_flags)
             .with_chunk_size(chunk_size)
@@ -131,7 +109,7 @@ where
             .endianness::<E>()
             .load()?;
         labels::eq_sorted(seq_graph, &new_graph)?;
-    }*/
+    }
     Ok(())
 }
 

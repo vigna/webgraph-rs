@@ -54,11 +54,17 @@ impl core::default::Default for CompFlags {
     }
 }
 
-const OLD_CODES: [Codes; 4] = [
+const OLD_CODES: [Codes; 10] = [
     Codes::Unary,
     Codes::Gamma,
     Codes::Delta,
+    Codes::Zeta { k: 1 },
+    Codes::Zeta { k: 2 },
     Codes::Zeta { k: 3 },
+    Codes::Zeta { k: 4 },
+    Codes::Zeta { k: 5 },
+    Codes::Zeta { k: 6 },
+    Codes::Zeta { k: 7 },
 ];
 
 impl CompFlags {
@@ -162,9 +168,9 @@ impl CompFlags {
             n * (n.ln() - 1.0) + 0.5 * (2.0 * std::f64::consts::PI * n).ln()
         }
 
-        let nsquared = (num_nodes * num_nodes) as u64;
+        let n_squared = (num_nodes * num_nodes) as u64;
         let theoretical_bound =
-            (stirling(nsquared) - stirling(num_arcs) - stirling(nsquared - num_arcs))
+            (stirling(n_squared) - stirling(num_arcs) - stirling(n_squared - num_arcs))
                 / 2.0_f64.ln();
         s.push_str(&format!(
             "compratio={:.3}\n",
@@ -172,43 +178,45 @@ impl CompFlags {
         ));
 
         s.push_str("compressionflags=");
-        let mut cflags = false;
+        let mut comp_flags = false;
         if self.outdegrees != Codes::Gamma {
             s.push_str(&format!(
                 "OUTDEGREES_{}|",
                 Self::code_to_str(self.outdegrees, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
         if self.references != Codes::Unary {
             s.push_str(&format!(
                 "REFERENCES_{}|",
                 Self::code_to_str(self.references, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
         if self.blocks != Codes::Gamma {
             s.push_str(&format!(
                 "BLOCKS_{}|",
                 Self::code_to_str(self.blocks, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
         if self.intervals != Codes::Gamma {
             s.push_str(&format!(
                 "INTERVALS_{}|",
                 Self::code_to_str(self.intervals, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
-        if !matches!(self.residuals, Codes::Zeta { k: _ }) {
+        if (version == 0 && !matches!(self.residuals, Codes::Zeta { k: _ }))
+            || self.residuals != (Codes::Zeta { k: 3 })
+        {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
                 Self::code_to_str(self.residuals, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
-        if cflags {
+        if comp_flags {
             s.pop();
         }
         s.push('\n');
@@ -265,7 +273,7 @@ impl CompFlags {
 
         let mut cf = CompFlags::default();
         let mut k = 3;
-        if let Some(spec_k) = map.get("zeta_k") {
+        if let Some(spec_k) = map.get("zetak") {
             let spec_k = spec_k.parse::<usize>()?;
             if !(1..=7).contains(&spec_k) {
                 bail!("Only ζ₁-ζ₇ are supported");
