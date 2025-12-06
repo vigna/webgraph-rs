@@ -147,10 +147,7 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     }
 }
 
-impl<F: SequentialDecoderFactory> BvGraphSeq<F>
-where
-    for<'a> F::Decoder<'a>: Decode,
-{
+impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     #[inline(always)]
     /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes

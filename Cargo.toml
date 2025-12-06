@@ -9,7 +9,7 @@ webgraph-cli = { path = "./cli", version = "0.1.0" }
 
 card-est-array = "0.2.0"
 epserde = "0.11.1"
-dsi-bitstream = "0.5.2"
+dsi-bitstream = "0.5.3"
 dsi-progress-logger = "0.8.2"
 sux = { version = "0.9.0", features = ["epserde", "rayon", "mmap"] }
 common_traits = "0.12.0"

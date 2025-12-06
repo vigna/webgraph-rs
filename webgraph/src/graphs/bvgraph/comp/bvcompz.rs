@@ -80,7 +80,7 @@ pub struct BvCompZ<E, W: Write> {
 impl BvCompZ<(), std::io::Sink> {
     /// Convenience method returning a [`BvCompConfig`] with
     /// settings suitable for the Zuckerli-based compressor.
-    pub fn with_basename(basename: &impl AsRef<Path>) -> BvCompConfig {
+    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
         BvCompConfig::new(basename)
             .with_bvgraphz()
             .with_comp_flags(CompFlags {

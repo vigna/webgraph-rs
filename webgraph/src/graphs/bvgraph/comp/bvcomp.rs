@@ -63,7 +63,7 @@ pub struct BvComp<E, W: Write> {
 impl BvComp<(), std::io::Sink> {
     /// Convenience method returning a [`BvCompConfig`] with
     /// settings suitable for the standard Boldi–Vigna compressor.
-    pub fn with_basename(basename: &impl AsRef<Path>) -> BvCompConfig {
+    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
         BvCompConfig::new(basename)
     }
 }

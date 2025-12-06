@@ -21,6 +21,8 @@
 //! The main access point to the implementation is [`BvGraph::with_basename`],
 //! which provides a [`LoadConfig`] that can be further customized.
 
+use std::path::Path;
+
 use crate::traits::*;
 
 pub const GRAPH_EXTENSION: &str = "graph";
@@ -32,6 +34,11 @@ pub const LABELOFFSETS_EXTENSION: &str = "labeloffsets";
 pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 
 mod offset_deg_iter;
+use dsi_bitstream::{
+    codes::GammaRead,
+    impls::{buf_bit_reader, BufBitReader, WordAdapter},
+    traits::{BitSeek, Endianness, BE},
+};
 use epserde::deser::DeserInner;
 pub use offset_deg_iter::OffsetDegIter;
 
@@ -84,3 +91,22 @@ pub type DCF = sux::dict::EliasFano<
     >,
     sux::bits::BitFieldVec<usize, Box<[usize]>>,
 >;
+
+/// Checks that the offsets stored in the offsets file with given
+/// basename are correct for the given [`BvGraphSeq`].
+pub fn check_offsets<F: for<'a> SequentialDecoderFactory<Decoder<'a>: BitSeek>>(
+    graph: &BvGraphSeq<F>,
+    basename: impl AsRef<Path>,
+) -> anyhow::Result<bool> {
+    let basename = basename.as_ref();
+    let offsets_path = basename.with_added_extension(OFFSETS_EXTENSION);
+    let mut offsets_reader = buf_bit_reader::from_path::<BE, u32>(&offsets_path)?;
+
+    let mut offset = 0;
+    for (real_offset, _degree) in graph.offset_deg_iter() {
+        let gap_offset = offsets_reader.read_gamma()?;
+        offset += gap_offset;
+        assert_eq!(offset, real_offset);
+    }
+    Ok(true)
+}

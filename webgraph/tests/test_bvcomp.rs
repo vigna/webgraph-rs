@@ -5,13 +5,17 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::{fs::File, io::BufWriter};
+use lender::ExactSizeLender;
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 use tempfile::NamedTempFile;
 
 use anyhow::Result;
 use dsi_bitstream::prelude::{factory::CodesReaderFactoryHelper, *};
 use std::path::Path;
-use webgraph::{graphs::random::ErdosRenyi, prelude::*};
+use webgraph::{graphs::bvgraph, graphs::random::ErdosRenyi, prelude::*};
 use Codes::{Delta, Gamma, Unary, Zeta};
 
 #[cfg_attr(feature = "slow_tests", test)]
@@ -27,11 +31,13 @@ fn test_bvcomp_slow() -> Result<()> {
 fn _test_bvcomp_slow<E: Endianness>() -> Result<()>
 where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    MmapHelper<u32>: for<'a> CodesReaderFactoryHelper<E, CodesReader<'a>: BitSeek>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
 {
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
-    let seq_graph = ErdosRenyi::new(100, 0.1, 0);
+    let seq_graph = BTreeGraph::from_lender(ErdosRenyi::new(100, 0.1, 0).iter());
     for compression_window in [0, 1, 3, 16] {
         for max_ref_count in [0, 1, 3, usize::MAX] {
             for min_interval_length in [0, 1, 3] {
@@ -74,13 +80,13 @@ where
     }
     // Cleanup
     std::fs::remove_file(tmp_path)?;
-    std::fs::remove_file(tmp_path.with_added_extension("graph"))?;
-    std::fs::remove_file(tmp_path.with_added_extension("offsets"))?;
-    std::fs::remove_file(tmp_path.with_added_extension("properties"))?;
+    std::fs::remove_file(tmp_path.with_added_extension(GRAPH_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_added_extension(OFFSETS_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_added_extension(PROPERTIES_EXTENSION))?;
     Ok(())
 }
 
-fn _test_body<E: Endianness, G: SequentialGraph, P: AsRef<Path>>(
+fn _test_body<E: Endianness, G: SequentialGraph + SplitLabeling, P: AsRef<Path>>(
     tmp_path: P,
     seq_graph: &G,
     comp_flags: CompFlags,
@@ -88,27 +94,45 @@ fn _test_body<E: Endianness, G: SequentialGraph, P: AsRef<Path>>(
 where
     for<'a> G::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    MmapHelper<u32>: for<'a> CodesReaderFactoryHelper<E, CodesReader<'a>: BitSeek>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
 {
     let tmp_path = tmp_path.as_ref();
-    BvCompConfig::new(tmp_path)
-        .with_comp_flags(comp_flags)
-        .comp_graph::<E>(&seq_graph)?;
+    let mut bvcomp = BvComp::with_basename(tmp_path).with_comp_flags(comp_flags);
+    bvcomp.comp_graph::<E>(seq_graph)?;
     let new_graph = BvGraphSeq::with_basename(tmp_path)
         .endianness::<E>()
         .load()?;
     labels::eq_sorted(seq_graph, &new_graph)?;
+    bvgraph::check_offsets(&new_graph, tmp_path)?;
+
+    bvcomp.par_comp_graph::<E>(seq_graph)?;
+    let new_graph = BvGraphSeq::with_basename(tmp_path)
+        .endianness::<E>()
+        .load()?;
+    labels::eq_sorted(seq_graph, &new_graph)?;
+    bvgraph::check_offsets(&new_graph, tmp_path)?;
 
     for chunk_size in [1, 10, 1000] {
-        BvCompConfig::new(tmp_path)
+        let mut bvcompz = BvCompZ::with_basename(tmp_path)
             .with_comp_flags(comp_flags)
-            .with_chunk_size(chunk_size)
-            .comp_graph::<E>(&seq_graph)?;
+            .with_chunk_size(chunk_size);
+        bvcompz.comp_graph::<E>(seq_graph)?;
         let new_graph = BvGraphSeq::with_basename(tmp_path)
             .endianness::<E>()
             .load()?;
         labels::eq_sorted(seq_graph, &new_graph)?;
+        bvgraph::check_offsets(&new_graph, tmp_path)?;
+
+        bvcompz.par_comp_graph::<E>(seq_graph)?;
+        let new_graph = BvGraphSeq::with_basename(tmp_path)
+            .endianness::<E>()
+            .load()?;
+        labels::eq_sorted(seq_graph, &new_graph)?;
+        bvgraph::check_offsets(&new_graph, tmp_path)?;
     }
     Ok(())
 }
