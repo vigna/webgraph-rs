@@ -288,8 +288,8 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         Ok(())
     }
 
-    // Dynamic algorithm to calculate the best subforest of the maximum one
-    // that satisfy the maximum reference constraint.
+    /// Dynamic algorithm to compute the best subforest of the maximum one
+    /// that satisfy the maximum reference constraint.
     fn update_references_for_max_length(&mut self) {
         // consistency checks
         let n = self.references.len();
@@ -373,8 +373,8 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         }
     }
 
-    // Greedily adds to the reference forest new references that are not in
-    // the maximum DAG in the first step, but are still valid.
+    /// Greedily adds to the reference forest new references that are not in
+    /// the maximum DAG in the first step, but are still valid.
     fn find_additional_references_greedily(&mut self) {
         // Completing Zuckerli algorithm using greedy algorithm
         // to add back the available references that are now valid
@@ -444,8 +444,8 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         }
     }
 
-    // Write the current chunk to the encoder and clear the compressor's internal
-    // state to start compressing the next chunk.
+    /// Write the current chunk to the encoder and clear the compressor's internal
+    /// state to start compressing the next chunk.
     fn write_and_clear_current_chunk(&mut self) -> anyhow::Result<()> {
         let n = self.references.len();
         let mut compressor = Compressor::new();
