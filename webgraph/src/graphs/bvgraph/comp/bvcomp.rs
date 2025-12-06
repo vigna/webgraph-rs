@@ -469,8 +469,6 @@ mod test {
     use super::*;
     use dsi_bitstream::prelude::*;
     use itertools::Itertools;
-    use std::fs::File;
-    use std::io::{BufReader, BufWriter};
 
     #[test]
     fn test_compressor_no_ref() -> anyhow::Result<()> {
@@ -583,9 +581,7 @@ mod test {
 
         // Compress the graph
         let file_path = "../data/cnr-2000.bvcomp";
-        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(file_path)?,
-        )));
+        let bit_writer = buf_bit_writer::from_path::<BE, usize>(file_path)?;
 
         let comp_flags = CompFlags {
             ..Default::default()
@@ -595,7 +591,7 @@ mod test {
         //    bit_write,
         //    &comp_flags,
         //);
-        let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
+        let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_writer);
 
         let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
 
@@ -604,12 +600,10 @@ mod test {
 
         // Read it back
 
-        let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(file_path)?,
-        )));
+        let bit_reader = buf_bit_reader::from_path::<BE, u32>(file_path)?;
 
         //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesDecoder<BE, _>>::new(bit_read, &comp_flags)?;
+        let codes_reader = <ConstCodesDecoder<BE, _>>::new(bit_reader, &comp_flags)?;
 
         let mut seq_iter = Iter::new(
             codes_reader,

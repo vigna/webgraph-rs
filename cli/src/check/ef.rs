@@ -52,9 +52,8 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
-        let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
         // create a bit reader on the file
-        let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
+        let mut reader = buf_bit_reader::from_path::<BE, u32>(of_file_path)?;
         // progress bar
         pl.start("Checking offsets file against Elias-Fano...");
         // read the graph a write the offsets

@@ -601,11 +601,8 @@ impl<'t> BvCompBuilder<'t> {
                 );
                 total_written_bits += written_bits;
 
-                let mut reader =
-                    <BufBitReader<E, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-                        File::open(&chunk_graph_path)
-                            .with_context(|| format!("Could not open {}", chunk_graph_path.display()))?,
-                    )));
+                let mut reader = buf_bit_reader::from_path::<E, u32>(&chunk_graph_path).with_context(|| format!("Could not open {}", chunk_graph_path.display()))?
+                    ;
                 graph_writer
                     .copy_from(&mut reader, written_bits)
                     .with_context(|| {
