@@ -139,6 +139,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             let mut succ_vec = self.backrefs.take(self.curr_node);
             succ_vec.clear();
             succ_vec.extend(succ_iter);
+            if succ_vec.capacity() > 4 * succ_vec.len().max(10000) {
+                succ_vec.shrink_to_fit();
+            }
             self.backrefs.replace(self.curr_node, succ_vec);
         }
         // get the ref
