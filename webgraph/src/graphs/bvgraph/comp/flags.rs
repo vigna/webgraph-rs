@@ -46,13 +46,26 @@ impl core::default::Default for CompFlags {
             references: Codes::Unary,
             blocks: Codes::Gamma,
             intervals: Codes::Gamma,
-            residuals: Codes::Zeta { k: 3 },
+            residuals: Codes::Zeta(3),
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,
         }
     }
 }
+
+const OLD_CODES: [Codes; 10] = [
+    Codes::Unary,
+    Codes::Gamma,
+    Codes::Delta,
+    Codes::Zeta(1),
+    Codes::Zeta(2),
+    Codes::Zeta(3),
+    Codes::Zeta(4),
+    Codes::Zeta(5),
+    Codes::Zeta(6),
+    Codes::Zeta(7),
+];
 
 impl CompFlags {
     /// Convert a string from the `compflags` field from the `.properties` file
@@ -64,19 +77,58 @@ impl CompFlags {
             "UNARY" => Some(Codes::Unary),
             "GAMMA" => Some(Codes::Gamma),
             "DELTA" => Some(Codes::Delta),
-            "ZETA" => Some(Codes::Zeta { k }),
+            "ZETA" => Some(Codes::Zeta(k)),
+            "PI1" => Some(Codes::Pi(1)),
+            "PI2" => Some(Codes::Pi(2)),
+            "PI3" => Some(Codes::Pi(3)),
+            "PI4" => Some(Codes::Pi(4)),
+            "ZETA1" => Some(Codes::Zeta(1)),
+            "ZETA2" => Some(Codes::Zeta(2)),
+            "ZETA3" => Some(Codes::Zeta(3)),
+            "ZETA4" => Some(Codes::Zeta(4)),
+            "ZETA5" => Some(Codes::Zeta(5)),
+            "ZETA6" => Some(Codes::Zeta(6)),
+            "ZETA7" => Some(Codes::Zeta(7)),
             _ => None,
         }
     }
 
-    pub fn code_to_str(c: Codes) -> Option<&'static str> {
-        match c {
-            Codes::Unary => Some("UNARY"),
-            Codes::Gamma => Some("GAMMA"),
-            Codes::Delta => Some("DELTA"),
-            Codes::Zeta { k: _ } => Some("ZETA"),
-            _ => unimplemented!("Code {:?} not supported", c),
+    pub fn code_to_str(c: Codes, version: usize) -> Option<&'static str> {
+        if version == 0 {
+            match c {
+                Codes::Unary => Some("UNARY"),
+                Codes::Gamma => Some("GAMMA"),
+                Codes::Delta => Some("DELTA"),
+                Codes::Zeta(_) => Some("ZETA"),
+                _ => unimplemented!("Code {:?} not supported", c),
+            }
+        } else {
+            match c {
+                Codes::Unary => Some("UNARY"),
+                Codes::Gamma => Some("GAMMA"),
+                Codes::Delta => Some("DELTA"),
+                Codes::Zeta(1) => Some("ZETA1"),
+                Codes::Zeta(2) => Some("ZETA2"),
+                Codes::Zeta(3) => Some("ZETA3"),
+                Codes::Zeta(4) => Some("ZETA4"),
+                Codes::Zeta(5) => Some("ZETA5"),
+                Codes::Zeta(6) => Some("ZETA6"),
+                Codes::Zeta(7) => Some("ZETA7"),
+                Codes::Pi(1) => Some("PI1"),
+                Codes::Pi(2) => Some("PI2"),
+                Codes::Pi(3) => Some("PI3"),
+                Codes::Pi(4) => Some("PI4"),
+                _ => unimplemented!("Code {:?} not supported", c),
+            }
         }
+    }
+
+    fn contains_new_codes(&self) -> bool {
+        !OLD_CODES.contains(&self.outdegrees)
+            || !OLD_CODES.contains(&self.references)
+            || !OLD_CODES.contains(&self.blocks)
+            || !OLD_CODES.contains(&self.intervals)
+            || !OLD_CODES.contains(&self.residuals)
     }
 
     pub fn to_properties<E: Endianness>(
@@ -89,11 +141,11 @@ impl CompFlags {
         s.push_str("#BVGraph properties\n");
         s.push_str("graphclass=it.unimi.dsi.webgraph.BVGraph\n");
 
-        if core::any::TypeId::of::<E>() == core::any::TypeId::of::<BigEndian>() {
-            s.push_str("version=0\n");
-        } else {
-            s.push_str("version=1\n");
-        }
+        // Version 1 if we have big-endian or new codes
+        let version = (core::any::TypeId::of::<E>() != core::any::TypeId::of::<BigEndian>()
+            || self.contains_new_codes()) as usize;
+
+        s.push_str(&format!("version={version}\n"));
         s.push_str(&format!("endianness={}\n", E::NAME));
 
         s.push_str(&format!("nodes={num_nodes}\n"));
@@ -116,9 +168,9 @@ impl CompFlags {
             n * (n.ln() - 1.0) + 0.5 * (2.0 * std::f64::consts::PI * n).ln()
         }
 
-        let nsquared = (num_nodes * num_nodes) as u64;
+        let n_squared = (num_nodes * num_nodes) as u64;
         let theoretical_bound =
-            (stirling(nsquared) - stirling(num_arcs) - stirling(nsquared - num_arcs))
+            (stirling(n_squared) - stirling(num_arcs) - stirling(n_squared - num_arcs))
                 / 2.0_f64.ln();
         s.push_str(&format!(
             "compratio={:.3}\n",
@@ -126,68 +178,72 @@ impl CompFlags {
         ));
 
         s.push_str("compressionflags=");
-        let mut cflags = false;
+        let mut comp_flags = false;
         if self.outdegrees != Codes::Gamma {
             s.push_str(&format!(
                 "OUTDEGREES_{}|",
-                Self::code_to_str(self.outdegrees).unwrap()
+                Self::code_to_str(self.outdegrees, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
         if self.references != Codes::Unary {
             s.push_str(&format!(
                 "REFERENCES_{}|",
-                Self::code_to_str(self.references).unwrap()
+                Self::code_to_str(self.references, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
         if self.blocks != Codes::Gamma {
             s.push_str(&format!(
                 "BLOCKS_{}|",
-                Self::code_to_str(self.blocks).unwrap()
+                Self::code_to_str(self.blocks, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
         if self.intervals != Codes::Gamma {
             s.push_str(&format!(
                 "INTERVALS_{}|",
-                Self::code_to_str(self.intervals).unwrap()
+                Self::code_to_str(self.intervals, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
-        if !matches!(self.residuals, Codes::Zeta { k: _ }) {
+        if (version == 0 && !matches!(self.residuals, Codes::Zeta(_)))
+            || self.residuals != (Codes::Zeta(3))
+        {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
-                Self::code_to_str(self.residuals).unwrap()
+                Self::code_to_str(self.residuals, version).unwrap()
             ));
-            cflags = true;
+            comp_flags = true;
         }
-        if cflags {
+        if comp_flags {
             s.pop();
         }
         s.push('\n');
-        // check that if a k is specified, it is the same for all codes
-        let mut k = None;
-        macro_rules! check_and_set_k {
-            ($code:expr) => {
-                match $code {
-                    Codes::Zeta { k: new_k } => {
-                        if let Some(old_k) = k {
-                            ensure!(old_k == new_k, "Only one value of k is supported")
+        if version == 0 {
+            // check that if a k is specified, it is the same for all codes
+            let mut k = None;
+            macro_rules! check_and_set_k {
+                ($code:expr) => {
+                    match $code {
+                        Codes::Zeta(new_k) => {
+                            if let Some(old_k) = k {
+                                ensure!(old_k == new_k, "Only one value of k is supported")
+                            }
+                            k = Some(new_k)
                         }
-                        k = Some(new_k)
+                        _ => {}
                     }
-                    _ => {}
-                }
-            };
+                };
+            }
+            check_and_set_k!(self.outdegrees);
+            check_and_set_k!(self.references);
+            check_and_set_k!(self.blocks);
+            check_and_set_k!(self.intervals);
+            check_and_set_k!(self.residuals);
+            // if no k was specified, use the default one (3)
+            s.push_str(&format!("zetak={}\n", k.unwrap_or(3)));
         }
-        check_and_set_k!(self.outdegrees);
-        check_and_set_k!(self.references);
-        check_and_set_k!(self.blocks);
-        check_and_set_k!(self.intervals);
-        check_and_set_k!(self.residuals);
-        // if no k was specified, use the default one (3)
-        s.push_str(&format!("zetak={}\n", k.unwrap_or(3)));
         Ok(s)
     }
 
@@ -217,7 +273,7 @@ impl CompFlags {
 
         let mut cf = CompFlags::default();
         let mut k = 3;
-        if let Some(spec_k) = map.get("zeta_k") {
+        if let Some(spec_k) = map.get("zetak") {
             let spec_k = spec_k.parse::<usize>()?;
             if !(1..=7).contains(&spec_k) {
                 bail!("Only ζ₁-ζ₇ are supported");

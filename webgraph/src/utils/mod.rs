@@ -47,6 +47,9 @@ pub use java_perm::*;
 mod granularity;
 pub use granularity::*;
 
+pub mod matrix;
+pub use matrix::Matrix;
+
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 
@@ -125,6 +128,10 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
         let res = self.decoder.read_residual();
         self.offset += self.encoder.write_residual(res).unwrap();
         res
+    }
+    #[inline(always)]
+    fn num_of_residuals(&mut self, num_of_residuals: usize) {
+        self.encoder.num_of_residuals(num_of_residuals);
     }
 }
 
@@ -302,6 +309,7 @@ impl<
                 let end_node = split.boundaries[i + 1];
                 let num_partition_nodes = end_node - start_node;
                 // Map pairs to labeled pairs with unit labels
+                #[allow(clippy::type_complexity)]
                 let map_fn: fn((usize, usize)) -> ((usize, usize), ()) = |pair| (pair, ());
                 let labeled_iter = iter.into_iter().map(map_fn);
                 let lender = Iter::try_new_from(num_partition_nodes, labeled_iter, start_node)

@@ -77,15 +77,23 @@ where
 
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
-    BvComp::parallel_endianness(
-        &args.dst,
-        &sorted,
-        sorted.num_nodes(),
-        args.ca.into(),
-        &thread_pool,
-        dir,
-        &target_endianness.unwrap_or_else(|| E::NAME.into()),
-    )?;
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
+
+    thread_pool.install(|| {
+        builder.par_comp_lenders_endianness(
+            &sorted,
+            sorted.num_nodes(),
+            &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+        )
+    })?;
 
     Ok(())
 }
@@ -111,13 +119,17 @@ where
     let pairs: Vec<_> = split.into();
 
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
-    BvComp::parallel_iter::<E, _>(
-        &args.dst,
-        pairs.into_iter(),
-        seq_graph.num_nodes(),
-        args.ca.into(),
-        &thread_pool,
-        dir,
-    )?;
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
+
+    thread_pool
+        .install(|| builder.par_comp_lenders::<E, _>(pairs.into_iter(), seq_graph.num_nodes()))?;
     Ok(())
 }

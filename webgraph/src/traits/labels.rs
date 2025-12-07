@@ -612,4 +612,15 @@ impl<G: RandomAccessLabeling> Lender for IteratorImpl<'_, G> {
             .next()
             .map(|node_id| (node_id, self.labeling.labels(node_id)))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.nodes.len(), Some(self.nodes.len()))
+    }
+}
+
+impl<G: RandomAccessLabeling> ExactSizeLender for IteratorImpl<'_, G> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
 }

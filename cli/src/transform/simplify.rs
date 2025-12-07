@@ -54,10 +54,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 }
 
 fn no_ef_warn(basepath: impl AsRef<std::path::Path>) {
-    log::warn!(
-        "The .ef file was not found so the simplification will proceed sequentially. This may be slow. To speed it up, you can use `webgraph build ef {}` which would allow us create batches in parallel",
-        basepath.as_ref().display()
-    );
+    log::warn!(SEQ_PROC_WARN![], basepath.as_ref().display());
 }
 
 pub fn simplify<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
@@ -71,6 +68,15 @@ where
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
     let dir = Builder::new().prefix("transform_simplify_").tempdir()?;
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
 
     match (args.permutation, args.transposed) {
         // load the transposed graph and use it to directly compress the graph
@@ -107,15 +113,13 @@ where
 
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
-                    BvComp::parallel_endianness(
-                        &args.dst,
-                        &sorted,
-                        num_nodes,
-                        args.ca.into(),
-                        &thread_pool,
-                        dir,
-                        &target_endianness,
-                    )?;
+                    thread_pool.install(|| {
+                        builder.par_comp_lenders_endianness(
+                            &sorted,
+                            sorted.num_nodes(),
+                            &target_endianness,
+                        )
+                    })?;
 
                     return Ok(());
                 }
@@ -151,15 +155,9 @@ where
 
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
-            BvComp::parallel_endianness(
-                &args.dst,
-                &sorted,
-                num_nodes,
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness,
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+            })?;
         }
         // apply the permutation, don't care if the transposed graph is already computed
         // as we cannot really exploit it
@@ -187,15 +185,13 @@ where
                     &thread_pool,
                 )?;
 
-                BvComp::parallel_endianness(
-                    &args.dst,
-                    &sorted,
-                    graph.num_nodes(),
-                    args.ca.into(),
-                    &thread_pool,
-                    dir,
-                    &target_endianness,
-                )?;
+                thread_pool.install(|| {
+                    builder.par_comp_lenders_endianness(
+                        &sorted,
+                        sorted.num_nodes(),
+                        &target_endianness,
+                    )
+                })?;
 
                 return Ok(());
             }
@@ -216,15 +212,9 @@ where
             let sorted =
                 webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage).unwrap();
 
-            BvComp::parallel_endianness(
-                &args.dst,
-                &sorted,
-                sorted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness,
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+            })?;
         }
         // just compute the transpose on the fly
         (None, None) => {
@@ -246,15 +236,13 @@ where
                     &thread_pool,
                 )?;
 
-                BvComp::parallel_endianness(
-                    &args.dst,
-                    &sorted,
-                    graph.num_nodes(),
-                    args.ca.into(),
-                    &thread_pool,
-                    dir,
-                    &target_endianness,
-                )?;
+                thread_pool.install(|| {
+                    builder.par_comp_lenders_endianness(
+                        &sorted,
+                        sorted.num_nodes(),
+                        &target_endianness,
+                    )
+                })?;
 
                 return Ok(());
             }
@@ -266,21 +254,14 @@ where
                     .endianness::<E>()
                     .load()?;
 
-            let num_nodes = seq_graph.num_nodes();
             // transpose the graph
             let sorted =
                 webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)
                     .unwrap();
 
-            BvComp::parallel_endianness(
-                &args.dst,
-                &sorted,
-                num_nodes,
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness,
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
+            })?;
         }
     }
 

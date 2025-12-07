@@ -147,10 +147,7 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     }
 }
 
-impl<F: SequentialDecoderFactory> BvGraphSeq<F>
-where
-    for<'a> F::Decoder<'a>: Decode,
-{
+impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     #[inline(always)]
     /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
@@ -293,6 +290,7 @@ impl<D: Decode> Iter<D> {
 
         // decode the extra nodes if needed
         let nodes_left_to_decode = degree - results.len();
+        self.decoder.num_of_residuals(nodes_left_to_decode);
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficiency
             let node_id_offset = self.decoder.read_first_residual().to_int();

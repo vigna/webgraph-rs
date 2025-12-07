@@ -38,13 +38,14 @@ pub trait Decode {
     fn read_interval_count(&mut self) -> u64;
     fn read_interval_start(&mut self) -> u64;
     fn read_interval_len(&mut self) -> u64;
+    fn num_of_residuals(&mut self, _total_residuals: usize) {}
     fn read_first_residual(&mut self) -> u64;
     fn read_residual(&mut self) -> u64;
 }
 
 use impl_tools::autoimpl;
 
-/// Methods to encode the component of a [`super::BvGraph`] or [`super::BvGraphSeq`].
+/// Methods to encode the components of a [`super::BvGraph`] or [`super::BvGraphSeq`].
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encode {
     type Error: Error + Send + Sync + 'static;
@@ -57,6 +58,7 @@ pub trait Encode {
     fn write_interval_start(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_interval_len(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn write_first_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
+    fn num_of_residuals(&mut self, _num_of_residuals: usize) {}
     fn write_residual(&mut self, value: u64) -> Result<usize, Self::Error>;
     fn flush(&mut self) -> Result<usize, Self::Error>;
     fn end_node(&mut self, node: usize) -> Result<usize, Self::Error>;

@@ -71,6 +71,15 @@ where
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
 
     if args.src.with_extension(EF_EXTENSION).exists() {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
@@ -90,25 +99,21 @@ where
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
-            BvComp::parallel_endianness(
-                args.dst,
-                &sorted,
-                sorted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &sorted,
+                    sorted.num_nodes(),
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         } else {
-            BvComp::parallel_endianness(
-                args.dst,
-                &graph,
-                graph.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &graph,
+                    graph.num_nodes(),
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         }
     } else {
         log::warn!(
@@ -129,25 +134,21 @@ where
                 start.elapsed().as_secs_f64()
             );
 
-            BvComp::parallel_endianness(
-                args.dst,
-                &permuted,
-                permuted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &permuted,
+                    permuted.num_nodes(),
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         } else {
-            BvComp::parallel_endianness(
-                args.dst,
-                &seq_graph,
-                seq_graph.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &seq_graph,
+                    seq_graph.num_nodes(),
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         }
     }
     Ok(())

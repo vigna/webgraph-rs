@@ -133,11 +133,7 @@ where
         pl.done();
     } else {
         if args.num_threads.num_threads != 1 {
-            log::info!(
-                "Analyzing codes sequentially, this might be faster if you build the Elias-Fano index using `webgraph build ef {}` which will generate file {}",
-                args.src.display(),
-                args.src.with_extension("ef").display()
-            );
+            log::info!(SEQ_PROC_WARN![], args.src.display());
         }
 
         let graph = BvGraphSeq::with_basename(args.src)

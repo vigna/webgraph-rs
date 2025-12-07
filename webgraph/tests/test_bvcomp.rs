@@ -5,18 +5,17 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use lender::*;
-use std::{fs::File, io::BufWriter};
-use tempfile::NamedTempFile;
-
-const NODES: usize = 325557;
-
 use Codes::{Delta, Gamma, Unary, Zeta};
 use anyhow::Result;
-use dsi_bitstream::prelude::*;
-use dsi_progress_logger::prelude::*;
+use dsi_bitstream::prelude::{factory::CodesReaderFactoryHelper, *};
+use lender::ExactSizeLender;
 use std::path::Path;
-use webgraph::{graphs::random::ErdosRenyi, prelude::*};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
+use tempfile::NamedTempFile;
+use webgraph::{graphs::bvgraph, graphs::random::ErdosRenyi, prelude::*};
 
 #[cfg_attr(feature = "slow_tests", test)]
 #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
@@ -31,11 +30,13 @@ fn test_bvcomp_slow() -> Result<()> {
 fn _test_bvcomp_slow<E: Endianness>() -> Result<()>
 where
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodesRead<E>,
+    MmapHelper<u32>: for<'a> CodesReaderFactoryHelper<E, CodesReader<'a>: BitSeek>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
 {
     let tmp_file = NamedTempFile::new()?;
     let tmp_path = tmp_file.path();
-    let seq_graph = ErdosRenyi::new(100, 0.1, 0);
+    let seq_graph = BTreeGraph::from_lender(ErdosRenyi::new(100, 0.1, 0).iter());
     for compression_window in [0, 1, 3, 16] {
         for max_ref_count in [0, 1, 3, usize::MAX] {
             for min_interval_length in [0, 1, 3] {
@@ -43,7 +44,7 @@ where
                     for references in [Unary, Gamma, Delta] {
                         for blocks in [Unary, Gamma, Delta] {
                             for intervals in [Unary, Gamma, Delta] {
-                                for residuals in [Gamma, Delta, Zeta { k: 2 }, Zeta { k: 3 }] {
+                                for residuals in [Gamma, Delta, Zeta(2), Zeta(3)] {
                                     eprintln!();
                                     eprintln!(
                                         "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",
@@ -67,7 +68,7 @@ where
                                         max_ref_count,
                                     };
 
-                                    _test_body::<E, _>(tmp_path, &seq_graph, compression_flags)?;
+                                    _test_body::<E, _, _>(tmp_path, &seq_graph, compression_flags)?;
                                 }
                             }
                         }
@@ -76,77 +77,62 @@ where
             }
         }
     }
+    // Cleanup
     std::fs::remove_file(tmp_path)?;
+    std::fs::remove_file(tmp_path.with_added_extension(GRAPH_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_added_extension(OFFSETS_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_added_extension(PROPERTIES_EXTENSION))?;
     Ok(())
 }
 
-fn _test_body<E: Endianness, P: AsRef<Path>>(
+fn _test_body<E: Endianness, G: SequentialGraph + SplitLabeling, P: AsRef<Path>>(
     tmp_path: P,
-    seq_graph: &impl SequentialGraph,
-    compression_flags: CompFlags,
+    seq_graph: &G,
+    comp_flags: CompFlags,
 ) -> Result<()>
 where
+    for<'a> G::Lender<'a>: SortedLender,
+    for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+    for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender,
     BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>: CodesWrite<E>,
-    BufBitReader<E, MemWordReader<u32, MmapHelper<u32>>>: CodesRead<E>,
+    MmapHelper<u32>: for<'a> CodesReaderFactoryHelper<E, CodesReader<'a>: BitSeek>,
+    BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
 {
-    let writer = EncoderValidator::new(<DynCodesEncoder<E, _>>::new(
-        <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(File::create(
-            tmp_path.as_ref(),
-        )?))),
-        &compression_flags,
-    )?);
-    let mut bvcomp = BvComp::new(
-        writer,
-        compression_flags.compression_window,
-        compression_flags.max_ref_count,
-        compression_flags.min_interval_length,
-        0,
-    );
+    let tmp_path = tmp_path.as_ref();
+    let mut bvcomp = BvComp::with_basename(tmp_path).with_comp_flags(comp_flags);
+    bvcomp.comp_graph::<E>(seq_graph)?;
+    let new_graph = BvGraphSeq::with_basename(tmp_path)
+        .endianness::<E>()
+        .load()?;
+    labels::eq_sorted(seq_graph, &new_graph)?;
+    bvgraph::check_offsets(&new_graph, tmp_path)?;
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("node")
-        .expected_updates(Some(NODES));
+    bvcomp.par_comp_graph::<E>(seq_graph)?;
+    let new_graph = BvGraphSeq::with_basename(tmp_path)
+        .endianness::<E>()
+        .load()?;
+    labels::eq_sorted(seq_graph, &new_graph)?;
+    bvgraph::check_offsets(&new_graph, tmp_path)?;
 
-    pl.start("Compressing...");
+    for chunk_size in [1, 10, 1000] {
+        let mut bvcompz = BvCompZ::with_basename(tmp_path)
+            .with_comp_flags(comp_flags)
+            .with_chunk_size(chunk_size);
+        bvcompz.comp_graph::<E>(seq_graph)?;
+        let new_graph = BvGraphSeq::with_basename(tmp_path)
+            .endianness::<E>()
+            .load()?;
+        labels::eq_sorted(seq_graph, &new_graph)?;
+        bvgraph::check_offsets(&new_graph, tmp_path)?;
 
-    // TODO: use LoadConfig
-    let mut iter_nodes = seq_graph.iter();
-    while let Some((_, iter)) = iter_nodes.next() {
-        bvcomp.push(iter)?;
-        pl.light_update();
+        bvcompz.par_comp_graph::<E>(seq_graph)?;
+        let new_graph = BvGraphSeq::with_basename(tmp_path)
+            .endianness::<E>()
+            .load()?;
+        labels::eq_sorted(seq_graph, &new_graph)?;
+        bvgraph::check_offsets(&new_graph, tmp_path)?;
     }
-
-    pl.done();
-    bvcomp.flush()?;
-
-    let code_reader = DynCodesDecoder::new(
-        BufBitReader::<E, _>::new(MemWordReader::<u32, _>::new(MmapHelper::mmap(
-            tmp_path.as_ref(),
-            mmap_rs::MmapFlags::empty(),
-        )?)),
-        &compression_flags,
-    )?;
-    let mut seq_reader1 = sequential::Iter::new(
-        code_reader,
-        NODES,
-        compression_flags.compression_window,
-        compression_flags.min_interval_length,
-    );
-
-    pl.start("Checking equality...");
-    let mut iter_nodes = seq_graph.iter();
-    for _ in 0..seq_graph.num_nodes() {
-        let (node0, iter0) = iter_nodes.next().unwrap();
-        let (node1, iter1) = seq_reader1.next().unwrap();
-        assert_eq!(node0, node1);
-        assert_eq!(
-            iter0.into_iter().collect::<Vec<_>>(),
-            iter1.into_iter().collect::<Vec<_>>()
-        );
-        pl.light_update();
-    }
-    pl.done();
     Ok(())
 }
 

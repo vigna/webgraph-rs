@@ -43,17 +43,10 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        BvComp::parallel_graph::<BE>(
-            &tmp_basename,
-            &graph,
-            comp_flags,
-            &rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_num)
-                .build()
-                .expect("Failed to create thread pool"),
-            temp_dir(std::env::temp_dir())?,
-        )
-        .unwrap();
+        BvCompConfig::new(&tmp_basename)
+            .with_comp_flags(comp_flags)
+            .par_comp_graph::<BE>(&graph)?;
+
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
         let found_size = std::fs::File::open(tmp_basename.with_extension(GRAPH_EXTENSION))?

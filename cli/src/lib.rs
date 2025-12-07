@@ -22,6 +22,10 @@ use sux::bits::BitFieldVec;
 use webgraph::prelude::CompFlags;
 use webgraph::utils::{Granularity, MemoryUsage};
 
+macro_rules! SEQ_PROC_WARN {
+    () => {"Processing the graph sequentially: for parallel processing please build the Elias-Fano offsets list using 'webgraph build ef {}'"}
+}
+
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
 
@@ -63,6 +67,10 @@ pub enum PrivCode {
     Zeta5,
     Zeta6,
     Zeta7,
+    Pi1,
+    Pi2,
+    Pi3,
+    Pi4,
 }
 
 impl From<PrivCode> for Codes {
@@ -71,13 +79,17 @@ impl From<PrivCode> for Codes {
             PrivCode::Unary => Codes::Unary,
             PrivCode::Gamma => Codes::Gamma,
             PrivCode::Delta => Codes::Delta,
-            PrivCode::Zeta1 => Codes::Zeta { k: 1 },
-            PrivCode::Zeta2 => Codes::Zeta { k: 2 },
-            PrivCode::Zeta3 => Codes::Zeta { k: 3 },
-            PrivCode::Zeta4 => Codes::Zeta { k: 4 },
-            PrivCode::Zeta5 => Codes::Zeta { k: 5 },
-            PrivCode::Zeta6 => Codes::Zeta { k: 6 },
-            PrivCode::Zeta7 => Codes::Zeta { k: 7 },
+            PrivCode::Zeta1 => Codes::Zeta(1),
+            PrivCode::Zeta2 => Codes::Zeta(2),
+            PrivCode::Zeta3 => Codes::Zeta(3),
+            PrivCode::Zeta4 => Codes::Zeta(4),
+            PrivCode::Zeta5 => Codes::Zeta(5),
+            PrivCode::Zeta6 => Codes::Zeta(6),
+            PrivCode::Zeta7 => Codes::Zeta(7),
+            PrivCode::Pi1 => Codes::Pi(1),
+            PrivCode::Pi2 => Codes::Pi(2),
+            PrivCode::Pi3 => Codes::Pi(3),
+            PrivCode::Pi4 => Codes::Pi(4),
         }
     }
 }
@@ -423,7 +435,7 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     }
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 /// Shared CLI arguments for compression.
 pub struct CompressArgs {
     /// The endianness of the graph to write
@@ -459,6 +471,16 @@ pub struct CompressArgs {
     #[clap(long, default_value = "zeta3")]
     /// The code to use for the residuals
     pub residuals: PrivCode,
+
+    /// Whether to use Zuckerli's reference selection algorithm. This slows down the compression
+    /// process and requires more memory, but improves compression ratio and decoding speed.
+    #[clap(long)]
+    pub bvgraphz: bool,
+
+    /// How many nodes to process in a chunk; the default (10000) is usually a good
+    /// value.
+    #[clap(long, default_value = "10000")]
+    pub chunk_size: usize,
 }
 
 impl From<CompressArgs> for CompFlags {

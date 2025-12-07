@@ -200,16 +200,23 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    BvComp::parallel_endianness(
-        &args.dst,
-        &g,
-        num_nodes,
-        args.ca.into(),
-        &thread_pool,
-        dir,
-        &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-    )
-    .unwrap();
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
+
+    thread_pool.install(|| {
+        builder.par_comp_lenders_endianness(
+            &g,
+            num_nodes,
+            &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+        )
+    })?;
 
     // save the nodes
     if args.arcs_args.labels {
