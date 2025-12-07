@@ -31,7 +31,7 @@ use anyhow::{Context, ensure};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
-    impls::{BufBitReader, MemWordReader, WordAdapter},
+    impls::{BufBitReader, MemWordReader, WordAdapter, buf_bit_reader},
     prelude::{CodesRead, CodesReaderFactory},
     traits::{BitRead, Endianness},
 };
