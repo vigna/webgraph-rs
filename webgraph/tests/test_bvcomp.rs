@@ -45,7 +45,7 @@ where
                     for references in [Unary, Gamma, Delta] {
                         for blocks in [Unary, Gamma, Delta] {
                             for intervals in [Unary, Gamma, Delta] {
-                                for residuals in [Gamma, Delta, Zeta { k: 2 }, Zeta { k: 3 }] {
+                                for residuals in [Gamma, Delta, Zeta(2), Zeta(3)] {
                                     eprintln!();
                                     eprintln!(
                                         "Testing with outdegrees = {:?}, references = {:?}, blocks = {:?}, intervals = {:?}, residuals = {:?}, compression_window = {}, max_ref_count = {}, min_interval_length = {}",

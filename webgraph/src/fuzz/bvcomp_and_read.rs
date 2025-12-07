@@ -24,7 +24,7 @@ impl From<CodeFuzz> for Codes {
             CodeFuzz::Unary => Codes::Unary,
             CodeFuzz::Gamma => Codes::Gamma,
             CodeFuzz::Delta => Codes::Delta,
-            CodeFuzz::Zeta3 => Codes::Zeta { k: 3 },
+            CodeFuzz::Zeta3 => Codes::Zeta(3),
         }
     }
 }

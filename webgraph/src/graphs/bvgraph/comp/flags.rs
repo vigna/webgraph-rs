@@ -46,7 +46,7 @@ impl core::default::Default for CompFlags {
             references: Codes::Unary,
             blocks: Codes::Gamma,
             intervals: Codes::Gamma,
-            residuals: Codes::Zeta { k: 3 },
+            residuals: Codes::Zeta(3),
             min_interval_length: 4,
             compression_window: 7,
             max_ref_count: 3,
@@ -58,13 +58,13 @@ const OLD_CODES: [Codes; 10] = [
     Codes::Unary,
     Codes::Gamma,
     Codes::Delta,
-    Codes::Zeta { k: 1 },
-    Codes::Zeta { k: 2 },
-    Codes::Zeta { k: 3 },
-    Codes::Zeta { k: 4 },
-    Codes::Zeta { k: 5 },
-    Codes::Zeta { k: 6 },
-    Codes::Zeta { k: 7 },
+    Codes::Zeta(1),
+    Codes::Zeta(2),
+    Codes::Zeta(3),
+    Codes::Zeta(4),
+    Codes::Zeta(5),
+    Codes::Zeta(6),
+    Codes::Zeta(7),
 ];
 
 impl CompFlags {
@@ -77,18 +77,18 @@ impl CompFlags {
             "UNARY" => Some(Codes::Unary),
             "GAMMA" => Some(Codes::Gamma),
             "DELTA" => Some(Codes::Delta),
-            "ZETA" => Some(Codes::Zeta { k }),
-            "PI1" => Some(Codes::Pi { k: 1 }),
-            "PI2" => Some(Codes::Pi { k: 2 }),
-            "PI3" => Some(Codes::Pi { k: 3 }),
-            "PI4" => Some(Codes::Pi { k: 4 }),
-            "ZETA1" => Some(Codes::Zeta { k: 1 }),
-            "ZETA2" => Some(Codes::Zeta { k: 2 }),
-            "ZETA3" => Some(Codes::Zeta { k: 3 }),
-            "ZETA4" => Some(Codes::Zeta { k: 4 }),
-            "ZETA5" => Some(Codes::Zeta { k: 5 }),
-            "ZETA6" => Some(Codes::Zeta { k: 6 }),
-            "ZETA7" => Some(Codes::Zeta { k: 7 }),
+            "ZETA" => Some(Codes::Zeta(k)),
+            "PI1" => Some(Codes::Pi(1)),
+            "PI2" => Some(Codes::Pi(2)),
+            "PI3" => Some(Codes::Pi(3)),
+            "PI4" => Some(Codes::Pi(4)),
+            "ZETA1" => Some(Codes::Zeta(1)),
+            "ZETA2" => Some(Codes::Zeta(2)),
+            "ZETA3" => Some(Codes::Zeta(3)),
+            "ZETA4" => Some(Codes::Zeta(4)),
+            "ZETA5" => Some(Codes::Zeta(5)),
+            "ZETA6" => Some(Codes::Zeta(6)),
+            "ZETA7" => Some(Codes::Zeta(7)),
             _ => None,
         }
     }
@@ -99,7 +99,7 @@ impl CompFlags {
                 Codes::Unary => Some("UNARY"),
                 Codes::Gamma => Some("GAMMA"),
                 Codes::Delta => Some("DELTA"),
-                Codes::Zeta { k: _ } => Some("ZETA"),
+                Codes::Zeta(_) => Some("ZETA"),
                 _ => unimplemented!("Code {:?} not supported", c),
             }
         } else {
@@ -107,17 +107,17 @@ impl CompFlags {
                 Codes::Unary => Some("UNARY"),
                 Codes::Gamma => Some("GAMMA"),
                 Codes::Delta => Some("DELTA"),
-                Codes::Zeta { k: 1 } => Some("ZETA1"),
-                Codes::Zeta { k: 2 } => Some("ZETA2"),
-                Codes::Zeta { k: 3 } => Some("ZETA3"),
-                Codes::Zeta { k: 4 } => Some("ZETA4"),
-                Codes::Zeta { k: 5 } => Some("ZETA5"),
-                Codes::Zeta { k: 6 } => Some("ZETA6"),
-                Codes::Zeta { k: 7 } => Some("ZETA7"),
-                Codes::Pi { k: 1 } => Some("PI1"),
-                Codes::Pi { k: 2 } => Some("PI2"),
-                Codes::Pi { k: 3 } => Some("PI3"),
-                Codes::Pi { k: 4 } => Some("PI4"),
+                Codes::Zeta(1) => Some("ZETA1"),
+                Codes::Zeta(2) => Some("ZETA2"),
+                Codes::Zeta(3) => Some("ZETA3"),
+                Codes::Zeta(4) => Some("ZETA4"),
+                Codes::Zeta(5) => Some("ZETA5"),
+                Codes::Zeta(6) => Some("ZETA6"),
+                Codes::Zeta(7) => Some("ZETA7"),
+                Codes::Pi(1) => Some("PI1"),
+                Codes::Pi(2) => Some("PI2"),
+                Codes::Pi(3) => Some("PI3"),
+                Codes::Pi(4) => Some("PI4"),
                 _ => unimplemented!("Code {:?} not supported", c),
             }
         }
@@ -207,8 +207,8 @@ impl CompFlags {
             ));
             comp_flags = true;
         }
-        if (version == 0 && !matches!(self.residuals, Codes::Zeta { k: _ }))
-            || self.residuals != (Codes::Zeta { k: 3 })
+        if (version == 0 && !matches!(self.residuals, Codes::Zeta(_)))
+            || self.residuals != (Codes::Zeta(3))
         {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
@@ -226,7 +226,7 @@ impl CompFlags {
             macro_rules! check_and_set_k {
                 ($code:expr) => {
                     match $code {
-                        Codes::Zeta { k: new_k } => {
+                        Codes::Zeta(new_k) => {
                             if let Some(old_k) = k {
                                 ensure!(old_k == new_k, "Only one value of k is supported")
                             }
