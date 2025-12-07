@@ -36,8 +36,8 @@ pub const DEG_CUMUL_EXTENSION: &str = "dcf";
 mod offset_deg_iter;
 use dsi_bitstream::{
     codes::GammaRead,
-    impls::{buf_bit_reader, BufBitReader, WordAdapter},
-    traits::{BitSeek, Endianness, BE},
+    impls::{BufBitReader, WordAdapter, buf_bit_reader},
+    traits::{BE, BitSeek, Endianness},
 };
 use epserde::deser::DeserInner;
 pub use offset_deg_iter::OffsetDegIter;
@@ -99,7 +99,7 @@ pub fn check_offsets<F: for<'a> SequentialDecoderFactory<Decoder<'a>: BitSeek>>(
     basename: impl AsRef<Path>,
 ) -> anyhow::Result<bool> {
     let basename = basename.as_ref();
-    let offsets_path = basename.with_added_extension(OFFSETS_EXTENSION);
+    let offsets_path = basename.with_extension(OFFSETS_EXTENSION);
     let mut offsets_reader = buf_bit_reader::from_path::<BE, u32>(&offsets_path)?;
 
     let mut offset = 0;

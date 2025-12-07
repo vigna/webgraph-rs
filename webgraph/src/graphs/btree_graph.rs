@@ -416,9 +416,9 @@ pub struct Successors<'succ>(
     core::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>,
 );
 
-unsafe impl<'succ> SortedIterator for Successors<'_> {}
+unsafe impl SortedIterator for Successors<'_> {}
 
-impl<'succ> Iterator for Successors<'_> {
+impl Iterator for Successors<'_> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -426,7 +426,7 @@ impl<'succ> Iterator for Successors<'_> {
     }
 }
 
-impl<'succ> ExactSizeIterator for Successors<'_> {
+impl ExactSizeIterator for Successors<'_> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()

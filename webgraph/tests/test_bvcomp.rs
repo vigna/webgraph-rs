@@ -79,9 +79,9 @@ where
     }
     // Cleanup
     std::fs::remove_file(tmp_path)?;
-    std::fs::remove_file(tmp_path.with_added_extension(GRAPH_EXTENSION))?;
-    std::fs::remove_file(tmp_path.with_added_extension(OFFSETS_EXTENSION))?;
-    std::fs::remove_file(tmp_path.with_added_extension(PROPERTIES_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_extension(GRAPH_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_extension(OFFSETS_EXTENSION))?;
+    std::fs::remove_file(tmp_path.with_extension(PROPERTIES_EXTENSION))?;
     Ok(())
 }
 
