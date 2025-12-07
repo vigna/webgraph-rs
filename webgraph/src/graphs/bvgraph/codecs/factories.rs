@@ -75,9 +75,7 @@ where
         Self: 'a;
 
     fn new_reader(&self) -> Self::CodesReader<'_> {
-        BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(
-            File::open(&self.path).unwrap(),
-        )))
+        buf_bit_reader::from_path::<E, u32>(&self.path).unwrap()
     }
 }
 

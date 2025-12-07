@@ -20,7 +20,7 @@ use lender::*;
 /// a list of arcs sorted by source that represent only part of a graph, but
 /// need to exhibit them has a [`NodeLabelsLender`], for example, for feeding
 /// such lenders to
-/// [`parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 #[derive(Clone)]
 pub struct ArcListGraph<I> {
     num_nodes: usize,

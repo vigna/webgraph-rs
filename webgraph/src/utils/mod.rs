@@ -250,7 +250,7 @@ pub fn humanize(value: f64) -> String {
 ///
 /// This structures is returned by [`ParSortPairs`] and [`ParSortIters`] and can
 /// easily be converted into lenders for use with
-/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
 /// using a convenient implementation of the [`From`] trait.
 ///
 /// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
@@ -279,7 +279,7 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter)
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
 /// when working with unlabeled graphs.
 ///
 /// The pairs `(src, dst)` are automatically converted to labeled form with unit
@@ -326,7 +326,7 @@ impl<
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
 /// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion. Type inference might not work properly if the

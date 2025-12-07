@@ -12,7 +12,7 @@
 //! representing a (labelled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for
 //! example,
-//! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+//! [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 //!
 //! For example, when reading a graph from a file containing an arc list one
 //! typically is able to produce a parallel iterator of (labelled) pairs of
@@ -41,7 +41,7 @@ use crate::utils::SplitIters;
 
 /// Takes a parallel iterator of (labelled) pairs as input, and turns them into
 /// a [`SplitIters`] structure which is suitable for
-/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review

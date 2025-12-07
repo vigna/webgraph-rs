@@ -13,7 +13,7 @@
 //! representing a (labelled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for
 //! example,
-//! [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+//! [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 //!
 //! For example, when transposing or permuting a
 //! [splittable](crate::traits::SplitLabeling) graph one obtains such a sequence
@@ -36,7 +36,7 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 
 /// Takes a sequence of iterators of (labelled)pairs as input, and turns them
 /// into [`SplitIters`] structure which is suitable for
-/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
@@ -48,7 +48,7 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 /// In this example we transpose a graph in parallel by splitting it, exchanging
 /// the source and destination of each arc, sorting the resulting pairs in
 /// parallel using [`ParSortIters`], and then compressing the result using
-/// [`BvComp::parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter):
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders):
 ///
 /// ```
 /// use std::num::NonZeroUsize;

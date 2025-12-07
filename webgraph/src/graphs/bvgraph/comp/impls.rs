@@ -391,7 +391,7 @@ impl BvCompConfig {
     /// This method is useful to compress graphs that can be iterated upon using
     /// multiple lenders, but such lenders do not derive from splitting. For
     /// example, this happens when using
-    /// [`ParSortIters`](crate::utils::par_sort_iters::ParSortIters).
+    /// [`ParSortIters`].
     pub fn par_comp_lenders<
         E: Endianness,
         L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,

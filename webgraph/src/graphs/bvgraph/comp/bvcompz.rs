@@ -1,5 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2024 Davide Cologni
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -7,8 +8,8 @@
 use std::io::Write;
 use std::path::Path;
 
-use super::bvcomp::{CompStats, Compressor};
 use super::OffsetsWriter;
+use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
 use common_traits::Sequence;
 use lender::prelude::*;
