@@ -490,11 +490,10 @@ impl BvCompConfig {
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
                             bvcomp.push(succ.into_iter()).unwrap();
+                            comp_pl.update();
                         });
                         stats = bvcomp.flush().unwrap();
                     }
-
-                    comp_pl.update_with_count(last_node - first_node + 1);
 
                     log::debug!(
                         "Finished Compression thread {thread_id} and wrote {} bits for the graph and {} bits for the offsets",
