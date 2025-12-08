@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["algo", "cli", "webgraph"]
+members = ["algo", "cli", "webgraph", "webgraph/fuzz"]
 
 [workspace.dependencies]
 webgraph = { path = "./webgraph", version = "0.5.0" }
