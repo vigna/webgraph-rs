@@ -102,15 +102,12 @@ use crate::utils::SplitIters;
 /// // Convert to (node, lender) pairs using From trait
 /// let pairs: Vec<_> = split_iters.into();
 ///
-/// // Use with parallel_iter
-/// BvComp::parallel_iter::<BigEndian, _>(
-///     &bvcomp_out_dir.path().join("graph"),
-///     pairs.into_iter(),
-///     num_nodes,
-///     CompFlags::default(),
-///     &rayon::ThreadPoolBuilder::default().build()?,
-///     bvcomp_tmp_dir.path(),
-/// )?;
+/// // setup the compressor
+/// let mut bvcomp = BvComp::with_basename(&bvcomp_out_dir.path().join("graph"))
+///     .with_tmp_dir(bvcomp_tmp_dir.path())
+///     .with_comp_flags(CompFlags::default());
+/// // compress with a parallel iter
+/// bvcomp.par_comp_lenders::<BigEndian, _>(pairs.into_iter(), num_nodes).unwrap();
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct ParSortPairs {
