@@ -171,19 +171,14 @@ where
         batch: &[((usize, usize), Self::Label)],
     ) -> Result<(usize, Self::EncodedBatchStats)> {
         debug_assert!(Triple::cast_batch(batch).is_sorted(), "Batch is not sorted");
-        // create a batch file where to dump
-        let file_path = path.as_ref();
-        let file = std::io::BufWriter::with_capacity(
-            1 << 16,
-            std::fs::File::create(file_path).with_context(|| {
-                format!(
-                    "Could not create BatchIterator temporary file {}",
-                    file_path.display()
-                )
-            })?,
-        );
         // create a bitstream to write to the file
-        let mut stream = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(file));
+        let file_path = path.as_ref();
+        let mut stream = buf_bit_writer::from_path::<E, usize>(file_path).with_context(|| {
+            format!(
+                "Could not create BatchIterator temporary file {}",
+                file_path.display()
+            )
+        })?;
 
         // prefix the stream with the length of the batch
         // we use a delta code since it'll be a big number most of the time

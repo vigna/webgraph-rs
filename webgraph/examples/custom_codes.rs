@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::fs::File;
-use std::io::BufWriter;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -107,18 +105,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // having to scan the graph afterwards. We can't do an Elias-Fano yet
     // because we don't know the length of the final graph.
     let offsets_path = args.dst.with_extension(OFFSETS_EXTENSION);
-    let mut offsets_writer =
-        <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&offsets_path)
-                .with_context(|| format!("Could not create {}", offsets_path.display()))?,
-        )));
+    let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(&offsets_path)
+        .with_context(|| format!("Could not create {}", offsets_path.display()))?;
 
     // create a bitstream writer for the target graph
     let target_graph_path = args.dst.with_extension(GRAPH_EXTENSION);
-    let writer = <BufBitWriter<LE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-        File::create(&target_graph_path)
-            .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
-    )));
+    let writer = buf_bit_writer::from_path::<LE, usize>(&target_graph_path)
+        .with_context(|| format!("Could not create {}", target_graph_path.display()))?;
     let encoder = CustomEncoder::new(writer);
 
     let mut pl = ProgressLogger::default();

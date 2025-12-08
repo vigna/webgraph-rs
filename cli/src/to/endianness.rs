@@ -10,8 +10,6 @@ use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use log::info;
-use std::fs::File;
-use std::io::BufWriter;
 use std::path::PathBuf;
 use webgraph::prelude::*;
 
@@ -79,19 +77,14 @@ macro_rules! impl_convert {
             )
         })?;
         let target_graph_path = $args.dst.with_extension(GRAPH_EXTENSION);
-        let writer = <BufBitWriter<$dst, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&target_graph_path)
-                .with_context(|| format!("Could not create {}", target_graph_path.display()))?,
-        )));
+        let writer = buf_bit_writer::from_path::<$dst, usize>(&target_graph_path)
+            .with_context(|| format!("Could not create {}", target_graph_path.display()))?;
         let encoder = <DynCodesEncoder<$dst, _>>::new(writer, &comp_flags)?;
         // build the iterator that will read the graph and write it to the encoder
 
         let offsets_path = $args.dst.with_extension(OFFSETS_EXTENSION);
-        let mut offsets_writer =
-            <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-                File::create(&offsets_path)
-                    .with_context(|| format!("Could not create {}", offsets_path.display()))?,
-            )));
+        let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(&offsets_path)
+            .with_context(|| format!("Could not create {}", offsets_path.display()))?;
 
         pl.start("Inverting endianness...");
 

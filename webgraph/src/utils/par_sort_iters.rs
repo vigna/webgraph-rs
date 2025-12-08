@@ -53,7 +53,7 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 /// ```
 /// use std::num::NonZeroUsize;
 ///
-/// use dsi_bitstream::traits::BigEndian;
+/// use dsi_bitstream::traits::BE;
 /// use rayon::prelude::*;
 /// use webgraph::prelude::*;
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
@@ -88,16 +88,13 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 /// // Convert to (node, lender) pairs using From trait
 /// let pairs: Vec<_> = sorted.into();
 ///
-/// // Compress in parallel using BvComp::parallel_iter
+/// // Compress in parallel using par
 /// let bvcomp_tmp_dir = tempfile::tempdir()?;
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
-/// // setup the compressor
-/// let mut bvcomp = BvComp::with_basename(&bvcomp_out_dir.path().join("graph"))
-///     .with_tmp_dir(bvcomp_tmp_dir.path())
-///     .with_comp_flags(CompFlags::default());
-/// // compress with a parallel iter
-/// bvcomp.par_comp_lenders::<BigEndian, _>(pairs.into_iter(), num_nodes).unwrap();
+/// // Use with par_comp_lenders
+/// BvComp::with_basename(bvcomp_out_dir.path().join("graph")).
+///     par_comp_lenders::<BE, _>(pairs, num_nodes)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct ParSortIters {

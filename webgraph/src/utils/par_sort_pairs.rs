@@ -53,7 +53,7 @@ use crate::utils::SplitIters;
 /// ```
 /// use std::num::NonZeroUsize;
 ///
-/// use dsi_bitstream::traits::BigEndian;
+/// use dsi_bitstream::traits::BE;
 /// use lender::Lender;
 /// use rayon::prelude::*;
 /// use webgraph::traits::SequentialLabeling;
@@ -102,12 +102,9 @@ use crate::utils::SplitIters;
 /// // Convert to (node, lender) pairs using From trait
 /// let pairs: Vec<_> = split_iters.into();
 ///
-/// // setup the compressor
-/// let mut bvcomp = BvComp::with_basename(&bvcomp_out_dir.path().join("graph"))
-///     .with_tmp_dir(bvcomp_tmp_dir.path())
-///     .with_comp_flags(CompFlags::default());
 /// // compress with a parallel iter
-/// bvcomp.par_comp_lenders::<BigEndian, _>(pairs.into_iter(), num_nodes).unwrap();
+/// BvComp::with_basename(bvcomp_out_dir.path().join("graph")).
+///     par_comp_lenders::<BE, _>(pairs, num_nodes)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct ParSortPairs {

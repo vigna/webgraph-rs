@@ -239,10 +239,8 @@ impl BvCompConfig {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
 
         // Compress the graph
-        let bit_write = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(&graph_path)
-                .with_context(|| format!("Could not create {}", graph_path.display()))?,
-        )));
+        let bit_write = buf_bit_writer::from_path::<E, usize>(&graph_path)
+            .with_context(|| format!("Could not create {}", graph_path.display()))?;
 
         let codes_writer = DynCodesEncoder::new(bit_write, &self.comp_flags)?;
 
@@ -452,9 +450,7 @@ impl BvCompConfig {
                         );
                     }
 
-                    let writer = <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(
-                        BufWriter::new(File::create(&chunk_graph_path).unwrap()),
-                    ));
+                    let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path).unwrap();
                     let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
 
                     let stats;
@@ -534,16 +530,11 @@ impl BvCompConfig {
             ];
             copy_pl.start("Copying compressed successors to final graph");
 
-            let file = File::create(&graph_path)
+            let mut graph_writer = buf_bit_writer::from_path::<E, usize>(&graph_path)
                 .with_context(|| format!("Could not create graph {}", graph_path.display()))?;
-            let mut graph_writer =
-                <BufBitWriter<E, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(file)));
 
-            let file = File::create(&offsets_path)
+            let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(&offsets_path)
                 .with_context(|| format!("Could not create offsets {}", offsets_path.display()))?;
-            let mut offsets_writer = <BufBitWriter<BigEndian, _>>::new(
-                <WordAdapter<usize, _>>::new(BufWriter::new(file)),
-            );
             offsets_writer.write_gamma(0)?;
 
             let mut total_written_bits: u64 = 0;

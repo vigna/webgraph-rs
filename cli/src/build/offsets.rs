@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
-use std::{io::BufWriter, path::PathBuf};
+use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -40,12 +40,9 @@ where
         .endianness::<E>()
         .load()?;
     let offsets = args.src.with_extension(OFFSETS_EXTENSION);
-    let file = std::fs::File::create(&offsets)
-        .with_context(|| format!("Could not create {}", offsets.display()))?;
     // create a bit writer on the file
-    let mut writer = <BufBitWriter<BE, _>>::new(<WordAdapter<u64, _>>::new(
-        BufWriter::with_capacity(1 << 20, file),
-    ));
+    let mut writer = buf_bit_writer::from_path::<BE, usize>(&offsets)
+        .with_context(|| format!("Could not create {}", offsets.display()))?;
     // progress bar
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
