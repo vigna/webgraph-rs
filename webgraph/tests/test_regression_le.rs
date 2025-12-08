@@ -9,6 +9,8 @@
 use anyhow::Result;
 #[cfg(feature = "fuzz")]
 use webgraph::fuzz::bvcomp_and_read::*;
+#[cfg(feature = "fuzz")]
+use webgraph::fuzz::utils::{CodeFuzz, CompFlagsFuzz};
 
 #[test]
 #[cfg(feature = "fuzz")]
