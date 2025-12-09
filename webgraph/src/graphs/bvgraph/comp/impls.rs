@@ -69,6 +69,28 @@ where
     }
 }
 
+/// An iterator over items received from a channel that uses
+/// rayon's yield_now to avoid blocking worker threads.
+struct ChannelIter<T> {
+    rx: std::sync::mpsc::Receiver<T>,
+}
+
+impl<T> Iterator for ChannelIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.rx.try_recv() {
+                Ok(item) => return Some(item),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => return None,
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    rayon::yield_now();
+                }
+            }
+        }
+    }
+}
+
 /// A compression job.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 struct Job {
@@ -470,7 +492,6 @@ impl BvCompConfig {
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
                             bvcomp.push(succ.into_iter()).unwrap();
-                            comp_pl.update();
                         });
                         stats = bvcomp.flush().unwrap();
                     } else {
@@ -553,7 +574,7 @@ impl BvCompConfig {
                 chunk_offsets_path,
                 offsets_written_bits,
                 num_arcs,
-            } in TaskQueue::new(rx.iter())
+            } in TaskQueue::new(ChannelIter { rx })
             {
                 ensure!(
                     first_node == next_node,
