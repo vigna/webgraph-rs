@@ -39,7 +39,7 @@ mod circular_buffer;
 pub(crate) use circular_buffer::*;
 
 mod ragged_array;
-pub use ragged_array::JaggedArray;
+pub use ragged_array::RaggedArray;
 
 mod mmap_helper;
 pub use mmap_helper::*;

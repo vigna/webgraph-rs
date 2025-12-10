@@ -20,22 +20,22 @@
 /// # Examples
 ///
 /// ```
-/// use webgraph::utils::JaggedArray;
+/// use webgraph::utils::RaggedArray;
 ///
-/// let mut jagged = JaggedArray::new();
-/// jagged.push(vec![1, 2, 3]);
-/// jagged.push(vec![4, 5]);
-/// assert_eq!(jagged.len(), 2);
-/// assert_eq!(&jagged[0], &[1, 2, 3]);
-/// assert_eq!(&jagged[1], &[4, 5]);
-/// jagged.push(vec![]);
-/// assert_eq!(jagged.len(), 3);
-/// assert_eq!(&jagged[2], &[]);
-/// jagged.clear();
-/// assert_eq!(jagged.len(), 0);
+/// let mut ragged = RaggedArray::new();
+/// ragged.push(vec![1, 2, 3]);
+/// ragged.push(vec![4, 5]);
+/// assert_eq!(ragged.len(), 2);
+/// assert_eq!(&ragged[0], &[1, 2, 3]);
+/// assert_eq!(&ragged[1], &[4, 5]);
+/// ragged.push(vec![]);
+/// assert_eq!(ragged.len(), 3);
+/// assert_eq!(&ragged[2], &[]);
+/// ragged.clear();
+/// assert_eq!(ragged.len(), 0);
 /// ```
 #[derive(Debug, Clone)]
-pub struct JaggedArray<T> {
+pub struct RaggedArray<T> {
     /// The first offset is always zero, and offsets contains one more element
     /// than the number of vectors.
     offsets: Vec<usize>,
@@ -43,14 +43,14 @@ pub struct JaggedArray<T> {
     values: Vec<T>,
 }
 
-impl<T> Default for JaggedArray<T> {
+impl<T> Default for RaggedArray<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> JaggedArray<T> {
-    /// Creates a new empty jagged array.
+impl<T> RaggedArray<T> {
+    /// Creates a new empty ragged array.
     pub fn new() -> Self {
         Self {
             offsets: vec![0],
@@ -58,19 +58,19 @@ impl<T> JaggedArray<T> {
         }
     }
 
-    /// Adds a vector, provided as an [`IntoIterator`], to the jagged array.
+    /// Adds a vector, provided as an [`IntoIterator`], to the ragged array.
     pub fn push(&mut self, values: impl IntoIterator<Item = T>) {
         self.values.extend(values);
         self.offsets.push(self.values.len());
     }
 
-    /// Resets the jagged array to an empty state, preserving allocated memory.
+    /// Resets the ragged array to an empty state, preserving allocated memory.
     pub fn clear(&mut self) {
         self.offsets.truncate(1);
         self.values.clear();
     }
 
-    /// Gets the number of vectors in the jagged array.
+    /// Gets the number of vectors in the ragged array.
     pub fn len(&self) -> usize {
         self.offsets.len() - 1
     }
@@ -95,13 +95,13 @@ impl<T> JaggedArray<T> {
         self.values.capacity()
     }
 
-    /// Returns the overall number of values in the jagged array.
+    /// Returns the overall number of values in the ragged array.
     pub fn num_values(&self) -> usize {
         self.values.len()
     }
 }
 
-impl<T> core::ops::Index<usize> for JaggedArray<T> {
+impl<T> core::ops::Index<usize> for RaggedArray<T> {
     type Output = [T];
     /// Retrieves the vector at the given index.
     fn index(&self, row: usize) -> &Self::Output {
@@ -117,13 +117,13 @@ mod tests {
 
     #[test]
     fn test_new_array_is_empty() {
-        let matrix: JaggedArray<i32> = JaggedArray::new();
+        let matrix: RaggedArray<i32> = RaggedArray::new();
         assert_eq!(matrix.len(), 0);
     }
 
     #[test]
     fn test_push_rows_and_indexing() {
-        let mut matrix = JaggedArray::new();
+        let mut matrix = RaggedArray::new();
         matrix.push(vec![1, 2, 3]);
         matrix.push(vec![4, 5]);
         assert_eq!(matrix.len(), 2);
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_ragged_rows_and_empty_rows() {
-        let mut matrix = JaggedArray::new();
+        let mut matrix = RaggedArray::new();
         matrix.push(vec![1]);
         matrix.push(vec![]);
         matrix.push(vec![2, 3, 4]);
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_clear_and_reuse() {
-        let mut matrix = JaggedArray::new();
+        let mut matrix = RaggedArray::new();
         matrix.push(vec![1, 2]);
         matrix.push(vec![3]);
         assert_eq!(matrix.len(), 2);
@@ -163,7 +163,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_index_out_of_bounds() {
-        let mut matrix = JaggedArray::new();
+        let mut matrix = RaggedArray::new();
         matrix.push(vec![1]);
         let _ = &matrix[1];
     }

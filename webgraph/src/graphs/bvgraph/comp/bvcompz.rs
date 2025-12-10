@@ -11,7 +11,7 @@ use std::path::Path;
 use super::OffsetsWriter;
 use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
-use crate::utils::JaggedArray;
+use crate::utils::RaggedArray;
 use common_traits::Sequence;
 use lender::prelude::*;
 
@@ -43,8 +43,8 @@ struct ReferenceTableEntry {
 /// `flush` is called.
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write> {
-    /// A compact Vec<Vec<usize>> that stores the successors of each node in the chunk.
-    backrefs: JaggedArray<usize>,
+    /// The successors of each node in the chunk.
+    backrefs: RaggedArray<usize>,
     /// The references to the adjacency list to copy
     references: Vec<usize>,
     /// Saved costs of each reference in the chunk and his compression window
@@ -106,7 +106,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         start_node: usize,
     ) -> Self {
         BvCompZ {
-            backrefs: JaggedArray::new(),
+            backrefs: RaggedArray::new(),
             reference_costs: Matrix::new(chunk_size + 1, compression_window + 1),
             references: Vec::with_capacity(chunk_size + 1),
             saved_costs: Vec::with_capacity(chunk_size + 1),
