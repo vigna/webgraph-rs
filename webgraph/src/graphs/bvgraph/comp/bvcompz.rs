@@ -11,6 +11,7 @@ use std::path::Path;
 use super::OffsetsWriter;
 use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
+use crate::utils::CSRMatrix;
 use common_traits::Sequence;
 use lender::prelude::*;
 
@@ -42,9 +43,8 @@ struct ReferenceTableEntry {
 /// `flush` is called.
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write> {
-    /// The ring-buffer that stores the neighbors of the last
-    /// `compression_window` neighbors
-    backrefs: CircularBuffer<Vec<usize>>,
+    /// A compact Vec<Vec<usize>> that stores the successors of each node in the chunk.
+    backrefs: CSRMatrix<usize>,
     /// The references to the adjacency list to copy
     references: Vec<usize>,
     /// Saved costs of each reference in the chunk and his compression window
@@ -106,7 +106,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         start_node: usize,
     ) -> Self {
         BvCompZ {
-            backrefs: CircularBuffer::new(chunk_size + 1),
+            backrefs: CSRMatrix::new(),
             reference_costs: Matrix::new(chunk_size + 1, compression_window + 1),
             references: Vec::with_capacity(chunk_size + 1),
             saved_costs: Vec::with_capacity(chunk_size + 1),
@@ -135,17 +135,10 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
-        {
-            let succ_vec = &mut self.backrefs[self.curr_node];
-            succ_vec.clear();
-            succ_vec.extend(succ_iter);
-            if succ_vec.capacity() > 4 * succ_vec.len() {
-                let old_vec = std::mem::replace(succ_vec, Vec::with_capacity(2 * succ_vec.len()));
-                succ_vec.extend(old_vec.into_iter());
-            }
-        }
+        self.backrefs.push(succ_iter);
+        let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
         // get the ref
-        let curr_list = &self.backrefs[self.curr_node];
+        let curr_list = &self.backrefs[relative_index_in_chunk];
         self.stats.num_nodes += 1;
         self.stats.num_arcs += curr_list.len() as u64;
         // first try to compress the current node without references
@@ -168,7 +161,6 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             self.stats.written_bits += written_bits;
             return Ok(());
         }
-        let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
         let cost = {
@@ -185,14 +177,11 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         self.reference_costs[(relative_index_in_chunk, 0)] = cost;
         let mut min_bits = cost;
 
-        let deltas = 1 + self
-            .compression_window
-            .min(self.curr_node - self.start_chunk_node);
+        let deltas = 1 + self.compression_window.min(relative_index_in_chunk);
         // compression windows is not zero, so compress the current node
         for delta in 1..deltas {
-            let ref_node = self.curr_node - delta;
             // Get the neighbors of this previous len_zeta_node
-            let ref_list = &self.backrefs[ref_node];
+            let ref_list = &self.backrefs[relative_index_in_chunk - delta];
             // No neighbors, no compression
             if ref_list.is_empty() {
                 continue;
@@ -404,7 +393,6 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             }
         }
         for relative_index_in_chunk in 0..n {
-            let node_index = self.curr_node - n + relative_index_in_chunk;
             // recalculate the chain length because the reference can be changed
             // after a greedy re-add in a previous iteration
             if self.references[relative_index_in_chunk] != 0 {
@@ -426,7 +414,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
                 {
                     continue;
                 }
-                let reference_index = node_index - delta;
+                let reference_index = relative_index_in_chunk - delta;
                 let ref_list = &self.backrefs[reference_index];
                 // No neighbors, no compression
                 if ref_list.is_empty() {
@@ -452,17 +440,22 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     /// state to start compressing the next chunk.
     fn write_and_clear_current_chunk(&mut self) -> anyhow::Result<()> {
         let n = self.references.len();
-        let mut compressor = Compressor::new();
+        // Reuse an existing compressor buffer to avoid per-chunk allocations
+        let compressor = self
+            .compressors
+            .first_mut()
+            .expect("at least one compressor available");
         for i in 0..n {
             let node_index = self.curr_node - n + i;
-            let curr_list = &self.backrefs[node_index];
+            let curr_list = &self.backrefs[node_index - self.start_chunk_node];
             let reference = self.references[i];
             let ref_list = if reference == 0 {
                 None
             } else {
-                let reference_index = node_index - reference;
-                Some(self.backrefs[reference_index].as_slice()).filter(|list| !list.is_empty())
+                let reference_index = node_index - reference - self.start_chunk_node;
+                Some(&self.backrefs[reference_index]).filter(|list| !list.is_empty())
             };
+            compressor.clear();
             compressor.compress(curr_list, ref_list, self.min_interval_length)?;
             let bits = compressor.write(
                 &mut self.encoder,
@@ -475,9 +468,15 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         }
         // reset the chunk starting point
         self.start_chunk_node = self.curr_node;
-        // clear the refs array and the backrefs
+        // clear the refs array and the backrefs so the next chunk starts fresh
         self.references.clear();
         self.saved_costs.clear();
+
+        // Custom resizing logic
+        if self.backrefs.num_elements() > 4 * self.backrefs.capacity() {
+            self.backrefs.shrink_to(self.backrefs.capacity() / 2);
+        }
+        self.backrefs.clear();
         Ok(())
     }
 }
