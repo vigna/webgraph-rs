@@ -11,7 +11,7 @@ use std::path::Path;
 use super::OffsetsWriter;
 use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
-use crate::utils::CSRMatrix;
+use crate::utils::JaggedArray;
 use common_traits::Sequence;
 use lender::prelude::*;
 
@@ -44,7 +44,7 @@ struct ReferenceTableEntry {
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write> {
     /// A compact Vec<Vec<usize>> that stores the successors of each node in the chunk.
-    backrefs: CSRMatrix<usize>,
+    backrefs: JaggedArray<usize>,
     /// The references to the adjacency list to copy
     references: Vec<usize>,
     /// Saved costs of each reference in the chunk and his compression window
@@ -106,7 +106,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         start_node: usize,
     ) -> Self {
         BvCompZ {
-            backrefs: CSRMatrix::new(),
+            backrefs: JaggedArray::new(),
             reference_costs: Matrix::new(chunk_size + 1, compression_window + 1),
             references: Vec::with_capacity(chunk_size + 1),
             saved_costs: Vec::with_capacity(chunk_size + 1),
@@ -136,9 +136,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         self.backrefs.push(succ_iter);
-        let relative_index_in_chunk = self.curr_node - self.start_chunk_node;
+        let offset_in_chunk = self.curr_node - self.start_chunk_node;
         // get the ref
-        let curr_list = &self.backrefs[relative_index_in_chunk];
+        let curr_list = &self.backrefs[offset_in_chunk];
         self.stats.num_nodes += 1;
         self.stats.num_arcs += curr_list.len() as u64;
         // first try to compress the current node without references
@@ -174,14 +174,14 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             )?
         };
         let mut saved_cost = 0;
-        self.reference_costs[(relative_index_in_chunk, 0)] = cost;
+        self.reference_costs[(offset_in_chunk, 0)] = cost;
         let mut min_bits = cost;
 
-        let deltas = 1 + self.compression_window.min(relative_index_in_chunk);
+        let deltas = 1 + self.compression_window.min(offset_in_chunk);
         // compression windows is not zero, so compress the current node
         for delta in 1..deltas {
             // Get the neighbors of this previous len_zeta_node
-            let ref_list = &self.backrefs[relative_index_in_chunk - delta];
+            let ref_list = &self.backrefs[offset_in_chunk - delta];
             // No neighbors, no compression
             if ref_list.is_empty() {
                 continue;
@@ -206,7 +206,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
                     self.min_interval_length,
                 )?
             };
-            self.reference_costs[(relative_index_in_chunk, delta)] = bits;
+            self.reference_costs[(offset_in_chunk, delta)] = bits;
             // keep track of the best, it's strictly less so we keep the
             // nearest one in the case of multiple equal ones
             if bits < min_bits {
@@ -473,8 +473,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         self.saved_costs.clear();
 
         // Custom resizing logic
-        if self.backrefs.num_elements() > 4 * self.backrefs.capacity() {
-            self.backrefs.shrink_to(self.backrefs.capacity() / 2);
+        if self.backrefs.num_values() > 4 * self.backrefs.values_capacity() {
+            self.backrefs
+                .shrink_values_to(self.backrefs.values_capacity() / 2);
         }
         self.backrefs.clear();
         Ok(())

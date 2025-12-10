@@ -38,8 +38,8 @@ pub use batch_codec::*;
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
 
-pub mod csr_matrix;
-pub use csr_matrix::CSRMatrix;
+mod ragged_array;
+pub use ragged_array::JaggedArray;
 
 mod mmap_helper;
 pub use mmap_helper::*;
