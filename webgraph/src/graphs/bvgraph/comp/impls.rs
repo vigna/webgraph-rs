@@ -492,6 +492,7 @@ impl BvCompConfig {
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
                             bvcomp.push(succ.into_iter()).unwrap();
+                            comp_pl.update();
                         });
                         stats = bvcomp.flush().unwrap();
                     } else {

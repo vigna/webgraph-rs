@@ -136,13 +136,13 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
-            let mut succ_vec = self.backrefs.take(self.curr_node);
+            let succ_vec = &mut self.backrefs[self.curr_node];
             succ_vec.clear();
             succ_vec.extend(succ_iter);
-            if succ_vec.capacity() > 4 * succ_vec.len().max(10000) {
-                succ_vec.shrink_to_fit();
+            if succ_vec.capacity() > 4 * succ_vec.len() {
+                let old_vec = std::mem::replace(succ_vec, Vec::with_capacity(2 * succ_vec.len()));
+                succ_vec.extend(old_vec.into_iter());
             }
-            self.backrefs.replace(self.curr_node, succ_vec);
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];

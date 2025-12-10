@@ -233,30 +233,30 @@ impl<D: Decode> Iter<D> {
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
-            let neighbours = &self.backrefs[reference_node_id];
+            let successors = &self.backrefs[reference_node_id];
             //debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
             let number_of_blocks = self.decoder.read_block_count() as usize;
             // no blocks, we copy everything
             if number_of_blocks == 0 {
-                results.extend_from_slice(neighbours);
+                results.extend_from_slice(successors);
             } else {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero
                 let mut idx = self.decoder.read_block() as usize;
-                results.extend_from_slice(&neighbours[..idx]);
+                results.extend_from_slice(&successors[..idx]);
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
                     let block = self.decoder.read_block() as usize;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
-                        results.extend_from_slice(&neighbours[idx..end]);
+                        results.extend_from_slice(&successors[idx..end]);
                     }
                     idx = end;
                 }
                 if number_of_blocks & 1 == 0 {
-                    results.extend_from_slice(&neighbours[idx..]);
+                    results.extend_from_slice(&successors[idx..]);
                 }
             }
         };
