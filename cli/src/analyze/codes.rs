@@ -78,6 +78,9 @@ where
     let mut stats = Default::default();
     let has_ef = std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());
 
+    // Load the compression flags from the properties file so we can compare them
+    let (_, _, comp_flags) = parse_properties::<E>(args.src.with_extension(PROPERTIES_EXTENSION))?;
+
     if has_ef {
         log::info!(
             "Analyzing codes in parallel using {} threads",
@@ -163,8 +166,41 @@ where
         });
     }
 
+    println!("Default codes");
+    compare_codes(&stats, CompFlags::default(), args.top_k);
+
+    print!("\n\n\n");
+
+    println!("Current codes");
+    compare_codes(&stats, comp_flags, args.top_k);
+
+    Ok(())
+}
+
+/// Gets the size in bits used by a given code.
+/// This should go in dsi-bitstream eventually.
+fn get_size_by_code(stats: &CodesStats, code: Codes) -> Option<u64> {
+    match code {
+        Codes::Unary => Some(stats.unary),
+        Codes::Gamma => Some(stats.gamma),
+        Codes::Delta => Some(stats.delta),
+        Codes::Omega => Some(stats.omega),
+        Codes::VByteBe | Codes::VByteLe => Some(stats.vbyte),
+        Codes::Zeta(k) => stats.zeta.get(k - 1).copied(),
+        Codes::Golomb(b) => stats.golomb.get(b as usize - 1).copied(),
+        Codes::ExpGolomb(k) => stats.exp_golomb.get(k).copied(),
+        Codes::Rice(k) => stats.rice.get(k).copied(),
+        Codes::Pi(0) => Some(stats.gamma),   // Pi(0) is Gamma
+        Codes::Pi(1) => Some(stats.zeta[1]), // Pi(1) is Zeta(2)
+        Codes::Pi(k) => stats.pi.get(k - 2).copied(),
+        _ => unreachable!("Code {:?} not supported", code),
+    }
+}
+
+/// Prints the statistics of how much the optimal codes improve over the reference ones.
+pub fn compare_codes(stats: &DecoderStats, reference: CompFlags, top_k: usize) {
     macro_rules! impl_best_code {
-        ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident - $old:expr),*) => {
+        ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident -> $old:expr),*) => {
             println!("{:>17} {:>20} {:>12} {:>10} {:>10} {:>16}",
                 "Type", "Code", "Improvement", "Weight", "Bytes", "Bits",
             );
@@ -189,7 +225,7 @@ where
                     normalize(best_size as f64 / 8.0),
                     best_size,
                 );
-                for i in 1..args.top_k.min(codes.len()).max(1) {
+                for i in 1..top_k.min(codes.len()).max(1) {
                     let (code, size) = codes[i];
                     let improvement = 100.0 * ($old as f64 - size as f64) / $old as f64;
                     println!("{:>17} {:>20} {:>12.3}% {:>10.3} {:>10} {:>16}",
@@ -206,21 +242,36 @@ where
         };
     }
 
+    println!("Code optimization results against:");
+    for (name, code) in [
+        ("outdegrees", reference.outdegrees),
+        ("reference offsets", reference.references),
+        ("block counts", reference.blocks),
+        ("blocks", reference.blocks),
+        ("interval counts", reference.intervals),
+        ("interval starts", reference.intervals),
+        ("interval lengths", reference.intervals),
+        ("first residuals", reference.residuals),
+        ("residuals", reference.residuals),
+    ] {
+        println!("\t{:>18} : {:?}", name, code);
+    }
+
     let mut new_bits = 0;
     let mut old_bits = 0;
     impl_best_code!(
         new_bits,
         old_bits,
         stats,
-        outdegrees - stats.outdegrees.gamma,
-        reference_offsets - stats.reference_offsets.unary,
-        block_counts - stats.block_counts.gamma,
-        blocks - stats.blocks.gamma,
-        interval_counts - stats.interval_counts.gamma,
-        interval_starts - stats.interval_starts.gamma,
-        interval_lens - stats.interval_lens.gamma,
-        first_residuals - stats.first_residuals.zeta[2],
-        residuals - stats.residuals.zeta[2]
+        outdegrees -> get_size_by_code(&stats.outdegrees, reference.outdegrees).unwrap(),
+        reference_offsets -> get_size_by_code(&stats.reference_offsets, reference.references).unwrap(),
+        block_counts -> get_size_by_code(&stats.block_counts, reference.blocks).unwrap(),
+        blocks -> get_size_by_code(&stats.blocks, reference.blocks).unwrap(),
+        interval_counts -> get_size_by_code(&stats.interval_counts, reference.intervals).unwrap(),
+        interval_starts -> get_size_by_code(&stats.interval_starts, reference.intervals).unwrap(),
+        interval_lens -> get_size_by_code(&stats.interval_lens, reference.intervals).unwrap(),
+        first_residuals -> get_size_by_code(&stats.first_residuals, reference.residuals).unwrap(),
+        residuals -> get_size_by_code(&stats.residuals, reference.residuals).unwrap()
     );
 
     println!();
@@ -239,7 +290,6 @@ where
         "  Improvement: {:>15.3}%",
         100.0 * (old_bits - new_bits) as f64 / old_bits as f64
     );
-    Ok(())
 }
 
 fn normalize(mut value: f64) -> String {
