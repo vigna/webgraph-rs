@@ -30,6 +30,7 @@
 /// assert_eq!(&ragged[1], &[4, 5]);
 /// ragged.push(vec![]);
 /// assert_eq!(ragged.len(), 3);
+/// assert_eq!(ragged.num_values(), 5);
 /// assert_eq!(&ragged[2], &[]);
 /// ragged.clear();
 /// assert_eq!(ragged.len(), 0);
@@ -73,6 +74,11 @@ impl<T> RaggedArray<T> {
     /// Gets the number of vectors in the ragged array.
     pub fn len(&self) -> usize {
         self.offsets.len() - 1
+    }
+
+    /// Returns `true` if the ragged array contains no vectors.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Shrinks the capacity of the vectors of values and offsets to fit their

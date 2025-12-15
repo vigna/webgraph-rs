@@ -108,30 +108,31 @@ where
 
         // TODO!: use FairChunks with the offsets EF to distribute the
         // work based on number of bits used, not nodes
-        stats = Chunks::new(0..graph.num_nodes(), node_granularity).par_map_fold_with(
-            pl.clone(),
-            |pl, range| {
-                let mut iter = graph
-                    .offset_deg_iter_from(range.start)
-                    .map_decoder(|d| StatsDecoder::new(d, Default::default()));
+        stats = thread_pool.install(|| {
+            Chunks::new(0..graph.num_nodes(), node_granularity).par_map_fold_with(
+                pl.clone(),
+                |pl, range| {
+                    let mut iter = graph
+                        .offset_deg_iter_from(range.start)
+                        .map_decoder(|d| StatsDecoder::new(d, Default::default()));
 
-                for _ in (&mut iter).take(range.len()) {
-                    pl.light_update();
-                }
+                    for _ in (&mut iter).take(range.len()) {
+                        pl.light_update();
+                    }
 
-                let mut stats = Default::default();
-                iter.map_decoder(|d| {
-                    stats = d.stats;
-                    d.codes_reader // not important but we need to return something
-                });
-                stats
-            },
-            |mut acc1, acc2| {
-                acc1 += &acc2;
-                acc1
-            },
-            &thread_pool,
-        );
+                    let mut stats = Default::default();
+                    iter.map_decoder(|d| {
+                        stats = d.stats;
+                        d.codes_reader // not important but we need to return something
+                    });
+                    stats
+                },
+                |mut acc1, acc2| {
+                    acc1 += &acc2;
+                    acc1
+                },
+            )
+        });
 
         pl.done();
     } else {

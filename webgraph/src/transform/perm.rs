@@ -10,7 +10,6 @@ use crate::prelude::*;
 use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::prelude::*;
 use lender::*;
-use rayon::ThreadPool;
 use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 
@@ -76,7 +75,6 @@ pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
     memory_usage: MemoryUsage,
-    threads: &ThreadPool,
 ) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
@@ -93,11 +91,11 @@ where
     // get a permuted view
     let pgraph = PermutedGraph { graph, perm };
 
-    let num_threads = threads.current_num_threads();
+    let num_threads = rayon::current_num_threads();
     let mut dirs = vec![];
 
-    let edges = threads.in_place_scope(|scope| {
-        let (tx, rx) = std::sync::mpsc::channel();
+    let edges = rayon::in_place_scope(|scope| {
+        let (tx, rx) = crossbeam_channel::unbounded();
 
         for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
             let tx = tx.clone();
@@ -124,7 +122,7 @@ where
 
         // get a graph on the sorted data
         log::debug!("Waiting for threads to finish");
-        rx.iter().sum()
+        rx.into_rayon_iter().sum()
     });
 
     log::debug!("All threads finished");

@@ -5,7 +5,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use rayon::ThreadPool;
 
 impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 
@@ -39,8 +38,6 @@ where
     /// # Arguments
     ///
     /// * `fold`: a function that folds the results of the map function.
-    ///
-    /// * `thread_pool`: a thread pool to use for parallelization.
     #[inline(always)]
     fn par_map_fold<
         R: Send + Default,
@@ -50,9 +47,8 @@ where
         &mut self,
         map: M,
         fold: F,
-        thread_pool: &ThreadPool,
     ) -> R {
-        self.par_map_fold_with((), |_, i| map(i), fold, thread_pool)
+        self.par_map_fold_with((), |_, i| map(i), fold)
     }
 
     /// Map and fold in parallel the items returned by an iterator.
@@ -68,8 +64,6 @@ where
     /// * `map`: a function that maps an item to a result.
     ///
     /// * `fold`: a function that folds the results of the map function.
-    ///
-    /// * `thread_pool`: a thread pool to use for parallelization.
     #[inline(always)]
     fn par_map_fold_with<
         T: Clone + Send,
@@ -81,9 +75,8 @@ where
         init: T,
         map: M,
         fold: F,
-        thread_pool: &ThreadPool,
     ) -> R {
-        self.par_map_fold2_with(init, map, &fold, &fold, thread_pool)
+        self.par_map_fold2_with(init, map, &fold, &fold)
     }
 
     /// Map and fold in parallel the items returned by an iterator.
@@ -99,8 +92,6 @@ where
     /// * `inner_fold`: a function that folds the results of the map function.
     ///
     /// * `outer_fold`: a function that folds the results of the inner fold.
-    ///
-    /// * `thread_pool`: a thread pool to use for parallelization.
     #[inline(always)]
     fn par_map_fold2<
         R,
@@ -113,9 +104,8 @@ where
         map: M,
         inner_fold: IF,
         outer_fold: OF,
-        thread_pool: &ThreadPool,
     ) -> A {
-        self.par_map_fold2_with((), |_, i| map(i), inner_fold, outer_fold, thread_pool)
+        self.par_map_fold2_with((), |_, i| map(i), inner_fold, outer_fold)
     }
 
     /// Map and fold in parallel the items returned by an iterator.
@@ -136,8 +126,6 @@ where
     /// * `inner_fold`: a function that folds the results of the map function.
     ///
     /// * `outer_fold`: a function that folds the results of the inner fold.
-    ///
-    /// * `thread_pool`: a thread pool to use for parallelization.
     fn par_map_fold2_with<
         T: Clone + Send,
         R,
@@ -151,21 +139,20 @@ where
         map: M,
         inner_fold: IF,
         outer_fold: OF,
-        thread_pool: &ThreadPool,
     ) -> A {
         let (_min_len, max_len) = self.size_hint();
 
-        let mut num_scoped_threads = thread_pool.current_num_threads();
+        let mut num_scoped_threads = rayon::current_num_threads();
         if let Some(max_len) = max_len {
             num_scoped_threads = num_scoped_threads.min(max_len);
         }
         num_scoped_threads = num_scoped_threads.max(1);
 
         // create a channel to receive the result
-        let (out_tx, out_rx) = crossbeam_channel::bounded::<A>(num_scoped_threads);
-        let (in_tx, in_rx) = crossbeam_channel::bounded::<Self::Item>(2 * num_scoped_threads);
+        let (out_tx, out_rx) = crossbeam_channel::bounded(num_scoped_threads);
+        let (in_tx, in_rx) = crossbeam_channel::bounded(2 * num_scoped_threads);
 
-        thread_pool.in_place_scope(|scope| {
+        rayon::in_place_scope(|scope| {
             for _thread_id in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
                 let mut init = init.clone();
@@ -198,7 +185,45 @@ where
             }
             drop(in_tx); // close the channel so the threads will exit when done
             // listen on the output channel for results
-            out_rx.into_iter().fold(A::default(), outer_fold)
+            out_rx.into_rayon_iter().fold(A::default(), outer_fold)
         })
+    }
+}
+
+#[doc(hidden)]
+pub struct RayonChannelIter<T> {
+    // Note that we use crossbeam channels here, as they provide multiple senders.
+    // When multiple-senders channels will be stabilized we will be able to switch
+    // to std channels.
+    channel: crossbeam_channel::Receiver<T>,
+}
+
+impl<T> Iterator for RayonChannelIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.channel.try_recv() {
+                Ok(item) => return Some(item),
+                Err(crossbeam_channel::TryRecvError::Disconnected) => return None,
+                Err(crossbeam_channel::TryRecvError::Empty) => {
+                    rayon::yield_now();
+                }
+            }
+        }
+    }
+}
+
+/// Turns `self` into a Rayon-friendly iterator.
+///
+/// Mainly used through the extension trait implemented for
+/// [`Receiver`](crossbeam_channel::Receiver).
+pub trait RayonChannelIterExt<T>: Sized {
+    fn into_rayon_iter(self) -> RayonChannelIter<T>;
+}
+
+impl<T> RayonChannelIterExt<T> for crossbeam_channel::Receiver<T> {
+    fn into_rayon_iter(self) -> RayonChannelIter<T> {
+        RayonChannelIter { channel: self }
     }
 }

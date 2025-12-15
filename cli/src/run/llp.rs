@@ -226,31 +226,31 @@ where
 
     let granularity = args.granularity.into_granularity();
 
-    // compute the LLP
-    webgraph_algo::llp::layered_label_propagation_labels_only(
-        graph,
-        deg_cumul.uncase(),
-        gammas,
-        Some(args.num_threads.num_threads),
-        args.chunk_size,
-        granularity,
-        args.seed,
-        predicate,
-        work_dir,
-    )
-    .context("Could not compute the LLP")?;
+    let thread_pool = get_thread_pool(args.num_threads.num_threads);
+    thread_pool.install(|| -> Result<()> {
+        // compute the LLP
+        webgraph_algo::llp::layered_label_propagation_labels_only(
+            graph,
+            deg_cumul.uncase(),
+            gammas,
+            args.chunk_size,
+            granularity,
+            args.seed,
+            predicate,
+            work_dir,
+        )
+        .context("Could not compute LLP")?;
 
-    log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
-    if let Some(perm_path) = args.perm {
-        let thread_pool = get_thread_pool(args.num_threads.num_threads);
-        thread_pool.install(|| -> Result<()> {
+        log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
+
+        if let Some(perm_path) = args.perm {
             let labels = combine_labels(work_dir)?;
             log::info!("Combined labels...");
             let rank_perm = labels_to_ranks(&labels);
             log::info!("Saving permutation...");
             store_perm(&rank_perm, perm_path, args.epserde)?;
-            Ok(())
-        })?;
-    }
-    Ok(())
+        }
+
+        Ok(())
+    })
 }

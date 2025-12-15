@@ -374,7 +374,7 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
             succ_vec.extend(succ_iter);
             if succ_vec.capacity() > 4 * succ_vec.len() {
                 let old_vec = std::mem::replace(succ_vec, Vec::with_capacity(2 * succ_vec.len()));
-                succ_vec.extend(old_vec.into_iter());
+                succ_vec.extend(old_vec);
             }
         }
         // get the ref

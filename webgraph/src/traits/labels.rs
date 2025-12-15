@@ -32,7 +32,6 @@ use core::ops::Range;
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-use rayon::ThreadPool;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -110,9 +109,6 @@ pub trait SequentialLabeling {
     ///
     /// * `granularity` - The granularity of parallel tasks.
     ///
-    /// * `thread_pool` - The thread pool to use. The maximum level of
-    ///   parallelism is given by the number of threads in the pool.
-    ///
     /// * `pl` - An optional mutable reference to a progress logger.
     ///
     /// # Panics
@@ -127,7 +123,6 @@ pub trait SequentialLabeling {
         func: F,
         fold: R,
         granularity: Granularity,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         let num_nodes = self.num_nodes();
@@ -143,7 +138,6 @@ pub trait SequentialLabeling {
                     res
                 },
                 fold,
-                thread_pool,
             )
     }
 
@@ -166,9 +160,6 @@ pub trait SequentialLabeling {
     ///
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
     ///
-    /// * `thread_pool` - The thread pool to use. The maximum level of
-    ///   parallelism is given by the number of threads in the pool.
-    ///
     /// * `pl` - A mutable reference to a concurrent progress logger.
     fn par_apply<
         F: Fn(Range<usize>) -> A + Sync,
@@ -181,7 +172,6 @@ pub trait SequentialLabeling {
         fold: R,
         granularity: Granularity,
         deg_cumul: &D,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         FairChunks::new(
@@ -200,7 +190,6 @@ pub trait SequentialLabeling {
                 res
             },
             fold,
-            thread_pool,
         )
     }
 }

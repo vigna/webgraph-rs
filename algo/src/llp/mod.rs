@@ -78,8 +78,6 @@ pub struct LabelsStore<A> {
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
-/// * `num_threads` - The number of threads to use. If `None`, the number of
-///   threads is set to [`num_cpus::get`].
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
 ///   an advanced option: see
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
@@ -95,7 +93,6 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
-    num_threads: Option<usize>,
     chunk_size: Option<usize>,
     arc_granularity: Granularity,
     seed: u64,
@@ -107,7 +104,6 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         sym_graph,
         deg_cumul,
         gammas,
-        num_threads,
         chunk_size,
         arc_granularity,
         seed,
@@ -125,7 +121,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
-    num_threads: Option<usize>,
     chunk_size: Option<usize>,
     arc_granularity: Granularity,
     seed: u64,
@@ -139,7 +134,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
-    let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+    let num_threads = rayon::current_num_threads();
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -302,7 +297,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 |delta_obj_func_0: f64, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
                 arc_granularity,
                 deg_cumul,
-                &thread_pool,
                 &mut update_pl,
             );
 
@@ -374,7 +368,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
             },
             arc_granularity,
             deg_cumul,
-            &thread_pool,
             &mut update_pl,
         );
 

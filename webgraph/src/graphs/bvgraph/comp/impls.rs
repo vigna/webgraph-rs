@@ -69,28 +69,6 @@ where
     }
 }
 
-/// An iterator over items received from a channel that uses
-/// rayon's yield_now to avoid blocking worker threads.
-struct ChannelIter<T> {
-    rx: std::sync::mpsc::Receiver<T>,
-}
-
-impl<T> Iterator for ChannelIter<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match self.rx.try_recv() {
-                Ok(item) => return Some(item),
-                Err(std::sync::mpsc::TryRecvError::Disconnected) => return None,
-                Err(std::sync::mpsc::TryRecvError::Empty) => {
-                    rayon::yield_now();
-                }
-            }
-        }
-    }
-}
-
 /// A compression job.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 struct Job {
@@ -429,7 +407,7 @@ impl BvCompConfig {
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
         let offsets_path = self.basename.with_extension(OFFSETS_EXTENSION);
 
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, rx) = crossbeam_channel::unbounded();
 
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
@@ -575,7 +553,7 @@ impl BvCompConfig {
                 chunk_offsets_path,
                 offsets_written_bits,
                 num_arcs,
-            } in TaskQueue::new(ChannelIter { rx })
+            } in TaskQueue::new(rx.into_rayon_iter())
             {
                 ensure!(
                     first_node == next_node,

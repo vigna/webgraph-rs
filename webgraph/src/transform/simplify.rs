@@ -8,14 +8,16 @@ use crate::graphs::{
     arc_list_graph, no_selfloops_graph::NoSelfLoopsGraph, union_graph::UnionGraph,
 };
 use crate::labels::Left;
-use crate::traits::{LenderIntoIter, SequentialGraph, SortedIterator, SortedLender, SplitLabeling};
+use crate::traits::{
+    LenderIntoIter, RayonChannelIterExt, SequentialGraph, SortedIterator, SortedLender,
+    SplitLabeling,
+};
 use crate::utils::sort_pairs::{KMergeIters, SortPairs};
 use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use lender::*;
-use rayon::ThreadPool;
 use tempfile::Builder;
 
 use super::transpose;
@@ -99,7 +101,6 @@ pub fn simplify(
 pub fn simplify_split<S>(
     graph: &S,
     memory_usage: MemoryUsage,
-    threads: &ThreadPool,
 ) -> Result<
     Left<
         arc_list_graph::ArcListGraph<
@@ -110,12 +111,12 @@ pub fn simplify_split<S>(
 where
     S: SequentialGraph + SplitLabeling,
 {
-    let num_threads = threads.current_num_threads();
-    let (tx, rx) = std::sync::mpsc::channel();
+    let num_threads = rayon::current_num_threads();
+    let (tx, rx) = crossbeam_channel::unbounded();
 
     let mut dirs = vec![];
 
-    threads.in_place_scope(|scope| {
+    rayon::in_place_scope(|scope| {
         let mut thread_id = 0;
         #[allow(clippy::explicit_counter_loop)] // enumerate requires some extra bounds here
         for iter in graph.split_iter(num_threads) {
@@ -148,7 +149,7 @@ where
 
     // get a graph on the sorted data
     log::debug!("Waiting for threads to finish");
-    let edges: KMergeIters<CodecIter<DefaultBatchCodec>> = rx.iter().sum();
+    let edges: KMergeIters<CodecIter<DefaultBatchCodec>> = rx.into_rayon_iter().sum();
     let edges = edges.dedup();
     log::debug!("All threads finished");
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);

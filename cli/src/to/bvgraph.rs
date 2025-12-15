@@ -86,20 +86,15 @@ where
 
         if let Some(permutation) = permutation {
             let memory_usage = args.memory_usage.memory_usage;
-
-            log::info!("Permuting graph with memory usage {}", memory_usage);
-            let start = std::time::Instant::now();
-            let sorted = webgraph::transform::permute_split(
-                &graph,
-                &permutation,
-                memory_usage,
-                &thread_pool,
-            )?;
-            log::info!(
-                "Permuted the graph. It took {:.3} seconds",
-                start.elapsed().as_secs_f64()
-            );
             thread_pool.install(|| {
+                log::info!("Permuting graph with memory usage {}", memory_usage);
+                let start = std::time::Instant::now();
+                let sorted =
+                    webgraph::transform::permute_split(&graph, &permutation, memory_usage)?;
+                log::info!(
+                    "Permuted the graph. It took {:.3} seconds",
+                    start.elapsed().as_secs_f64()
+                );
                 builder.par_comp_lenders_endianness(
                     &sorted,
                     sorted.num_nodes(),

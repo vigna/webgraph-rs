@@ -179,13 +179,12 @@ where
                     perm: &perm,
                 };
 
-                let sorted = webgraph::transform::simplify_split(
-                    &perm_graph,
-                    args.memory_usage.memory_usage,
-                    &thread_pool,
-                )?;
-
                 thread_pool.install(|| {
+                    let sorted = webgraph::transform::simplify_split(
+                        &perm_graph,
+                        args.memory_usage.memory_usage,
+                    )?;
+
                     builder.par_comp_lenders_endianness(
                         &sorted,
                         sorted.num_nodes(),
@@ -230,13 +229,12 @@ where
                         .endianness::<E>()
                         .load()?;
 
-                let sorted = webgraph::transform::simplify_split(
-                    &graph,
-                    args.memory_usage.memory_usage,
-                    &thread_pool,
-                )?;
-
                 thread_pool.install(|| {
+                    let sorted = webgraph::transform::simplify_split(
+                        &graph,
+                        args.memory_usage.memory_usage,
+                    )?;
+
                     builder.par_comp_lenders_endianness(
                         &sorted,
                         sorted.num_nodes(),
