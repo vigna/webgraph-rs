@@ -362,7 +362,7 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, L
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, D, GLM, OLM> {
-    /// Choose the [`LoadMode`] for the graph only.
+    /// Choose the [`LoadMode`] for the offsets only.
     pub fn offsets_mode<NOLM: LoadMode>(self) -> LoadConfig<E, Random, D, GLM, NOLM> {
         LoadConfig {
             basename: self.basename,
