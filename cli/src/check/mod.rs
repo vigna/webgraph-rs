@@ -11,6 +11,7 @@ use super::GlobalArgs;
 
 pub mod ef;
 pub mod eq;
+pub mod maxref;
 
 #[derive(Subcommand, Debug)]
 #[command(name = "check")]
@@ -18,11 +19,13 @@ pub mod eq;
 pub enum SubCommands {
     Ef(ef::CliArgs),
     Eq(eq::CliArgs),
+    Maxref(maxref::CliArgs),
 }
 
 pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
     match subcommand {
         SubCommands::Ef(args) => ef::main(global_args, args),
         SubCommands::Eq(args) => eq::main(global_args, args),
+        SubCommands::Maxref(args) => maxref::main(global_args, args),
     }
 }

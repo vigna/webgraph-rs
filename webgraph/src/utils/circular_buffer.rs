@@ -17,27 +17,27 @@
 /// [take](CircularBuffer::take) and [replace](CircularBuffer::replace) the
 /// value at a given index.
 #[derive(Debug, Clone)]
-pub(crate) struct CircularBuffer<T: Default> {
+pub struct CircularBuffer<T: Default> {
     data: Vec<T>,
 }
 
 impl<T: Default> CircularBuffer<T> {
     /// Creates a new circular buffer which can hold `len` values.
-    pub(crate) fn new(len: usize) -> Self {
+    pub fn new(len: usize) -> Self {
         Self {
             data: (0..len).map(|_| T::default()).collect::<Vec<_>>(),
         }
     }
 
     /// Takes an element from the buffer, replacing it with its default value.
-    pub(crate) fn take(&mut self, index: usize) -> T {
+    pub fn take(&mut self, index: usize) -> T {
         let idx = index % self.data.len();
         core::mem::take(&mut self.data[idx])
     }
 
     /// Replaces an element in the buffer with a new value and
     /// return a reference to the new value in the buffer.
-    pub(crate) fn replace(&mut self, index: usize, data: T) -> &T {
+    pub fn replace(&mut self, index: usize, data: T) -> &T {
         let idx = index % self.data.len();
         self.data[idx] = data;
         &self.data[idx]

@@ -73,12 +73,18 @@ where
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
+    let bvgraphz2 = args.ca.bvgraphz2;
+    let look_ahead = args.ca.look_ahead;
     let mut builder = BvCompConfig::new(&args.dst)
         .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
 
-    if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+    if let Some(look_ahead) = look_ahead {
+        builder = builder.with_look_ahead(look_ahead);
+    } else if bvgraphz {
+        builder = builder.with_bvgraphz().with_chunk_size(chunk_size);
+    } else if bvgraphz2 {
+        builder = builder.with_bvgraphz2().with_chunk_size(chunk_size);
     }
 
     if args.src.with_extension(EF_EXTENSION).exists() {

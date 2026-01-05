@@ -7,9 +7,13 @@
 
 mod bvcomp;
 mod bvcompz;
+mod bvcompz2;
+mod bvcompla;
 
 pub use bvcomp::*;
 pub use bvcompz::*;
+pub use bvcompz2::*;
+pub use bvcompla::*;
 
 mod impls;
 pub use impls::{BvCompConfig, OffsetsWriter};

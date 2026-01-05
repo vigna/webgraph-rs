@@ -36,7 +36,7 @@ mod batch_codec;
 pub use batch_codec::*;
 
 mod circular_buffer;
-pub(crate) use circular_buffer::*;
+pub use circular_buffer::*;
 
 mod ragged_array;
 pub use ragged_array::RaggedArray;

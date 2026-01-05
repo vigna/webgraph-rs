@@ -477,10 +477,20 @@ pub struct CompressArgs {
     #[clap(long)]
     pub bvgraphz: bool,
 
+    /// Whether to use chunk-based greedy reference selection algorithm. This is an alternative
+    /// to --bvgraphz that uses a Kruskal-like greedy approach on each chunk.
+    #[clap(long)]
+    pub bvgraphz2: bool,
+
     /// How many nodes to process in a chunk; the default (10000) is usually a good
     /// value.
     #[clap(long, default_value = "10000")]
     pub chunk_size: usize,
+
+    /// Look-ahead buffer size for improved reference selection. Incompatible with --bvgraphz.
+    /// A good value is (max_ref_count + 1) * compression_window.
+    #[clap(long)]
+    pub look_ahead: Option<usize>,
 }
 
 impl From<CompressArgs> for CompFlags {

@@ -307,6 +307,9 @@ impl CompFlags {
         if let Some(min_interval_length) = map.get("minintervallength") {
             cf.min_interval_length = min_interval_length.parse()?;
         }
+        if let Some(max_ref_count) = map.get("maxrefcount") {
+            cf.max_ref_count = max_ref_count.parse()?;
+        }
         Ok(cf)
     }
 }
