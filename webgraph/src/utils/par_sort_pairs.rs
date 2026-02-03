@@ -428,11 +428,23 @@ impl<C: BatchCodec> SorterThreadState<C> {
 
 impl<C: BatchCodec> Drop for SorterThreadState<C> {
     fn drop(&mut self) {
-        if let Some(queue) = self.queue.take() {
-            // Put self back on the queue
-            let mut other_self = Self::new_empty();
-            std::mem::swap(&mut other_self, self);
-            queue.push(other_self);
+        match self.queue.take() {
+            Some(queue) => {
+                // Put self back on the queue
+                let mut other_self = Self::new_empty();
+                std::mem::swap(&mut other_self, self);
+                queue.push(other_self);
+            }
+            None => {
+                assert!(
+                    self.sorted_pairs.iter().all(|vec| vec.is_empty()),
+                    "Dropped SorterThreadState without consuming sorted_pairs"
+                );
+                assert!(
+                    self.unsorted_buffers.iter().all(|vec| vec.is_empty()),
+                    "Dropped SorterThreadState without consuming unsorted_buffers"
+                );
+            }
         }
     }
 }
