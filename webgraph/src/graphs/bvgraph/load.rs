@@ -406,6 +406,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
+        warn_if_ef_stale(&self.basename);
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
             .with_context(|| {
@@ -486,6 +487,7 @@ impl<
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
+        warn_if_ef_stale(&self.basename);
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
         self.basename.set_extension(GRAPH_EXTENSION);
@@ -554,6 +556,37 @@ impl<
             comp_flags.compression_window,
             comp_flags.min_interval_length,
         ))
+    }
+}
+
+/// Checks if the `.ef` file is older than the .graph file and log a warning if so.
+///
+/// This is important because if the graph has been recompressed, the `.ef` file
+/// will be stale and needs to be rebuilt. This is a very common scenario, in
+/// particular when testing compression techniques.
+fn warn_if_ef_stale(basename: &Path) {
+    let graph_path = basename.with_extension(GRAPH_EXTENSION);
+    let ef_path = basename.with_extension(EF_EXTENSION);
+
+    let graph_modified = match std::fs::metadata(&graph_path).and_then(|m| m.modified()) {
+        Ok(t) => t,
+        Err(_) => return, // Can't check, skip warning
+    };
+
+    let ef_modified = match std::fs::metadata(&ef_path).and_then(|m| m.modified()) {
+        Ok(t) => t,
+        Err(_) => return, // Can't check, skip warning
+    };
+
+    if ef_modified < graph_modified {
+        log::warn!(
+            "The Elias-Fano file {} is older than the graph file {}; \
+             this may indicate that the graph has been modified and the .ef file is stale. \
+             Consider rebuilding it with \"webgraph build ef {}\" or just touch it if this warning is spurious.",
+            ef_path.display(),
+            graph_path.display(),
+            basename.display()
+        );
     }
 }
 
