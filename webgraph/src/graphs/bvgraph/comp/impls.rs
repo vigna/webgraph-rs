@@ -418,7 +418,10 @@ impl BvCompConfig {
             local_speed = true,
             expected_updates = Some(num_nodes),
         ];
-        comp_pl.start("Compressing successors in parallel...");
+        comp_pl.start(format!(
+            "Compressing successors in parallel using {} threads...",
+            current_num_threads()
+        ));
         let mut expected_first_node = 0;
         let cp_flags = &self.comp_flags;
         let bvgraphz = self.bvgraphz;
@@ -506,7 +509,7 @@ impl BvCompConfig {
                         offsets_written_bits: stats.offsets_written_bits,
                         num_arcs: stats.num_arcs,
                     })
-                    .unwrap()
+                    .ok(); // If channel is closed, main thread already has an error
                 });
 
                 expected_first_node += lender_len;
