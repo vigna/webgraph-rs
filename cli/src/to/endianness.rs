@@ -30,25 +30,35 @@ macro_rules! impl_convert {
             <$dst>::NAME
         );
 
-        let properties_path = $args.src.with_extension(PROPERTIES_EXTENSION);
-        let (num_nodes, num_arcs, comp_flags) = parse_properties::<$src>(&properties_path)?;
+        let src_properties_path = $args.src.with_extension(PROPERTIES_EXTENSION);
+        let dst_properties_path = $args.dst.with_extension(PROPERTIES_EXTENSION);
+        let (num_nodes, num_arcs, comp_flags) = parse_properties::<$src>(&src_properties_path)?;
         // also extract the bitstream length
-        let f = std::fs::File::open(&properties_path)
-            .with_context(|| format!("Cannot open property file {}", &properties_path.display()))?;
+        let f = std::fs::File::open(&src_properties_path).with_context(|| {
+            format!(
+                "Cannot open property file {}",
+                &src_properties_path.display()
+            )
+        })?;
         let map = java_properties::read(std::io::BufReader::new(f)).with_context(|| {
             format!(
                 "cannot parse {} as a java properties file",
-                &properties_path.display()
+                &src_properties_path.display()
             )
         })?;
         let bitstream_len = map
             .get("length")
-            .with_context(|| format!("Missing 'arcs' property in {}", &properties_path.display()))?
+            .with_context(|| {
+                format!(
+                    "Missing 'arcs' property in {}",
+                    &src_properties_path.display()
+                )
+            })?
             .parse::<u64>()
             .with_context(|| {
                 format!(
                     "Cannot parse arcs as usize in {}",
-                    &properties_path.display()
+                    &src_properties_path.display()
                 )
             })?;
 
@@ -67,13 +77,13 @@ macro_rules! impl_convert {
             .with_context(|| format!("Could not load graph {}", $args.src.display()))?;
         // build the encoder with the opposite endianness
         std::fs::write(
-            &properties_path,
+            &dst_properties_path,
             comp_flags.to_properties::<$dst>(num_nodes, num_arcs, bitstream_len)?,
         )
         .with_context(|| {
             format!(
                 "Could not write properties to {}",
-                properties_path.display()
+                dst_properties_path.display()
             )
         })?;
         let target_graph_path = $args.dst.with_extension(GRAPH_EXTENSION);
