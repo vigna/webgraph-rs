@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.6.0]
+## [0.6.0] - 2025-02-10
 
 ### New
 
@@ -19,6 +19,8 @@
   accepting a `&ThreadPool` argument.
 
 - Moved to `rand` 0.10.0.
+
+- Moved to `Lender` 0.5.0.
 
 ## [0.5.0] - 2025-11-28
 
