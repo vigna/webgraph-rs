@@ -113,9 +113,11 @@ where
             log::debug!("Using parallel algorithm with {} threads", args.num_threads);
             sccs.par_sort_by_size()
         };
-        let max = component_sizes.first().copied();
-        args.fmt.store_usizes(&args.sccs, &component_sizes, max)?;
-    } else if let Some(sizes_path) = args.sizes {
+        if let Some(sizes_path) = &args.sizes {
+            let max = component_sizes.first().copied();
+            args.fmt.store_usizes(sizes_path, &component_sizes, max)?;
+        }
+    } else if let Some(sizes_path) = &args.sizes {
         log::info!("Computing the sizes of the components");
         let sizes = sccs.compute_sizes();
         args.fmt.store_usizes(sizes_path, &sizes, None)?;
