@@ -230,7 +230,7 @@ impl<
         assert_eq!(
             transpose.num_arcs(),
             graph.num_arcs(),
-            "the transpose should have same number of nodes of the graph ({}). Got {}.",
+            "the transpose should have same number of arcs of the graph ({}). Got {}.",
             graph.num_arcs(),
             transpose.num_arcs()
         );
@@ -523,7 +523,7 @@ where
         &mut self,
         upper_bound: usize,
         threshold: Option<f64>,
-        rng: impl rand::Rng,
+        rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         let upper_bound = std::cmp::min(upper_bound, self.graph.num_nodes());
@@ -581,7 +581,7 @@ where
     pub fn run_until_stable(
         &mut self,
         upper_bound: usize,
-        rng: impl rand::Rng,
+        rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         self.run(upper_bound, None, rng, pl)
@@ -597,7 +597,7 @@ where
     #[inline(always)]
     pub fn run_until_done(
         &mut self,
-        rng: impl rand::Rng,
+        rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         self.run_until_stable(usize::MAX, rng, pl)
@@ -623,11 +623,10 @@ where
     pub fn sum_of_distances(&self) -> Result<&[f32]> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
-            // TODO these are COPIES
             Ok(distances)
         } else {
             bail!(
-                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute them"
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute them"
             )
         }
     }
@@ -639,7 +638,7 @@ where
             Ok(distances)
         } else {
             bail!(
-                "Sum of inverse distances were not requested: use builder.with_sum_of_inverse_distances(true) while building HyperBall to compute them"
+                "Sum of inverse distances were not requested: use builder.sum_of_inverse_distances(true) while building HyperBall to compute them"
             )
         }
     }
@@ -668,12 +667,12 @@ where
                 .collect())
         } else {
             bail!(
-                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute closeness centrality"
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute closeness centrality"
             )
         }
     }
 
-    /// Computes and returns the lin centralities from the sum of distances computed by this instance.
+    /// Computes and returns the Lin centralities from the sum of distances computed by this instance.
     ///
     /// Note that lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
     pub fn lin_centrality(&self) -> Result<Box<[f32]>> {
@@ -694,7 +693,7 @@ where
                 .collect())
         } else {
             bail!(
-                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality"
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute Lin centrality"
             )
         }
     }
@@ -714,7 +713,7 @@ where
                 .collect())
         } else {
             bail!(
-                "Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality"
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute Nieminen centrality"
             )
         }
     }
@@ -790,8 +789,9 @@ where
 
         // We run in pre-local mode if we are systolic and few nodes where
         // modified.
-        ic.pre_local =
-            ic.systolic && modified_estimators < (num_nodes * num_nodes) / (num_arcs * 10);
+        ic.pre_local = ic.systolic
+            && modified_estimators
+                < ((num_nodes as u128 * num_nodes as u128) / (num_arcs as u128 * 10)) as u64;
 
         if ic.systolic {
             pl.info(format_args!(
@@ -1159,7 +1159,11 @@ where
     }
 
     /// Initializes HyperBall.
-    fn init(&mut self, mut rng: impl rand::Rng, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
+    fn init(
+        &mut self,
+        mut rng: impl rand::RngExt,
+        pl: &mut impl ConcurrentProgressLog,
+    ) -> Result<()> {
         pl.start("Initializing estimators");
         pl.info(format_args!("Clearing all registers"));
 

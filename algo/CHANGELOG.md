@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.6.0] - 2026-02-10
+
+### Changed
+
+* Moved to `rand` 0.10.0.
+
 ## [0.5.0] - 2025-11-28
 
 ### Changed
