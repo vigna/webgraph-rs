@@ -44,6 +44,9 @@ zstd.workspace = true
 jiff = "0.2.5"
 clap_complete = { version = "4.4.11" }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [build-dependencies]
 built = { version = "0.8", features = ["git2"] }
 chrono = "0.4.39"

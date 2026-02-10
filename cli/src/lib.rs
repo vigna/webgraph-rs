@@ -243,7 +243,7 @@ impl FloatVectorFormat {
             FloatVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path_display);
                 write!(file, "[")?;
-                for word in values.iter().take(values.len().saturating_sub(2)) {
+                for word in values.iter().take(values.len().saturating_sub(1)) {
                     write!(file, "{word:.precision$}, ")
                         .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
@@ -344,7 +344,7 @@ impl IntVectorFormat {
             IntVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());
                 write!(buf, "[")?;
-                for word in data.iter().take(data.len().saturating_sub(2)) {
+                for word in data.iter().take(data.len().saturating_sub(1)) {
                     write!(buf, "{}, ", word).with_context(|| {
                         format!("Could not write vector to {}", path.as_ref().display())
                     })?;
@@ -758,4 +758,326 @@ fn pretty_print_elapsed(elapsed: f64) -> String {
 
     result.push_str(&format!("{:.3} seconds ({}s)", elapsed % 60.0, elapsed));
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod float_vector_format {
+        use super::*;
+
+        #[test]
+        fn test_ascii_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            // Default precision is f64::DIGITS (15)
+            for (line, expected) in content.lines().zip(&values) {
+                let parsed: f64 = line.trim().parse().unwrap();
+                assert!((parsed - expected).abs() < 1e-10);
+            }
+            assert_eq!(content.lines().count(), 3);
+        }
+
+        #[test]
+        fn test_ascii_f32() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f32> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            for (line, expected) in content.lines().zip(&values) {
+                let parsed: f32 = line.trim().parse().unwrap();
+                assert!((parsed - expected).abs() < 1e-6);
+            }
+        }
+
+        #[test]
+        fn test_ascii_with_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![1.123456789, 2.987654321];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, Some(3))
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<&str> = content.lines().collect();
+            assert_eq!(lines[0], "1.123");
+            assert_eq!(lines[1], "2.988");
+        }
+
+        #[test]
+        fn test_json_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<f64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, values);
+        }
+
+        #[test]
+        fn test_json_with_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![1.123456789, 2.987654321];
+            FloatVectorFormat::Json
+                .store(&path, &values, Some(2))
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(content, "[1.12, 2.99]");
+        }
+
+        #[test]
+        fn test_json_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(content, "[]");
+        }
+
+        #[test]
+        fn test_json_single_element() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![42.0];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<f64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, values);
+        }
+
+        #[test]
+        fn test_java_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 8);
+            for (i, expected) in values.iter().enumerate() {
+                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
+                let val = f64::from_be_bytes(chunk);
+                assert_eq!(val, *expected);
+            }
+        }
+
+        #[test]
+        fn test_java_f32() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f32> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 4);
+            for (i, expected) in values.iter().enumerate() {
+                let chunk: [u8; 4] = bytes[i * 4..(i + 1) * 4].try_into().unwrap();
+                let val = f32::from_be_bytes(chunk);
+                assert_eq!(val, *expected);
+            }
+        }
+
+        #[test]
+        fn test_epserde_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Epserde
+                .store(&path, &values, None)
+                .unwrap();
+            // Just verify the file was created and is non-empty
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert!(metadata.len() > 0);
+        }
+
+        #[test]
+        fn test_ascii_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert!(content.is_empty());
+        }
+
+        #[test]
+        fn test_creates_parent_dirs() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("a").join("b").join("test.txt");
+            let values: Vec<f64> = vec![1.0];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            assert!(path.exists());
+        }
+    }
+
+    mod int_vector_format {
+        use super::*;
+
+        #[test]
+        fn test_ascii() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let data: Vec<u64> = vec![10, 20, 30];
+            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<u64> = content.lines().map(|l| l.trim().parse().unwrap()).collect();
+            assert_eq!(lines, data);
+        }
+
+        #[test]
+        fn test_ascii_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let data: Vec<u64> = vec![];
+            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert!(content.is_empty());
+        }
+
+        #[test]
+        fn test_json() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let data: Vec<u64> = vec![10, 20, 30];
+            IntVectorFormat::Json.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<u64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, data);
+        }
+
+        #[test]
+        fn test_json_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let data: Vec<u64> = vec![];
+            IntVectorFormat::Json.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(content, "[]");
+        }
+
+        #[test]
+        fn test_json_single_element() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let data: Vec<u64> = vec![42];
+            IntVectorFormat::Json.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<u64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, data);
+        }
+
+        #[test]
+        fn test_java() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![1, 256, 65535];
+            IntVectorFormat::Java.store(&path, &data, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 8);
+            for (i, expected) in data.iter().enumerate() {
+                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
+                let val = u64::from_be_bytes(chunk);
+                assert_eq!(val, *expected);
+            }
+        }
+
+        #[test]
+        fn test_java_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![];
+            IntVectorFormat::Java.store(&path, &data, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert!(bytes.is_empty());
+        }
+
+        #[test]
+        fn test_epserde() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![10, 20, 30];
+            IntVectorFormat::Epserde.store(&path, &data, None).unwrap();
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert!(metadata.len() > 0);
+        }
+
+        #[test]
+        fn test_bitfieldvec() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![1, 3, 7, 15];
+            IntVectorFormat::BitFieldVec
+                .store(&path, &data, Some(15))
+                .unwrap();
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert!(metadata.len() > 0);
+        }
+
+        #[test]
+        fn test_bitfieldvec_max_computed() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![1, 3, 7, 15];
+            // max is None, so it should be computed from data
+            IntVectorFormat::BitFieldVec
+                .store(&path, &data, None)
+                .unwrap();
+            assert!(path.exists());
+        }
+
+        #[test]
+        fn test_creates_parent_dirs() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("a").join("b").join("test.txt");
+            let data: Vec<u64> = vec![1];
+            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
+            assert!(path.exists());
+        }
+
+        #[cfg(target_pointer_width = "64")]
+        #[test]
+        fn test_store_usizes() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let data: Vec<usize> = vec![10, 20, 30];
+            IntVectorFormat::Ascii
+                .store_usizes(&path, &data, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<usize> = content.lines().map(|l| l.trim().parse().unwrap()).collect();
+            assert_eq!(lines, data);
+        }
+
+        #[cfg(target_pointer_width = "64")]
+        #[test]
+        fn test_store_usizes_java() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<usize> = vec![1, 256, 65535];
+            IntVectorFormat::Java
+                .store_usizes(&path, &data, None)
+                .unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 8);
+            for (i, expected) in data.iter().enumerate() {
+                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
+                let val = u64::from_be_bytes(chunk) as usize;
+                assert_eq!(val, *expected);
+            }
+        }
+    }
 }
