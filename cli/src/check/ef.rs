@@ -8,6 +8,7 @@
 use crate::GlobalArgs;
 use anyhow::{Context, Result};
 use clap::Parser;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
@@ -16,7 +17,9 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use sux::traits::IndexedSeq;
+use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "ef", about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]
@@ -26,6 +29,20 @@ pub struct CliArgs {
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+    match get_endianness(&args.src)?.as_str() {
+        #[cfg(feature = "be_bins")]
+        BE::NAME => check_ef::<BE>(global_args, args),
+        #[cfg(feature = "le_bins")]
+        LE::NAME => check_ef::<LE>(global_args, args),
+        e => panic!("Unknown endianness: {}", e),
+    }
+}
+
+pub fn check_ef<E: Endianness + 'static>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
+{
     let properties_path = args.src.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
@@ -80,7 +97,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     }
 
     let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
-        .endianness::<BE>()
+        .endianness::<E>()
         .load()?;
     // otherwise directly read the graph
     // progress bar

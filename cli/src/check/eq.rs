@@ -7,10 +7,13 @@
 use crate::GlobalArgs;
 use anyhow::Result;
 use clap::Args;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use std::{path::PathBuf, process::exit};
+use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::traits::{SequentialLabeling, graph};
+use webgraph::utils::MmapHelper;
 
 #[derive(Args, Debug)]
 #[command(name = "eq", about = "Checks that two graphs have the same contents, listed in the same order. Useful to check equality when two graph are compressed with different parameters or with different algorithms (think about reference selection).", long_about = None)]
@@ -22,17 +25,26 @@ pub struct CliArgs {
 }
 
 pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    compare_graphs(args)
+    match get_endianness(&args.first_basename)?.as_str() {
+        #[cfg(feature = "be_bins")]
+        BE::NAME => compare_graphs::<BE>(args),
+        #[cfg(feature = "le_bins")]
+        LE::NAME => compare_graphs::<LE>(args),
+        e => panic!("Unknown endianness: {}", e),
+    }
 }
 
-pub fn compare_graphs(args: CliArgs) -> Result<()> {
+pub fn compare_graphs<E: Endianness + 'static>(args: CliArgs) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+{
     let first_graph =
         webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.first_basename)
-            .endianness::<BE>()
+            .endianness::<E>()
             .load()?;
     let second_graph =
         webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.second_basename)
-            .endianness::<BE>()
+            .endianness::<E>()
             .load()?;
 
     let mut pl = ProgressLogger::default();

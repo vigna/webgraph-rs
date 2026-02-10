@@ -124,10 +124,10 @@ where
                     return Ok(());
                 }
                 (true, false) => {
-                    no_ef_warn(&args.src);
+                    no_ef_warn(&t_path);
                 }
                 (false, true) => {
-                    no_ef_warn(&t_path);
+                    no_ef_warn(&args.src);
                 }
                 (false, false) => {
                     no_ef_warn(&args.src);

@@ -87,7 +87,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     for (line_num, line) in iter.enumerate() {
         // break if we reached the end
         if let Some(max_arcs) = args.arcs_args.max_arcs {
-            if num_arcs > max_arcs {
+            if num_arcs >= max_arcs {
                 break;
             }
         }

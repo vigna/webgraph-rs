@@ -12,7 +12,7 @@ use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use itertools::Itertools;
 use lender::*;
-use rand::Rng;
+use rand::RngExt;
 use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use std::hint::black_box;

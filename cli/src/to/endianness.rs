@@ -50,14 +50,14 @@ macro_rules! impl_convert {
             .get("length")
             .with_context(|| {
                 format!(
-                    "Missing 'arcs' property in {}",
+                    "Missing 'length' property in {}",
                     &src_properties_path.display()
                 )
             })?
             .parse::<u64>()
             .with_context(|| {
                 format!(
-                    "Cannot parse arcs as usize in {}",
+                    "Cannot parse length as u64 in {}",
                     &src_properties_path.display()
                 )
             })?;
