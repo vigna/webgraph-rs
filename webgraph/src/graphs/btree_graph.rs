@@ -54,10 +54,8 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
 
     /// Add an isolated node to the graph and return true if it is a new node.
     ///
-    /// # Panics
-    ///
-    /// This method will panic if one of the given nodes is greater or equal
-    /// than the number of nodes in the graph.
+    /// If the node index is greater than the current number of nodes,
+    /// the missing nodes will be added (as isolated nodes).
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
         self.succ.extend((len..=node).map(|_| BTreeMap::new()));

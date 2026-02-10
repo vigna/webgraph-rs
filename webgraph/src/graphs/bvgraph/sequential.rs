@@ -320,6 +320,8 @@ impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
 }
 
 impl<D: Decode> Lender for Iter<D> {
+    check_covariance!();
+
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes {
             return None;

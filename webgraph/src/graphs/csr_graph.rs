@@ -9,7 +9,7 @@ use super::bvgraph::EF;
 use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
-use lender::{IntoLender, Lend, Lender, Lending, for_};
+use lender::{IntoLender, Lend, Lender, Lending, check_covariance, for_};
 use sux::{bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst};
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},
@@ -208,7 +208,10 @@ impl CompressedCsrGraph {
         ))?;
         let mut efb = EliasFanoBuilder::new(n + 1, u as usize + 1);
         efb.push(0);
-        let mut successors = BitFieldVec::with_capacity(n.ilog2_ceil() as usize, u as usize);
+        let mut successors = BitFieldVec::with_capacity(
+            if n == 0 { 0 } else { n.ilog2_ceil() as usize },
+            u as usize,
+        );
         let mut last_src = 0;
         for_!((src, succ) in g.iter() {
             while last_src < src {
@@ -464,6 +467,8 @@ where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
 {
+    check_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         // if the user of the iterator wasn't fully consumed,
@@ -523,6 +528,8 @@ where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
 {
+    check_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let (src, succ) = self.0.next()?;

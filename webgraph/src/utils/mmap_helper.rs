@@ -172,8 +172,8 @@ impl<W> MmapHelper<W, MmapMut> {
 
         ensure!(
             mmap_len == file_len,
-            "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME u{}\" to ensure sufficient padding.",
-            size_of::<W>(),
+            "File has insufficient padding for word size {}. Use \"webgraph run pad BASENAME u{}\" to ensure sufficient padding.",
+            size_of::<W>() * 8,
             size_of::<W>() * 8
         );
 

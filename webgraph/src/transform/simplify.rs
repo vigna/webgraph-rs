@@ -83,13 +83,12 @@ pub fn simplify(
         pl.light_update();
     }
     // merge the batches
-    let map: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
-    let filter: fn(&(usize, usize)) -> bool = |(src, dst)| src != dst;
-    let iter = Itertools::dedup(sorted.iter()?.map(map).filter(filter));
-    let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), iter);
+    let filter: fn(&((usize, usize), ())) -> bool = |((src, dst), ())| src != dst;
+    let iter = Itertools::dedup(sorted.iter()?.filter(filter));
+    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), iter);
     pl.done();
 
-    Ok(sorted)
+    Ok(Left(sorted))
 }
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided

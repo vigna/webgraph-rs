@@ -1,6 +1,6 @@
 [package]
 name = "webgraph"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "A Rust port of the WebGraph framework (http://webgraph.di.unimi.it/)."
 repository = "https://github.com/vigna/webgraph-rs/"
@@ -62,7 +62,7 @@ crossbeam-channel = "0.5"
 parallel_frontier = "0.1.1"
 
 # Fuzzing deps
-zip = { version = "6.0.0", optional = true }
+zip = { version = "7.4.0", optional = true }
 
 [dev-dependencies]
 serde.workspace = true

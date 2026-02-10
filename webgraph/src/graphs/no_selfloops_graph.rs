@@ -71,7 +71,6 @@ impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
     }
 }
 
-/// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
 #[derive(Debug, Clone)]
 pub struct Iter<I> {
     iter: I,
@@ -96,6 +95,10 @@ unsafe impl<I: SortedLender + Lender + for<'next> NodeLabelsLender<'next, Label 
 }
 
 impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for Iter<L> {
+    // SAFETY: the lend is covariant as it contains only a usize and an iterator
+    // over usize values derived from the underlying lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
@@ -140,16 +143,9 @@ impl<I: Iterator<Item = usize>> Iterator for Succ<I> {
 
 unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for Succ<I> {}
 
-impl<I: ExactSizeIterator<Item = usize>> ExactSizeIterator for Succ<I> {
-    #[inline(always)]
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-}
-
 #[cfg(test)]
 #[test]
-fn test_no_selfloops_graph() -> anyhow::Result<()> {
+fn test_no_self_loops_graph() -> anyhow::Result<()> {
     use crate::graphs::vec_graph::VecGraph;
     let g = VecGraph::from_arcs([(0, 1), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
     let p = NoSelfLoopsGraph(g);

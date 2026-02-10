@@ -228,6 +228,10 @@ impl<L> Lender for UnitLender<L>
 where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
+    // SAFETY: the lend is covariant as it wraps the underlying covariant lender L
+    // adding unit labels.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {

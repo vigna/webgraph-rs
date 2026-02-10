@@ -6,7 +6,7 @@
 
 use core::iter;
 
-use lender::{IntoLender, Lend, Lender, Lending};
+use lender::{IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
 
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
@@ -37,10 +37,10 @@ which does not perform length checks. For extra safety, consider using
 pub struct Zip<L: SequentialLabeling, R: SequentialLabeling>(pub L, pub R);
 
 impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
-    // Perform a complete scan of the content of the two component labelings,
-    // returning true if they are compatible, that is, their iterators have the
-    // same length and return nodes in the same order, and the two iterators
-    // paired to each node return the same number of elements.
+    /// Performs a complete scan of the content of the two component labelings,
+    /// returning true if they are compatible, that is, their iterators have the
+    /// same length and return nodes in the same order, and the two iterators
+    /// paired to each node return the same number of elements.
     pub fn verify(&self) -> bool {
         let mut iter0 = self.0.iter();
         let mut iter1 = self.1.iter();
@@ -93,6 +93,9 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
 {
+    // SAFETY: the lend is covariant as it zips iterators from covariant lenders L and R.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let left = self.0.next();

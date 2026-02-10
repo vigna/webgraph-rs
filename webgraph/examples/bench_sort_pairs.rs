@@ -13,7 +13,7 @@ use dsi_bitstream::traits::BitRead;
 use dsi_bitstream::traits::BitWrite;
 use dsi_bitstream::traits::{BE, Endianness};
 use dsi_progress_logger::prelude::{ProgressLog, ProgressLogger};
-use rand::RngCore;
+use rand::Rng;
 use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use tempfile::Builder;

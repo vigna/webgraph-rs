@@ -102,7 +102,7 @@ pub struct GapsStats {
     pub total_triples: usize,
     /// Number of bits used for source gaps
     pub src_bits: usize,
-    //// Number of bits used for destination gaps
+    /// Number of bits used for destination gaps
     pub dst_bits: usize,
     /// Number of bits used for labels
     pub labels_bits: usize,
@@ -178,7 +178,7 @@ where
             dst_bits: 0,
             labels_bits: 0,
         };
-        // dump the triples to the bitstrea
+        // Dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
         for ((src, dst), label) in batch.iter() {
             // write the source gap as gamma

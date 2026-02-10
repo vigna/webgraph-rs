@@ -6,8 +6,8 @@
 
 use std::vec::IntoIter;
 
-use lender::{Lend, Lender, Lending};
-use rand::{Rng, SeedableRng, rngs::SmallRng};
+use lender::{Lend, Lender, Lending, check_covariance};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
     prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling},
@@ -51,8 +51,10 @@ impl SequentialLabeling for ErdosRenyi {
 
     fn iter_from(&self, from: usize) -> Iter {
         let mut rng = SmallRng::seed_from_u64(self.seed);
-        for _ in 0..from * (self.n - 1) {
-            rng.random_bool(self.p);
+        if self.n > 0 {
+            for _ in 0..from * (self.n - 1) {
+                rng.random_bool(self.p);
+            }
         }
         Iter {
             n: self.n,
@@ -105,6 +107,8 @@ impl IntoIterator for Succ {
 }
 
 impl Lender for Iter {
+    check_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.x >= self.n {

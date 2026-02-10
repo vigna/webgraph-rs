@@ -11,7 +11,7 @@ Left and right projections.
 The two structures in this module, [`Left`] and [`Right`], provide
 projection of a labeling whose labels are pairs. In particular,
 `Left(Zip(g,h))` is the same labeling as `g` and
-`Right(Zip(g,h))` is the same labeling as `h'.
+`Right(Zip(g,h))` is the same labeling as `h`.
 
 */
 use crate::prelude::{
@@ -19,9 +19,9 @@ use crate::prelude::{
     RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
 };
 use crate::traits::SplitLabeling;
-use lender::{ExactSizeLender, IntoLender, Lend, Lender, Lending};
+use lender::{ExactSizeLender, IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
 
-// The projection onto the first component of a pair.
+/// The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Left<S: SequentialLabeling>(pub S)
 where
@@ -121,6 +121,10 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     for<'next> LenderLabel<'next, L>: Pair,
 {
+    // SAFETY: the lend is covariant as it projects the left component from the
+    // underlying covariant lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
@@ -328,6 +332,10 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     for<'next> LenderLabel<'next, L>: Pair,
 {
+    // SAFETY: the lend is covariant as it projects the right component from the
+    // underlying covariant lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {

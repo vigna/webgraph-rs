@@ -135,6 +135,8 @@ impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lending
 }
 
 impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for Iter<L, I> {
+    check_covariance!();
+
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.next_node == self.num_nodes {
             return None;

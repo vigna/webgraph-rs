@@ -2,7 +2,7 @@
 
 ## [0.6.0]
 
-## New
+### New
 
 - Zuckerli-inspired reference-resolution code that improves compression ratios
   significantly, at the price of a longer compression time.
@@ -13,10 +13,12 @@
 
 - Support for π codes, both in the file format and in the CLI tools.
 
-## Changed
+### Changed
 
 - All parallel methods now use the current Rayon global thread pool rather than
   accepting a `&ThreadPool` argument.
+
+- Moved to `rand` 0.10.0.
 
 ## [0.5.0] - 2025-11-28
 

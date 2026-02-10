@@ -111,6 +111,10 @@ impl<
 impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: SliceByValue<Value = usize>>
     Lender for Iter<'_, L, P>
 {
+    // SAFETY: the lend is covariant as it contains only a usize and an iterator
+    // over usize values derived from the underlying lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {

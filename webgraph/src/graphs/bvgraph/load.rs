@@ -565,6 +565,9 @@ impl<
 /// will be stale and needs to be rebuilt. This is a very common scenario, in
 /// particular when testing compression techniques.
 fn warn_if_ef_stale(basename: &Path) {
+    if std::env::var_os("DO_NOT_CHECK_MOD_TIMES").is_some() {
+        return;
+    }
     let graph_path = basename.with_extension(GRAPH_EXTENSION);
     let ef_path = basename.with_extension(EF_EXTENSION);
 
@@ -582,7 +585,8 @@ fn warn_if_ef_stale(basename: &Path) {
         log::warn!(
             "The Elias-Fano file {} is older than the graph file {}; \
              this may indicate that the graph has been modified and the .ef file is stale. \
-             Consider rebuilding it with \"webgraph build ef {}\" or just touch it if this warning is spurious.",
+             Consider rebuilding it with \"webgraph build ef {}\", just touch it if this warning is spurious, \
+             or set the environment variable DO_NOT_CHECK_MOD_TIMES to disable this check.",
             ef_path.display(),
             graph_path.display(),
             basename.display()

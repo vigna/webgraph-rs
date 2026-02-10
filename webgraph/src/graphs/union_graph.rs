@@ -119,6 +119,10 @@ impl<
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
 > Lender for Iter<L, M>
 {
+    // SAFETY: the lend is covariant as it contains only a usize and an iterator
+    // over usize values derived from the underlying lenders L and M.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let (node0, iter0) = self.0.next().unzip();

@@ -93,6 +93,8 @@ impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets> Lender
     for Iter<'_, '_, E, BR, D, O>
 {
+    check_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.next_node >= self.num_nodes {
@@ -182,7 +184,7 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
         if self.reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
-            self.deserializer.deserialize(&mut self.reader).ok()
+            Some(self.deserializer.deserialize(&mut self.reader).unwrap())
         }
     }
 }

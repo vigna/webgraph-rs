@@ -299,6 +299,10 @@ pub struct BfsOrder<'a, 'b, G: RandomAccessGraph> {
 
 impl<'a, 'b, G: RandomAccessGraph> BfsOrder<'a, 'b, G> {
     pub fn new(visit: &'a mut Seq<'b, G>) -> BfsOrder<'a, 'b, G> {
+        assert!(
+            visit.graph.num_nodes() > 0,
+            "BfsOrder requires a non-empty graph"
+        );
         visit.reset(); // ensure we start from a clean state
         let succ = visit.graph.successors(0).into_iter();
         BfsOrder {
@@ -457,6 +461,10 @@ impl<'a, 'b, G: RandomAccessGraph> BfsOrderFromRoots<'a, 'b, G> {
             roots
                 .into_iter()
                 .map(|root| Some(NonMaxUsize::new(root).unwrap())),
+        );
+        anyhow::ensure!(
+            !visit.queue.is_empty(),
+            "Cannot create BfsOrderFromRoots with empty roots"
         );
         visit.queue.push_back(None);
 

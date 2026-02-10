@@ -7,7 +7,7 @@
 
 //! Miscellaneous utilities.
 
-use rand::Rng;
+use rand::RngExt;
 use std::path::PathBuf;
 
 /// Creates a new random dir inside the given folder

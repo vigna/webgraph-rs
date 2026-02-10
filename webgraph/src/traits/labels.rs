@@ -8,7 +8,7 @@
 
 /*!
 
-Traits for access labelings, both sequentially and
+Traits for accessing labelings, both sequentially and
 in random-access fashion.
 
 A *labeling* is the basic storage unit for graph data. It associates to
@@ -202,7 +202,7 @@ pub enum EqError {
     NumNodes { first: usize, second: usize },
 
     /// The graphs have different numbers of arcs.
-    #[error("Different number of arcs: {first} !={second}")]
+    #[error("Different number of arcs: {first} != {second}")]
     NumArcs { first: u64, second: u64 },
 
     /// The graphs have different successors for a specific node.
@@ -279,7 +279,7 @@ where
     for<'a> L0::Lender<'a>: SortedLender,
     for<'a> L1::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
-    for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
+    for<'a, 'b> LenderIntoIter<'b, L1::Lender<'a>>: SortedIterator,
     L0::Label: PartialEq + std::fmt::Debug,
 {
     if l0.num_nodes() != l1.num_nodes() {
@@ -355,6 +355,10 @@ impl<'succ, L: Lender> Lending<'succ> for AssumeSortedLender<L> {
 }
 
 impl<L: Lender> Lender for AssumeSortedLender<L> {
+    // SAFETY: the lend is covariant as it directly delegates to the underlying
+    // covariant lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.lender.next()
@@ -423,7 +427,7 @@ pub struct AssumeSortedIterator<I> {
 
 impl<I> AssumeSortedIterator<I> {
     /// # Safety
-    /// This is unsafe as the propose of this struct is to attach an unsafe
+    /// This is unsafe as the purpose of this struct is to attach an unsafe
     /// trait to a struct that does not implement it.
     pub unsafe fn new(iter: I) -> Self {
         Self { iter }
@@ -482,7 +486,7 @@ pub enum CheckImplError {
     /// The number of successors returned by [`iter`](SequentialLabeling::iter)
     /// is different from the number returned by
     /// [`num_arcs`](RandomAccessLabeling::num_arcs).
-    #[error("Different number of nodes: {iter} (iter) != {method} (num_arcs)")]
+    #[error("Different number of arcs: {iter} (iter) != {method} (num_arcs)")]
     NumArcs { iter: u64, method: u64 },
 
     /// The two implementations return different labels for a specific node.
@@ -595,6 +599,10 @@ impl<'succ, G: RandomAccessLabeling> Lending<'succ> for IteratorImpl<'_, G> {
 }
 
 impl<G: RandomAccessLabeling> Lender for IteratorImpl<'_, G> {
+    // SAFETY: the lend is covariant as it returns labels from a RandomAccessLabeling,
+    // which are expected to be covariant in the lifetime.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.nodes

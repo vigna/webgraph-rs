@@ -77,7 +77,7 @@ impl<
             bail!("Code for outdegrees does not match");
         }
         if comp_flags.references.to_code_const()? != REFERENCES {
-            bail!("Cod for references does not match");
+            bail!("Code for references does not match");
         }
         if comp_flags.blocks.to_code_const()? != BLOCKS {
             bail!("Code for blocks does not match");
