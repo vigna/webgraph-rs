@@ -6,25 +6,25 @@ members = ["algo", "cli", "webgraph"]
 exclude = ["webgraph/fuzz"]
 
 [workspace.dependencies]
-webgraph = { path = "./webgraph", version = "0.5.0" }
-webgraph-algo = { path = "./algo", version = "0.5.0" }
-webgraph-cli = { path = "./cli", version = "0.2.0" }
+webgraph = { path = "./webgraph" }
+webgraph-algo = { path = "./algo" }
+webgraph-cli = { path = "./cli" }
 
 card-est-array = "0.2.0"
 epserde = "0.11.1"
-dsi-bitstream = "0.6.0"
+dsi-bitstream = "0.7.0"
 dsi-progress-logger = "0.8.2"
-sux = { version = "0.10.1", features = ["epserde", "rayon", "mmap"] }
+sux = { version = "0.11.1", features = ["epserde", "rayon", "mmap"] }
 common_traits = "0.12.0"
-lender = "0.4.1"
+lender = "0.5.0"
 log = "0.4.22"
 num_cpus = "1.16.0"
 anyhow = { version = "1.0.79", features = ["backtrace"] }
-rand = { version = "0.9.0", features = ["small_rng"] }
+rand = "0.10.0"
 tempfile = "3.10.1"
 itertools = "0.14.0"
 rayon = "1.10.0"
-mmap-rs = "0.6.0"
+mmap-rs = "0.7.0"
 predicates = "3.1.2"
 java-properties = "2.0.0"
 env_logger = { version = "0.11.5", default-features = false, features = [
