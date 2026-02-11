@@ -82,8 +82,8 @@ where
     /// Map and fold in parallel the items returned by an iterator.
     ///
     /// This method is a simplified convenience version of
-    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that do not
-    /// provides an init value for the map function.
+    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that does not
+    /// provide an init value for the map function.
     ///
     /// # Arguments
     ///

@@ -67,7 +67,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     );
     ensure!(
         args.forward.is_none() || matches!(args.level, LevelArg::All | LevelArg::AllForward),
-        "You cannot only pass --forward with --level=all or --level=all-forward as the forward eccentricities won't be computed otherwise."
+        "You can only pass --forward with --level=all or --level=all-forward, as the forward eccentricities won't be computed otherwise."
     );
     ensure!(
         !(args.forward.is_none() && matches!(args.level, LevelArg::All | LevelArg::AllForward)),

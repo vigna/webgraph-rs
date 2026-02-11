@@ -239,7 +239,7 @@ pub trait Parallel<A: Event> {
     /// * `filter`: The filter function.
     fn par_visit_filtered_with<
         R: IntoIterator<Item = usize>,
-        T: Clone + Send + Sync + Sync,
+        T: Clone + Send + Sync,
         E: Send,
         C: Fn(&mut T, A) -> ControlFlow<E, ()> + Sync,
         F: Fn(&mut T, A::FilterArgs) -> bool + Sync,
@@ -292,7 +292,7 @@ pub trait Parallel<A: Event> {
     /// * `callback`: The callback function.
     fn par_visit_with<
         R: IntoIterator<Item = usize>,
-        T: Clone + Send + Sync + Sync,
+        T: Clone + Send + Sync,
         E: Send,
         C: Fn(&mut T, A) -> ControlFlow<E, ()> + Sync,
     >(

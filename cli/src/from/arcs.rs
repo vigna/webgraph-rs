@@ -7,7 +7,7 @@
 
 use crate::create_parent_dir;
 use crate::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
@@ -120,35 +120,23 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
             let node_id = nodes.len();
             *nodes.entry(src.to_string()).or_insert(node_id)
         } else {
-            match src.parse::<usize>() {
-                Ok(src_id) => src_id,
-                Err(err) => {
-                    log::error!(
-                        "Error parsing as integer source column value {:?} at line {}: {:?}",
-                        src,
-                        line_num,
-                        err
-                    );
-                    return Ok(());
-                }
-            }
+            src.parse::<usize>().with_context(|| {
+                format!(
+                    "Error parsing as integer source column value {:?} at line {}",
+                    src, line_num,
+                )
+            })?
         };
         let dst_id = if args.arcs_args.labels {
             let node_id = nodes.len();
             *nodes.entry(dst.to_string()).or_insert(node_id)
         } else {
-            match dst.parse::<usize>() {
-                Ok(dst_id) => dst_id,
-                Err(err) => {
-                    log::error!(
-                        "Error parsing as integer target column value {:?} at line {}: {:?}",
-                        dst,
-                        line_num,
-                        err
-                    );
-                    return Ok(());
-                }
-            }
+            dst.parse::<usize>().with_context(|| {
+                format!(
+                    "Error parsing as integer target column value {:?} at line {}",
+                    dst, line_num,
+                )
+            })?
         };
 
         num_nodes = num_nodes.max(src_id.max(dst_id) + 1);

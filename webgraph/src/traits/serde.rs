@@ -19,7 +19,7 @@ pub trait BitSerializer<E: Endianness, BW: BitWrite<E>> {
 /// A trait for types implementing logic for deserializing another type from a
 /// bitstream with code-reading capabilities.
 pub trait BitDeserializer<E: Endianness, BR: BitRead<E>> {
-    /// The type that implementations of this trait can deserialized.
+    /// The type that implementations of this trait can deserialize.
     type DeserType;
     /// Deserializes the given value from a [`BitRead`].
     fn deserialize(&self, bitstream: &mut BR) -> Result<Self::DeserType, BR::Error>;

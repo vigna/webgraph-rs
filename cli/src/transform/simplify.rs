@@ -209,7 +209,7 @@ where
 
             // simplify the graph
             let sorted =
-                webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage).unwrap();
+                webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage)?;
 
             thread_pool.install(|| {
                 builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
@@ -254,8 +254,7 @@ where
 
             // transpose the graph
             let sorted =
-                webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)
-                    .unwrap();
+                webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)?;
 
             thread_pool.install(|| {
                 builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)

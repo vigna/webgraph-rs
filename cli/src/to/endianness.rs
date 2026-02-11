@@ -65,7 +65,7 @@ macro_rules! impl_convert {
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)
             .item_name("node")
-            .expected_updates(Some(num_arcs as usize));
+            .expected_updates(Some(num_nodes as usize));
 
         if let Some(duration) = $global_args.log_interval {
             pl.log_interval(duration);

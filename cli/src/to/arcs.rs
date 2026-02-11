@@ -79,6 +79,12 @@ where
     pl.start("Reading BvGraph");
 
     if let Some(labels) = labels {
+        anyhow::ensure!(
+            labels.len() >= num_nodes,
+            "Labels file has {} lines but the graph has {} nodes",
+            labels.len(),
+            num_nodes
+        );
         for_! ( (src, succ) in graph.iter() {
             for dst in succ {
                 writeln!(stdout, "{}{}{}", labels[src], args.separator, labels[dst])?;

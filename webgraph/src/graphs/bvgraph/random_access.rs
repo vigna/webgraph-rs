@@ -378,7 +378,7 @@ pub struct Succ<D: Decode> {
     residuals_to_go: usize,
     /// The next residual node
     next_residual_node: usize,
-    /// The next residual node
+    /// The next copied node
     next_copied_node: usize,
     /// The next interval node
     next_interval_node: usize,

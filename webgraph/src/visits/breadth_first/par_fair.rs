@@ -190,7 +190,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                 &mut init,
                 EventNoPred::FrontierSize {
                     distance,
-                    sizes: curr_frontier.len(),
+                    size: curr_frontier.len(),
                 },
             )?;
             let distance_plus_one = distance + 1;
@@ -249,7 +249,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
 impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
     fn par_visit_filtered_with<
         R: IntoIterator<Item = usize>,
-        T: Clone + Send + Sync + Sync,
+        T: Clone + Send + Sync,
         E: Send,
         C: Fn(&mut T, EventPred) -> ControlFlow<E, ()> + Sync,
         F: Fn(&mut T, <EventPred as super::super::Event>::FilterArgs) -> bool + Sync,

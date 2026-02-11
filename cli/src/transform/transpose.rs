@@ -73,7 +73,7 @@ where
 
     // transpose the graph
     let sorted =
-        webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage).unwrap();
+        webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage)?;
 
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;

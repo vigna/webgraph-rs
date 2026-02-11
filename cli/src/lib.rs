@@ -391,16 +391,16 @@ impl IntVectorFormat {
 /// bytes, otherwise as a number of elements.
 pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
-        ("k", 1E3 as u64),
-        ("m", 1E6 as u64),
-        ("g", 1E9 as u64),
-        ("t", 1E12 as u64),
-        ("p", 1E15 as u64),
         ("ki", 1 << 10),
         ("mi", 1 << 20),
         ("gi", 1 << 30),
         ("ti", 1 << 40),
         ("pi", 1 << 50),
+        ("k", 1E3 as u64),
+        ("m", 1E6 as u64),
+        ("g", 1E9 as u64),
+        ("t", 1E12 as u64),
+        ("p", 1E15 as u64),
     ];
     let arg = arg.trim().to_ascii_lowercase();
     ensure!(!arg.is_empty(), "empty string");
@@ -419,9 +419,10 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     let number = arg[..num_digits].parse::<f64>()?;
     let suffix = &arg[num_digits..].trim();
 
+    let prefix = suffix.strip_suffix('b').unwrap_or(suffix);
     let multiplier = PREF_SYMS
         .iter()
-        .find(|(x, _)| suffix.starts_with(x))
+        .find(|(x, _)| *x == prefix)
         .map(|(_, m)| m)
         .ok_or(anyhow!("invalid prefix symbol {}", suffix))?;
 
@@ -519,7 +520,7 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     let mut path_buf = path.as_ref().to_owned();
     let mut filename = path_buf.file_name().unwrap().to_owned();
     filename.push(s.as_ref());
-    path_buf.push(filename);
+    path_buf.set_file_name(filename);
     path_buf
 }
 
