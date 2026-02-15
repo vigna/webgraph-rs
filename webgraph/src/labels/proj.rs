@@ -52,10 +52,12 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     for<'next> LenderLabel<'next, L>: Pair,
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -77,6 +79,7 @@ where
 {
     type Item = <I::Item as Pair>::Left;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().0)
     }
@@ -86,6 +89,7 @@ impl<I: ExactSizeIterator> ExactSizeIterator for LeftIntoIter<I>
 where
     I::Item: Pair,
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
     }
@@ -95,10 +99,12 @@ impl<I: DoubleEndedIterator> DoubleEndedIterator for LeftIntoIter<I>
 where
     I::Item: Pair,
 {
+    #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back().map(|x| x.into_pair().0)
     }
 
+    #[inline(always)]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         self.0.nth_back(n).map(|x| x.into_pair().0)
     }
@@ -111,6 +117,7 @@ where
     type Item = <I::Item as Pair>::Left;
     type IntoIter = LeftIntoIter<I::IntoIter>;
 
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         LeftIntoIter(self.0.into_iter())
     }
@@ -184,14 +191,17 @@ where
     where
         Self: 'node;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.0.num_nodes()
     }
 
+    #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         LeftIterator(self.0.iter_from(from))
     }
 
+    #[inline(always)]
     fn num_arcs_hint(&self) -> Option<u64> {
         self.0.num_arcs_hint()
     }
@@ -206,14 +216,17 @@ where
     where
         Self: 'succ;
 
+    #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 
+    #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         LeftIntoIterator(self.0.labels(node_id))
     }
 
+    #[inline(always)]
     fn outdegree(&self, _node_id: usize) -> usize {
         self.0.outdegree(_node_id)
     }
@@ -232,7 +245,7 @@ where
 
 unsafe impl<I: SortedIterator> SortedIterator for LeftIntoIter<I> where I::Item: Pair {}
 
-// The projection onto the second component of a pair.
+/// The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Right<S: SequentialLabeling>(pub S)
 where
@@ -263,10 +276,12 @@ where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     for<'next> LenderLabel<'next, L>: Pair,
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -288,6 +303,7 @@ where
 {
     type Item = <I::Item as Pair>::Right;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().1)
     }
@@ -297,6 +313,7 @@ impl<I: ExactSizeIterator> ExactSizeIterator for RightIntoIter<I>
 where
     I::Item: Pair,
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
     }
@@ -306,10 +323,12 @@ impl<I: DoubleEndedIterator> DoubleEndedIterator for RightIntoIter<I>
 where
     I::Item: Pair,
 {
+    #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back().map(|x| x.into_pair().1)
     }
 
+    #[inline(always)]
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         self.0.nth_back(n).map(|x| x.into_pair().1)
     }
@@ -322,6 +341,7 @@ where
     type Item = <I::Item as Pair>::Right;
     type IntoIter = RightIntoIter<I::IntoIter>;
 
+    #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         RightIntoIter(self.0.into_iter())
     }
@@ -395,14 +415,17 @@ where
     where
         Self: 'node;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.0.num_nodes()
     }
 
+    #[inline(always)]
     fn num_arcs_hint(&self) -> Option<u64> {
         self.0.num_arcs_hint()
     }
 
+    #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         RightIterator(self.0.iter_from(from))
     }
@@ -417,14 +440,17 @@ where
     where
         Self: 'succ;
 
+    #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 
+    #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         RightIntoIterator(self.0.labels(node_id))
     }
 
+    #[inline(always)]
     fn outdegree(&self, _node_id: usize) -> usize {
         self.0.outdegree(_node_id)
     }

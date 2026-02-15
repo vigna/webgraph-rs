@@ -126,7 +126,8 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
-        debug_assert_eq!(self.0.num_nodes(), self.1.num_nodes());
+        // Here as assert_eq! as the cost is very low
+        assert_eq!(self.0.num_nodes(), self.1.num_nodes());
         self.0.num_nodes()
     }
 
@@ -149,6 +150,7 @@ impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for 
         Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
+        // Here as assert_eq! as the cost is very low
         assert_eq!(self.0.num_arcs(), self.1.num_arcs());
         self.0.num_arcs()
     }
@@ -158,6 +160,7 @@ impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for 
     }
 
     fn outdegree(&self, _node_id: usize) -> usize {
+        // Here we just debug_assert_eq! because it would be too onerous in release mode
         debug_assert_eq!(self.0.outdegree(_node_id), self.1.outdegree(_node_id));
         self.0.outdegree(_node_id)
     }

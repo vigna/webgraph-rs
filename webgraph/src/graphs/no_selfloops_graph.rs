@@ -7,10 +7,11 @@
 use crate::prelude::*;
 use lender::*;
 
+/// A wrapper that removes self-loops from a graph. Since we don't
+/// know how many self-loops there are, we can't provide an exact
+/// number of arcs or outdegree for each node. Therefore, we can't
+/// implement random access to the successors.
 #[derive(Debug, Clone)]
-/// A wrapper that removes self-loops from a graph. Since we don't know how many
-/// self-loops there are, we can't provide an exact number of arcs or outdegree
-/// for each node. Therefore, we can't implement random access to the successors.
 pub struct NoSelfLoopsGraph<G>(pub G);
 
 impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
@@ -117,6 +118,7 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for I
 impl<L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>> ExactSizeLender
     for Iter<L>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -142,6 +144,8 @@ impl<I: Iterator<Item = usize>> Iterator for Succ<I> {
 }
 
 unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for Succ<I> {}
+
+impl<I: Iterator<Item = usize> + std::iter::FusedIterator> std::iter::FusedIterator for Succ<I> {}
 
 #[cfg(test)]
 #[test]

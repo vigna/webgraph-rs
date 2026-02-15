@@ -14,7 +14,7 @@ use webgraph::{
     visits::{Sequential, depth_first::*},
 };
 
-/// Returns the node of the graph in topological-sort order, if the graph is
+/// Returns the nodes of the graph in topological-sort order, if the graph is
 /// acyclic.
 ///
 /// Otherwise, the order reflects the exit times from a depth-first visit of the

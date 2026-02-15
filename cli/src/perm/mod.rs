@@ -13,9 +13,9 @@ pub mod bfs;
 pub mod comp;
 pub mod rand;
 
+/// Permutation-related subcommands.
 #[derive(Subcommand, Debug)]
 #[command(name = "perm")]
-/// Permutations related things.
 pub enum SubCommands {
     Bfs(bfs::CliArgs),
     Comp(comp::CliArgs),

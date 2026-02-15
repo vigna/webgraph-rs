@@ -209,14 +209,14 @@ impl<
         assert_eq!(
             graph.num_nodes(),
             array_0.len(),
-            "array_0 should have have len {}. Got {}",
+            "array_0 should have len {}. Got {}",
             graph.num_nodes(),
             array_0.len()
         );
         assert_eq!(
             graph.num_nodes(),
             array_1.len(),
-            "array_1 should have have len {}. Got {}",
+            "array_1 should have len {}. Got {}",
             graph.num_nodes(),
             array_1.len()
         );

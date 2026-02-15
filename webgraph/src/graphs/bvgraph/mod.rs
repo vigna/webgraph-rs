@@ -48,8 +48,8 @@ pub use sequential::BvGraphSeq;
 pub mod random_access;
 pub use random_access::BvGraph;
 
-mod masked_iterator;
-pub use masked_iterator::MaskedIterator;
+mod masked_iter;
+pub use masked_iter::MaskedIter;
 
 mod codecs;
 pub use codecs::*;

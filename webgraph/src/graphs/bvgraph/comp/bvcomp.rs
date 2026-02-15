@@ -68,10 +68,10 @@ impl BvComp<(), std::io::Sink> {
     }
 }
 
+/// Computes how to encode the successors of a node, given a reference
+/// node. This could be a function, but we made it a struct so we can
+/// reuse the allocations for performance reasons.
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// Compute how to encode the successors of a node, given a reference node.
-/// This could be a function, but we made it a struct so we can reuse the
-/// allocations for performance reasons
 pub(crate) struct Compressor {
     /// The outdegree of the node we are compressing
     outdegree: usize,
@@ -178,8 +178,8 @@ impl Compressor {
         Ok(written_bits)
     }
 
+    /// Resets the compressor for a new compression.
     #[inline(always)]
-    /// Reset the compressor for a new compression
     pub(crate) fn clear(&mut self) {
         self.outdegree = 0;
         self.blocks.clear();

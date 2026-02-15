@@ -66,8 +66,8 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     where
         Self: 'a;
 
+    /// Returns the number of nodes in the graph.
     #[inline(always)]
-    /// Returns the number of nodes in the graph
     fn num_nodes(&self) -> usize {
         self.number_of_nodes
     }
@@ -140,18 +140,18 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
         }
     }
 
+    /// Consumes self and returns the factory.
     #[inline(always)]
-    /// Consume self and return the factory
     pub fn into_inner(self) -> F {
         self.factory
     }
 }
 
 impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
-    #[inline(always)]
     /// Creates an iterator specialized in the degrees of the nodes.
-    /// This is slightly faster because it can avoid decoding some of the nodes
-    /// and completely skip the merging step.
+    /// This is slightly faster because it can avoid decoding some of
+    /// the nodes and completely skip the merging step.
+    #[inline(always)]
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
         OffsetDegIter::new(
             self.factory.new_decoder().unwrap(),
@@ -175,9 +175,9 @@ pub struct Iter<D: Decode> {
 }
 
 impl<D: Decode + BitSeek> Iter<D> {
-    #[inline(always)]
-    /// Forward the call of `get_pos` to the inner `codes_reader`.
+    /// Forwards the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
+    #[inline(always)]
     pub fn bit_pos(&mut self) -> Result<u64, <D as BitSeek>::Error> {
         self.decoder.bit_pos()
     }
@@ -211,7 +211,6 @@ impl<D: Decode> Iter<D> {
         Ok(res)
     }
 
-    #[inline(always)]
     /// Inner method called by `next_successors` and the iterator `next` method
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
         let degree = self.decoder.read_outdegree() as usize;
@@ -348,6 +347,7 @@ impl<D: Decode> Lender for Iter<D> {
 unsafe impl<D: Decode> SortedLender for Iter<D> {}
 
 impl<D: Decode> ExactSizeLender for Iter<D> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.number_of_nodes - self.current_node
     }

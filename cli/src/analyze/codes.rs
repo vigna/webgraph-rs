@@ -44,18 +44,18 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 /// Returns ranges of nodes to process in parallel of size `chunk_size` each,
 /// with the last chunk possibly being smaller.
 /// The equivalent of `std::iter::Chunks` but with a `Range` instead of a `Slice`.
-pub struct Chunks {
+pub struct ChunksIter {
     total: core::ops::Range<usize>,
     chunk_size: usize,
 }
 
-impl Chunks {
+impl ChunksIter {
     pub fn new(total: core::ops::Range<usize>, chunk_size: usize) -> Self {
         Self { total, chunk_size }
     }
 }
 
-impl Iterator for Chunks {
+impl Iterator for ChunksIter {
     type Item = core::ops::Range<usize>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -109,7 +109,7 @@ where
         // TODO!: use FairChunks with the offsets EF to distribute the
         // work based on number of bits used, not nodes
         stats = thread_pool.install(|| {
-            Chunks::new(0..graph.num_nodes(), node_granularity).par_map_fold_with(
+            ChunksIter::new(0..graph.num_nodes(), node_granularity).par_map_fold_with(
                 pl.clone(),
                 |pl, range| {
                     let mut iter = graph

@@ -253,6 +253,7 @@ pub struct UnitSuccessors<I>(pub I);
 impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
     type Item = (usize, ());
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         Some((self.0.next()?, ()))
     }
@@ -268,10 +269,12 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     where
         Self: 'node;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.0.num_nodes()
     }
 
+    #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         UnitLender(self.0.iter_from(from))
     }
@@ -358,14 +361,17 @@ impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     where
         Self: 'succ;
 
+    #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 
+    #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         UnitSuccessors(self.0.successors(node_id).into_iter())
     }
 
+    #[inline(always)]
     fn outdegree(&self, node_id: usize) -> usize {
         self.0.outdegree(node_id)
     }

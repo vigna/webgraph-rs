@@ -43,7 +43,7 @@ use rdst::*;
 ///     - The label is serialized.
 ///
 /// The bit deserializer must be [`Clone`] because we need one for each
-/// [`GapsIterator`], and there are possible scenarios in which the
+/// [`GapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
 pub struct GapsCodec<
     E: Endianness = NE,
@@ -137,7 +137,7 @@ where
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     type Label = S::SerType;
-    type DecodedBatch = GapsIterator<E, D, SRC_CODE, DST_CODE>;
+    type DecodedBatch = GapsIter<E, D, SRC_CODE, DST_CODE>;
     type EncodedBatchStats = GapsStats;
 
     fn encode_batch(
@@ -221,7 +221,7 @@ where
         let len = stream.read_delta().context("Could not read length")? as usize;
 
         // create the iterator
-        Ok(GapsIterator {
+        Ok(GapsIter {
             deserializer: self.deserializer.clone(),
             stream,
             len,
@@ -234,7 +234,7 @@ where
 
 #[derive(Clone, Debug)]
 /// An iterator over triples encoded with gaps, this is returned by [`GapsCodec`].
-pub struct GapsIterator<
+pub struct GapsIter<
     E: Endianness = NE,
     D: BitDeserializer<E, BitReader<E>> = (),
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
@@ -262,7 +262,7 @@ unsafe impl<
     D: BitDeserializer<E, BitReader<E>>,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> SortedIterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
+> SortedIterator for GapsIter<E, D, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -274,7 +274,7 @@ impl<
     D: BitDeserializer<E, BitReader<E>>,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> Iterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
+> Iterator for GapsIter<E, D, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -307,7 +307,7 @@ impl<
     D: BitDeserializer<E, BitReader<E>>,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> ExactSizeIterator for GapsIterator<E, D, SRC_CODE, DST_CODE>
+> ExactSizeIterator for GapsIter<E, D, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,

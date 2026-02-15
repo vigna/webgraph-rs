@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 use crate::{FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
-use anyhow::{Result, ensure};
+use anyhow::{Result, bail, ensure};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
@@ -79,11 +79,6 @@ pub struct CliArgs {
     #[clap(short, long)]
     pub transposed: Option<PathBuf>,
 
-    /// Compute the approximate neighborhood function, which will be
-    /// store in ASCII format as BASENAME.nf.
-    #[clap(short, long)]
-    pub neighborhood_function: bool,
-
     #[clap(flatten)]
     pub centralities: Centralities,
 
@@ -99,7 +94,7 @@ pub struct CliArgs {
     #[clap(long)]
     /// A value that will be used to stop the computation by relative increment
     /// if the neighborhood function is being computed. Otherwise, the
-    /// computation will stop all estimators do not change their values.
+    /// computation will stop when all estimators do not change their values.
     pub threshold: Option<f64>,
 
     #[clap(flatten)]
@@ -139,7 +134,7 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
 
     log::info!("Loading DCF...");
     if !args.basename.with_extension(DEG_CUMUL_EXTENSION).exists() {
-        log::error!(
+        bail!(
             "Missing DCF file. Please run `webgraph build dcf {}`.",
             args.basename.display()
         );

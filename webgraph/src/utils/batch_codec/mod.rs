@@ -42,8 +42,8 @@ pub trait BatchCodec: Send + Sync {
     /// While the bounds are not really necessary, in all the practical cases
     /// we need them.
     type Label: Copy + Send + Sync + 'static;
-    //// The type returned by `decode_batch`, the iterator of which yields the
-    //// decoded triples in sorted order.
+    /// The type returned by `decode_batch`, the iterator of which yields the
+    /// decoded triples in sorted order.
     ///
     /// The type `IntoIter` has to be `Send + Sync + Clone` because most often we want
     /// to use them in [`SortPairs`](crate::utils::sort_pairs::SortPairs) and

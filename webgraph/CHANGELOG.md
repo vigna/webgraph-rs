@@ -22,6 +22,15 @@
 
 - Moved to `Lender` 0.5.0.
 
+- `IteratorImpl` has been renamed `LenderImpl` for consistency.
+
+### Fixed
+
+- `BfsOrder` and `BfsOrderFromRoots` where reporting wrong distances,
+  and reporting roots multiple times.
+
+- `JavaPermutation::set_unchecked` has not properly handling endianness.
+
 ## [0.5.0] - 2025-11-28
 
 ### Changed

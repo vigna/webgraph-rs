@@ -7,7 +7,7 @@
 
 /// An iterator that filters out blocks of values.
 #[derive(Debug, Clone)]
-pub struct MaskedIterator<I> {
+pub struct MaskedIter<I> {
     /// The resolved reference node, if present
     parent: Box<I>,
     /// The copy blocks from the ref node
@@ -18,14 +18,14 @@ pub struct MaskedIterator<I> {
     size: usize,
 }
 
-impl<I: Iterator<Item = usize>> ExactSizeIterator for MaskedIterator<I> {
+impl<I: Iterator<Item = usize>> ExactSizeIterator for MaskedIter<I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.size
     }
 }
 
-impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIterator<I> {
+impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIter<I> {
     /// Creates a new iterator that filters out blocks of values.
     ///
     /// The blocks of even index are copy blocks, the blocks of odd index are
@@ -62,7 +62,7 @@ impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIterator<I> {
     }
 }
 
-impl<I: Iterator<Item = usize>> Iterator for MaskedIterator<I> {
+impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {

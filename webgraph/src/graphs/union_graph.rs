@@ -7,8 +7,8 @@
 use crate::prelude::*;
 use lender::*;
 
-#[derive(Debug, Clone)]
 /// A wrapper exhibiting the union of two graphs.
+#[derive(Debug, Clone)]
 pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(pub G, pub H);
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialLabeling for UnionGraph<G, H>
@@ -157,6 +157,7 @@ impl<
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
 > ExactSizeLender for Iter<L, M>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.0.len().max(self.1.len())
     }
@@ -205,6 +206,11 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
 
 unsafe impl<I: Iterator<Item = usize> + SortedIterator, J: Iterator<Item = usize> + SortedIterator>
     SortedIterator for Succ<I, J>
+{
+}
+
+impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> std::iter::FusedIterator
+    for Succ<I, J>
 {
 }
 

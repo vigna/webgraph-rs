@@ -103,7 +103,7 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
-/// Helper method that stores labels with or without epserde
+/// Stores labels with or without epserde.
 pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
         unsafe {

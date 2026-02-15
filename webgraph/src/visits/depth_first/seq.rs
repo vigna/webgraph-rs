@@ -156,11 +156,11 @@ pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
 }
 
 /// The iterator returned by [`stack`](SeqPred::stack).
-pub struct StackIterator<'a, 'b, S, G: RandomAccessGraph> {
+pub struct StackIter<'a, 'b, S, G: RandomAccessGraph> {
     visit: &'b mut SeqIter<'a, S, G, usize, true>,
 }
 
-impl<S, G: RandomAccessGraph> Iterator for StackIterator<'_, '_, S, G> {
+impl<S, G: RandomAccessGraph> Iterator for StackIter<'_, '_, S, G> {
     type Item = usize;
 
     fn next(&mut self) -> Option<usize> {
@@ -205,8 +205,8 @@ impl<'a, S, G: RandomAccessGraph> SeqIter<'a, S, G, usize, true> {
     /// as in a completed visit the stack will be empty. The last node
     /// on the visit path at the moment of the interruption must be
     /// treated separately.
-    pub fn stack(&mut self) -> StackIterator<'a, '_, S, G> {
-        StackIterator { visit: self }
+    pub fn stack(&mut self) -> StackIter<'a, '_, S, G> {
+        StackIter { visit: self }
     }
 }
 

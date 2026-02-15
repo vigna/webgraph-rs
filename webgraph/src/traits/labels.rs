@@ -439,12 +439,14 @@ unsafe impl<I: Iterator> SortedIterator for AssumeSortedIterator<I> {}
 impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
     type Item = I::Item;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
 }
 
 impl<I: ExactSizeIterator> ExactSizeIterator for AssumeSortedIterator<I> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -580,25 +582,29 @@ where
 /// A struct used to make it easy to implement sequential access
 /// starting from random access.
 ///
-/// Users can implement just random-access primitives and then
-/// use this structure to implement sequential access.
-pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
+/// Users can implement just random-access primitives and then use this
+/// structure to implement the lender returned by
+/// [`iter_from`](SequentialLabeling::iter_from) by just returning an instance
+/// of this struct.
+pub struct LenderImpl<'node, G: RandomAccessLabeling> {
+    /// The underlying random-access labeling.
     pub labeling: &'node G,
+    /// The range of nodes to iterate over.
     pub nodes: core::ops::Range<usize>,
 }
 
-unsafe impl<G: RandomAccessLabeling> SortedLender for IteratorImpl<'_, G> {}
+unsafe impl<G: RandomAccessLabeling> SortedLender for LenderImpl<'_, G> {}
 
-impl<'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'_, G> {
+impl<'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for LenderImpl<'_, G> {
     type Label = G::Label;
     type IntoIterator = <G as RandomAccessLabeling>::Labels<'succ>;
 }
 
-impl<'succ, G: RandomAccessLabeling> Lending<'succ> for IteratorImpl<'_, G> {
+impl<'succ, G: RandomAccessLabeling> Lending<'succ> for LenderImpl<'_, G> {
     type Lend = (usize, <G as RandomAccessLabeling>::Labels<'succ>);
 }
 
-impl<G: RandomAccessLabeling> Lender for IteratorImpl<'_, G> {
+impl<G: RandomAccessLabeling> Lender for LenderImpl<'_, G> {
     // SAFETY: the lend is covariant as it returns labels from a RandomAccessLabeling,
     // which are expected to be covariant in the lifetime.
     unsafe_assume_covariance!();
@@ -610,12 +616,13 @@ impl<G: RandomAccessLabeling> Lender for IteratorImpl<'_, G> {
             .map(|node_id| (node_id, self.labeling.labels(node_id)))
     }
 
+    #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.nodes.len(), Some(self.nodes.len()))
     }
 }
 
-impl<G: RandomAccessLabeling> ExactSizeLender for IteratorImpl<'_, G> {
+impl<G: RandomAccessLabeling> ExactSizeLender for LenderImpl<'_, G> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.nodes.len()

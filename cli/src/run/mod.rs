@@ -13,9 +13,9 @@ pub mod llp;
 pub mod llp_combine;
 pub mod pad;
 
+/// Runs algorithms on graphs.
 #[derive(Subcommand, Debug)]
 #[command(name = "run")]
-/// Run algorithms on graphs.
 pub enum SubCommands {
     Llp(llp::CliArgs),
     LlpCombine(llp_combine::CliArgs),

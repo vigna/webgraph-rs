@@ -82,6 +82,7 @@ impl BitWidth<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
 
 impl SliceByValue for JavaPermutation {
     type Value = usize;
+    #[inline(always)]
     fn len(&self) -> usize {
         self.perm.as_ref().len()
     }
@@ -94,6 +95,7 @@ impl SliceByValue for JavaPermutation {
 
 impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
     type Value = usize;
+    #[inline(always)]
     fn len(&self) -> usize {
         self.perm.as_ref().len()
     }
@@ -108,7 +110,8 @@ impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn set_value_unchecked(&mut self, index: usize, value: usize) {
         unsafe {
-            *self.perm.as_mut().get_unchecked_mut(index) = value as u64;
+            *self.perm.as_mut().get_unchecked_mut(index) =
+                u64::from_ne_bytes((value as u64).to_be_bytes());
         }
     }
 

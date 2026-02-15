@@ -9,11 +9,12 @@ use crate::prelude::*;
 use lender::*;
 use value_traits::slices::SliceByValue;
 
-#[derive(Debug, Clone)]
-/// A wrapper applying a permutation to the iterators of an underlying graph.
+/// A wrapper applying a permutation to the iterators of an
+/// underlying graph.
 ///
-/// Note that nodes are simply remapped: thus, neither the iterator on the graph
-/// nor the successors are sorted.
+/// Note that nodes are simply remapped: thus, neither the iterator
+/// on the graph nor the successors are sorted.
+#[derive(Debug, Clone)]
 pub struct PermutedGraph<'a, G: SequentialGraph, P: SliceByValue<Value = usize> + ?Sized> {
     pub graph: &'a G,
     pub perm: &'a P,
@@ -140,6 +141,7 @@ impl<
     P: SliceByValue<Value = usize>,
 > ExactSizeLender for Iter<'_, L, P>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -166,6 +168,11 @@ impl<I: ExactSizeIterator<Item = usize>, P: SliceByValue<Value = usize>> ExactSi
     fn len(&self) -> usize {
         self.iter.len()
     }
+}
+
+impl<I: Iterator<Item = usize> + std::iter::FusedIterator, P: SliceByValue<Value = usize>>
+    std::iter::FusedIterator for Succ<'_, I, P>
+{
 }
 
 #[cfg(test)]

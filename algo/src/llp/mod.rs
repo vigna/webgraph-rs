@@ -114,9 +114,10 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     combine_labels(work_dir)
 }
 
+/// Computes and stores on disk the labels for the given gammas, but
+/// does not combine them. For the arguments look at
+/// [`layered_label_propagation`].
 #[allow(clippy::too_many_arguments)]
-/// Computes and store on disk the labels for the given gammas, but does not combine them.
-/// For the arguments look at [`layered_label_propagation`].
 pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),

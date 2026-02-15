@@ -150,6 +150,7 @@ where
     where
         Self: 'node;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.offsets.uncase().len() - 1
     }

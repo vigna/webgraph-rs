@@ -535,7 +535,6 @@ impl<
         }
     }
 
-    #[inline(always)]
     fn backwards_step_sum_sweep(
         &mut self,
         start: usize,
@@ -608,7 +607,6 @@ impl<
         pl.done();
     }
 
-    #[inline(always)]
     fn forward_step_sum_sweep(
         &mut self,
         start: usize,
@@ -703,7 +701,6 @@ impl<
         (dist_pivot, usize_ecc_pivot)
     }
 
-    #[inline(always)]
     fn compute_dist_pivot_from_graph(
         &self,
         pivot: &[usize],

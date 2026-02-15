@@ -190,6 +190,11 @@ pub mod ra {
                     .take(self.nodes_per_iter),
             )
         }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.how_many - self.i;
+            (len, Some(len))
+        }
     }
 
     impl<R: RandomAccessLabeling> ExactSizeIterator for Iter<'_, R> {

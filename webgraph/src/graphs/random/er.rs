@@ -45,6 +45,7 @@ impl ErdosRenyi {
 impl SequentialLabeling for ErdosRenyi {
     type Label = usize;
     type Lender<'a> = Iter;
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.n
     }

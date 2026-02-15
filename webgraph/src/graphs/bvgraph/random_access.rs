@@ -134,8 +134,8 @@ where
         }
     }
 
+    /// Consumes self and returns the factory.
     #[inline(always)]
-    /// Consume self and return the factory
     pub fn into_inner(self) -> F {
         self.factory
     }
@@ -195,6 +195,7 @@ where
         Self: 'a,
         F: 'a;
 
+    #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs
     }
@@ -208,7 +209,6 @@ where
         codes_reader.read_outdegree() as usize
     }
 
-    #[inline(always)]
     /// Returns a random access iterator over the successors of a node.
     fn labels(&self, node_id: usize) -> Succ<F::Decoder<'_>> {
         let codes_reader = self
@@ -252,7 +252,7 @@ where
                 }
             }
             // create the masked iterator
-            let res = MaskedIterator::new(neighbors, blocks);
+            let res = MaskedIter::new(neighbors, blocks);
             nodes_left_to_decode -= res.len();
 
             result.copied_nodes_iter = Some(res);
@@ -368,7 +368,7 @@ pub struct Succ<D: Decode> {
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<MaskedIterator<Succ<D>>>,
+    copied_nodes_iter: Option<MaskedIter<Succ<D>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(usize, usize)>,

@@ -39,6 +39,7 @@ pub(crate) struct Mix64Builder;
 impl core::hash::BuildHasher for Mix64Builder {
     type Hasher = Mix64;
 
+    #[inline(always)]
     fn build_hasher(&self) -> Self::Hasher {
         Mix64::default()
     }

@@ -270,7 +270,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
 impl<L: Clone + 'static> SequentialLabeling for LabeledVecGraph<L> {
     type Label = (usize, L);
     type Lender<'a>
-        = IteratorImpl<'a, Self>
+        = LenderImpl<'a, Self>
     where
         Self: 'a;
 
@@ -286,7 +286,7 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledVecGraph<L> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        IteratorImpl {
+        LenderImpl {
             labeling: self,
             nodes: (from..self.num_nodes()),
         }
@@ -539,7 +539,7 @@ impl<'a> IntoLender for &'a VecGraph {
 impl SequentialLabeling for VecGraph {
     type Label = usize;
     type Lender<'a>
-        = IteratorImpl<'a, Self>
+        = LenderImpl<'a, Self>
     where
         Self: 'a;
 
@@ -555,7 +555,7 @@ impl SequentialLabeling for VecGraph {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        IteratorImpl {
+        LenderImpl {
             labeling: self,
             nodes: (from..self.num_nodes()),
         }

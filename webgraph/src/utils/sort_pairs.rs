@@ -83,7 +83,7 @@ impl SortPairs {
     pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, tmp_dir: P) -> anyhow::Result<Self> {
         Self::new_labeled(memory_usage, tmp_dir, DefaultBatchCodec::default())
     }
-    /// Adds a unlabeled pair to the graph.
+    /// Adds an unlabeled pair to the graph.
     pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
         self.push_labeled(x, y, ())
     }

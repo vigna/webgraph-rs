@@ -28,7 +28,7 @@ pub fn symm_par(graph: impl RandomAccessGraph + Sync, pl: &mut impl ConcurrentPr
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
     pl.expected_updates(Some(num_nodes));
-    pl.start("Computing strongly connected components...");
+    pl.start("Computing connected components...");
 
     let mut visit = ParFairNoPred::new(&graph);
     let mut component = Box::new_uninit_slice(num_nodes);

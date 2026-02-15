@@ -43,8 +43,8 @@ pub struct CliArgs {
     pub num_threads: NumThreadsArg,
 }
 
+/// The level of exact sum sweep to compute.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-/// Enum for the level of exact sum sweep to compute.
 pub enum LevelArg {
     Radius,
     Diameter,
@@ -56,7 +56,6 @@ pub enum LevelArg {
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    println!("{:#4?}", args);
     ensure!(
         args.symmetric || args.transposed.is_some(),
         "You have to either pass --transposed with with the basename of the transposed graph or --symm if the graph is symmetric."

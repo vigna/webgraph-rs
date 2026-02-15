@@ -12,9 +12,9 @@ use super::GlobalArgs;
 pub mod ef;
 pub mod eq;
 
+/// Checks coherence of files.
 #[derive(Subcommand, Debug)]
 #[command(name = "check")]
-/// Check coherence of files.
 pub enum SubCommands {
     Ef(ef::CliArgs),
     Eq(eq::CliArgs),

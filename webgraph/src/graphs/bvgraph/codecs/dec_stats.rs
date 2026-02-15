@@ -85,10 +85,12 @@ where
 {
     type Error = <D as BitSeek>::Error;
 
+    #[inline(always)]
     fn bit_pos(&mut self) -> Result<u64, Self::Error> {
         self.codes_reader.bit_pos()
     }
 
+    #[inline(always)]
     fn set_bit_pos(&mut self, bit_pos: u64) -> Result<(), Self::Error> {
         self.codes_reader.set_bit_pos(bit_pos)
     }

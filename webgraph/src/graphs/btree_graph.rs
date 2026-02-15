@@ -154,7 +154,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
 impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
     type Label = (usize, L);
     type Lender<'a>
-        = IteratorImpl<'a, Self>
+        = LenderImpl<'a, Self>
     where
         Self: 'a;
 
@@ -170,7 +170,7 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        IteratorImpl {
+        LenderImpl {
             labeling: self,
             nodes: (from..self.num_nodes()),
         }
@@ -297,7 +297,7 @@ impl BTreeGraph {
         self.0.add_arcs(arcs.into_iter().map(|pair| (pair, ())));
     }
 
-    /// Creates a new graph from  an [`IntoIterator`].
+    /// Creates a new graph from an [`IntoIterator`].
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying
     /// an arc.
@@ -333,7 +333,7 @@ impl<'a> IntoLender for &'a BTreeGraph {
 impl SequentialLabeling for BTreeGraph {
     type Label = usize;
     type Lender<'a>
-        = IteratorImpl<'a, Self>
+        = LenderImpl<'a, Self>
     where
         Self: 'a;
 
@@ -349,7 +349,7 @@ impl SequentialLabeling for BTreeGraph {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        IteratorImpl {
+        LenderImpl {
             labeling: self,
             nodes: (from..self.num_nodes()),
         }

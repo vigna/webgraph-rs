@@ -68,7 +68,7 @@ impl<
     const RESIDUALS: usize,
 > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
-    /// Creates a new [`ConstCodesEncoder`] from a [`CodesRead`] implementation.
+    /// Creates a new [`ConstCodesDecoder`] from a [`CodesRead`] implementation.
     /// and a [`CompFlags`] struct
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
@@ -226,7 +226,7 @@ impl<
             bail!("Code for outdegrees does not match");
         }
         if comp_flags.references.to_code_const()? != REFERENCES {
-            bail!("Cod for references does not match");
+            bail!("Code for references does not match");
         }
         if comp_flags.blocks.to_code_const()? != BLOCKS {
             bail!("Code for blocks does not match");

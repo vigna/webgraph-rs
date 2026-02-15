@@ -12,9 +12,9 @@ use super::GlobalArgs;
 pub mod simplify;
 pub mod transpose;
 
+/// Applies a transformation to a graph.
 #[derive(Subcommand, Debug)]
 #[command(name = "transform")]
-/// Apply a transformation to a graph.
 pub enum SubCommands {
     Simplify(simplify::CliArgs),
     Transpose(transpose::CliArgs),

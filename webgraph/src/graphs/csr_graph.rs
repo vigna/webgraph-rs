@@ -19,9 +19,9 @@ use value_traits::{
 pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
 pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 
+/// A compressed sparse-row graph.
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// A compressed sparse-row graph.
 ///
 /// It is a graph representation that stores the degree-cumulative function
 /// (DCF) and the successors in a compressed format. The DCF is a sequence of
@@ -64,14 +64,17 @@ impl<DCF, S> CsrGraph<DCF, S> {
         Self { dcf, successors }
     }
 
+    #[inline(always)]
     pub fn dcf(&self) -> &DCF {
         &self.dcf
     }
 
+    #[inline(always)]
     pub fn successors(&self) -> &S {
         &self.successors
     }
 
+    #[inline(always)]
     pub fn into_inner(self) -> (DCF, S) {
         (self.dcf, self.successors)
     }

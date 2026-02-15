@@ -163,6 +163,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for Ite
 }
 
 impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender for Iter<L, I> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.num_nodes - self.next_node
     }
@@ -179,6 +180,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> IntoLe
 {
     type Lender = Iter<L, I>;
 
+    #[inline(always)]
     fn into_lender(self) -> Self::Lender {
         self.iter()
     }

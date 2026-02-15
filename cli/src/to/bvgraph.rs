@@ -112,7 +112,7 @@ where
         }
     } else {
         log::warn!(
-            "The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing."
+            "The .ef file does not exist. The graph will be read sequentially which will result in slower compression. If you can, run `webgraph build ef` before recompressing."
         );
         let seq_graph = BvGraphSeq::with_basename(&args.src)
             .endianness::<E>()

@@ -277,7 +277,7 @@ pub enum IntVectorFormat {
 }
 
 impl IntVectorFormat {
-    /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
+    /// Stores a vector of `u64` in the specified `path` using the format defined by `self`.
     ///
     /// `max` is the maximum value of the vector. If it is not provided, it will
     /// be computed from the data.
@@ -496,7 +496,14 @@ impl From<CompressArgs> for CompFlags {
             compression_window: value.compression_window,
             max_ref_count: match value.max_ref_count {
                 -1 => usize::MAX,
-                _ => value.max_ref_count as usize,
+                max_ref_count => {
+                    assert!(
+                        max_ref_count >= 0,
+                        "max_ref_count cannot be negative, except for -1, which means infinite recursion depth, but got {}",
+                        max_ref_count
+                    );
+                    value.max_ref_count as usize
+                }
             },
         }
     }
@@ -538,7 +545,7 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-/// Parse a duration from a string.
+/// Parses a duration from a string.
 /// For compatibility with Java, if no suffix is given, it is assumed to be in milliseconds.
 /// You can use suffixes, the available ones are:
 /// - `s` for seconds
@@ -723,7 +730,7 @@ where
     Ok(())
 }
 
-/// Pretty prints seconds in a humanly readable format.
+/// Pretty-prints seconds in a human-readable format.
 fn pretty_print_elapsed(elapsed: f64) -> String {
     let mut result = String::new();
     let mut elapsed_seconds = elapsed as u64;

@@ -130,6 +130,7 @@ impl<
         ConstCode::<RESIDUALS>.write(&mut self.code_writer, value)
     }
 
+    #[inline(always)]
     fn flush(&mut self) -> Result<usize, Self::Error> {
         self.code_writer.flush()
     }
@@ -239,6 +240,7 @@ impl<
         Ok(ConstCode::<RESIDUALS>.len(value))
     }
 
+    #[inline(always)]
     fn flush(&mut self) -> Result<usize, Self::Error> {
         Ok(0)
     }

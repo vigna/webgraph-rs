@@ -25,7 +25,7 @@ pub struct OffsetDegIter<D: Decode> {
 }
 
 impl<D: Decode + BitSeek> OffsetDegIter<D> {
-    /// Get the current bit offset in the bitstream.
+    /// Returns the current bit offset in the bitstream.
     pub fn get_pos(&mut self) -> u64 {
         self.decoder.bit_pos().unwrap()
     }
@@ -47,10 +47,13 @@ impl<D: Decode + BitSeek> Iterator for OffsetDegIter<D> {
 }
 
 impl<D: Decode + BitSeek> ExactSizeIterator for OffsetDegIter<D> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.number_of_nodes - self.node_id
     }
 }
+
+impl<D: Decode + BitSeek> std::iter::FusedIterator for OffsetDegIter<D> {}
 
 impl<D: Decode> OffsetDegIter<D> {
     /// Creates a new iterator over the degrees of the graph.
@@ -90,7 +93,7 @@ impl<D: Decode> OffsetDegIter<D> {
         }
     }
 
-    /// Get the number of nodes in the graph
+    /// Returns the number of nodes in the graph.
     #[inline(always)]
     pub fn num_nodes(&self) -> usize {
         self.number_of_nodes
@@ -113,10 +116,9 @@ impl<D: Decode> OffsetDegIter<D> {
         }
     }
 
-    #[inline(always)]
-    /// Manually get the next degree, this is what the iterator calls internally
-    /// but it calls `.unwrap()` on it because the trait Graph doesn't allows
-    /// errors.
+    /// Returns the next degree. This is what the iterator calls
+    /// internally, but it calls `.unwrap()` on it because the trait
+    /// `Graph` does not allow errors.
     pub fn next_degree(&mut self) -> Result<usize> {
         let degree = self.decoder.read_outdegree() as usize;
         // no edges, we are done!

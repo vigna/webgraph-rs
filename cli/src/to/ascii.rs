@@ -43,13 +43,13 @@ where
         .load()?;
 
     let mut pl = ProgressLogger::default();
-    pl.display_memory(true).item_name("offset");
+    pl.display_memory(true).item_name("node");
 
     if let Some(duration) = global_args.log_interval {
         pl.log_interval(duration);
     }
 
-    pl.start("Computing offsets...");
+    pl.start("Dumping graph in ASCII format...");
 
     let mut iter = seq_graph.iter();
     while let Some((node_id, successors)) = iter.next() {

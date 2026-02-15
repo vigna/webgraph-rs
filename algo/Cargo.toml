@@ -35,8 +35,7 @@ no-break.workspace = true
 nonmax.workspace = true
 crossbeam-utils.workspace = true
 
-sealed = "0.6.0"
-thiserror = "2.0.12"
+thiserror.workspace = true
 kahan = "0.1.4"
 
 [features]

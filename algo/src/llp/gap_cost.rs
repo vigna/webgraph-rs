@@ -13,8 +13,8 @@ use webgraph::{traits::*, utils::Granularity};
 /// Computes the gap cost, that is, the sum of the costs of the logarithms
 /// of the differences between successors.
 ///
-/// Note that this implementation uses the _base_ of the base-2 logarithm
-/// as a measure of cost, where as the Java implementation uses the _ceiling_.
+/// Note that this implementation uses the _floor_ of the base-2 logarithm
+/// as a measure of cost, whereas the Java implementation uses the _ceiling_.
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
     arc_granularity: Granularity,

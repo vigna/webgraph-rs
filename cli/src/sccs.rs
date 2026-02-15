@@ -123,8 +123,11 @@ where
         args.fmt.store_usizes(sizes_path, &sizes, None)?;
     };
 
-    args.fmt
-        .store_usizes(&args.sccs, sccs.components(), Some(sccs.num_components()))?;
+    args.fmt.store_usizes(
+        &args.sccs,
+        sccs.components(),
+        Some(sccs.num_components() - 1),
+    )?;
 
     Ok(())
 }

@@ -11,10 +11,10 @@ webgraph-algo = { path = "./algo" }
 webgraph-cli = { path = "./cli" }
 
 card-est-array = "0.2.0"
-epserde = "0.11.1"
+epserde = "0.12.0"
 dsi-bitstream = "0.7.0"
 dsi-progress-logger = "0.8.2"
-sux = { version = "0.11.1", features = ["epserde", "rayon", "mmap"] }
+sux = { version = "0.12.0", features = ["epserde", "rayon", "mmap"] }
 common_traits = "0.12.0"
 lender = "0.5.0"
 log = "0.4.22"

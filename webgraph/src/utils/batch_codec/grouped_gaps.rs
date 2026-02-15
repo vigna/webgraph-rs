@@ -46,7 +46,7 @@ use rdst::*;
 ///         - The label is serialized.
 ///
 /// The bit deserializer must be [`Clone`] because we need one for each
-/// [`GroupedGapsIterator`], and there are possible scenarios in which the
+/// [`GroupedGapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
 pub struct GroupedGapsCodec<
     E: Endianness = NE,
@@ -108,8 +108,7 @@ where
 }
 
 #[derive(Debug, Clone, Copy)]
-/// Statistics about the encoding performed by
-/// [`GapsCodec`](crate::utils::gaps::GapsCodec).
+/// Statistics about the encoding performed by [`GroupedGapsCodec`].
 pub struct GroupedGapsStats {
     /// Total number of triples encoded
     pub total_triples: usize,
@@ -117,7 +116,7 @@ pub struct GroupedGapsStats {
     pub outdegree_bits: usize,
     /// Number of bits used for source gaps
     pub src_bits: usize,
-    //// Number of bits used for destination gaps
+    /// Number of bits used for destination gaps
     pub dst_bits: usize,
     /// Number of bits used for labels
     pub labels_bits: usize,
@@ -151,7 +150,7 @@ where
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     type Label = S::SerType;
-    type DecodedBatch = GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
+    type DecodedBatch = GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
     type EncodedBatchStats = GroupedGapsStats;
 
     fn encode_batch(
@@ -248,7 +247,7 @@ where
         let len = stream.read_delta().context("Could not read length")? as usize;
 
         // create the iterator
-        Ok(GroupedGapsIterator {
+        Ok(GroupedGapsIter {
             deserializer: self.deserializer.clone(),
             stream,
             len,
@@ -262,7 +261,7 @@ where
 
 #[derive(Clone, Debug)]
 /// An iterator over triples encoded with gaps, this is returned by [`GroupedGapsCodec`].
-pub struct GroupedGapsIterator<
+pub struct GroupedGapsIter<
     E: Endianness = NE,
     D: BitDeserializer<E, BitReader<E>> = (),
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
@@ -294,7 +293,7 @@ unsafe impl<
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> SortedIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+> SortedIterator for GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -307,7 +306,7 @@ impl<
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> Iterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+> Iterator for GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -345,7 +344,7 @@ impl<
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> ExactSizeIterator for GroupedGapsIterator<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+> ExactSizeIterator for GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
 where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
