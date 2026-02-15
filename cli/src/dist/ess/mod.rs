@@ -21,7 +21,7 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
 
-    /// The transposed graph of `basename`.
+    /// The transposed graph of "basename".
     pub transposed: Option<PathBuf>,
 
     #[arg(short, long = "symm")]

@@ -175,9 +175,9 @@ impl GranularityArgs {
 pub struct MemoryUsageArg {
     #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "50%")]
     /// The number of pairs to be used in batches.
-    /// If the number ends with a `b` or `B` it is interpreted as a number of bytes, otherwise as a number of elements.
+    /// If the number ends with a "b" or "B" it is interpreted as a number of bytes, otherwise as a number of elements.
     /// You can use the SI and NIST multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi.
-    /// You can also use a percentage of the available memory by appending a `%` to the number.
+    /// You can also use a percentage of the available memory by appending a "%" to the number.
     pub memory_usage: MemoryUsage,
 }
 

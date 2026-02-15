@@ -34,7 +34,7 @@ pub struct CliArgs {
 
     /// A filename for the LLP permutation in binary big-endian format. If not
     /// provided, we will compute the labels but not combine them into the final
-    /// permutation. If you don't set this parameter, be sure to set `work_dir`
+    /// permutation. If you don't set this parameter, be sure to set "work_dir"
     /// so the labels will not be deleted at the end.
     pub perm: Option<PathBuf>,
 
@@ -48,7 +48,7 @@ pub struct CliArgs {
     /// The labels represent information about communities in the graph, nodes
     /// similar will have the same label.
     /// To resume computation you can compute the remaining gammas without
-    /// passing `perm`, and then finally run `combine` that will combine all the
+    /// passing "perm", and then finally run "combine" that will combine all the
     /// labels of the gammas present in the folder into a final permutation.
     #[arg(short, long)]
     pub work_dir: Option<PathBuf>,
