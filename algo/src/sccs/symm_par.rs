@@ -21,7 +21,7 @@ use webgraph::visits::{
     breadth_first::{EventNoPred, ParFairNoPred},
 };
 
-/// Connected components of symmetric graphs by parallel visits.
+/// Computes connected components of symmetric graphs by parallel visits.
 pub fn symm_par(graph: impl RandomAccessGraph + Sync, pl: &mut impl ConcurrentProgressLog) -> Sccs {
     // TODO debug_assert!(check_symmetric(&graph));
 

@@ -16,6 +16,19 @@ use std::path::PathBuf;
 
 use self::sequential::Iter;
 
+/// A random-access graph in the BV format.
+///
+/// The graph depends on a [`RandomAccessDecoderFactory`] that can be used to
+/// create decoders for the graph. This allows to decouple the graph from the
+/// underlying storage format, and to use different storage formats for the same
+/// graph. For example, one can use a memory-mapped file for the graph, or load
+/// it in memory, or even generate it on the fly.
+///
+/// Note that the knowledge of the codes used by the graph is in the factory,
+/// which provides methods to read each component of the BV format (outdegree,
+/// reference offset, block count, etc.), whereas the knowledge of the
+/// compression parameters (compression window and minimum interval length) is
+/// in this structure.
 #[derive(Debug, Clone)]
 pub struct BvGraph<F> {
     factory: F,
@@ -38,6 +51,9 @@ impl BvGraph<()> {
         }
     }
 }
+
+// The following offset_to_slice methods are implemented on specific
+// factories because they require the knowledge of the type of the offsets
 
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<DynCodesDecoderFactory<E, F, OFF>>

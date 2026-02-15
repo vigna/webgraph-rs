@@ -234,10 +234,6 @@ impl<
             graph.num_arcs(),
             transpose.num_arcs()
         );
-        /* TODO debug_assert!(
-            check_transposed(graph, transpose),
-            "the transpose should be the transpose of the graph"
-        );*/
         Self {
             graph,
             transpose: Some(transpose),
@@ -446,8 +442,8 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
 
 impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
     /// Resets the iteration context
-    fn reset(&mut self, granularity: usize) {
-        self.arc_granularity = granularity;
+    fn reset(&mut self, arc_granularity: usize) {
+        self.arc_granularity = arc_granularity;
         self.node_cursor.store(0, Ordering::Relaxed);
         *self.arc_cursor.lock().unwrap() = (0, 0);
         self.visited_arcs.store(0, Ordering::Relaxed);
@@ -472,7 +468,7 @@ pub struct HyperBall<
     transposed: Option<&'a G2>,
     /// An optional slice of nonnegative node weights.
     weight: Option<&'a [usize]>,
-    /// The base number of nodes per task. TODO.
+    /// The base number of nodes per task.
     granularity: usize,
     /// The previous state.
     curr_state: A,

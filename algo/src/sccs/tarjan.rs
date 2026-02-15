@@ -13,7 +13,7 @@ use sux::traits::BitVecOpsMut;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 
-/// Tarjan's algorithm for strongly connected components.
+/// Computes strongly connected components using Tarjan's algorithm.
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {
     let num_nodes = graph.num_nodes();
     pl.item_name("node");

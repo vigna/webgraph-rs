@@ -6,6 +6,8 @@
 
 - Support for π codes in the CLI tools.
 
+- `webgraph-dist` now support running the ExactSumSweep algorithm.
+
 ### Changed
 
 - Moved to `rand` 0.10.0.

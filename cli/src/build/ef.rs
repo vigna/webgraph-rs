@@ -16,7 +16,7 @@ use log::info;
 use mmap_rs::MmapFlags;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use sux::prelude::*;
 use webgraph::prelude::*;
 
@@ -26,11 +26,21 @@ pub struct CliArgs {
     /// The basename of the graph (or labels).
     pub src: PathBuf,
     /// The number of nodes of the graph. When passed, we don't need to load the
-    /// `.properties` file. This allows to build Elias-Fano from the offsets of
+    /// ".properties" file. This allows to build Elias-Fano from the offsets of
     /// something that might not be a graph but that has offsets, like labels.
-    /// For this reason, if passed, we will also try to read the `.labeloffsets`
-    /// file and then fallback to the usual `.offsets` file.
+    /// For this reason, if passed, we will also try to read the ".labeloffsets"
+    /// file and then fallback to the usual ".offsets" file.
     pub number_of_nodes: Option<usize>,
+}
+
+/// Returns the length in bits of the given file.
+fn file_len_bits(path: &Path) -> Result<usize> {
+    let mut file =
+        File::open(path).with_context(|| format!("Could not open {}", path.display()))?;
+    let len = 8 * file
+        .seek(std::io::SeekFrom::End(0))
+        .with_context(|| format!("Could not seek to end of {}", path.display()))?;
+    Ok(len as usize)
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -46,14 +56,14 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => build_eliasfano::<BE>(global_args, args),
+        BE::NAME => build_elias_fano::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => build_eliasfano::<LE>(global_args, args),
+        LE::NAME => build_elias_fano::<LE>(global_args, args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_eliasfano<E: Endianness + 'static>(
+pub fn build_elias_fano<E: Endianness + 'static>(
     global_args: GlobalArgs,
     args: CliArgs,
 ) -> Result<()>
@@ -67,24 +77,18 @@ where
     }
 
     let basename = args.src.clone();
+
+    // When number_of_nodes is provided and label offsets exist, use them
+    // instead of graph offsets.
     if let Some(num_nodes) = args.number_of_nodes {
-        pl.expected_updates(Some(num_nodes));
-        // Horribly temporary duplicated code for the case of label offsets.
-        let of_file_path = basename.with_extension(LABELOFFSETS_EXTENSION);
-        if of_file_path.exists() {
-            let labels_path = basename.with_extension(LABELS_EXTENSION);
-            let mut file = File::open(&labels_path)
-                .with_context(|| format!("Could not open {}", labels_path.display()))?;
-            let file_len = 8 * file
-                .seek(std::io::SeekFrom::End(0))
-                .with_context(|| format!("Could not seek to end of {}", labels_path.display()))?;
-
-            let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
-
-            info!("The offsets file exists, reading it to build Elias-Fano");
-
-            let of = <MmapHelper<u32>>::mmap(of_file_path, MmapFlags::SEQUENTIAL)?;
-            build_eliasfano_from_offsets(
+        let label_offsets_path = basename.with_extension(LABELOFFSETS_EXTENSION);
+        if label_offsets_path.exists() {
+            let file_len = file_len_bits(&basename.with_extension(LABELS_EXTENSION))?;
+            pl.expected_updates(Some(num_nodes));
+            let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
+            info!("The label offsets file exists, reading it to build Elias-Fano");
+            let of = <MmapHelper<u32>>::mmap(label_offsets_path, MmapFlags::SEQUENTIAL)?;
+            build_elias_fano_from_offsets(
                 &global_args,
                 &args,
                 num_nodes,
@@ -92,20 +96,16 @@ where
                 &mut pl,
                 &mut efb,
             )?;
-            return serialize_eliasfano(&global_args, &args, efb, &mut pl);
+            return serialize_elias_fano(&global_args, &args, efb, &mut pl);
         }
     }
 
-    // Creates the offsets file
+    // Standard graph case
     let of_file_path = basename.with_extension(OFFSETS_EXTENSION);
 
     let graph_path = basename.with_extension(GRAPH_EXTENSION);
     info!("Getting size of graph at '{}'", graph_path.display());
-    let mut file = File::open(&graph_path)
-        .with_context(|| format!("Could not open {}", graph_path.display()))?;
-    let file_len = 8 * file
-        .seek(std::io::SeekFrom::End(0))
-        .with_context(|| format!("Could not seek in {}", graph_path.display()))?;
+    let file_len = file_len_bits(&graph_path)?;
     info!("Graph file size: {} bits", file_len);
 
     // if the num_of_nodes is not present, read it from the properties file
@@ -132,14 +132,14 @@ where
         })?;
     pl.expected_updates(Some(num_nodes));
 
-    let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len as usize);
+    let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
 
     info!("Checking if offsets exists at '{}'", of_file_path.display());
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
         info!("The offsets file exists, reading it to build Elias-Fano");
         let of = <MmapHelper<u32>>::mmap(of_file_path, MmapFlags::SEQUENTIAL)?;
-        build_eliasfano_from_offsets(
+        build_elias_fano_from_offsets(
             &global_args,
             &args,
             num_nodes,
@@ -148,13 +148,13 @@ where
             &mut efb,
         )?;
     } else {
-        build_eliasfano_from_graph(&args, &mut pl, &mut efb)?;
+        build_elias_fano_from_graph(&args, &mut pl, &mut efb)?;
     }
 
-    serialize_eliasfano(&global_args, &args, efb, &mut pl)
+    serialize_elias_fano(&global_args, &args, efb, &mut pl)
 }
 
-pub fn build_eliasfano_from_graph(
+pub fn build_elias_fano_from_graph(
     args: &CliArgs,
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,
@@ -162,14 +162,14 @@ pub fn build_eliasfano_from_graph(
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => build_eliasfano_from_graph_with_endianness::<BE>(args, pl, efb),
+        BE::NAME => build_elias_fano_from_graph_with_endianness::<BE>(args, pl, efb),
         #[cfg(feature = "le_bins")]
-        LE::NAME => build_eliasfano_from_graph_with_endianness::<LE>(args, pl, efb),
+        LE::NAME => build_elias_fano_from_graph_with_endianness::<LE>(args, pl, efb),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_eliasfano_from_offsets<E: Endianness>(
+pub fn build_elias_fano_from_offsets<E: Endianness>(
     _global_args: &GlobalArgs,
     _args: &CliArgs,
     num_nodes: usize,
@@ -194,7 +194,7 @@ pub fn build_eliasfano_from_offsets<E: Endianness>(
     Ok(())
 }
 
-pub fn build_eliasfano_from_graph_with_endianness<E: Endianness>(
+pub fn build_elias_fano_from_graph_with_endianness<E: Endianness>(
     args: &CliArgs,
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,
@@ -222,7 +222,7 @@ where
     Ok(())
 }
 
-pub fn serialize_eliasfano(
+pub fn serialize_elias_fano(
     global_args: &GlobalArgs,
     args: &CliArgs,
     efb: EliasFanoBuilder,

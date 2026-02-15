@@ -16,9 +16,19 @@ use dsi_bitstream::traits::BE;
 use dsi_bitstream::traits::BitSeek;
 use lender::*;
 
-/// A sequential BvGraph that can be read from a `codes_reader_builder`.
-/// The builder is needed because we should be able to create multiple iterators
-/// and this allows us to have a single place where to store the mmapped file.
+/// A sequential graph in the BV format.
+///
+/// The graph depends on a [`SequentialDecoderFactory`] that can be used to
+/// create decoders for the graph. This allows to decouple the graph from the
+/// underlying storage format, and to use different storage formats for the same
+/// graph. For example, one can use a memory-mapped file for the graph, or load
+/// it in memory, or even generate it on the fly.
+///
+/// Note that the knowledge of the codes used by the graph is in the factory,
+/// which provides methods to read each component of the BV format (outdegree,
+/// reference offset, block count, etc.), whereas the knowledge of the
+/// compression parameters (compression window and minimum interval length) is
+/// in this structure.
 #[derive(Debug, Clone)]
 pub struct BvGraphSeq<F> {
     factory: F,

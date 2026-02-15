@@ -33,7 +33,7 @@ pub trait Pair {
     type Left;
     /// The type of the second component of the [`Pair`].
     type Right;
-    /// Turn this [`Pair`] into an actual pair (i.e., a Rust 2-tuple).
+    /// Turns this [`Pair`] into an actual pair (i.e., a Rust 2-tuple).
     fn into_pair(self) -> (Self::Left, Self::Right);
 }
 

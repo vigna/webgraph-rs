@@ -141,7 +141,7 @@ pub trait SequentialLabeling {
             )
     }
 
-    /// Apply `func` to each chunk of nodes containing approximately
+    /// Applies `func` to each chunk of nodes containing approximately
     /// `arc_granularity` arcs in parallel and folds the results using `fold`.
     ///
     /// You have to provide the degree cumulative function of the graph (i.e.,

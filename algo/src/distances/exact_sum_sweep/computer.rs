@@ -119,7 +119,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     /// directed graphs.
     ///
     /// # Arguments
-    /// * `graph`: the direct graph.
+    /// * `graph`: the directed graph.
     /// * `transpose`: the transpose of `graph`.
     /// * `output`: the desired output of the algorithm.
     /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node

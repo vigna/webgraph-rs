@@ -22,7 +22,7 @@ dsi-progress-logger.workspace = true
 sux.workspace = true
 epserde.workspace = true
 lender.workspace = true
-value-traits.workspace= true
+value-traits.workspace = true
 
 anyhow.workspace = true
 predicates.workspace = true

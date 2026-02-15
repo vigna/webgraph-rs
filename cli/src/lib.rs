@@ -630,10 +630,10 @@ pub fn init_env_logger() -> Result<()> {
 #[derive(Args, Debug)]
 pub struct GlobalArgs {
     #[arg(long, value_parser = parse_duration, global=true, display_order = 1000)]
-    /// How often to log progress. Default is 10s. You can use the suffixes `s`
-    /// for seconds, `m` for minutes, `h` for hours, and `d` for days. If no
+    /// How often to log progress. Default is 10s. You can use the suffixes "s"
+    /// for seconds, "m" for minutes, "h" for hours, and "d" for days. If no
     /// suffix is provided it is assumed to be in milliseconds.
-    /// Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4
+    /// Example: "1d2h3m4s567" is parsed as 1 day + 2 hours + 3 minutes + 4
     /// seconds + 567 milliseconds = 93784567 milliseconds.
     pub log_interval: Option<Duration>,
 }
