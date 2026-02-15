@@ -56,6 +56,9 @@ build info: built on {} for {} with {}",
 /// Enum for instantaneous codes.
 ///
 /// It is used to implement [`ValueEnum`] here instead of in [`dsi_bitstream`].
+///
+/// For CLI ergonomics and compatibility, this codes must be the same as those
+/// appearing in [`CompFlags::code_from_str`].
 pub enum PrivCode {
     Unary,
     Gamma,

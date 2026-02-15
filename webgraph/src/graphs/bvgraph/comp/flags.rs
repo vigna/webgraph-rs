@@ -71,6 +71,13 @@ impl CompFlags {
     /// Convert a string from the `compflags` field from the `.properties` file
     /// into which code to use.
     ///
+    /// Note that ζ codes are supported both with parameterless names (e.g.,
+    /// "ZETA") and with the parameter in the name (e.g., "ZETA3"), for
+    /// compatibility with previous versions of the library.
+    ///
+    /// For CLI ergonomics and compatibility, this codes must be the same as
+    /// those appearing in the `PrivCode` enum of the `webgraph-cli` crate.
+    ///
     /// Returns `None` if the string is not recognized.
     pub fn code_from_str(s: &str, k: usize) -> Option<Codes> {
         match s.to_uppercase().as_str() {
@@ -284,8 +291,6 @@ impl CompFlags {
             if !comp_flags.is_empty() {
                 for flag in comp_flags.split('|') {
                     let s: Vec<_> = flag.split('_').collect();
-                    // FIXME: this is a hack to avoid having to implement
-                    // FromStr for Code
                     let code = CompFlags::code_from_str(s[1], k).unwrap();
                     match s[0] {
                         "OUTDEGREES" => cf.outdegrees = code,
