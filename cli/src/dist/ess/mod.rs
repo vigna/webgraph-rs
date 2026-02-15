@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{GlobalArgs, NumThreadsArg};
+use crate::{GlobalArgs, IntVectorFormat, NumThreadsArg};
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
@@ -16,7 +16,7 @@ use webgraph_algo::distances::exact_sum_sweep::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "exactsumsweep", about = "Compute radius, diameter, and possibly eccentricities using the ExactSumSweep algorithm. (WORK IN PROGRESS)", long_about = None)]
+#[command(name = "exact-sum-sweep", about = "Computes radius, diameter, and possibly eccentricities using the ExactSumSweep algorithm (scalar values are printed on stdout).", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
@@ -36,8 +36,13 @@ pub struct CliArgs {
     #[arg(short, long)]
     pub backward: Option<PathBuf>,
 
+    /// The items to be computed (all-forward computes forward eccentricities, all computes both forward and backward eccentricities).
     #[arg(long, value_enum)]
     pub level: LevelArg,
+
+    #[arg(long, value_enum, default_value_t = IntVectorFormat::Ascii)]
+    /// The storage format for eccentricities.
+    pub fmt: IntVectorFormat,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -90,31 +95,16 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     }
 }
 
-pub fn exact_sum_sweep<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match args.level {
-        LevelArg::Radius => {
-            exact_sum_sweep_level::<E, Radius>(global_args, args)?;
-        }
-        LevelArg::Diameter => {
-            exact_sum_sweep_level::<E, Diameter>(global_args, args)?;
-        }
-        LevelArg::RadiusDiameter => {
-            exact_sum_sweep_level::<E, RadiusDiameter>(global_args, args)?;
-        }
-        LevelArg::AllForward => {
-            exact_sum_sweep_level::<E, AllForward>(global_args, args)?;
-        }
-        LevelArg::All => {
-            exact_sum_sweep_level::<E, All>(global_args, args)?;
-        }
-    }
-    Ok(())
+/// Stores eccentricities to a file using the specified format.
+fn store_eccentricities(
+    eccentricities: &[usize],
+    path: &PathBuf,
+    fmt: IntVectorFormat,
+) -> Result<()> {
+    fmt.store_usizes(path, eccentricities, None)
 }
 
-pub fn exact_sum_sweep_level<E: Endianness, L: Level>(
-    global_args: GlobalArgs,
-    args: CliArgs,
-) -> Result<()> {
+pub fn exact_sum_sweep<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
@@ -124,15 +114,110 @@ pub fn exact_sum_sweep_level<E: Endianness, L: Level>(
     }
 
     if args.symmetric {
-        let _out = thread_pool.install(|| L::run_symm(graph, &mut pl));
+        match args.level {
+            LevelArg::Radius => {
+                let out = thread_pool.install(|| Radius::run_symm(graph, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+            }
+            LevelArg::Diameter => {
+                let out = thread_pool.install(|| Diameter::run_symm(graph, &mut pl));
+                println!("Diameter: {}", out.diameter);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+            }
+            LevelArg::RadiusDiameter => {
+                let out = thread_pool.install(|| RadiusDiameter::run_symm(graph, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Diameter: {}", out.diameter);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+            }
+            LevelArg::AllForward | LevelArg::All => {
+                let out = thread_pool.install(|| All::run_symm(graph, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Diameter: {}", out.diameter);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+                println!("Iterations: {}", out.iterations);
+                store_eccentricities(
+                    &out.eccentricities,
+                    args.forward.as_ref().unwrap(),
+                    args.fmt,
+                )?;
+            }
+        }
     } else {
         let transpose_path = args
             .transposed
             .as_ref()
             .expect("You have to pass the transposed graph if the graph is not symmetric.");
         let transpose = BvGraph::with_basename(transpose_path).load()?;
-        let _out = thread_pool.install(|| L::run(graph, transpose, None, &mut pl));
+
+        match args.level {
+            LevelArg::Radius => {
+                let out = thread_pool.install(|| Radius::run(graph, transpose, None, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+            }
+            LevelArg::Diameter => {
+                let out = thread_pool.install(|| Diameter::run(graph, transpose, None, &mut pl));
+                println!("Diameter: {}", out.diameter);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+            }
+            LevelArg::RadiusDiameter => {
+                let out =
+                    thread_pool.install(|| RadiusDiameter::run(graph, transpose, None, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Diameter: {}", out.diameter);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+            }
+            LevelArg::AllForward => {
+                let out = thread_pool.install(|| AllForward::run(graph, transpose, None, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Diameter: {}", out.diameter);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+                println!("Forward iterations: {}", out.forward_iterations);
+                store_eccentricities(
+                    &out.forward_eccentricities,
+                    args.forward.as_ref().unwrap(),
+                    args.fmt,
+                )?;
+            }
+            LevelArg::All => {
+                let out = thread_pool.install(|| All::run(graph, transpose, None, &mut pl));
+                println!("Radius: {}", out.radius);
+                println!("Diameter: {}", out.diameter);
+                println!("Radial vertex: {}", out.radial_vertex);
+                println!("Diametral vertex: {}", out.diametral_vertex);
+                println!("Radius iterations: {}", out.radius_iterations);
+                println!("Diameter iterations: {}", out.diameter_iterations);
+                println!("Forward iterations: {}", out.forward_iterations);
+                println!("All iterations: {}", out.all_iterations);
+                store_eccentricities(
+                    &out.forward_eccentricities,
+                    args.forward.as_ref().unwrap(),
+                    args.fmt,
+                )?;
+                if let Some(backward) = args.backward.as_ref() {
+                    store_eccentricities(&out.backward_eccentricities, backward, args.fmt)?;
+                }
+            }
+        }
     }
 
-    todo!("print out and serialize the eccentricities if present");
+    Ok(())
 }
