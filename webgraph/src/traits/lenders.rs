@@ -330,7 +330,7 @@ where
 
 impl<L, F, II> NodeLabelsLender<'_> for lender::FilterMap<L, F>
 where
-    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    II: IntoIterator,
     F: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
     L: Lender,
 {
@@ -387,7 +387,7 @@ where
 impl<L, P, II> NodeLabelsLender<'_> for lender::MapWhile<L, P>
 where
     P: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
-    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    II: IntoIterator,
     L: Lender,
 {
     type Label = II::Item;
@@ -424,7 +424,7 @@ where
     for<'all> F:
         lender::higher_order::FnMutHKAOpt<'all, (&'all mut St, Lend<'all, L>), B = (usize, II)>,
     L: Lender,
-    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    II: IntoIterator,
 {
     type Label = II::Item;
     type IntoIterator = II;
