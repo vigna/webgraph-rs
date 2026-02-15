@@ -132,7 +132,9 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     if args.check {
-        let graph = BvGraph::with_basename(&args.basename).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
 
         let seq_graph = BvGraphSeq::with_basename(&args.basename)
             .endianness::<E>()

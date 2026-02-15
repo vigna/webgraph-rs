@@ -34,9 +34,11 @@ sync-cell-slice.workspace = true
 no-break.workspace = true
 nonmax.workspace = true
 crossbeam-utils.workspace = true
-
 thiserror.workspace = true
 kahan = "0.1.4"
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [features]
 slow_tests = []

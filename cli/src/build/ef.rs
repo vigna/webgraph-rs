@@ -203,10 +203,11 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
-        .endianness::<E>()
-        .load()
-        .with_context(|| format!("Could not load graph at {}", args.basename.display()))?;
+    let seq_graph =
+        webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()
+            .with_context(|| format!("Could not load graph at {}", args.basename.display()))?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");

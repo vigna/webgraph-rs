@@ -79,14 +79,17 @@ where
     let has_ef = std::fs::metadata(args.basename.with_extension("ef")).is_ok_and(|x| x.is_file());
 
     // Load the compression flags from the properties file so we can compare them
-    let (_, _, comp_flags) = parse_properties::<E>(args.basename.with_extension(PROPERTIES_EXTENSION))?;
+    let (_, _, comp_flags) =
+        parse_properties::<E>(args.basename.with_extension(PROPERTIES_EXTENSION))?;
 
     if has_ef {
         log::info!(
             "Analyzing codes in parallel using {} threads",
             args.num_threads.num_threads
         );
-        let graph = BvGraph::with_basename(&args.basename).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
 
         let mut pl = concurrent_progress_logger![item_name = "node"];
         pl.display_memory(true)

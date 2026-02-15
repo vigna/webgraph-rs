@@ -209,10 +209,7 @@ unsafe impl<I: Iterator<Item = usize> + SortedIterator, J: Iterator<Item = usize
 {
 }
 
-impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> std::iter::FusedIterator
-    for Succ<I, J>
-{
-}
+impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> std::iter::FusedIterator for Succ<I, J> {}
 
 #[cfg(test)]
 mod tests {

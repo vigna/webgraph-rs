@@ -96,9 +96,10 @@ where
         pl.log_interval(duration);
     }
 
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
-        .endianness::<E>()
-        .load()?;
+    let seq_graph =
+        webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Checking graph against Elias-Fano...");

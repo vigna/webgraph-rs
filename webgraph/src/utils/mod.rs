@@ -77,6 +77,7 @@ pub struct Converter<D: Decode, E: Encode> {
 }
 
 impl<D: Decode, E: Encode> Decode for Converter<D, E> {
+    // TODO: implement correctly start_node/end_node
     #[inline(always)]
     fn read_outdegree(&mut self) -> u64 {
         let res = self.decoder.read_outdegree();

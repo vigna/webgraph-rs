@@ -469,10 +469,30 @@ fn test_bfs_order_path() {
     assert_eq!(
         events,
         vec![
-            breadth_first::IterEvent { root: 0, parent: 0, node: 0, distance: 0 },
-            breadth_first::IterEvent { root: 0, parent: 0, node: 1, distance: 1 },
-            breadth_first::IterEvent { root: 0, parent: 1, node: 2, distance: 2 },
-            breadth_first::IterEvent { root: 0, parent: 2, node: 3, distance: 3 },
+            breadth_first::IterEvent {
+                root: 0,
+                parent: 0,
+                node: 0,
+                distance: 0
+            },
+            breadth_first::IterEvent {
+                root: 0,
+                parent: 0,
+                node: 1,
+                distance: 1
+            },
+            breadth_first::IterEvent {
+                root: 0,
+                parent: 1,
+                node: 2,
+                distance: 2
+            },
+            breadth_first::IterEvent {
+                root: 0,
+                parent: 2,
+                node: 3,
+                distance: 3
+            },
         ]
     );
 }
@@ -551,13 +571,53 @@ fn test_bfs_order_disconnected() {
     assert_eq!(events.len(), 5);
 
     // First component: root=0
-    assert_eq!(events[0], breadth_first::IterEvent { root: 0, parent: 0, node: 0, distance: 0 });
-    assert_eq!(events[1], breadth_first::IterEvent { root: 0, parent: 0, node: 1, distance: 1 });
+    assert_eq!(
+        events[0],
+        breadth_first::IterEvent {
+            root: 0,
+            parent: 0,
+            node: 0,
+            distance: 0
+        }
+    );
+    assert_eq!(
+        events[1],
+        breadth_first::IterEvent {
+            root: 0,
+            parent: 0,
+            node: 1,
+            distance: 1
+        }
+    );
     // Second component: root=2
-    assert_eq!(events[2], breadth_first::IterEvent { root: 2, parent: 2, node: 2, distance: 0 });
-    assert_eq!(events[3], breadth_first::IterEvent { root: 2, parent: 2, node: 3, distance: 1 });
+    assert_eq!(
+        events[2],
+        breadth_first::IterEvent {
+            root: 2,
+            parent: 2,
+            node: 2,
+            distance: 0
+        }
+    );
+    assert_eq!(
+        events[3],
+        breadth_first::IterEvent {
+            root: 2,
+            parent: 2,
+            node: 3,
+            distance: 1
+        }
+    );
     // Isolated node: root=4
-    assert_eq!(events[4], breadth_first::IterEvent { root: 4, parent: 4, node: 4, distance: 0 });
+    assert_eq!(
+        events[4],
+        breadth_first::IterEvent {
+            root: 4,
+            parent: 4,
+            node: 4,
+            distance: 0
+        }
+    );
 }
 
 #[test]
@@ -580,7 +640,15 @@ fn test_bfs_order_single_node() {
     let events: Vec<_> = (&mut breadth_first::Seq::new(&graph)).into_iter().collect();
 
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0], breadth_first::IterEvent { root: 0, parent: 0, node: 0, distance: 0 });
+    assert_eq!(
+        events[0],
+        breadth_first::IterEvent {
+            root: 0,
+            parent: 0,
+            node: 0,
+            distance: 0
+        }
+    );
 }
 
 #[test]
@@ -628,7 +696,15 @@ fn test_bfs_order_reverse_star() {
 
     assert_eq!(events.len(), 4);
     // BFS starts from node 0 (no outgoing), then finds 1, 2, 3 as new roots
-    assert_eq!(events[0], breadth_first::IterEvent { root: 0, parent: 0, node: 0, distance: 0 });
+    assert_eq!(
+        events[0],
+        breadth_first::IterEvent {
+            root: 0,
+            parent: 0,
+            node: 0,
+            distance: 0
+        }
+    );
     assert_eq!(events[1].root, 1);
     assert_eq!(events[1].distance, 0);
     assert_eq!(events[2].root, 2);
@@ -665,9 +741,21 @@ fn test_from_roots_single_root() -> Result<()> {
     assert_eq!(
         events,
         vec![
-            breadth_first::IterFromRootsEvent { parent: 0, node: 0, distance: 0 },
-            breadth_first::IterFromRootsEvent { parent: 0, node: 1, distance: 1 },
-            breadth_first::IterFromRootsEvent { parent: 1, node: 2, distance: 2 },
+            breadth_first::IterFromRootsEvent {
+                parent: 0,
+                node: 0,
+                distance: 0
+            },
+            breadth_first::IterFromRootsEvent {
+                parent: 0,
+                node: 1,
+                distance: 1
+            },
+            breadth_first::IterFromRootsEvent {
+                parent: 1,
+                node: 2,
+                distance: 2
+            },
         ]
     );
     Ok(())
@@ -682,11 +770,39 @@ fn test_from_roots_two_roots() -> Result<()> {
 
     assert_eq!(events.len(), 4);
     // Roots first, at distance 0
-    assert_eq!(events[0], breadth_first::IterFromRootsEvent { parent: 0, node: 0, distance: 0 });
-    assert_eq!(events[1], breadth_first::IterFromRootsEvent { parent: 1, node: 1, distance: 0 });
+    assert_eq!(
+        events[0],
+        breadth_first::IterFromRootsEvent {
+            parent: 0,
+            node: 0,
+            distance: 0
+        }
+    );
+    assert_eq!(
+        events[1],
+        breadth_first::IterFromRootsEvent {
+            parent: 1,
+            node: 1,
+            distance: 0
+        }
+    );
     // Then their successors at distance 1
-    assert_eq!(events[2], breadth_first::IterFromRootsEvent { parent: 0, node: 2, distance: 1 });
-    assert_eq!(events[3], breadth_first::IterFromRootsEvent { parent: 1, node: 3, distance: 1 });
+    assert_eq!(
+        events[2],
+        breadth_first::IterFromRootsEvent {
+            parent: 0,
+            node: 2,
+            distance: 1
+        }
+    );
+    assert_eq!(
+        events[3],
+        breadth_first::IterFromRootsEvent {
+            parent: 1,
+            node: 3,
+            distance: 1
+        }
+    );
     Ok(())
 }
 
@@ -718,11 +834,32 @@ fn test_from_roots_root_reachable_from_other_root() -> Result<()> {
 
     assert_eq!(events.len(), 3);
     // Both roots at distance 0
-    assert_eq!(events[0], breadth_first::IterFromRootsEvent { parent: 0, node: 0, distance: 0 });
-    assert_eq!(events[1], breadth_first::IterFromRootsEvent { parent: 1, node: 1, distance: 0 });
+    assert_eq!(
+        events[0],
+        breadth_first::IterFromRootsEvent {
+            parent: 0,
+            node: 0,
+            distance: 0
+        }
+    );
+    assert_eq!(
+        events[1],
+        breadth_first::IterFromRootsEvent {
+            parent: 1,
+            node: 1,
+            distance: 0
+        }
+    );
     // Node 2 at distance 1 (successor of 1, but 1 is already visited as root
     // so it won't be re-discovered from 0)
-    assert_eq!(events[2], breadth_first::IterFromRootsEvent { parent: 1, node: 2, distance: 1 });
+    assert_eq!(
+        events[2],
+        breadth_first::IterFromRootsEvent {
+            parent: 1,
+            node: 2,
+            distance: 1
+        }
+    );
     Ok(())
 }
 
@@ -807,7 +944,14 @@ fn test_from_roots_single_node_no_arcs() -> Result<()> {
     let events: Vec<_> = visit.iter_from_roots([0])?.collect();
 
     assert_eq!(events.len(), 1);
-    assert_eq!(events[0], breadth_first::IterFromRootsEvent { parent: 0, node: 0, distance: 0 });
+    assert_eq!(
+        events[0],
+        breadth_first::IterFromRootsEvent {
+            parent: 0,
+            node: 0,
+            distance: 0
+        }
+    );
     Ok(())
 }
 
@@ -829,10 +973,18 @@ fn test_from_roots_three_roots_deeper_graph() -> Result<()> {
     assert_eq!(events[2].node, 2);
     assert_eq!(events[2].distance, 0);
     // Distance 1
-    let dist1: Vec<_> = events.iter().filter(|e| e.distance == 1).map(|e| e.node).collect();
+    let dist1: Vec<_> = events
+        .iter()
+        .filter(|e| e.distance == 1)
+        .map(|e| e.node)
+        .collect();
     assert_eq!(dist1, vec![3, 4, 5]);
     // Distance 2
-    let dist2: Vec<_> = events.iter().filter(|e| e.distance == 2).map(|e| e.node).collect();
+    let dist2: Vec<_> = events
+        .iter()
+        .filter(|e| e.distance == 2)
+        .map(|e| e.node)
+        .collect();
     assert_eq!(dist2, vec![6, 7]);
     Ok(())
 }
@@ -841,8 +993,16 @@ fn test_from_roots_three_roots_deeper_graph() -> Result<()> {
 fn test_from_roots_distances_vs_callback() -> Result<()> {
     // Verify BfsOrderFromRoots gives the same distances as the callback-based visit.
     let graph = VecGraph::from_arcs([
-        (0, 1), (0, 2), (1, 3), (1, 4), (2, 4), (2, 5),
-        (3, 6), (4, 6), (5, 7), (6, 7),
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (1, 4),
+        (2, 4),
+        (2, 5),
+        (3, 6),
+        (4, 6),
+        (5, 7),
+        (6, 7),
     ]);
 
     // Callback-based distances
@@ -873,8 +1033,16 @@ fn test_bfs_order_distances_vs_callback() -> Result<()> {
     // Verify BfsOrder gives the same distances as the callback-based visit
     // when visiting all nodes.
     let graph = VecGraph::from_arcs([
-        (0, 1), (0, 2), (1, 3), (1, 4), (2, 4), (2, 5),
-        (3, 6), (4, 6), (5, 7), (6, 7),
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (1, 4),
+        (2, 4),
+        (2, 5),
+        (3, 6),
+        (4, 6),
+        (5, 7),
+        (6, 7),
     ]);
 
     // Callback-based distances (visit from all roots)
