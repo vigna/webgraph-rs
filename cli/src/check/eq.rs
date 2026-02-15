@@ -16,7 +16,7 @@ use webgraph::traits::{SequentialLabeling, graph};
 use webgraph::utils::MmapHelper;
 
 #[derive(Args, Debug)]
-#[command(name = "eq", about = "Checks that two graphs have the same contents, listed in the same order. Useful to check equality when two graph are compressed with different parameters or with different algorithms (think about reference selection).", long_about = None)]
+#[command(name = "eq", about = "Checks that two graphs have the same contents, listed in the same order. Useful to check equality when two graphs are compressed with different parameters or with different algorithms (think about reference selection).", long_about = None)]
 pub struct CliArgs {
     /// The basename of the first graph.
     pub first_basename: PathBuf,

@@ -21,11 +21,11 @@ use webgraph::utils::MmapHelper;
 #[command(name = "ascii", about = "Dumps a graph in ASCII format: a line for each node with successors separated by tabs.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => ascii_convert::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -38,7 +38,7 @@ pub fn ascii_convert<E: Endianness + 'static>(global_args: GlobalArgs, args: Cli
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.basename)
         .endianness::<E>()
         .load()?;
 

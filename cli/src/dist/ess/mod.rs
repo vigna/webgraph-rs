@@ -63,7 +63,7 @@ pub enum LevelArg {
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     ensure!(
         args.symmetric || args.transposed.is_some(),
-        "You have to either pass --transposed with with the basename of the transposed graph or --symm if the graph is symmetric."
+        "You have to either pass --transposed with the basename of the transposed graph or --symm if the graph is symmetric."
     );
     ensure!(
         !(args.symmetric && args.transposed.is_some()),

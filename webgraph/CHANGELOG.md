@@ -29,7 +29,13 @@
 - `BfsOrder` and `BfsOrderFromRoots` where reporting wrong distances,
   and reporting roots multiple times.
 
-- `JavaPermutation::set_unchecked` has not properly handling endianness.
+- `JavaPermutation::set_unchecked` was not properly handling endianness.
+
+### Improved
+
+- The `'static` bound on the `MapWhile`, `Scan` and `FilterMap` implementations
+  of `NodeLabelsLender` has been removed thanks to support from the `Lender`
+  crate.
 
 ## [0.5.0] - 2025-11-28
 

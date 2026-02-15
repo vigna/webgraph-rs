@@ -62,7 +62,7 @@ impl Centralities {
 #[command(
     name = "hyperball",
     about = "Use hyperball to compute centralities.",
-    long_about = ""
+    long_about = None
 )]
 pub struct CliArgs {
     /// The basename of the graph.

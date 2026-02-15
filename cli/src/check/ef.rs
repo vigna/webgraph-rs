@@ -22,14 +22,14 @@ use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "ef", about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]
+#[command(name = "ef", about = "Checks that the \".ef\" file (and \".offsets\" if present) is consistent with the graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => check_ef::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -43,7 +43,7 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let properties_path = args.src.with_extension(PROPERTIES_EXTENSION);
+    let properties_path = args.basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
             "Could not load properties file: {}",
@@ -54,9 +54,9 @@ where
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Creates the offsets file
-    let of_file_path = args.src.with_extension(OFFSETS_EXTENSION);
+    let of_file_path = args.basename.with_extension(OFFSETS_EXTENSION);
 
-    let ef = unsafe { EF::mmap(args.src.with_extension(EF_EXTENSION), Flags::default()) }?;
+    let ef = unsafe { EF::mmap(args.basename.with_extension(EF_EXTENSION), Flags::default()) }?;
     let ef = ef.uncase();
 
     let mut pl = ProgressLogger::default();
@@ -96,7 +96,7 @@ where
         pl.log_interval(duration);
     }
 
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
     // otherwise directly read the graph

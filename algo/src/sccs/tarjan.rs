@@ -85,7 +85,6 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
                         // Set the component index of nodes in the component
                         // stack with higher link than the current node
                         while let Some(comp_node) = component_stack.pop() {
-                            // TODO: ugly
                             if high_link[node] < high_link[comp_node] {
                                 component_stack.push(comp_node);
                                 break;

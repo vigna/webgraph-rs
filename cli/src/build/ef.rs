@@ -24,7 +24,7 @@ use webgraph::prelude::*;
 #[command(name = "ef", about = "Builds the Elias-Fano representation of the offsets of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph (or labels).
-    pub src: PathBuf,
+    pub basename: PathBuf,
     /// The number of nodes of the graph. When passed, we don't need to load the
     /// ".properties" file. This allows to build Elias-Fano from the offsets of
     /// something that might not be a graph but that has offsets, like labels.
@@ -44,7 +44,7 @@ fn file_len_bits(path: &Path) -> Result<usize> {
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    let ef_path = args.src.with_extension(EF_EXTENSION);
+    let ef_path = args.basename.with_extension(EF_EXTENSION);
     // check that ef_path is writable, this is the only portable way I found
     // to check that the file is writable.
     if ef_path.exists() && ef_path.metadata()?.permissions().readonly() {
@@ -54,7 +54,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         ));
     }
 
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => build_elias_fano::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -76,7 +76,7 @@ where
         pl.log_interval(*duration);
     }
 
-    let basename = args.src.clone();
+    let basename = args.basename.clone();
 
     // When number_of_nodes is provided and label offsets exist, use them
     // instead of graph offsets.
@@ -160,7 +160,7 @@ pub fn build_elias_fano_from_graph(
     efb: &mut EliasFanoBuilder,
 ) -> Result<()> {
     info!("The offsets file does not exists, reading the graph to build Elias-Fano");
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => build_elias_fano_from_graph_with_endianness::<BE>(args, pl, efb),
         #[cfg(feature = "le_bins")]
@@ -203,10 +203,10 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
         .load()
-        .with_context(|| format!("Could not load graph at {}", args.src.display()))?;
+        .with_context(|| format!("Could not load graph at {}", args.basename.display()))?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Building EliasFano...");
@@ -247,7 +247,7 @@ pub fn serialize_elias_fano(
     }
     pl.start("Writing to disk...");
 
-    let ef_path = args.src.with_extension(EF_EXTENSION);
+    let ef_path = args.basename.with_extension(EF_EXTENSION);
     info!("Creating Elias-Fano at '{}'", ef_path.display());
     let mut ef_file = BufWriter::new(
         File::create(&ef_path)

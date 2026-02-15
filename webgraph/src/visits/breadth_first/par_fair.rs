@@ -205,19 +205,17 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
                                 .successors(node)
                                 .into_iter()
                                 .try_for_each(|succ| {
-                                    // TODO: confusing
-                                    let node = succ;
                                     if filter(
                                         init,
                                         FilterArgsNoPred {
-                                            node,
+                                            node: succ,
                                             distance: distance_plus_one,
                                         },
                                     ) {
                                         if !self.visited.swap(succ, true, Ordering::Relaxed) {
                                             next_frontier.push(succ);
                                         } else {
-                                            callback(init, EventNoPred::Revisit { node })?;
+                                            callback(init, EventNoPred::Revisit { node: succ })?;
                                         }
                                     }
 

@@ -17,7 +17,7 @@ use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name="comp", about = "Compose multiple permutations into a single one", long_about = None)]
+#[command(name = "comp", about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
     /// The filename of the resulting permutation in binary big-endian format.
     pub dst: PathBuf,
@@ -47,15 +47,14 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
             perm.push(p);
         }
         let mut merged = Vec::new();
-        // TODO: reduce the number of uncase
+        let len = perm[0].uncase().len();
         ensure!(
-            perm.iter()
-                .all(|p| p.uncase().len() == perm[0].uncase().len()),
+            perm.iter().all(|p| p.uncase().len() == len),
             "All permutations must have the same length"
         );
 
         pl.start("Combining permutations...");
-        for i in 0..perm[0].uncase().len() {
+        for i in 0..len {
             let mut v = i;
             for p in &perm {
                 v = p.uncase()[v];

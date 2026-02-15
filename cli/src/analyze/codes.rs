@@ -17,7 +17,7 @@ use webgraph::prelude::*;
 #[command(name = "codes", about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -32,7 +32,7 @@ pub struct CliArgs {
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => optimize_codes::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -76,17 +76,17 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     let mut stats = Default::default();
-    let has_ef = std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file());
+    let has_ef = std::fs::metadata(args.basename.with_extension("ef")).is_ok_and(|x| x.is_file());
 
     // Load the compression flags from the properties file so we can compare them
-    let (_, _, comp_flags) = parse_properties::<E>(args.src.with_extension(PROPERTIES_EXTENSION))?;
+    let (_, _, comp_flags) = parse_properties::<E>(args.basename.with_extension(PROPERTIES_EXTENSION))?;
 
     if has_ef {
         log::info!(
             "Analyzing codes in parallel using {} threads",
             args.num_threads.num_threads
         );
-        let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.basename).endianness::<E>().load()?;
 
         let mut pl = concurrent_progress_logger![item_name = "node"];
         pl.display_memory(true)
@@ -137,10 +137,10 @@ where
         pl.done();
     } else {
         if args.num_threads.num_threads != 1 {
-            log::info!(SEQ_PROC_WARN![], args.src.display());
+            log::info!(SEQ_PROC_WARN![], args.basename.display());
         }
 
-        let graph = BvGraphSeq::with_basename(args.src)
+        let graph = BvGraphSeq::with_basename(args.basename)
             .endianness::<E>()
             .load()?;
 

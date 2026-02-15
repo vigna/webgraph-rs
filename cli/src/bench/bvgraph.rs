@@ -23,7 +23,7 @@ use webgraph::prelude::*;
 #[command(name = "bvgraph", about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     /// Perform a random-access test on this number of randomly selected nodes.
     #[arg(short, long)]
@@ -56,7 +56,7 @@ pub struct CliArgs {
 }
 
 pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => match args._static {
             true => bench_webgraph::<BE, Static>(args),
@@ -132,9 +132,9 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     if args.check {
-        let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
+        let graph = BvGraph::with_basename(&args.basename).endianness::<E>().load()?;
 
-        let seq_graph = BvGraphSeq::with_basename(&args.src)
+        let seq_graph = BvGraphSeq::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 
@@ -148,7 +148,7 @@ where
             assert_eq!(succ.collect_vec(), seq_succ.collect_vec());
         }];
     } else if args.degrees {
-        let seq_graph = BvGraphSeq::with_basename(&args.src)
+        let seq_graph = BvGraphSeq::with_basename(&args.basename)
             .endianness::<E>()
             .load()?;
 
@@ -175,7 +175,7 @@ where
             (Some(samples), true) => {
                 if args.slice {
                     bench_random(
-                        BvGraph::with_basename(&args.src)
+                        BvGraph::with_basename(&args.basename)
                             .endianness::<E>()
                             .dispatch::<Dynamic>()
                             .mode::<Mmap>()
@@ -188,7 +188,7 @@ where
                     );
                 } else {
                     bench_random(
-                        BvGraph::with_basename(&args.src)
+                        BvGraph::with_basename(&args.basename)
                             .endianness::<E>()
                             .dispatch::<Dynamic>()
                             .mode::<Mmap>()
@@ -203,7 +203,7 @@ where
             (Some(samples), false) => {
                 if args.slice {
                     bench_random(
-                        BvGraph::with_basename(&args.src)
+                        BvGraph::with_basename(&args.basename)
                             .endianness::<E>()
                             .dispatch::<Static>()
                             .mode::<Mmap>()
@@ -216,7 +216,7 @@ where
                     );
                 } else {
                     bench_random(
-                        BvGraph::with_basename(&args.src)
+                        BvGraph::with_basename(&args.basename)
                             .endianness::<E>()
                             .dispatch::<Static>()
                             .mode::<Mmap>()
@@ -230,7 +230,7 @@ where
             }
             (None, true) => {
                 bench_seq(
-                    BvGraphSeq::with_basename(&args.src)
+                    BvGraphSeq::with_basename(&args.basename)
                         .endianness::<E>()
                         .dispatch::<Dynamic>()
                         .mode::<Mmap>()
@@ -241,7 +241,7 @@ where
             }
             (None, false) => {
                 bench_seq(
-                    BvGraphSeq::with_basename(&args.src)
+                    BvGraphSeq::with_basename(&args.basename)
                         .endianness::<E>()
                         .dispatch::<Static>()
                         .mode::<Mmap>()

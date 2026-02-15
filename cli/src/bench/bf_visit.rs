@@ -21,7 +21,7 @@ use webgraph::prelude::*;
 #[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
     /// Static dispatch (default BvGraph parameters).
     #[arg(short = 'S', long = "static")]
     pub _static: bool,
@@ -35,10 +35,10 @@ pub struct CliArgs {
 }
 
 pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    let config = BvGraph::with_basename(&args.src);
+    let config = BvGraph::with_basename(&args.basename);
 
     for _ in 0..args.repeats {
-        match (get_endianness(&args.src)?.as_str(), args.mmap) {
+        match (get_endianness(&args.basename)?.as_str(), args.mmap) {
             #[cfg(feature = "be_bins")]
             (BE::NAME, true) => match args._static {
                 true => visit(

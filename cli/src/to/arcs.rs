@@ -19,10 +19,10 @@ use webgraph::traits::SequentialLabeling;
 use webgraph::utils::MmapHelper;
 
 #[derive(Parser, Debug)]
-#[command(name = "arcs", about = "Writes to standard out a graph as a list of arcs to stdout. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The `.nodes` file created by the `from arcs` command is compatible with `--labels`.", long_about = None)]
+#[command(name = "arcs", about = "Writes to standard out a graph as a list of arcs to stdout. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The \".nodes\" file created by the \"from arcs\" command is compatible with \"--labels\".", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     #[arg(long, default_value_t = '\t')]
     /// The separator between source and target nodes.
@@ -36,7 +36,7 @@ pub struct CliArgs {
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => to_csv::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -49,7 +49,7 @@ pub fn to_csv<E: Endianness + 'static>(global_args: GlobalArgs, args: CliArgs) -
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
-    let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.src)
+    let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(args.basename)
         .endianness::<E>()
         .load()?;
     let num_nodes = graph.num_nodes();

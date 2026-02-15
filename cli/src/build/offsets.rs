@@ -17,11 +17,11 @@ use webgraph::prelude::*;
 #[command(name = "offsets", about = "Builds the offsets file of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => build_offsets::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -36,10 +36,10 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     // Creates the sequential iterator over the graph
-    let seq_graph = BvGraphSeq::with_basename(&args.src)
+    let seq_graph = BvGraphSeq::with_basename(&args.basename)
         .endianness::<E>()
         .load()?;
-    let offsets = args.src.with_extension(OFFSETS_EXTENSION);
+    let offsets = args.basename.with_extension(OFFSETS_EXTENSION);
     // create a bit writer on the file
     let mut writer = buf_bit_writer::from_path::<BE, usize>(&offsets)
         .with_context(|| format!("Could not create {}", offsets.display()))?;

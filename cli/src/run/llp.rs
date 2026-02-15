@@ -30,7 +30,7 @@ use tempfile::tempdir;
 #[command(name = "llp", about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     /// A filename for the LLP permutation in binary big-endian format. If not
     /// provided, we will compute the labels but not combine them into the final
@@ -142,7 +142,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         create_parent_dir(perm)?;
     }
 
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => llp::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -169,9 +169,9 @@ where
     // Load the graph in THP memory
     log::info!(
         "Loading graph {} in THP memory...",
-        args.src.to_string_lossy()
+        args.basename.to_string_lossy()
     );
-    let graph = BvGraph::with_basename(&args.src)
+    let graph = BvGraph::with_basename(&args.basename)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
@@ -181,13 +181,13 @@ where
     log::info!("Loading DCF in THP memory...");
     let deg_cumul = unsafe {
         DCF::load_mmap(
-            args.src.with_extension(DEG_CUMUL_EXTENSION),
+            args.basename.with_extension(DEG_CUMUL_EXTENSION),
             Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
         )
         .with_context(|| {
             format!(
                 "Could not load degree cumulative function for basename {}",
-                args.src.display()
+                args.basename.display()
             )
         })
     }?;
