@@ -7,21 +7,21 @@
 
 use rayon::prelude::*;
 use std::{
-    cell::UnsafeCell,
+    cell::Cell,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 use super::RAYON_MIN_LEN;
 
 pub(crate) struct LabelStore {
-    labels: Box<[UnsafeCell<usize>]>,
+    labels: Box<[Cell<usize>]>,
     volumes: Box<[AtomicUsize]>,
 }
 
 impl LabelStore {
     pub(crate) fn new(n: usize) -> Self {
         let mut labels = Vec::with_capacity(n);
-        labels.extend((0..n).map(|_| UnsafeCell::new(0)));
+        labels.extend((0..n).map(|_| Cell::new(0)));
         let mut volumes = Vec::with_capacity(n);
         volumes.extend((0..n).map(|_| AtomicUsize::new(0)));
 
@@ -45,7 +45,7 @@ impl LabelStore {
 
     #[inline(always)]
     pub(crate) fn label(&self, node: usize) -> usize {
-        unsafe { *self.labels[node].get() }
+        self.labels[node].get()
     }
 
     #[inline(always)]
@@ -56,7 +56,7 @@ impl LabelStore {
     /// Updates the label of a node.
     #[inline(always)]
     pub(crate) fn update(&self, node: usize, new_label: usize) {
-        let old_label = unsafe { core::mem::replace(&mut *self.labels[node].get(), new_label) };
+        let old_label = self.labels[node].replace(new_label);
         self.volumes[old_label].fetch_sub(1, Ordering::Relaxed);
         self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
     }
@@ -65,7 +65,7 @@ impl LabelStore {
         unsafe {
             (
                 // This is just a transparent wrapper
-                std::mem::transmute::<&mut [UnsafeCell<usize>], &mut [usize]>(&mut self.labels),
+                std::mem::transmute::<&mut [Cell<usize>], &mut [usize]>(&mut self.labels),
                 // Transmuting &mut from atomic to non-atomic is sound
                 std::mem::transmute::<&mut [AtomicUsize], &mut [usize]>(&mut self.volumes),
             )
