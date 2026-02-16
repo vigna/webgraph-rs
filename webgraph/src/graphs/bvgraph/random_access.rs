@@ -489,6 +489,7 @@ impl<D: Decode> Iterator for Succ<D> {
         Some(min)
     }
 
+    #[inline(never)]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let mut remaining = n;
         while remaining > 0 && self.size > 0 {

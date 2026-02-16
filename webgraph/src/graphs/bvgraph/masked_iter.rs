@@ -88,6 +88,7 @@ impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
         Some(next)
     }
 
+    #[inline(never)]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let mut remaining = n;
         loop {
