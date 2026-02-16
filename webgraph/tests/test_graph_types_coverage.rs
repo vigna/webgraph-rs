@@ -109,13 +109,8 @@ fn test_vec_graph_num_arcs_hint() -> Result<()> {
 #[test]
 fn test_vec_graph_into_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let mut count = 0;
-    for_!((node, succ) in &g {
-        let _ = node;
-        let _ = succ.count();
-        count += 1;
-    });
-    assert_eq!(count, 3);
+    let copy = VecGraph::from_lender(&g);
+    graph::eq(&g, &copy)?;
     Ok(())
 }
 
@@ -164,23 +159,19 @@ fn test_labeled_vec_graph_default() {
 }
 
 #[test]
-fn test_labeled_vec_graph_shrink_to_fit() {
-    let mut g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30)]);
+fn test_labeled_vec_graph_shrink_to_fit() -> Result<()> {
+    let orig = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30)]);
+    let mut g = LabeledVecGraph::from_lender(orig.iter());
     g.shrink_to_fit();
-    assert_eq!(g.num_nodes(), 3);
-    assert_eq!(RandomAccessLabeling::num_arcs(&g), 3);
+    graph::eq_labeled(&orig, &g)?;
+    Ok(())
 }
 
 #[test]
 fn test_labeled_vec_graph_into_lender() -> Result<()> {
     let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    let mut count = 0;
-    for_!((node, succ) in &g {
-        let _ = node;
-        let _ = succ.count();
-        count += 1;
-    });
-    assert_eq!(count, 2);
+    let copy = LabeledVecGraph::from_lender(&g);
+    graph::eq_labeled(&g, &copy)?;
     Ok(())
 }
 
@@ -197,12 +188,8 @@ fn test_labeled_graph_has_arc() -> Result<()> {
 
 #[test]
 fn test_labeled_vec_graph_iter_from() {
-    let g = LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((0, 2), 20),
-        ((1, 3), 30),
-        ((2, 3), 40),
-    ]);
+    let g =
+        LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 3), 30), ((2, 3), 40)]);
     let mut iter = g.iter_from(1);
     let (node, succ) = iter.next().unwrap();
     assert_eq!(node, 1);
@@ -324,12 +311,8 @@ fn test_btree_graph_num_arcs_hint() {
 #[test]
 fn test_btree_graph_into_lender() -> Result<()> {
     let g = BTreeGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let mut count = 0;
-    for_!((_node, succ) in &g {
-        let _ = succ.count();
-        count += 1;
-    });
-    assert_eq!(count, 3);
+    let copy = VecGraph::from_lender(&g);
+    graph::eq(&g, &copy)?;
     Ok(())
 }
 
@@ -416,12 +399,8 @@ fn test_labeled_btree_graph_num_arcs_hint() {
 #[test]
 fn test_labeled_btree_graph_into_lender() -> Result<()> {
     let g = LabeledBTreeGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    let mut count = 0;
-    for_!((_node, succ) in &g {
-        let _ = succ.count();
-        count += 1;
-    });
-    assert_eq!(count, 2);
+    let copy = LabeledVecGraph::from_lender(&g);
+    graph::eq_labeled(&g, &copy)?;
     Ok(())
 }
 
@@ -509,8 +488,7 @@ fn test_csr_graph_accessors() -> Result<()> {
 fn test_csr_graph_from_sorted_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0)]);
     let csr = CsrGraph::from_sorted_lender(g.iter());
-    assert_eq!(csr.num_nodes(), 3);
-    assert_eq!(RandomAccessLabeling::outdegree(&csr, 0), 2);
+    graph::eq(&g, &csr)?;
     Ok(())
 }
 
@@ -518,8 +496,7 @@ fn test_csr_graph_from_sorted_lender() -> Result<()> {
 fn test_csr_sorted_graph_from_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0), (2, 1)]);
     let csr = CsrSortedGraph::from_lender(g.iter());
-    assert_eq!(csr.num_nodes(), 3);
-    assert_eq!(csr.successors(0).collect::<Vec<_>>(), vec![1, 2]);
+    graph::eq(&g, &csr)?;
     Ok(())
 }
 
@@ -534,12 +511,8 @@ fn test_csr_graph_num_arcs_hint() {
 fn test_csr_graph_into_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let csr = CsrGraph::from_seq_graph(&g);
-    let mut count = 0;
-    for_!((_node, succ) in &csr {
-        let _ = succ.count();
-        count += 1;
-    });
-    assert_eq!(count, 3);
+    let copy = VecGraph::from_lender(&csr);
+    graph::eq(&g, &copy)?;
     Ok(())
 }
 
@@ -547,11 +520,7 @@ fn test_csr_graph_into_lender() -> Result<()> {
 fn test_csr_sorted_graph_into_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let csr = CsrSortedGraph::from_seq_graph(&g);
-    let mut count = 0;
-    for_!((_node, succ) in &csr {
-        let _ = succ.count();
-        count += 1;
-    });
-    assert_eq!(count, 3);
+    let copy = VecGraph::from_lender(&csr);
+    graph::eq(&g, &copy)?;
     Ok(())
 }

@@ -11,14 +11,52 @@ use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::*;
 use webgraph::visits::Sequential;
 
+/// Canonical test graph (8 nodes, 11 arcs).
+///
+/// ```text
+///   0 ──→ 1 ──→ 3 ──→ 6 ──→ 2
+///   │     │           ↑     ↑ │
+///   │     ├──→ 4 ─────┘     │ │
+///   │     └──→ 5 ────→ 7    │ │
+///   │              │         │ │
+///   └──→ 2 ──→ 4  └─→ 6    │ │
+///        ↑                   │ │
+///        └───────────────────┘ │
+///              (cycle: 6→2)    │
+/// ```
+///
+/// - Outdegree 0: node 7 (sink)
+/// - Outdegree 1: nodes 2, 3, 4, 6
+/// - Outdegree 2: nodes 0, 5
+/// - Outdegree 3: node 1
+/// - Indegree 0: node 0 (source)
+/// - Indegree 1: nodes 1, 3, 5, 7
+/// - Indegree 2: nodes 2, 4
+/// - Indegree 3: node 6
+/// - Cycle: 2 → 4 → 6 → 2
+fn test_graph() -> VecGraph {
+    VecGraph::from_arcs([
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (1, 4),
+        (1, 5),
+        (2, 4),
+        (3, 6),
+        (4, 6),
+        (5, 6),
+        (5, 7),
+        (6, 2),
+    ])
+}
+
 // ── DFS SeqNoPred ──
 
 #[test]
 fn test_dfs_previsit() -> Result<()> {
     use no_break::NoBreak;
     use webgraph::visits::depth_first;
-    // Simple chain: 0->1->2->3
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+    let g = test_graph();
     let mut visited = vec![];
     depth_first::SeqNoPred::new(&g)
         .visit([0], |event| {
@@ -28,7 +66,8 @@ fn test_dfs_previsit() -> Result<()> {
             std::ops::ControlFlow::Continue(())
         })
         .continue_value_no_break();
-    assert_eq!(visited, vec![0, 1, 2, 3]);
+    assert_eq!(visited.len(), 8);
+    assert_eq!(visited[0], 0);
     Ok(())
 }
 
@@ -182,8 +221,7 @@ fn test_dfs_seq_no_pred_all_events() -> Result<()> {
     use std::ops::ControlFlow::Continue;
     use webgraph::visits::{Sequential, depth_first};
 
-    // 0->1->2->0 (cycle)
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let graph = test_graph();
     let mut visit = depth_first::SeqNoPred::new(&graph);
 
     let mut previsits = Vec::new();
@@ -201,10 +239,10 @@ fn test_dfs_seq_no_pred_all_events() -> Result<()> {
         })
         .continue_value_no_break();
 
-    assert_eq!(previsits.len(), 3);
+    assert_eq!(previsits.len(), 8);
     assert!(had_done);
-    // Node 0 is revisited from 2->0
-    assert_eq!(revisits, vec![0]);
+    // Revisits occur from the cycle (6→2) and convergence (multiple paths to 4 and 6)
+    assert!(!revisits.is_empty());
     Ok(())
 }
 
@@ -232,8 +270,7 @@ fn test_dfs_order_disconnected() -> Result<()> {
 fn test_dfs_pred_cycle() -> Result<()> {
     use no_break::NoBreak;
     use webgraph::visits::depth_first;
-    // Cycle: 0->1->2->0
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let g = test_graph();
     let mut previsited = vec![];
     let mut revisited = vec![];
     depth_first::SeqPred::new(&g)
@@ -246,9 +283,9 @@ fn test_dfs_pred_cycle() -> Result<()> {
             std::ops::ControlFlow::Continue(())
         })
         .continue_value_no_break();
-    assert_eq!(previsited.len(), 3);
-    // Node 0 gets revisited when we visit the back edge 2->0
-    assert!(revisited.contains(&0));
+    assert_eq!(previsited.len(), 8);
+    // Revisits from the cycle (6→2) and convergence (multiple paths to 4, 6)
+    assert!(!revisited.is_empty());
     Ok(())
 }
 
@@ -256,8 +293,7 @@ fn test_dfs_pred_cycle() -> Result<()> {
 fn test_dfs_postvisit() -> Result<()> {
     use no_break::NoBreak;
     use webgraph::visits::depth_first;
-    // Chain: 0->1->2
-    let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
+    let g = test_graph();
     let mut postvisited = vec![];
     depth_first::SeqPred::new(&g)
         .visit(0..g.num_nodes(), |event| {
@@ -267,8 +303,11 @@ fn test_dfs_postvisit() -> Result<()> {
             std::ops::ControlFlow::Continue(())
         })
         .continue_value_no_break();
-    // Postvisit order should be reverse: 2, 1, 0
-    assert_eq!(postvisited, vec![2, 1, 0]);
+    assert_eq!(postvisited.len(), 8);
+    // Sink (7) must be postvisited before source (0)
+    let pos_7 = postvisited.iter().position(|&n| n == 7).unwrap();
+    let pos_0 = postvisited.iter().position(|&n| n == 0).unwrap();
+    assert!(pos_7 < pos_0);
     Ok(())
 }
 
@@ -399,7 +438,7 @@ fn test_dfs_with_callbacks() {
     use std::ops::ControlFlow::Continue;
     use webgraph::visits::{Sequential, depth_first};
 
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+    let graph = test_graph();
     let mut visit = depth_first::SeqPred::new(&graph);
 
     let mut preorder = vec![];
@@ -414,8 +453,8 @@ fn test_dfs_with_callbacks() {
             Continue(())
         })
         .continue_value_no_break();
-    assert_eq!(preorder.len(), 4);
-    assert_eq!(postorder.len(), 4);
+    assert_eq!(preorder.len(), 8);
+    assert_eq!(postorder.len(), 8);
 }
 
 // ── DFS SeqPath ──
@@ -425,8 +464,7 @@ fn test_dfs_path_on_stack() -> Result<()> {
     use std::ops::ControlFlow::{Break, Continue};
     use webgraph::visits::{Sequential, depth_first};
 
-    // 0->1->2->0 (cycle)
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let graph = test_graph();
     let mut visit = depth_first::SeqPath::new(&graph);
     let mut found_cycle = false;
     let result = visit.visit([0], |event| {
@@ -449,8 +487,7 @@ fn test_dfs_seq_path_postvisit_and_done() -> Result<()> {
     use std::ops::ControlFlow::Continue;
     use webgraph::visits::{Sequential, depth_first};
 
-    // 0->1->2, test that we get all events including Done
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
+    let graph = test_graph();
     let mut visit = depth_first::SeqPath::new(&graph);
     let mut got_done = false;
     let mut postvisit_order = vec![];
@@ -470,7 +507,7 @@ fn test_dfs_seq_path_postvisit_and_done() -> Result<()> {
         .continue_value_no_break();
 
     assert!(got_done);
-    assert_eq!(postvisit_order, vec![2, 1, 0]);
+    assert_eq!(postvisit_order.len(), 8);
     Ok(())
 }
 
@@ -538,18 +575,15 @@ fn test_dfs_order_deep_path() {
 #[test]
 fn test_bfs_order_distances() -> Result<()> {
     use webgraph::visits::breadth_first;
-    // Star graph: 0->1, 0->2, 0->3, 1->4, 2->4
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (0, 3), (1, 4), (2, 4)]);
+    let g = test_graph();
     let events: Vec<_> = (&mut breadth_first::Seq::new(&g)).into_iter().collect();
 
-    // Root node should have distance 0
-    assert_eq!(events[0].node, 0);
-    assert_eq!(events[0].distance, 0);
-
-    // Nodes 1,2,3 should have distance 1
-    for e in &events[1..4] {
-        assert_eq!(e.distance, 1);
+    assert_eq!(events.len(), 8);
+    let mut distances = vec![usize::MAX; 8];
+    for e in &events {
+        distances[e.node] = e.distance;
     }
+    assert_eq!(distances, vec![0, 1, 1, 2, 2, 2, 3, 3]);
     Ok(())
 }
 
@@ -579,7 +613,7 @@ fn test_bfs_disconnected() -> Result<()> {
 fn test_bfs_visit_callback() -> Result<()> {
     use no_break::NoBreak;
     use webgraph::visits::breadth_first;
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+    let g = test_graph();
     let mut distances = vec![usize::MAX; g.num_nodes()];
     breadth_first::Seq::new(&g)
         .visit([0], |event| {
@@ -589,22 +623,33 @@ fn test_bfs_visit_callback() -> Result<()> {
             std::ops::ControlFlow::Continue(())
         })
         .continue_value_no_break();
-    assert_eq!(distances, vec![0, 1, 2, 3]);
+    assert_eq!(distances, vec![0, 1, 1, 2, 2, 2, 3, 3]);
     Ok(())
 }
 
 #[test]
 fn test_bfs_into_iter_order() -> Result<()> {
     use webgraph::visits::breadth_first;
-    // Tree: 0->{1,2}, 1->{3}, 2->{4}
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 4)]);
+    let g = test_graph();
     let mut visit = breadth_first::Seq::new(&g);
-    let nodes: Vec<usize> = (&mut visit).into_iter().map(|e| e.node).collect();
-    // BFS order should visit level by level
-    assert_eq!(nodes[0], 0);
-    // Nodes 1 and 2 should be at distance 1
-    assert!(nodes[1..3].contains(&1));
-    assert!(nodes[1..3].contains(&2));
+    let events: Vec<_> = (&mut visit).into_iter().collect();
+    assert_eq!(events.len(), 8);
+    // BFS visits level by level: distances must be non-decreasing
+    for w in events.windows(2) {
+        assert!(w[0].distance <= w[1].distance);
+    }
+    // Check level membership
+    assert_eq!(events[0].node, 0);
+    assert_eq!(events[0].distance, 0);
+    for e in &events[1..3] {
+        assert_eq!(e.distance, 1);
+    }
+    for e in &events[3..6] {
+        assert_eq!(e.distance, 2);
+    }
+    for e in &events[6..8] {
+        assert_eq!(e.distance, 3);
+    }
     Ok(())
 }
 
@@ -664,8 +709,7 @@ fn test_bfs_seq_frontier_sizes() -> Result<()> {
     use std::ops::ControlFlow::Continue;
     use webgraph::visits::{Sequential, breadth_first};
 
-    // 0->{1,2}, 1->3, 2->3
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3)]);
+    let graph = test_graph();
     let mut visit = breadth_first::Seq::new(&graph);
     let mut frontier_sizes = vec![];
     visit
@@ -677,7 +721,7 @@ fn test_bfs_seq_frontier_sizes() -> Result<()> {
         })
         .continue_value_no_break();
 
-    assert_eq!(frontier_sizes, vec![(0, 1), (1, 2), (2, 1)]);
+    assert_eq!(frontier_sizes, vec![(0, 1), (1, 2), (2, 3), (3, 2)]);
     Ok(())
 }
 
@@ -710,8 +754,7 @@ fn test_bfs_seq_revisit() -> Result<()> {
     use std::ops::ControlFlow::Continue;
     use webgraph::visits::{Sequential, breadth_first};
 
-    // 0->1, 0->2, 1->2 (revisit at 2)
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+    let graph = test_graph();
     let mut visit = breadth_first::Seq::new(&graph);
     let mut revisited = vec![];
     visit
@@ -723,6 +766,10 @@ fn test_bfs_seq_revisit() -> Result<()> {
         })
         .continue_value_no_break();
 
+    // Convergence revisits (node 4 from 2→4, node 6 from 4→6 and 5→6)
+    // and cycle revisit (node 2 from 6→2)
+    assert!(revisited.contains(&4));
+    assert!(revisited.contains(&6));
     assert!(revisited.contains(&2));
     Ok(())
 }
@@ -949,9 +996,9 @@ fn test_bfs_par_fair_no_pred() -> Result<()> {
     use sync_cell_slice::SyncSlice;
     use webgraph::visits::{Parallel, breadth_first};
 
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+    let graph = test_graph();
     let mut visit = breadth_first::ParFairNoPred::new(&graph);
-    let mut d = [0_usize; 4];
+    let mut d = [0_usize; 8];
     let d_sync = d.as_sync_slice();
     visit
         .par_visit([0], |event| {
@@ -962,7 +1009,7 @@ fn test_bfs_par_fair_no_pred() -> Result<()> {
         })
         .continue_value_no_break();
 
-    assert_eq!(d, [0, 1, 2, 3]);
+    assert_eq!(d, [0, 1, 1, 2, 2, 2, 3, 3]);
     Ok(())
 }
 
@@ -1009,9 +1056,9 @@ fn test_bfs_par_fair_with_granularity() -> Result<()> {
     use webgraph::utils::Granularity;
     use webgraph::visits::{Parallel, breadth_first};
 
-    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)]);
+    let graph = test_graph();
     let mut visit = breadth_first::ParFairNoPred::with_granularity(&graph, Granularity::Nodes(2));
-    let mut d = [0_usize; 5];
+    let mut d = [0_usize; 8];
     let d_sync = d.as_sync_slice();
     visit
         .par_visit([0], |event| {
@@ -1022,7 +1069,7 @@ fn test_bfs_par_fair_with_granularity() -> Result<()> {
         })
         .continue_value_no_break();
 
-    assert_eq!(d, [0, 1, 1, 2, 3]);
+    assert_eq!(d, [0, 1, 1, 2, 2, 2, 3, 3]);
     Ok(())
 }
 
@@ -1186,9 +1233,9 @@ fn test_bfs_par_fair_pred() -> Result<()> {
     use sync_cell_slice::SyncSlice;
     use webgraph::visits::{Parallel, breadth_first};
 
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+    let graph = test_graph();
     let mut visit = breadth_first::ParFairPred::new(&graph);
-    let mut d = [0_usize; 4];
+    let mut d = [0_usize; 8];
     let d_sync = d.as_sync_slice();
     visit
         .par_visit([0], |event| {
@@ -1199,7 +1246,7 @@ fn test_bfs_par_fair_pred() -> Result<()> {
         })
         .continue_value_no_break();
 
-    assert_eq!(d, [0, 1, 2, 3]);
+    assert_eq!(d, [0, 1, 1, 2, 2, 2, 3, 3]);
     Ok(())
 }
 
@@ -1350,9 +1397,9 @@ fn test_bfs_par_low_mem() -> Result<()> {
     use sync_cell_slice::SyncSlice;
     use webgraph::visits::{Parallel, breadth_first};
 
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3)]);
+    let graph = test_graph();
     let mut visit = breadth_first::ParLowMem::new(&graph);
-    let mut d = [0_usize; 4];
+    let mut d = [0_usize; 8];
     let d_sync = d.as_sync_slice();
     visit
         .par_visit([0], |event| {
@@ -1363,7 +1410,7 @@ fn test_bfs_par_low_mem() -> Result<()> {
         })
         .continue_value_no_break();
 
-    assert_eq!(d, [0, 1, 2, 3]);
+    assert_eq!(d, [0, 1, 1, 2, 2, 2, 3, 3]);
     Ok(())
 }
 

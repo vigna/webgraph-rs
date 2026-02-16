@@ -93,11 +93,7 @@ fn test_transpose_labeled() -> Result<()> {
         ((0, 2), ()),
         ((1, 2), ()),
     ]);
-    let t = transpose_labeled(
-        &g,
-        MemoryUsage::BatchSize(10),
-        DefaultBatchCodec::default(),
-    )?;
+    let t = transpose_labeled(&g, MemoryUsage::BatchSize(10), DefaultBatchCodec::default())?;
     assert_eq!(t.num_nodes(), 3);
     let mut iter = t.iter();
     while let Some((node, succ)) = iter.next() {
@@ -207,10 +203,11 @@ fn test_simplify_with_batch_size() -> Result<()> {
     let s = transform::simplify(&g, MemoryUsage::BatchSize(2))?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 4);
-    // Each node in a 4-cycle must have exactly 2 neighbors after simplification
-    for node in 0..4 {
-        assert_eq!(s.outdegree(node), 2);
-    }
+    // Each node in a 4-cycle has exactly 2 neighbors after simplification
+    assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 3]);
+    assert_eq!(s.successors(1).collect::<Vec<_>>(), vec![0, 2]);
+    assert_eq!(s.successors(2).collect::<Vec<_>>(), vec![1, 3]);
+    assert_eq!(s.successors(3).collect::<Vec<_>>(), vec![0, 2]);
     Ok(())
 }
 
