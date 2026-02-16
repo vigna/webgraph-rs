@@ -14,7 +14,7 @@ use epserde::deser::Owned;
 use lender::IntoLender;
 use std::path::PathBuf;
 
-use self::sequential::Iter;
+use self::sequential::NodeLabels;
 
 /// A random-access graph in the BV format.
 ///

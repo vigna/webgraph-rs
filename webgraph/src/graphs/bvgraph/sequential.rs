@@ -72,7 +72,7 @@ where
 impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     type Label = usize;
     type Lender<'a>
-        = Iter<F::Decoder<'a>>
+        = NodeLabels<F::Decoder<'a>>
     where
         Self: 'a;
 

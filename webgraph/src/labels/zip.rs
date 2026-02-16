@@ -69,9 +69,9 @@ impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct Iter<L, R>(L, R);
+pub struct NodeLabels<L, R>(L, R);
 
-impl<'succ, L, R> NodeLabelsLender<'succ> for Iter<L, R>
+impl<'succ, L, R> NodeLabelsLender<'succ> for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -80,7 +80,7 @@ where
     type IntoIterator = std::iter::Zip<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, R>>;
 }
 
-impl<'succ, L, R> Lending<'succ> for Iter<L, R>
+impl<'succ, L, R> Lending<'succ> for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -88,7 +88,7 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
-impl<L, R> Lender for Iter<L, R>
+impl<L, R> Lender for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -173,7 +173,7 @@ impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::
 {
 }
 
-unsafe impl<L, R> SortedLender for Iter<L, R>
+unsafe impl<L, R> SortedLender for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,

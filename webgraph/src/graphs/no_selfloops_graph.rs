@@ -73,25 +73,25 @@ impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Iter<I> {
+pub struct NodeLabels<I> {
     iter: I,
 }
 
 impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> NodeLabelsLender<'succ>
-    for Iter<I>
+    for NodeLabels<I>
 {
     type Label = usize;
     type IntoIterator = Succ<LenderIntoIter<'succ, I>>;
 }
 
 impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lending<'succ>
-    for Iter<I>
+    for NodeLabels<I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 unsafe impl<I: SortedLender + Lender + for<'next> NodeLabelsLender<'next, Label = usize>>
-    SortedLender for Iter<I>
+    SortedLender for NodeLabels<I>
 {
 }
 

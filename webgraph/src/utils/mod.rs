@@ -63,7 +63,7 @@ pub mod par_sort_iters;
 pub use par_sort_iters::ParSortIters;
 
 use crate::graphs::{
-    arc_list_graph::Iter,
+    arc_list_graph::NodeLabels,
     bvgraph::{Decode, Encode},
 };
 

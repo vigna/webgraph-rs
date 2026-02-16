@@ -78,20 +78,20 @@ pub struct Iter<'a, 'b, E, BR, D, O: Offsets> {
 }
 
 impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
+    NodeLabelsLender<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
     type IntoIterator = SeqLabels<'succ, E, BR, D>;
 }
 
 impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    Lending<'succ> for Iter<'_, '_, E, BR, D, O>
+    Lending<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets> Lender
-    for Iter<'_, '_, E, BR, D, O>
+    for NodeLabels<'_, '_, E, BR, D, O>
 {
     check_covariance!();
 

@@ -348,7 +348,7 @@ fn test_split_iters_into_labeled_lenders() -> Result<()> {
 
     let split = SplitIters::new(boundaries, iters);
     // Convert to Iter lenders via From impl for labeled pairs
-    let lenders: Vec<webgraph::graphs::arc_list_graph::Iter<(), _>> = split.into();
+    let lenders: Vec<webgraph::graphs::arc_list_graph::NodeLabels<(), _>> = split.into();
     assert_eq!(lenders.len(), 2);
 
     // Verify the lenders yield the correct data

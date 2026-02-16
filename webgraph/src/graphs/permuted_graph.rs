@@ -94,7 +94,7 @@ impl<
     'succ,
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
     P: SliceByValue<Value = usize>,
-> NodeLabelsLender<'succ> for Iter<'_, I, P>
+> NodeLabelsLender<'succ> for NodeLabels<'_, I, P>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>, P>;
@@ -104,7 +104,7 @@ impl<
     'succ,
     I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
     P: SliceByValue<Value = usize>,
-> Lending<'succ> for Iter<'_, I, P>
+> Lending<'succ> for NodeLabels<'_, I, P>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }

@@ -85,11 +85,11 @@ pub struct Iter<L, I: Iterator<Item = ((usize, usize), L)>> {
 }
 
 unsafe impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SortedLender
-    for Iter<L, I>
+    for NodeLabels<L, I>
 {
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Iter<L, I> {
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, I> {
     /// Creates an [`Iter`] of outgoing arcs for nodes from `0` to `num_nodes-1`
     pub fn new(num_nodes: usize, iter: I) -> Self {
         Iter {
@@ -122,19 +122,19 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Iter<L, I> {
 }
 
 impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabelsLender<'succ>
-    for Iter<L, I>
+    for NodeLabels<L, I>
 {
     type Label = (usize, L);
     type IntoIterator = Succ<'succ, L, I>;
 }
 
 impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lending<'succ>
-    for Iter<L, I>
+    for NodeLabels<L, I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for Iter<L, I> {
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for NodeLabels<L, I> {
     check_covariance!();
 
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -162,7 +162,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for Ite
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender for Iter<L, I> {
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender for NodeLabels<L, I> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.num_nodes - self.next_node
@@ -178,7 +178,7 @@ impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone>
 impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> IntoLender
     for &ArcListGraph<I>
 {
-    type Lender = Iter<L, I>;
+    type Lender = NodeLabels<L, I>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -191,7 +191,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Sequen
 {
     type Label = (usize, L);
     type Lender<'node>
-        = Iter<L, I>
+        = NodeLabels<L, I>
     where
         Self: 'node;
 

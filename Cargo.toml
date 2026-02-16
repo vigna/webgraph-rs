@@ -42,7 +42,7 @@ thiserror = "2.0.12"
 no-break = "0.1.2"
 nonmax = "0.5.5"
 crossbeam-utils = "0.8.21"
-sysinfo = ">=0.35.0,<0.38"
+sysinfo = ">=0.35.0,<0.37"
 
 [profile.release]
 opt-level = 3 # like --release

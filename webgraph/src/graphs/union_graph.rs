@@ -93,13 +93,13 @@ where
 
 #[doc(hidden)]
 #[derive(Debug, Clone)]
-pub struct Iter<L, M>(L, M);
+pub struct NodeLabels<L, M>(L, M);
 
 impl<
     'succ,
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-> NodeLabelsLender<'succ> for Iter<L, M>
+> NodeLabelsLender<'succ> for NodeLabels<L, M>
 {
     type Label = usize;
     type IntoIterator = Succ<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, M>>;
@@ -109,7 +109,7 @@ impl<
     'succ,
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-> Lending<'succ> for Iter<L, M>
+> Lending<'succ> for NodeLabels<L, M>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
@@ -117,7 +117,7 @@ impl<
 impl<
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-> Lender for Iter<L, M>
+> Lender for NodeLabels<L, M>
 {
     // SAFETY: the lend is covariant as it contains only a usize and an iterator
     // over usize values derived from the underlying lenders L and M.
@@ -155,7 +155,7 @@ impl<
 impl<
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
-> ExactSizeLender for Iter<L, M>
+> ExactSizeLender for NodeLabels<L, M>
 {
     #[inline(always)]
     fn len(&self) -> usize {
@@ -166,7 +166,7 @@ impl<
 unsafe impl<
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
-> SortedLender for Iter<L, M>
+> SortedLender for NodeLabels<L, M>
 {
 }
 

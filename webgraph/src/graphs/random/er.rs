@@ -50,14 +50,14 @@ impl SequentialLabeling for ErdosRenyi {
         self.n
     }
 
-    fn iter_from(&self, from: usize) -> Iter {
+    fn iter_from(&self, from: usize) -> NodeLabels {
         let mut rng = SmallRng::seed_from_u64(self.seed);
         if self.n > 0 {
             for _ in 0..from * (self.n - 1) {
                 rng.random_bool(self.p);
             }
         }
-        Iter {
+        NodeLabels {
             n: self.n,
             p: self.p,
             x: from,
@@ -66,30 +66,30 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
-unsafe impl SortedLender for Iter {}
-unsafe impl SortedIterator for SuccIntoIter {}
+unsafe impl SortedLender for NodeLabels {}
+unsafe impl SortedIterator for SuccIntoNodeLabels {}
 
 #[derive(Debug, Clone)]
-pub struct Iter {
+pub struct NodeLabels {
     n: usize,
     p: f64,
     x: usize,
     rng: SmallRng,
 }
 
-impl NodeLabelsLender<'_> for Iter {
+impl NodeLabelsLender<'_> for NodeLabels {
     type Label = usize;
     type IntoIterator = Succ;
 }
 
-impl<'succ> Lending<'succ> for Iter {
+impl<'succ> Lending<'succ> for NodeLabels {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 pub struct Succ(Vec<usize>);
 pub struct SuccIntoIter(IntoIter<usize>);
 
-impl Iterator for SuccIntoIter {
+impl Iterator for SuccIntoNodeLabels {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -101,13 +101,13 @@ impl IntoIterator for Succ {
     type Item = usize;
     type IntoIter = SuccIntoIter;
 
-    fn into_iter(self) -> Self::IntoIter {
+    fn into_iter(self) -> Self::IntoNodeLabels {
         let iter = self.0.into_iter();
         SuccIntoIter(iter)
     }
 }
 
-impl Lender for Iter {
+impl Lender for NodeLabels {
     check_covariance!();
 
     #[inline(always)]
