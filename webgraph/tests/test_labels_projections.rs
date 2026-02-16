@@ -377,7 +377,7 @@ fn test_split_iters_into_labeled_lenders() -> Result<()> {
     let boundaries: Box<[usize]> = vec![0, 2, 4].into_boxed_slice();
     let iter1 = vec![((0_usize, 1_usize), ()), ((1, 0), ())];
     let iter2 = vec![((2_usize, 3_usize), ()), ((3, 2), ())];
-	#[allow(clippy::type_complexity)]
+    #[allow(clippy::type_complexity)]
     let iters: Box<[Vec<((usize, usize), ())>]> = vec![iter1, iter2].into_boxed_slice();
 
     let split = SplitIters::new(boundaries, iters);
