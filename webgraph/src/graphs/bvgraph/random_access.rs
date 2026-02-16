@@ -489,6 +489,80 @@ impl<D: Decode> Iterator for Succ<D> {
         Some(min)
     }
 
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let mut remaining = n;
+        while remaining > 0 && self.size > 0 {
+            let min = self.next_residual_node.min(self.next_interval_node);
+
+            if min >= self.next_copied_node {
+                if min == usize::MAX {
+                    // Only copied stream active — use fast nth on MaskedIter
+                    self.next_copied_node = self
+                        .copied_nodes_iter
+                        .as_mut()
+                        .and_then(|iter| iter.nth(remaining - 1))
+                        .unwrap_or(usize::MAX);
+                    self.size -= remaining;
+                    remaining = 0;
+                } else {
+                    // Copied wins, but other streams are active
+                    self.next_copied_node = self
+                        .copied_nodes_iter
+                        .as_mut()
+                        .and_then(|iter| iter.next())
+                        .unwrap_or(usize::MAX);
+                    self.size -= 1;
+                    remaining -= 1;
+                }
+            } else if min == self.next_residual_node {
+                // Residual wins — must decode sequentially
+                if self.residuals_to_go == 0 {
+                    self.next_residual_node = usize::MAX;
+                } else {
+                    self.residuals_to_go -= 1;
+                    self.next_residual_node += 1 + self.reader.read_residual() as usize;
+                }
+                self.size -= 1;
+                remaining -= 1;
+            } else {
+                // Interval wins — try to skip multiple values at once.
+                // We can only use the fast path when the peeked value is
+                // contiguous with the current interval (i.e., we haven't
+                // just crossed an interval boundary).
+                let idx = self.intervals_idx;
+                let len = self.intervals[idx].1;
+                if self.next_interval_node + 1 == self.intervals[idx].0 {
+                    let other_min = self.next_copied_node.min(self.next_residual_node);
+                    let from_other = other_min - self.next_interval_node;
+                    // Skip at most len values (never exhaust the peeked value
+                    // to avoid crossing interval boundaries), and stay below
+                    // other_min (reserve the last value as the new peeked).
+                    let skip = remaining.min(len).min(from_other.saturating_sub(1));
+                    if skip > 0 {
+                        self.next_interval_node += skip;
+                        self.intervals[idx].0 += skip;
+                        self.intervals[idx].1 -= skip;
+                        self.size -= skip;
+                        remaining -= skip;
+                        self.intervals_idx += (self.intervals[idx].1 == 0) as usize;
+                        continue;
+                    }
+                }
+                // Fallback: consume one interval element via the same logic
+                // as next(), which correctly handles boundary crossing.
+                debug_assert_ne!(len, 0);
+                let (start, len) = &mut self.intervals[self.intervals_idx];
+                *len -= 1;
+                self.next_interval_node = *start;
+                *start += 1;
+                self.intervals_idx += (*len == 0) as usize;
+                self.size -= 1;
+                remaining -= 1;
+            }
+        }
+        self.next()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.size, Some(self.size))
     }

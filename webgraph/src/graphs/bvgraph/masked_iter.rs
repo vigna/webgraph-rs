@@ -54,13 +54,12 @@ impl<I: Iterator<Item = usize>> MaskedIter<I> {
     /// If the current inclusion block is exhausted and there are more blocks,
     /// skips the next exclusion block and advances to the following inclusion
     /// block. If blocks are exhausted, sets `left` to -1 (keep all remaining).
+    #[inline(always)]
     fn advance(&mut self) {
         debug_assert!(self.left >= 0);
         if self.left == 0 && self.curr_mask < self.blocks.len() {
-            for _ in 0..self.blocks[self.curr_mask] {
-                let node = self.parent.next();
-                debug_assert!(node.is_some());
-            }
+            let node = self.parent.nth(self.blocks[self.curr_mask] - 1);
+            debug_assert!(node.is_some());
             self.curr_mask += 1;
             self.left = if self.curr_mask < self.blocks.len() {
                 let l = self.blocks[self.curr_mask] as isize;
@@ -76,6 +75,7 @@ impl<I: Iterator<Item = usize>> MaskedIter<I> {
 impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
     type Item = usize;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.left == 0 {
             return None;
@@ -86,5 +86,32 @@ impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
             self.advance();
         }
         Some(next)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let mut remaining = n;
+        loop {
+            if self.left == 0 {
+                return None;
+            }
+            if self.left < 0 {
+                // Pass-through mode: delegate to parent.
+                return self.parent.nth(remaining);
+            }
+            // We are in an inclusion block.
+            let left = self.left as usize;
+            if remaining < left {
+                // Can be satisfied within the current inclusion block.
+                let result = self.parent.nth(remaining);
+                self.left -= remaining as isize + 1;
+                self.advance();
+                return result;
+            }
+            // Skip the rest of this inclusion block and advance.
+            self.parent.nth(left - 1);
+            remaining -= left;
+            self.left = 0;
+            self.advance();
+        }
     }
 }
