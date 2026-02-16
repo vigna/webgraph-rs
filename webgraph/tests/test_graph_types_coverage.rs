@@ -92,14 +92,6 @@ fn test_vec_graph_from_lender_variants() -> Result<()> {
 }
 
 #[test]
-fn test_vec_graph_from_seq_graph_eq() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0), (2, 3)]);
-    let copy = VecGraph::from_sorted_lender(g.iter());
-    graph::eq(&g, &copy)?;
-    Ok(())
-}
-
-#[test]
 fn test_vec_graph_num_arcs_hint() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     assert_eq!(g.num_arcs_hint(), Some(3));
@@ -286,10 +278,10 @@ fn test_btree_graph_iter_from() -> Result<()> {
 
 #[test]
 fn test_btree_graph_shrink_to_fit() -> Result<()> {
-    let mut g = BTreeGraph::from_arcs([(0, 1), (1, 2)]);
+    let orig = BTreeGraph::from_arcs([(0, 1), (1, 2)]);
+    let mut g = BTreeGraph::from_lender(orig.iter());
     g.shrink_to_fit();
-    assert_eq!(g.num_nodes(), 3);
-    assert_eq!(g.num_arcs(), 2);
+    graph::eq(&orig, &g)?;
     Ok(())
 }
 

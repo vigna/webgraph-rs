@@ -241,8 +241,8 @@ fn test_dfs_seq_no_pred_all_events() -> Result<()> {
 
     assert_eq!(previsits.len(), 8);
     assert!(had_done);
-    // Revisits occur from the cycle (6→2) and convergence (multiple paths to 4 and 6)
-    assert!(!revisits.is_empty());
+    // 11 arcs − 7 tree edges = 4 non-tree edges, each generating a revisit
+    assert_eq!(revisits.len(), 4);
     Ok(())
 }
 
@@ -284,8 +284,8 @@ fn test_dfs_pred_cycle() -> Result<()> {
         })
         .continue_value_no_break();
     assert_eq!(previsited.len(), 8);
-    // Revisits from the cycle (6→2) and convergence (multiple paths to 4, 6)
-    assert!(!revisited.is_empty());
+    // 11 arcs − 7 tree edges = 4 non-tree edges, each generating a revisit
+    assert_eq!(revisited.len(), 4);
     Ok(())
 }
 
@@ -1145,8 +1145,8 @@ fn test_bfs_par_fair_no_pred_revisit() -> Result<()> {
         })
         .continue_value_no_break();
 
-    // Node 2 may be revisited
-    assert!(revisit_count.load(Ordering::Relaxed) > 0);
+    // Exactly 1 revisit: edge 1→2 finds node 2 already discovered from 0
+    assert_eq!(revisit_count.load(Ordering::Relaxed), 1);
     Ok(())
 }
 
@@ -1270,8 +1270,8 @@ fn test_bfs_par_fair_pred_revisit() -> Result<()> {
         })
         .continue_value_no_break();
 
-    // Node 0 will be revisited (back edge from 2)
-    assert!(revisit_count.load(Ordering::Relaxed) > 0);
+    // Exactly 1 revisit: back-edge 2→0 finds node 0 already visited
+    assert_eq!(revisit_count.load(Ordering::Relaxed), 1);
     Ok(())
 }
 
@@ -1477,7 +1477,7 @@ fn test_bfs_par_low_mem_reset() -> Result<()> {
 }
 
 #[test]
-fn test_par_low_mem_filtered() -> Result<()> {
+fn test_bfs_par_low_mem_filtered() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1506,7 +1506,7 @@ fn test_par_low_mem_filtered() -> Result<()> {
 }
 
 #[test]
-fn test_par_low_mem_with_granularity() -> Result<()> {
+fn test_bfs_par_low_mem_with_granularity() -> Result<()> {
     use no_break::NoBreak;
     use std::ops::ControlFlow::Continue;
     use std::sync::atomic::{AtomicUsize, Ordering};

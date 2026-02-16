@@ -49,7 +49,7 @@ fn test_transpose_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let split = transpose_split(&seq, MemoryUsage::BatchSize(10))?;
+    let split = transpose_split(&seq, MemoryUsage::BatchSize(2))?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 3);
     Ok(())
@@ -93,7 +93,7 @@ fn test_transpose_labeled() -> Result<()> {
         ((0, 2), ()),
         ((1, 2), ()),
     ]);
-    let t = transpose_labeled(&g, MemoryUsage::BatchSize(10), DefaultBatchCodec::default())?;
+    let t = transpose_labeled(&g, MemoryUsage::BatchSize(2), DefaultBatchCodec::default())?;
     assert_eq!(t.num_nodes(), 3);
     let mut iter = t.iter();
     while let Some((node, succ)) = iter.next() {
@@ -131,7 +131,7 @@ fn test_permute() -> Result<()> {
 fn test_permute_identity() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let id = [0, 1, 2];
-    let p = transform::permute(&g, &id, MemoryUsage::BatchSize(10))?;
+    let p = transform::permute(&g, &id, MemoryUsage::BatchSize(2))?;
     let p = VecGraph::from_lender(&p);
     webgraph::traits::graph::eq(&g, &p)?;
     Ok(())
@@ -155,7 +155,7 @@ fn test_permute_reverse() -> Result<()> {
 fn test_permute_size_mismatch() {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let perm = vec![0, 1]; // 2 elements but graph has 3 nodes
-    let result = transform::permute(&g, &perm, MemoryUsage::BatchSize(10));
+    let result = transform::permute(&g, &perm, MemoryUsage::BatchSize(2));
     assert!(result.is_err());
 }
 
@@ -169,7 +169,7 @@ fn test_permute_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let perm = vec![2, 0, 1];
-    let p = permute_split(&seq, &perm, MemoryUsage::BatchSize(10))?;
+    let p = permute_split(&seq, &perm, MemoryUsage::BatchSize(2))?;
     let p = VecGraph::from_lender(&p);
     assert_eq!(p.num_nodes(), 3);
     // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
@@ -194,6 +194,9 @@ fn test_simplify() -> Result<()> {
     let mut s1: Vec<_> = s.successors(1).collect();
     s1.sort();
     assert_eq!(s1, vec![0, 2]);
+    let mut s2: Vec<_> = s.successors(2).collect();
+    s2.sort();
+    assert_eq!(s2, vec![1]);
     Ok(())
 }
 
@@ -215,8 +218,17 @@ fn test_simplify_with_batch_size() -> Result<()> {
 fn test_simplify_sorted() -> Result<()> {
     use webgraph::transform::simplify_sorted;
 
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let _s = simplify_sorted(g, MemoryUsage::BatchSize(10))?;
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let s = simplify_sorted(seq, MemoryUsage::BatchSize(2))?;
+    let s = VecGraph::from_lender(s.iter());
+    // Simplification symmetrizes: every edge becomes bidirectional, no self-loops
+    assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 2]);
+    assert_eq!(s.successors(1).collect::<Vec<_>>(), vec![0, 2]);
+    assert_eq!(s.successors(2).collect::<Vec<_>>(), vec![0, 1]);
     Ok(())
 }
 
@@ -229,7 +241,7 @@ fn test_simplify_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = simplify_split(&seq, MemoryUsage::BatchSize(10))?;
+    let s = simplify_split(&seq, MemoryUsage::BatchSize(2))?;
     assert_eq!(s.num_nodes(), 3);
     // Collect all arcs and verify symmetrization
     let mut arcs = vec![];
