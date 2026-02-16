@@ -52,6 +52,18 @@ fn test_transpose_split() -> Result<()> {
     let split = transpose_split(&seq, MemoryUsage::BatchSize(2))?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 3);
+    // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
+    let lenders: Vec<_> = split.into();
+    let mut arcs = vec![];
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
+    arcs.sort();
+    assert_eq!(arcs, vec![(0, 2), (1, 0), (2, 1)]);
     Ok(())
 }
 
@@ -102,7 +114,7 @@ fn test_transpose_labeled() -> Result<()> {
             0 => assert_eq!(labels.len(), 0),
             1 => assert_eq!(labels.len(), 1), // 0->1
             2 => assert_eq!(labels.len(), 2), // 0->2, 1->2
-            _ => {}
+            _ => unreachable!("unexpected node {}", node),
         }
     }
     Ok(())
@@ -145,9 +157,10 @@ fn test_permute_reverse() -> Result<()> {
     let p = VecGraph::from_lender(&p);
     assert_eq!(p.num_nodes(), 4);
     // Arc (0,1) -> (3,2), (1,2) -> (2,1), (2,3) -> (1,0)
-    assert_eq!(p.successors(3).collect::<Vec<_>>(), vec![2]);
-    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![1]);
+    assert_eq!(p.successors(0).collect::<Vec<_>>(), Vec::<usize>::new());
     assert_eq!(p.successors(1).collect::<Vec<_>>(), vec![0]);
+    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![1]);
+    assert_eq!(p.successors(3).collect::<Vec<_>>(), vec![2]);
     Ok(())
 }
 
@@ -173,8 +186,9 @@ fn test_permute_split() -> Result<()> {
     let p = VecGraph::from_lender(&p);
     assert_eq!(p.num_nodes(), 3);
     // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
-    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![0, 1]);
     assert_eq!(p.successors(0).collect::<Vec<_>>(), vec![1]);
+    assert_eq!(p.successors(1).collect::<Vec<_>>(), Vec::<usize>::new());
+    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![0, 1]);
     Ok(())
 }
 

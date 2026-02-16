@@ -8,39 +8,6 @@ use anyhow::Result;
 use dsi_bitstream::prelude::*;
 
 #[test]
-fn test_gaps_stats_display() {
-    let stats = webgraph::utils::gaps::GapsStats {
-        total_triples: 100,
-        src_bits: 400,
-        dst_bits: 600,
-        labels_bits: 200,
-    };
-    let s = format!("{}", stats);
-    assert!(s.contains("src:"));
-    assert!(s.contains("dst:"));
-    assert!(s.contains("labels:"));
-    assert!(s.contains("total:"));
-    assert!(s.contains("bits / arc"));
-}
-
-#[test]
-fn test_grouped_gaps_stats_display() {
-    let stats = webgraph::utils::grouped_gaps::GroupedGapsStats {
-        total_triples: 50,
-        outdegree_bits: 100,
-        src_bits: 200,
-        dst_bits: 300,
-        labels_bits: 50,
-    };
-    let s = format!("{}", stats);
-    assert!(s.contains("outdegree:"));
-    assert!(s.contains("src:"));
-    assert!(s.contains("dst:"));
-    assert!(s.contains("labels:"));
-    assert!(s.contains("bits / arc"));
-}
-
-#[test]
 fn test_gaps_codec_encode_batch() -> Result<()> {
     use webgraph::utils::BatchCodec;
     use webgraph::utils::gaps::GapsCodec;

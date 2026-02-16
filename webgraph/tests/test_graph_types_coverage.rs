@@ -16,7 +16,7 @@ use webgraph::{
     },
     prelude::*,
     traits::{
-        RandomAccessLabeling, SequentialLabeling,
+        RandomAccessLabeling, SequentialLabeling, labels,
         graph::{self, LabeledRandomAccessGraph},
     },
 };
@@ -423,6 +423,7 @@ fn test_csr_graph() -> Result<()> {
     assert_eq!(csr.num_arcs(), 4);
     assert_eq!(csr.outdegree(0), 2);
     graph::eq(&g, &csr)?;
+    labels::check_impl(&csr)?;
     Ok(())
 }
 
@@ -441,6 +442,7 @@ fn test_csr_sorted_graph() -> Result<()> {
     assert_eq!(csr.num_nodes(), 3);
     assert_eq!(csr.num_arcs(), 4);
     graph::eq(&g, &csr)?;
+    labels::check_impl(&csr)?;
     Ok(())
 }
 
@@ -451,6 +453,7 @@ fn test_compressed_csr_graph() -> Result<()> {
     assert_eq!(ccsr.num_nodes(), 3);
     assert_eq!(ccsr.num_arcs(), 4);
     graph::eq(&g, &ccsr)?;
+    labels::check_impl(&ccsr)?;
     Ok(())
 }
 
@@ -461,6 +464,7 @@ fn test_compressed_csr_sorted_graph() -> Result<()> {
     assert_eq!(ccsr.num_nodes(), 3);
     assert_eq!(ccsr.num_arcs(), 4);
     graph::eq(&g, &ccsr)?;
+    labels::check_impl(&ccsr)?;
     Ok(())
 }
 

@@ -97,7 +97,7 @@ fn test_csr_graph() -> anyhow::Result<()> {
     labels::check_impl(&csr)?;
     graph::eq(&csr, &g)?;
 
-    let csr = CompressedCsrGraph::try_from_graph(&g)?;
+    let csr = CsrSortedGraph::from_seq_graph(&g);
     labels::check_impl(&csr)?;
     graph::eq(&csr, &g)?;
 
