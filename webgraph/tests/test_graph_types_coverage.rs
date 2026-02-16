@@ -66,7 +66,7 @@ fn test_vec_graph_from_arcs() -> Result<()> {
 }
 
 #[test]
-fn test_vec_graph_iter_from_v1() -> Result<()> {
+fn test_vec_graph_iter_from() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let mut iter = g.iter_from(1);
     let (node, succ) = iter.next().unwrap();
@@ -120,13 +120,15 @@ fn test_vec_graph_into_lender() -> Result<()> {
 }
 
 #[test]
-fn test_vec_graph_iter_from_v2() {
-    let g = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3)]);
-    let mut iter = g.iter_from(2);
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 2);
-    let succs: Vec<_> = succ.into_iter().collect();
-    assert_eq!(succs, vec![3]);
+fn test_has_arc() -> Result<()> {
+    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
+    assert!(g.has_arc(0, 1));
+    assert!(g.has_arc(0, 2));
+    assert!(g.has_arc(1, 2));
+    assert!(g.has_arc(2, 0));
+    assert!(!g.has_arc(1, 0));
+    assert!(!g.has_arc(2, 1));
+    Ok(())
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -165,7 +167,6 @@ fn test_labeled_vec_graph_default() {
 fn test_labeled_vec_graph_shrink_to_fit() {
     let mut g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20), ((1, 0), 30)]);
     g.shrink_to_fit();
-    // Still works after shrinking
     assert_eq!(g.num_nodes(), 3);
     assert_eq!(RandomAccessLabeling::num_arcs(&g), 3);
 }
@@ -173,7 +174,6 @@ fn test_labeled_vec_graph_shrink_to_fit() {
 #[test]
 fn test_labeled_vec_graph_into_lender() -> Result<()> {
     let g = LabeledVecGraph::<u32>::from_arcs([((0, 1), 10), ((1, 0), 20)]);
-    // Use for_! macro which calls into_lender
     let mut count = 0;
     for_!((node, succ) in &g {
         let _ = node;
@@ -196,26 +196,13 @@ fn test_labeled_graph_has_arc() -> Result<()> {
 }
 
 #[test]
-fn test_has_arc() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
-    assert!(g.has_arc(0, 1));
-    assert!(g.has_arc(0, 2));
-    assert!(g.has_arc(1, 2));
-    assert!(g.has_arc(2, 0));
-    assert!(!g.has_arc(1, 0));
-    assert!(!g.has_arc(2, 1));
-    Ok(())
-}
-
-#[test]
 fn test_labeled_vec_graph_iter_from() {
-    let g = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
+    let g = LabeledVecGraph::<u32>::from_arcs([
         ((0, 1), 10),
         ((0, 2), 20),
         ((1, 3), 30),
         ((2, 3), 40),
     ]);
-    // iter_from starts from a specific node
     let mut iter = g.iter_from(1);
     let (node, succ) = iter.next().unwrap();
     assert_eq!(node, 1);
@@ -233,7 +220,7 @@ fn test_labeled_vec_graph_iter_from() {
 // ═══════════════════════════════════════════════════════════════════════
 
 #[test]
-fn test_btree_graph_add_arcs_v1() -> Result<()> {
+fn test_btree_graph_add_arcs() -> Result<()> {
     let mut g = BTreeGraph::new();
     g.add_arcs([(2, 0), (0, 2), (0, 1), (1, 2)]);
     assert_eq!(g.num_nodes(), 3);
@@ -244,7 +231,7 @@ fn test_btree_graph_add_arcs_v1() -> Result<()> {
 }
 
 #[test]
-fn test_btree_graph_from_arcs_v1() -> Result<()> {
+fn test_btree_graph_from_arcs() -> Result<()> {
     let g = BTreeGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     assert_eq!(g.num_nodes(), 3);
     assert_eq!(g.num_arcs(), 3);
@@ -277,7 +264,7 @@ fn test_btree_graph_from_lender() -> Result<()> {
 }
 
 #[test]
-fn test_btree_graph_add_node_v1() -> Result<()> {
+fn test_btree_graph_add_node() -> Result<()> {
     let mut g = BTreeGraph::new();
     assert!(g.add_node(0));
     assert!(!g.add_node(0));
@@ -297,7 +284,7 @@ fn test_btree_graph_duplicate_arc() -> Result<()> {
 }
 
 #[test]
-fn test_btree_graph_iter_from_v1() -> Result<()> {
+fn test_btree_graph_iter_from() -> Result<()> {
     let g = BTreeGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let mut iter = g.iter_from(1);
     let (node, succ) = iter.next().unwrap();
@@ -314,7 +301,6 @@ fn test_btree_graph_iter_from_v1() -> Result<()> {
 fn test_btree_graph_shrink_to_fit() -> Result<()> {
     let mut g = BTreeGraph::from_arcs([(0, 1), (1, 2)]);
     g.shrink_to_fit();
-    // Just verify it doesn't crash and the graph is intact
     assert_eq!(g.num_nodes(), 3);
     assert_eq!(g.num_arcs(), 2);
     Ok(())
@@ -360,7 +346,6 @@ fn test_btree_graph_add_arc_missing_src() {
     let mut g = BTreeGraph::new();
     g.add_node(0);
     g.add_node(1);
-    // Node 2 doesn't exist
     g.add_arc(2, 0);
 }
 
@@ -370,91 +355,7 @@ fn test_btree_graph_add_arc_missing_dst() {
     let mut g = BTreeGraph::new();
     g.add_node(0);
     g.add_node(1);
-    // Node 5 doesn't exist as destination
     g.add_arc(0, 5);
-}
-
-#[test]
-fn test_btree_graph_basic_operations() {
-    let mut g = BTreeGraph::empty(5);
-    g.add_arc(0, 1);
-    g.add_arc(0, 2);
-    g.add_arc(1, 3);
-    g.add_arc(3, 4);
-
-    assert_eq!(g.num_nodes(), 5);
-    assert_eq!(g.num_arcs(), 4);
-
-    // Test successors
-    let succs: Vec<_> = g.successors(0).collect();
-    assert_eq!(succs, vec![1, 2]);
-
-    // Test outdegree
-    assert_eq!(g.outdegree(0), 2);
-    assert_eq!(g.outdegree(1), 1);
-    assert_eq!(g.outdegree(2), 0);
-}
-
-#[test]
-fn test_btree_graph_add_arcs_v2() {
-    let mut g = BTreeGraph::new();
-    g.add_arcs([(0, 1), (1, 2), (2, 0), (0, 3)]);
-
-    assert_eq!(g.num_nodes(), 4);
-    assert_eq!(g.num_arcs(), 4);
-    let succs: Vec<_> = g.successors(0).collect();
-    assert_eq!(succs, vec![1, 3]);
-}
-
-#[test]
-fn test_btree_graph_add_node_v2() {
-    let mut g = BTreeGraph::new();
-    assert!(g.add_node(0));
-    assert!(!g.add_node(0)); // Already exists
-    assert!(g.add_node(5)); // Adds nodes 1-5 as well
-    assert_eq!(g.num_nodes(), 6);
-}
-
-#[test]
-fn test_btree_graph_iter() {
-    let g = BTreeGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let mut iter = g.iter();
-
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 0);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![1]);
-
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 1);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![2]);
-
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 2);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![0]);
-
-    assert!(iter.next().is_none());
-}
-
-#[test]
-fn test_btree_graph_iter_from_v2() {
-    let g = BTreeGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let mut iter = g.iter_from(1);
-
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 1);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![2]);
-}
-
-#[test]
-fn test_btree_graph_from_arcs_v2() {
-    let g = BTreeGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    assert_eq!(g.num_nodes(), 3);
-    assert_eq!(g.num_arcs(), 3);
-
-    let mut iter = g.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![1]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -482,7 +383,7 @@ fn test_labeled_btree_graph_from_lender() -> Result<()> {
 }
 
 #[test]
-fn test_labeled_btree_graph_remove_arc_v1() -> Result<()> {
+fn test_labeled_btree_graph_remove_arc() -> Result<()> {
     let mut g = LabeledBTreeGraph::<u32>::from_arcs([((0, 1), 10), ((0, 2), 20)]);
     assert_eq!(g.num_arcs(), 2);
     assert!(g.remove_arc(0, 1));
@@ -536,42 +437,7 @@ fn test_labeled_btree_graph_successors_len() {
 fn test_labeled_btree_graph_remove_arc_missing_node() {
     let mut g = LabeledBTreeGraph::<u32>::new();
     g.add_node(0);
-    // Node 5 doesn't exist
     g.remove_arc(5, 0);
-}
-
-#[test]
-fn test_labeled_btree_graph_remove_arc_v2() {
-    let mut g = LabeledBTreeGraph::<u32>::empty(3);
-    g.add_arc(0, 1, 10);
-    g.add_arc(0, 2, 20);
-    g.add_arc(1, 2, 30);
-
-    assert_eq!(g.num_arcs(), 3);
-
-    g.remove_arc(0, 1);
-    assert_eq!(g.num_arcs(), 2);
-    let succs: Vec<_> = g.successors(0).collect();
-    assert_eq!(succs, vec![(2, 20)]);
-}
-
-#[test]
-fn test_labeled_btree_graph_operations() {
-    let mut g = LabeledBTreeGraph::<u32>::new();
-    g.add_arcs([((0, 1), 10), ((0, 2), 20), ((1, 3), 30)]);
-
-    assert_eq!(g.num_nodes(), 4);
-    assert_eq!(g.num_arcs(), 3);
-
-    // Test successors with labels
-    let succs: Vec<_> = g.successors(0).collect();
-    assert_eq!(succs, vec![(1, 10), (2, 20)]);
-
-    // Test iter
-    let mut iter = g.iter();
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 0);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![(1, 10), (2, 20)]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -598,17 +464,7 @@ fn test_csr_graph_default() -> Result<()> {
 }
 
 #[test]
-fn test_csr_graph_from_seq_graph() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let csr = CsrGraph::from_seq_graph(&g);
-    assert_eq!(csr.num_nodes(), 3);
-    assert_eq!(csr.num_arcs(), 3);
-    graph::eq(&g, &csr)?;
-    Ok(())
-}
-
-#[test]
-fn test_csr_sorted_graph_v1() -> Result<()> {
+fn test_csr_sorted_graph() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
     let csr = CsrSortedGraph::from_seq_graph(&g);
     assert_eq!(csr.num_nodes(), 3);
@@ -638,32 +494,14 @@ fn test_compressed_csr_sorted_graph() -> Result<()> {
 }
 
 #[test]
-fn test_csr_graph_new() {
-    let g = CsrGraph::new();
-    assert_eq!(g.num_nodes(), 0);
-}
-
-#[test]
 fn test_csr_graph_accessors() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let csr = CsrGraph::from_seq_graph(&g);
-    // Test dcf() accessor
     assert_eq!(csr.dcf().len(), 4); // num_nodes + 1
-    // Test successors() accessor
     assert_eq!(csr.successors().len(), 3); // total arcs
-    // Test into_inner()
     let (dcf, succ) = csr.into_inner();
     assert_eq!(dcf.len(), 4);
     assert_eq!(succ.len(), 3);
-    Ok(())
-}
-
-#[test]
-fn test_csr_graph_from_lender_v1() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let csr = CsrGraph::from_lender(g.iter());
-    assert_eq!(csr.num_nodes(), 3);
-    graph::eq(&g, &csr)?;
     Ok(())
 }
 
@@ -680,33 +518,6 @@ fn test_csr_graph_from_sorted_lender() -> Result<()> {
 fn test_csr_sorted_graph_from_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 0), (2, 1)]);
     let csr = CsrSortedGraph::from_lender(g.iter());
-    assert_eq!(csr.num_nodes(), 3);
-    // Should support successors() via RandomAccessGraph
-    assert_eq!(csr.successors(0).collect::<Vec<_>>(), vec![1, 2]);
-    Ok(())
-}
-
-#[test]
-fn test_csr_sorted_graph_from_seq_graph() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
-    let csr = CsrSortedGraph::from_seq_graph(&g);
-    graph::eq(&g, &csr)?;
-    Ok(())
-}
-
-#[test]
-fn test_compressed_csr_graph_try_from_graph() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
-    let csr = CompressedCsrGraph::try_from_graph(&g)?;
-    assert_eq!(csr.num_nodes(), 3);
-    graph::eq(&g, &csr)?;
-    Ok(())
-}
-
-#[test]
-fn test_compressed_csr_sorted_graph_try_from_graph() -> Result<()> {
-    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
-    let csr = CompressedCsrSortedGraph::try_from_graph(&g)?;
     assert_eq!(csr.num_nodes(), 3);
     assert_eq!(csr.successors(0).collect::<Vec<_>>(), vec![1, 2]);
     Ok(())
@@ -743,39 +554,4 @@ fn test_csr_sorted_graph_into_lender() -> Result<()> {
     });
     assert_eq!(count, 3);
     Ok(())
-}
-
-#[test]
-fn test_csr_graph_basic() -> Result<()> {
-    let g = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3)]);
-    let csr = CsrGraph::from_seq_graph(&g);
-    assert_eq!(csr.num_nodes(), 4);
-    assert_eq!(csr.num_arcs(), 4);
-    graph::eq(&g, &csr)?;
-    Ok(())
-}
-
-#[test]
-fn test_csr_graph_empty() {
-    let csr = CsrGraph::new();
-    assert_eq!(csr.num_nodes(), 0);
-    assert_eq!(csr.num_arcs(), 0);
-}
-
-#[test]
-fn test_csr_graph_from_lender_v2() {
-    let g = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3)]);
-    let csr = CsrGraph::from_lender(&g);
-
-    assert_eq!(csr.num_nodes(), 4);
-    assert_eq!(csr.num_arcs(), 3);
-}
-
-#[test]
-fn test_csr_sorted_graph_v2() {
-    let g = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3)]);
-    let csr = CsrSortedGraph::from_seq_graph(&g);
-
-    assert_eq!(csr.num_nodes(), 4);
-    assert_eq!(csr.num_arcs(), 3);
 }

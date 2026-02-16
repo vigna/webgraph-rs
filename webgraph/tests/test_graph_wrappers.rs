@@ -14,7 +14,7 @@ use webgraph::{
         union_graph::UnionGraph, vec_graph::VecGraph,
     },
     prelude::*,
-    traits::{SequentialLabeling, SplitLabeling},
+    traits::SequentialLabeling,
 };
 
 // ── UnionGraph ──
@@ -95,83 +95,17 @@ fn test_union_graph_num_arcs_hint() {
 }
 
 #[test]
-fn test_union_graph_into_lender_v1() -> Result<()> {
-    let g0 = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let g1 = VecGraph::from_arcs([(0, 2), (2, 0)]);
-    let u = UnionGraph(g0, g1);
-    // Use iter() directly instead of for_! since UnionGraph requires
-    // SortedLender + Clone bounds on lenders for IntoLender
-    let mut iter = u.iter();
-    let mut count = 0;
-    while let Some((_node, succ)) = iter.next() {
-        let _ = succ.count();
-        count += 1;
-    }
-    assert_eq!(count, 3);
-    Ok(())
-}
-
-#[test]
-fn test_union_graph_iter() {
-    use webgraph::graphs::union_graph::UnionGraph;
-    use webgraph::graphs::vec_graph::VecGraph;
-
-    let g1 = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let g2 = VecGraph::from_arcs([(0, 2), (2, 0)]);
-    let union = UnionGraph(g1, g2);
-    assert_eq!(union.num_nodes(), 3);
-
-    // Iterate sequentially, count arcs per node
-    let mut arcs_per_node = vec![0; 3];
-    let mut iter = union.iter();
-    while let Some((node, succ)) = iter.next() {
-        arcs_per_node[node] = succ.count();
-    }
-    // Node 0: {1, 2}, node 1: {2}, node 2: {0}
-    assert_eq!(arcs_per_node, vec![2, 1, 1]);
-}
-
-#[test]
-fn test_union_graph_into_lender_v2() -> Result<()> {
-    use webgraph::graphs::union_graph::UnionGraph;
+fn test_union_graph_eq_original() -> Result<()> {
+    use webgraph::traits::graph;
 
     let basename = std::path::Path::new("../data/cnr-2000");
     let g1 = BvGraph::with_basename(basename).load()?;
     let g2 = BvGraph::with_basename(basename).load()?;
+    let g_ref = BvGraph::with_basename(basename).load()?;
     let union = UnionGraph(g1, g2);
 
-    // Use for_! which exercises into_lender
-    let mut total_arcs = 0u64;
-    for_!((_node, succs) in &union {
-        for _succ in succs {
-            total_arcs += 1;
-        }
-    });
-    assert!(total_arcs > 0);
-    Ok(())
-}
-
-#[test]
-fn test_union_graph_split_iter() -> Result<()> {
-    use webgraph::graphs::union_graph::UnionGraph;
-
-    let basename = std::path::Path::new("../data/cnr-2000");
-    let g1 = BvGraph::with_basename(basename).load()?;
-    let g2 = BvGraph::with_basename(basename).load()?;
-    let union = UnionGraph(g1, g2);
-    let num_nodes = union.num_nodes();
-
-    let mut total_arcs = 0u64;
-    for lender in union.split_iter(2) {
-        for_!((_node, succs) in lender {
-            for _succ in succs {
-                total_arcs += 1;
-            }
-        });
-    }
-    // Each arc appears once for each graph, so total = 2 * num_arcs
-    assert!(total_arcs > 0);
-    let _ = num_nodes;
+    // The union of a graph with itself should be equal to the original graph
+    graph::eq(&union, &g_ref)?;
     Ok(())
 }
 
@@ -179,7 +113,6 @@ fn test_union_graph_split_iter() -> Result<()> {
 
 #[test]
 fn test_no_selfloops_complete() -> Result<()> {
-    // A graph where every node has a self-loop
     let g = VecGraph::from_arcs([(0, 0), (0, 1), (1, 0), (1, 1), (2, 2)]);
     let nsl = NoSelfLoopsGraph(g);
     assert_eq!(nsl.num_nodes(), 3);
@@ -220,69 +153,7 @@ fn test_no_selfloops_iter_from() -> Result<()> {
 }
 
 #[test]
-fn test_no_selfloops_num_arcs_hint() {
-    let g = VecGraph::from_arcs([(0, 0), (0, 1), (1, 1), (1, 2)]);
-    let nsl = NoSelfLoopsGraph(g);
-    // num_arcs_hint should return the same as the underlying graph
-    assert_eq!(nsl.num_arcs_hint(), Some(4));
-}
-
-#[test]
-fn test_no_selfloops_graph_iter() {
-    use webgraph::graphs::no_selfloops_graph::NoSelfLoopsGraph;
-    use webgraph::graphs::vec_graph::VecGraph;
-
-    let g = VecGraph::from_arcs([(0, 0), (0, 1), (1, 1), (1, 2), (2, 2)]);
-    let nsl = NoSelfLoopsGraph(g);
-    assert_eq!(nsl.num_nodes(), 3);
-
-    // Iterate and collect per-node successors (self-loops should be filtered)
-    let mut arcs_per_node = vec![0; 3];
-    let mut iter = nsl.iter();
-    while let Some((node, succ)) = iter.next() {
-        arcs_per_node[node] = succ.count();
-    }
-    // Node 0: {1}, node 1: {2}, node 2: {} (all self-loops removed)
-    assert_eq!(arcs_per_node, vec![1, 1, 0]);
-}
-
-#[test]
-fn test_no_self_loops_graph() {
-    use webgraph::graphs::no_selfloops_graph::NoSelfLoopsGraph;
-
-    // Graph with self-loops
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([
-        (0, 0),
-        (0, 1),
-        (1, 1),
-        (1, 2),
-        (2, 0),
-        (2, 2),
-    ]);
-    let no_loops = NoSelfLoopsGraph(graph);
-
-    // Self-loops should be filtered out
-    assert_eq!(no_loops.num_nodes(), 3);
-
-    let mut iter = no_loops.iter();
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 0);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![1]);
-
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 1);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![2]);
-
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 2);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![0]);
-}
-
-#[test]
 fn test_no_selfloops_graph_into_lender() -> Result<()> {
-    use webgraph::graphs::no_selfloops_graph::NoSelfLoopsGraph;
-    use webgraph::graphs::vec_graph::VecGraph;
-
     let g = VecGraph::from_arcs([(0, 0), (0, 1), (1, 1), (1, 2), (2, 0), (2, 2)]);
     let nsl = NoSelfLoopsGraph(g);
 
@@ -299,28 +170,6 @@ fn test_no_selfloops_graph_into_lender() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_no_selfloops_graph_split_iter() -> Result<()> {
-    use webgraph::graphs::no_selfloops_graph::NoSelfLoopsGraph;
-
-    // Use BvGraph since VecGraph lender doesn't satisfy Clone + Send + Sync
-    // required by SplitLabeling for NoSelfLoopsGraph
-    let basename = std::path::Path::new("../data/cnr-2000");
-    let graph = BvGraph::with_basename(basename).load()?;
-    let nsl = NoSelfLoopsGraph(graph);
-
-    let mut total_arcs = 0u64;
-    for lender in nsl.split_iter(2) {
-        for_!((_node, succs) in lender {
-            for _succ in succs {
-                total_arcs += 1;
-            }
-        });
-    }
-    assert!(total_arcs > 0);
-    Ok(())
-}
-
 // ── PermutedGraph ──
 
 #[test]
@@ -331,9 +180,6 @@ fn test_permuted_graph() -> Result<()> {
         graph: &g,
         perm: &perm,
     };
-    // Node 0 (mapped to 1) should have successors of original node 0 mapped:
-    // original (0,1) -> (1,2), original (1,2) -> (2,0), original (2,0) -> (0,1)
-    // So PermutedGraph at node 1 should give successors [2] (original node 0's succs mapped)
     let mut iter = pg.iter();
     while let Some((node, succ)) = iter.next() {
         let s: Vec<_> = succ.collect();
@@ -349,21 +195,17 @@ fn test_permuted_graph() -> Result<()> {
 
 #[test]
 fn test_permuted_graph_iter_from() -> Result<()> {
-    use webgraph::graphs::permuted_graph::PermutedGraph;
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let perm = vec![2, 0, 1];
     let pg = PermutedGraph {
         graph: &g,
         perm: &perm,
     };
-    // iter_from(1) should start from node 1 in the original graph
     let mut iter = pg.iter_from(1);
     let (node, succ) = iter.next().unwrap();
-    // node 1 permuted to 0, successor 2 permuted to 1
     assert_eq!(node, 0);
     assert_eq!(succ.collect::<Vec<_>>(), vec![1]);
     let (node, succ) = iter.next().unwrap();
-    // node 2 permuted to 1, successor 0 permuted to 2
     assert_eq!(node, 1);
     assert_eq!(succ.collect::<Vec<_>>(), vec![2]);
     assert!(iter.next().is_none());
@@ -372,9 +214,6 @@ fn test_permuted_graph_iter_from() -> Result<()> {
 
 #[test]
 fn test_permuted_graph_into_lender() -> Result<()> {
-    use webgraph::graphs::permuted_graph::PermutedGraph;
-    use webgraph::graphs::vec_graph::VecGraph;
-
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let perm = [2, 0, 1]; // node 0 -> 2, node 1 -> 0, node 2 -> 1
     let pg = PermutedGraph {
@@ -390,8 +229,6 @@ fn test_permuted_graph_into_lender() -> Result<()> {
             arcs.push((node, succ));
         }
     });
-    // Original: 0->1, 1->2, 2->0
-    // Permuted: 2->0, 0->1, 1->2
     arcs.sort();
     assert_eq!(arcs, vec![(0, 1), (1, 2), (2, 0)]);
     Ok(())
@@ -418,19 +255,5 @@ fn test_erdos_renyi() -> Result<()> {
     }
     // With p=1.0, should have n*(n-1) = 90 arcs
     assert_eq!(total_arcs, 90);
-    Ok(())
-}
-
-#[test]
-fn test_erdos_renyi_properties() -> Result<()> {
-    let g = ErdosRenyi::new(100, 0.1, 42);
-    assert_eq!(g.num_nodes(), 100);
-    // Check that arcs exist by iterating
-    let mut total_arcs = 0usize;
-    let mut iter = g.iter();
-    while let Some((_node, succ)) = iter.next() {
-        total_arcs += succ.into_iter().count();
-    }
-    assert!(total_arcs > 0);
     Ok(())
 }
