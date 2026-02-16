@@ -11,9 +11,7 @@ use lender::*;
 use webgraph::{
     graphs::{
         btree_graph::{BTreeGraph, LabeledBTreeGraph},
-        csr_graph::{
-            CompressedCsrGraph, CompressedCsrSortedGraph, CsrGraph, CsrSortedGraph,
-        },
+        csr_graph::{CompressedCsrGraph, CompressedCsrSortedGraph, CsrGraph, CsrSortedGraph},
         vec_graph::{LabeledVecGraph, VecGraph},
     },
     prelude::*,

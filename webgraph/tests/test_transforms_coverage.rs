@@ -7,11 +7,7 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::BE;
 use lender::*;
-use webgraph::{
-    graphs::vec_graph::VecGraph,
-    prelude::*,
-    transform,
-};
+use webgraph::{graphs::vec_graph::VecGraph, prelude::*, transform};
 
 // ── Tests from test_core.rs ──
 
@@ -46,10 +42,7 @@ fn test_permute() -> Result<()> {
     // node 1 maps to 0, arc (1,2) -> (0,1)
     assert_eq!(p.successors(0).collect::<Vec<_>>(), vec![1]);
     // node 2 maps to 1, no outgoing arcs
-    assert_eq!(
-        p.successors(1).collect::<Vec<_>>(),
-        Vec::<usize>::new()
-    );
+    assert_eq!(p.successors(1).collect::<Vec<_>>(), Vec::<usize>::new());
     Ok(())
 }
 

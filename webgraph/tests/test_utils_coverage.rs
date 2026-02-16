@@ -11,10 +11,7 @@
 use anyhow::Result;
 use lender::*;
 use webgraph::{
-    graphs::vec_graph::VecGraph,
-    prelude::*,
-    traits::SequentialLabeling,
-    utils::Granularity,
+    graphs::vec_graph::VecGraph, prelude::*, traits::SequentialLabeling, utils::Granularity,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
