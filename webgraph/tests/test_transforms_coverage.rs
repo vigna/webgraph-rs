@@ -90,9 +90,9 @@ fn test_simplify_with_batch_size() -> Result<()> {
     let s = transform::simplify(&g, MemoryUsage::BatchSize(2))?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 4);
-    // All edges should be bidirectional
+    // Each node in a 4-cycle must have exactly 2 neighbors after simplification
     for node in 0..4 {
-        assert!(s.outdegree(node) >= 1);
+        assert_eq!(s.outdegree(node), 2);
     }
     Ok(())
 }
@@ -123,12 +123,12 @@ fn test_permute_size_mismatch() {
 
 #[test]
 fn test_simplify_sorted() -> Result<()> {
-    use webgraph::graphs::vec_graph::VecGraph;
     use webgraph::transform::simplify_sorted;
 
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    // simplify_sorted exercises the sorted transpose + union + no-selfloops pipeline.
-    // The return type has complex trait bounds so we just verify it succeeds.
+    // simplify_sorted constructs the sorted transpose + union + no-selfloops pipeline.
+    // The return type only implements SequentialLabeling when the input lender is SortedLender
+    // (e.g., BvGraphSeq), so with VecGraph we can only verify construction succeeds.
     let _s = simplify_sorted(g, webgraph::utils::MemoryUsage::BatchSize(10))?;
     Ok(())
 }
@@ -138,13 +138,23 @@ fn test_simplify_split() -> Result<()> {
     use webgraph::transform::simplify_split;
 
     // Use a compressed graph for SplitLabeling support
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let s = simplify_split(&seq, webgraph::utils::MemoryUsage::BatchSize(10))?;
     assert_eq!(s.num_nodes(), 3);
+    // Collect all arcs and verify symmetrization
+    let mut arcs = vec![];
+    for_!((node, succs) in s.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
+    arcs.sort();
+    // 3-cycle simplified: each node has exactly 2 neighbors, 6 arcs total
+    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
     Ok(())
 }
 

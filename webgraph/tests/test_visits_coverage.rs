@@ -212,10 +212,11 @@ fn test_dfs_interrupted_visit_stack() -> Result<()> {
         std::ops::ControlFlow::Continue(())
     });
     assert_eq!(interrupted_node, std::ops::ControlFlow::Break(3));
-    // After interruption, stack should contain the path from root
+    // After interruption at node 3 on chain 0->1->2->3->4, the stack
+    // yields the parents of nodes on the visit path (excluding the root),
+    // in reverse order. The interrupted node (3) was never pushed.
     let stack_nodes: Vec<usize> = visit.stack().collect();
-    // Stack returns nodes in reverse order excluding the interrupted node
-    assert!(!stack_nodes.is_empty());
+    assert_eq!(stack_nodes, vec![1, 0]);
     Ok(())
 }
 
@@ -355,11 +356,11 @@ fn test_dfs_seq_pred_stack_after_interrupt() -> Result<()> {
         }
         Continue(())
     });
-    // After interruption at node 2, the stack should have some nodes
-    // (the stack iterator yields nodes on the current path, except the last)
+    // After interruption at node 2 on chain 0->1->2->3, the stack
+    // yields the parents of nodes on the visit path (excluding the root),
+    // in reverse order. The interrupted node (2) was never pushed.
     let stack_nodes: Vec<_> = visit.stack().collect();
-    // We interrupted at previsit of node 2, so 0 and 1 should be on the path
-    assert!(!stack_nodes.is_empty());
+    assert_eq!(stack_nodes, vec![0]);
     Ok(())
 }
 

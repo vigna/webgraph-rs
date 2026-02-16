@@ -205,7 +205,8 @@ fn test_par_sort_pairs_basic() -> Result<()> {
         }
         all_pairs.extend(partition_pairs);
     }
-    assert_eq!(all_pairs.len(), 5);
+    all_pairs.sort();
+    assert_eq!(all_pairs, vec![(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]);
     Ok(())
 }
 
@@ -234,6 +235,9 @@ fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs: Vec<_> = (0..100).map(|i| (i % 10, (i + 1) % 10)).collect();
+    let mut expected: Vec<_> = pairs.clone();
+    expected.sort();
+    expected.dedup();
     let sorter = ParSortPairs::new(10)?
         .expected_num_pairs(pairs.len())
         .num_partitions(NonZeroUsize::new(3).unwrap())
@@ -242,6 +246,18 @@ fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     let split = sorter.sort(pairs.par_iter().copied())?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 10);
+
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        let partition_pairs: Vec<_> = iter.into_iter().collect();
+        for w in partition_pairs.windows(2) {
+            assert!(w[0] <= w[1]);
+        }
+        all_pairs.extend(partition_pairs);
+    }
+    all_pairs.sort();
+    all_pairs.dedup();
+    assert_eq!(all_pairs, expected);
     Ok(())
 }
 
@@ -297,12 +313,17 @@ fn test_par_sort_iters_basic() -> Result<()> {
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 4);
 
-    // Collect and verify all pairs are present
+    // Collect and verify all pairs are present and sorted within partitions
     let mut all: Vec<_> = Vec::new();
     for iter in split.iters.into_vec() {
-        all.extend(iter.into_iter());
+        let partition: Vec<_> = iter.into_iter().collect();
+        for w in partition.windows(2) {
+            assert!(w[0] <= w[1]);
+        }
+        all.extend(partition);
     }
-    assert_eq!(all.len(), 4);
+    all.sort();
+    assert_eq!(all, vec![(0, 2), (1, 3), (2, 0), (3, 1)]);
     Ok(())
 }
 
@@ -382,6 +403,17 @@ fn test_par_sort_pairs_labeled() -> Result<()> {
     )?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 4);
+
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        let partition: Vec<_> = iter.into_iter().collect();
+        for w in partition.windows(2) {
+            assert!(w[0].0 <= w[1].0);
+        }
+        all_pairs.extend(partition.into_iter().map(|(k, _)| k));
+    }
+    all_pairs.sort();
+    assert_eq!(all_pairs, vec![(0, 2), (1, 3), (2, 1)]);
     Ok(())
 }
 
@@ -579,6 +611,20 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
 
     assert_eq!(*split.boundaries.first().unwrap(), 0);
     assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
+
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        let partition: Vec<_> = iter.into_iter().collect();
+        for w in partition.windows(2) {
+            assert!(w[0].0 <= w[1].0);
+        }
+        all_pairs.extend(partition.into_iter().map(|(k, _)| k));
+    }
+    all_pairs.sort();
+    assert_eq!(
+        all_pairs,
+        vec![(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]
+    );
     Ok(())
 }
 
@@ -604,5 +650,21 @@ fn test_par_sort_iters() -> Result<()> {
 
     assert_eq!(*split.boundaries.first().unwrap(), 0);
     assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
+
+    // Verify the transpose was sorted correctly
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        let partition: Vec<_> = iter.into_iter().collect();
+        for w in partition.windows(2) {
+            assert!(w[0] <= w[1]);
+        }
+        all_pairs.extend(partition);
+    }
+    all_pairs.sort();
+    // Original arcs: (0,4),(1,0),(1,3),(2,1),(3,2) transposed: (4,0),(0,1),(3,1),(1,2),(2,3)
+    assert_eq!(
+        all_pairs,
+        vec![(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]
+    );
     Ok(())
 }

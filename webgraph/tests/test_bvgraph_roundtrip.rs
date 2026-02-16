@@ -6,7 +6,6 @@
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use lender::*;
 use std::path::Path;
 use webgraph::prelude::*;
 
@@ -64,6 +63,7 @@ fn test_bvcomp_default_codes_be() -> Result<()> {
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq)?;
     webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
     Ok(())
 }
@@ -76,6 +76,7 @@ fn test_bvcomp_default_codes_le() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<LE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<LE>().load()?;
     assert_eq!(seq.num_nodes(), 3);
+    labels::eq_sorted(&graph, &seq)?;
     webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
     Ok(())
 }
@@ -101,6 +102,7 @@ fn test_bvcomp_delta_codes() -> Result<()> {
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 11);
     assert_eq!(seq.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -124,6 +126,7 @@ fn test_bvcomp_zeta_codes() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 6);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -136,6 +139,7 @@ fn test_bvcomp_empty_graph() -> Result<()> {
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 5);
     assert_eq!(seq.num_arcs_hint(), Some(0));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -155,6 +159,7 @@ fn test_bvcomp_no_reference_compression() -> Result<()> {
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -172,6 +177,7 @@ fn test_bvcomp_no_intervals() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 3);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -194,6 +200,7 @@ fn test_bvcomp_interval_encoding() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 30);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -218,6 +225,7 @@ fn test_bvcomp_large_window() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 25);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -231,6 +239,7 @@ fn test_bvcomp_par_comp() -> Result<()> {
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -245,6 +254,7 @@ fn test_bvcomp_bvcompz() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -261,6 +271,7 @@ fn test_bvcomp_config_with_tmp_dir() -> Result<()> {
         .endianness::<BE>()
         .load()?;
     assert_eq!(seq.num_nodes(), 3);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -290,6 +301,7 @@ fn test_bvcomp_recompress_with_different_flags() -> Result<()> {
         .load()?;
     assert_eq!(seq2.num_nodes(), 4);
     assert_eq!(seq2.num_arcs_hint(), Some(3));
+    labels::eq_sorted(&graph, &seq2)?;
     Ok(())
 }
 
@@ -313,6 +325,7 @@ fn test_bvcomp_par_comp_lenders() -> Result<()> {
         .load()?;
     assert_eq!(seq2.num_nodes(), 4);
     assert_eq!(seq2.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq2)?;
     Ok(())
 }
 
@@ -328,6 +341,7 @@ fn test_bvcomp_with_chunk_size() -> Result<()> {
         .endianness::<BE>()
         .load()?;
     assert_eq!(seq.num_nodes(), 3);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -353,6 +367,7 @@ fn test_bvcomp_large_graph_with_reference_compression() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 55);
+    labels::eq_sorted(&graph, &seq)?;
     webgraph::graphs::bvgraph::check_offsets(&seq, path)?;
     Ok(())
 }
@@ -380,6 +395,7 @@ fn test_bvcomp_pi_codes() -> Result<()> {
         .comp_graph::<LE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<LE>().load()?;
     assert_eq!(seq.num_nodes(), 20);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -403,6 +419,7 @@ fn test_bvcomp_unary_codes() -> Result<()> {
         .comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -426,6 +443,7 @@ fn test_bvcomp_dense_graph() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 10);
     assert_eq!(seq.num_arcs_hint(), Some(90));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -442,12 +460,14 @@ fn test_bvcomp_chain_graph() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 101);
     assert_eq!(seq.num_arcs_hint(), Some(100));
+    labels::eq_sorted(&graph, &seq)?;
     // Also test with static dispatch
     let seq_static = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .dispatch::<webgraph::graphs::bvgraph::Static>()
         .load()?;
     assert_eq!(seq_static.num_nodes(), 101);
+    labels::eq_sorted(&graph, &seq_static)?;
     Ok(())
 }
 
@@ -469,6 +489,7 @@ fn test_bvcomp_star_graph() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 50);
     assert_eq!(seq.num_arcs_hint(), Some(49));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -493,6 +514,7 @@ fn test_bvcomp_with_delta_codes() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -514,6 +536,7 @@ fn test_bvcomp_with_zeta_codes() -> Result<()> {
         .load()?;
     assert_eq!(seq.num_nodes(), 8);
     assert_eq!(seq.num_arcs_hint(), Some(5));
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -540,6 +563,7 @@ fn test_bvcomp_with_no_intervals() -> Result<()> {
         .endianness::<BE>()
         .load()?;
     assert_eq!(seq.num_nodes(), 20);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -565,6 +589,7 @@ fn test_bvcomp_with_no_references() -> Result<()> {
         .endianness::<BE>()
         .load()?;
     assert_eq!(seq.num_nodes(), 14);
+    labels::eq_sorted(&graph, &seq)?;
     Ok(())
 }
 
@@ -580,6 +605,7 @@ fn test_bvcomp_config_basic() -> Result<()> {
     // Verify the graph was written correctly (use sequential access, no EF needed)
     let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
     assert_eq!(loaded.num_nodes(), 4);
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -598,6 +624,8 @@ fn test_bvcomp_config_with_flags() -> Result<()> {
         .with_comp_flags(flags)
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -612,6 +640,8 @@ fn test_bvcomp_config_with_explicit_tmp_dir() -> Result<()> {
         .with_tmp_dir(tmp.path())
         .comp_graph::<BE>(&graph)?;
     assert!(bits_written > 0);
+    let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -630,13 +660,7 @@ fn test_par_comp_graph() -> Result<()> {
     let loaded = BvGraph::with_basename(&basename).load()?;
     assert_eq!(loaded.num_nodes(), 5);
     assert_eq!(loaded.num_arcs(), 5);
-
-    // Verify successors match
-    for node in 0..5 {
-        let expected: Vec<usize> = graph.successors(node).collect();
-        let actual: Vec<usize> = loaded.successors(node).collect();
-        assert_eq!(expected, actual, "Mismatch at node {}", node);
-    }
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -672,6 +696,7 @@ fn test_par_comp_lenders() -> Result<()> {
     let loaded = BvGraph::with_basename(&basename).load()?;
     assert_eq!(loaded.num_nodes(), num_nodes);
     assert_eq!(loaded.num_arcs(), 5);
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -687,6 +712,7 @@ fn test_comp_lender() -> Result<()> {
     // Verify with sequential access (no EF needed)
     let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
     assert_eq!(loaded.num_nodes(), 3);
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -705,16 +731,7 @@ fn test_bvcomp_le_endianness() -> Result<()> {
         .endianness::<LE>()
         .load()?;
     assert_eq!(loaded.num_nodes(), 4);
-
-    // Verify arcs
-    let mut arcs = vec![];
-    for_!((node, succs) in loaded.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    assert_eq!(arcs, vec![(0, 1), (1, 2), (1, 3), (2, 0)]);
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }
 
@@ -744,14 +761,6 @@ fn test_bvcomp_with_custom_comp_flags() -> Result<()> {
     // Load and verify
     let loaded = webgraph::graphs::bvgraph::BvGraphSeq::with_basename(&basename).load()?;
     assert_eq!(loaded.num_nodes(), 3);
-
-    let mut arcs = vec![];
-    for_!((node, succs) in loaded.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
-    arcs.sort();
-    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 2), (2, 0)]);
+    labels::eq_sorted(&graph, &loaded)?;
     Ok(())
 }

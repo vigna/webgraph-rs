@@ -336,40 +336,6 @@ fn test_right_iterator_is_empty() {
     assert!(lender.is_empty());
 }
 
-// ── Tests from test_coverage.rs ──
-
-#[test]
-fn test_left_projection_iter() -> Result<()> {
-    use webgraph::labels::Left;
-    let g = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((0, 2), 20),
-        ((1, 0), 30),
-    ]);
-    let left = Left(g);
-    let mut iter = left.iter();
-    let (node, succ) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(succ.into_iter().collect::<Vec<_>>(), vec![1, 2]);
-    Ok(())
-}
-
-#[test]
-fn test_right_projection_iter() -> Result<()> {
-    use webgraph::labels::Right;
-    let g = webgraph::graphs::vec_graph::LabeledVecGraph::<u32>::from_arcs([
-        ((0, 1), 10),
-        ((0, 2), 20),
-        ((1, 0), 30),
-    ]);
-    let right = Right(g);
-    let mut iter = right.iter();
-    let (node, labels) = iter.next().unwrap();
-    assert_eq!(node, 0);
-    assert_eq!(labels.into_iter().collect::<Vec<_>>(), vec![10, 20]);
-    Ok(())
-}
-
 #[test]
 fn test_split_iters_into_labeled_lenders() -> Result<()> {
     use webgraph::utils::SplitIters;
@@ -384,6 +350,18 @@ fn test_split_iters_into_labeled_lenders() -> Result<()> {
     // Convert to Iter lenders via From impl for labeled pairs
     let lenders: Vec<webgraph::graphs::arc_list_graph::Iter<(), _>> = split.into();
     assert_eq!(lenders.len(), 2);
+
+    // Verify the lenders yield the correct data
+    let mut all_arcs = Vec::new();
+    for mut lender in lenders {
+        while let Some((node, succ)) = lender.next() {
+            for (s, _label) in succ {
+                all_arcs.push((node, s));
+            }
+        }
+    }
+    all_arcs.sort();
+    assert_eq!(all_arcs, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
     Ok(())
 }
 

@@ -585,14 +585,7 @@ fn test_csr_graph() -> Result<()> {
     assert_eq!(csr.num_nodes(), 3);
     assert_eq!(csr.num_arcs(), 4);
     assert_eq!(csr.outdegree(0), 2);
-    assert_eq!(
-        RandomAccessLabeling::labels(&csr, 0).collect::<Vec<_>>(),
-        vec![1, 2]
-    );
-    assert_eq!(
-        RandomAccessLabeling::labels(&csr, 2).collect::<Vec<_>>(),
-        vec![0]
-    );
+    graph::eq(&g, &csr)?;
     Ok(())
 }
 
@@ -670,14 +663,7 @@ fn test_csr_graph_from_lender_v1() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let csr = CsrGraph::from_lender(g.iter());
     assert_eq!(csr.num_nodes(), 3);
-    assert_eq!(
-        RandomAccessLabeling::labels(&csr, 0).collect::<Vec<_>>(),
-        vec![1]
-    );
-    assert_eq!(
-        RandomAccessLabeling::labels(&csr, 1).collect::<Vec<_>>(),
-        vec![2]
-    );
+    graph::eq(&g, &csr)?;
     Ok(())
 }
 
@@ -713,11 +699,7 @@ fn test_compressed_csr_graph_try_from_graph() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 0)]);
     let csr = CompressedCsrGraph::try_from_graph(&g)?;
     assert_eq!(csr.num_nodes(), 3);
-    // Check successors via RandomAccessLabeling
-    assert_eq!(
-        RandomAccessLabeling::labels(&csr, 0).collect::<Vec<_>>(),
-        vec![1, 2]
-    );
+    graph::eq(&g, &csr)?;
     Ok(())
 }
 
@@ -764,20 +746,13 @@ fn test_csr_sorted_graph_into_lender() -> Result<()> {
 }
 
 #[test]
-fn test_csr_graph_basic() {
+fn test_csr_graph_basic() -> Result<()> {
     let g = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3)]);
     let csr = CsrGraph::from_seq_graph(&g);
     assert_eq!(csr.num_nodes(), 4);
     assert_eq!(csr.num_arcs(), 4);
-    assert_eq!(csr.outdegree(0), 2);
-    // Iterate over the graph to verify content
-    let mut iter = csr.iter();
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 0);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![1, 2]);
-    let (n, s) = iter.next().unwrap();
-    assert_eq!(n, 1);
-    assert_eq!(s.into_iter().collect::<Vec<_>>(), vec![3]);
+    graph::eq(&g, &csr)?;
+    Ok(())
 }
 
 #[test]

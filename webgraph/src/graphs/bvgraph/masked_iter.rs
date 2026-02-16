@@ -29,8 +29,8 @@ impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIter<I> {
     /// Creates a new iterator that filters out blocks of values.
     ///
     /// The blocks of even index are copy blocks, the blocks of odd index are
-    /// skip blocks. If the number of blocks is odd, a last copy block to the
-    /// end is added.
+    /// skip blocks. The tail of elements is considered a copy block if the
+    /// number of blocks is even, a skip block otherwise.
     pub fn new(parent: I, mut blocks: Vec<usize>) -> Self {
         // the number of copied nodes
         let mut size: usize = 0;

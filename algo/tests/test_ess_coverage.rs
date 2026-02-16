@@ -74,7 +74,7 @@ fn test_ess_all_symm() {
 
     assert_eq!(result.diameter, 1);
     assert_eq!(result.radius, 1);
-    assert!(result.eccentricities.len() == 5);
+    assert_eq!(result.eccentricities.len(), 5);
 }
 
 #[test]
@@ -163,7 +163,7 @@ fn test_ess_symm_path() {
 }
 
 #[test]
-fn test_acyclic_single_node() {
+fn test_acyclic_empty_graph() {
     let graph = VecGraph::from_arcs([] as [(usize, usize); 0]);
     assert!(is_acyclic(&graph, no_logging![]));
 }

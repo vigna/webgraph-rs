@@ -4,9 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::Result;
-use dsi_bitstream::prelude::*;
-use lender::*;
 use webgraph::prelude::*;
 
 struct MockDecoder {
@@ -67,19 +64,6 @@ fn test_decoder_stats_add_assign() {
 fn test_decoder_stats_sum() {
     let stats_vec = vec![DecoderStats::default(), DecoderStats::default()];
     let _summed: DecoderStats = stats_vec.into_iter().sum();
-}
-
-#[test]
-fn test_stats_decoder_wrapping() -> Result<()> {
-    // Compress a small graph and load it; the sequential reading exercises the
-    // Decode trait. We wrap in StatsDecoder to exercise its Decode impl.
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    assert_eq!(seq.num_nodes(), 3);
-    Ok(())
 }
 
 #[test]
@@ -249,24 +233,3 @@ fn test_converter_decode_all_methods() {
     conv.num_of_residuals(5);
 }
 
-#[test]
-fn test_converter_decode_basic() -> Result<()> {
-    // Compress a graph, re-read it, and use the Converter to re-encode
-    // with different codes. This exercises the Converter's Decode implementation.
-    // Create a simple mock decoder and encoder to test Converter
-    // We'll test the Converter indirectly through a compress→load cycle
-    // with different codes via to_properties roundtrip
-    let graph = webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let tmp = tempfile::NamedTempFile::new()?;
-    let path = tmp.path();
-    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
-    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    // Verify the graph was compressed and can be read back
-    let mut count = 0;
-    let mut iter = seq.iter();
-    while let Some((_node, succ)) = iter.next() {
-        count += succ.count();
-    }
-    assert_eq!(count, 2);
-    Ok(())
-}

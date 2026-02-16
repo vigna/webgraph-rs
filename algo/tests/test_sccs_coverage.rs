@@ -135,7 +135,7 @@ fn test_sccs_compute_sizes_empty() {
 fn test_sccs_sort_by_size_all_equal() {
     let mut sccs = Sccs::new(3, vec![0, 1, 2].into_boxed_slice());
     let sizes = sccs.sort_by_size();
-    // All components have size 1, so sorting is stable
+    // All components have size 1, so the sizes are trivially [1, 1, 1]
     assert_eq!(sizes, vec![1, 1, 1].into_boxed_slice());
 }
 

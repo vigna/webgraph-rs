@@ -205,6 +205,14 @@ pub enum EqError {
     #[error("Different number of arcs: {first} != {second}")]
     NumArcs { first: u64, second: u64 },
 
+    /// Iteration on the two graphs returned a different node.
+    #[error("Different node: at index {index} {first} != {second}")]
+    Node {
+        index: usize,
+        first: usize,
+        second: usize,
+    },
+
     /// The graphs have different successors for a specific node.
     #[error("Different successors for node {node}: at index {index} {first} != {second}")]
     Successors {
@@ -288,8 +296,14 @@ where
             second: l1.num_nodes(),
         });
     }
-    for_!(((node0, succ0), (node1, succ1)) in l0.iter().zip(l1.iter()) {
-        debug_assert_eq!(node0, node1);
+    for_!((index, ((node0, succ0), (node1, succ1))) in l0.iter().zip(l1.iter()).enumerate() {
+        if node0 != node1 {
+            return Err(EqError::Node {
+                index,
+                first: node0,
+                second: node1,
+            });
+        }
         eq_succs(node0, succ0, succ1)?;
     });
     Ok(())

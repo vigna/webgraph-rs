@@ -88,8 +88,14 @@ where
             second: g1.num_nodes(),
         });
     }
-    for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
-        debug_assert_eq!(node0, node1);
+    for_!((index, ((node0, succ0), (node1, succ1))) in g0.iter().zip(g1.iter()).enumerate() {
+        if node0 != node1 {
+            return Err(EqError::Node {
+                index,
+                first: node0,
+                second: node1,
+            });
+        }
         let mut succ0 = succ0.into_iter().collect::<Vec<_>>();
         let mut succ1 = succ1.into_iter().collect::<Vec<_>>();
         succ0.sort();

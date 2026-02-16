@@ -13,10 +13,10 @@
 //! ordering for compressing social networks”, _Proceedings of the 20th
 //! international conference on World Wide Web_, pages 587–596, ACM, 2011.
 //!
-//! The function [`layered_label_propagation`] returns a permutation of the
-//! provided symmetric graph which will (hopefully) increase locality (see the
-//! paper). Usually, the permutation is fed to [`permute`](webgraph::transform::permute) to permute the
-//! original graph.
+//! The function [`layered_label_propagation`] returns node labels of the
+//! provided symmetric graph, and [permuting the
+//! graph](webgraph::transform::permute) in label order will (hopefully)
+//! increase locality (see the paper).
 //!
 //! Note that the graph provided should be _symmetric_ and _loopless_. If this
 //! is not the case, please use [`simplify`](webgraph::transform::simplify) to generate a
@@ -75,19 +75,25 @@ pub struct LabelsStore<A> {
 /// # Arguments
 ///
 /// * `sym_graph` - The symmetric graph to run LLP on.
+///
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
+///
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
 ///   an advanced option: see
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
-/// * `granularity` - The granularity of the parallel processing expressed as
-///   the number of arcs to process at a time. If `None`, the granularity is
-///   computed adaptively. This is an advanced option: see
+///
+/// * `granularity` - The granularity of the parallel processing.
+///   This is an advanced option: see
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///
 /// * `seed` - The seed to use for pseudorandom number generation.
-/// * `work_dir` - The directory where the labels will be stored, if `None`, a
-///   temporary directory will be created.
+///
+/// * `predicate` - The stopping criterion for the iterations of the algorithm.
+///
+/// * `work_dir` - The directory where the labels will be stored.
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
