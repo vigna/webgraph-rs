@@ -255,23 +255,33 @@ where
             debug_assert!(neighbors.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count() as usize;
-            // add +1 if the number of blocks is even, so we have capacity for
-            // the block that will be added in the masked iterator
-            let alloc_len = 1 + number_of_blocks - (number_of_blocks & 1);
-            let mut blocks = Vec::with_capacity(alloc_len);
+            let mut blocks = Vec::with_capacity(number_of_blocks);
+            let mut copied = 0;
+            let mut total = 0;
             if number_of_blocks != 0 {
                 // the first block could be zero
-                blocks.push(result.reader.read_block() as usize);
-                // while the other can't
-                for _ in 1..number_of_blocks {
-                    blocks.push(result.reader.read_block() as usize + 1);
+                let b = result.reader.read_block() as usize;
+                blocks.push(b);
+                total += b;
+                copied += b;
+                // while the others can't
+                for i in 1..number_of_blocks {
+                    let b = result.reader.read_block() as usize + 1;
+                    blocks.push(b);
+                    total += b;
+                    if i % 2 == 0 {
+                        copied += b;
+                    }
                 }
             }
+            // If the block count is even, we must add the successors
+            // copied implicitly from the tail.
+            if number_of_blocks % 2 == 0 {
+                copied += neighbors.len() - total;
+            }
+            nodes_left_to_decode -= copied;
             // create the masked iterator
-            let res = MaskedIter::new(neighbors, blocks);
-            nodes_left_to_decode -= res.len();
-
-            result.copied_nodes_iter = Some(res);
+            result.copied_nodes_iter = Some(MaskedIter::new(neighbors, blocks));
         };
 
         // if we still have to read nodes

@@ -498,7 +498,6 @@ fn test_masked_iter_copy_skip_copy() {
     // blocks: [2, 1, 2] → copy 2, skip 1, copy 2
     let parent = vec![10_usize, 20, 30, 40, 50];
     let iter = MaskedIter::new(parent.into_iter(), vec![2, 1, 2]);
-    assert_eq!(iter.len(), 4);
     let result: Vec<_> = iter.collect();
     assert_eq!(result, vec![10, 20, 40, 50]);
 }
@@ -509,7 +508,6 @@ fn test_masked_iter_empty_blocks() {
     // Empty blocks → copy all
     let parent = vec![1_usize, 2, 3, 4];
     let iter = MaskedIter::new(parent.into_iter(), vec![]);
-    assert_eq!(iter.len(), 4);
     assert_eq!(iter.collect::<Vec<_>>(), vec![1, 2, 3, 4]);
 }
 
@@ -518,7 +516,6 @@ fn test_masked_iter_single_copy() {
     use webgraph::graphs::bvgraph::MaskedIter;
     let parent = vec![5_usize, 6, 7];
     let iter = MaskedIter::new(parent.into_iter(), vec![2]);
-    assert_eq!(iter.len(), 2);
     assert_eq!(iter.collect::<Vec<_>>(), vec![5, 6]);
 }
 
