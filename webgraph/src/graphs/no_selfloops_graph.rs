@@ -17,7 +17,7 @@ pub struct NoSelfLoopsGraph<G>(pub G);
 impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
     type Label = usize;
     type Lender<'b>
-        = Iter<G::Lender<'b>>
+        = NodeLabels<G::Lender<'b>>
     where
         Self: 'b;
 
@@ -34,7 +34,7 @@ impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter {
+        NodeLabels {
             iter: self.0.iter_from(from),
         }
     }
@@ -95,7 +95,7 @@ unsafe impl<I: SortedLender + Lender + for<'next> NodeLabelsLender<'next, Label 
 {
 }
 
-impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for Iter<L> {
+impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for NodeLabels<L> {
     // SAFETY: the lend is covariant as it contains only a usize and an iterator
     // over usize values derived from the underlying lender L.
     unsafe_assume_covariance!();
@@ -116,7 +116,7 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for I
 }
 
 impl<L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>> ExactSizeLender
-    for Iter<L>
+    for NodeLabels<L>
 {
     #[inline(always)]
     fn len(&self) -> usize {

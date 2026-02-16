@@ -25,7 +25,7 @@ impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling
 {
     type Label = usize;
     type Lender<'b>
-        = Iter<'b, G::Lender<'b>, P>
+        = NodeLabels<'b, G::Lender<'b>, P>
     where
         Self: 'b;
 
@@ -41,7 +41,7 @@ impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter {
+        NodeLabels {
             iter: self.graph.iter_from(from),
             perm: self.perm,
         }
@@ -85,7 +85,7 @@ impl<'a, 'b, G: SequentialGraph, P: SliceByValue<Value = usize>> IntoLender
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
 #[derive(Debug, Clone)]
-pub struct Iter<'node, I, P> {
+pub struct NodeLabels<'node, I, P> {
     iter: I,
     perm: &'node P,
 }
@@ -110,7 +110,7 @@ impl<
 }
 
 impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: SliceByValue<Value = usize>>
-    Lender for Iter<'_, L, P>
+    Lender for NodeLabels<'_, L, P>
 {
     // SAFETY: the lend is covariant as it contains only a usize and an iterator
     // over usize values derived from the underlying lender L.
@@ -139,7 +139,7 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: SliceByVa
 impl<
     L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
     P: SliceByValue<Value = usize>,
-> ExactSizeLender for Iter<'_, L, P>
+> ExactSizeLender for NodeLabels<'_, L, P>
 {
     #[inline(always)]
     fn len(&self) -> usize {

@@ -89,7 +89,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = Iter::new(
+        let mut iter = NodeLabels::new(
             self.factory.new_decoder().unwrap(),
             self.number_of_nodes,
             self.compression_window,
@@ -175,7 +175,7 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Debug, Clone)]
-pub struct Iter<D: Decode> {
+pub struct NodeLabels<D: Decode> {
     pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,
     pub(crate) min_interval_length: usize,
@@ -184,7 +184,7 @@ pub struct Iter<D: Decode> {
     pub(crate) current_node: usize,
 }
 
-impl<D: Decode + BitSeek> Iter<D> {
+impl<D: Decode + BitSeek> NodeLabels<D> {
     /// Forwards the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
     #[inline(always)]
@@ -193,7 +193,7 @@ impl<D: Decode + BitSeek> Iter<D> {
     }
 }
 
-impl<D: Decode> Iter<D> {
+impl<D: Decode> NodeLabels<D> {
     /// Creates a new iterator from a codes reader
     pub fn new(
         decoder: D,
@@ -317,18 +317,18 @@ impl<D: Decode> Iter<D> {
     }
 }
 
-impl<'succ, D: Decode> NodeLabelsLender<'succ> for Iter<D> {
+impl<'succ, D: Decode> NodeLabelsLender<'succ> for NodeLabels<D> {
     type Label = usize;
     type IntoIterator = crate::traits::labels::AssumeSortedIterator<
         std::iter::Copied<std::slice::Iter<'succ, Self::Label>>,
     >;
 }
 
-impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
+impl<'succ, D: Decode> Lending<'succ> for NodeLabels<D> {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<D: Decode> Lender for Iter<D> {
+impl<D: Decode> Lender for NodeLabels<D> {
     check_covariance!();
 
     fn next(&mut self) -> Option<Lend<'_, Self>> {
@@ -354,9 +354,9 @@ impl<D: Decode> Lender for Iter<D> {
     }
 }
 
-unsafe impl<D: Decode> SortedLender for Iter<D> {}
+unsafe impl<D: Decode> SortedLender for NodeLabels<D> {}
 
-impl<D: Decode> ExactSizeLender for Iter<D> {
+impl<D: Decode> ExactSizeLender for NodeLabels<D> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.number_of_nodes - self.current_node

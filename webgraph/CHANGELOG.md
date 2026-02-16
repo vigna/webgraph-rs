@@ -24,6 +24,15 @@
 
 - `IteratorImpl` has been renamed `LenderImpl` for consistency.
 
+- All implementations of `NodeLabelsLender` have been renamed `NodeLabels` (was:
+  `Iter`).
+
+- Tentatively, all implementations of iterators on successors end in `Succ`, and
+  on labels end in `Labels`. When a random-access and a sequential
+  implementation is available, the latter starts with `Seq`. If the type
+  returned is actually an `IntoIterator`, it is named `IntoSucc` or
+  `IntoLabels`.
+
 ### Fixed
 
 - `BfsOrder` and `BfsOrderFromRoots` where reporting wrong distances,

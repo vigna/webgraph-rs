@@ -232,4 +232,3 @@ fn test_converter_decode_all_methods() {
     // num_of_residuals just delegates
     conv.num_of_residuals(5);
 }
-

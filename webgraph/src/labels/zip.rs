@@ -121,7 +121,7 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
     type Label = (L::Label, R::Label);
 
     type Lender<'node>
-        = Iter<L::Lender<'node>, R::Lender<'node>>
+        = NodeLabels<L::Lender<'node>, R::Lender<'node>>
     where
         Self: 'node;
 
@@ -132,7 +132,7 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter(self.0.iter_from(from), self.1.iter_from(from))
+        NodeLabels(self.0.iter_from(from), self.1.iter_from(from))
     }
 }
 

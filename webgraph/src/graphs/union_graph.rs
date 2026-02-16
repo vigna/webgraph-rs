@@ -20,7 +20,7 @@ where
 {
     type Label = usize;
     type Lender<'b>
-        = Iter<G::Lender<'b>, H::Lender<'b>>
+        = NodeLabels<G::Lender<'b>, H::Lender<'b>>
     where
         Self: 'b;
 
@@ -36,7 +36,7 @@ where
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter(
+        NodeLabels(
             self.0.iter_from(from.min(self.0.num_nodes())),
             self.1.iter_from(from.min(self.1.num_nodes())),
         )

@@ -36,7 +36,7 @@ where
     for<'next> LenderLabel<'next, L>: Pair,
 {
     type Label = <LenderLabel<'succ, L> as Pair>::Left;
-    type IntoIterator = LeftIntoIterator<<L as NodeLabelsLender<'succ>>::IntoIterator>;
+    type IntoIterator = IntoLeftSucc<<L as NodeLabelsLender<'succ>>::IntoIterator>;
 }
 
 impl<'succ, L> Lending<'succ> for LeftIterator<L>
@@ -64,16 +64,16 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct LeftIntoIterator<I: IntoIterator>(pub I)
+pub struct IntoLeftSucc<I: IntoIterator>(pub I)
 where
     I::Item: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct LeftIntoIter<I: Iterator>(pub I)
+pub struct LeftSucc<I: Iterator>(pub I)
 where
     I::Item: Pair;
 
-impl<I: Iterator> Iterator for LeftIntoIter<I>
+impl<I: Iterator> Iterator for LeftSucc<I>
 where
     I::Item: Pair,
 {
@@ -85,7 +85,7 @@ where
     }
 }
 
-impl<I: ExactSizeIterator> ExactSizeIterator for LeftIntoIter<I>
+impl<I: ExactSizeIterator> ExactSizeIterator for LeftSucc<I>
 where
     I::Item: Pair,
 {
@@ -95,7 +95,7 @@ where
     }
 }
 
-impl<I: DoubleEndedIterator> DoubleEndedIterator for LeftIntoIter<I>
+impl<I: DoubleEndedIterator> DoubleEndedIterator for LeftSucc<I>
 where
     I::Item: Pair,
 {
@@ -110,16 +110,16 @@ where
     }
 }
 
-impl<I: IntoIterator> IntoIterator for LeftIntoIterator<I>
+impl<I: IntoIterator> IntoIterator for IntoLeftSucc<I>
 where
     I::Item: Pair,
 {
     type Item = <I::Item as Pair>::Left;
-    type IntoIter = LeftIntoIter<I::IntoIter>;
+    type IntoIter = LeftSucc<I::IntoIter>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        LeftIntoIter(self.0.into_iter())
+        LeftSucc(self.0.into_iter())
     }
 }
 
@@ -136,7 +136,7 @@ where
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
             let (node, succ) = x.into_pair();
-            (node, LeftIntoIterator(succ))
+            (node, IntoLeftSucc(succ))
         })
     }
 
@@ -212,7 +212,7 @@ where
     R::Label: Pair,
 {
     type Labels<'succ>
-        = LeftIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
+        = IntoLeftSucc<<R as RandomAccessLabeling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -223,7 +223,7 @@ where
 
     #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        LeftIntoIterator(self.0.labels(node_id))
+        IntoLeftSucc(self.0.labels(node_id))
     }
 
     #[inline(always)]
@@ -243,7 +243,7 @@ where
 {
 }
 
-unsafe impl<I: SortedIterator> SortedIterator for LeftIntoIter<I> where I::Item: Pair {}
+unsafe impl<I: SortedIterator> SortedIterator for LeftSucc<I> where I::Item: Pair {}
 
 /// The projection onto the second component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -260,7 +260,7 @@ where
     for<'next> LenderLabel<'next, L>: Pair,
 {
     type Label = <LenderLabel<'succ, L> as Pair>::Right;
-    type IntoIterator = RightIntoIterator<<L as NodeLabelsLender<'succ>>::IntoIterator>;
+    type IntoIterator = IntoRightSucc<<L as NodeLabelsLender<'succ>>::IntoIterator>;
 }
 
 impl<'succ, L> Lending<'succ> for RightIterator<L>
@@ -288,16 +288,16 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct RightIntoIterator<I: IntoIterator>(pub I)
+pub struct IntoRightSucc<I: IntoIterator>(pub I)
 where
     I::Item: Pair;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct RightIntoIter<I: Iterator>(pub I)
+pub struct RightSucc<I: Iterator>(pub I)
 where
     I::Item: Pair;
 
-impl<I: Iterator> Iterator for RightIntoIter<I>
+impl<I: Iterator> Iterator for RightSucc<I>
 where
     I::Item: Pair,
 {
@@ -309,7 +309,7 @@ where
     }
 }
 
-impl<I: ExactSizeIterator> ExactSizeIterator for RightIntoIter<I>
+impl<I: ExactSizeIterator> ExactSizeIterator for RightSucc<I>
 where
     I::Item: Pair,
 {
@@ -319,7 +319,7 @@ where
     }
 }
 
-impl<I: DoubleEndedIterator> DoubleEndedIterator for RightIntoIter<I>
+impl<I: DoubleEndedIterator> DoubleEndedIterator for RightSucc<I>
 where
     I::Item: Pair,
 {
@@ -334,16 +334,16 @@ where
     }
 }
 
-impl<I: IntoIterator> IntoIterator for RightIntoIterator<I>
+impl<I: IntoIterator> IntoIterator for IntoRightSucc<I>
 where
     I::Item: Pair,
 {
     type Item = <I::Item as Pair>::Right;
-    type IntoIter = RightIntoIter<I::IntoIter>;
+    type IntoIter = RightSucc<I::IntoIter>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        RightIntoIter(self.0.into_iter())
+        RightSucc(self.0.into_iter())
     }
 }
 
@@ -360,7 +360,7 @@ where
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
             let (node, succ) = x.into_pair();
-            (node, RightIntoIterator(succ))
+            (node, IntoRightSucc(succ))
         })
     }
 
@@ -436,7 +436,7 @@ where
     R::Label: Pair,
 {
     type Labels<'succ>
-        = RightIntoIterator<<R as RandomAccessLabeling>::Labels<'succ>>
+        = IntoRightSucc<<R as RandomAccessLabeling>::Labels<'succ>>
     where
         Self: 'succ;
 
@@ -447,7 +447,7 @@ where
 
     #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        RightIntoIterator(self.0.labels(node_id))
+        IntoRightSucc(self.0.labels(node_id))
     }
 
     #[inline(always)]
@@ -467,4 +467,4 @@ where
 {
 }
 
-unsafe impl<I: SortedIterator> SortedIterator for RightIntoIter<I> where I::Item: Pair {}
+unsafe impl<I: SortedIterator> SortedIterator for RightSucc<I> where I::Item: Pair {}

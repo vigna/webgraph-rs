@@ -300,7 +300,7 @@ impl<
 > From<SplitIters<IT>>
     for Vec<
         crate::labels::proj::LeftIterator<
-            Iter<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
+            NodeLabels<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
         >,
     >
 {
@@ -315,8 +315,9 @@ impl<
                 #[allow(clippy::type_complexity)]
                 let map_fn: fn((usize, usize)) -> ((usize, usize), ()) = |pair| (pair, ());
                 let labeled_iter = iter.into_iter().map(map_fn);
-                let lender = Iter::try_new_from(num_partition_nodes, labeled_iter, start_node)
-                    .expect("Iterator should start from the expected first node");
+                let lender =
+                    NodeLabels::try_new_from(num_partition_nodes, labeled_iter, start_node)
+                        .expect("Iterator should start from the expected first node");
                 // Wrap with LeftIterator to project out just the successor
                 crate::labels::proj::LeftIterator(lender)
             })
@@ -339,7 +340,7 @@ impl<
     L: Clone + Copy + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
     IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
-> From<SplitIters<IT>> for Vec<Iter<L, I>>
+> From<SplitIters<IT>> for Vec<NodeLabels<L, I>>
 {
     fn from(split: SplitIters<IT>) -> Self {
         Box::into_iter(split.iters)
@@ -349,7 +350,7 @@ impl<
                 let end_node = split.boundaries[i + 1];
                 let num_partition_nodes = end_node - start_node;
 
-                Iter::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
+                NodeLabels::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
                     .expect("Iterator should start from the expected first node")
             })
             .collect()

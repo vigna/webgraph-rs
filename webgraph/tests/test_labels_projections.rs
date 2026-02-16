@@ -246,9 +246,9 @@ fn test_assume_sorted_lender() -> Result<()> {
 
 #[test]
 fn test_left_random_access_double_ended() -> Result<()> {
-    use webgraph::labels::proj::LeftIntoIter;
+    use webgraph::labels::proj::LeftSucc;
     let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30)];
-    let mut iter = LeftIntoIter(pairs.into_iter());
+    let mut iter = LeftSucc(pairs.into_iter());
     assert_eq!(iter.next_back(), Some(3));
     assert_eq!(iter.next(), Some(1));
     assert_eq!(iter.next_back(), Some(2));
@@ -258,9 +258,9 @@ fn test_left_random_access_double_ended() -> Result<()> {
 
 #[test]
 fn test_right_random_access_double_ended() -> Result<()> {
-    use webgraph::labels::proj::RightIntoIter;
+    use webgraph::labels::proj::RightSucc;
     let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30)];
-    let mut iter = RightIntoIter(pairs.into_iter());
+    let mut iter = RightSucc(pairs.into_iter());
     assert_eq!(iter.next_back(), Some(30));
     assert_eq!(iter.next(), Some(10));
     // nth_back(0) = next_back()
@@ -271,25 +271,25 @@ fn test_right_random_access_double_ended() -> Result<()> {
 
 #[test]
 fn test_left_exact_size_iterator() {
-    use webgraph::labels::proj::LeftIntoIter;
+    use webgraph::labels::proj::LeftSucc;
     let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30)];
-    let iter = LeftIntoIter(pairs.into_iter());
+    let iter = LeftSucc(pairs.into_iter());
     assert_eq!(iter.len(), 3);
 }
 
 #[test]
 fn test_right_exact_size_iterator() {
-    use webgraph::labels::proj::RightIntoIter;
+    use webgraph::labels::proj::RightSucc;
     let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20)];
-    let iter = RightIntoIter(pairs.into_iter());
+    let iter = RightSucc(pairs.into_iter());
     assert_eq!(iter.len(), 2);
 }
 
 #[test]
 fn test_left_nth_back() -> Result<()> {
-    use webgraph::labels::proj::LeftIntoIter;
+    use webgraph::labels::proj::LeftSucc;
     let pairs: Vec<(usize, u32)> = vec![(1, 10), (2, 20), (3, 30), (4, 40)];
-    let mut iter = LeftIntoIter(pairs.into_iter());
+    let mut iter = LeftSucc(pairs.into_iter());
     // nth_back(1) skips 4, returns 3
     assert_eq!(iter.nth_back(1), Some(3));
     assert_eq!(iter.next_back(), Some(2));
@@ -347,7 +347,7 @@ fn test_split_iters_into_labeled_lenders() -> Result<()> {
     let iters: Box<[Vec<((usize, usize), ())>]> = vec![iter1, iter2].into_boxed_slice();
 
     let split = SplitIters::new(boundaries, iters);
-    // Convert to Iter lenders via From impl for labeled pairs
+    // Convert to NodeLabels lenders via From impl for labeled pairs
     let lenders: Vec<webgraph::graphs::arc_list_graph::NodeLabels<(), _>> = split.into();
     assert_eq!(lenders.len(), 2);
 

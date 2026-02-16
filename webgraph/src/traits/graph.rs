@@ -107,7 +107,7 @@ where
 
 /// Convenience type alias for the iterator over the successors of a node
 /// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
-pub type Successors<'succ, 'node, S> =
+pub type Succ<'succ, 'node, S> =
     <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access
@@ -220,7 +220,7 @@ where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = (usize, ());
-    type IntoIterator = UnitSuccessors<LenderIntoIter<'succ, L>>;
+    type IntoIterator = UnitSucc<LenderIntoIter<'succ, L>>;
 }
 
 impl<'succ, L> Lending<'succ> for UnitLender<L>
@@ -242,7 +242,7 @@ where
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
             let t = x.into_pair();
-            (t.0, UnitSuccessors(t.1.into_iter()))
+            (t.0, UnitSucc(t.1.into_iter()))
         })
     }
 }
@@ -254,9 +254,9 @@ unsafe impl<L: SortedLender> SortedLender for UnitLender<L> where
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct UnitSuccessors<I>(pub I);
+pub struct UnitSucc<I>(pub I);
 
-impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
+impl<I: Iterator<Item = usize>> Iterator for UnitSucc<I> {
     type Item = (usize, ());
 
     #[inline(always)]
@@ -265,7 +265,7 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
     }
 }
 
-unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSuccessors<I> {}
+unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSucc<I> {}
 
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
@@ -363,7 +363,7 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
 
 impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     type Labels<'succ>
-        = UnitSuccessors<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
+        = UnitSucc<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
     where
         Self: 'succ;
 
@@ -374,7 +374,7 @@ impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
 
     #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        UnitSuccessors(self.0.successors(node_id).into_iter())
+        UnitSucc(self.0.successors(node_id).into_iter())
     }
 
     #[inline(always)]

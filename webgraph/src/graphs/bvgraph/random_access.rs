@@ -163,7 +163,7 @@ where
 {
     type Label = usize;
     type Lender<'b>
-        = Iter<F::Decoder<'b>>
+        = NodeLabels<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -188,7 +188,7 @@ where
             backrefs.replace(node_id, self.successors(node_id).collect());
         }
 
-        Iter {
+        NodeLabels {
             decoder: codes_reader,
             backrefs,
             compression_window: self.compression_window,

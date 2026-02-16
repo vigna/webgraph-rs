@@ -621,10 +621,7 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
         all_pairs.extend(partition.into_iter().map(|(k, _)| k));
     }
     all_pairs.sort();
-    assert_eq!(
-        all_pairs,
-        vec![(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]
-    );
+    assert_eq!(all_pairs, vec![(0, 4), (1, 0), (1, 3), (2, 1), (3, 2)]);
     Ok(())
 }
 
@@ -662,9 +659,6 @@ fn test_par_sort_iters() -> Result<()> {
     }
     all_pairs.sort();
     // Original arcs: (0,4),(1,0),(1,3),(2,1),(3,2) transposed: (4,0),(0,1),(3,1),(1,2),(2,3)
-    assert_eq!(
-        all_pairs,
-        vec![(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]
-    );
+    assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]);
     Ok(())
 }

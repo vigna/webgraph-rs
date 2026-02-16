@@ -68,7 +68,7 @@ where
     }
 }
 
-pub struct Iter<'a, 'b, E, BR, D, O: Offsets> {
+pub struct NodeLabels<'a, 'b, E, BR, D, O: Offsets> {
     reader: BR,
     bit_deser: &'a D,
     offsets: &'b MemCase<O>,
@@ -146,7 +146,7 @@ where
 {
     type Label = L;
     type Lender<'node>
-        = Iter<'node, 'node, E, S::Item<'node>, D, O>
+        = NodeLabels<'node, 'node, E, S::Item<'node>, D, O>
     where
         Self: 'node;
 
@@ -156,7 +156,7 @@ where
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter {
+        NodeLabels {
             offsets: &self.offsets,
             reader: self.reader_supplier.request(),
             bit_deser: &self.bit_deser,
@@ -169,7 +169,7 @@ where
 
 // TODO: avoid duplicate implementation for labels
 
-pub struct RanLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
+pub struct Labels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
     reader: BR,
     deserializer: &'a D,
     end_pos: u64,
@@ -177,7 +177,7 @@ pub struct RanLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserial
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for RanLabels<'_, E, BR, D>
+    for Labels<'_, E, BR, D>
 {
     type Item = <D as BitDeserializer<E, BR>>::DeserType;
 
@@ -197,7 +197,7 @@ where
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
     type Labels<'succ>
-        = RanLabels<'succ, E, S::Item<'succ>, D>
+        = Labels<'succ, E, S::Item<'succ>, D>
     where
         Self: 'succ;
 
@@ -210,7 +210,7 @@ where
         reader
             .set_bit_pos(self.offsets.uncase().get(node_id) as u64)
             .unwrap();
-        RanLabels {
+        Labels {
             reader,
             deserializer: &self.bit_deser,
             end_pos: self.offsets.uncase().get(node_id + 1) as u64,

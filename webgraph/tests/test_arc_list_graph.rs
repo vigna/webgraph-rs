@@ -9,7 +9,7 @@ use lender::prelude::*;
 
 use webgraph::{
     graphs::{
-        arc_list_graph::{ArcListGraph, Iter},
+        arc_list_graph::{ArcListGraph, NodeLabels},
         btree_graph::LabeledBTreeGraph,
         vec_graph::LabeledVecGraph,
     },
@@ -20,7 +20,7 @@ use webgraph::{
 
 #[test]
 fn test_arc_list_graph_iter() {
-    let iter = Iter::<Box<u64>, std::vec::IntoIter<((usize, usize), Box<u64>)>>::new(
+    let iter = NodeLabels::<Box<u64>, std::vec::IntoIter<((usize, usize), Box<u64>)>>::new(
         10,
         vec![].into_iter(),
     );

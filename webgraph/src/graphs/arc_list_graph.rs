@@ -14,9 +14,9 @@ use lender::*;
 /// If for every source the arcs are sorted by destination, the successors of
 /// the graph will be sorted.
 ///
-/// The structure [`Iter`] implementing the [`Lender`] returned by the
+/// The structure [`NodeLabels`] implementing the [`Lender`] returned by the
 /// [`iter`](SequentialLabeling::iter) method of this graph can be [built
-/// independently](Iter::new). This is useful in circumstances in which one has
+/// independently](NodeLabels::new). This is useful in circumstances in which one has
 /// a list of arcs sorted by source that represent only part of a graph, but
 /// need to exhibit them has a [`NodeLabelsLender`], for example, for feeding
 /// such lenders to
@@ -77,7 +77,7 @@ where
 }
 
 #[derive(Clone)]
-pub struct Iter<L, I: Iterator<Item = ((usize, usize), L)>> {
+pub struct NodeLabels<L, I: Iterator<Item = ((usize, usize), L)>> {
     num_nodes: usize,
     /// The next node that will be returned by the lender.
     next_node: usize,
@@ -90,16 +90,16 @@ unsafe impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone>
 }
 
 impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, I> {
-    /// Creates an [`Iter`] of outgoing arcs for nodes from `0` to `num_nodes-1`
+    /// Creates an [`NodeLabels`] of outgoing arcs for nodes from `0` to `num_nodes-1`
     pub fn new(num_nodes: usize, iter: I) -> Self {
-        Iter {
+        NodeLabels {
             num_nodes,
             next_node: 0,
             iter: iter.peekable(),
         }
     }
 
-    /// Creates an [`Iter`] of outgoing arcs for nodes from `from` to `from+num_nodes-1`.
+    /// Creates an [`NodeLabels`] of outgoing arcs for nodes from `from` to `from+num_nodes-1`.
     ///
     /// # Errors
     ///
@@ -110,10 +110,10 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, 
         if let Some(((first_src, _), _)) = iter.peek() {
             ensure!(
                 *first_src >= from,
-                "Tried to create arc_list_graph::Iter starting from {from} using an iterator starting from {first_src}"
+                "Tried to create arc_list_graph::NodeLabels starting from {from} using an iterator starting from {first_src}"
             );
         }
-        Ok(Iter {
+        Ok(NodeLabels {
             num_nodes: num_nodes + from,
             next_node: from,
             iter,
@@ -162,7 +162,9 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for Nod
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender for NodeLabels<L, I> {
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender
+    for NodeLabels<L, I>
+{
     #[inline(always)]
     fn len(&self) -> usize {
         self.num_nodes - self.next_node
@@ -207,7 +209,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Sequen
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = Iter::new(self.num_nodes, self.into_iter.clone());
+        let mut iter = NodeLabels::new(self.num_nodes, self.into_iter.clone());
         for _ in 0..from {
             iter.next();
         }
@@ -217,7 +219,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Sequen
 }
 
 pub struct Succ<'succ, L, I: IntoIterator<Item = ((usize, usize), L)>> {
-    node_iter: &'succ mut Iter<L, <I as IntoIterator>::IntoIter>,
+    node_iter: &'succ mut NodeLabels<L, <I as IntoIterator>::IntoIter>,
 }
 
 unsafe impl<L, I: IntoIterator<Item = ((usize, usize), L)>> SortedIterator for Succ<'_, L, I> where

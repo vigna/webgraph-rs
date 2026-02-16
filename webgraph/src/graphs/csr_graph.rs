@@ -454,7 +454,7 @@ where
     D: Iterator<Item = usize>,
 {
     type Label = usize;
-    type IntoIterator = IteratorImpl<'succ, D>;
+    type IntoIterator = SeqSucc<'succ, D>;
 }
 
 impl<'succ, I, D> Lending<'succ> for LenderImpl<I, D>
@@ -462,7 +462,7 @@ where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
 {
-    type Lend = (usize, IteratorImpl<'succ, D>);
+    type Lend = (usize, SeqSucc<'succ, D>);
 }
 
 impl<I, D> Lender for LenderImpl<I, D>
@@ -490,7 +490,7 @@ where
 
         Some((
             node,
-            IteratorImpl {
+            SeqSucc {
                 succ_iter: &mut self.successors_iter,
                 current_offset: &mut self.current_offset,
                 last_offset: &self.last_offset,
@@ -515,7 +515,7 @@ where
     D: Iterator<Item = usize>,
 {
     type Label = usize;
-    type IntoIterator = AssumeSortedIterator<IteratorImpl<'succ, D>>;
+    type IntoIterator = AssumeSortedIterator<SeqSucc<'succ, D>>;
 }
 
 impl<'succ, I, D> Lending<'succ> for LenderSortedImpl<I, D>
@@ -523,7 +523,7 @@ where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
 {
-    type Lend = (usize, AssumeSortedIterator<IteratorImpl<'succ, D>>);
+    type Lend = (usize, AssumeSortedIterator<SeqSucc<'succ, D>>);
 }
 
 impl<I, D> Lender for LenderSortedImpl<I, D>
@@ -540,7 +540,7 @@ where
     }
 }
 
-/// The iterator returned by the lender.
+/// The iterator on successors returned by the lender.
 ///
 /// This is different from the random-access iterator because for better
 /// efficiency we have a single successors iterators that is forwarded by the
@@ -550,13 +550,13 @@ where
 /// much faster than the random access iterator. When using vectors it might be
 /// slower, but it is still a good idea to use this iterator to avoid the
 /// overhead of creating a new iterator for each node.
-pub struct IteratorImpl<'a, D> {
+pub struct SeqSucc<'a, D> {
     succ_iter: &'a mut D,
     current_offset: &'a mut usize,
     last_offset: &'a usize,
 }
 
-impl<D: Iterator<Item = usize>> Iterator for IteratorImpl<'_, D> {
+impl<D: Iterator<Item = usize>> Iterator for SeqSucc<'_, D> {
     type Item = usize;
 
     #[inline(always)]
@@ -575,7 +575,7 @@ impl<D: Iterator<Item = usize>> Iterator for IteratorImpl<'_, D> {
     }
 }
 
-impl<D: Iterator<Item = usize>> ExactSizeIterator for IteratorImpl<'_, D> {
+impl<D: Iterator<Item = usize>> ExactSizeIterator for SeqSucc<'_, D> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.last_offset - *self.current_offset
