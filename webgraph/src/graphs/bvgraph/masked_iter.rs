@@ -5,69 +5,59 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// An iterator returning elements of an underlying iterator filtered through
-/// an inclusion-exclusion block list.
-///
-/// A *mask* is a sequence of integers specifying inclusion-exclusion blocks.
-/// The first value specifies how many elements to include, the second how many
-/// to skip, the third how many to include, and so on. If there are elements
-/// remaining after the blocks are exhausted, they are included if the number
-/// of blocks is even, and excluded otherwise. All integers in the mask
-/// must be positive, except possibly for the first one, which may be zero.
+/// An iterator that filters out blocks of values.
 #[derive(Debug, Clone)]
 pub struct MaskedIter<I> {
-    /// The underlying iterator.
+    /// The resolved reference node, if present
     parent: Box<I>,
-    /// The inclusion-exclusion blocks.
+    /// The copy blocks from the ref node
     blocks: Vec<usize>,
-    /// Index into blocks; always points to the next exclusion block.
-    curr_mask: usize,
-    /// Elements left in the current inclusion block. If negative, all remaining
-    /// elements from the parent must be kept. If zero, no more elements must
-    /// be returned.
-    left: isize,
+    /// The id of block to parse
+    block_idx: usize,
+    /// Caching of the number of values returned, if needed
+    size: usize,
 }
 
-impl<I: Iterator<Item = usize>> MaskedIter<I> {
+impl<I: Iterator<Item = usize>> ExactSizeIterator for MaskedIter<I> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
+impl<I: Iterator<Item = usize> + ExactSizeIterator> MaskedIter<I> {
     /// Creates a new iterator that filters out blocks of values.
     ///
     /// The blocks of even index are copy blocks, the blocks of odd index are
-    /// skip blocks. The tail of elements is considered a copy block if the
-    /// number of blocks is even, a skip block otherwise.
-    pub fn new(parent: I, blocks: Vec<usize>) -> Self {
-        let mut result = Self {
-            parent: Box::new(parent),
-            blocks,
-            curr_mask: 0,
-            left: -1,
-        };
-
-        if !result.blocks.is_empty() {
-            result.left = result.blocks[0] as isize;
-            result.curr_mask = 1;
-            result.advance();
+    /// skip blocks. If the number of blocks is odd, a last copy block to the
+    /// end is added.
+    pub fn new(parent: I, mut blocks: Vec<usize>) -> Self {
+        // the number of copied nodes
+        let mut size: usize = 0;
+        // the cumulative sum of the blocks
+        let mut cumsum_blocks: usize = 0;
+        // compute them
+        for (i, x) in blocks.iter().enumerate() {
+            // branchless add
+            size += if i % 2 == 0 { *x } else { 0 };
+            cumsum_blocks += x;
         }
 
-        result
-    }
+        // an empty blocks means that we should take all the neighbours
+        let remainder = parent.len() - cumsum_blocks;
 
-    /// If the current inclusion block is exhausted and there are more blocks,
-    /// skips the next exclusion block and advances to the following inclusion
-    /// block. If blocks are exhausted, sets `left` to -1 (keep all remaining).
-    #[inline(always)]
-    fn advance(&mut self) {
-        debug_assert!(self.left >= 0);
-        if self.left == 0 && self.curr_mask < self.blocks.len() {
-            let node = self.parent.nth(self.blocks[self.curr_mask] - 1);
-            debug_assert!(node.is_some());
-            self.curr_mask += 1;
-            self.left = if self.curr_mask < self.blocks.len() {
-                let l = self.blocks[self.curr_mask] as isize;
-                self.curr_mask += 1;
-                l
-            } else {
-                -1
-            };
+        // check if the last block is a copy or skip block
+        // avoid pushing it so we end faster
+        if remainder != 0 && blocks.len() % 2 == 0 {
+            size += remainder;
+            blocks.push(remainder);
+        }
+
+        Self {
+            parent: Box::new(parent),
+            blocks,
+            block_idx: 0,
+            size,
         }
     }
 }
@@ -75,44 +65,67 @@ impl<I: Iterator<Item = usize>> MaskedIter<I> {
 impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
     type Item = usize;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.left == 0 {
-            return None;
+        debug_assert!(self.block_idx <= self.blocks.len());
+        let mut current_block = self.blocks[self.block_idx];
+        // we finished this block so we must skip the next one, if present
+        if current_block == 0 {
+            // skip the next block
+            self.block_idx += 1;
+
+            // no more copy blocks so we can stop the parsing
+            if self.block_idx >= self.blocks.len() {
+                return None;
+            }
+
+            debug_assert!(self.blocks[self.block_idx] > 0);
+            for _ in 0..self.blocks[self.block_idx] {
+                // should we add `?` and do an early return?
+                // I don't think it improves speed because it add an
+                // unpredictable branch and the blocks should be done so that
+                // they are always right.
+                let node = self.parent.next();
+                debug_assert!(node.is_some());
+            }
+            self.block_idx += 1;
+            current_block = self.blocks[self.block_idx];
+            debug_assert_ne!(current_block, 0);
         }
-        let next = self.parent.next()?;
-        if self.left > 0 {
-            self.left -= 1;
-            self.advance();
-        }
-        Some(next)
+
+        let result = self.parent.next();
+        self.blocks[self.block_idx] -= 1;
+        result
     }
 
     #[inline(never)]
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let mut remaining = n;
         loop {
-            if self.left == 0 {
-                return None;
+            debug_assert!(self.block_idx <= self.blocks.len());
+            if self.blocks[self.block_idx] == 0 {
+                self.block_idx += 1;
+                if self.block_idx >= self.blocks.len() {
+                    return None;
+                }
+                debug_assert!(self.blocks[self.block_idx] > 0);
+                // Skip the skip block using nth
+                let node = self.parent.nth(self.blocks[self.block_idx] - 1);
+                debug_assert!(node.is_some());
+                self.block_idx += 1;
             }
-            if self.left < 0 {
-                // Pass-through mode: delegate to parent.
-                return self.parent.nth(remaining);
-            }
-            // We are in an inclusion block.
-            let left = self.left as usize;
+
+            let left = self.blocks[self.block_idx];
             if remaining < left {
-                // Can be satisfied within the current inclusion block.
+                // Can be satisfied within the current copy block.
                 let result = self.parent.nth(remaining);
-                self.left -= remaining as isize + 1;
-                self.advance();
+                self.blocks[self.block_idx] -= remaining + 1;
                 return result;
             }
-            // Skip the rest of this inclusion block and advance.
-            self.parent.nth(left - 1);
+            // Skip past this entire copy block.
+            let node = self.parent.nth(left - 1);
+            debug_assert!(node.is_some());
             remaining -= left;
-            self.left = 0;
-            self.advance();
+            self.blocks[self.block_idx] = 0;
         }
     }
 }
