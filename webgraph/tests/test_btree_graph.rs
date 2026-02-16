@@ -5,11 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use webgraph::graphs::btree_graph::LabeledBTreeGraph;
-
 #[cfg(feature = "serde")]
 #[test]
 fn test_serde() -> anyhow::Result<()> {
+    use webgraph::graphs::btree_graph::LabeledBTreeGraph;
     use webgraph::traits::graph;
 
     let arcs = [((0, 1), 1), ((0, 2), 2), ((1, 2), 3)];

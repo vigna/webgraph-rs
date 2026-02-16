@@ -17,7 +17,6 @@ fn test_zip() {
     let mut lender = z.into_lender();
     while let Some((x, i)) = lender.next() {
         let s = i.collect::<Vec<_>>();
-        println!("{:?} {:?}", x, s);
         assert_eq!(z.labels(x).collect::<Vec<_>>(), s);
         assert_eq!(
             z.labels(x).collect::<Vec<_>>(),

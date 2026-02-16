@@ -19,7 +19,6 @@ fn test_left() {
     let mut lender = p.into_lender();
     while let Some((x, i)) = lender.next() {
         let s = i.into_iter().collect::<Vec<_>>();
-        println!("{:?} {:?}", x, s);
         assert_eq!(p.labels(x).into_iter().collect::<Vec<_>>(), s);
         assert_eq!(v.labels(x).collect::<Vec<_>>(), s);
     }
@@ -28,7 +27,6 @@ fn test_left() {
     let mut lender = p.into_lender();
     while let Some((x, i)) = lender.next() {
         let s = i.into_iter().collect::<Vec<_>>();
-        println!("{:?} {:?}", x, s);
         assert_eq!(p.labels(x).into_iter().collect::<Vec<_>>(), s);
         assert_eq!(v.labels(x).collect::<Vec<_>>(), s);
     }
