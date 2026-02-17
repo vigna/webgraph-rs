@@ -35,7 +35,7 @@
 
 ### Fixed
 
-- `BfsOrder` and `BfsOrderFromRoots` where reporting wrong distances,
+- `BfsOrder` and `BfsOrderFromRoots` were reporting wrong distances,
   and reporting roots multiple times.
 
 - `JavaPermutation::set_unchecked` was not properly handling endianness.
@@ -81,8 +81,8 @@
 
 ### Changed
 
-- Several methods previously accepting a `&ThreadPool` now
-  they don't. The user can use the standard Rayon global thread pool
+- Several methods previously accepting a `&ThreadPool` no
+  longer do. The user can use the standard Rayon global thread pool
   or configure their own and use `ThreadPool::install`.
 
 - `JavaPermutation` just implements `SliceByValue` and `SliceByValueMut`,
@@ -97,7 +97,7 @@
 ### Changed
 
 - There is a workspace containing three crates: `webgraph` (basic
-  infrastructure, `algo` (algorithms), and `cli` (command line
+  infrastructure), `algo` (algorithms), and `cli` (command line
   interface).
 
 - Layered Label Propagation has been moved to the `algo` crate.

@@ -240,11 +240,10 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> PartialEq for HeadTail<T, I> {
 
 impl<T, I: Iterator<Item = ((usize, usize), T)>> Eq for HeadTail<T, I> {}
 
-#[allow(clippy::non_canonical_partial_ord_impl)]
 impl<T, I: Iterator<Item = ((usize, usize), T)>> PartialOrd for HeadTail<T, I> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(other.head.0.cmp(&self.head.0))
+        Some(self.cmp(other))
     }
 }
 
@@ -316,7 +315,7 @@ unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator> SortedI
     for KMergeIters<I, T>
 {
 }
-#[allow(clippy::uninit_assumed_init)]
+
 impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> {
     type Item = ((usize, usize), T);
 

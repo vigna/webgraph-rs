@@ -53,7 +53,7 @@ Union nor the Italian MUR can be held responsible for them.
 [symm_par]: https://docs.rs/webgraph-algo/latest/webgraph_algo/sccs/fn.symm_par.html
 [Topological Sorting]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
 [Acyclicity Testing]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html
-[HyperBall]: https://docs.rs/webgraph-algo/latest/webgraph_algo/distances/hyperball/struct.HyperBallBuilder.html
+[HyperBall]: https://docs.rs/webgraph-algo/latest/webgraph_algo/distances/hyperball/index.html
 [ExactSumSweep]: https://docs.rs/webgraph-algo/latest/webgraph_algo/distances/exact_sum_sweep/index.html
 [Layered Label Propagation]: https://docs.rs/webgraph-algo/latest/webgraph_algo/llp/index.html
 [command-line interface]: https://docs.rs/webgraph-cli/latest/index.html

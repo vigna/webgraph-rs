@@ -5,6 +5,122 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Computes an approximation of the neighborhood function, of the size of the
+//! reachable sets, and of (discounted) positive geometric centralities of a
+//! graph using HyperBall.
+//!
+//! HyperBall is an algorithm computing by dynamic programming an approximation
+//! of the sizes of the balls of growing radius around the nodes of a graph.
+//! Starting from these data, it can approximate the _neighborhood function_ of
+//! a graph (i.e., the function returning for each _t_ the number of pairs of
+//! nodes at distance at most _t_), the number of nodes reachable from each
+//! node, Bavelas's closeness centrality, Lin's index, and _harmonic centrality_
+//! (studied by Paolo Boldi and Sebastiano Vigna in "[Axioms for
+//! Centrality]", _Internet Math._, 10(3-4):222–262, 2014). HyperBall can also
+//! compute _discounted centralities_, in which the _discount_ assigned to a
+//! node is some specified function of its distance. All centralities are
+//! computed in their _positive_ version (i.e., using distance _from_ the
+//! source: see below how to compute the more usual, and useful, _negative_
+//! version).
+//!
+//! HyperBall has been described by Paolo Boldi and Sebastiano Vigna in
+//! "[In-Core Computation of Geometric Centralities with HyperBall: A Hundred
+//! Billion Nodes and Beyond][HyperBall paper]", _Proc. of 2013 IEEE 13th
+//! International Conference on Data Mining Workshops (ICDMW 2013)_, IEEE, 2013,
+//! and it is a generalization of the method described in "[HyperANF:
+//! Approximating the Neighborhood Function of Very Large Graphs on a
+//! Budget][HyperANF paper]", by Paolo Boldi, Marco Rosa, and Sebastiano Vigna,
+//! _Proceedings of the 20th international conference on World Wide Web_, pages
+//! 625–634, ACM, 2011.
+//!
+//! Incidentally, HyperBall (actually, HyperANF) has been used to show that
+//! Facebook has just [four degrees of separation].
+//!
+//! # Algorithm
+//!
+//! At step _t_, for each node we (approximately) keep track (using
+//! [HyperLogLog counters]) of the set of nodes at distance at most _t_. At
+//! each iteration, the sets associated with the successors of each node are
+//! merged, thus obtaining the new sets. A crucial component in making this
+//! process efficient and scalable is the usage of broadword programming to
+//! implement the merge phase, which requires maximising in parallel the list of
+//! registers associated with each successor.
+//!
+//! Using the approximate sets, for each _t_ we estimate the number of pairs of
+//! nodes (_x_, _y_) such that the distance from _x_ to _y_ is at most _t_.
+//! Since during the computation we are also in possession of the number of
+//! nodes at distance _t_ − 1, we can also perform computations using the
+//! number of nodes at distance _exactly_ _t_ (e.g., centralities).
+//!
+//! # Systolic Computation
+//!
+//! If you additionally pass the _transpose_ of your graph, when three quarters
+//! of the nodes stop changing their value HyperBall will switch to a _systolic_
+//! computation: using the transpose, when a node changes it will signal back to
+//! its predecessors that at the next iteration they could change. At the next
+//! scan, only the successors of signalled nodes will be scanned. In particular,
+//! when a very small number of nodes is modified by an iteration, HyperBall
+//! will switch to a systolic _local_ mode, in which all information about
+//! modified nodes is kept in (traditional) dictionaries, rather than being
+//! represented as arrays of booleans. This strategy makes the last phases of
+//! the computation orders of magnitude faster, and makes in practice the
+//! running time of HyperBall proportional to the theoretical bound
+//! _O_(_m_ log _n_), where _n_ is the number of nodes and _m_ is the number of
+//! arcs of the graph. Note that graphs with a large diameter require a
+//! correspondingly large number of iterations, and these iterations will have
+//! to pass over all nodes if you do not provide the transpose.
+//!
+//! # Stopping Criterion
+//!
+//! Deciding when to stop iterating is a rather delicate issue. The only safe
+//! way is to iterate until no counter is modified, and systolic (local)
+//! computation makes this goal easily attainable. However, in some cases one
+//! can assume that the graph is not pathological, and stop when the relative
+//! increment of the number of pairs goes below some threshold.
+//!
+//! # Computing Centralities
+//!
+//! Note that usually one is interested in the _negative_ version of a
+//! centrality measure, that is, the version that depends on the _incoming_
+//! arcs. HyperBall can compute only _positive_ centralities: if you are
+//! interested (as it usually happens) in the negative version, you must pass to
+//! HyperBall the _transpose_ of the graph (and if you want to run in systolic
+//! mode, the original graph, which is the transpose of the transpose). Note
+//! that the neighborhood function of the transpose is identical to the
+//! neighborhood function of the original graph, so the exchange does not alter
+//! its computation.
+//!
+//! # Node Weights
+//!
+//! HyperBall can manage to a certain extent a notion of _node weight_ in its
+//! computation of centralities. Weights must be nonnegative integers, and the
+//! initialization phase requires generating a random integer for each unit of
+//! overall weight, as weights are simulated by loading the counter of a node
+//! with multiple elements. Combining this feature with discounts, one can
+//! compute _discounted-gain centralities_ as defined in the [HyperBall paper].
+//!
+//! # Performance
+//!
+//! Most of the memory goes into storing HyperLogLog registers. By tuning the
+//! number of registers per counter, you can modify the memory allocated for
+//! them. Note that you can only choose a number of registers per counter that
+//! is a power of two, so your latitude in adjusting the memory used for
+//! registers is somewhat limited.
+//!
+//! If there are several available cores, the iterations will be _decomposed_
+//! into relatively small tasks (small blocks of nodes) and each task will be
+//! assigned to the first available core. Since all tasks are completely
+//! independent, this behavior ensures a very high degree of parallelism. Be
+//! careful, however, because this feature requires a graph with a reasonably
+//! fast random access (e.g., in the case of a short reference chains in a
+//! [`BvGraph`](webgraph::prelude::BvGraph) and a good choice of the granularity.
+//!
+//! [Axioms for Centrality]: <http://vigna.di.unimi.it/papers.php#BoVAC>
+//! [HyperBall paper]: <http://vigna.di.unimi.it/papers.php#BoVHB>
+//! [HyperANF paper]: <http://vigna.di.unimi.it/papers.php#BoRoVHANF>
+//! [four degrees of separation]: <http://vigna.di.unimi.it/papers.php#BBRFDS>
+//! [HyperLogLog counters]: <https://docs.rs/card-est-array/latest/card_est_array/impls/struct.HyperLogLog.html>
+
 use anyhow::{Context, Result, bail, ensure};
 use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceEstimatorArray};
 use card_est_array::traits::{
