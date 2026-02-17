@@ -287,7 +287,7 @@ impl<
     ///
     /// # Arguments
     /// * `pl`: A progress logger.
-    pub fn compute(&mut self, pl: &mut impl ProgressLog) {
+    pub(super) fn compute(&mut self, pl: &mut impl ProgressLog) {
         if self.num_nodes == 0 {
             return;
         }

@@ -20,7 +20,7 @@ with compressed graphs. The tool supports:
 - **Running** algorithms (Layered Label Propagation)
 - **Benchmarking** graph operations
 
-Each module correspond to a group of commands, and each command is
+Each module corresponds to a group of commands, and each command is
 implemented as a submodule.
 
 ## Subcommands

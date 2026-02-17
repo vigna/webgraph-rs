@@ -415,7 +415,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
             let path_str = path_name.to_string_lossy();
             path_str.starts_with("labels_")
                 && path_str.ends_with(".bin")
-                && path.file_type().unwrap().is_file()
+                && path.file_type().is_ok_and(|ft| ft.is_file())
         });
 
     let mut num_nodes = None;

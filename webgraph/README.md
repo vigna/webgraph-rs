@@ -205,7 +205,7 @@ Union nor the Italian MUR can be held responsible for them.
 [labeling]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html>
 [iteration]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
 [retrieve the successors of a node]: <https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors>
-[LAW website]: <http://law.di.unimi.it/>
+[LAW web site]: <http://law.di.unimi.it/>
 [Elias–Fano]: <sux::dict::EliasFano>
 [WebGraph framework]: <https://webgraph.di.unimi.it/>
 [ε-serde]: <https://crates.io/crates/epserde/>
@@ -215,5 +215,5 @@ Union nor the Italian MUR can be held responsible for them.
 [`BTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html>
 [`LabeledBTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html>
 [Common Crawl web site]: <https://commoncrawl.org/>
-[CLI command `webgraph`]: <https://docs.rs/webgraph-cli/latest/index.html>
+[command-line interface]: <https://docs.rs/webgraph-cli/latest/index.html>
 [`CsrGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html>

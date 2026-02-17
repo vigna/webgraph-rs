@@ -10,29 +10,32 @@
 Algorithms for the Rust implementation of the [WebGraph framework] for graph
 compression.
 
-This crate provides efficient algorithms for analyzing compressed graphs:
-
 ## Algorithms
 
 ### Graph Structure
-- **Strongly Connected Components** (SCCs): Tarjan's algorithm and variants for
-  computing SCCs in directed graphs
-- **Topological Sorting**: Order vertices of a directed acyclic graph
-- **Acyclicity Testing**: Check if a graph is acyclic
+
+- **Strongly Connected Components** ([SCCs]): [Tarjan's algorithm] and
+  [Kosaraju's algorithm] for computing SCCs in directed graphs;
+  [sequential][symm_seq] and [parallel][symm_par] computation
+  of connected components for symmetric graphs
+- **[Topological Sorting]**: Orders vertices of a directed acyclic graph
+- **[Acyclicity Testing]**: Checks if a graph is acyclic
 
 ### Distance Computation
-- **HyperBall**: Probabilistic algorithm for computing distances, closeness
+
+- **[HyperBall]**: Probabilistic algorithm for computing distances, closeness
   centrality, and other measures using HyperLogLog counters
-- **ExactSumSweep**: Exact computation of eccentricities, radius, and diameter
+- **[ExactSumSweep]**: Exact computation of eccentricities, radius, and
+  diameter
 
 ### Community Detection
-- **Layered Label Propagation** (LLP): Fast community detection algorithm for
+
+- **[Layered Label Propagation]** (LLP): Fast community detection algorithm for
   large graphs
 
 ## CLI Integration
 
-Many algorithms can also be accessed through the `webgraph-cli` command-line
-tool.
+Many algorithms can also be accessed through the [command-line interface].
 
 ## Acknowledgments
 
@@ -43,4 +46,15 @@ opinions expressed are however those of the authors only and do not necessarily
 reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
-[WebGraph framework]: <https://webgraph.di.unimi.it/>
+[SCCs]: https://docs.rs/webgraph-algo/latest/webgraph_algo/sccs/index.html
+[Tarjan's algorithm]: https://docs.rs/webgraph-algo/latest/webgraph_algo/sccs/fn.tarjan.html
+[Kosaraju's algorithm]: https://docs.rs/webgraph-algo/latest/webgraph_algo/sccs/fn.kosaraju.html
+[symm_seq]: https://docs.rs/webgraph-algo/latest/webgraph_algo/sccs/fn.symm_seq.html
+[symm_par]: https://docs.rs/webgraph-algo/latest/webgraph_algo/sccs/fn.symm_par.html
+[Topological Sorting]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
+[Acyclicity Testing]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html
+[HyperBall]: https://docs.rs/webgraph-algo/latest/webgraph_algo/distances/hyperball/struct.HyperBallBuilder.html
+[ExactSumSweep]: https://docs.rs/webgraph-algo/latest/webgraph_algo/distances/exact_sum_sweep/index.html
+[Layered Label Propagation]: https://docs.rs/webgraph-algo/latest/webgraph_algo/llp/index.html
+[command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
+[WebGraph framework]: https://webgraph.di.unimi.it/

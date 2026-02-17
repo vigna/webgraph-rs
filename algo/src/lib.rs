@@ -6,6 +6,15 @@
  */
 
 #![doc = include_str!("../README.md")]
+#![deny(unstable_features)]
+#![deny(trivial_casts)]
+#![deny(unconditional_recursion)]
+#![deny(clippy::empty_loop)]
+#![deny(unreachable_code)]
+#![deny(unreachable_pub)]
+#![deny(unreachable_patterns)]
+#![deny(unused_macro_rules)]
+#![deny(unused_doc_comments)]
 #![allow(clippy::type_complexity)]
 
 #[macro_use]
@@ -22,6 +31,7 @@ pub use top_sort::top_sort;
 pub mod distances;
 pub mod prelude {
     pub use crate::acyclicity::is_acyclic;
+    pub use crate::distances;
     pub use crate::sccs::*;
     pub use crate::top_sort::top_sort;
 }

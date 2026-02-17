@@ -7,7 +7,6 @@
  */
 
 //! Facilities to sort externally pairs of nodes with an associated label.
-#![allow(clippy::non_canonical_partial_ord_impl)]
 
 use crate::{
     traits::SortedIterator,
@@ -241,6 +240,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> PartialEq for HeadTail<T, I> {
 
 impl<T, I: Iterator<Item = ((usize, usize), T)>> Eq for HeadTail<T, I> {}
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl<T, I: Iterator<Item = ((usize, usize), T)>> PartialOrd for HeadTail<T, I> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -316,7 +316,6 @@ unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator> SortedI
     for KMergeIters<I, T>
 {
 }
-
 #[allow(clippy::uninit_assumed_init)]
 impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> {
     type Item = ((usize, usize), T);
