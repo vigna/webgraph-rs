@@ -9,10 +9,44 @@ use dsi_progress_logger::no_logging;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph_algo::distances::exact_sum_sweep::{self, Level};
 
-/// Directed graph with a cycle and a sink: 0→1→2→3→0, 2→4.
+/// Canonical test graph (8 nodes, 11 arcs).
+///
+/// - Outdegree 0: node 7 (sink)
+/// - Outdegree 1: nodes 2, 3, 4, 6
+/// - Outdegree 2: nodes 0, 5
+/// - Outdegree 3: node 1
+/// - Indegree 0: node 0 (source)
+/// - Indegree 1: nodes 1, 3, 5, 7
+/// - Indegree 2: nodes 2, 4
+/// - Indegree 3: node 6
+/// - Cycle: 2 → 4 → 6 → 2
 fn directed_graph() -> (VecGraph, VecGraph) {
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0), (2, 4)]);
-    let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3), (4, 2)]);
+    let graph = VecGraph::from_arcs([
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (1, 4),
+        (1, 5),
+        (2, 4),
+        (3, 6),
+        (4, 6),
+        (5, 6),
+        (5, 7),
+        (6, 2),
+    ]);
+    let transpose = VecGraph::from_arcs([
+        (1, 0),
+        (2, 0),
+        (3, 1),
+        (4, 1),
+        (5, 1),
+        (4, 2),
+        (6, 3),
+        (6, 4),
+        (6, 5),
+        (7, 5),
+        (2, 6),
+    ]);
     (graph, transpose)
 }
 
@@ -34,7 +68,7 @@ fn symm_graph() -> VecGraph {
 fn test_ess_diameter_only() -> Result<()> {
     let (graph, transpose) = directed_graph();
     let result = exact_sum_sweep::Diameter::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 4);
+    assert_eq!(result.diameter, 3);
     Ok(())
 }
 
@@ -42,7 +76,7 @@ fn test_ess_diameter_only() -> Result<()> {
 fn test_ess_radius_only() -> Result<()> {
     let (graph, transpose) = directed_graph();
     let result = exact_sum_sweep::Radius::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.radius, 3);
+    assert_eq!(result.radius, 2);
     Ok(())
 }
 
@@ -50,9 +84,12 @@ fn test_ess_radius_only() -> Result<()> {
 fn test_ess_all_forward() -> Result<()> {
     let (graph, transpose) = directed_graph();
     let result = exact_sum_sweep::AllForward::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 4);
-    assert_eq!(result.radius, 3);
-    assert_eq!(result.forward_eccentricities.as_ref(), &[3, 3, 3, 4, 0]);
+    assert_eq!(result.diameter, 3);
+    assert_eq!(result.radius, 2);
+    assert_eq!(
+        result.forward_eccentricities.as_ref(),
+        &[3, 3, 2, 3, 2, 3, 2, 0]
+    );
     Ok(())
 }
 
@@ -60,8 +97,8 @@ fn test_ess_all_forward() -> Result<()> {
 fn test_ess_radius_diameter() -> Result<()> {
     let (graph, transpose) = directed_graph();
     let result = exact_sum_sweep::RadiusDiameter::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 4);
-    assert_eq!(result.radius, 3);
+    assert_eq!(result.diameter, 3);
+    assert_eq!(result.radius, 2);
     Ok(())
 }
 

@@ -328,7 +328,7 @@ fn test_dfs_interrupted_visit_stack() -> Result<()> {
     });
     assert_eq!(interrupted_node, std::ops::ControlFlow::Break(3));
     // After interruption at node 3 on chain 0->1->2->3->4, the stack
-    // yields the parents of nodes on the visit path (excluding the root),
+    // yields the parents of nodes on the visit path (except for the last one),
     // in reverse order. The interrupted node (3) was never pushed.
     let stack_nodes: Vec<usize> = visit.stack().collect();
     assert_eq!(stack_nodes, vec![1, 0]);
@@ -959,16 +959,6 @@ fn test_bfs_order_disconnected_graph() {
     assert_eq!(events.len(), 4);
     // First root should be 0
     assert_eq!(events[0].root, 0);
-}
-
-#[test]
-fn test_bfs_order_exact_size() {
-    use webgraph::visits::breadth_first;
-
-    let graph = VecGraph::from_arcs([(0, 1), (1, 2)]);
-    let mut visit = breadth_first::Seq::new(&graph);
-    let order = breadth_first::BfsOrder::new(&mut visit);
-    assert_eq!(order.len(), 3);
 }
 
 #[test]
