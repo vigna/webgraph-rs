@@ -31,8 +31,6 @@ fn test_offsets() -> Result<()> {
         offset += reader.read_gamma().unwrap() as usize;
         offsets.push(offset as u64);
     }
-    println!("{:?}", offsets.len());
-
     // Load Elias-fano
     let ef_offsets = unsafe {
         <webgraph::graphs::bvgraph::EF>::mmap(
@@ -78,7 +76,7 @@ fn test_offsets_as_slice() -> Result<()> {
     let graph1 = BvGraph::with_basename("../data/cnr-2000")
         .endianness::<BE>()
         .load()?
-        /* TODO .offsets_to_slice() */;
+        .offsets_to_slice();
 
     graph0
         .iter()

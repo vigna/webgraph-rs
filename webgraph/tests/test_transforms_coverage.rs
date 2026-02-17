@@ -109,11 +109,12 @@ fn test_transpose_labeled() -> Result<()> {
     assert_eq!(t.num_nodes(), 3);
     let mut iter = t.iter();
     while let Some((node, succ)) = iter.next() {
-        let labels: Vec<_> = succ.into_iter().collect();
+        let mut succs: Vec<_> = succ.into_iter().map(|(n, _)| n).collect();
+        succs.sort();
         match node {
-            0 => assert_eq!(labels.len(), 0),
-            1 => assert_eq!(labels.len(), 1), // 0->1
-            2 => assert_eq!(labels.len(), 2), // 0->2, 1->2
+            0 => assert!(succs.is_empty()),
+            1 => assert_eq!(succs, vec![0]),    // transposed 0->1
+            2 => assert_eq!(succs, vec![0, 1]), // transposed 0->2, 1->2
             _ => unreachable!("unexpected node {}", node),
         }
     }

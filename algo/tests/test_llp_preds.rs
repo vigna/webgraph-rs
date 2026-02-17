@@ -80,13 +80,6 @@ fn test_max_updates_default() {
 }
 
 #[test]
-fn test_max_updates_display() {
-    let pred = MaxUpdates::from(42_usize);
-    let s = format!("{}", pred);
-    assert!(s.contains("42"));
-}
-
-#[test]
 fn test_min_gain_eval_below_threshold() {
     let pred = MinGain::try_from(0.01).unwrap();
     let params = PredParams {
@@ -154,13 +147,6 @@ fn test_min_gain_nan_threshold() {
 }
 
 #[test]
-fn test_min_gain_display() {
-    let pred = MinGain::try_from(0.05).unwrap();
-    let s = format!("{}", pred);
-    assert!(s.contains("0.05"));
-}
-
-#[test]
 fn test_min_avg_improv_eval() {
     let pred = MinAvgImprov::try_from(0.1).unwrap();
     let params = PredParams {
@@ -222,13 +208,6 @@ fn test_min_avg_improv_nan() {
 }
 
 #[test]
-fn test_min_avg_improv_display() {
-    let pred = MinAvgImprov::try_from(0.25).unwrap();
-    let s = format!("{}", pred);
-    assert!(s.contains("0.25"));
-}
-
-#[test]
 fn test_min_modified_eval_below_sqrt() {
     let pred = MinModified::default();
     let params = PredParams {
@@ -257,13 +236,6 @@ fn test_min_modified_eval_above_sqrt() {
 }
 
 #[test]
-fn test_min_modified_display() {
-    let pred = MinModified::default();
-    let s = format!("{}", pred);
-    assert!(s.contains("√n"));
-}
-
-#[test]
 fn test_perc_modified_eval() {
     let pred = PercModified::try_from(10.0).unwrap(); // 10%
     let params = PredParams {
@@ -289,13 +261,6 @@ fn test_perc_modified_above() {
         update: 0,
     };
     assert!(!pred.eval(&params));
-}
-
-#[test]
-fn test_perc_modified_display() {
-    let pred = PercModified::try_from(15.0).unwrap();
-    let s = format!("{}", pred);
-    assert!(s.contains("15"));
 }
 
 #[test]

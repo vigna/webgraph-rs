@@ -19,16 +19,18 @@ use webgraph::{
 };
 
 #[test]
-fn test_arc_list_graph_iter() {
+fn test_arc_list_graph_iter_empty() {
     let iter = NodeLabels::<Box<u64>, std::vec::IntoIter<((usize, usize), Box<u64>)>>::new(
         10,
         vec![].into_iter(),
     );
+    let mut count = 0;
     for_!((_succ, labels) in iter {
-        for_!(item in labels {
-          println!("{:?}", item);
+        for_!(_item in labels {
+            count += 1;
         });
     });
+    assert_eq!(count, 0);
 }
 
 fn test_graph_iters<I1, I2>(mut iter: I1, mut truth_iter: I2)
@@ -203,10 +205,6 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
         "Should enumerate nodes 0..{} in order",
         num_nodes - 1
     );
-
-    // Specifically verify nodes 8 and 9 are included
-    assert!(all_nodes.contains(&8), "Node 8 should be enumerated");
-    assert!(all_nodes.contains(&9), "Node 9 should be enumerated");
 
     Ok(())
 }

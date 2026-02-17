@@ -28,7 +28,6 @@ fn test_regression_le() -> Result<()> {
         },
         edges: vec![(2, 187)],
     };
-    dbg!(&data);
     harness(data);
     Ok(())
 }
