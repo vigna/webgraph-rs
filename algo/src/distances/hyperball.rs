@@ -182,37 +182,13 @@ use webgraph::utils::Granularity;
 /// # Examples
 ///
 /// ```
-/// use webgraph::graphs::vec_graph::VecGraph;
-/// use webgraph::graphs::bvgraph::DCF;
-/// use webgraph::traits::{RandomAccessLabeling, SequentialLabeling};
-/// use webgraph_algo::distances::hyperball::*;
-/// use dsi_progress_logger::no_logging;
-/// use sux::prelude::*;
-/// use rand::SeedableRng;
-/// use lender::prelude::*;
-///
-/// // A small graph: 0 → 1 → 2 → 0, 1 → 3
+/// # use webgraph::graphs::vec_graph::VecGraph;
+/// # use webgraph::traits::SequentialLabeling;
+/// # use webgraph_algo::distances::hyperball::*;
+/// # use dsi_progress_logger::no_logging;
+/// # use rand::SeedableRng;
 /// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-///
-/// // Build the degree cumulative function (DCF)
-/// let mut efb = EliasFanoBuilder::new(
-///     graph.num_nodes() + 1,
-///     graph.num_arcs() as usize,
-/// );
-/// efb.push(0);
-/// let mut cumul = 0;
-/// let mut lender = graph.iter();
-/// while let Some((_, succs)) = lender.next() {
-///     cumul += succs.into_iter().count();
-///     efb.push(cumul);
-/// }
-/// let dcf: DCF = unsafe {
-///     efb.build().map_high_bits(|high_bits| {
-///         SelectZeroAdaptConst::<_, _, 12, 4>::new(
-///             SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
-///         )
-///     })
-/// };
+/// let dcf = graph.build_dcf();
 ///
 /// // Build and run HyperBall (neighborhood function only)
 /// let rng = rand::rngs::SmallRng::seed_from_u64(0);
@@ -230,28 +206,13 @@ use webgraph::utils::Granularity;
 ///
 /// ```
 /// # use webgraph::graphs::vec_graph::VecGraph;
-/// # use webgraph::graphs::bvgraph::DCF;
-/// # use webgraph::traits::{RandomAccessLabeling, SequentialLabeling};
+/// # use webgraph::traits::SequentialLabeling;
 /// # use webgraph_algo::distances::hyperball::*;
 /// # use dsi_progress_logger::no_logging;
-/// # use sux::prelude::*;
 /// # use rand::SeedableRng;
-/// # use lender::prelude::*;
 /// # let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
-/// # let mut efb = EliasFanoBuilder::new(
-/// #     graph.num_nodes() + 1, graph.num_arcs() as usize);
-/// # efb.push(0);
-/// # let mut cumul = 0;
-/// # let mut lender = graph.iter();
-/// # while let Some((_, succs)) = lender.next() {
-/// #     cumul += succs.into_iter().count();
-/// #     efb.push(cumul);
-/// # }
-/// # let dcf: DCF = unsafe {
-/// #     efb.build().map_high_bits(|high_bits| {
-/// #         SelectZeroAdaptConst::<_, _, 12, 4>::new(
-/// #             SelectAdaptConst::<_, _, 12, 4>::new(high_bits))})};
-/// let rng = rand::rngs::SmallRng::seed_from_u64(0);
+/// # let dcf = graph.build_dcf();
+/// # let rng = rand::rngs::SmallRng::seed_from_u64(0);
 /// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
 ///     &graph, None::<&VecGraph>, &dcf, 6, None,
 /// )?

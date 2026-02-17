@@ -24,7 +24,7 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use crate::{traits::LenderIntoIter, utils::Granularity};
+use crate::{graphs::bvgraph::DCF, traits::LenderIntoIter, utils::Granularity};
 
 use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
@@ -33,9 +33,13 @@ use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
 use std::rc::Rc;
+use sux::{
+    dict::EliasFanoBuilder,
+    rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
+    traits::Succ,
+    utils::FairChunks,
+};
 use thiserror::Error;
-
-use sux::{traits::Succ, utils::FairChunks};
 
 /// A labeling that can be accessed sequentially.
 ///
@@ -96,6 +100,38 @@ pub trait SequentialLabeling {
     /// the node id of the first node returned by the iterator, but just the
     /// starting point of the iteration
     fn iter_from(&self, from: usize) -> Self::Lender<'_>;
+
+    /// Builds the degree cumulative function for this labeling.
+    ///
+    /// The degree cumulative function is the sequence 0, d₀, d₀ + d₁, … ,
+    /// *m*, where *dₖ* is the number of labels of node *k* and *m* is the
+    /// number of labels.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`num_arcs_hint`](SequentialLabeling::num_arcs_hint) returns
+    /// `None`.
+    fn build_dcf(&self) -> DCF {
+        let n = self.num_nodes();
+        let num_arcs = self
+            .num_arcs_hint()
+            .expect("build_dcf requires num_arcs_hint()") as usize;
+        let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
+        efb.push(0);
+        let mut cumul = 0usize;
+        let mut lender = self.iter();
+        while let Some((_node, succs)) = lender.next() {
+            cumul += succs.into_iter().count();
+            efb.push(cumul);
+        }
+        unsafe {
+            efb.build().map_high_bits(|high_bits| {
+                SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(
+                    high_bits,
+                ))
+            })
+        }
+    }
 
     /// Applies `func` to each chunk of nodes of size `node_granularity` in
     /// parallel, and folds the results using `fold`.
@@ -456,6 +492,10 @@ impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
+    }
+
+    fn count(self) -> usize {
+        self.iter.count()
     }
 }
 

@@ -162,6 +162,10 @@ impl<I: Iterator<Item = usize>, P: SliceByValue<Value = usize>> Iterator for Suc
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|succ| self.perm.index_value(succ))
     }
+
+    fn count(self) -> usize {
+        self.iter.count()
+    }
 }
 
 impl<I: ExactSizeIterator<Item = usize>, P: SliceByValue<Value = usize>> ExactSizeIterator

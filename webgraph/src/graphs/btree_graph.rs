@@ -397,6 +397,10 @@ impl<L: Clone + 'static> Iterator for LabeledSucc<'_, L> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(succ, labels)| (*succ, labels.clone()))
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
 
 impl<L: Clone + 'static> ExactSizeIterator for LabeledSucc<'_, L> {
@@ -417,6 +421,10 @@ impl Iterator for Succ<'_> {
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn count(self) -> usize {
+        self.len()
     }
 }
 

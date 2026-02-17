@@ -6,49 +6,12 @@
 
 //! Tests for visit algorithms (BFS and DFS).
 
+mod common;
+
 use anyhow::Result;
-use webgraph::graphs::vec_graph::VecGraph;
+use common::test_graph;
 use webgraph::prelude::*;
 use webgraph::visits::Sequential;
-
-/// Canonical test graph (8 nodes, 11 arcs).
-///
-/// ```text
-///   0 ──→ 1 ──→ 3 ──→ 6 ──→ 2
-///   │     │           ↑     ↑ │
-///   │     ├──→ 4 ─────┘     │ │
-///   │     └──→ 5 ────→ 7    │ │
-///   │              │         │ │
-///   └──→ 2 ──→ 4  └─→ 6    │ │
-///        ↑                   │ │
-///        └───────────────────┘ │
-///              (cycle: 6→2)    │
-/// ```
-///
-/// - Outdegree 0: node 7 (sink)
-/// - Outdegree 1: nodes 2, 3, 4, 6
-/// - Outdegree 2: nodes 0, 5
-/// - Outdegree 3: node 1
-/// - Indegree 0: node 0 (source)
-/// - Indegree 1: nodes 1, 3, 5, 7
-/// - Indegree 2: nodes 2, 4
-/// - Indegree 3: node 6
-/// - Cycle: 2 → 4 → 6 → 2
-fn test_graph() -> VecGraph {
-    VecGraph::from_arcs([
-        (0, 1),
-        (0, 2),
-        (1, 3),
-        (1, 4),
-        (1, 5),
-        (2, 4),
-        (3, 6),
-        (4, 6),
-        (5, 6),
-        (5, 7),
-        (6, 2),
-    ])
-}
 
 // ── DFS SeqNoPred ──
 

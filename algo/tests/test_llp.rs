@@ -5,39 +5,11 @@
  */
 
 use anyhow::Result;
-use lender::prelude::*;
 use predicates::prelude::PredicateBooleanExt;
-use sux::prelude::*;
-use webgraph::graphs::bvgraph::DCF;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::traits::SequentialLabeling;
 use webgraph_algo::llp;
 use webgraph_algo::llp::preds::*;
-
-/// Builds a degree cumulative function (DCF) from a graph.
-///
-/// The DCF is an Elias-Fano representation of the sequence
-/// 0, d₀, d₀+d₁, ..., total_arcs where dᵢ is the outdegree of node i.
-fn build_dcf(graph: &VecGraph) -> DCF {
-    let num_nodes = graph.num_nodes();
-    let num_arcs = graph.num_arcs_hint().unwrap_or(0) as usize;
-
-    let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
-    efb.push(0);
-    let mut cumul = 0usize;
-    let mut lender = graph.iter();
-    while let Some((_node, succs)) = lender.next() {
-        cumul += succs.into_iter().count();
-        efb.push(cumul);
-    }
-
-    let ef = efb.build();
-    unsafe {
-        ef.map_high_bits(|bits| {
-            SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(bits))
-        })
-    }
-}
 
 #[test]
 fn test_llp_small_symmetric_graph() -> Result<()> {
@@ -60,7 +32,7 @@ fn test_llp_small_symmetric_graph() -> Result<()> {
     let num_nodes = graph.num_nodes();
     assert_eq!(num_nodes, 4);
 
-    let deg_cumul = build_dcf(&graph);
+    let deg_cumul = graph.build_dcf();
 
     let dir = tempfile::tempdir()?;
     let gammas = vec![0.0, 1.0];
@@ -101,7 +73,7 @@ fn test_llp_labels_only_and_combine() -> Result<()> {
         (4, 3),
     ]);
     let num_nodes = graph.num_nodes();
-    let deg_cumul = build_dcf(&graph);
+    let deg_cumul = graph.build_dcf();
 
     let dir = tempfile::tempdir()?;
 
@@ -136,7 +108,7 @@ fn test_llp_multiple_gammas() -> Result<()> {
         (0, 4),
         (4, 0),
     ]);
-    let deg_cumul = build_dcf(&graph);
+    let deg_cumul = graph.build_dcf();
 
     let dir = tempfile::tempdir()?;
     let gammas = vec![0.0, 0.5, 1.0, 2.0];
@@ -175,7 +147,7 @@ fn test_llp_complete_graph() -> Result<()> {
         (2, 3),
         (3, 2),
     ]);
-    let deg_cumul = build_dcf(&graph);
+    let deg_cumul = graph.build_dcf();
 
     let dir = tempfile::tempdir()?;
 

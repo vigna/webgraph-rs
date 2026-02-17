@@ -479,6 +479,10 @@ impl<D: Decode> Iterator for Succ<D> {
         Some(min)
     }
 
+    fn count(self) -> usize {
+        self.len()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.size, Some(self.size))
     }

@@ -100,6 +100,33 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
         iter
     }
+
+    fn build_dcf(&self) -> DCF {
+        let n = self.num_nodes();
+        let num_arcs = self
+            .num_arcs_hint()
+            .expect("build_dcf requires num_arcs_hint()") as usize;
+        let mut efb = sux::dict::EliasFanoBuilder::new(n + 1, num_arcs);
+        efb.push(0);
+        let mut cumul_deg = 0usize;
+        let mut iter = OffsetDegIter::new(
+            self.factory.new_decoder().unwrap(),
+            n,
+            self.compression_window,
+            self.min_interval_length,
+        );
+        for _ in 0..n {
+            cumul_deg += iter.next_degree().unwrap();
+            efb.push(cumul_deg);
+        }
+        unsafe {
+            efb.build().map_high_bits(|high_bits| {
+                sux::rank_sel::SelectZeroAdaptConst::<_, _, 12, 4>::new(
+                    sux::rank_sel::SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
+                )
+            })
+        }
+    }
 }
 
 impl<F: SequentialDecoderFactory> SequentialGraph for BvGraphSeq<F> {}

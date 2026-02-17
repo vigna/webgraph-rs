@@ -195,7 +195,12 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> =
 {
 }
 
-/// The default version of EliasFano we use for the cumulative function of degrees.
+/// The default type we use for the cumulative function of degrees.
+///
+/// It provides an indexed dictionary](sux::traits::indexed_dict::IndexedDict) with
+/// [successor](sux::traits::indexed_dict::Succ) and [predecessor](sux::traits::indexed_dict::Pred) support.
+///
+/// This is the type returned by [`crate::traits::labels::SequentialLabeling::build_dcf`].
 pub type DCF = sux::dict::EliasFano<
     sux::rank_sel::SelectZeroAdaptConst<
         sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,

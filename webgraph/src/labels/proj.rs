@@ -83,6 +83,10 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().0)
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
 }
 
 impl<I: ExactSizeIterator> ExactSizeIterator for LeftSucc<I>
@@ -306,6 +310,10 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|x| x.into_pair().1)
+    }
+
+    fn count(self) -> usize {
+        self.0.count()
     }
 }
 

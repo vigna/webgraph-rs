@@ -10,7 +10,11 @@ use crate::traits::*;
 use common_traits::UnsignedInt;
 use epserde::Epserde;
 use lender::{IntoLender, Lend, Lender, Lending, check_covariance, for_};
-use sux::{bits::BitFieldVec, dict::EliasFanoBuilder, prelude::SelectAdaptConst};
+use sux::{
+    bits::BitFieldVec,
+    dict::EliasFanoBuilder,
+    rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
+};
 use value_traits::{
     iter::{IterFrom, IterateByValueFrom},
     slices::SliceByValue,
@@ -324,6 +328,22 @@ where
             successors_iter: self.successors.iter_value_from(offset),
         }
     }
+
+    fn build_dcf(&self) -> crate::graphs::bvgraph::DCF {
+        let n = self.num_nodes();
+        let num_arcs = self.num_arcs_hint().unwrap() as usize;
+        let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
+        for val in self.dcf.iter_value_from(0).take(n + 1) {
+            efb.push(val);
+        }
+        unsafe {
+            efb.build().map_high_bits(|high_bits| {
+                SelectZeroAdaptConst::<_, _, 12, 4>::new(
+                    SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
+                )
+            })
+        }
+    }
 }
 
 impl<DCF, S> SequentialLabeling for CsrSortedGraph<DCF, S>
@@ -351,18 +371,22 @@ where
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         LenderSortedImpl(self.0.iter_from(from))
     }
+
+    fn build_dcf(&self) -> crate::graphs::bvgraph::DCF {
+        self.0.build_dcf()
+    }
 }
 
-impl<DCF, S> SequentialGraph for CsrGraph<DCF, S>
+impl<D, S> SequentialGraph for CsrGraph<D, S>
 where
-    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    D: SliceByValue + IterateByValueFrom<Item = usize>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
 }
 
-impl<DCF, S> SequentialGraph for CsrSortedGraph<DCF, S>
+impl<D, S> SequentialGraph for CsrSortedGraph<D, S>
 where
-    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    D: SliceByValue + IterateByValueFrom<Item = usize>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
 }
@@ -575,6 +599,11 @@ impl<D: Iterator<Item = usize>> Iterator for SeqSucc<'_, D> {
         }
         *self.current_offset += 1;
         self.succ_iter.next()
+    }
+
+    #[inline(always)]
+    fn count(self) -> usize {
+        self.len()
     }
 
     #[inline(always)]

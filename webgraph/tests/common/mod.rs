@@ -4,10 +4,40 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(dead_code)]
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use std::path::Path;
+use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::EF;
+
+/// Canonical test graph (8 nodes, 11 arcs).
+///
+/// - Outdegree 0: node 7 (sink)
+/// - Outdegree 1: nodes 2, 3, 4, 6
+/// - Outdegree 2: nodes 0, 5
+/// - Outdegree 3: node 1
+/// - Indegree 0: node 0 (source)
+/// - Indegree 1: nodes 1, 3, 5, 7
+/// - Indegree 2: nodes 2, 4
+/// - Indegree 3: node 6
+/// - Cycle: 2 → 4 → 6 → 2
+pub fn test_graph() -> VecGraph {
+    VecGraph::from_arcs([
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (1, 4),
+        (1, 5),
+        (2, 4),
+        (3, 6),
+        (4, 6),
+        (5, 6),
+        (5, 7),
+        (6, 2),
+    ])
+}
 
 /// Builds the Elias-Fano representation of offsets for a graph.
 ///

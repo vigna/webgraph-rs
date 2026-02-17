@@ -13,6 +13,11 @@
 
 - Support for π codes, both in the file format and in the CLI tools.
 
+- `SequentialLabeling::build_dcf` new default method for building a degree
+  cumulative function. It is overridden by more efficient methods, for example,
+  in `BvGraphSeq`. All iterators have fast constant-time implementations of
+  `count` whenever possible to support the method.
+
 ### Changed
 
 - All parallel methods now use the current Rayon global thread pool rather than

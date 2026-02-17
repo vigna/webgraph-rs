@@ -96,4 +96,8 @@ impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
         self.blocks[self.block_idx] -= 1;
         result
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
