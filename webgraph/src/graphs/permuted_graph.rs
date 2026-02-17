@@ -16,7 +16,10 @@ use value_traits::slices::SliceByValue;
 /// on the graph nor the successors are sorted.
 #[derive(Debug, Clone)]
 pub struct PermutedGraph<'a, G: SequentialGraph, P: SliceByValue<Value = usize> + ?Sized> {
+    /// The underlying graph.
     pub graph: &'a G,
+    /// The permutation to apply: node *i* of the permuted graph
+    /// corresponds to node `perm[`*i*`]` of the underlying graph.
     pub perm: &'a P,
 }
 

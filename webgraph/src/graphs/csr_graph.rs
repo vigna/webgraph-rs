@@ -16,14 +16,19 @@ use value_traits::{
     slices::SliceByValue,
 };
 
+/// A [`CsrGraph`] with Elias–Fano-encoded degree cumulative function and
+/// [`BitFieldVec`]-encoded successors.
 pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
+
+/// A [`CsrSortedGraph`] with Elias–Fano-encoded degree cumulative function and
+/// [`BitFieldVec`]-encoded successors.
 pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 
 /// A compressed sparse-row graph.
 #[derive(Debug, Clone, Epserde)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 ///
-/// It is a graph representation that stores the degree-cumulative function
+/// It is a graph representation that stores the degree cumulative function
 /// (DCF) and the successors in a compressed format. The DCF is a sequence of
 /// offsets that indicates the start of the neighbors for each node in the
 /// graph. Building a CSR graph requires always a sorted lender.
@@ -54,26 +59,30 @@ pub struct CsrGraph<DCF = Box<[usize]>, S = Box<[usize]>> {
 pub struct CsrSortedGraph<DCF = Box<[usize]>, S = Box<[usize]>>(CsrGraph<DCF, S>);
 
 impl<DCF, S> CsrGraph<DCF, S> {
-    /// Creates a new CSR graph from the given degree-cumulative function and
+    /// Creates a new CSR graph from the given degree cumulative function and
     /// successors.
     ///
     /// # Safety
-    /// The degree-cumulative function must be monotone and coherent with the
+    /// The degree cumulative function must be monotone and coherent with the
     /// successors.
     pub unsafe fn from_parts(dcf: DCF, successors: S) -> Self {
         Self { dcf, successors }
     }
 
+    /// Returns a reference to the degree cumulative function.
     #[inline(always)]
     pub fn dcf(&self) -> &DCF {
         &self.dcf
     }
 
+    /// Returns a reference to the successors.
     #[inline(always)]
     pub fn successors(&self) -> &S {
         &self.successors
     }
 
+    /// Consumes the graph, returning the degree cumulative function and
+    /// the successors.
     #[inline(always)]
     pub fn into_inner(self) -> (DCF, S) {
         (self.dcf, self.successors)

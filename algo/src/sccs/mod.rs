@@ -68,6 +68,8 @@ pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
 }
 
 impl<C: AsRef<[usize]>> Sccs<C> {
+    /// Creates a new instance from the number of components and the
+    /// component assignment for each node.
     pub fn new(num_components: usize, components: C) -> Self {
         Sccs {
             num_components,
