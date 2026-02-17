@@ -97,6 +97,7 @@ impl<I: Iterator<Item = usize>> Iterator for MaskedIter<I> {
         result
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.len()
     }

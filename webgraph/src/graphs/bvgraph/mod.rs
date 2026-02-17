@@ -197,7 +197,7 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> =
 
 /// The default type we use for the cumulative function of degrees.
 ///
-/// It provides an indexed dictionary](sux::traits::indexed_dict::IndexedDict) with
+/// It provides an [indexed dictionary](sux::traits::indexed_dict::IndexedDict) with
 /// [successor](sux::traits::indexed_dict::Succ) and [predecessor](sux::traits::indexed_dict::Pred) support.
 ///
 /// This is the type returned by [`crate::traits::labels::SequentialLabeling::build_dcf`].

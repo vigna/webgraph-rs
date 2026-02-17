@@ -398,6 +398,7 @@ impl<L: Clone + 'static> Iterator for LabeledSucc<'_, L> {
         self.0.next().map(|(succ, labels)| (*succ, labels.clone()))
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.len()
     }
@@ -423,6 +424,7 @@ impl Iterator for Succ<'_> {
         self.0.next()
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.len()
     }

@@ -479,6 +479,7 @@ impl<D: Decode> Iterator for Succ<D> {
         Some(min)
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.len()
     }

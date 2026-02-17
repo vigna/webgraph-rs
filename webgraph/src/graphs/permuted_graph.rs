@@ -163,6 +163,7 @@ impl<I: Iterator<Item = usize>, P: SliceByValue<Value = usize>> Iterator for Suc
         self.iter.next().map(|succ| self.perm.index_value(succ))
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.iter.count()
     }

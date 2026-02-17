@@ -104,8 +104,8 @@ pub trait SequentialLabeling {
     /// Builds the degree cumulative function for this labeling.
     ///
     /// The degree cumulative function is the sequence 0, d₀, d₀ + d₁, … ,
-    /// *m*, where *dₖ* is the number of labels of node *k* and *m* is the
-    /// number of labels.
+    /// *m*, where *dₖ* is the number of arcs/labels of node *k* and *m* is the
+    /// number of arcs/labels.
     ///
     /// # Panics
     ///
@@ -494,6 +494,7 @@ impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
         self.iter.next()
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.iter.count()
     }

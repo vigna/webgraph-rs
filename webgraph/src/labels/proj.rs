@@ -84,6 +84,7 @@ where
         self.0.next().map(|x| x.into_pair().0)
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.0.count()
     }
@@ -312,6 +313,7 @@ where
         self.0.next().map(|x| x.into_pair().1)
     }
 
+    #[inline(always)]
     fn count(self) -> usize {
         self.0.count()
     }

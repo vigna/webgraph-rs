@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Tests for [`SequentialGraph::build_dcf`] and its overrides in
+//! Tests for [`SequentialLabeling::build_dcf`] and its overrides in
 //! [`BvGraphSeq`], [`CsrGraph`], and [`CsrSortedGraph`].
 
 mod common;
