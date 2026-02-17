@@ -10,10 +10,8 @@ use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
 
-// ── From test_core.rs ──
-
 #[test]
-fn test_sort_pairs_basic_v1() -> Result<()> {
+fn test_sort_pairs_basic() -> Result<()> {
     use webgraph::utils::SortPairs;
     let dir = tempfile::tempdir()?;
     let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
@@ -130,7 +128,7 @@ fn test_sort_pairs_try_sort_labeled() -> Result<()> {
 }
 
 #[test]
-fn test_sort_pairs_try_sort_v1() -> Result<()> {
+fn test_sort_pairs_try_sort() -> Result<()> {
     use webgraph::utils::SortPairs;
     let dir = tempfile::tempdir()?;
     let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
@@ -177,8 +175,6 @@ fn test_matrix_basic() {
     assert_eq!(m[(0, 0)], 0);
     assert_eq!(m[(2, 0)], 0);
 }
-
-// ── From test_coverage.rs ──
 
 #[test]
 fn test_par_sort_pairs_basic() -> Result<()> {
@@ -283,21 +279,6 @@ fn test_sort_pairs_labeled() -> Result<()> {
 }
 
 #[test]
-fn test_sort_pairs_try_sort_v2() -> Result<()> {
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::sort_pairs::SortPairs;
-
-    let tmp = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(MemoryUsage::BatchSize(100), tmp.path())?;
-    let pairs: Vec<Result<(usize, usize), std::convert::Infallible>> =
-        vec![Ok((3, 0)), Ok((1, 2)), Ok((0, 1))];
-    let iter = sp.try_sort(pairs)?;
-    let result: Vec<_> = iter.map(|((s, d), _)| (s, d)).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (3, 0)]);
-    Ok(())
-}
-
-#[test]
 fn test_par_sort_iters_basic() -> Result<()> {
     use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_iters::ParSortIters;
@@ -367,24 +348,6 @@ fn test_sort_pairs_labeled_with_values() -> Result<()> {
 }
 
 #[test]
-fn test_sort_pairs_push_unlabeled() -> Result<()> {
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::sort_pairs::SortPairs;
-
-    let tmp = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(MemoryUsage::BatchSize(100), tmp.path())?;
-    sp.push(3, 0)?;
-    sp.push(1, 2)?;
-    sp.push(0, 1)?;
-    sp.push(2, 3)?;
-
-    let iter = sp.iter()?;
-    let result: Vec<_> = iter.map(|((s, d), _)| (s, d)).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
-    Ok(())
-}
-
-#[test]
 fn test_par_sort_pairs_labeled() -> Result<()> {
     use rayon::prelude::*;
     use std::num::NonZeroUsize;
@@ -414,38 +377,6 @@ fn test_par_sort_pairs_labeled() -> Result<()> {
     }
     all_pairs.sort();
     assert_eq!(all_pairs, vec![(0, 2), (1, 3), (2, 1)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_basic_v2() -> Result<()> {
-    use webgraph::utils::{MemoryUsage, SortPairs};
-
-    let dir = tempfile::tempdir()?;
-    let mut sort_pairs = SortPairs::new(MemoryUsage::BatchSize(100), dir.path())?;
-    sort_pairs.push(2, 3)?;
-    sort_pairs.push(0, 1)?;
-    sort_pairs.push(1, 2)?;
-    sort_pairs.push(0, 2)?;
-
-    let iter = sort_pairs.iter()?;
-    let pairs: Vec<((usize, usize), ())> = iter.collect();
-    let keys: Vec<(usize, usize)> = pairs.into_iter().map(|(k, _)| k).collect();
-    // Should be sorted by (src, dst)
-    assert_eq!(keys, vec![(0, 1), (0, 2), (1, 2), (2, 3)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_convenience() -> Result<()> {
-    use webgraph::utils::{MemoryUsage, SortPairs};
-
-    let dir = tempfile::tempdir()?;
-    let mut sort_pairs = SortPairs::new(MemoryUsage::BatchSize(100), dir.path())?;
-    let result: Vec<((usize, usize), ())> =
-        sort_pairs.sort(vec![(3, 4), (1, 2), (0, 1)])?.collect();
-    let keys: Vec<(usize, usize)> = result.into_iter().map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 1), (1, 2), (3, 4)]);
     Ok(())
 }
 
@@ -484,18 +415,6 @@ fn test_kmerge_iters_from_iterator_of_self() {
 }
 
 #[test]
-fn test_kmerge_iters_from_iterator_of_into_iters() {
-    use webgraph::utils::sort_pairs::KMergeIters;
-    let iters = vec![
-        vec![((0, 0), ()), ((1, 1), ())],
-        vec![((0, 1), ()), ((2, 0), ())],
-    ];
-    let merged: KMergeIters<_, ()> = iters.into_iter().collect();
-    let keys: Vec<(usize, usize)> = merged.map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 0), (0, 1), (1, 1), (2, 0)]);
-}
-
-#[test]
 fn test_kmerge_iters_add_assign_into_iter() {
     use webgraph::utils::sort_pairs::KMergeIters;
     let mut merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> = KMergeIters::default();
@@ -503,17 +422,6 @@ fn test_kmerge_iters_add_assign_into_iter() {
     merged += items;
     let result: Vec<_> = merged.map(|(k, _)| k).collect();
     assert_eq!(result, vec![(0, 1), (2, 3)]);
-}
-
-#[test]
-fn test_kmerge_iters_add_assign_self() {
-    use webgraph::utils::sort_pairs::KMergeIters;
-    let mut merged1: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
-        KMergeIters::new(vec![vec![((0, 0), ()), ((2, 0), ())].into_iter()]);
-    let merged2 = KMergeIters::new(vec![vec![((1, 0), ()), ((3, 0), ())].into_iter()]);
-    merged1 += merged2;
-    let keys: Vec<(usize, usize)> = merged1.map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 0), (1, 0), (2, 0), (3, 0)]);
 }
 
 #[test]
@@ -569,21 +477,6 @@ fn test_sort_pairs_labeled_with_gaps_codec() -> Result<()> {
     let items: Vec<_> = iter.collect();
     let keys: Vec<(usize, usize)> = items.into_iter().map(|(k, _)| k).collect();
     assert_eq!(keys, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_try_sort_fallible() -> Result<()> {
-    use webgraph::utils::{MemoryUsage, SortPairs};
-
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(MemoryUsage::BatchSize(100), dir.path())?;
-
-    let pairs: Vec<Result<(usize, usize), std::convert::Infallible>> =
-        vec![Ok((2, 3)), Ok((0, 1)), Ok((1, 2))];
-    let iter = sp.try_sort(pairs)?;
-    let keys: Vec<(usize, usize)> = iter.map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 1), (1, 2), (2, 3)]);
     Ok(())
 }
 

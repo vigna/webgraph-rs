@@ -47,23 +47,59 @@ impl webgraph::graphs::bvgraph::Decode for MockDecoder {
 }
 
 #[test]
-fn test_decoder_stats_default_and_update() {
-    let mut stats1 = DecoderStats::default();
-    let stats2 = DecoderStats::default();
-    stats1.update(&stats2);
+fn test_decoder_stats_update() {
+    use webgraph::graphs::bvgraph::{DecoderStats, StatsDecoder};
+
+    let mock = MockDecoder::new(10);
+    let mut dec = StatsDecoder::new(mock, DecoderStats::default());
+    dec.read_outdegree();
+    dec.read_residual();
+    dec.read_residual();
+
+    let mut combined = DecoderStats::default();
+    combined.update(&dec.stats);
+    combined.update(&dec.stats);
+    assert_eq!(combined.outdegrees.total, 2);
+    assert_eq!(combined.residuals.total, 4);
+    assert_eq!(combined.blocks.total, 0);
 }
 
 #[test]
 fn test_decoder_stats_add_assign() {
-    let mut stats1 = DecoderStats::default();
-    let stats2 = DecoderStats::default();
-    stats1 += &stats2;
+    use webgraph::graphs::bvgraph::{DecoderStats, StatsDecoder};
+
+    let mock = MockDecoder::new(10);
+    let mut dec = StatsDecoder::new(mock, DecoderStats::default());
+    dec.read_outdegree();
+    dec.read_block();
+    dec.read_block();
+    dec.read_block();
+
+    let mut acc = DecoderStats::default();
+    acc += &dec.stats;
+    acc += &dec.stats;
+    assert_eq!(acc.outdegrees.total, 2);
+    assert_eq!(acc.blocks.total, 6);
+    assert_eq!(acc.residuals.total, 0);
 }
 
 #[test]
 fn test_decoder_stats_sum() {
-    let stats_vec = vec![DecoderStats::default(), DecoderStats::default()];
-    let _summed: DecoderStats = stats_vec.into_iter().sum();
+    use webgraph::graphs::bvgraph::{DecoderStats, StatsDecoder};
+
+    let mock1 = MockDecoder::new(5);
+    let mut dec1 = StatsDecoder::new(mock1, DecoderStats::default());
+    dec1.read_outdegree();
+
+    let mock2 = MockDecoder::new(7);
+    let mut dec2 = StatsDecoder::new(mock2, DecoderStats::default());
+    dec2.read_outdegree();
+    dec2.read_residual();
+
+    let summed: DecoderStats = vec![dec1.stats, dec2.stats].into_iter().sum();
+    assert_eq!(summed.outdegrees.total, 2);
+    assert_eq!(summed.residuals.total, 1);
+    assert_eq!(summed.interval_counts.total, 0);
 }
 
 #[test]
@@ -149,25 +185,16 @@ fn test_const_codes_estimator_all_methods() {
         { code_consts::ZETA3 },
     > = ConstCodesEstimator::new();
 
-    // All write methods return Ok(bit_length) for the given value
-    let outdeg = est.write_outdegree(5).unwrap();
-    assert!(outdeg > 0);
-    let refoff = est.write_reference_offset(3).unwrap();
-    assert!(refoff > 0);
-    let bc = est.write_block_count(2).unwrap();
-    assert!(bc > 0);
-    let bl = est.write_block(1).unwrap();
-    assert!(bl > 0);
-    let ic = est.write_interval_count(4).unwrap();
-    assert!(ic > 0);
-    let is = est.write_interval_start(10).unwrap();
-    assert!(is > 0);
-    let il = est.write_interval_len(3).unwrap();
-    assert!(il > 0);
-    let fr = est.write_first_residual(7).unwrap();
-    assert!(fr > 0);
-    let r = est.write_residual(15).unwrap();
-    assert!(r > 0);
+    // gamma(n) = 2*floor(log2(n+1))+1 bits; unary(n) = n+1 bits; zeta3 from regression
+    assert_eq!(est.write_outdegree(5).unwrap(), 5); // gamma(5) = 2*2+1
+    assert_eq!(est.write_reference_offset(3).unwrap(), 4); // unary(3) = 4
+    assert_eq!(est.write_block_count(2).unwrap(), 3); // gamma(2) = 2*1+1
+    assert_eq!(est.write_block(1).unwrap(), 3); // gamma(1) = 2*1+1
+    assert_eq!(est.write_interval_count(4).unwrap(), 5); // gamma(4) = 2*2+1
+    assert_eq!(est.write_interval_start(10).unwrap(), 7); // gamma(10) = 2*3+1
+    assert_eq!(est.write_interval_len(3).unwrap(), 5); // gamma(3) = 2*2+1
+    assert_eq!(est.write_first_residual(7).unwrap(), 7); // zeta3(7)
+    assert_eq!(est.write_residual(15).unwrap(), 8); // zeta3(15)
     let f = est.flush().unwrap();
     assert_eq!(f, 0);
 
@@ -188,9 +215,8 @@ fn test_const_codes_estimator_zero_values() {
         { code_consts::GAMMA },
         { code_consts::ZETA3 },
     > = ConstCodesEstimator::new();
-    // Gamma encoding of 0 should be 1 bit
-    let bits = est.write_outdegree(0).unwrap();
-    assert!(bits > 0);
+    // gamma(0) = 2*floor(log2(1))+1 = 1 bit
+    assert_eq!(est.write_outdegree(0).unwrap(), 1);
 }
 
 #[test]

@@ -16,8 +16,9 @@ use webgraph::{
     },
     prelude::*,
     traits::{
-        RandomAccessLabeling, SequentialLabeling, labels,
+        RandomAccessLabeling, SequentialLabeling,
         graph::{self, LabeledRandomAccessGraph},
+        labels,
     },
 };
 
