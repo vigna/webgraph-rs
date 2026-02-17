@@ -244,7 +244,121 @@ impl LoadMode for LoadMmap {
 ///
 /// A basic configuration is returned by
 /// [`BvGraph::with_basename`]/[`BvGraphSeq::with_basename`]. The configuration
-/// can then be customized using the methods of this struct.
+/// can then be customized using the setter methods of this struct, chained in
+/// builder style, and finalized by calling [`load`](LoadConfig::load).
+///
+/// # Defaults
+///
+/// The default configuration returned by `with_basename` uses:
+/// - big endianness ([`BE`]);
+/// - [dynamic dispatch](`Dynamic`);
+/// - [memory mapping](`Mmap`) for both the graph and the offsets.
+///
+/// # Configuration Axes
+///
+/// ## Access Mode
+///
+/// - [`BvGraph::with_basename`] returns a configuration for **random access**,
+///   which requires the Elias–Fano offsets file (`.ef`). The resulting graph
+///   supports both random access and sequential iteration.
+/// - [`BvGraphSeq::with_basename`] returns a configuration for **sequential
+///   access**, which only needs the graph file (`.graph`). The resulting graph
+///   supports only sequential iteration.
+///
+/// ## Endianness
+///
+/// - [`endianness`](LoadConfig::endianness): sets the endianness of the graph
+///   file. Use `endianness::<BE>()` for big-endian (the default and the Java
+///   convention) or `endianness::<LE>()` for little-endian.
+///
+/// ## Code Dispatch
+///
+/// - [`dispatch`](LoadConfig::dispatch): chooses between:
+///   - [`Dynamic`] (default): reads the codes from the properties file;
+///     slightly slower due to indirect dispatch, but works with any graph.
+///   - [`Static`]: the codes are fixed at compile time via const generics,
+///     enabling more aggressive optimization. The defaults match the Java
+///     defaults (γ for outdegrees, unary for references, γ for blocks, γ for
+///     intervals, ζ₃ for residuals). If your graph uses non-default codes,
+///     you must specify them explicitly.
+///
+/// ## Load Mode
+///
+/// Controls how the graph bitstream and the offsets are accessed.
+///
+/// - [`mode`](LoadConfig::mode): sets the load mode for **both** the graph
+///   and the offsets. You can also set them independently:
+///   - [`graph_mode`](LoadConfig::graph_mode): sets the mode for the graph
+///     only;
+///   - [`offsets_mode`](LoadConfig::offsets_mode): sets the mode for the
+///     offsets only (random access only).
+///
+/// The available modes are:
+///
+/// - [`Mmap`] (default): memory maps the file. This is the most
+///   memory-efficient mode, as the OS manages paging. It is the recommended
+///   mode for large graphs.
+/// - [`LoadMem`]: reads the file into allocated memory.
+/// - [`LoadMmap`]: reads the file into memory obtained via `mmap`, rather than
+///   the standard allocator.
+/// - [`File`]: reads the graph from a file stream. The offsets are fully
+///   deserialized in memory using [ε-serde]'s
+///   [`load_full`](epserde::deser::Deserialize::load_full). Note that the
+///   graph file must be padded correctly for this mode.
+///
+/// ## Memory flags
+///
+/// When using [`Mmap`] or [`LoadMmap`], you can set [`MemoryFlags`] to
+/// request transparent huge pages, etc.:
+///
+/// - [`flags`](LoadConfig::flags): sets flags for both the graph and offsets.
+/// - [`graph_flags`](LoadConfig::graph_flags): sets flags for the graph only.
+/// - [`offsets_flags`](LoadConfig::offsets_flags): sets flags for the offsets
+///   only (random access only).
+///
+/// # Examples
+///
+/// Load with all defaults (big-endian, dynamic dispatch, memory-mapped):
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME").load()?;
+/// ```
+///
+/// Load a little-endian graph:
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .endianness::<LE>()
+///     .load()?;
+/// ```
+///
+/// Load with static dispatch (using default codes):
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .dispatch::<Static>()
+///     .load()?;
+/// ```
+///
+/// Load into memory rather than memory-mapping:
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .mode::<LoadMem>()
+///     .load()?;
+/// ```
+///
+/// Load a sequential-access graph (no `.ef` file needed):
+/// ```ignore
+/// let graph = BvGraphSeq::with_basename("BASENAME").load()?;
+/// ```
+///
+/// Combine options:
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .endianness::<LE>()
+///     .dispatch::<Static>()
+///     .mode::<LoadMem>()
+///     .load()?;
+/// ```
+///
+/// [ε-serde]: <https://docs.rs/epserde/latest/epserde/>
 #[derive(Debug, Clone)]
 pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode> {
     pub(crate) basename: PathBuf,
