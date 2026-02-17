@@ -36,6 +36,7 @@ nonmax.workspace = true
 crossbeam-utils.workspace = true
 thiserror.workspace = true
 kahan = "0.1.4"
+feistel-permutation-rs = "0.1.1"
 
 [dev-dependencies]
 tempfile.workspace = true

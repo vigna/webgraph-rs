@@ -31,6 +31,8 @@ use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
+use feistel_permutation_rs::DefaultBuildHasher;
+use feistel_permutation_rs::Permutation;
 use predicates::Predicate;
 use preds::PredParams;
 
@@ -143,9 +145,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     let chunk_size = chunk_size.unwrap_or(1_000_000);
     let num_threads = rayon::current_num_threads();
 
-    // init the permutation with the indices
-    let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
-
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
     let mut label_store = label_store::LabelStore::new(num_nodes as _);
@@ -161,6 +160,8 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         item_name = "gamma",
         expected_updates = Some(gammas.len()),
     ];
+
+    let mut perm = vec![0; num_nodes];
 
     // init the iteration progress logger
     let mut iter_pl = progress_logger![item_name = "update"];
@@ -206,24 +207,18 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 gammas.len()
             ));
 
-            update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
-            thread_pool.install(|| {
-                // parallel shuffle
-                update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
-                    let seed = seed.fetch_add(1, Ordering::Relaxed);
-                    let mut rand = SmallRng::seed_from_u64(seed);
-                    chunk.shuffle(&mut rand);
-                });
-            });
-
             // If this iteration modified anything (early stop)
             let modified = CachePadded::new(AtomicUsize::new(0));
+            let update_perm = Permutation::new(num_nodes as _, 0, DefaultBuildHasher::new());
 
             let delta_obj_func = sym_graph.par_apply(
                 |range| {
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
-                    for &node in &update_perm[range] {
+                    for node in update_perm
+                        .range(range.start as _, range.end as _)
+                        .map(|node| node as usize)
+                    {
                         // Note that here we are using a heuristic optimization:
                         // if no neighbor has changed, the label of a node
                         // cannot change. If gamma != 0, this is not necessarily
@@ -340,7 +335,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
 
         // We temporarily use the update permutation to compute the sorting
         // permutation of the labels.
-        let perm = &mut update_perm;
         thread_pool.install(|| {
             perm.par_iter_mut()
                 .with_min_len(RAYON_MIN_LEN)
@@ -362,7 +356,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         // the inverse permutation. It will be reinitialized at the next
         // iteration anyway.
         thread_pool.install(|| {
-            invert_permutation(perm, volumes);
+            invert_permutation(&perm, volumes);
         });
 
         update_pl.expected_updates(Some(num_nodes));
