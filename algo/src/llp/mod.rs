@@ -5,27 +5,61 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Layered label propagation.
+//! Layered Label Propagation.
 //!
 //! An implementation of the _layered label propagation_ algorithm described by
 //! Paolo Boldi, Sebastiano Vigna, Marco Rosa, Massimo Santini, and Sebastiano
-//! Vigna in “Layered label propagation: A multiresolution coordinate-free
-//! ordering for compressing social networks”, _Proceedings of the 20th
-//! international conference on World Wide Web_, pages 587–596, ACM, 2011.
+//! Vigna in "[Layered Label Propagation: A MultiResolution Coordinate-Free
+//! Ordering for Compressing Social Networks][LLP paper]", _Proceedings of the
+//! 20th international conference on World Wide Web_, pages 587–596, ACM, 2011.
 //!
-//! The function [`layered_label_propagation`] returns node labels of the
-//! provided symmetric graph, and [permuting the
-//! graph](webgraph::transform::permute) in label order will (hopefully)
-//! increase locality (see the paper).
+//! # Requirements
 //!
-//! Note that the graph provided should be _symmetric_ and _loopless_. If this
-//! is not the case, please use [`simplify`](webgraph::transform::simplify) to generate a
+//! The graph provided should be _symmetric_ and _loopless_. If this is not the
+//! case, please use [`simplify`](webgraph::transform::simplify) to generate a
 //! suitable graph.
 //!
-//! # Memory requirements
+//! # Memory Requirements
 //!
 //! LLP requires three `usize` and a boolean per node, plus the memory that is
 //! necessary to load the graph.
+//!
+//! # Algorithm
+//!
+//! Label propagation assigns a _label_ to each node and then iteratively
+//! updates every label to the one that maximizes an objective function based on
+//! the frequency of labels among the node's neighbors and on a resolution
+//! parameter ɣ. Low ɣ values produce many small communities, while high ɣ
+//! values produce few large ones. _Layered_ label propagation runs label
+//! propagation for several values of ɣ and combines the resulting labelings
+//! into a single one that captures community structure at multiple resolutions.
+//!
+//! Nodes of the resulting labeling that share the same label are likely
+//! co-located in the graph, so [permuting the
+//! graph](webgraph::transform::permute) in label order will increase locality,
+//! yielding better compression.
+//!
+//! # Functions
+//!
+//! - [`layered_label_propagation`]: runs LLP and returns the final combined
+//!   labels;
+//! - [`layered_label_propagation_labels_only`]: runs LLP and stores
+//!   per-ɣ labels to disk, but does not combine them; this is useful when
+//!   you want to combine labels in a separate step;
+//! - [`combine_labels`]: combines the per-ɣ labels stored on disk by a
+//!   previous call to [`layered_label_propagation_labels_only`];
+//! - [`labels_to_ranks`]: converts labels to ranks by their natural order,
+//!   yielding a permutation that can be passed to
+//!   [`permute`](webgraph::transform::permute).
+//!
+//! # Choosing ɣ Values
+//!
+//! More values improve the resulting combined labeling, but each value needs a
+//! full run of the label propagation algorithm, so there is a trade-off between
+//! quality and running time. A common choice is a set exponentially-spaced
+//! values, for example ɣ ∈ {1, 1/2, 1/4, …} or ɣ ∈ {1, 1/4, 1/16, …}.
+//!
+//! [LLP paper]: <https://vigna.di.unimi.it/papers.php#BRSLLP>
 //!
 use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
@@ -100,7 +134,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
     chunk_size: Option<usize>,
-    arc_granularity: Granularity,
+    granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
@@ -111,7 +145,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         deg_cumul,
         gammas,
         chunk_size,
-        arc_granularity,
+        granularity,
         seed,
         predicate,
         &work_dir,
@@ -129,7 +163,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
     chunk_size: Option<usize>,
-    arc_granularity: Granularity,
+    granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
@@ -302,7 +336,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                     local_obj_func
                 },
                 |delta_obj_func_0: f64, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
-                arc_granularity,
+                granularity,
                 deg_cumul,
                 &mut update_pl,
             );
@@ -373,7 +407,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 graph: &sym_graph,
                 perm: &volumes,
             },
-            arc_granularity,
+            granularity,
             deg_cumul,
             &mut update_pl,
         );

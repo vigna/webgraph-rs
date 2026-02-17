@@ -141,9 +141,128 @@ use webgraph::utils::Granularity;
 
 /// A builder for [`HyperBall`].
 ///
-/// After creating a builder with [`HyperBallBuilder::new`] you can configure it
-/// using setters such as [`HyperBallBuilder`] its methods, then call
-/// [`HyperBallBuilder::build`] on it to create a [`HyperBall`] instance.
+/// # Creating a Builder
+///
+/// There are three constructors, depending on the type of graph and
+/// cardinality estimator:
+///
+/// - [`with_hyper_log_log`](Self::with_hyper_log_log): the most common entry
+///   point—it creates a builder using [`HyperLogLog`] counters, requiring
+///   only the base-2 logarithm of the number of registers per counter
+///   (`log2m`). Higher values of `log2m` give more precise estimates at the
+///   cost of more memory;
+/// - [`new`](Self::new): creates a builder from two pre-built estimator
+///   arrays and a graph (without its transpose);
+/// - [`with_transpose`](Self::with_transpose): same, but also accepts the
+///   transpose of the graph, enabling [systolic
+///   computation](super::hyperball#systolic-computation).
+///
+/// # Configuration
+///
+/// After creation, the builder can be configured using the following
+/// methods:
+///
+/// - [`sum_of_distances`](Self::sum_of_distances): enables the computation
+///   of the sum of distances from each node (needed for closeness, Lin, and
+///   Nieminen centrality);
+/// - [`sum_of_inverse_distances`](Self::sum_of_inverse_distances): enables
+///   the computation of harmonic centrality;
+/// - [`discount_function`](Self::discount_function): adds a custom discount
+///   function;
+/// - [`granularity`](Self::granularity): sets the arc granularity for the
+///   parallel iterations;
+/// - [`weights`](Self::weights): sets optional nonnegative integer node
+///   weights.
+///
+/// Finally, call [`build`](Self::build) to obtain a [`HyperBall`] instance,
+/// and then [`run`](HyperBall::run) or
+/// [`run_until_done`](HyperBall::run_until_done) to perform the actual
+/// computation.
+///
+/// # Examples
+///
+/// ```
+/// use webgraph::graphs::vec_graph::VecGraph;
+/// use webgraph::graphs::bvgraph::DCF;
+/// use webgraph::traits::{RandomAccessLabeling, SequentialLabeling};
+/// use webgraph_algo::distances::hyperball::*;
+/// use dsi_progress_logger::no_logging;
+/// use sux::prelude::*;
+/// use rand::SeedableRng;
+/// use lender::prelude::*;
+///
+/// // A small graph: 0 → 1 → 2 → 0, 1 → 3
+/// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+///
+/// // Build the degree cumulative function (DCF)
+/// let mut efb = EliasFanoBuilder::new(
+///     graph.num_nodes() + 1,
+///     graph.num_arcs() as usize,
+/// );
+/// efb.push(0);
+/// let mut cumul = 0;
+/// let mut lender = graph.iter();
+/// while let Some((_, succs)) = lender.next() {
+///     cumul += succs.into_iter().count();
+///     efb.push(cumul);
+/// }
+/// let dcf: DCF = unsafe {
+///     efb.build().map_high_bits(|high_bits| {
+///         SelectZeroAdaptConst::<_, _, 12, 4>::new(
+///             SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
+///         )
+///     })
+/// };
+///
+/// // Build and run HyperBall (neighborhood function only)
+/// let rng = rand::rngs::SmallRng::seed_from_u64(0);
+/// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
+///     &graph, None::<&VecGraph>, &dcf, 6, None,
+/// )?.build(no_logging![]);
+/// hyperball.run_until_done(rng, no_logging![])?;
+///
+/// let nf = hyperball.neighborhood_function()?;
+/// assert!(nf.len() >= 4);
+/// # Ok::<(), anyhow::Error>(())
+/// ```
+///
+/// To compute harmonic centrality, enable it on the builder:
+///
+/// ```
+/// # use webgraph::graphs::vec_graph::VecGraph;
+/// # use webgraph::graphs::bvgraph::DCF;
+/// # use webgraph::traits::{RandomAccessLabeling, SequentialLabeling};
+/// # use webgraph_algo::distances::hyperball::*;
+/// # use dsi_progress_logger::no_logging;
+/// # use sux::prelude::*;
+/// # use rand::SeedableRng;
+/// # use lender::prelude::*;
+/// # let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+/// # let mut efb = EliasFanoBuilder::new(
+/// #     graph.num_nodes() + 1, graph.num_arcs() as usize);
+/// # efb.push(0);
+/// # let mut cumul = 0;
+/// # let mut lender = graph.iter();
+/// # while let Some((_, succs)) = lender.next() {
+/// #     cumul += succs.into_iter().count();
+/// #     efb.push(cumul);
+/// # }
+/// # let dcf: DCF = unsafe {
+/// #     efb.build().map_high_bits(|high_bits| {
+/// #         SelectZeroAdaptConst::<_, _, 12, 4>::new(
+/// #             SelectAdaptConst::<_, _, 12, 4>::new(high_bits))})};
+/// let rng = rand::rngs::SmallRng::seed_from_u64(0);
+/// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
+///     &graph, None::<&VecGraph>, &dcf, 6, None,
+/// )?
+/// .sum_of_inverse_distances(true)
+/// .build(no_logging![]);
+/// hyperball.run_until_done(rng, no_logging![])?;
+///
+/// let centralities = hyperball.harmonic_centralities()?;
+/// assert_eq!(centralities.len(), graph.num_nodes());
+/// # Ok::<(), anyhow::Error>(())
+/// ```
 pub struct HyperBallBuilder<
     'a,
     G1: RandomAccessGraph + Sync,
@@ -261,7 +380,7 @@ impl<
     /// * `graph`: the graph to analyze.
     /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
     /// * `array_0`: a first array of estimators.
-    /// * `array_1`: A second array of estimators of the same length and with the same logic of
+    /// * `array_1`: a second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
         assert!(array_0.logic() == array_1.logic(), "Incompatible logic");

@@ -26,21 +26,33 @@ struct ReferenceTableEntry {
     chosen: bool,
 }
 
-/// A BvGraph compressor based on the approximate algorithm described in
-/// "[Zuckerli: A New Compressed Representation for Graphs](
-/// https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613)",
-/// which is used to compress a graph into a BvGraph.   
-/// This compressor uses a dynamic algorithm to find the best allowed references,
-/// based on the the result of the greedy selection without the reference constraint.
-/// In the end, it greedily adds references that are valid but not included in the first
-/// selection.
-/// To perform the dynamic part of the algorithm, all references and backrefs should be
-/// should be stored.
-/// To avoid high memory consumption, the algorithm is executed on chunks of `chunk_size`
-/// elements.
-/// Note that unlike the standard reference selection algorithm (`BVComp`), it
-/// only writes the adjacency list to the child compressor when the chunk is full or when
-/// `flush` is called.
+/// Compresses a graph into the [BV graph format](super::super) using the
+/// reference-selection algorithm inspired by "[Zuckerli: A New Compressed
+/// Representation for Graphs][Zuckerli paper]", by Daniel Marzocchi, Luca
+/// Versari, Robert Obryk, and Jyrki Alakuijala, _Proc. 2020 Data
+/// Compression Conference (DCC)_, IEEE, 2020.
+///
+/// In the standard [`BvComp`] compressor, each node greedily picks the
+/// single best reference in its window, subject to the maximum
+/// reference-chain depth. This compressor instead first builds the
+/// _maximum-weight forest_ of references (ignoring the chain-depth
+/// constraint) over a chunk of `chunk_size` consecutive nodes, then uses a
+/// dynamic-programming algorithm to extract the maximum-weight subforest
+/// whose paths respect the `max_ref_count` constraint. Finally, it
+/// greedily re-introduces valid references that were pruned by the
+/// dynamic-programming step.
+///
+/// Because the algorithm needs global information about costs within each
+/// chunk, successor lists are buffered and written to the encoder only when
+/// the chunk is full or when [`flush`](Self::flush) is called.
+///
+/// In most cases you do not need to instantiate this struct directly: use
+/// [`BvCompZ::with_basename`] to obtain a [`BvCompConfig`] with suitable
+/// defaults (including a larger compression window of 16), then call
+/// [`comp_graph`](BvCompConfig::comp_graph) or
+/// [`par_comp_graph`](BvCompConfig::par_comp_graph) on it.
+///
+/// [Zuckerli paper]: <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613>
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write> {
     /// The successors of each node in the chunk.
@@ -85,7 +97,7 @@ impl BvCompZ<(), std::io::Sink> {
         BvCompConfig::new(basename)
             .with_bvgraphz()
             .with_comp_flags(CompFlags {
-                compression_window: 32,
+                compression_window: 16,
                 ..Default::default()
             })
     }

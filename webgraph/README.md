@@ -36,7 +36,7 @@ techniques. More precisely, it is currently made of:
   now in maintenance mode.
 
 - This crate, providing a complete, documented implementation of the algorithms
-  above in Rust. It is free software distributed under either the  [GNU Lesser
+  above in Rust. It is free software distributed under either the [GNU Lesser
   General Public License
   2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
   Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
@@ -141,7 +141,7 @@ There are many operations available on graphs, such as [transpose],
 A simple way to compress a graph is to provide it as a list of arcs. The
 `webgraph` CLI provides a command `from` with a subcommand `arcs` that reads a
 list of TAB-separated list of arcs from standard input and writes a compressed
-graph in BvGraph format. For example,
+graph in BV graph format. For example,
 
 ```bash
 echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
@@ -193,27 +193,27 @@ opinions expressed are however those of the authors only and do not necessarily
 reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
-[transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html>
-[simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html>
-[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html>
-[`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename>
-[`BvGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html>
-[`BvGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html>
-[`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html>
-[iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
-[zipping]: <https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html>
-[labeling]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html>
-[iteration]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
-[retrieve the successors of a node]: <https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors>
-[LAW web site]: <http://law.di.unimi.it/>
-[Elias–Fano]: <sux::dict::EliasFano>
-[WebGraph framework]: <https://webgraph.di.unimi.it/>
-[ε-serde]: <https://crates.io/crates/epserde/>
-[`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>
-[`VecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html>
-[`LabeledVecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html>
-[`BTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html>
-[`LabeledBTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html>
-[Common Crawl web site]: <https://commoncrawl.org/>
-[command-line interface]: <https://docs.rs/webgraph-cli/latest/index.html>
-[`CsrGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html>
+[transpose]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html
+[simplify]: https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html
+[permute]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html
+[`with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
+[`BvGraphSeq`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html
+[`BvGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html
+[`LoadConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html
+[iterate on the whole graph]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
+[zipping]: https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html
+[labeling]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html
+[iteration]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
+[retrieve the successors of a node]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors
+[LAW web site]: http://law.di.unimi.it/
+[Elias–Fano]: sux::dict::EliasFano
+[WebGraph framework]: https://webgraph.di.unimi.it/
+[ε-serde]: https://crates.io/crates/epserde/
+[`for_`]: https://docs.rs/lender/latest/lender/macro.for_.html
+[`VecGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html
+[`LabeledVecGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html
+[`BTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html
+[`LabeledBTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html
+[Common Crawl web site]: https://commoncrawl.org/
+[command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
+[`CsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html

@@ -132,13 +132,61 @@ impl<W: Write> OffsetsWriter<W> {
     }
 }
 
-/// A configuration for BvGraph compression.
+/// Configures and runs BvGraph compression.
 ///
-/// Once set up, the methods [`comp_graph`](Self::comp_graph) (sequential graph
-/// compression), [`comp_lender`](Self::comp_lender) (sequential lender
-/// compression), [`par_comp_graph`](Self::par_comp_graph) (parallel compression
-/// of a splittable graph), and [`par_comp_lenders`](Self::par_comp_lenders)
-/// (parallel compression of multiple lenders) can be used to compress a graph.
+/// A `BvCompConfig` is normally obtained via the convenience methods
+/// [`BvComp::with_basename`] (for the standard compressor) or
+/// [`BvCompZ::with_basename`] (for the [Zuckerli-based](BvCompZ) compressor).
+/// It can then be customized using the builder methods below and finally
+/// used to compress a graph.
+///
+/// # Configuration
+///
+/// - [`with_comp_flags`](Self::with_comp_flags): sets [`CompFlags`]
+///   (compression window, maximum reference count, minimum interval length,
+///   and the instantaneous codes used for each component);
+/// - [`with_bvgraphz`](Self::with_bvgraphz): switches to the
+///   [Zuckerli-based](BvCompZ) reference-selection algorithm;
+/// - [`with_chunk_size`](Self::with_chunk_size): sets the chunk size for
+///   [`BvCompZ`] (implies `with_bvgraphz`);
+/// - [`with_tmp_dir`](Self::with_tmp_dir): sets the temporary directory for
+///   parallel compression.
+///
+/// # Compression Methods
+///
+/// - [`comp_graph`](Self::comp_graph): compresses a [`SequentialGraph`]
+///   sequentially;
+/// - [`comp_lender`](Self::comp_lender): compresses a
+///   [`NodeLabelsLender`](crate::traits::NodeLabelsLender) sequentially;
+/// - [`par_comp_graph`](Self::par_comp_graph): compresses a
+///   [splittable](SplitLabeling) graph in parallel;
+/// - [`par_comp_lenders`](Self::par_comp_lenders): compresses multiple
+///   lenders in parallel.
+///
+/// All methods produce the `.graph`, `.offsets`, and `.properties` files
+/// and return the total number of bits written to the graph bitstream.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Standard compression with default settings
+/// BvComp::with_basename("output").comp_graph::<BE>(&graph)?;
+///
+/// // Standard compression with custom flags
+/// BvComp::with_basename("output")
+///     .with_comp_flags(CompFlags {
+///         compression_window: 10,
+///         min_interval_length: 2,
+///         ..Default::default()
+///     })
+///     .comp_graph::<BE>(&graph)?;
+///
+/// // Parallel compression
+/// BvComp::with_basename("output").par_comp_graph::<BE>(&graph)?;
+///
+/// // Zuckerli-based compression
+/// BvCompZ::with_basename("output").comp_graph::<BE>(&graph)?;
+/// ```
 #[derive(Debug)]
 pub struct BvCompConfig {
     /// The basename of the output files.
@@ -177,21 +225,36 @@ impl BvCompConfig {
 }
 
 impl BvCompConfig {
+    /// Sets the [`CompFlags`] controlling the compression parameters
+    /// (compression window, maximum reference count, minimum interval length,
+    /// and the instantaneous codes used for each component of the successor
+    /// list).
     pub fn with_comp_flags(mut self, compression_flags: CompFlags) -> Self {
         self.comp_flags = compression_flags;
         self
     }
 
+    /// Sets the temporary directory used by
+    /// [`par_comp_lenders`](Self::par_comp_lenders) to store partial
+    /// bitstreams. If not set, a system temporary directory is created
+    /// automatically.
     pub fn with_tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
         self.tmp_dir = Some(tmp_dir.as_ref().into());
         self
     }
 
+    /// Switches to the [`BvCompZ`] (Zuckerli-based) reference-selection
+    /// algorithm.
     pub fn with_bvgraphz(mut self) -> Self {
         self.bvgraphz = true;
         self
     }
 
+    /// Sets the chunk size for [`BvCompZ`] and enables the Zuckerli-based
+    /// compressor. The chunk size controls how many consecutive nodes are
+    /// buffered before running the dynamic-programming reference-selection
+    /// algorithm; larger chunks can yield better compression at the cost of
+    /// more memory. Implies [`with_bvgraphz`](Self::with_bvgraphz).
     pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
         self.bvgraphz = true;
         self.chunk_size = chunk_size;
@@ -375,7 +438,7 @@ impl BvCompConfig {
     }
 
     /// Compresses multiple [`NodeLabelsLender`] in parallel and returns
-    /// a [`CompStats`] instance.
+    /// the length in bits of the graph bitstream.
     ///
     /// The first lender must start from node 0, and each lender must
     /// continue from where the previous lender stopped. All in all,
