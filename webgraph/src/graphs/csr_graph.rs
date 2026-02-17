@@ -338,9 +338,9 @@ where
         }
         unsafe {
             efb.build().map_high_bits(|high_bits| {
-                SelectZeroAdaptConst::<_, _, 12, 4>::new(
-                    SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
-                )
+                SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(
+                    high_bits,
+                ))
             })
         }
     }
