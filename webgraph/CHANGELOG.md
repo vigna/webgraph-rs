@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.6.0] - 2026-02-17
+## [0.6.0] - 2026-02-18
 
 ### New
 
@@ -23,9 +23,9 @@
 - All parallel methods now use the current Rayon global thread pool rather than
   accepting a `&ThreadPool` argument.
 
-- Moved to `rand` 0.10.0.
+- Upgraded to `rand` 0.10.0.
 
-- Moved to `Lender` 0.5.0.
+- Upgraded to `Lender` 0.6.0.
 
 - `IteratorImpl` has been renamed `LenderImpl` for consistency.
 
@@ -50,6 +50,8 @@
 - The `'static` bound on the `MapWhile`, `Scan` and `FilterMap` implementations
   of `NodeLabelsLender` has been removed thanks to support from the `Lender`
   crate.
+
+- Major coverage increase in tests, leading to fixes for several minor bugs.
 
 ## [0.5.0] - 2025-11-28
 
