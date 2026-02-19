@@ -9,7 +9,7 @@ use rand::{Rng, RngExt, SeedableRng};
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
-use webgraph_algo::rank::pagerank::{PageRank, preds};
+use webgraph_algo::rank::pagerank::{Mode, PageRank, preds};
 
 /// Builds a transpose graph consisting of a k-clique (nodes 0..k) and a
 /// p-cycle (nodes k..k+p) with optional bridge arcs between node k−1 and
@@ -322,6 +322,7 @@ fn power_method(
 
         // Scatter rank[j] / outdegree(j) to each successor of j
         let mut dangling_rank: f64 = 0.0;
+        #[allow(clippy::needless_range_loop)]
         for j in 0..n {
             let d = graph.outdegree(j);
             if d == 0 {
@@ -380,9 +381,9 @@ fn power_method(
 /// 3. **Weakly preferential, non-uniform preference**: a random stochastic
 ///    preference vector is used, but the dangling-node distribution is
 ///    explicitly set to uniform.
-/// 4. **Pseudo-rank, uniform preference**: dangling-node contribution is
+/// 4. **Pseudorank, uniform preference**: dangling-node contribution is
 ///    zeroed out.
-/// 5. **Pseudo-rank, non-uniform preference**: dangling-node contribution is
+/// 5. **Pseudorank, non-uniform preference**: dangling-node contribution is
 ///    zeroed out with a non-uniform preference.
 #[test]
 fn test_erdos_renyi_vs_power_method() {
@@ -395,18 +396,23 @@ fn test_erdos_renyi_vs_power_method() {
         let g = VecGraph::from_lender(ErdosRenyi::new(n, arc_p, seed).iter());
         let gt = transpose(&g);
         let pref = random_stochastic_vector(n, &mut rng);
-        let uniform: Vec<f64> = vec![1.0 / n as f64; n];
+        let uniform: Vec<f64> = vec![1.0 / n as f64; n]; // for the power method
+
+        // Reuse a single PageRank instance across all alpha/mode combinations
+        // for the same graph, exercising the inv_outdegrees caching.
+        let mut pr = PageRank::new(&gt);
 
         for &alpha in &[0.25, 0.50, 0.85] {
-            // 1. Weakly preferential, uniform preference (default)
+            // 1. Strongly preferential, uniform preference (default)
             {
                 let expected = power_method(&g, alpha, None, None, false);
-                let mut pr = PageRank::new(&gt);
-                pr.alpha(alpha);
+                pr.alpha(alpha)
+                    .preference(None)
+                    .mode(Mode::StronglyPreferential);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,
-                    "weakly-uniform n={n} alpha={alpha}: L∞={}",
+                    "strongly-uniform n={n} alpha={alpha}: L∞={}",
                     l_inf_distance(&expected, pr.rank())
                 );
             }
@@ -414,8 +420,9 @@ fn test_erdos_renyi_vs_power_method() {
             // 2. Strongly preferential, non-uniform preference
             {
                 let expected = power_method(&g, alpha, Some(&pref), None, false);
-                let mut pr = PageRank::new(&gt);
-                pr.alpha(alpha).preference(Some(&pref));
+                pr.alpha(alpha)
+                    .preference(Some(&pref))
+                    .mode(Mode::StronglyPreferential);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,
@@ -427,10 +434,9 @@ fn test_erdos_renyi_vs_power_method() {
             // 3. Weakly preferential, non-uniform preference
             {
                 let expected = power_method(&g, alpha, Some(&pref), Some(&uniform), false);
-                let mut pr = PageRank::new(&gt);
                 pr.alpha(alpha)
                     .preference(Some(&pref))
-                    .dangling_distribution(Some(&uniform));
+                    .mode(Mode::WeaklyPreferential);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,
@@ -439,11 +445,10 @@ fn test_erdos_renyi_vs_power_method() {
                 );
             }
 
-            // 4. Pseudo-rank, uniform preference
+            // 4. Pseudorank, uniform preference
             {
                 let expected = power_method(&g, alpha, None, None, true);
-                let mut pr = PageRank::new(&gt);
-                pr.alpha(alpha).pseudo_rank(true);
+                pr.alpha(alpha).preference(None).mode(Mode::PseudoRank);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,
@@ -452,11 +457,12 @@ fn test_erdos_renyi_vs_power_method() {
                 );
             }
 
-            // 5. Pseudo-rank, non-uniform preference
+            // 5. Pseudorank, non-uniform preference
             {
                 let expected = power_method(&g, alpha, Some(&pref), None, true);
-                let mut pr = PageRank::new(&gt);
-                pr.alpha(alpha).preference(Some(&pref)).pseudo_rank(true);
+                pr.alpha(alpha)
+                    .preference(Some(&pref))
+                    .mode(Mode::PseudoRank);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,

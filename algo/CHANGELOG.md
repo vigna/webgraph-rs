@@ -1,5 +1,12 @@
 # Change Log
 
+## [unreleased]
+
+### New
+
+- New `PageRank` parallel implementation based on the Gauss–Seidel iterative
+  method.
+
 ## [0.6.0] - 2026-02-18
 
 ### Changed

@@ -1,5 +1,11 @@
 # Change Log
 
+## [unreleased]
+
+### New
+
+- New `webgraph-rank` CLI supporting centrality measures.
+
 ## [0.4.0] - 2026-02-18
 
 ### New

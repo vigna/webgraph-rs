@@ -25,23 +25,24 @@ implemented as a submodule.
 
 ## Subcommands
 
-- `analyze`: Compute statistics on graphs
-- `bench`: Benchmark graph operations
-- `build`: Build accessory graph data structures
-- `check`: Check coherence of graph files
-- `from`: Ingest data into graphs
-- `perm`: Create and manipulate permutations
-- `run`: Run algorithms on graphs
-- `to`: Convert graphs between representations
-- `transform`: Apply transformations to graphs
+- `analyze`: computes statistics on graphs;
+- `bench`: benchmark graph operations;
+- `build`: builds accessory graph data structures;
+- `check`: checks coherence of graph files;
+- `from`: ingests data into graphs;
+- `perm`: creates and manipulate permutations;
+- `run`: runs algorithms on graph;
+- `to`: converts graphs between representations;
+- `transform`: applies transformations to graphs.
 
 ## Separate Binaries
 
 This crate also provides specialized standalone binaries:
 
-- `webgraph-dist`: Tools for computing graph properties based on distances
-  (HyperBall, ExactSumSweep)
-- `webgraph-sccs`: Compute strongly connected components
+- `webgraph-dist`: tools for computing graph properties based on distances,
+  including measures of centrality (HyperBall, ExactSumSweep);
+- `webgraph-sccs`: computes strongly connected components;
+- `webgraph-rank`: computes centrality measures on graphs.
 
 ## Environment Variables
 
@@ -49,7 +50,6 @@ This crate also provides specialized standalone binaries:
   `RUST_MIN_STACK=8388608` (8MiB)
 - `TMPDIR`: Where to store temporary files (potentially very large ones)
 - `RUST_LOG`: Configuration for [`env_logger`]
-
 
 ## Acknowledgments
 
@@ -60,5 +60,5 @@ opinions expressed are however those of the authors only and do not necessarily
 reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
-[WebGraph framework]: <https://webgraph.di.unimi.it/>
-[`env_logger`]: <https://docs.rs/env_logger/latest/env_logger/>
+[WebGraph framework]: https://webgraph.di.unimi.it/
+[`env_logger`]: https://docs.rs/env_logger/latest/env_logger/

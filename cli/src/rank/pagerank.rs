@@ -13,9 +13,32 @@ use predicates::prelude::*;
 use std::io::BufRead;
 use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
-use webgraph::prelude::{BvGraph, SequentialLabeling};
-use webgraph_algo::rank::PageRank;
+use webgraph::prelude::BvGraph;
 use webgraph_algo::rank::pagerank::preds::{L1Norm, MaxIter};
+use webgraph_algo::rank::{Mode, PageRank};
+
+/// The PageRank mode.
+#[derive(clap::ValueEnum, Debug, Clone, Copy, Default)]
+pub enum CliMode {
+    /// Use the preference vector as dangling-node distribution.
+    #[default]
+    StronglyPreferential,
+    /// Use a uniform dangling-node distribution regardless of the preference
+    /// vector.
+    WeaklyPreferential,
+    /// Zero out the dangling-node contribution (pseudorank).
+    PseudoRank,
+}
+
+impl From<CliMode> for Mode {
+    fn from(m: CliMode) -> Self {
+        match m {
+            CliMode::StronglyPreferential => Mode::StronglyPreferential,
+            CliMode::WeaklyPreferential => Mode::WeaklyPreferential,
+            CliMode::PseudoRank => Mode::PseudoRank,
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -47,21 +70,9 @@ pub struct CliArgs {
     /// Path to a preference (personalization) vector (one f64 per line).
     pub preference: Option<PathBuf>,
 
-    #[arg(short = 'w', long, default_value_t = false)]
-    /// Weakly preferential PageRank: use a uniform dangling-node distribution
-    /// even when a custom preference vector is provided. By default, the
-    /// preference vector is used as dangling-node distribution (strongly
-    /// preferential). Mutually exclusive with --dangling-distribution.
-    pub weakly_preferential: bool,
-
-    #[arg(long)]
-    /// Path to a dangling-node distribution vector (one f64 per line).
-    /// Mutually exclusive with --weakly-preferential.
-    pub dangling_distribution: Option<PathBuf>,
-
-    #[arg(long, default_value_t = false)]
-    /// Zero out the dangling-node contribution (pseudo-rank).
-    pub pseudorank: bool,
+    #[arg(short, long, value_enum, default_value_t = CliMode::StronglyPreferential)]
+    /// The PageRank mode.
+    pub mode: CliMode,
 
     #[arg(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
     /// The output format for the rank vector.
@@ -80,7 +91,8 @@ pub struct CliArgs {
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     ensure!(
-        args.alpha >= 0.0 && args.alpha < 1.0,
+        // Note that 0.0..1.0 is [0.0..1.0) in mathematical notation
+        (0.0..1.0).contains(&args.alpha),
         "The damping factor must be in [0 . . 1), got {}",
         args.alpha
     );
@@ -115,32 +127,7 @@ pub fn pagerank<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result
     );
     let transpose = BvGraph::with_basename(&args.transpose).load()?;
 
-    ensure!(
-        !(args.weakly_preferential && args.dangling_distribution.is_some()),
-        "--weakly-preferential and --dangling-distribution are mutually exclusive"
-    );
-
     let preference = args.preference.as_ref().map(load_f64_vector).transpose()?;
-    let dangling_distribution = args
-        .dangling_distribution
-        .as_ref()
-        .map(load_f64_vector)
-        .transpose()?;
-
-    let n = transpose.num_nodes();
-    let uniform_dangling;
-    let effective_dangling = if args.weakly_preferential && preference.is_some() {
-        // In weakly preferential mode with a custom preference, use a uniform
-        // dangling distribution to override the default (strongly preferential)
-        // behaviour. This vector is a waste of space, but the only way to avoid
-        // the waste is to move it to a parameter implementing SliceByValue or a
-        // closure, which would further require a typestate pattern in the
-        // setters.
-        uniform_dangling = vec![1.0 / n as f64; n];
-        Some(uniform_dangling.as_slice())
-    } else {
-        dangling_distribution.as_deref()
-    };
 
     // Build stopping predicate
     let mut predicate = L1Norm::try_from(args.threshold)?.boxed();
@@ -151,10 +138,9 @@ pub fn pagerank<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result
     // Configure PageRank
     let mut pr = PageRank::new(&transpose);
     pr.alpha(args.alpha)
-        .pseudo_rank(args.pseudorank)
+        .mode(args.mode.into())
         .granularity(args.granularity.into_granularity())
-        .preference(preference.as_deref())
-        .dangling_distribution(effective_dangling);
+        .preference(preference.as_deref());
 
     // Run
     thread_pool.install(|| pr.run_with_logging(predicate, &mut pl, &mut cpl));

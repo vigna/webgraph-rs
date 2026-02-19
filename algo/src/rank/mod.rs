@@ -5,4 +5,4 @@
  */
 
 pub mod pagerank;
-pub use pagerank::PageRank;
+pub use pagerank::{Mode, PageRank};

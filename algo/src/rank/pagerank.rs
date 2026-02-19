@@ -7,7 +7,7 @@
 //! Parallel Gauss–Seidel PageRank.
 //!
 //! This implementation uses two vectors of doubles (one for the current
-//! approximation, the order for the inverses of outdegrees) and,
+//! approximation, the other for the inverses of outdegrees) and,
 //! experimentally, converges faster than other implementations. Moreover, it
 //! scales linearly with the number of cores.
 //!
@@ -37,22 +37,25 @@
 //!
 //! to which we can apply the Gauss–Seidel method.
 //!
-//! By default, when a preference vector is set via
-//! [`preference`](PageRank::preference), we compute _strongly preferential_
-//! PageRank (**u** = **v**). To obtain _weakly preferential_ PageRank, set an
-//! explicit uniform
-//! [`dangling_distribution`](PageRank::dangling_distribution). Setting
-//! [`pseudo_rank`](PageRank::pseudo_rank) to `true` zeroes out the
-//! dangling-node contribution entirely (**u** = **0**), yielding a
-//! non-stochastic vector sometimes called _pseudo-rank_.
+//! The [`mode`](PageRank::mode) setter selects among three variants:
+//!
+//! - [`StronglyPreferential`](Mode::StronglyPreferential) (the default):
+//!   **u** = **v**, so the preference vector doubles as the dangling-node
+//!   distribution.
+//! - [`WeaklyPreferential`](Mode::WeaklyPreferential): **u** = **1**/*n*, so
+//!   dangling nodes distribute their rank uniformly regardless of the
+//!   preference vector.
+//! - [`PseudoRank`](Mode::PseudoRank): **u** = **0**, zeroing out the
+//!   dangling-node contribution entirely and yielding a non-stochastic vector
+//!   sometimes called _pseudorank_.
 //!
 //! # The Gauss–Seidel method
 //!
 //! The formula above can be rewritten as the linear system
 //!
-//! > **x** ( *I*  −  α (*P* + **u**ᵀ **d**) )  =  (1 − α) **v**
+//! > **x** ( *I*  −  α (*P* + **d**ᵀ **u**) )  =  (1 − α) **v**
 //!
-//! that is, **x** *M* = **b** where *M* = *I* − α (*P* + **u**ᵀ **d**) and
+//! that is, **x** *M* = **b** where *M* = *I* − α (*P* + **d**ᵀ **u**) and
 //! **b** = (1 − α) **v**. The [Gauss–Seidel method] solves this system by
 //! updating a _single_ vector in place:
 //!
@@ -259,6 +262,35 @@ pub mod preds {
     }
 }
 
+/// Selects the PageRank variant to compute.
+///
+/// See the [module-level documentation](self) for the mathematical details.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Mode {
+    /// Uses the preference vector **v** as the dangling-node distribution
+    /// (**u** = **v**). This is the default.
+    #[default]
+    StronglyPreferential,
+    /// Uses a uniform dangling-node distribution (**u** = **1**/*n*) regardless
+    /// of the preference vector.
+    WeaklyPreferential,
+    /// Zeroes out the dangling-node contribution (**u** = **0**), yielding in
+    /// the case there are dangling nodes a non-stochastic vector which however
+    /// is identical to the [strongly preferential](Mode::StronglyPreferential)
+    /// variant modulo normalization.
+    PseudoRank,
+}
+
+impl std::fmt::Display for Mode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Mode::StronglyPreferential => f.write_str("strongly preferential"),
+            Mode::WeaklyPreferential => f.write_str("weakly preferential"),
+            Mode::PseudoRank => f.write_str("pseudorank"),
+        }
+    }
+}
+
 use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog, no_logging};
 use kahan::KahanSum;
 use lender::prelude::*;
@@ -283,13 +315,56 @@ use webgraph::utils::Granularity;
 ///
 /// The constructor takes the _transpose_ of the graph, because the algorithm
 /// needs to iterate over the predecessors of each node.
+///
+/// # Examples
+///
+/// Default PageRank (strongly preferential, α = 0.85) on a small graph:
+///
+/// ```
+/// use webgraph::graphs::vec_graph::VecGraph;
+/// use webgraph_algo::rank::pagerank::{PageRank, preds};
+///
+/// // Build the transpose of a 5-node graph:
+/// //   0 → 1, 0 → 2, 1 → 2, 2 → 0, 3 → 0, 4 → 3
+/// let mut gt = VecGraph::empty(5);
+/// gt.add_arcs([(1, 0), (2, 0), (2, 1), (0, 2), (0, 3), (3, 4)]);
+///
+/// let mut pr = PageRank::new(&gt);
+/// pr.run(preds::L1Norm::try_from(1E-9).unwrap());
+///
+/// assert_eq!(pr.rank().len(), 5);
+/// assert!((pr.rank().iter().sum::<f64>() - 1.0).abs() < 1E-9);
+/// ```
+///
+/// Weakly preferential PageRank with a custom preference vector:
+///
+/// ```
+/// use webgraph::graphs::vec_graph::VecGraph;
+/// use webgraph_algo::rank::pagerank::{Mode, PageRank, preds};
+///
+/// let mut gt = VecGraph::empty(5);
+/// gt.add_arcs([(1, 0), (2, 0), (2, 1), (0, 2), (0, 3), (3, 4)]);
+///
+/// // Custom preference: favor node 0
+/// let pref = [0.5, 0.2, 0.1, 0.1, 0.1];
+///
+/// let mut pr = PageRank::new(&gt);
+/// pr.alpha(0.9)
+///     .preference(Some(&pref))
+///     .mode(Mode::WeaklyPreferential);
+/// pr.run(preds::L1Norm::try_from(1E-9).unwrap());
+///
+/// // Node 0 has the highest rank
+/// assert!(pr.rank()[0] > pr.rank()[1]);
+/// assert_eq!(pr.rank().len(), 5);
+/// assert!((pr.rank().iter().sum::<f64>() - 1.0).abs() < 1E-9);
+/// ```
 pub struct PageRank<'a, G: RandomAccessGraph + Sync> {
     transpose: &'a G,
     alpha: f64,
     inv_outdegrees: Option<Box<[f64]>>,
     preference: Option<&'a [f64]>,
-    dangling_dist: Option<&'a [f64]>,
-    pseudo_rank: bool,
+    mode: Mode,
     granularity: Granularity,
     norm_delta: f64,
 
@@ -310,8 +385,7 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
             alpha: 0.85,
             inv_outdegrees: None,
             preference: None,
-            dangling_dist: None,
-            pseudo_rank: false,
+            mode: Mode::default(),
             granularity: Granularity::default(),
             norm_delta: f64::INFINITY,
             rank,
@@ -336,18 +410,17 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
 
     /// Sets the preference (personalization) vector.
     ///
-    /// When set, and no explicit
-    /// [`dangling_distribution`](Self::dangling_distribution) is provided, the
-    /// preference vector is also used as the dangling-node distribution
-    /// (strongly preferential PageRank).
+    /// When set, the preference vector is also used as the dangling-node
+    /// distribution in [`StronglyPreferential`](Mode::StronglyPreferential)
+    /// mode.
     ///
     /// Pass `None` to revert to the uniform preference (1/*n*).
     ///
     /// # Panics
     ///
-    /// Panics if the length of the vector does not match the number of nodes,
-    /// In test mode, we also call
-    /// [`assert_stochastic`](Self::assert_stochastic).
+    /// Panics if the length of the vector does not match the number of nodes.
+    /// In test mode, we also check for stochasticity (nonnegative entries
+    /// summing to 1 within a tolerance of 1E-6) and panic if the check fails.
     pub fn preference(&mut self, preference: Option<&'a [f64]>) -> &mut Self {
         if let Some(v) = preference {
             let n = self.transpose.num_nodes();
@@ -364,41 +437,9 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
         self
     }
 
-    /// Sets the dangling-node distribution.
-    ///
-    /// This overrides the default behaviour (which uses the preference vector,
-    /// or the uniform distribution if no preference is set).
-    ///
-    /// Pass `None` to revert to the default.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the length of the vector does not match the number of nodes.
-    /// In test mode, we also call
-    /// [`assert_stochastic`](Self::assert_stochastic).
-    pub fn dangling_distribution(&mut self, distribution: Option<&'a [f64]>) -> &mut Self {
-        if let Some(v) = distribution {
-            let n = self.transpose.num_nodes();
-            assert_eq!(
-                v.len(),
-                n,
-                "Dangling distribution length ({}) does not match the number of nodes ({n})",
-                v.len()
-            );
-            #[cfg(test)]
-            Self::assert_stochastic(v, "dangling distribution");
-        }
-        self.dangling_dist = distribution;
-        self
-    }
-
-    /// Sets pseudo-rank mode.
-    ///
-    /// When `true`, the contribution of dangling nodes is zeroed out, yielding a
-    /// non-stochastic vector. The resulting vector differs from strongly
-    /// preferential PageRank only by a multiplicative factor of 1 − α.
-    pub fn pseudo_rank(&mut self, pseudo_rank: bool) -> &mut Self {
-        self.pseudo_rank = pseudo_rank;
+    /// Sets the PageRank [mode](Mode).
+    pub fn mode(&mut self, mode: Mode) -> &mut Self {
+        self.mode = mode;
         self
     }
 
@@ -449,7 +490,7 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
     /// making thus possible to customize the logs.
     ///
     /// It is possible to specify either `pl` or `cpl` as
-    /// [`no_logging![]`](dsi_progress_logger::no_logging) if don't want to log
+    /// [`no_logging![]`](dsi_progress_logger::no_logging) if you don't want to log
     /// the corresponding part of the computation, albeit having the latter one
     /// and not the first one will lead to confusing logs.
     pub fn run_with_logging(
@@ -463,14 +504,7 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
             return;
         }
 
-        let mode = if self.pseudo_rank {
-            "pseudo-rank"
-        } else if self.dangling_dist.is_some() || self.preference.is_none() {
-            "weakly preferential"
-        } else {
-            "strongly preferential"
-        };
-        log::info!("Mode: {}", mode);
+        log::info!("Mode: {}", self.mode);
         log::info!("Alpha: {}", self.alpha);
         log::info!(
             "Preference: {}",
@@ -552,13 +586,6 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
             self.alpha
         ));
 
-        // Resolve the effective dangling distribution: explicit > preference > uniform
-        let dangling_dist: Option<&[f64]> = if self.pseudo_rank {
-            None // unused
-        } else {
-            self.dangling_dist.or(self.preference)
-        };
-
         loop {
             let norm_delta_accum = Mutex::new(0.0f64);
             let dangling_rank_accum = Mutex::new(0.0f64);
@@ -602,18 +629,28 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
                                 }
                             }
 
+                            // Preference and dangling distribution for node i
+                            let v_i = match self.preference {
+                                Some(v) => v[i],
+                                None => inv_n,
+                            };
+                            // u_i = v_i in strongly preferential mode,
+                            // u_i = 1/n in weakly preferential mode.
+                            let u_i = match self.mode {
+                                Mode::StronglyPreferential => v_i,
+                                Mode::WeaklyPreferential => inv_n,
+                                Mode::PseudoRank => 0.0, // unused, but avoids branching
+                            };
+
                             // Compute self-loop correction and self dangling rank
                             let (self_dangling_rank, self_loop_factor) = if inv_outdegrees[i] == 0.0
                             {
                                 // Dangling node
                                 let sdr = rank_sync[i].get();
-                                let slf = if self.pseudo_rank {
+                                let slf = if self.mode == Mode::PseudoRank {
                                     1.0
                                 } else {
-                                    match dangling_dist {
-                                        Some(u) => 1.0 - self.alpha * u[i],
-                                        None => 1.0 - self.alpha * inv_n,
-                                    }
+                                    1.0 - self.alpha * u_i
                                 };
                                 (sdr, slf)
                             } else {
@@ -627,19 +664,9 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
                             };
 
                             // Add dangling rank contribution
-                            if !self.pseudo_rank {
-                                let u_i = match dangling_dist {
-                                    Some(u) => u[i],
-                                    None => inv_n,
-                                };
+                            if self.mode != Mode::PseudoRank {
                                 sigma += (dangling_rank - self_dangling_rank) * u_i;
                             }
-
-                            // Preference contribution
-                            let v_i = match self.preference {
-                                Some(v) => v[i],
-                                None => inv_n,
-                            };
 
                             let new_rank = ((1.0 - self.alpha) * v_i + self.alpha * sigma.sum())
                                 / self_loop_factor;
