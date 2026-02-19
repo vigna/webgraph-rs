@@ -5,12 +5,11 @@
  */
 
 use crate::{FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logger};
 use predicates::prelude::*;
-use std::io::BufRead;
 use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::BvGraph;
@@ -67,8 +66,12 @@ pub struct CliArgs {
     pub threshold: f64,
 
     #[arg(short, long)]
-    /// Path to a preference (personalization) vector (one f64 per line).
+    /// Path to a preference (personalization) vector.
     pub preference: Option<PathBuf>,
+
+    #[arg(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
+    /// The input format for the preference vector.
+    pub preference_fmt: FloatVectorFormat,
 
     #[arg(short, long, value_enum, default_value_t = CliMode::StronglyPreferential)]
     /// The PageRank mode.
@@ -127,7 +130,11 @@ pub fn pagerank<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result
     );
     let transpose = BvGraph::with_basename(&args.transpose).load()?;
 
-    let preference = args.preference.as_ref().map(load_f64_vector).transpose()?;
+    let preference: Option<Vec<f64>> = args
+        .preference
+        .as_ref()
+        .map(|path| args.preference_fmt.load(path))
+        .transpose()?;
 
     // Build stopping predicate
     let mut predicate = L1Norm::try_from(args.threshold)?.boxed();
@@ -155,28 +162,4 @@ pub fn pagerank<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result
     args.fmt.store(&args.output, pr.rank(), args.precision)?;
 
     Ok(())
-}
-
-/// Reads a text file containing one `f64` per line.
-fn load_f64_vector(path: impl AsRef<std::path::Path>) -> Result<Vec<f64>> {
-    let path = path.as_ref();
-    let file = std::fs::File::open(path)
-        .with_context(|| format!("Could not open vector file {}", path.display()))?;
-    let reader = std::io::BufReader::new(file);
-    reader
-        .lines()
-        .enumerate()
-        .map(|(i, line)| {
-            let line = line
-                .with_context(|| format!("Error reading line {} of {}", i + 1, path.display()))?;
-            line.trim().parse::<f64>().with_context(|| {
-                format!(
-                    "Error parsing line {} of {}: {:?}",
-                    i + 1,
-                    path.display(),
-                    line
-                )
-            })
-        })
-        .collect()
 }

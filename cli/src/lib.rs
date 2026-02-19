@@ -20,10 +20,11 @@
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use common_traits::{ToBytes, UnsignedInt};
+use common_traits::{AsBytes, FromBytes, ToBytes, UnsignedInt};
 use dsi_bitstream::dispatch::Codes;
+use epserde::deser::Deserialize;
 use epserde::ser::Serialize;
-use std::io::{BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
@@ -279,6 +280,135 @@ impl FloatVectorFormat {
         }
 
         Ok(())
+    }
+
+    /// Loads float values from the specified `path` using the format defined
+    /// by `self`.
+    pub fn load<F>(&self, path: impl AsRef<Path>) -> Result<Vec<F>>
+    where
+        F: FromBytes + std::str::FromStr + Copy,
+        <F as AsBytes>::Bytes: for<'a> TryFrom<&'a [u8]>,
+        <F as std::str::FromStr>::Err: std::error::Error + Send + Sync + 'static,
+        Vec<F>: epserde::deser::Deserialize,
+    {
+        let path = path.as_ref();
+        let path_display = path.display();
+
+        match self {
+            FloatVectorFormat::Epserde => {
+                log::info!("Loading ε-serde format from {}", path_display);
+                Ok(unsafe {
+                    <Vec<F>>::load_full(path)
+                        .with_context(|| format!("Could not load vector from {}", path_display))?
+                })
+            }
+            FloatVectorFormat::Java => {
+                log::info!("Loading Java format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let file_len = file.metadata()?.len() as usize;
+                let byte_size = size_of::<F>();
+                ensure!(
+                    file_len % byte_size == 0,
+                    "File size ({}) is not a multiple of {} bytes",
+                    file_len,
+                    byte_size
+                );
+                let n = file_len / byte_size;
+                let mut reader = BufReader::new(file);
+                let mut result = Vec::with_capacity(n);
+                let mut buf = vec![0u8; byte_size];
+                for i in 0..n {
+                    reader.read_exact(&mut buf).with_context(|| {
+                        format!("Could not read value at index {i} from {}", path_display)
+                    })?;
+                    let bytes = buf.as_slice().into();
+                    result.push(F::from_be_bytes(bytes));
+                }
+                Ok(result)
+            }
+            FloatVectorFormat::Ascii => {
+                log::info!("Loading ASCII format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let reader = BufReader::new(file);
+                reader
+                    .lines()
+                    .enumerate()
+                    .filter(|(_, line)| line.as_ref().map_or(true, |l| !l.trim().is_empty()))
+                    .map(|(i, line)| {
+                        let line = line.with_context(|| {
+                            format!("Error reading line {} of {}", i + 1, path_display)
+                        })?;
+                        line.trim().parse::<F>().map_err(|e| {
+                            anyhow!("Error parsing line {} of {}: {}", i + 1, path_display, e)
+                        })
+                    })
+                    .collect()
+            }
+            FloatVectorFormat::Json => {
+                log::info!("Loading JSON format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let mut reader = BufReader::new(file);
+                let mut result = Vec::new();
+                let mut byte = [0u8; 1];
+
+                // Skip whitespace and opening bracket
+                loop {
+                    reader
+                        .read_exact(&mut byte)
+                        .with_context(|| format!("Unexpected end of file in {}", path_display))?;
+                    match byte[0] {
+                        b'[' => break,
+                        b if b.is_ascii_whitespace() => continue,
+                        _ => bail!("Expected '[' at start of JSON array in {}", path_display),
+                    }
+                }
+
+                // Parse comma-separated values until ']'
+                let mut token = String::new();
+                let mut index = 0usize;
+                loop {
+                    reader
+                        .read_exact(&mut byte)
+                        .with_context(|| format!("Unexpected end of file in {}", path_display))?;
+                    match byte[0] {
+                        b']' => {
+                            let trimmed = token.trim();
+                            if !trimmed.is_empty() {
+                                result.push(trimmed.parse::<F>().map_err(|e| {
+                                    anyhow!(
+                                        "Error parsing element {} of {}: {}",
+                                        index + 1,
+                                        path_display,
+                                        e
+                                    )
+                                })?);
+                            }
+                            break;
+                        }
+                        b',' => {
+                            let trimmed = token.trim();
+                            result.push(trimmed.parse::<F>().map_err(|e| {
+                                anyhow!(
+                                    "Error parsing element {} of {}: {}",
+                                    index + 1,
+                                    path_display,
+                                    e
+                                )
+                            })?);
+                            token.clear();
+                            index += 1;
+                        }
+                        c => {
+                            token.push(c as char);
+                        }
+                    }
+                }
+                Ok(result)
+            }
+        }
     }
 }
 
