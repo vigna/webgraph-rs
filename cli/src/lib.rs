@@ -684,6 +684,7 @@ pub struct Cli {
 }
 
 pub mod dist;
+pub mod rank;
 pub mod sccs;
 
 pub mod analyze;

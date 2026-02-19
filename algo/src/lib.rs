@@ -25,6 +25,7 @@ pub use acyclicity::is_acyclic;
 pub mod llp;
 pub use llp::*;
 
+pub mod rank;
 pub mod sccs;
 mod top_sort;
 pub use top_sort::top_sort;
@@ -32,6 +33,7 @@ pub mod distances;
 pub mod prelude {
     pub use crate::acyclicity::is_acyclic;
     pub use crate::distances;
+    pub use crate::rank;
     pub use crate::sccs::*;
     pub use crate::top_sort::top_sort;
 }
