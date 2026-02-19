@@ -1105,9 +1105,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("test.json");
             let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            FloatVectorFormat::Json
-                .store(&path, &values, None)
-                .unwrap();
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
             let loaded: Vec<f64> = FloatVectorFormat::Json.load(&path).unwrap();
             assert_eq!(loaded, values);
         }
@@ -1117,9 +1115,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("test.bin");
             let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            FloatVectorFormat::Java
-                .store(&path, &values, None)
-                .unwrap();
+            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
             let loaded: Vec<f64> = FloatVectorFormat::Java.load(&path).unwrap();
             assert_eq!(loaded, values);
         }
