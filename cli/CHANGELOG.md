@@ -6,6 +6,11 @@
 
 - New `webgraph-rank` CLI supporting centrality measures.
 
+### Improved
+
+- Floats without a specified precision are now printed using the `zmij` crate,
+  which brings a 3-4x speed improvement.
+
 ## [0.4.0] - 2026-02-18
 
 ### New

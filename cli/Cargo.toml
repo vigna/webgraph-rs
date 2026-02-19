@@ -43,6 +43,7 @@ zstd.workspace = true
 
 jiff = "0.2.5"
 clap_complete = { version = "4.4.11" }
+zmij = "1.0.21"
 
 [dev-dependencies]
 serde_json.workspace = true

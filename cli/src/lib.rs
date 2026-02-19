@@ -210,9 +210,10 @@ impl FloatVectorFormat {
     /// Stores float values in the specified `path` using the format defined by
     /// `self`.
     ///
-    /// If the result is a textual format, i.e., ASCII or JSON, `precision`
+    /// If the result is a textual format, that is, ASCII or JSON, `precision`
     /// will be used to truncate the float values to the specified number of
-    /// decimal digits.
+    /// decimal digits. If `None`, [zmij](https://crates.io/crates/zmij)
+    /// formatting will be used.
     pub fn store<F>(
         &self,
         path: impl AsRef<Path>,
@@ -220,10 +221,9 @@ impl FloatVectorFormat {
         precision: Option<usize>,
     ) -> Result<()>
     where
-        F: ToBytes + core::fmt::Display + epserde::ser::Serialize + Copy,
+        F: ToBytes + core::fmt::Display + epserde::ser::Serialize + Copy + zmij::Float,
         for<'a> &'a [F]: epserde::ser::Serialize,
     {
-        let precision = precision.unwrap_or(f64::DIGITS as usize);
         create_parent_dir(&path)?;
         let path_display = path.as_ref().display();
         let mut file = std::fs::File::create(&path)
@@ -247,21 +247,32 @@ impl FloatVectorFormat {
             }
             FloatVectorFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path_display);
+                let mut buf = zmij::Buffer::new();
                 for word in values.iter() {
-                    writeln!(file, "{word:.precision$}")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    match precision {
+                        None => writeln!(file, "{}", buf.format(*word)),
+                        Some(precision) => writeln!(file, "{word:.precision$}"),
+                    }
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
             }
             FloatVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path_display);
+                let mut buf = zmij::Buffer::new();
                 write!(file, "[")?;
                 for word in values.iter().take(values.len().saturating_sub(1)) {
-                    write!(file, "{word:.precision$}, ")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    match precision {
+                        None => write!(file, "{}, ", buf.format(*word)),
+                        Some(precision) => write!(file, "{word:.precision$}, "),
+                    }
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
                 if let Some(last) = values.last() {
-                    write!(file, "{last:.precision$}")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    match precision {
+                        None => write!(file, "{}", buf.format(*last)),
+                        Some(precision) => write!(file, "{last:.precision$}"),
+                    }
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
                 write!(file, "]")?;
             }
