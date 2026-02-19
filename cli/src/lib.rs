@@ -322,7 +322,9 @@ impl FloatVectorFormat {
                     reader.read_exact(&mut buf).with_context(|| {
                         format!("Could not read value at index {i} from {}", path_display)
                     })?;
-                    let bytes = buf.as_slice().into();
+                    let bytes = buf.as_slice().try_into().map_err(|_| {
+                        anyhow!("Could not convert bytes at index {i} in {}", path_display)
+                    })?;
                     result.push(F::from_be_bytes(bytes));
                 }
                 Ok(result)
