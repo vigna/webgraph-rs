@@ -195,7 +195,7 @@ pub struct MemoryUsageArg {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-/// How to store vectors of floats.
+/// Formats for storing and loading vectors of floats.
 pub enum FloatVectorFormat {
     /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
     Java,
@@ -227,8 +227,9 @@ impl FloatVectorFormat {
     {
         create_parent_dir(&path)?;
         let path_display = path.as_ref().display();
-        let mut file = std::fs::File::create(&path)
+        let file = std::fs::File::create(&path)
             .with_context(|| format!("Could not create vector at {}", path_display))?;
+        let mut file = BufWriter::new(file);
 
         match self {
             FloatVectorFormat::Epserde => {
@@ -1085,6 +1086,88 @@ mod tests {
                 .store(&path, &values, None)
                 .unwrap();
             assert!(path.exists());
+        }
+
+        #[test]
+        fn test_roundtrip_ascii_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Ascii.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_json_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Json
+                .store(&path, &values, None)
+                .unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Json.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_java_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Java
+                .store(&path, &values, None)
+                .unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Java.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_epserde_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Epserde
+                .store(&path, &values, None)
+                .unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Epserde.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            for (fmt, ext) in [
+                (FloatVectorFormat::Ascii, "txt"),
+                (FloatVectorFormat::Json, "json"),
+                (FloatVectorFormat::Java, "bin"),
+                (FloatVectorFormat::Epserde, "eps"),
+            ] {
+                let path = dir.path().join(format!("empty.{ext}"));
+                let values: Vec<f64> = vec![];
+                fmt.store(&path, &values, None).unwrap();
+                let loaded: Vec<f64> = fmt.load(&path).unwrap();
+                assert_eq!(loaded, values, "roundtrip failed for {ext}");
+            }
+        }
+
+        #[test]
+        fn test_roundtrip_f32() {
+            let dir = tempfile::tempdir().unwrap();
+            let values: Vec<f32> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            for (fmt, ext) in [
+                (FloatVectorFormat::Ascii, "txt"),
+                (FloatVectorFormat::Json, "json"),
+                (FloatVectorFormat::Java, "bin"),
+                (FloatVectorFormat::Epserde, "eps"),
+            ] {
+                let path = dir.path().join(format!("f32.{ext}"));
+                fmt.store(&path, &values, None).unwrap();
+                let loaded: Vec<f32> = fmt.load(&path).unwrap();
+                assert_eq!(loaded, values, "f32 roundtrip failed for {ext}");
+            }
         }
     }
 
