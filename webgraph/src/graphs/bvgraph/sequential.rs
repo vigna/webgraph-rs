@@ -241,7 +241,6 @@ impl<D: Decode> NodeLabels<D> {
     /// Get the successors of the next node in the stream
     pub fn next_successors(&mut self) -> Result<&[usize]> {
         let mut res = self.backrefs.take(self.current_node);
-        res.clear();
         self.get_successors_iter_priv(self.current_node, &mut res)?;
         let res = self.backrefs.replace(self.current_node, res);
         self.current_node += 1;
@@ -256,8 +255,9 @@ impl<D: Decode> NodeLabels<D> {
             return Ok(());
         }
 
+        results.clear();
         // ensure that we have enough capacity in the vector for not reallocating
-        results.reserve(degree.saturating_sub(results.capacity()));
+        results.reserve(degree);
         // read the reference offset
         let ref_delta = if self.compression_window != 0 {
             self.decoder.read_reference_offset() as usize
