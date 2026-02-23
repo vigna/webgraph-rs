@@ -6,8 +6,8 @@ members = ["algo", "cli", "webgraph"]
 exclude = ["webgraph/fuzz"]
 
 [workspace.dependencies]
-webgraph = { path = "./webgraph", version = "0.6.0" }
-webgraph-algo = { path = "./algo", version = "0.6.0" }
+webgraph = { path = "./webgraph", version = "0.6.1" }
+webgraph-algo = { path = "./algo", version = "0.6.1" }
 webgraph-cli = { path = "./cli" }
 
 card-est-array = "0.2.1"

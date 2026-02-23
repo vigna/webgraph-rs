@@ -1,15 +1,20 @@
 # Change Log
 
-## [unreleased]
+## [0.4.1] - 2026-02-23
 
 ### New
 
 - New `webgraph-rank` CLI supporting centrality measures.
 
+- Support for loading vectors parallel to previous support for writing vectors.
+
 ### Improved
 
 - Floats without a specified precision are now printed using the `zmij` crate,
   which brings a 3-4x speed improvement.
+
+- We use the crate `zmij` for saving floats in ASCII when no precision is
+  specified, which brings a 3-4x speed improvement.
 
 ## [0.4.0] - 2026-02-18
 

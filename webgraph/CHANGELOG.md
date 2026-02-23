@@ -1,5 +1,15 @@
 # Change Log
 
+## [0.6.1] - 2026-02-23
+
+### Fixed
+
+- The reallocation strategy of `BvCompZ` was plainly wrong, whereas that of
+  `BvComp` was deallocating, reallocating and copying instead of using
+  `Vec::shrink_to`.
+
+- `BvGraphSeq` was sub-preallocating the successor vector (+1% speed).
+
 ## [0.6.0] - 2026-02-18
 
 ### New

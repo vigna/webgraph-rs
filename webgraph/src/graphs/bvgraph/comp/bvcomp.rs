@@ -396,9 +396,8 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
             let succ_vec = &mut self.backrefs[self.curr_node];
             succ_vec.clear();
             succ_vec.extend(succ_iter);
-            if succ_vec.capacity() > 4 * succ_vec.len() {
-                let old_vec = std::mem::replace(succ_vec, Vec::with_capacity(2 * succ_vec.len()));
-                succ_vec.extend(old_vec);
+            if succ_vec.len() < succ_vec.capacity() / 4 {
+                succ_vec.shrink_to(succ_vec.capacity() / 2);
             }
         }
         // get the ref
