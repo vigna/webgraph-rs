@@ -650,6 +650,7 @@ impl BvCompConfig {
                             graph_path.display()
                         )
                     })?;
+                std::fs::remove_file(chunk_graph_path)?;
 
                 log::debug!(
                     "Copying offsets {} [{}..{}) bits from {} to {}",
@@ -675,6 +676,7 @@ impl BvCompConfig {
                             offsets_path.display()
                         )
                     })?;
+                std::fs::remove_file(chunk_offsets_path)?;
 
                 copy_pl.update_with_count(last_node - first_node + 1);
             }
