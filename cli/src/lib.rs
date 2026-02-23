@@ -67,7 +67,7 @@ build info: built on {} for {} with {}",
 ///
 /// It is used to implement [`ValueEnum`] here instead of in [`dsi_bitstream`].
 ///
-/// For CLI ergonomics and compatibility, this codes must be the same as those
+/// For CLI ergonomics and compatibility, these codes must be the same as those
 /// appearing in [`CompFlags::code_from_str`].
 pub enum PrivCode {
     Unary,
@@ -523,7 +523,7 @@ impl IntVectorFormat {
     /// be computed from the data.
     ///
     /// This helper method is available only on 64-bit architectures as Java's format
-    /// uses of 64-bit integers.
+    /// uses 64-bit integers.
     pub fn store_usizes(
         &self,
         path: impl AsRef<Path>,

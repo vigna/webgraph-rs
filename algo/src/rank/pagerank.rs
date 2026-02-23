@@ -164,6 +164,7 @@ pub mod preds {
     #[doc(hidden)]
     /// This structure is passed to stopping predicates to provide the
     /// information that is needed to evaluate them.
+    #[derive(Debug)]
     pub struct PredParams {
         pub iteration: usize,
         pub norm_delta: f64,
@@ -370,6 +371,18 @@ pub struct PageRank<'a, G: RandomAccessGraph + Sync> {
 
     rank: Box<[f64]>,
     iteration: usize,
+}
+
+impl<G: RandomAccessGraph + Sync> std::fmt::Debug for PageRank<'_, G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PageRank")
+            .field("alpha", &self.alpha)
+            .field("mode", &self.mode)
+            .field("granularity", &self.granularity)
+            .field("norm_delta", &self.norm_delta)
+            .field("iteration", &self.iteration)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {

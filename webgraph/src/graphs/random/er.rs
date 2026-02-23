@@ -87,7 +87,9 @@ impl<'succ> Lending<'succ> for NodeLabels {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
+#[derive(Debug)]
 pub struct IntoSucc(Vec<usize>);
+#[derive(Debug)]
 pub struct Succ(IntoIter<usize>);
 
 impl Iterator for Succ {

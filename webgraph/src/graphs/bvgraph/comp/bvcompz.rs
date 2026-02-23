@@ -17,9 +17,9 @@ use lender::prelude::*;
 
 /// An Entry for the table used to save the intermediate computation
 /// of the dynamic algorithm to select the best references.
-/// It represents if a reference to a node, with a know amount of previous
-/// references chain length, is chosen and how much less it costs to all his
-/// referent with respect to compress the node without any selected reference.
+/// It represents if a reference to a node, with a known amount of previous
+/// references chain length, is chosen and how much less it costs to all its
+/// referents with respect to compress the node without any selected reference.
 #[derive(Default, Clone)]
 struct ReferenceTableEntry {
     saved_cost: f32,

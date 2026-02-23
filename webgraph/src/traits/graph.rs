@@ -16,13 +16,13 @@ as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `usize`.
 To access the successors of a node, however, you must use
 [`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabeling::labels):
-the latter method is overridden on purpose make its usage on graphs impossible.
+the latter method is overridden on purpose to make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
 [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
 and a [random-access graph with labels](LabeledRandomAccessGraph) is a
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`.
-Also in this case, access the successors of a node and their labels, you must use
+Also in this case, to access the successors of a node and their labels, you must use
 [`LabeledRandomAccessGraph::successors`].
 
 Finally, the [zipping of a graph and a labeling](Zip) implements the

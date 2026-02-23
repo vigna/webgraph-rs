@@ -72,7 +72,7 @@ bitstream containing pointers into the graph bitstream).
 
 As a first step, if you need random access to the successors of a node, you need
 to build an [Elias–Fano] representation of the offsets (this part can be skipped
-if you just need sequential access). There is a [CLI command `webgraph`] with many
+if you just need sequential access). There is a [command-line interface] with many
 subcommands, among which `build`, and `webgraph build ef BASENAME` will build
 the representation for you, serializing it with [ε-serde] in a file
 named `BASENAME.ef`.
@@ -160,7 +160,7 @@ very large graphs, the mapping might not fit in RAM. For example,
 ```bash
 echo -e "a\tb\nb\tc\nc\ta" > graph.tsv
 # convert to bvgraph
-cat graph.tsv | cargo run --release from arcs --label graph
+cat graph.tsv | cargo run --release from arcs --labels graph
 ```
 
 The graph can be converted back in the arcs format using the `to arcs` command.
@@ -206,7 +206,7 @@ Union nor the Italian MUR can be held responsible for them.
 [iteration]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
 [retrieve the successors of a node]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors
 [LAW web site]: http://law.di.unimi.it/
-[Elias–Fano]: sux::dict::EliasFano
+[Elias–Fano]: https://docs.rs/sux/latest/sux/dict/elias_fano/struct.EliasFano.html
 [WebGraph framework]: https://webgraph.di.unimi.it/
 [ε-serde]: https://crates.io/crates/epserde/
 [`for_`]: https://docs.rs/lender/latest/lender/macro.for_.html

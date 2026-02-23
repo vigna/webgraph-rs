@@ -191,6 +191,7 @@ where
 impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 
 #[doc(hidden)]
+#[derive(Debug)]
 pub struct RayonChannelIter<T> {
     // Note that we use crossbeam channels here, as they provide multiple senders.
     // When multiple-senders channels will be stabilized we will be able to switch

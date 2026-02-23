@@ -33,6 +33,10 @@ compression.
 - **[Layered Label Propagation]** (LLP): Fast community detection algorithm for
   large graphs
 
+### Ranking
+
+- **[PageRank]**: Fast parallel computation of PageRank.
+
 ## CLI Integration
 
 Many algorithms can also be accessed through the [command-line interface].
@@ -58,3 +62,4 @@ Union nor the Italian MUR can be held responsible for them.
 [Layered Label Propagation]: https://docs.rs/webgraph-algo/latest/webgraph_algo/llp/index.html
 [command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
 [WebGraph framework]: https://webgraph.di.unimi.it/
+[PageRank]: https://docs.rs/webgraph-algo/latest/webgraph_algo/rank/pagerank/index.html

@@ -144,6 +144,16 @@ pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left
     _marker: PhantomData<&'a L>, // That is, L: 'a
 }
 
+impl<L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> std::fmt::Debug
+    for IntoLabeledPairs<'_, L>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IntoLabeledPairs")
+            .field("current_node", &self.current_node)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
     for IntoLabeledPairs<'a, L>
 {

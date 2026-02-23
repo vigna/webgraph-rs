@@ -34,7 +34,7 @@
 //! caller, whereas in general parallel visits might need to complete part of
 //! their subtasks before returning to the caller.
 //!
-//! Additionally, implementations might accepts a filter function accepting a
+//! Additionally, implementations might accept a filter function accepting a
 //! [`Event::FilterArgs`] that will be called when a new node is discovered. If
 //! the filter returns false, the node will be ignored, that is, not even marked
 //! as known. Note that in case of parallel visits the filter might be called

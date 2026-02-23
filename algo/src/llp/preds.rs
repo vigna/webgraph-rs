@@ -33,6 +33,7 @@ use std::fmt::Display;
 #[doc(hidden)]
 /// This structure is passed to stopping predicates to provide the information
 /// that is needed to evaluate them.
+#[derive(Debug)]
 pub struct PredParams {
     pub num_nodes: usize,
     pub num_arcs: u64,

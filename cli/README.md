@@ -30,7 +30,7 @@ implemented as a submodule.
 - `build`: builds accessory graph data structures;
 - `check`: checks coherence of graph files;
 - `from`: ingests data into graphs;
-- `perm`: creates and manipulate permutations;
+- `perm`: creates and manipulates permutations;
 - `run`: runs algorithms on graph;
 - `to`: converts graphs between representations;
 - `transform`: applies transformations to graphs.
