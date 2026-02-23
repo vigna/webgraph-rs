@@ -50,12 +50,11 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let target_endianness = args.ca.endianness.clone();
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation)?,
+        BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation),
         #[cfg(feature = "le_bins")]
-        LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation)?,
+        LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation),
         e => panic!("Unknown endianness: {}", e),
-    };
-    Ok(())
+    }
 }
 
 pub fn compress<E: Endianness>(

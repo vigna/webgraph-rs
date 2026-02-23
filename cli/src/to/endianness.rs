@@ -23,7 +23,7 @@ pub struct CliArgs {
 }
 
 macro_rules! impl_convert {
-    ($global_args:expr, $args:expr, $src:ty, $dst:ty) => {
+    ($global_args:expr, $args:expr, $src:ty, $dst:ty) => {{
         info!(
             "The source graph was {}-endian, converting to {}-endian",
             <$src>::NAME,
@@ -122,8 +122,11 @@ macro_rules! impl_convert {
             .context("Could not write gamma")?;
         pl.light_update();
         pl.done();
-        offsets_writer.flush().context("Could not flush offsets")?;
-    };
+        offsets_writer
+            .flush()
+            .context("Could not flush offsets")
+            .map(|_| ())
+    }};
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -131,15 +134,9 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => {
-            impl_convert!(global_args, args, BE, LE);
-        }
+        BE::NAME => impl_convert!(global_args, args, BE, LE),
         #[cfg(feature = "le_bins")]
-        LE::NAME => {
-            impl_convert!(global_args, args, LE, BE);
-        }
+        LE::NAME => impl_convert!(global_args, args, LE, BE),
         e => panic!("Unknown endianness: {}", e),
-    };
-
-    Ok(())
+    }
 }
