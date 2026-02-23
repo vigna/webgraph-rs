@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-impl<I: Iterator> ParMapFold for I where I::Item: Send {}
-
 /// Parallel mapping and folding for iterators.
 ///
 /// This trait extends the [`Iterator`] trait with methods that map values and
@@ -189,6 +187,8 @@ where
         })
     }
 }
+
+impl<I: Iterator> ParMapFold for I where I::Item: Send {}
 
 #[doc(hidden)]
 pub struct RayonChannelIter<T> {

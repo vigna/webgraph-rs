@@ -13,9 +13,6 @@
 - Floats without a specified precision are now printed using the `zmij` crate,
   which brings a 3-4x speed improvement.
 
-- We use the crate `zmij` for saving floats in ASCII when no precision is
-  specified, which brings a 3-4x speed improvement.
-
 ## [0.4.0] - 2026-02-18
 
 ### New

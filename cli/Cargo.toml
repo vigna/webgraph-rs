@@ -1,6 +1,6 @@
 [package]
 name = "webgraph-cli"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 authors = [
 	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",

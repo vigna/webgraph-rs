@@ -213,8 +213,6 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> std::iter::FusedItera
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
     use super::*;
 
     #[test]

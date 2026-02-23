@@ -4,17 +4,17 @@
 [![Line count](https://tokei.rs/b1/github/vigna/webgraph-rs)](https://github.com/vigna/webgraph-rs)
 
 A Rust implementation of the [WebGraph
-framework](http://webgraph.di.unimi.it/) for graph compression.
+framework](https://webgraph.di.unimi.it/) for graph compression.
 
 ## At a Glance
 
 - Compressed graph representation (start from here):
-  [`webgraph`](http://crates.io/crates/webgraph) ([repo](/webgraph))
+  [`webgraph`](https://crates.io/crates/webgraph) ([repo](/webgraph))
 
-- Algorithms: [`webgraph_algo`](http://crates.io/crates/webgraph_algo)
+- Algorithms: [`webgraph-algo`](https://crates.io/crates/webgraph_algo)
   ([repo](/algo))
 
-- CLI commands: [`webgraph_cli`](http://crates.io/crates/webgraph_cli)
+- CLI commands: [`webgraph-cli`](https://crates.io/crates/webgraph_cli)
   ([repo](/cli))
 
 ## Acknowledgments

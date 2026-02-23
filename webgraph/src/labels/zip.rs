@@ -173,10 +173,10 @@ impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::
 {
 }
 
-unsafe impl<L, R> SortedLender for NodeLabels<L, R>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-    R: Lender + for<'next> NodeLabelsLender<'next>,
+unsafe impl<
+    L: SortedLender + for<'next> NodeLabelsLender<'next>,
+    R: SortedLender + for<'next> NodeLabelsLender<'next>,
+> SortedLender for NodeLabels<L, R>
 {
 }
 

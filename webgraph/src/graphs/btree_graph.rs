@@ -24,7 +24,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
     /// The number of arcs in the graph.
-    number_of_arcs: u64,
+    num_arcs: u64,
     /// For each node, its list of successors.
     succ: Vec<BTreeMap<usize, L>>,
 }
@@ -39,7 +39,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// Creates a new empty graph.
     pub fn new() -> Self {
         Self {
-            number_of_arcs: 0,
+            num_arcs: 0,
             succ: vec![],
         }
     }
@@ -47,7 +47,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
     /// Creates a new empty graph with `n` nodes.
     pub fn empty(n: usize) -> Self {
         Self {
-            number_of_arcs: 0,
+            num_arcs: 0,
             succ: Vec::from_iter((0..n).map(|_| BTreeMap::new())),
         }
     }
@@ -73,7 +73,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
             );
         }
         let is_new_arc = self.succ[u].insert(v, l).is_none();
-        self.number_of_arcs += is_new_arc as u64;
+        self.num_arcs += is_new_arc as u64;
         is_new_arc
     }
 
@@ -88,7 +88,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
             );
         }
         let arc_existed = self.succ[u].remove(&v).is_some();
-        self.number_of_arcs -= arc_existed as u64;
+        self.num_arcs -= arc_existed as u64;
         arc_existed
     }
 
@@ -198,7 +198,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledBTreeGraph<L> {
         L: 'succ;
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
-        self.number_of_arcs
+        self.num_arcs
     }
 
     #[inline(always)]
@@ -363,7 +363,7 @@ impl RandomAccessLabeling for BTreeGraph {
 
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
-        self.0.number_of_arcs
+        self.0.num_arcs
     }
 
     #[inline(always)]

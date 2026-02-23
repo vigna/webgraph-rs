@@ -29,8 +29,6 @@ pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
 pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 
 /// A compressed sparse-row graph.
-#[derive(Debug, Clone, Epserde)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 ///
 /// It is a graph representation that stores the degree cumulative function
 /// (DCF) and the successors in a compressed format. The DCF is a sequence of
@@ -51,6 +49,8 @@ pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 /// using a [`BitFieldVec`]. There is also a [version with sorted
 /// successors](CompressedCsrSortedGraph). Their construction requires a
 /// sequential graph providing the number of arcs.
+#[derive(Debug, Clone, Epserde)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CsrGraph<DCF = Box<[usize]>, S = Box<[usize]>> {
     dcf: DCF,
     successors: S,
@@ -268,7 +268,7 @@ where
     DCF: SliceByValue + IterateByValueFrom<Item = usize>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
-    type Lender = LenderImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>;
+    type Lender = NodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -299,7 +299,7 @@ where
 {
     type Label = usize;
     type Lender<'a>
-        = LenderImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>
+        = NodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>
     where
         Self: 'a;
 
@@ -320,7 +320,7 @@ where
         // because it might not exist
         let offset = offsets_iter.next().unwrap_or(0);
 
-        LenderImpl {
+        NodeLabels {
             node: from,
             last_offset: offset,
             current_offset: offset,
@@ -462,7 +462,7 @@ where
 
 /// Sequential Lender for the CSR graph.
 #[derive(Debug, Clone)]
-pub struct LenderImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
+pub struct NodeLabels<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
     /// The next node to lend labels for.
     node: usize,
     /// This is the offset of the last successor of the previous node.
@@ -477,11 +477,11 @@ pub struct LenderImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
 }
 
 unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
-    for LenderImpl<O, S>
+    for NodeLabels<O, S>
 {
 }
 
-impl<'succ, I, D> NodeLabelsLender<'succ> for LenderImpl<I, D>
+impl<'succ, I, D> NodeLabelsLender<'succ> for NodeLabels<I, D>
 where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
@@ -490,7 +490,7 @@ where
     type IntoIterator = SeqSucc<'succ, D>;
 }
 
-impl<'succ, I, D> Lending<'succ> for LenderImpl<I, D>
+impl<'succ, I, D> Lending<'succ> for NodeLabels<I, D>
 where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
@@ -498,7 +498,7 @@ where
     type Lend = (usize, SeqSucc<'succ, D>);
 }
 
-impl<I, D> Lender for LenderImpl<I, D>
+impl<I, D> Lender for NodeLabels<I, D>
 where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
@@ -535,7 +535,7 @@ where
 /// Sequential Lender for the CSR graph.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct LenderSortedImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>>(LenderImpl<O, S>);
+pub struct LenderSortedImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>>(NodeLabels<O, S>);
 
 unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
     for LenderSortedImpl<O, S>

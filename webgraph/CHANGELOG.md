@@ -10,6 +10,11 @@
 
 - `BvGraphSeq` was sub-preallocating the successor vector (+1% speed).
 
+### Improved
+
+- Temporary compression files are now immediately removed when they
+  are no longer necessary.
+
 ## [0.6.0] - 2026-02-18
 
 ### New
