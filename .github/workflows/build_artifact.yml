@@ -22,9 +22,9 @@ jobs:
           - target: x86_64-apple-darwin
             archive: zip tar.gz
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v6
       - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.4
+        uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUSTFLAGS: "-C target-cpu=x86-64-v3" # Compile with BMI2 LZCNT and POPCNT support
