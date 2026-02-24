@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Inria
+ * SPDX-FileCopyrightText: 2025-2026 Inria
  * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  * SPDX-FileCopyrightText: 2025 Tommaso Fontana
  *
@@ -23,9 +23,8 @@
 //! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs) instead.
 
 use core::num::NonZeroUsize;
-use sync_cell_slice::SyncSlice;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use rayon::prelude::*;
 
@@ -210,7 +209,7 @@ impl ParSortIters {
         C: BatchCodec,
         P: IntoIterator<
                 Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
-                IntoIter: ExactSizeIterator,
+                IntoIter: ExactSizeIterator + Send,
             >,
     >(
         &self,
@@ -240,7 +239,7 @@ impl ParSortIters {
         E: Into<anyhow::Error>,
         P: IntoIterator<
                 Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
-                IntoIter: ExactSizeIterator,
+                IntoIter: ExactSizeIterator + Send,
             >,
     >(
         &self,
@@ -273,17 +272,15 @@ impl ParSortIters {
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
 
-        let unsorted_pairs = unsorted_pairs.into_iter();
-        let num_blocks = unsorted_pairs.len();
+        let presort_tmp_dir = &presort_tmp_dir;
 
-        let mut partitioned_presorted_pairs = vec![vec![]; num_blocks];
-        let result = partitioned_presorted_pairs.as_sync_slice();
-        std::thread::scope(|s| {
-            let presort_tmp_dir = &presort_tmp_dir;
-            for (block_id, pair) in unsorted_pairs.enumerate() {
-                let mut pl = pl.clone();
-                let batch_codec = &batch_codec;
-                s.spawn(move || {
+        let partitioned_presorted_pairs = unsorted_pairs
+            .into_iter()
+            .enumerate()
+            .par_bridge()
+            .map_init(
+                || pl.clone(),
+                |pl, (block_id, pair)| {
                     let mut unsorted_buffers = (0..num_partitions)
                         .map(|_| Vec::with_capacity(batch_size))
                         .collect::<Vec<_>>();
@@ -291,6 +288,11 @@ impl ParSortIters {
                         (0..num_partitions).map(|_| Vec::new()).collect::<Vec<_>>();
 
                     for ((src, dst), label) in pair {
+                        ensure!(
+                            src < self.num_nodes,
+                            "Expected {}, but got {src}",
+                            self.num_nodes
+                        );
                         let partition_id = src / num_nodes_per_partition;
 
                         let sorted_pairs = &mut sorted_pairs[partition_id];
@@ -299,14 +301,13 @@ impl ParSortIters {
                             let buf_len = buf.len();
                             super::par_sort_pairs::flush_buffer(
                                 presort_tmp_dir.path(),
-                                batch_codec,
+                                &batch_codec,
                                 block_id,
                                 partition_id,
                                 sorted_pairs,
                                 buf,
                             )
-                            .context("Could not flush buffer")
-                            .unwrap();
+                            .context("Could not flush buffer")?;
                             assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
                             pl.update_with_count(buf_len);
                         }
@@ -322,24 +323,21 @@ impl ParSortIters {
                         let buf_len = buf.len();
                         super::par_sort_pairs::flush_buffer(
                             presort_tmp_dir.path(),
-                            batch_codec,
+                            &batch_codec,
                             block_id,
                             partition_id,
                             pairs,
                             &mut buf,
                         )
-                        .context("Could not flush buffer at the end")
-                        .unwrap();
+                        .context("Could not flush buffer at the end")?;
                         assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
                         pl.update_with_count(buf_len);
                     }
 
-                    unsafe {
-                        result[block_id].set(sorted_pairs);
-                    }
-                });
-            }
-        });
+                    Ok(sorted_pairs)
+                },
+            )
+            .collect::<Result<Vec<_>>>()?;
 
         // At this point, the iterator could be collected into
         // {worker_id -> {partition_id -> [iterators]}}
