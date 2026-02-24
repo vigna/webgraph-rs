@@ -27,11 +27,11 @@ use crate::{
     prelude::{FileBufReader, MemBufReader},
     utils::MmapHelper,
 };
-use anyhow::{ensure, Context};
+use anyhow::{Context, ensure};
 use bitflags::bitflags;
 use common_traits::UnsignedInt;
 use dsi_bitstream::{
-    impls::{BufBitReader, MemWordReader, WordAdapter},
+    impls::{BufBitReader, MemWordReader, WordAdapter, buf_bit_reader},
     prelude::{CodesRead, CodesReaderFactory},
     traits::{BitRead, Endianness},
 };
@@ -75,9 +75,7 @@ where
         Self: 'a;
 
     fn new_reader(&self) -> Self::CodesReader<'_> {
-        BufBitReader::<E, _>::new(WordAdapter::<u32, _>::new(BufReader::new(
-            File::open(&self.path).unwrap(),
-        )))
+        buf_bit_reader::from_path::<E, u32>(&self.path).unwrap()
     }
 }
 

@@ -6,48 +6,34 @@
  */
 
 use dsi_bitstream::codes::{GammaRead, GammaWrite};
-use dsi_bitstream::traits::NE;
+use dsi_bitstream::traits::{BE, Endianness};
 use dsi_bitstream::traits::{BitRead, BitWrite};
 use webgraph::graphs::vec_graph::LabeledVecGraph;
-use webgraph::prelude::{transpose, transpose_labeled};
+use webgraph::prelude::transpose_labeled;
 use webgraph::traits::labels::SequentialLabeling;
-use webgraph::traits::{graph, BitDeserializer, BitSerializer};
-use webgraph::utils::sort_pairs::{BitReader, BitWriter};
-
-#[test]
-fn test_transpose() -> anyhow::Result<()> {
-    use webgraph::graphs::vec_graph::VecGraph;
-    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = VecGraph::from_arcs(arcs);
-
-    let trans = transpose(&g, 3)?;
-    let g2 = VecGraph::from_lender(&trans);
-
-    let trans = transpose(g2, 3)?;
-    let g3 = VecGraph::from_lender(&trans);
-
-    graph::eq(&g, &g3)?;
-    Ok(())
-}
+use webgraph::traits::{BitDeserializer, BitSerializer, graph};
+use webgraph::utils::MemoryUsage;
+use webgraph::utils::gaps::GapsCodec;
+use webgraph::utils::{BitReader, BitWriter};
 
 #[test]
 fn test_transpose_labeled() -> anyhow::Result<()> {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct Payload(f64);
 
-    #[derive(Clone, Copy, PartialEq, Debug)]
-    struct BD {}
+    #[derive(Clone, Copy, PartialEq, Debug, Default)]
+    struct BD;
 
-    impl BitDeserializer<NE, BitReader> for BD
+    impl<E: Endianness> BitDeserializer<E, BitReader<E>> for BD
     where
-        BitReader: GammaRead<NE>,
+        BitReader<E>: GammaRead<E>,
     {
         type DeserType = Payload;
 
         fn deserialize(
             &self,
-            bitstream: &mut BitReader,
-        ) -> Result<Self::DeserType, <BitReader as BitRead<NE>>::Error> {
+            bitstream: &mut BitReader<E>,
+        ) -> Result<Self::DeserType, <BitReader<E> as BitRead<E>>::Error> {
             let mantissa = bitstream.read_gamma()?;
             let exponent = bitstream.read_gamma()?;
             let result = f64::from_bits((exponent << 53) | mantissa);
@@ -55,20 +41,20 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
         }
     }
 
-    #[derive(Clone, Copy, PartialEq, Debug)]
-    struct BS {}
+    #[derive(Clone, Copy, PartialEq, Debug, Default)]
+    struct BS;
 
-    impl BitSerializer<NE, BitWriter> for BS
+    impl<E: Endianness> BitSerializer<E, BitWriter<E>> for BS
     where
-        BitWriter: GammaWrite<NE>,
+        BitWriter<E>: GammaWrite<E>,
     {
         type SerType = Payload;
 
         fn serialize(
             &self,
             value: &Self::SerType,
-            bitstream: &mut BitWriter,
-        ) -> Result<usize, <BitWriter as BitWrite<NE>>::Error> {
+            bitstream: &mut BitWriter<E>,
+        ) -> Result<usize, <BitWriter<E> as BitWrite<E>>::Error> {
             let value = value.0.to_bits();
             let mantissa = value & ((1 << 53) - 1);
             let exponent = value >> 53;
@@ -79,18 +65,26 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
         }
     }
     let arcs = [
-        (0, 1, Payload(1.0)),
-        (0, 2, Payload(f64::EPSILON)),
-        (1, 2, Payload(2.0)),
-        (2, 4, Payload(f64::INFINITY)),
-        (3, 4, Payload(f64::NEG_INFINITY)),
+        ((0, 1), Payload(1.0)),
+        ((0, 2), Payload(f64::EPSILON)),
+        ((1, 2), Payload(2.0)),
+        ((2, 4), Payload(f64::INFINITY)),
+        ((3, 4), Payload(f64::NEG_INFINITY)),
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-    let trans = transpose_labeled(&g, 2, BS {}, BD {})?;
+    let trans = transpose_labeled(
+        &g,
+        MemoryUsage::BatchSize(3),
+        GapsCodec::<BE, BS, BD>::new(BS, BD),
+    )?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-    let trans = transpose_labeled(&g2, 2, BS {}, BD {})?;
+    let trans = transpose_labeled(
+        &g2,
+        MemoryUsage::BatchSize(3),
+        GapsCodec::<BE, BS, BD>::new(BS, BD),
+    )?;
     let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
     let g4 = LabeledVecGraph::from_lender(g.iter());

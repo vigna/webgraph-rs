@@ -6,8 +6,8 @@
 
 use std::vec::IntoIter;
 
-use lender::{Lend, Lender, Lending};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use lender::{Lend, Lender, Lending, check_covariance};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 
 use crate::{
     prelude::{NodeLabelsLender, SequentialGraph, SequentialLabeling},
@@ -37,24 +37,28 @@ impl ErdosRenyi {
     /// nodes, the probability of an edge between any two nodes, and a
     /// seed for the [pseudorandom number generator](SmallRng).
     pub fn new(n: usize, p: f64, seed: u64) -> Self {
-        assert!((0.0..=1.0).contains(&p), "p must be in [0..1]");
+        // Note that 0.0..=1.0 is [0.0..1.0] in mathematical notation
+        assert!((0.0..=1.0).contains(&p), "p must be in [0 . . 1]");
         Self { n, p, seed }
     }
 }
 
 impl SequentialLabeling for ErdosRenyi {
     type Label = usize;
-    type Lender<'a> = Iter;
+    type Lender<'a> = NodeLabels;
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.n
     }
 
-    fn iter_from(&self, from: usize) -> Iter {
+    fn iter_from(&self, from: usize) -> NodeLabels {
         let mut rng = SmallRng::seed_from_u64(self.seed);
-        for _ in 0..from * (self.n - 1) {
-            rng.random_bool(self.p);
+        if self.n > 0 {
+            for _ in 0..from * (self.n - 1) {
+                rng.random_bool(self.p);
+            }
         }
-        Iter {
+        NodeLabels {
             n: self.n,
             p: self.p,
             x: from,
@@ -63,30 +67,32 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
-unsafe impl SortedLender for Iter {}
-unsafe impl SortedIterator for SuccIntoIter {}
+unsafe impl SortedLender for NodeLabels {}
+unsafe impl SortedIterator for Succ {}
 
 #[derive(Debug, Clone)]
-pub struct Iter {
+pub struct NodeLabels {
     n: usize,
     p: f64,
     x: usize,
     rng: SmallRng,
 }
 
-impl NodeLabelsLender<'_> for Iter {
+impl NodeLabelsLender<'_> for NodeLabels {
     type Label = usize;
-    type IntoIterator = Succ;
+    type IntoIterator = IntoSucc;
 }
 
-impl<'succ> Lending<'succ> for Iter {
+impl<'succ> Lending<'succ> for NodeLabels {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-pub struct Succ(Vec<usize>);
-pub struct SuccIntoIter(IntoIter<usize>);
+#[derive(Debug)]
+pub struct IntoSucc(Vec<usize>);
+#[derive(Debug)]
+pub struct Succ(IntoIter<usize>);
 
-impl Iterator for SuccIntoIter {
+impl Iterator for Succ {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -94,17 +100,19 @@ impl Iterator for SuccIntoIter {
     }
 }
 
-impl IntoIterator for Succ {
+impl IntoIterator for IntoSucc {
     type Item = usize;
-    type IntoIter = SuccIntoIter;
+    type IntoIter = Succ;
 
     fn into_iter(self) -> Self::IntoIter {
         let iter = self.0.into_iter();
-        SuccIntoIter(iter)
+        Succ(iter)
     }
 }
 
-impl Lender for Iter {
+impl Lender for NodeLabels {
+    check_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.x >= self.n {
@@ -113,7 +121,7 @@ impl Lender for Iter {
 
         let result = Some((
             self.x,
-            Succ(
+            IntoSucc(
                 (0..self.n)
                     .filter(|&y| y != self.x && self.rng.random_bool(self.p))
                     .collect::<Vec<_>>(),
@@ -129,7 +137,7 @@ impl SequentialGraph for ErdosRenyi {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transform;
+    use crate::{transform, utils::MemoryUsage};
 
     #[test]
     fn test_er() {
@@ -154,6 +162,6 @@ mod tests {
         // This is just to test that we implemented correctly
         // the SortedIterator and SortedLender traits.
         let er = ErdosRenyi::new(100, 0.1, 0);
-        transform::simplify_sorted(er, 100).unwrap();
+        transform::simplify_sorted(er, MemoryUsage::BatchSize(100)).unwrap();
     }
 }

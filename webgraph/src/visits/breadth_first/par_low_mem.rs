@@ -6,17 +6,17 @@
  */
 
 use crate::visits::{
-    breadth_first::{EventPred, FilterArgsPred},
     Parallel,
+    breadth_first::{EventPred, FilterArgsPred},
 };
 use crate::{traits::RandomAccessGraph, utils::Granularity};
 use parallel_frontier::Frontier;
-use rayon::{prelude::*, ThreadPool};
+use rayon::prelude::*;
 use std::{
     ops::ControlFlow::{self, Continue},
     sync::atomic::Ordering,
 };
-use sux::bits::AtomicBitVec;
+use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 
 /// Low-memory parallel breadth-first visits.
 ///
@@ -42,7 +42,6 @@ use sux::bits::AtomicBitVec;
 /// ```
 /// use webgraph::visits::Parallel;
 /// use webgraph::visits::breadth_first::{*, self};
-/// use webgraph::thread_pool;
 /// use webgraph::graphs::vec_graph::VecGraph;
 /// use webgraph::labels::proj::Left;
 /// use std::sync::atomic::AtomicUsize;
@@ -66,7 +65,6 @@ use sux::bits::AtomicBitVec;
 ///         }
 ///         Continue(())
 ///     },
-///     &thread_pool![],
 /// ).continue_value_no_break();
 ///
 /// assert_eq!(tree[0], 0);
@@ -128,7 +126,6 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
         mut init: T,
         callback: C,
         filter: F,
-        thread_pool: &ThreadPool,
     ) -> ControlFlow<E, ()> {
         let mut filtered_roots = vec![];
         for root in roots {
@@ -167,12 +164,11 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
             return Continue(());
         }
 
-        // We do not provide a capacity in the hope of allocating dynamically
-        // space as the frontiers grow.
-        let mut curr_frontier = Frontier::with_threads(thread_pool, None);
+        // We do not provide a capacity to allow the frontier to grow dynamically
+        let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
-        let mut next_frontier = Frontier::with_threads(thread_pool, None);
+        let mut next_frontier = Frontier::new();
         let mut distance = 1;
 
         // Visit the connected component
@@ -184,7 +180,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                     size: curr_frontier.len(),
                 },
             )?;
-            thread_pool.install(|| {
+            {
                 curr_frontier
                     .par_iter()
                     .chunks(self.granularity)
@@ -222,7 +218,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParLowMem<G> {
                                 })
                         })
                     })
-            })?;
+            }?;
             distance += 1;
             // Swap the frontiers
             std::mem::swap(&mut curr_frontier, &mut next_frontier);

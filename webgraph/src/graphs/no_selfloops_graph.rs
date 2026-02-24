@@ -7,16 +7,17 @@
 use crate::prelude::*;
 use lender::*;
 
+/// A wrapper that removes self-loops from a graph. Since we don't
+/// know how many self-loops there are, we can't provide an exact
+/// number of arcs or outdegree for each node. Therefore, we can't
+/// implement random access to the successors.
 #[derive(Debug, Clone)]
-/// A wrapper that removes self-loops from a graph. Since we don't know how many
-/// self-loops there are, we can't provide an exact number of arcs or outdegree
-/// for each node. Therefore, we can't implement random access to the successors.
 pub struct NoSelfLoopsGraph<G>(pub G);
 
 impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
     type Label = usize;
     type Lender<'b>
-        = Iter<G::Lender<'b>>
+        = NodeLabels<G::Lender<'b>>
     where
         Self: 'b;
 
@@ -33,7 +34,7 @@ impl<G: SequentialGraph> SequentialLabeling for NoSelfLoopsGraph<G> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter {
+        NodeLabels {
             iter: self.0.iter_from(from),
         }
     }
@@ -59,6 +60,9 @@ where
 
 impl<G: SequentialGraph> SequentialGraph for NoSelfLoopsGraph<G> {}
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
     type Lender = <NoSelfLoopsGraph<G> as SequentialLabeling>::Lender<'b>;
 
@@ -68,31 +72,34 @@ impl<'b, G: SequentialGraph> IntoLender for &'b NoSelfLoopsGraph<G> {
     }
 }
 
-/// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
 #[derive(Debug, Clone)]
-pub struct Iter<I> {
+pub struct NodeLabels<I> {
     iter: I,
 }
 
 impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> NodeLabelsLender<'succ>
-    for Iter<I>
+    for NodeLabels<I>
 {
     type Label = usize;
     type IntoIterator = Succ<LenderIntoIter<'succ, I>>;
 }
 
 impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lending<'succ>
-    for Iter<I>
+    for NodeLabels<I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 unsafe impl<I: SortedLender + Lender + for<'next> NodeLabelsLender<'next, Label = usize>>
-    SortedLender for Iter<I>
+    SortedLender for NodeLabels<I>
 {
 }
 
-impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for Iter<L> {
+impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for NodeLabels<L> {
+    // SAFETY: the lend is covariant as it contains only a usize and an iterator
+    // over usize values derived from the underlying lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
@@ -109,8 +116,9 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lender for I
 }
 
 impl<L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>> ExactSizeLender
-    for Iter<L>
+    for NodeLabels<L>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -137,16 +145,11 @@ impl<I: Iterator<Item = usize>> Iterator for Succ<I> {
 
 unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for Succ<I> {}
 
-impl<I: ExactSizeIterator<Item = usize>> ExactSizeIterator for Succ<I> {
-    #[inline(always)]
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-}
+impl<I: Iterator<Item = usize> + std::iter::FusedIterator> std::iter::FusedIterator for Succ<I> {}
 
 #[cfg(test)]
 #[test]
-fn test_no_selfloops_graph() -> anyhow::Result<()> {
+fn test_no_self_loops_graph() -> anyhow::Result<()> {
     use crate::graphs::vec_graph::VecGraph;
     let g = VecGraph::from_arcs([(0, 1), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]);
     let p = NoSelfLoopsGraph(g);

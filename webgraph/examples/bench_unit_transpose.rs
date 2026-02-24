@@ -6,7 +6,6 @@
  */
 
 #![allow(clippy::type_complexity)]
-
 use std::hint::black_box;
 
 use anyhow::Result;
@@ -29,10 +28,10 @@ struct Args {
 
 pub fn transpose(
     graph: &impl SequentialGraph,
-    batch_size: usize,
-) -> Result<Left<ArcListGraph<impl Iterator<Item = (usize, usize, ())> + Clone>>> {
+    memory_usage: MemoryUsage,
+) -> Result<Left<ArcListGraph<impl Iterator<Item = ((usize, usize), ())> + Clone>>> {
     let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
-    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
+    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -46,7 +45,7 @@ pub fn transpose(
         pl.light_update();
     });
     // merge the batches
-    let map: fn((usize, usize, ())) -> (usize, usize) = |(src, dst, _)| (src, dst);
+    let map: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
     let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
     pl.done();
 
@@ -67,7 +66,7 @@ where
         let mut pl = ProgressLogger::default();
         pl.start("Transposing standard graph...");
 
-        let mut iter = transpose(&graph, 10_000_000)?.iter();
+        let mut iter = transpose(&graph, MemoryUsage::BatchSize(10_000_000))?.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {
@@ -77,7 +76,12 @@ where
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let mut iter = Left(transform::transpose_labeled(&unit, 10_000_000, (), ())?).iter();
+        let mut iter = Left(transform::transpose_labeled(
+            &unit,
+            MemoryUsage::BatchSize(10_000_000),
+            DefaultBatchCodec::default(),
+        )?)
+        .iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {

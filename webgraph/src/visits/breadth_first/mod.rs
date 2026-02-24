@@ -60,7 +60,7 @@ pub enum EventPred {
     },
     /// The size of the frontier at a given distance.
     ///
-    /// This even will happen with increasing value of
+    /// This event will happen with increasing value of
     /// [`distance`](`EventPred::FrontierSize::distance`), starting at 0.
     ///
     /// If the root is formed by a single node, this is the size of the sphere
@@ -74,7 +74,7 @@ pub enum EventPred {
         /// A distance.
         distance: usize,
         /// The number of nodes at
-        /// [`distance`](`EventNoPred::FrontierSize::distance`) from the roots.
+        /// [`distance`](`EventPred::FrontierSize::distance`) from the roots.
         size: usize,
     },
     /// The visit has been completed.
@@ -120,8 +120,8 @@ pub enum EventNoPred {
     /// The node has been encountered before: we are traversing a back arc, a
     /// forward arc, or a cross arc.
     ///
-    /// Note however that in parallel contexts it might happen that callback
-    /// with event [`Unknown`](`EventNoPred::Visit`) has not been called yet
+    /// Note however that in parallel contexts it might happen that the callback
+    /// with event [`Visit`](`EventNoPred::Visit`) has not been called yet
     /// by the thread who discovered the node.
     Revisit {
         /// The current node.
@@ -129,12 +129,12 @@ pub enum EventNoPred {
     },
     /// The size of the frontier at a given distance.
     ///
-    /// This even will happen with increasing value of
-    /// [`distance`](`EventPred::FrontierSize::distance`), starting at 0.
+    /// This event will happen with increasing value of
+    /// [`distance`](`EventNoPred::FrontierSize::distance`), starting at 0.
     ///
     /// If the root is formed by a single node, this is the size of the sphere
     /// with center at the root and radius
-    /// [`distance`](`EventPred::FrontierSize::distance`).
+    /// [`distance`](`EventNoPred::FrontierSize::distance`).
     ///
     /// This event will happen just before starting to visit nodes at a given
     /// distance or when all nodes at that distance have been visited, depending
@@ -144,7 +144,7 @@ pub enum EventNoPred {
         distance: usize,
         /// The number of nodes at
         /// [`distance`](`EventNoPred::FrontierSize::distance`) from the roots.
-        sizes: usize,
+        size: usize,
     },
     /// The visit has been completed.
     ///

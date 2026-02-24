@@ -5,14 +5,13 @@
  */
 
 use crate::graphs::arc_list_graph;
-use crate::prelude::sort_pairs::{BatchIterator, KMergeIters};
+use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::*;
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::prelude::*;
 use lender::*;
-use rayon::ThreadPool;
-use sux::traits::BitFieldSlice;
 use tempfile::Builder;
+use value_traits::slices::SliceByValue;
 
 /// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
 ///
@@ -20,14 +19,12 @@ use tempfile::Builder;
 /// [`permute_split`] will be much faster.
 ///
 /// This assumes that the permutation is bijective. For the meaning of the
-/// additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
+/// additional parameter, see [`SortPairs`].
 pub fn permute(
     graph: &impl SequentialGraph,
-    perm: &impl BitFieldSlice<usize>,
-    batch_size: usize,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>> {
+    perm: &impl SliceByValue<Value = usize>,
+    memory_usage: MemoryUsage,
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>> {
     ensure!(
         perm.len() == graph.num_nodes(),
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
@@ -41,14 +38,16 @@ pub fn permute(
     );
 
     // create a stream where to dump the sorted pairs
-    let mut sorted = SortPairs::new(MemoryUsage::BatchSize(batch_size), dir.path())?;
+    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
-    // get a premuted view
+    // get a permuted view
     let pgraph = PermutedGraph { graph, perm };
 
-    let mut pl = ProgressLogger::default();
-    pl.item_name("node")
-        .expected_updates(Some(graph.num_nodes()));
+    let mut pl = progress_logger![
+        item_name = "node",
+        expected_updates = Some(graph.num_nodes()),
+        display_memory = true
+    ];
     pl.start("Creating batches...");
     // create batches of sorted edges
     for_!( (src, succ) in pgraph.iter() {
@@ -73,18 +72,15 @@ pub fn permute(
 /// [`permute`], albeit it will be slower.
 ///
 /// This assumes that the permutation is bijective. For the meaning of the
-/// additional parameter, see
-/// [`SortPairs`](crate::prelude::sort_pairs::SortPairs).
-#[allow(clippy::type_complexity)]
+/// additional parameter, see [`SortPairs`].
 pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
-    batch_size: usize,
-    threads: &ThreadPool,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<BatchIterator<()>, ()>>>>
+    memory_usage: MemoryUsage,
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>>
 where
     S: SequentialGraph + SplitLabeling,
-    P: BitFieldSlice<usize> + Send + Sync + Clone,
+    P: SliceByValue<Value = usize> + Send + Sync + Clone,
     for<'a> <S as SequentialLabeling>::Lender<'a>: Send + Sync + Clone + ExactSizeLender,
 {
     ensure!(
@@ -94,14 +90,14 @@ where
         graph.num_nodes(),
     );
 
-    // get a premuted view
+    // get a permuted view
     let pgraph = PermutedGraph { graph, perm };
 
-    let num_threads = threads.current_num_threads();
+    let num_threads = rayon::current_num_threads();
     let mut dirs = vec![];
 
-    let edges = threads.in_place_scope(|scope| {
-        let (tx, rx) = std::sync::mpsc::channel();
+    let edges = rayon::in_place_scope(|scope| {
+        let (tx, rx) = crossbeam_channel::unbounded();
 
         for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
             let tx = tx.clone();
@@ -113,9 +109,7 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted =
-                    SortPairs::new(MemoryUsage::BatchSize(batch_size / num_threads), dir_path)
-                        .unwrap();
+                let mut sorted = SortPairs::new(memory_usage / num_threads, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         sorted.push(src, dst).unwrap();
@@ -130,7 +124,7 @@ where
 
         // get a graph on the sorted data
         log::debug!("Waiting for threads to finish");
-        rx.iter().sum()
+        rx.into_rayon_iter().sum()
     });
 
     log::debug!("All threads finished");

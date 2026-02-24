@@ -7,9 +7,9 @@
 
 use crate::create_parent_dir;
 use crate::*;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
-use dsi_bitstream::prelude::{Endianness, BE};
+use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
 use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
@@ -44,7 +44,7 @@ pub struct CliArgs {
     pub num_threads: NumThreadsArg,
 
     #[clap(flatten)]
-    pub batch_size: BatchSizeArg,
+    pub memory_usage: MemoryUsageArg,
 
     #[clap(flatten)]
     pub ca: CompressArgs,
@@ -59,7 +59,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
-    let mut group_by = SortPairs::new(MemoryUsage::BatchSize(args.batch_size.batch_size), &dir)?;
+    let mut group_by = SortPairs::new(args.memory_usage.memory_usage, &dir)?;
     let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
@@ -87,7 +87,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     for (line_num, line) in iter.enumerate() {
         // break if we reached the end
         if let Some(max_arcs) = args.arcs_args.max_arcs {
-            if num_arcs > max_arcs {
+            if num_arcs >= max_arcs {
                 break;
             }
         }
@@ -116,39 +116,27 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
         let dst = vals[args.arcs_args.target_column];
 
         // parse if exact, or build a node list
-        let src_id = if args.arcs_args.exact {
-            match src.parse::<usize>() {
-                Ok(src_id) => src_id,
-                Err(err) => {
-                    log::error!(
-                        "Error parsing as integer source column value {:?} at line {}: {:?}",
-                        src,
-                        line_num,
-                        err
-                    );
-                    return Ok(());
-                }
-            }
-        } else {
+        let src_id = if args.arcs_args.labels {
             let node_id = nodes.len();
             *nodes.entry(src.to_string()).or_insert(node_id)
-        };
-        let dst_id = if args.arcs_args.exact {
-            match dst.parse::<usize>() {
-                Ok(dst_id) => dst_id,
-                Err(err) => {
-                    log::error!(
-                        "Error parsing as integer target column value {:?} at line {}: {:?}",
-                        dst,
-                        line_num,
-                        err
-                    );
-                    return Ok(());
-                }
-            }
         } else {
+            src.parse::<usize>().with_context(|| {
+                format!(
+                    "Error parsing as integer source column value {:?} at line {}",
+                    src, line_num,
+                )
+            })?
+        };
+        let dst_id = if args.arcs_args.labels {
             let node_id = nodes.len();
             *nodes.entry(dst.to_string()).or_insert(node_id)
+        } else {
+            dst.parse::<usize>().with_context(|| {
+                format!(
+                    "Error parsing as integer target column value {:?} at line {}",
+                    dst, line_num,
+                )
+            })?
         };
 
         num_nodes = num_nodes.max(src_id.max(dst_id) + 1);
@@ -158,7 +146,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     }
     pl.done();
 
-    if !args.arcs_args.exact {
+    if args.arcs_args.labels {
         debug_assert_eq!(
             num_nodes,
             nodes.len(),
@@ -191,11 +179,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     // convert the iter to a graph
     let g = ArcListGraph::new(
         num_nodes,
-        group_by
-            .iter()
-            .unwrap()
-            .map(|(src, dst, _)| (src, dst))
-            .dedup(),
+        group_by.iter().unwrap().map(|(pair, _)| pair).dedup(),
     );
 
     create_parent_dir(&args.dst)?;
@@ -204,19 +188,23 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     let target_endianness = args.ca.endianness.clone();
     let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    BvComp::parallel_endianness(
-        &args.dst,
-        &g,
-        num_nodes,
-        args.ca.into(),
-        &thread_pool,
-        dir,
-        &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-    )
-    .unwrap();
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
+
+    thread_pool.install(|| {
+        builder
+            .par_comp_lenders_endianness(&g, &target_endianness.unwrap_or_else(|| BE::NAME.into()))
+    })?;
 
     // save the nodes
-    if !args.arcs_args.exact {
+    if args.arcs_args.labels {
         let nodes_file = args.dst.with_extension("nodes");
         let mut pl = ProgressLogger::default();
         pl.display_memory(true)

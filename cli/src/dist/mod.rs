@@ -26,20 +26,7 @@ pub enum SubCommands {
 #[command(name = "webgraph-dist", version=build_info::version_string())]
 /// WebGraph tools computing graph properties based on distances.
 #[doc = include_str!("../common_ps.txt")]
-///
-/// Note that on shells supporting process substitution you compress the results
-/// using a suitable syntax. For example on bash / zsh, you can use the path
-/// `>(zstd > sccs.zstd)`.
-///
-/// Noteworthy environment variables:
-///
-/// - RUST_MIN_STACK: minimum thread stack size (in bytes); we suggest
-///   RUST_MIN_STACK=8388608 (8MiB)
-///
-/// - TMPDIR: where to store temporary files (potentially very large ones)
-///
-/// - RUST_LOG: configuration for env_logger
-///   <https://docs.rs/env_logger/latest/env_logger/>
+#[doc = include_str!("../common_env.txt")]
 pub struct Cli {
     #[clap(flatten)]
     args: GlobalArgs,

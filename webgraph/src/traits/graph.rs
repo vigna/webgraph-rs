@@ -16,13 +16,13 @@ as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `usize`.
 To access the successors of a node, however, you must use
 [`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabeling::labels):
-the latter method is overridden on purpose make its usage on graphs impossible.
+the latter method is overridden on purpose to make its usage on graphs impossible.
 
 In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
 [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
 and a [random-access graph with labels](LabeledRandomAccessGraph) is a
 [`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`.
-Also in this case, access the successors of a node and their labels, you must use
+Also in this case, to access the successors of a node and their labels, you must use
 [`LabeledRandomAccessGraph::successors`].
 
 Finally, the [zipping of a graph and a labeling](Zip) implements the
@@ -43,9 +43,10 @@ use impl_tools::autoimpl;
 use lender::*;
 
 use super::{
+    SortedIterator, SortedLender,
     labels::EqError,
     lenders::{LenderIntoIter, NodeLabelsLender},
-    SortedIterator, SortedLender,
+    split::SplitLabeling,
 };
 
 #[allow(non_camel_case_types)]
@@ -65,7 +66,7 @@ pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
 /// Checks if the two provided graphs with sorted lenders are equal.
 ///
-/// This associated function can be used to compare graphs with [sorted
+/// This function can be used to compare graphs with [sorted
 /// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
 /// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
 /// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
@@ -87,8 +88,14 @@ where
             second: g1.num_nodes(),
         });
     }
-    for_!(((node0, succ0), (node1, succ1)) in g0.iter().zip(g1.iter()) {
-        debug_assert_eq!(node0, node1);
+    for_!((index, ((node0, succ0), (node1, succ1))) in g0.iter().zip(g1.iter()).enumerate() {
+        if node0 != node1 {
+            return Err(EqError::Node {
+                index,
+                first: node0,
+                second: node1,
+            });
+        }
         let mut succ0 = succ0.into_iter().collect::<Vec<_>>();
         let mut succ1 = succ1.into_iter().collect::<Vec<_>>();
         succ0.sort();
@@ -100,7 +107,7 @@ where
 
 /// Convenience type alias for the iterator over the successors of a node
 /// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
-pub type Successors<'succ, 'node, S> =
+pub type Succ<'succ, 'node, S> =
     <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
 /// A [sequential graph](SequentialGraph) providing, additionally, random access
@@ -163,7 +170,7 @@ pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
 /// Checks if the two provided labeled graphs with sorted lenders are equal.
 ///
-/// This associated function can be used to compare graphs with [sorted
+/// This function can be used to compare graphs with [sorted
 /// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
 /// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
 /// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
@@ -213,7 +220,7 @@ where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
     type Label = (usize, ());
-    type IntoIterator = UnitSuccessors<LenderIntoIter<'succ, L>>;
+    type IntoIterator = UnitSucc<LenderIntoIter<'succ, L>>;
 }
 
 impl<'succ, L> Lending<'succ> for UnitLender<L>
@@ -227,11 +234,15 @@ impl<L> Lender for UnitLender<L>
 where
     L: for<'next> NodeLabelsLender<'next, Label = usize>,
 {
+    // SAFETY: the lend is covariant as it wraps the underlying covariant lender L
+    // adding unit labels.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.0.next().map(|x| {
             let t = x.into_pair();
-            (t.0, UnitSuccessors(t.1.into_iter()))
+            (t.0, UnitSucc(t.1.into_iter()))
         })
     }
 }
@@ -243,17 +254,18 @@ unsafe impl<L: SortedLender> SortedLender for UnitLender<L> where
 
 #[doc(hidden)]
 #[repr(transparent)]
-pub struct UnitSuccessors<I>(pub I);
+pub struct UnitSucc<I>(pub I);
 
-impl<I: Iterator<Item = usize>> Iterator for UnitSuccessors<I> {
+impl<I: Iterator<Item = usize>> Iterator for UnitSucc<I> {
     type Item = (usize, ());
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         Some((self.0.next()?, ()))
     }
 }
 
-unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSuccessors<I> {}
+unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSucc<I> {}
 
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     type Label = (usize, ());
@@ -263,16 +275,40 @@ impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {
     where
         Self: 'node;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.0.num_nodes()
     }
 
+    #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
         UnitLender(self.0.iter_from(from))
     }
 }
 
 impl<G: SequentialGraph> LabeledSequentialGraph<()> for UnitLabelGraph<G> {}
+
+impl<G: SequentialGraph + SplitLabeling> SplitLabeling for UnitLabelGraph<G>
+where
+    for<'a> <G::IntoIterator<'a> as IntoIterator>::IntoIter: Send + Sync,
+{
+    type SplitLender<'a>
+        = UnitLender<G::SplitLender<'a>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = core::iter::Map<
+        <G::IntoIterator<'a> as IntoIterator>::IntoIter,
+        fn(G::SplitLender<'a>) -> Self::SplitLender<'a>,
+    >
+    where
+        Self: 'a;
+
+    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
+        self.0.split_iter(how_many).into_iter().map(UnitLender)
+    }
+}
 
 /// A labeled random-access graph.
 ///
@@ -327,18 +363,21 @@ pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> 
 
 impl<G: RandomAccessGraph> RandomAccessLabeling for UnitLabelGraph<G> {
     type Labels<'succ>
-        = UnitSuccessors<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
+        = UnitSucc<<<G as RandomAccessLabeling>::Labels<'succ> as IntoIterator>::IntoIter>
     where
         Self: 'succ;
 
+    #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.0.num_arcs()
     }
 
+    #[inline(always)]
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        UnitSuccessors(self.0.successors(node_id).into_iter())
+        UnitSucc(self.0.successors(node_id).into_iter())
     }
 
+    #[inline(always)]
     fn outdegree(&self, node_id: usize) -> usize {
         self.0.outdegree(node_id)
     }

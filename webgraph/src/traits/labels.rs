@@ -8,7 +8,7 @@
 
 /*!
 
-Traits for access labelings, both sequentially and
+Traits for accessing labelings, both sequentially and
 in random-access fashion.
 
 A *labeling* is the basic storage unit for graph data. It associates to
@@ -24,7 +24,7 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use crate::{traits::LenderIntoIter, utils::Granularity};
+use crate::{graphs::bvgraph::DCF, traits::LenderIntoIter, utils::Granularity};
 
 use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
@@ -32,11 +32,14 @@ use core::ops::Range;
 use dsi_progress_logger::prelude::*;
 use impl_tools::autoimpl;
 use lender::*;
-use rayon::ThreadPool;
 use std::rc::Rc;
+use sux::{
+    dict::EliasFanoBuilder,
+    rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
+    traits::Succ,
+    utils::FairChunks,
+};
 use thiserror::Error;
-
-use sux::{traits::Succ, utils::FairChunks};
 
 /// A labeling that can be accessed sequentially.
 ///
@@ -44,6 +47,12 @@ use sux::{traits::Succ, utils::FairChunks};
 /// [lender](NodeLabelsLender): to access the next pair, you must have finished
 /// to use the previous one. You can invoke [`Lender::copied`] to get a standard
 /// iterator, at the cost of some allocation and copying.
+///
+/// It is suggested that all implementors of this trait also implement
+/// [`IntoLender`] on a reference, returning the same lender as
+/// [`iter`](SequentialLabeling::iter). This makes it possible to use the
+/// [`for_!`](lender::for_) macro to iterate over the labeling (see the [module
+/// documentation](crate) for an example).
 ///
 /// Note that there is no guarantee that the lender will return nodes in
 /// ascending order, or that the iterators on labels will return them in any
@@ -92,6 +101,38 @@ pub trait SequentialLabeling {
     /// starting point of the iteration
     fn iter_from(&self, from: usize) -> Self::Lender<'_>;
 
+    /// Builds the degree cumulative function for this labeling.
+    ///
+    /// The degree cumulative function is the sequence 0, d₀, d₀ + d₁, … ,
+    /// *m*, where *dₖ* is the number of arcs/labels of node *k* and *m* is the
+    /// number of arcs/labels.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`num_arcs_hint`](SequentialLabeling::num_arcs_hint) returns
+    /// `None`.
+    fn build_dcf(&self) -> DCF {
+        let n = self.num_nodes();
+        let num_arcs = self
+            .num_arcs_hint()
+            .expect("build_dcf requires num_arcs_hint()") as usize;
+        let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
+        efb.push(0);
+        let mut cumul = 0usize;
+        let mut lender = self.iter();
+        while let Some((_node, succs)) = lender.next() {
+            cumul += succs.into_iter().count();
+            efb.push(cumul);
+        }
+        unsafe {
+            efb.build().map_high_bits(|high_bits| {
+                SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(
+                    high_bits,
+                ))
+            })
+        }
+    }
+
     /// Applies `func` to each chunk of nodes of size `node_granularity` in
     /// parallel, and folds the results using `fold`.
     ///
@@ -103,9 +144,6 @@ pub trait SequentialLabeling {
     ///   will be passed to the [`Iterator::fold`].
     ///
     /// * `granularity` - The granularity of parallel tasks.
-    ///
-    /// * `thread_pool` - The thread pool to use. The maximum level of
-    ///   parallelism is given by the number of threads in the pool.
     ///
     /// * `pl` - An optional mutable reference to a progress logger.
     ///
@@ -121,7 +159,6 @@ pub trait SequentialLabeling {
         func: F,
         fold: R,
         granularity: Granularity,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         let num_nodes = self.num_nodes();
@@ -137,11 +174,10 @@ pub trait SequentialLabeling {
                     res
                 },
                 fold,
-                thread_pool,
             )
     }
 
-    /// Apply `func` to each chunk of nodes containing approximately
+    /// Applies `func` to each chunk of nodes containing approximately
     /// `arc_granularity` arcs in parallel and folds the results using `fold`.
     ///
     /// You have to provide the degree cumulative function of the graph (i.e.,
@@ -156,12 +192,9 @@ pub trait SequentialLabeling {
     /// * `fold` - The function to fold the results obtained from each chunk.
     ///   It will be passed to the [`Iterator::fold`].
     ///
-    /// * `granularity` - The granularity of parallel tests.
+    /// * `granularity` - The granularity of parallel tasks.
     ///
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
-    ///
-    /// * `thread_pool` - The thread pool to use. The maximum level of
-    ///   parallelism is given by the number of threads in the pool.
     ///
     /// * `pl` - A mutable reference to a concurrent progress logger.
     fn par_apply<
@@ -175,7 +208,6 @@ pub trait SequentialLabeling {
         fold: R,
         granularity: Granularity,
         deg_cumul: &D,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) -> A {
         FairChunks::new(
@@ -194,7 +226,6 @@ pub trait SequentialLabeling {
                 res
             },
             fold,
-            thread_pool,
         )
     }
 }
@@ -207,8 +238,16 @@ pub enum EqError {
     NumNodes { first: usize, second: usize },
 
     /// The graphs have different numbers of arcs.
-    #[error("Different number of arcs: {first} !={second}")]
+    #[error("Different number of arcs: {first} != {second}")]
     NumArcs { first: u64, second: u64 },
+
+    /// Iteration on the two graphs returned a different node.
+    #[error("Different node: at index {index} {first} != {second}")]
+    Node {
+        index: usize,
+        first: usize,
+        second: usize,
+    },
 
     /// The graphs have different successors for a specific node.
     #[error("Different successors for node {node}: at index {index} {first} != {second}")]
@@ -284,7 +323,7 @@ where
     for<'a> L0::Lender<'a>: SortedLender,
     for<'a> L1::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
-    for<'a, 'b> LenderIntoIter<'b, L0::Lender<'a>>: SortedIterator,
+    for<'a, 'b> LenderIntoIter<'b, L1::Lender<'a>>: SortedIterator,
     L0::Label: PartialEq + std::fmt::Debug,
 {
     if l0.num_nodes() != l1.num_nodes() {
@@ -293,8 +332,14 @@ where
             second: l1.num_nodes(),
         });
     }
-    for_!(((node0, succ0), (node1, succ1)) in l0.iter().zip(l1.iter()) {
-        debug_assert_eq!(node0, node1);
+    for_!((index, ((node0, succ0), (node1, succ1))) in l0.iter().zip(l1.iter()).enumerate() {
+        if node0 != node1 {
+            return Err(EqError::Node {
+                index,
+                first: node0,
+                second: node1,
+            });
+        }
         eq_succs(node0, succ0, succ1)?;
     });
     Ok(())
@@ -360,9 +405,18 @@ impl<'succ, L: Lender> Lending<'succ> for AssumeSortedLender<L> {
 }
 
 impl<L: Lender> Lender for AssumeSortedLender<L> {
+    // SAFETY: the lend is covariant as it directly delegates to the underlying
+    // covariant lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.lender.next()
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.lender.size_hint()
     }
 }
 
@@ -423,7 +477,7 @@ pub struct AssumeSortedIterator<I> {
 
 impl<I> AssumeSortedIterator<I> {
     /// # Safety
-    /// This is unsafe as the propose of this struct is to attach an unsafe
+    /// This is unsafe as the purpose of this struct is to attach an unsafe
     /// trait to a struct that does not implement it.
     pub unsafe fn new(iter: I) -> Self {
         Self { iter }
@@ -435,12 +489,19 @@ unsafe impl<I: Iterator> SortedIterator for AssumeSortedIterator<I> {}
 impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
     type Item = I::Item;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
+    }
+
+    #[inline(always)]
+    fn count(self) -> usize {
+        self.iter.count()
     }
 }
 
 impl<I: ExactSizeIterator> ExactSizeIterator for AssumeSortedIterator<I> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -482,11 +543,13 @@ pub enum CheckImplError {
     /// The number of successors returned by [`iter`](SequentialLabeling::iter)
     /// is different from the number returned by
     /// [`num_arcs`](RandomAccessLabeling::num_arcs).
-    #[error("Different number of nodes: {iter} (iter) != {method} (num_arcs)")]
+    #[error("Different number of arcs: {iter} (iter) != {method} (num_arcs)")]
     NumArcs { iter: u64, method: u64 },
 
     /// The two implementations return different labels for a specific node.
-    #[error("Different successors for node {node}: at index {index} {sequential} (sequential) != {random_access} (random access)")]
+    #[error(
+        "Different successors for node {node}: at index {index} {sequential} (sequential) != {random_access} (random access)"
+    )]
     Successors {
         node: usize,
         index: usize,
@@ -495,7 +558,9 @@ pub enum CheckImplError {
     },
 
     /// The graphs have different outdegrees for a specific node.
-    #[error("Different outdegree for node {node}: {sequential} (sequential) != {random_access} (random access)")]
+    #[error(
+        "Different outdegree for node {node}: {sequential} (sequential) != {random_access} (random access)"
+    )]
     Outdegree {
         node: usize,
         sequential: usize,
@@ -572,29 +637,49 @@ where
 /// A struct used to make it easy to implement sequential access
 /// starting from random access.
 ///
-/// Users can implement just random-access primitives and then
-/// use this structure to implement sequential access.
-pub struct IteratorImpl<'node, G: RandomAccessLabeling> {
+/// Users can implement just random-access primitives and then use this
+/// structure to implement the lender returned by
+/// [`iter_from`](SequentialLabeling::iter_from) by just returning an instance
+/// of this struct.
+pub struct LenderImpl<'node, G: RandomAccessLabeling> {
+    /// The underlying random-access labeling.
     pub labeling: &'node G,
+    /// The range of nodes to iterate over.
     pub nodes: core::ops::Range<usize>,
 }
 
-unsafe impl<G: RandomAccessLabeling> SortedLender for IteratorImpl<'_, G> {}
+unsafe impl<G: RandomAccessLabeling> SortedLender for LenderImpl<'_, G> {}
 
-impl<'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for IteratorImpl<'_, G> {
+impl<'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for LenderImpl<'_, G> {
     type Label = G::Label;
     type IntoIterator = <G as RandomAccessLabeling>::Labels<'succ>;
 }
 
-impl<'succ, G: RandomAccessLabeling> Lending<'succ> for IteratorImpl<'_, G> {
+impl<'succ, G: RandomAccessLabeling> Lending<'succ> for LenderImpl<'_, G> {
     type Lend = (usize, <G as RandomAccessLabeling>::Labels<'succ>);
 }
 
-impl<G: RandomAccessLabeling> Lender for IteratorImpl<'_, G> {
+impl<G: RandomAccessLabeling> Lender for LenderImpl<'_, G> {
+    // SAFETY: the lend is covariant as it returns labels from a RandomAccessLabeling,
+    // which are expected to be covariant in the lifetime.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.nodes
             .next()
             .map(|node_id| (node_id, self.labeling.labels(node_id)))
+    }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.nodes.len(), Some(self.nodes.len()))
+    }
+}
+
+impl<G: RandomAccessLabeling> ExactSizeLender for LenderImpl<'_, G> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.nodes.len()
     }
 }

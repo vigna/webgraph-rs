@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{get_thread_pool, GlobalArgs, NumThreadsArg};
+use crate::{GlobalArgs, NumThreadsArg, get_thread_pool};
 use anyhow::Result;
 use clap::Parser;
 use webgraph_algo::{combine_labels, labels_to_ranks};
@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use super::llp::store_perm;
 
 #[derive(Parser, Debug)]
-#[command(name = "llp-combine", about = "Combine the pre-compute labels from Layered Label Propagation into permutation.", long_about = None)]
+#[command(name = "llp-combine", about = "Combines the pre-computed labels from Layered Label Propagation into a permutation.", long_about = None)]
 pub struct CliArgs {
     /// The folder where the LLP labels are stored.
     pub work_dir: PathBuf,

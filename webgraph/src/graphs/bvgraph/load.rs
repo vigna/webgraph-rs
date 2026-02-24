@@ -52,12 +52,12 @@ pub struct Static<
 
 #[sealed]
 impl<
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > Dispatch for Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> Dispatch for Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
 }
 
@@ -244,7 +244,121 @@ impl LoadMode for LoadMmap {
 ///
 /// A basic configuration is returned by
 /// [`BvGraph::with_basename`]/[`BvGraphSeq::with_basename`]. The configuration
-/// can then be customized using the methods of this struct.
+/// can then be customized using the setter methods of this struct, chained in
+/// builder style, and finalized by calling [`load`](LoadConfig::load).
+///
+/// # Defaults
+///
+/// The default configuration returned by `with_basename` uses:
+/// - big endianness ([`BE`]);
+/// - [dynamic dispatch](`Dynamic`);
+/// - [memory mapping](`Mmap`) for both the graph and the offsets.
+///
+/// # Configuration Axes
+///
+/// ## Access Mode
+///
+/// - [`BvGraph::with_basename`] returns a configuration for **random access**,
+///   which requires the Elias–Fano offsets file (`.ef`). The resulting graph
+///   supports both random access and sequential iteration.
+/// - [`BvGraphSeq::with_basename`] returns a configuration for **sequential
+///   access**, which only needs the graph file (`.graph`). The resulting graph
+///   supports only sequential iteration.
+///
+/// ## Endianness
+///
+/// - [`endianness`](LoadConfig::endianness): sets the endianness of the graph
+///   file. Use `endianness::<BE>()` for big-endian (the default and the Java
+///   convention) or `endianness::<LE>()` for little-endian.
+///
+/// ## Code Dispatch
+///
+/// - [`dispatch`](LoadConfig::dispatch): chooses between:
+///   - [`Dynamic`] (default): reads the codes from the properties file;
+///     slightly slower due to indirect dispatch, but works with any graph.
+///   - [`Static`]: the codes are fixed at compile time via const generics,
+///     enabling more aggressive optimization. The defaults match the Java
+///     defaults (γ for outdegrees, unary for references, γ for blocks, γ for
+///     intervals, ζ₃ for residuals). If your graph uses non-default codes,
+///     you must specify them explicitly.
+///
+/// ## Load Mode
+///
+/// Controls how the graph bitstream and the offsets are accessed.
+///
+/// - [`mode`](LoadConfig::mode): sets the load mode for **both** the graph
+///   and the offsets. You can also set them independently:
+///   - [`graph_mode`](LoadConfig::graph_mode): sets the mode for the graph
+///     only;
+///   - [`offsets_mode`](LoadConfig::offsets_mode): sets the mode for the
+///     offsets only (random access only).
+///
+/// The available modes are:
+///
+/// - [`Mmap`] (default): memory maps the file. This is the most
+///   memory-efficient mode, as the OS manages paging. It is the recommended
+///   mode for large graphs.
+/// - [`LoadMem`]: reads the file into allocated memory.
+/// - [`LoadMmap`]: reads the file into memory obtained via `mmap`, rather than
+///   the standard allocator.
+/// - [`File`]: reads the graph from a file stream. The offsets are fully
+///   deserialized in memory using [ε-serde]'s
+///   [`load_full`](epserde::deser::Deserialize::load_full). Note that the
+///   graph file must be padded correctly for this mode.
+///
+/// ## Memory flags
+///
+/// When using [`Mmap`] or [`LoadMmap`], you can set [`MemoryFlags`] to
+/// request transparent huge pages, etc.:
+///
+/// - [`flags`](LoadConfig::flags): sets flags for both the graph and offsets.
+/// - [`graph_flags`](LoadConfig::graph_flags): sets flags for the graph only.
+/// - [`offsets_flags`](LoadConfig::offsets_flags): sets flags for the offsets
+///   only (random access only).
+///
+/// # Examples
+///
+/// Load with all defaults (big-endian, dynamic dispatch, memory-mapped):
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME").load()?;
+/// ```
+///
+/// Load a little-endian graph:
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .endianness::<LE>()
+///     .load()?;
+/// ```
+///
+/// Load with static dispatch (using default codes):
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .dispatch::<Static>()
+///     .load()?;
+/// ```
+///
+/// Load into memory rather than memory-mapping:
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .mode::<LoadMem>()
+///     .load()?;
+/// ```
+///
+/// Load a sequential-access graph (no `.ef` file needed):
+/// ```ignore
+/// let graph = BvGraphSeq::with_basename("BASENAME").load()?;
+/// ```
+///
+/// Combine options:
+/// ```ignore
+/// let graph = BvGraph::with_basename("BASENAME")
+///     .endianness::<LE>()
+///     .dispatch::<Static>()
+///     .mode::<LoadMem>()
+///     .load()?;
+/// ```
+///
+/// [ε-serde]: <https://docs.rs/epserde/latest/epserde/>
 #[derive(Debug, Clone)]
 pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode> {
     pub(crate) basename: PathBuf,
@@ -362,7 +476,7 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, L
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, D, GLM, OLM> {
-    /// Choose the [`LoadMode`] for the graph only.
+    /// Choose the [`LoadMode`] for the offsets only.
     pub fn offsets_mode<NOLM: LoadMode>(self) -> LoadConfig<E, Random, D, GLM, NOLM> {
         LoadConfig {
             basename: self.basename,
@@ -399,7 +513,6 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Lo
 
 impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic, GLM, OLM> {
     /// Load a random-access graph with dynamic dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<BvGraph<DynCodesDecoderFactory<E, GLM::Factory<E>, OLM::Offsets>>>
@@ -407,6 +520,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
+        warn_if_ef_stale(&self.basename);
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)
             .with_context(|| {
@@ -414,10 +528,10 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
             })?;
         self.basename.set_extension(GRAPH_EXTENSION);
         let factory = GLM::new_factory(&self.basename, self.graph_load_flags)
-            .with_context(|| format!("Could not graph file {}", self.basename.display()))?;
+            .with_context(|| format!("Could not load graph file {}", self.basename.display()))?;
         self.basename.set_extension(EF_EXTENSION);
         let offsets = OLM::load_offsets(&self.basename, self.offsets_load_flags)
-            .with_context(|| format!("Could not offsets file {}", self.basename.display()))?;
+            .with_context(|| format!("Could not load offsets file {}", self.basename.display()))?;
 
         Ok(BvGraph::new(
             DynCodesDecoderFactory::new(factory, offsets, comp_flags)?,
@@ -431,7 +545,6 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Random, Dynamic,
 
 impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dynamic, GLM, OLM> {
     /// Load a sequential graph with dynamic dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -457,19 +570,17 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
 }
 
 impl<
-        E: Endianness,
-        GLM: LoadMode,
-        OLM: LoadMode,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    >
-    LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>, GLM, OLM>
+    E: Endianness,
+    GLM: LoadMode,
+    OLM: LoadMode,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> LoadConfig<E, Random, Static<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>, GLM, OLM>
 {
     /// Load a random-access graph with static dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -490,6 +601,7 @@ impl<
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
         for<'a> LoadModeCodesReader<'a, E, GLM>: CodesRead<E> + BitSeek,
     {
+        warn_if_ef_stale(&self.basename);
         self.basename.set_extension(PROPERTIES_EXTENSION);
         let (num_nodes, num_arcs, comp_flags) = parse_properties::<E>(&self.basename)?;
         self.basename.set_extension(GRAPH_EXTENSION);
@@ -508,15 +620,15 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        GLM: LoadMode,
-        OLM: LoadMode,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    >
+    E: Endianness,
+    GLM: LoadMode,
+    OLM: LoadMode,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+>
     LoadConfig<
         E,
         Sequential,
@@ -526,7 +638,6 @@ impl<
     >
 {
     /// Load a sequential graph with static dispatch.
-    #[allow(clippy::type_complexity)]
     pub fn load(
         mut self,
     ) -> anyhow::Result<
@@ -559,6 +670,41 @@ impl<
             comp_flags.compression_window,
             comp_flags.min_interval_length,
         ))
+    }
+}
+
+/// Checks if the `.ef` file is older than the .graph file and log a warning if so.
+///
+/// This is important because if the graph has been recompressed, the `.ef` file
+/// will be stale and needs to be rebuilt. This is a very common scenario, in
+/// particular when testing compression techniques.
+fn warn_if_ef_stale(basename: &Path) {
+    if std::env::var_os("DO_NOT_CHECK_MOD_TIMES").is_some() {
+        return;
+    }
+    let graph_path = basename.with_extension(GRAPH_EXTENSION);
+    let ef_path = basename.with_extension(EF_EXTENSION);
+
+    let graph_modified = match std::fs::metadata(&graph_path).and_then(|m| m.modified()) {
+        Ok(t) => t,
+        Err(_) => return, // Can't check, skip warning
+    };
+
+    let ef_modified = match std::fs::metadata(&ef_path).and_then(|m| m.modified()) {
+        Ok(t) => t,
+        Err(_) => return, // Can't check, skip warning
+    };
+
+    if ef_modified < graph_modified {
+        log::warn!(
+            "The Elias-Fano file {} is older than the graph file {}; \
+             this may indicate that the graph has been modified and the .ef file is stale. \
+             Consider rebuilding it with \"webgraph build ef {}\", just touch it if this warning is spurious, \
+             or set the environment variable DO_NOT_CHECK_MOD_TIMES to disable this check.",
+            ef_path.display(),
+            graph_path.display(),
+            basename.display()
+        );
     }
 }
 
@@ -596,7 +742,7 @@ pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize,
         .get("arcs")
         .with_context(|| format!("Missing 'arcs' property in {name}"))?
         .parse::<u64>()
-        .with_context(|| format!("Cannot parse arcs as usize in {name}"))?;
+        .with_context(|| format!("Cannot parse arcs as u64 in {name}"))?;
 
     let comp_flags = CompFlags::from_properties::<E>(&map)
         .with_context(|| format!("Cannot parse compression flags from {name}"))?;

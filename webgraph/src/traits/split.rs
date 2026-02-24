@@ -22,6 +22,9 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 /// [`split_iter`](SplitLabeling::split_iter) to split the labeling
 /// [iterator](SequentialLabeling::Lender) into `n` parts.
 ///
+/// Each part is returned as a tuple `(usize, SplitLender)` where the first
+/// element indicates the first node ID covered by that lender.
+///
 /// Note that the parts are required to be [`Send`] and [`Sync`], so that they
 /// can be safely shared among threads.
 ///
@@ -66,7 +69,7 @@ pub trait SplitLabeling: SequentialLabeling {
 ///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
 ///
 ///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-///         split::seq::Iter::new(self.iter(), how_many)
+///         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
 ///     }
 /// }
 /// ```
@@ -176,12 +179,18 @@ pub mod ra {
             if self.i == self.how_many {
                 return None;
             }
+            let start_node = self.i * self.nodes_per_iter;
             self.i += 1;
             Some(
                 self.labeling
-                    .iter_from((self.i - 1) * self.nodes_per_iter)
+                    .iter_from(start_node)
                     .take(self.nodes_per_iter),
             )
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            let len = self.how_many - self.i;
+            (len, Some(len))
         }
     }
 

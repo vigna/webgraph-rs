@@ -5,3 +5,5 @@
  */
 
 pub mod bvcomp_and_read;
+pub mod roundtrip;
+pub mod utils;

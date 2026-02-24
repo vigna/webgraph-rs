@@ -9,7 +9,7 @@ use webgraph::{
     graphs::{random::ErdosRenyi, vec_graph::LabeledVecGraph},
     labels::Zip,
     prelude::VecGraph,
-    traits::{graph, labels, SequentialLabeling},
+    traits::{SequentialLabeling, graph, labels},
 };
 
 #[test]
@@ -35,7 +35,7 @@ fn test_random() {
 #[test]
 fn test_serde() -> anyhow::Result<()> {
     use webgraph::graphs::vec_graph::LabeledVecGraph;
-    let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
+    let arcs = [((0, 1), 1), ((0, 2), 2), ((1, 2), 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
     let res = serde_json::to_string(&g)?;
@@ -48,7 +48,7 @@ fn test_serde() -> anyhow::Result<()> {
 fn test_epserde() -> anyhow::Result<()> {
     use epserde::prelude::*;
     use webgraph::graphs::vec_graph::LabeledVecGraph;
-    let arcs = [(0, 1, 1), (0, 2, 2), (1, 2, 3)];
+    let arcs = [((0, 1), 1), ((0, 2), 2), ((1, 2), 3)];
 
     let g = LabeledVecGraph::<usize>::from_arcs(arcs);
 

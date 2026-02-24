@@ -7,64 +7,8 @@
 
 //! Miscellaneous utilities.
 
-use rand::Rng;
+use rand::RngExt;
 use std::path::PathBuf;
-
-/// An enum expressing the memory requirements for batched algorithms
-/// such as [`SortPairs`] and [`ParSortPairs`].
-#[derive(Clone, Copy, Debug)]
-pub enum MemoryUsage {
-    /// The target overall memory usage in bytes.
-    MemorySize(usize),
-    /// The number of elements in a batch.
-    ///
-    /// Note that the size of elements depends on the size of labels for labeled
-    /// graphs, and that the actual memory usage may depend on the
-    /// implementation (e.g., [`SortPairs`] will use this number of elements,
-    /// but [`ParSortPairs`] will
-    /// use this number of elements multiplied by the square of
-    /// the number of threads).
-    BatchSize(usize),
-}
-
-/// Default implementation, returning half of the physical RAM.
-impl Default for MemoryUsage {
-    fn default() -> Self {
-        Self::from_perc(0.5)
-    }
-}
-
-impl MemoryUsage {
-    /// Creates a new memory usage expressed as a percentage of the
-    /// physical RAM.
-    pub fn from_perc(perc: f64) -> Self {
-        let system = sysinfo::System::new_with_specifics(
-            sysinfo::RefreshKind::nothing()
-                .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
-        );
-        MemoryUsage::MemorySize(
-            usize::try_from((system.total_memory() as f64 * perc / 100.0) as u64)
-                .expect("System memory overflows usize"),
-        )
-    }
-
-    /// Returns the batch size for elements of type `T`.
-    ///
-    /// If the [memory usage is expressed as a number of
-    /// bytes](MemoryUsage::MemorySize), this method divides the number of bytes
-    /// by the size of `T` to obtain the number of elements. Otherwise, [it just
-    /// returns specified batch size](MemoryUsage::BatchSize).
-    pub fn batch_size<T>(&self) -> usize {
-        match &self {
-            MemoryUsage::MemorySize(memory_size) => {
-                let elem_size = std::mem::size_of::<T>();
-                assert!(elem_size > 0, "Element size cannot be zero");
-                memory_size / elem_size
-            }
-            MemoryUsage::BatchSize(batch_size) => *batch_size,
-        }
-    }
-}
 
 /// Creates a new random dir inside the given folder
 pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
@@ -88,8 +32,14 @@ pub fn temp_dir<P: AsRef<std::path::Path>>(base: P) -> anyhow::Result<PathBuf> {
     }
 }
 
+mod batch_codec;
+pub use batch_codec::*;
+
 mod circular_buffer;
 pub(crate) use circular_buffer::*;
+
+mod ragged_array;
+pub use ragged_array::RaggedArray;
 
 mod mmap_helper;
 pub use mmap_helper::*;
@@ -100,16 +50,22 @@ pub use java_perm::*;
 mod granularity;
 pub use granularity::*;
 
+pub mod matrix;
+pub use matrix::Matrix;
+
 pub mod sort_pairs;
 pub use sort_pairs::SortPairs;
 
 pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
 
-pub mod par_sort_graph;
-pub use par_sort_graph::ParSortGraph;
+pub mod par_sort_iters;
+pub use par_sort_iters::ParSortIters;
 
-use crate::graphs::bvgraph::{Decode, Encode};
+use crate::graphs::{
+    arc_list_graph::NodeLabels,
+    bvgraph::{Decode, Encode},
+};
 
 /// A decoder that encodes the read values using the given encoder.
 /// This is commonly used to change the codes of a graph without decoding and
@@ -178,36 +134,221 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
     }
 }
 
-/// Utility macro to create [`thread_pools`](`rayon::ThreadPool`).
+/// An enum expressing the memory requirements for batched algorithms
+/// such as [`SortPairs`], [`ParSortPairs`], and [`ParSortIters`].
 ///
-/// There are two forms of this macro:
-/// * Create a [`ThreadPool`](rayon::ThreadPool) with the default settings:
-/// ```
-/// # use webgraph::thread_pool;
-/// let t: rayon::ThreadPool = thread_pool![];
-/// ```
-/// * Create a [`ThreadPool`](rayon::ThreadPool) with a given number of threads:
-/// ```
-/// # use webgraph::thread_pool;
-/// let t: rayon::ThreadPool = thread_pool![7];
-/// assert_eq!(t.current_num_threads(), 7);
-/// ```
-#[macro_export]
-macro_rules! thread_pool {
-    () => {
-        rayon::ThreadPoolBuilder::new()
-            .build()
-            .expect("Cannot build a ThreadPool with default parameters")
-    };
-    ($num_threads:expr) => {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads($num_threads)
-            .build()
-            .unwrap_or_else(|_| {
-                panic!(
-                    "Cannot build a ThreadPool with default parameters and {} threads",
-                    $num_threads,
-                )
+/// This type implements [`Mul`](core::ops::Mul) and [`Div`](core::ops::Div) to
+/// scale the memory usage requirements by a given factor, independently of the
+/// variant.
+#[derive(Clone, Copy, Debug)]
+pub enum MemoryUsage {
+    /// The target overall memory usage in bytes.
+    ///
+    /// This is the more user-friendly option. The actual number of elements
+    /// can be computed using [`batch_size`](MemoryUsage::batch_size).
+    MemorySize(usize),
+    /// The number of elements used in all batches.
+    ///
+    /// This is a more low-level option that gives more control to the user, but
+    /// the actual memory usage will depend on the size of labels (if any).
+    BatchSize(usize),
+}
+
+/// Default implementation, returning half of the physical RAM.
+impl Default for MemoryUsage {
+    fn default() -> Self {
+        Self::from_perc(50.0)
+    }
+}
+
+impl core::fmt::Display for MemoryUsage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemoryUsage::MemorySize(size) => write!(f, "{} bytes", size),
+            MemoryUsage::BatchSize(size) => write!(f, "{} elements", size),
+        }
+    }
+}
+
+impl core::ops::Mul<usize> for MemoryUsage {
+    type Output = MemoryUsage;
+
+    fn mul(self, rhs: usize) -> Self::Output {
+        match self {
+            MemoryUsage::MemorySize(size) => MemoryUsage::MemorySize(size * rhs),
+            MemoryUsage::BatchSize(size) => MemoryUsage::BatchSize(size * rhs),
+        }
+    }
+}
+
+impl core::ops::Div<usize> for MemoryUsage {
+    type Output = MemoryUsage;
+
+    fn div(self, rhs: usize) -> Self::Output {
+        match self {
+            MemoryUsage::MemorySize(size) => MemoryUsage::MemorySize(size / rhs),
+            MemoryUsage::BatchSize(size) => MemoryUsage::BatchSize(size / rhs),
+        }
+    }
+}
+
+impl MemoryUsage {
+    /// Creates a new memory usage expressed as a percentage of the
+    /// physical RAM.
+    pub fn from_perc(perc: f64) -> Self {
+        let system = sysinfo::System::new_with_specifics(
+            sysinfo::RefreshKind::nothing()
+                .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
+        );
+        MemoryUsage::MemorySize(
+            usize::try_from((system.total_memory() as f64 * perc / 100.0) as u64)
+                .expect("System memory overflows usize"),
+        )
+    }
+
+    /// Returns the batch size for elements of type `T`.
+    ///
+    /// If the [memory usage is expressed as a number of
+    /// bytes](MemoryUsage::MemorySize), this method divides the number of bytes
+    /// by the size of `T` to obtain the number of elements. Otherwise, [it just
+    /// returns specified batch size](MemoryUsage::BatchSize).
+    pub fn batch_size<T>(&self) -> usize {
+        match &self {
+            MemoryUsage::MemorySize(memory_size) => {
+                let elem_size = std::mem::size_of::<T>();
+                assert!(elem_size > 0, "Element size cannot be zero");
+                memory_size / elem_size
+            }
+            MemoryUsage::BatchSize(batch_size) => *batch_size,
+        }
+    }
+}
+
+/// Writes a human-readable representation of a large number using SI prefixes units.
+pub fn humanize(value: f64) -> String {
+    const UNITS: &[&str] = &["", "K", "M", "G", "T", "P", "E"];
+    let mut v = value;
+    let mut unit: usize = 0;
+    while v >= 1000.0 && unit + 1 < UNITS.len() {
+        v /= 1000.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{:.0}{}", v, UNITS[unit])
+    } else {
+        format!("{:.3}{}", v, UNITS[unit])
+    }
+}
+
+/// A structure holding partition iterators and their boundaries.
+///
+/// This type holds a list of iterators and a list of boundaries, one more
+/// than the number of iterators. The implied semantics is that each iterator
+/// returns (labelled) pairs of nodes, and that the first element of
+/// each pair sits between the boundaries associated with the iterator.
+///
+/// This structures is returned by [`ParSortPairs`] and [`ParSortIters`] and can
+/// easily be converted into lenders for use with
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
+/// using a convenient implementation of the [`From`] trait.
+///
+/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// to perform the conversion. Type inference might not work properly if the
+/// call is embedded in a larger expression, in which case an explicit type
+/// annotation might be necessary.
+pub struct SplitIters<I> {
+    pub boundaries: Box<[usize]>,
+    pub iters: Box<[I]>,
+}
+
+impl<I> SplitIters<I> {
+    pub fn new(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
+        Self { boundaries, iters }
+    }
+}
+
+impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
+    fn from((boundaries, iters): (Box<[usize]>, Box<[I]>)) -> Self {
+        Self::new(boundaries, iters)
+    }
+}
+
+/// Conversion of a [`SplitIters`] of iterators on unlabeled pairs into a
+/// sequence of pairs of starting points and associated lenders.
+///
+/// This is useful for converting the output of sorting utilities like
+/// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
+/// when working with unlabeled graphs.
+///
+/// The pairs `(src, dst)` are automatically converted to labeled form with unit
+/// labels, and the resulting lenders are wrapped with
+/// [`LeftIterator`](crate::labels::proj::LeftIterator) to project out just the
+/// successor nodes.
+///
+/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// to perform the conversion. Type inference might not work properly if the
+/// call is embedded in a larger expression, in which case an explicit type
+/// annotation might be necessary.
+impl<
+    I: Iterator<Item = (usize, usize)> + Send + Sync,
+    IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
+> From<SplitIters<IT>>
+    for Vec<
+        crate::labels::proj::LeftIterator<
+            NodeLabels<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
+        >,
+    >
+{
+    fn from(split: SplitIters<IT>) -> Self {
+        Box::into_iter(split.iters)
+            .enumerate()
+            .map(|(i, iter)| {
+                let start_node = split.boundaries[i];
+                let end_node = split.boundaries[i + 1];
+                let num_partition_nodes = end_node - start_node;
+                // Map pairs to labeled pairs with unit labels
+                #[allow(clippy::type_complexity)]
+                let map_fn: fn((usize, usize)) -> ((usize, usize), ()) = |pair| (pair, ());
+                let labeled_iter = iter.into_iter().map(map_fn);
+                let lender =
+                    NodeLabels::try_new_from(num_partition_nodes, labeled_iter, start_node)
+                        .expect("Iterator should start from the expected first node");
+                // Wrap with LeftIterator to project out just the successor
+                crate::labels::proj::LeftIterator(lender)
             })
-    };
+            .collect()
+    }
+}
+
+/// Conversion of a [`SplitIters`] of iterators on labelled pairs into a
+/// sequences of pairs of starting points and associated lenders.
+///
+/// This is useful for converting the output of sorting utilities like
+/// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+///
+/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// to perform the conversion. Type inference might not work properly if the
+/// call is embedded in a larger expression, in which case an explicit type
+/// annotation might be necessary.
+impl<
+    L: Clone + Copy + 'static,
+    I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
+    IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
+> From<SplitIters<IT>> for Vec<NodeLabels<L, I>>
+{
+    fn from(split: SplitIters<IT>) -> Self {
+        Box::into_iter(split.iters)
+            .enumerate()
+            .map(|(i, iter)| {
+                let start_node = split.boundaries[i];
+                let end_node = split.boundaries[i + 1];
+                let num_partition_nodes = end_node - start_node;
+
+                NodeLabels::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
+                    .expect("Iterator should start from the expected first node")
+            })
+            .collect()
+    }
 }

@@ -7,8 +7,8 @@
 use crate::prelude::*;
 use lender::*;
 
-#[derive(Debug, Clone)]
 /// A wrapper exhibiting the union of two graphs.
+#[derive(Debug, Clone)]
 pub struct UnionGraph<G: SequentialGraph, H: SequentialGraph>(pub G, pub H);
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialLabeling for UnionGraph<G, H>
@@ -20,7 +20,7 @@ where
 {
     type Label = usize;
     type Lender<'b>
-        = Iter<G::Lender<'b>, H::Lender<'b>>
+        = NodeLabels<G::Lender<'b>, H::Lender<'b>>
     where
         Self: 'b;
 
@@ -36,7 +36,7 @@ where
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter(
+        NodeLabels(
             self.0.iter_from(from.min(self.0.num_nodes())),
             self.1.iter_from(from.min(self.1.num_nodes())),
         )
@@ -73,6 +73,9 @@ where
 {
 }
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'c, G: SequentialGraph, H: SequentialGraph> IntoLender for &'c UnionGraph<G, H>
 where
     for<'a> G::Lender<'a>: SortedLender + Clone,
@@ -90,32 +93,36 @@ where
 
 #[doc(hidden)]
 #[derive(Debug, Clone)]
-pub struct Iter<L, M>(L, M);
+pub struct NodeLabels<L, M>(L, M);
 
 impl<
-        'succ,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    > NodeLabelsLender<'succ> for Iter<L, M>
+    'succ,
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+> NodeLabelsLender<'succ> for NodeLabels<L, M>
 {
     type Label = usize;
     type IntoIterator = Succ<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, M>>;
 }
 
 impl<
-        'succ,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    > Lending<'succ> for Iter<L, M>
+    'succ,
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+> Lending<'succ> for NodeLabels<L, M>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-    > Lender for Iter<L, M>
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+> Lender for NodeLabels<L, M>
 {
+    // SAFETY: the lend is covariant as it contains only a usize and an iterator
+    // over usize values derived from the underlying lenders L and M.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let (node0, iter0) = self.0.next().unzip();
@@ -128,22 +135,38 @@ impl<
             ),
         ))
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (min0, max0) = self.0.size_hint();
+        let (min1, max1) = self.1.size_hint();
+        (
+            min0.max(min1),
+            match (max0, max1) {
+                (None, None) => None,
+                (Some(max), None) => Some(max),
+                (None, Some(max)) => Some(max),
+                (Some(max0), Some(max1)) => Some(max0.max(max1)),
+            },
+        )
+    }
 }
 
 impl<
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
-        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
-    > ExactSizeLender for Iter<L, M>
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
+    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender,
+> ExactSizeLender for NodeLabels<L, M>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.0.len().max(self.1.len())
     }
 }
 
 unsafe impl<
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
-        M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
-    > SortedLender for Iter<L, M>
+    L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+    M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
+> SortedLender for NodeLabels<L, M>
 {
 }
 
@@ -186,10 +209,10 @@ unsafe impl<I: Iterator<Item = usize> + SortedIterator, J: Iterator<Item = usize
 {
 }
 
+impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> std::iter::FusedIterator for Succ<I, J> {}
+
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
     use super::*;
 
     #[test]
@@ -220,8 +243,6 @@ mod tests {
             ]),
         ];
         for i in 0..2 {
-            // TODO: why borrowing doesn't work? I should be able to do
-            // let union = UnionGraph(&g[i], &g[1 - i]);
             let union = UnionGraph(g[i].clone(), g[1 - i].clone());
             assert_eq!(union.num_nodes(), 7);
 

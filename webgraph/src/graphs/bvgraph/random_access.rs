@@ -5,19 +5,31 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![allow(clippy::type_complexity)]
-
 use crate::prelude::*;
 use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
-use dsi_bitstream::traits::{Endianness, BE};
+use dsi_bitstream::traits::{BE, Endianness};
 use epserde::deser::Owned;
 use lender::IntoLender;
+use std::iter::FusedIterator;
 use std::path::PathBuf;
 
-use self::sequential::Iter;
+use self::sequential::NodeLabels;
 
+/// A random-access graph in the BV format.
+///
+/// The graph depends on a [`RandomAccessDecoderFactory`] that can be used to
+/// create decoders for the graph. This allows to decouple the graph from the
+/// underlying storage format, and to use different storage formats for the same
+/// graph. For example, one can use a memory-mapped file for the graph, or load
+/// it in memory, or even generate it on the fly.
+///
+/// Note that the knowledge of the codes used by the graph is in the factory,
+/// which provides methods to read each component of the BV format (outdegree,
+/// reference offset, block count, etc.), whereas the knowledge of the
+/// compression parameters (compression window and minimum interval length) is
+/// in this structure.
 #[derive(Debug, Clone)]
 pub struct BvGraph<F> {
     factory: F,
@@ -40,6 +52,9 @@ impl BvGraph<()> {
         }
     }
 }
+
+// The following offset_to_slice methods are implemented on specific
+// factories because they require the knowledge of the type of the offsets
 
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<DynCodesDecoderFactory<E, F, OFF>>
@@ -136,8 +151,8 @@ where
         }
     }
 
+    /// Consumes self and returns the factory.
     #[inline(always)]
-    /// Consume self and return the factory
     pub fn into_inner(self) -> F {
         self.factory
     }
@@ -149,7 +164,7 @@ where
 {
     type Label = usize;
     type Lender<'b>
-        = Iter<F::Decoder<'b>>
+        = NodeLabels<F::Decoder<'b>>
     where
         Self: 'b,
         F: 'b;
@@ -174,7 +189,7 @@ where
             backrefs.replace(node_id, self.successors(node_id).collect());
         }
 
-        Iter {
+        NodeLabels {
             decoder: codes_reader,
             backrefs,
             compression_window: self.compression_window,
@@ -197,6 +212,7 @@ where
         Self: 'a,
         F: 'a;
 
+    #[inline(always)]
     fn num_arcs(&self) -> u64 {
         self.number_of_arcs
     }
@@ -210,7 +226,6 @@ where
         codes_reader.read_outdegree() as usize
     }
 
-    #[inline(always)]
     /// Returns a random access iterator over the successors of a node.
     fn labels(&self, node_id: usize) -> Succ<F::Decoder<'_>> {
         let codes_reader = self
@@ -254,7 +269,7 @@ where
                 }
             }
             // create the masked iterator
-            let res = MaskedIterator::new(neighbors, blocks);
+            let res = MaskedIter::new(neighbors, blocks);
             nodes_left_to_decode -= res.len();
 
             result.copied_nodes_iter = Some(res);
@@ -321,10 +336,7 @@ where
     }
 }
 
-impl<F: SequentialDecoderFactory> BvGraph<F>
-where
-    for<'a> F::Decoder<'a>: Decode,
-{
+impl<F: SequentialDecoderFactory> BvGraph<F> {
     #[inline(always)]
     /// Creates an iterator specialized in the degrees of the nodes.
     /// This is slightly faster because it can avoid decoding some of the nodes
@@ -372,7 +384,7 @@ pub struct Succ<D: Decode> {
     size: usize,
     /// Iterator over the destinations that we are going to copy
     /// from another node
-    copied_nodes_iter: Option<MaskedIterator<Succ<D>>>,
+    copied_nodes_iter: Option<MaskedIter<Succ<D>>>,
 
     /// Intervals of extra nodes
     intervals: Vec<(usize, usize)>,
@@ -382,7 +394,7 @@ pub struct Succ<D: Decode> {
     residuals_to_go: usize,
     /// The next residual node
     next_residual_node: usize,
-    /// The next residual node
+    /// The next copied node
     next_copied_node: usize,
     /// The next interval node
     next_interval_node: usize,
@@ -394,6 +406,8 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
         self.size
     }
 }
+
+impl<D: Decode> FusedIterator for Succ<D> {}
 
 unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
@@ -467,11 +481,19 @@ impl<D: Decode> Iterator for Succ<D> {
         Some(min)
     }
 
+    #[inline(always)]
+    fn count(self) -> usize {
+        self.len()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.size, Some(self.size))
     }
 }
 
+/// Convenience implementation that makes it possible to iterate over a
+/// [`BvGraph`] using the [`for_`](lender::for_) macro (see the
+/// [crate documentation](crate)).
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BvGraph<F> {
     type Lender = <BvGraph<F> as SequentialLabeling>::Lender<'a>;
 

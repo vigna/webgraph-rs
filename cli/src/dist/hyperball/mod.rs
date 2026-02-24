@@ -4,11 +4,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{get_thread_pool, FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg};
-use anyhow::{ensure, Result};
+use crate::{FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
+use anyhow::{Result, bail, ensure};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::{concurrent_progress_logger, ProgressLog};
+use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use epserde::deser::{Deserialize, Flags};
 use rand::SeedableRng;
 use std::path::PathBuf;
@@ -62,7 +62,7 @@ impl Centralities {
 #[command(
     name = "hyperball",
     about = "Use hyperball to compute centralities.",
-    long_about = ""
+    long_about = None
 )]
 pub struct CliArgs {
     /// The basename of the graph.
@@ -79,11 +79,6 @@ pub struct CliArgs {
     #[clap(short, long)]
     pub transposed: Option<PathBuf>,
 
-    /// Compute the approximate neighborhood function, which will be
-    /// store in ASCII format as BASENAME.nf.
-    #[clap(short, long)]
-    pub neighborhood_function: bool,
-
     #[clap(flatten)]
     pub centralities: Centralities,
 
@@ -99,7 +94,7 @@ pub struct CliArgs {
     #[clap(long)]
     /// A value that will be used to stop the computation by relative increment
     /// if the neighborhood function is being computed. Otherwise, the
-    /// computation will stop all estimators do not change their values.
+    /// computation will stop when all estimators do not change their values.
     pub threshold: Option<f64>,
 
     #[clap(flatten)]
@@ -139,7 +134,7 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
 
     log::info!("Loading DCF...");
     if !args.basename.with_extension(DEG_CUMUL_EXTENSION).exists() {
-        log::error!(
+        bail!(
             "Missing DCF file. Please run `webgraph build dcf {}`.",
             args.basename.display()
         );
@@ -175,7 +170,7 @@ pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Resul
 
     log::info!("Starting Hyperball...");
     let rng = rand::rngs::SmallRng::seed_from_u64(args.seed);
-    hb.run(args.upper_bound, args.threshold, &thread_pool, rng, &mut pl)?;
+    thread_pool.install(|| hb.run(args.upper_bound, args.threshold, rng, &mut pl))?;
 
     log::info!("Storing the results...");
 

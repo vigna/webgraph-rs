@@ -32,7 +32,7 @@ pub struct CliArgs {
     pub permutation: Option<PathBuf>,
 
     #[clap(flatten)]
-    pub batch_size: BatchSizeArg,
+    pub memory_usage: MemoryUsageArg,
 
     #[clap(flatten)]
     pub ca: CompressArgs,
@@ -50,12 +50,11 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let target_endianness = args.ca.endianness.clone();
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation)?,
+        BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation),
         #[cfg(feature = "le_bins")]
-        LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation)?,
+        LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation),
         e => panic!("Unknown endianness: {}", e),
-    };
-    Ok(())
+    }
 }
 
 pub fn compress<E: Endianness>(
@@ -71,79 +70,75 @@ where
     let dir = Builder::new().prefix("to_bvgraph_").tempdir()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
+    let chunk_size = args.ca.chunk_size;
+    let bvgraphz = args.ca.bvgraphz;
+    let mut builder = BvCompConfig::new(&args.dst)
+        .with_comp_flags(args.ca.into())
+        .with_tmp_dir(&dir);
+
+    if bvgraphz {
+        builder = builder.with_chunk_size(chunk_size);
+    }
 
     if args.src.with_extension(EF_EXTENSION).exists() {
         let graph = BvGraph::with_basename(&args.src).endianness::<E>().load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.batch_size.batch_size;
-
-            log::info!("Permuting graph with batch size {}", batch_size);
-            let start = std::time::Instant::now();
-            let sorted =
-                webgraph::transform::permute_split(&graph, &permutation, batch_size, &thread_pool)?;
-            log::info!(
-                "Permuted the graph. It took {:.3} seconds",
-                start.elapsed().as_secs_f64()
-            );
-            BvComp::parallel_endianness(
-                args.dst,
-                &sorted,
-                sorted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            let memory_usage = args.memory_usage.memory_usage;
+            thread_pool.install(|| {
+                log::info!("Permuting graph with memory usage {}", memory_usage);
+                let start = std::time::Instant::now();
+                let sorted =
+                    webgraph::transform::permute_split(&graph, &permutation, memory_usage)?;
+                log::info!(
+                    "Permuted the graph. It took {:.3} seconds",
+                    start.elapsed().as_secs_f64()
+                );
+                builder.par_comp_lenders_endianness(
+                    &sorted,
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         } else {
-            BvComp::parallel_endianness(
-                args.dst,
-                &graph,
-                graph.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &graph,
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         }
     } else {
         log::warn!(
-            "The .ef file does not exist. The graph will be sequentially which will result in slower compression. If you can, run `build_ef` before recompressing."
+            "The .ef file does not exist. The graph will be read sequentially which will result in slower compression. If you can, run `webgraph build ef` before recompressing."
         );
         let seq_graph = BvGraphSeq::with_basename(&args.src)
             .endianness::<E>()
             .load()?;
 
         if let Some(permutation) = permutation {
-            let batch_size = args.batch_size.batch_size;
+            let memory_usage = args.memory_usage.memory_usage;
 
-            log::info!("Permuting graph with batch size {}", batch_size);
+            log::info!("Permuting graph with memory usage {}", memory_usage);
             let start = std::time::Instant::now();
-            let permuted = webgraph::transform::permute(&seq_graph, &permutation, batch_size)?;
+            let permuted = webgraph::transform::permute(&seq_graph, &permutation, memory_usage)?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
 
-            BvComp::parallel_endianness(
-                args.dst,
-                &permuted,
-                permuted.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &permuted,
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         } else {
-            BvComp::parallel_endianness(
-                args.dst,
-                &seq_graph,
-                seq_graph.num_nodes(),
-                args.ca.into(),
-                &thread_pool,
-                dir,
-                &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            )?;
+            thread_pool.install(|| {
+                builder.par_comp_lenders_endianness(
+                    &seq_graph,
+                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+                )
+            })?;
         }
     }
     Ok(())

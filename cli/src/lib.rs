@@ -6,26 +6,35 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Command-line interface structs, functions, and methods.
-//!
-//! Each module correspond to a group of commands, and each command is
-//! implemented as a submodule.
+#![doc = include_str!("../README.md")]
+#![deny(unstable_features)]
+#![deny(trivial_casts)]
+#![deny(unconditional_recursion)]
+#![deny(clippy::empty_loop)]
+#![deny(unreachable_code)]
+#![deny(unreachable_pub)]
+#![deny(unreachable_patterns)]
+#![deny(unused_macro_rules)]
+#![deny(unused_doc_comments)]
+#![allow(clippy::type_complexity)]
 
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use common_traits::{ToBytes, UnsignedInt};
+use common_traits::{AsBytes, FromBytes, ToBytes, UnsignedInt};
 use dsi_bitstream::dispatch::Codes;
+use epserde::deser::Deserialize;
 use epserde::ser::Serialize;
-use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
-use jiff::SpanRound;
-use std::io::{BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
 use sux::bits::BitFieldVec;
-use sysinfo::System;
 use webgraph::prelude::CompFlags;
-use webgraph::utils::Granularity;
+use webgraph::utils::{Granularity, MemoryUsage};
+
+macro_rules! SEQ_PROC_WARN {
+    () => {"Processing the graph sequentially: for parallel processing please build the Elias-Fano offsets list using 'webgraph build ef {}'"}
+}
 
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
@@ -57,6 +66,9 @@ build info: built on {} for {} with {}",
 /// Enum for instantaneous codes.
 ///
 /// It is used to implement [`ValueEnum`] here instead of in [`dsi_bitstream`].
+///
+/// For CLI ergonomics and compatibility, these codes must be the same as those
+/// appearing in [`CompFlags::code_from_str`].
 pub enum PrivCode {
     Unary,
     Gamma,
@@ -68,6 +80,10 @@ pub enum PrivCode {
     Zeta5,
     Zeta6,
     Zeta7,
+    Pi1,
+    Pi2,
+    Pi3,
+    Pi4,
 }
 
 impl From<PrivCode> for Codes {
@@ -76,13 +92,17 @@ impl From<PrivCode> for Codes {
             PrivCode::Unary => Codes::Unary,
             PrivCode::Gamma => Codes::Gamma,
             PrivCode::Delta => Codes::Delta,
-            PrivCode::Zeta1 => Codes::Zeta { k: 1 },
-            PrivCode::Zeta2 => Codes::Zeta { k: 2 },
-            PrivCode::Zeta3 => Codes::Zeta { k: 3 },
-            PrivCode::Zeta4 => Codes::Zeta { k: 4 },
-            PrivCode::Zeta5 => Codes::Zeta { k: 5 },
-            PrivCode::Zeta6 => Codes::Zeta { k: 6 },
-            PrivCode::Zeta7 => Codes::Zeta { k: 7 },
+            PrivCode::Zeta1 => Codes::Zeta(1),
+            PrivCode::Zeta2 => Codes::Zeta(2),
+            PrivCode::Zeta3 => Codes::Zeta(3),
+            PrivCode::Zeta4 => Codes::Zeta(4),
+            PrivCode::Zeta5 => Codes::Zeta(5),
+            PrivCode::Zeta6 => Codes::Zeta(6),
+            PrivCode::Zeta7 => Codes::Zeta(7),
+            PrivCode::Pi1 => Codes::Pi(1),
+            PrivCode::Pi2 => Codes::Pi(2),
+            PrivCode::Pi3 => Codes::Pi(3),
+            PrivCode::Pi4 => Codes::Pi(4),
         }
     }
 }
@@ -116,8 +136,8 @@ pub struct ArcsArgs {
     pub target_column: usize,
 
     #[arg(long, default_value_t = false)]
-    /// Source and destinations are node identifiers.
-    pub exact: bool,
+    /// Source and destinations are not node identifiers starting from 0, but labels.
+    pub labels: bool,
 }
 
 /// Parses the number of threads from a string.
@@ -163,19 +183,19 @@ impl GranularityArgs {
     }
 }
 
-/// Shared CLI arguments for commands that specify a batch size.
+/// Shared CLI arguments for commands that specify a memory usage.
 #[derive(Args, Debug)]
-pub struct BatchSizeArg {
-    #[clap(short = 'b', long, value_parser = batch_size, default_value = "50%")]
-    /// The number of pairs to be used in batches. Two times this number of
-    /// `usize` will be allocated to sort pairs. You can use the SI and NIST
-    /// multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. You can also use a
-    /// percentage of the available memory by appending a `%` to the number.
-    pub batch_size: usize,
+pub struct MemoryUsageArg {
+    #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "50%")]
+    /// The number of pairs to be used in batches.
+    /// If the number ends with a "b" or "B" it is interpreted as a number of bytes, otherwise as a number of elements.
+    /// You can use the SI and NIST multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi.
+    /// You can also use a percentage of the available memory by appending a "%" to the number.
+    pub memory_usage: MemoryUsage,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-/// How to store vectors of floats.
+/// Formats for storing and loading vectors of floats.
 pub enum FloatVectorFormat {
     /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
     Java,
@@ -191,9 +211,10 @@ impl FloatVectorFormat {
     /// Stores float values in the specified `path` using the format defined by
     /// `self`.
     ///
-    /// If the result is a textual format, i.e., ASCII or JSON, `precision`
+    /// If the result is a textual format, that is, ASCII or JSON, `precision`
     /// will be used to truncate the float values to the specified number of
-    /// decimal digits.
+    /// decimal digits. If `None`, [zmij](https://crates.io/crates/zmij)
+    /// formatting will be used.
     pub fn store<F>(
         &self,
         path: impl AsRef<Path>,
@@ -201,14 +222,14 @@ impl FloatVectorFormat {
         precision: Option<usize>,
     ) -> Result<()>
     where
-        F: ToBytes + core::fmt::Display + epserde::ser::Serialize + Copy,
+        F: ToBytes + core::fmt::Display + epserde::ser::Serialize + Copy + zmij::Float,
         for<'a> &'a [F]: epserde::ser::Serialize,
     {
-        let precision = precision.unwrap_or(f64::DIGITS as usize);
         create_parent_dir(&path)?;
         let path_display = path.as_ref().display();
-        let mut file = std::fs::File::create(&path)
+        let file = std::fs::File::create(&path)
             .with_context(|| format!("Could not create vector at {}", path_display))?;
+        let mut file = BufWriter::new(file);
 
         match self {
             FloatVectorFormat::Epserde => {
@@ -228,27 +249,169 @@ impl FloatVectorFormat {
             }
             FloatVectorFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path_display);
+                let mut buf = zmij::Buffer::new();
                 for word in values.iter() {
-                    writeln!(file, "{word:.precision$}")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    match precision {
+                        None => writeln!(file, "{}", buf.format(*word)),
+                        Some(precision) => writeln!(file, "{word:.precision$}"),
+                    }
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
             }
             FloatVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path_display);
+                let mut buf = zmij::Buffer::new();
                 write!(file, "[")?;
-                for word in values.iter().take(values.len().saturating_sub(2)) {
-                    write!(file, "{word:.precision$}, ")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                for word in values.iter().take(values.len().saturating_sub(1)) {
+                    match precision {
+                        None => write!(file, "{}, ", buf.format(*word)),
+                        Some(precision) => write!(file, "{word:.precision$}, "),
+                    }
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
                 if let Some(last) = values.last() {
-                    write!(file, "{last:.precision$}")
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    match precision {
+                        None => write!(file, "{}", buf.format(*last)),
+                        Some(precision) => write!(file, "{last:.precision$}"),
+                    }
+                    .with_context(|| format!("Could not write vector to {}", path_display))?;
                 }
                 write!(file, "]")?;
             }
         }
 
         Ok(())
+    }
+
+    /// Loads float values from the specified `path` using the format defined
+    /// by `self`.
+    pub fn load<F>(&self, path: impl AsRef<Path>) -> Result<Vec<F>>
+    where
+        F: FromBytes + std::str::FromStr + Copy,
+        <F as AsBytes>::Bytes: for<'a> TryFrom<&'a [u8]>,
+        <F as std::str::FromStr>::Err: std::error::Error + Send + Sync + 'static,
+        Vec<F>: epserde::deser::Deserialize,
+    {
+        let path = path.as_ref();
+        let path_display = path.display();
+
+        match self {
+            FloatVectorFormat::Epserde => {
+                log::info!("Loading ε-serde format from {}", path_display);
+                Ok(unsafe {
+                    <Vec<F>>::load_full(path)
+                        .with_context(|| format!("Could not load vector from {}", path_display))?
+                })
+            }
+            FloatVectorFormat::Java => {
+                log::info!("Loading Java format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let file_len = file.metadata()?.len() as usize;
+                let byte_size = size_of::<F>();
+                ensure!(
+                    file_len % byte_size == 0,
+                    "File size ({}) is not a multiple of {} bytes",
+                    file_len,
+                    byte_size
+                );
+                let n = file_len / byte_size;
+                let mut reader = BufReader::new(file);
+                let mut result = Vec::with_capacity(n);
+                let mut buf = vec![0u8; byte_size];
+                for i in 0..n {
+                    reader.read_exact(&mut buf).with_context(|| {
+                        format!("Could not read value at index {i} from {}", path_display)
+                    })?;
+                    let bytes = buf.as_slice().try_into().map_err(|_| {
+                        anyhow!("Could not convert bytes at index {i} in {}", path_display)
+                    })?;
+                    result.push(F::from_be_bytes(bytes));
+                }
+                Ok(result)
+            }
+            FloatVectorFormat::Ascii => {
+                log::info!("Loading ASCII format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let reader = BufReader::new(file);
+                reader
+                    .lines()
+                    .enumerate()
+                    .filter(|(_, line)| line.as_ref().map_or(true, |l| !l.trim().is_empty()))
+                    .map(|(i, line)| {
+                        let line = line.with_context(|| {
+                            format!("Error reading line {} of {}", i + 1, path_display)
+                        })?;
+                        line.trim().parse::<F>().map_err(|e| {
+                            anyhow!("Error parsing line {} of {}: {}", i + 1, path_display, e)
+                        })
+                    })
+                    .collect()
+            }
+            FloatVectorFormat::Json => {
+                log::info!("Loading JSON format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let mut reader = BufReader::new(file);
+                let mut result = Vec::new();
+                let mut byte = [0u8; 1];
+
+                // Skip whitespace and opening bracket
+                loop {
+                    reader
+                        .read_exact(&mut byte)
+                        .with_context(|| format!("Unexpected end of file in {}", path_display))?;
+                    match byte[0] {
+                        b'[' => break,
+                        b if b.is_ascii_whitespace() => continue,
+                        _ => bail!("Expected '[' at start of JSON array in {}", path_display),
+                    }
+                }
+
+                // Parse comma-separated values until ']'
+                let mut token = String::new();
+                let mut index = 0usize;
+                loop {
+                    reader
+                        .read_exact(&mut byte)
+                        .with_context(|| format!("Unexpected end of file in {}", path_display))?;
+                    match byte[0] {
+                        b']' => {
+                            let trimmed = token.trim();
+                            if !trimmed.is_empty() {
+                                result.push(trimmed.parse::<F>().map_err(|e| {
+                                    anyhow!(
+                                        "Error parsing element {} of {}: {}",
+                                        index + 1,
+                                        path_display,
+                                        e
+                                    )
+                                })?);
+                            }
+                            break;
+                        }
+                        b',' => {
+                            let trimmed = token.trim();
+                            result.push(trimmed.parse::<F>().map_err(|e| {
+                                anyhow!(
+                                    "Error parsing element {} of {}: {}",
+                                    index + 1,
+                                    path_display,
+                                    e
+                                )
+                            })?);
+                            token.clear();
+                            index += 1;
+                        }
+                        c => {
+                            token.push(c as char);
+                        }
+                    }
+                }
+                Ok(result)
+            }
+        }
     }
 }
 
@@ -263,14 +426,14 @@ pub enum IntVectorFormat {
     /// ⌊log₂(max)⌋ + 1 bits. It requires to allocate the `BitFieldVec` in RAM
     /// before serializing it.
     BitFieldVec,
-    /// ASCII format, one float per line.
+    /// ASCII format, one integer per line.
     Ascii,
     /// A JSON Array.
     Json,
 }
 
 impl IntVectorFormat {
-    /// Stores a vector of `u64` in the specified `path`` using the format defined by `self`.
+    /// Stores a vector of `u64` in the specified `path` using the format defined by `self`.
     ///
     /// `max` is the maximum value of the vector. If it is not provided, it will
     /// be computed from the data.
@@ -337,7 +500,7 @@ impl IntVectorFormat {
             IntVectorFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());
                 write!(buf, "[")?;
-                for word in data.iter().take(data.len().saturating_sub(2)) {
+                for word in data.iter().take(data.len().saturating_sub(1)) {
                     write!(buf, "{}, ", word).with_context(|| {
                         format!("Could not write vector to {}", path.as_ref().display())
                     })?;
@@ -360,7 +523,7 @@ impl IntVectorFormat {
     /// be computed from the data.
     ///
     /// This helper method is available only on 64-bit architectures as Java's format
-    /// uses of 64-bit integers.
+    /// uses 64-bit integers.
     pub fn store_usizes(
         &self,
         path: impl AsRef<Path>,
@@ -380,52 +543,56 @@ impl IntVectorFormat {
 /// This function accepts either a number (possibly followed by a
 /// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
 /// (followed by a `%`) that is interpreted as a percentage of the core
-/// memory. The function returns the number of pairs to be used for batches.
-pub fn batch_size(arg: &str) -> anyhow::Result<usize> {
+/// memory. If the value ends with a `b` or `B` it is interpreted as a number of
+/// bytes, otherwise as a number of elements.
+pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
-        ("k", 1E3 as u64),
-        ("m", 1E6 as u64),
-        ("g", 1E9 as u64),
-        ("t", 1E12 as u64),
-        ("p", 1E15 as u64),
         ("ki", 1 << 10),
         ("mi", 1 << 20),
         ("gi", 1 << 30),
         ("ti", 1 << 40),
         ("pi", 1 << 50),
+        ("k", 1E3 as u64),
+        ("m", 1E6 as u64),
+        ("g", 1E9 as u64),
+        ("t", 1E12 as u64),
+        ("p", 1E15 as u64),
     ];
     let arg = arg.trim().to_ascii_lowercase();
     ensure!(!arg.is_empty(), "empty string");
 
     if arg.ends_with('%') {
         let perc = arg[..arg.len() - 1].parse::<f64>()?;
-        ensure!(perc >= 0.0 || perc <= 100.0, "percentage out of range");
-        let mut system = System::new();
-        system.refresh_memory();
-        let num_pairs: usize = (((system.total_memory() as f64) * (perc / 100.0)
-            / (std::mem::size_of::<(usize, usize)>() as f64))
-            as u64)
-            .try_into()?;
-        // TODO: try_align_to when available
-        return Ok(num_pairs.align_to(1 << 20)); // Round up to MiBs
+        ensure!((0.0..=100.0).contains(&perc), "percentage out of range");
+        return Ok(MemoryUsage::from_perc(perc));
     }
 
-    arg.chars().position(|c| c.is_alphabetic()).map_or_else(
-        || Ok(arg.parse::<usize>()?),
-        |pos| {
-            let (num, pref_sym) = arg.split_at(pos);
-            let multiplier = PREF_SYMS
-                .iter()
-                .find(|(x, _)| *x == pref_sym)
-                .map(|(_, m)| m)
-                .ok_or(anyhow!("invalid prefix symbol"))?;
+    let num_digits = arg
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '.')
+        .count();
 
-            Ok((num.parse::<u64>()? * multiplier).try_into()?)
-        },
-    )
+    let number = arg[..num_digits].parse::<f64>()?;
+    let suffix = &arg[num_digits..].trim();
+
+    let prefix = suffix.strip_suffix('b').unwrap_or(suffix);
+    let multiplier = PREF_SYMS
+        .iter()
+        .find(|(x, _)| *x == prefix)
+        .map(|(_, m)| m)
+        .ok_or(anyhow!("invalid prefix symbol {}", suffix))?;
+
+    let value = (number * (*multiplier as f64)) as usize;
+    ensure!(value > 0, "batch size must be greater than zero");
+
+    if suffix.ends_with('b') {
+        Ok(MemoryUsage::MemorySize(value))
+    } else {
+        Ok(MemoryUsage::BatchSize(value))
+    }
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 /// Shared CLI arguments for compression.
 pub struct CompressArgs {
     /// The endianness of the graph to write
@@ -461,6 +628,16 @@ pub struct CompressArgs {
     #[clap(long, default_value = "zeta3")]
     /// The code to use for the residuals
     pub residuals: PrivCode,
+
+    /// Whether to use Zuckerli's reference selection algorithm. This slows down the compression
+    /// process and requires more memory, but improves compression ratio and decoding speed.
+    #[clap(long)]
+    pub bvgraphz: bool,
+
+    /// How many nodes to process in a chunk; the default (10000) is usually a good
+    /// value.
+    #[clap(long, default_value = "10000")]
+    pub chunk_size: usize,
 }
 
 impl From<CompressArgs> for CompFlags {
@@ -475,7 +652,14 @@ impl From<CompressArgs> for CompFlags {
             compression_window: value.compression_window,
             max_ref_count: match value.max_ref_count {
                 -1 => usize::MAX,
-                _ => value.max_ref_count as usize,
+                max_ref_count => {
+                    assert!(
+                        max_ref_count >= 0,
+                        "max_ref_count cannot be negative, except for -1, which means infinite recursion depth, but got {}",
+                        max_ref_count
+                    );
+                    value.max_ref_count as usize
+                }
             },
         }
     }
@@ -499,7 +683,7 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     let mut path_buf = path.as_ref().to_owned();
     let mut filename = path_buf.file_name().unwrap().to_owned();
     filename.push(s.as_ref());
-    path_buf.push(filename);
+    path_buf.set_file_name(filename);
     path_buf
 }
 
@@ -517,7 +701,7 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-/// Parse a duration from a string.
+/// Parses a duration from a string.
 /// For compatibility with Java, if no suffix is given, it is assumed to be in milliseconds.
 /// You can use suffixes, the available ones are:
 /// - `s` for seconds
@@ -556,7 +740,12 @@ fn parse_duration(value: &str) -> Result<Duration> {
     Ok(duration)
 }
 
+/// Initializes the `env_logger` logger with a custom format including
+/// timestamps with elapsed time since initialization.
 pub fn init_env_logger() -> Result<()> {
+    use jiff::SpanRound;
+    use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
+
     let mut builder =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
 
@@ -597,10 +786,10 @@ pub fn init_env_logger() -> Result<()> {
 #[derive(Args, Debug)]
 pub struct GlobalArgs {
     #[arg(long, value_parser = parse_duration, global=true, display_order = 1000)]
-    /// How often to log progress. Default is 10s. You can use the suffixes `s`
-    /// for seconds, `m` for minutes, `h` for hours, and `d` for days. If no
+    /// How often to log progress. Default is 10s. You can use the suffixes "s"
+    /// for seconds, "m" for minutes, "h" for hours, and "d" for days. If no
     /// suffix is provided it is assumed to be in milliseconds.
-    /// Example: `1d2h3m4s567` is parsed as 1 day + 2 hours + 3 minutes + 4
+    /// Example: "1d2h3m4s567" is parsed as 1 day + 2 hours + 3 minutes + 4
     /// seconds + 567 milliseconds = 93784567 milliseconds.
     pub log_interval: Option<Duration>,
 }
@@ -630,16 +819,7 @@ pub enum SubCommands {
 #[derive(Parser, Debug)]
 #[command(name = "webgraph", version=build_info::version_string())]
 /// Webgraph tools to build, convert, modify, and analyze graphs.
-///
-/// Noteworthy environment variables:
-///
-/// - RUST_MIN_STACK: minimum thread stack size (in bytes); we suggest
-///   RUST_MIN_STACK=8388608 (8MiB)
-///
-/// - TMPDIR: where to store temporary files (potentially very large ones)
-///
-/// - RUST_LOG: configuration for env_logger
-///   <https://docs.rs/env_logger/latest/env_logger/>
+#[doc = include_str!("common_env.txt")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: SubCommands,
@@ -648,6 +828,7 @@ pub struct Cli {
 }
 
 pub mod dist;
+pub mod rank;
 pub mod sccs;
 
 pub mod analyze;
@@ -706,7 +887,7 @@ where
     Ok(())
 }
 
-/// Pretty prints seconds in a humanly readable format.
+/// Pretty-prints seconds in a human-readable format.
 fn pretty_print_elapsed(elapsed: f64) -> String {
     let mut result = String::new();
     let mut elapsed_seconds = elapsed as u64;
@@ -742,4 +923,404 @@ fn pretty_print_elapsed(elapsed: f64) -> String {
 
     result.push_str(&format!("{:.3} seconds ({}s)", elapsed % 60.0, elapsed));
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod float_vector_format {
+        use super::*;
+
+        #[test]
+        fn test_ascii_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            // Default precision is f64::DIGITS (15)
+            for (line, expected) in content.lines().zip(&values) {
+                let parsed: f64 = line.trim().parse().unwrap();
+                assert!((parsed - expected).abs() < 1e-10);
+            }
+            assert_eq!(content.lines().count(), 3);
+        }
+
+        #[test]
+        fn test_ascii_f32() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f32> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            for (line, expected) in content.lines().zip(&values) {
+                let parsed: f32 = line.trim().parse().unwrap();
+                assert!((parsed - expected).abs() < 1e-6);
+            }
+        }
+
+        #[test]
+        fn test_ascii_with_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![1.123456789, 2.987654321];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, Some(3))
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<&str> = content.lines().collect();
+            assert_eq!(lines[0], "1.123");
+            assert_eq!(lines[1], "2.988");
+        }
+
+        #[test]
+        fn test_json_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<f64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, values);
+        }
+
+        #[test]
+        fn test_json_with_precision() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![1.123456789, 2.987654321];
+            FloatVectorFormat::Json
+                .store(&path, &values, Some(2))
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(content, "[1.12, 2.99]");
+        }
+
+        #[test]
+        fn test_json_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(content, "[]");
+        }
+
+        #[test]
+        fn test_json_single_element() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![42.0];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<f64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, values);
+        }
+
+        #[test]
+        fn test_java_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 8);
+            for (i, expected) in values.iter().enumerate() {
+                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
+                let val = f64::from_be_bytes(chunk);
+                assert_eq!(val, *expected);
+            }
+        }
+
+        #[test]
+        fn test_java_f32() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f32> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 4);
+            for (i, expected) in values.iter().enumerate() {
+                let chunk: [u8; 4] = bytes[i * 4..(i + 1) * 4].try_into().unwrap();
+                let val = f32::from_be_bytes(chunk);
+                assert_eq!(val, *expected);
+            }
+        }
+
+        #[test]
+        fn test_epserde_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
+            FloatVectorFormat::Epserde
+                .store(&path, &values, None)
+                .unwrap();
+            // Just verify the file was created and is non-empty
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert!(metadata.len() > 0);
+        }
+
+        #[test]
+        fn test_ascii_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert!(content.is_empty());
+        }
+
+        #[test]
+        fn test_creates_parent_dirs() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("a").join("b").join("test.txt");
+            let values: Vec<f64> = vec![1.0];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            assert!(path.exists());
+        }
+
+        #[test]
+        fn test_roundtrip_ascii_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Ascii
+                .store(&path, &values, None)
+                .unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Ascii.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_json_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Json.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_java_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Java.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_epserde_f64() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            FloatVectorFormat::Epserde
+                .store(&path, &values, None)
+                .unwrap();
+            let loaded: Vec<f64> = FloatVectorFormat::Epserde.load(&path).unwrap();
+            assert_eq!(loaded, values);
+        }
+
+        #[test]
+        fn test_roundtrip_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            for (fmt, ext) in [
+                (FloatVectorFormat::Ascii, "txt"),
+                (FloatVectorFormat::Json, "json"),
+                (FloatVectorFormat::Java, "bin"),
+                (FloatVectorFormat::Epserde, "eps"),
+            ] {
+                let path = dir.path().join(format!("empty.{ext}"));
+                let values: Vec<f64> = vec![];
+                fmt.store(&path, &values, None).unwrap();
+                let loaded: Vec<f64> = fmt.load(&path).unwrap();
+                assert_eq!(loaded, values, "roundtrip failed for {ext}");
+            }
+        }
+
+        #[test]
+        fn test_roundtrip_f32() {
+            let dir = tempfile::tempdir().unwrap();
+            let values: Vec<f32> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
+            for (fmt, ext) in [
+                (FloatVectorFormat::Ascii, "txt"),
+                (FloatVectorFormat::Json, "json"),
+                (FloatVectorFormat::Java, "bin"),
+                (FloatVectorFormat::Epserde, "eps"),
+            ] {
+                let path = dir.path().join(format!("f32.{ext}"));
+                fmt.store(&path, &values, None).unwrap();
+                let loaded: Vec<f32> = fmt.load(&path).unwrap();
+                assert_eq!(loaded, values, "f32 roundtrip failed for {ext}");
+            }
+        }
+    }
+
+    mod int_vector_format {
+        use super::*;
+
+        #[test]
+        fn test_ascii() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let data: Vec<u64> = vec![10, 20, 30];
+            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<u64> = content.lines().map(|l| l.trim().parse().unwrap()).collect();
+            assert_eq!(lines, data);
+        }
+
+        #[test]
+        fn test_ascii_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let data: Vec<u64> = vec![];
+            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert!(content.is_empty());
+        }
+
+        #[test]
+        fn test_json() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let data: Vec<u64> = vec![10, 20, 30];
+            IntVectorFormat::Json.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<u64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, data);
+        }
+
+        #[test]
+        fn test_json_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let data: Vec<u64> = vec![];
+            IntVectorFormat::Json.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(content, "[]");
+        }
+
+        #[test]
+        fn test_json_single_element() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.json");
+            let data: Vec<u64> = vec![42];
+            IntVectorFormat::Json.store(&path, &data, None).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let parsed: Vec<u64> = serde_json::from_str(&content).unwrap();
+            assert_eq!(parsed, data);
+        }
+
+        #[test]
+        fn test_java() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![1, 256, 65535];
+            IntVectorFormat::Java.store(&path, &data, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 8);
+            for (i, expected) in data.iter().enumerate() {
+                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
+                let val = u64::from_be_bytes(chunk);
+                assert_eq!(val, *expected);
+            }
+        }
+
+        #[test]
+        fn test_java_empty() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![];
+            IntVectorFormat::Java.store(&path, &data, None).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert!(bytes.is_empty());
+        }
+
+        #[test]
+        fn test_epserde() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![10, 20, 30];
+            IntVectorFormat::Epserde.store(&path, &data, None).unwrap();
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert!(metadata.len() > 0);
+        }
+
+        #[test]
+        fn test_bitfieldvec() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![1, 3, 7, 15];
+            IntVectorFormat::BitFieldVec
+                .store(&path, &data, Some(15))
+                .unwrap();
+            let metadata = std::fs::metadata(&path).unwrap();
+            assert!(metadata.len() > 0);
+        }
+
+        #[test]
+        fn test_bitfieldvec_max_computed() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<u64> = vec![1, 3, 7, 15];
+            // max is None, so it should be computed from data
+            IntVectorFormat::BitFieldVec
+                .store(&path, &data, None)
+                .unwrap();
+            assert!(path.exists());
+        }
+
+        #[test]
+        fn test_creates_parent_dirs() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("a").join("b").join("test.txt");
+            let data: Vec<u64> = vec![1];
+            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
+            assert!(path.exists());
+        }
+
+        #[cfg(target_pointer_width = "64")]
+        #[test]
+        fn test_store_usizes() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.txt");
+            let data: Vec<usize> = vec![10, 20, 30];
+            IntVectorFormat::Ascii
+                .store_usizes(&path, &data, None)
+                .unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<usize> = content.lines().map(|l| l.trim().parse().unwrap()).collect();
+            assert_eq!(lines, data);
+        }
+
+        #[cfg(target_pointer_width = "64")]
+        #[test]
+        fn test_store_usizes_java() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("test.bin");
+            let data: Vec<usize> = vec![1, 256, 65535];
+            IntVectorFormat::Java
+                .store_usizes(&path, &data, None)
+                .unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            assert_eq!(bytes.len(), 3 * 8);
+            for (i, expected) in data.iter().enumerate() {
+                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
+                let val = u64::from_be_bytes(chunk) as usize;
+                assert_eq!(val, *expected);
+            }
+        }
+    }
 }

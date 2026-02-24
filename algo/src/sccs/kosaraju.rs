@@ -12,8 +12,8 @@ use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{
-    depth_first::{EventNoPred, SeqNoPred},
     Sequential,
+    depth_first::{EventNoPred, SeqNoPred},
 };
 
 /// Computes the strongly connected components of a graph using Kosaraju's algorithm.

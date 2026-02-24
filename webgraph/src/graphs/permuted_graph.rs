@@ -7,22 +7,28 @@
 
 use crate::prelude::*;
 use lender::*;
-use sux::traits::BitFieldSlice;
+use value_traits::slices::SliceByValue;
 
-#[derive(Debug, Clone)]
-/// A wrapper applying a permutation to the iterators of an underlying graph.
+/// A wrapper applying a permutation to the iterators of an
+/// underlying graph.
 ///
-/// Note that nodes are simply remapped: thus, neither the iterator on the graph
-/// nor the successors are sorted.
-pub struct PermutedGraph<'a, G: SequentialGraph, P: BitFieldSlice<usize> + ?Sized> {
+/// Note that nodes are simply remapped: thus, neither the iterator
+/// on the graph nor the successors are sorted.
+#[derive(Debug, Clone)]
+pub struct PermutedGraph<'a, G: SequentialGraph, P: SliceByValue<Value = usize> + ?Sized> {
+    /// The underlying graph.
     pub graph: &'a G,
+    /// The permutation to apply: node *i* of the permuted graph
+    /// corresponds to node `perm[`*i*`]` of the underlying graph.
     pub perm: &'a P,
 }
 
-impl<G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling for PermutedGraph<'_, G, P> {
+impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling
+    for PermutedGraph<'_, G, P>
+{
     type Label = usize;
     type Lender<'b>
-        = Iter<'b, G::Lender<'b>, P>
+        = NodeLabels<'b, G::Lender<'b>, P>
     where
         Self: 'b;
 
@@ -38,14 +44,14 @@ impl<G: SequentialGraph, P: BitFieldSlice<usize>> SequentialLabeling for Permute
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter {
+        NodeLabels {
             iter: self.graph.iter_from(from),
             perm: self.perm,
         }
     }
 }
 
-impl<'b, G: SequentialGraph + SplitLabeling, P: BitFieldSlice<usize> + Send + Sync + Clone>
+impl<'b, G: SequentialGraph + SplitLabeling, P: SliceByValue<Value = usize> + Send + Sync + Clone>
     SplitLabeling for PermutedGraph<'b, G, P>
 where
     for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + Send + Sync,
@@ -64,9 +70,12 @@ where
     }
 }
 
-impl<G: SequentialGraph, P: BitFieldSlice<usize>> SequentialGraph for PermutedGraph<'_, G, P> {}
+impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialGraph
+    for PermutedGraph<'_, G, P>
+{
+}
 
-impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender
+impl<'a, 'b, G: SequentialGraph, P: SliceByValue<Value = usize>> IntoLender
     for &'b PermutedGraph<'a, G, P>
 {
     type Lender = <PermutedGraph<'a, G, P> as SequentialLabeling>::Lender<'b>;
@@ -79,39 +88,43 @@ impl<'a, 'b, G: SequentialGraph, P: BitFieldSlice<usize>> IntoLender
 
 /// An iterator over the nodes of a graph that applies on the fly a permutation of the nodes.
 #[derive(Debug, Clone)]
-pub struct Iter<'node, I, P> {
+pub struct NodeLabels<'node, I, P> {
     iter: I,
     perm: &'node P,
 }
 
 impl<
-        'succ,
-        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: BitFieldSlice<usize>,
-    > NodeLabelsLender<'succ> for Iter<'_, I, P>
+    'succ,
+    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> NodeLabelsLender<'succ> for NodeLabels<'_, I, P>
 {
     type Label = usize;
     type IntoIterator = Succ<'succ, LenderIntoIter<'succ, I>, P>;
 }
 
 impl<
-        'succ,
-        I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: BitFieldSlice<usize>,
-    > Lending<'succ> for Iter<'_, I, P>
+    'succ,
+    I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> Lending<'succ> for NodeLabels<'_, I, P>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldSlice<usize>> Lender
-    for Iter<'_, L, P>
+impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: SliceByValue<Value = usize>>
+    Lender for NodeLabels<'_, L, P>
 {
+    // SAFETY: the lend is covariant as it contains only a usize and an iterator
+    // over usize values derived from the underlying lender L.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         self.iter.next().map(|x| {
             let (node, succ) = x.into_pair();
             (
-                self.perm.get(node),
+                self.perm.index_value(node),
                 Succ {
                     iter: succ.into_iter(),
                     perm: self.perm,
@@ -119,13 +132,19 @@ impl<L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>, P: BitFieldS
             )
         })
     }
+
+    #[inline(always)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl<
-        L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
-        P: BitFieldSlice<usize>,
-    > ExactSizeLender for Iter<'_, L, P>
+    L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> ExactSizeLender for NodeLabels<'_, L, P>
 {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -137,21 +156,31 @@ pub struct Succ<'a, I: Iterator<Item = usize>, P> {
     perm: &'a P,
 }
 
-impl<I: Iterator<Item = usize>, P: BitFieldSlice<usize>> Iterator for Succ<'_, I, P> {
+impl<I: Iterator<Item = usize>, P: SliceByValue<Value = usize>> Iterator for Succ<'_, I, P> {
     type Item = usize;
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|succ| self.perm.get(succ))
+        self.iter.next().map(|succ| self.perm.index_value(succ))
+    }
+
+    #[inline(always)]
+    fn count(self) -> usize {
+        self.iter.count()
     }
 }
 
-impl<I: ExactSizeIterator<Item = usize>, P: BitFieldSlice<usize>> ExactSizeIterator
+impl<I: ExactSizeIterator<Item = usize>, P: SliceByValue<Value = usize>> ExactSizeIterator
     for Succ<'_, I, P>
 {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
+}
+
+impl<I: Iterator<Item = usize> + std::iter::FusedIterator, P: SliceByValue<Value = usize>>
+    std::iter::FusedIterator for Succ<'_, I, P>
+{
 }
 
 #[cfg(test)]

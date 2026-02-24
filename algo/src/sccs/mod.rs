@@ -8,12 +8,12 @@
 //! Algorithms used to compute and work with strongly connected components.
 //!
 //! There are two implementations for directed graph: [Tarjan's
-//! algorithm](tarjan) and [Kosaraju's algorithm](kosaraju). The former is to be
+//! algorithm](tarjan()) and [Kosaraju's algorithm](kosaraju()). The former is to be
 //! preferred in almost all cases: Kosaraju's algorithm is slower and requires
 //! the transpose of the graph—it is mainly useful for testing and debugging.
 //!
-//! For symmetric (i.e., undirected) graphs there is a [sequential](symm_seq)
-//! and a [parallel](symm_par) implementation that computes connected
+//! For symmetric (i.e., undirected) graphs there is a [sequential](symm_seq())
+//! and a [parallel](symm_par()) implementation that computes connected
 //! components.
 //!
 //! # Examples
@@ -68,6 +68,8 @@ pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
 }
 
 impl<C: AsRef<[usize]>> Sccs<C> {
+    /// Creates a new instance from the number of components and the
+    /// component assignment for each node.
     pub fn new(num_components: usize, components: C) -> Self {
         Sccs {
             num_components,
@@ -76,6 +78,7 @@ impl<C: AsRef<[usize]>> Sccs<C> {
     }
 
     /// Returns the number of strongly connected components.
+    #[inline(always)]
     pub fn num_components(&self) -> usize {
         self.num_components
     }
@@ -100,9 +103,9 @@ impl<C: AsRef<[usize]>> Sccs<C> {
 impl<C: AsMut<[usize]> + AsRef<[usize]>> Sccs<C> {
     /// Renumbers the components by decreasing size.
     ///
-    /// After a call to this method, the sizes of strongly connected components
-    /// will decreasing in the component index. The method returns the sizes of
-    /// the components after the renumbering.
+    /// After a call to this method, the sizes of strongly connected
+    /// components will be decreasing in the component index. The method
+    /// returns the sizes of the components after the renumbering.
     pub fn sort_by_size(&mut self) -> Box<[usize]> {
         let mut sizes = self.compute_sizes();
         assert!(sizes.len() == self.num_components());
@@ -122,14 +125,15 @@ impl<C: AsMut<[usize]> + AsRef<[usize]>> Sccs<C> {
         sizes
     }
 
-    /// Renumbers the components by decreasing size using parallel methods.
+    /// Renumbers the components by decreasing size using parallel
+    /// methods.
     ///
-    /// After a call to this method, the sizes of strongly connected components
-    /// will decreasing in the component index. The method returns the sizes of
-    /// the components after the renumbering.
+    /// After a call to this method, the sizes of strongly connected
+    /// components will be decreasing in the component index. The method
+    /// returns the sizes of the components after the renumbering.
     pub fn par_sort_by_size(&mut self) -> Box<[usize]> {
         let mut sizes = self.compute_sizes();
-        assert!(sizes.len() == self.num_components());
+        assert_eq!(sizes.len(), self.num_components());
         let mut sort_perm = Vec::from_iter(0..sizes.len());
         sort_perm.par_sort_unstable_by(|&x, &y| sizes[y].cmp(&sizes[x]));
         let mut inv_perm = vec![0; sizes.len()];
@@ -138,7 +142,7 @@ impl<C: AsMut<[usize]> + AsRef<[usize]>> Sccs<C> {
             .as_mut()
             .par_iter_mut()
             .for_each(|node_component| *node_component = inv_perm[*node_component]);
-        sizes.sort_by(|&x, &y| y.cmp(&x));
+        sizes.par_sort_by(|&x, &y| y.cmp(&x));
         sizes
     }
 }

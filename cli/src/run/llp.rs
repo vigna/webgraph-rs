@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::create_parent_dir;
-use crate::get_thread_pool;
 use crate::GlobalArgs;
 use crate::GranularityArgs;
 use crate::NumThreadsArg;
-use anyhow::{bail, Context, Result};
+use crate::create_parent_dir;
+use crate::get_thread_pool;
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
@@ -30,11 +30,11 @@ use tempfile::tempdir;
 #[command(name = "llp", about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     /// A filename for the LLP permutation in binary big-endian format. If not
     /// provided, we will compute the labels but not combine them into the final
-    /// permutation. If you don't set this parameter, be sure to set `work_dir`
+    /// permutation. If you don't set this parameter, be sure to set "work_dir"
     /// so the labels will not be deleted at the end.
     pub perm: Option<PathBuf>,
 
@@ -48,7 +48,7 @@ pub struct CliArgs {
     /// The labels represent information about communities in the graph, nodes
     /// similar will have the same label.
     /// To resume computation you can compute the remaining gammas without
-    /// passing `perm`, and then finally run `combine` that will combine all the
+    /// passing "perm", and then finally run "combine" that will combine all the
     /// labels of the gammas present in the folder into a final permutation.
     #[arg(short, long)]
     pub work_dir: Option<PathBuf>,
@@ -103,7 +103,7 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
-/// Helper method that stores labels with or without epserde
+/// Stores labels with or without epserde.
 pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
         unsafe {
@@ -142,7 +142,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         create_parent_dir(perm)?;
     }
 
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => llp::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -169,9 +169,9 @@ where
     // Load the graph in THP memory
     log::info!(
         "Loading graph {} in THP memory...",
-        args.src.to_string_lossy()
+        args.basename.to_string_lossy()
     );
-    let graph = BvGraph::with_basename(&args.src)
+    let graph = BvGraph::with_basename(&args.basename)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
@@ -181,13 +181,13 @@ where
     log::info!("Loading DCF in THP memory...");
     let deg_cumul = unsafe {
         DCF::load_mmap(
-            args.src.with_extension(DEG_CUMUL_EXTENSION),
+            args.basename.with_extension(DEG_CUMUL_EXTENSION),
             Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
         )
         .with_context(|| {
             format!(
                 "Could not load degree cumulative function for basename {}",
-                args.src.display()
+                args.basename.display()
             )
         })
     }?;
@@ -226,31 +226,31 @@ where
 
     let granularity = args.granularity.into_granularity();
 
-    // compute the LLP
-    webgraph_algo::llp::layered_label_propagation_labels_only(
-        graph,
-        deg_cumul.uncase(),
-        gammas,
-        Some(args.num_threads.num_threads),
-        args.chunk_size,
-        granularity,
-        args.seed,
-        predicate,
-        work_dir,
-    )
-    .context("Could not compute the LLP")?;
+    let thread_pool = get_thread_pool(args.num_threads.num_threads);
+    thread_pool.install(|| -> Result<()> {
+        // compute the LLP
+        webgraph_algo::llp::layered_label_propagation_labels_only(
+            graph,
+            deg_cumul.uncase(),
+            gammas,
+            args.chunk_size,
+            granularity,
+            args.seed,
+            predicate,
+            work_dir,
+        )
+        .context("Could not compute LLP")?;
 
-    log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
-    if let Some(perm_path) = args.perm {
-        let thread_pool = get_thread_pool(args.num_threads.num_threads);
-        thread_pool.install(|| -> Result<()> {
+        log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
+
+        if let Some(perm_path) = args.perm {
             let labels = combine_labels(work_dir)?;
             log::info!("Combined labels...");
             let rank_perm = labels_to_ranks(&labels);
             log::info!("Saving permutation...");
             store_perm(&rank_perm, perm_path, args.epserde)?;
-            Ok(())
-        })?;
-    }
-    Ok(())
+        }
+
+        Ok(())
+    })
 }

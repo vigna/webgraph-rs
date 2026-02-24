@@ -11,12 +11,13 @@ use mmap_rs::{MmapFlags, MmapMut};
 use std::path::Path;
 use std::sync::Arc;
 use sux::traits::*;
+use value_traits::slices::{SliceByValue, SliceByValueMut};
 
 /// Maps into memory a file of big-endian 64-bit values, making it accessible as
-/// a [`BitFieldSlice<usize>`].
+/// a [`BitFieldSlice<usize>`](sux::traits::BitFieldSlice).
 ///
-/// The purpose of this helper class make interoperability with the big version
-/// of the Java implementation of WebGraph easier. It is a thin wrapper
+/// The purpose of this helper class is to make interoperability with the big
+/// version of the Java implementation of WebGraph easier. It is a thin wrapper
 /// around [`MmapHelper`], and its methods are named accordingly.
 ///
 /// Note that this class is only available on 64-bit platforms.
@@ -67,63 +68,51 @@ impl JavaPermutation {
     }
 }
 
-impl BitFieldSliceCore<usize> for JavaPermutation {
+impl BitWidth<usize> for JavaPermutation {
     fn bit_width(&self) -> usize {
         64
     }
-
-    fn len(&self) -> usize {
-        self.perm.as_ref().len()
-    }
 }
 
-impl BitFieldSliceCore<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl BitWidth<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     fn bit_width(&self) -> usize {
         64
     }
-
-    fn len(&self) -> usize {
-        self.perm.as_ref().len()
-    }
 }
 
-impl BitFieldSlice<usize> for JavaPermutation {
+impl SliceByValue for JavaPermutation {
+    type Value = usize;
     #[inline(always)]
-    unsafe fn get_unchecked(&self, index: usize) -> usize {
+    fn len(&self) -> usize {
+        self.perm.as_ref().len()
+    }
+    #[inline(always)]
+    unsafe fn get_value_unchecked(&self, index: usize) -> usize {
         u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
             as usize
     }
 }
 
-impl BitFieldSlice<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
+    type Value = usize;
     #[inline(always)]
-    unsafe fn get_unchecked(&self, index: usize) -> usize {
+    fn len(&self) -> usize {
+        self.perm.as_ref().len()
+    }
+    #[inline(always)]
+    unsafe fn get_value_unchecked(&self, index: usize) -> usize {
         u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
             as usize
     }
 }
 
-impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
-    unsafe fn set_unchecked(&mut self, index: usize, value: usize) {
+    unsafe fn set_value_unchecked(&mut self, index: usize, value: usize) {
         unsafe {
-            *self.perm.as_mut().get_unchecked_mut(index) = value as u64;
+            *self.perm.as_mut().get_unchecked_mut(index) =
+                u64::from_ne_bytes((value as u64).to_be_bytes());
         }
-    }
-
-    #[inline(always)]
-    fn reset(&mut self) {
-        self.perm.as_mut().reset();
-    }
-
-    fn par_reset(&mut self) {
-        self.perm.as_mut().par_reset();
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [usize] {
-        unimplemented!(
-            "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
-        );
     }
 
     type ChunksMut<'a>
@@ -131,9 +120,15 @@ impl BitFieldSliceMut<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
     where
         Self: 'a;
 
-    fn try_chunks_mut(&mut self, _chunk_size: usize) -> Result<Self::ChunksMut<'_>, ()> {
-        // Unsupported
-        Err(())
+    type ChunksMutError = std::convert::Infallible;
+
+    fn try_chunks_mut(
+        &mut self,
+        _chunk_size: usize,
+    ) -> Result<Self::ChunksMut<'_>, std::convert::Infallible> {
+        unimplemented!(
+            "This method is not implemented for JavaPermutation<MmapHelper<u64, MmapMut>>"
+        );
     }
 }
 

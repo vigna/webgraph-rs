@@ -6,7 +6,7 @@
 
 use core::iter;
 
-use lender::{IntoLender, Lend, Lender, Lending};
+use lender::{IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
 
 use crate::prelude::{
     LabeledRandomAccessGraph, LabeledSequentialGraph, LenderIntoIter, LenderIntoIterator,
@@ -37,10 +37,10 @@ which does not perform length checks. For extra safety, consider using
 pub struct Zip<L: SequentialLabeling, R: SequentialLabeling>(pub L, pub R);
 
 impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
-    // Perform a complete scan of the content of the two component labelings,
-    // returning true if they are compatible, that is, their iterators have the
-    // same length and return nodes in the same order, and the two iterators
-    // paired to each node return the same number of elements.
+    /// Performs a complete scan of the content of the two component labelings,
+    /// returning true if they are compatible, that is, their iterators have the
+    /// same length and return nodes in the same order, and the two iterators
+    /// paired to each node return the same number of elements.
     pub fn verify(&self) -> bool {
         let mut iter0 = self.0.iter();
         let mut iter1 = self.1.iter();
@@ -69,9 +69,9 @@ impl<L: SequentialLabeling, R: SequentialLabeling> Zip<L, R> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-pub struct Iter<L, R>(L, R);
+pub struct NodeLabels<L, R>(L, R);
 
-impl<'succ, L, R> NodeLabelsLender<'succ> for Iter<L, R>
+impl<'succ, L, R> NodeLabelsLender<'succ> for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -80,7 +80,7 @@ where
     type IntoIterator = std::iter::Zip<LenderIntoIter<'succ, L>, LenderIntoIter<'succ, R>>;
 }
 
-impl<'succ, L, R> Lending<'succ> for Iter<L, R>
+impl<'succ, L, R> Lending<'succ> for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
@@ -88,11 +88,14 @@ where
     type Lend = (usize, LenderIntoIterator<'succ, Self>);
 }
 
-impl<L, R> Lender for Iter<L, R>
+impl<L, R> Lender for NodeLabels<L, R>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
     R: Lender + for<'next> NodeLabelsLender<'next>,
 {
+    // SAFETY: the lend is covariant as it zips iterators from covariant lenders L and R.
+    unsafe_assume_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let left = self.0.next();
@@ -118,17 +121,18 @@ impl<L: SequentialLabeling, R: SequentialLabeling> SequentialLabeling for Zip<L,
     type Label = (L::Label, R::Label);
 
     type Lender<'node>
-        = Iter<L::Lender<'node>, R::Lender<'node>>
+        = NodeLabels<L::Lender<'node>, R::Lender<'node>>
     where
         Self: 'node;
 
     fn num_nodes(&self) -> usize {
-        debug_assert_eq!(self.0.num_nodes(), self.1.num_nodes());
+        // Here as assert_eq! as the cost is very low
+        assert_eq!(self.0.num_nodes(), self.1.num_nodes());
         self.0.num_nodes()
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter(self.0.iter_from(from), self.1.iter_from(from))
+        NodeLabels(self.0.iter_from(from), self.1.iter_from(from))
     }
 }
 
@@ -146,6 +150,7 @@ impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for 
         Self: 'succ;
 
     fn num_arcs(&self) -> u64 {
+        // Here as assert_eq! as the cost is very low
         assert_eq!(self.0.num_arcs(), self.1.num_arcs());
         self.0.num_arcs()
     }
@@ -155,6 +160,7 @@ impl<L: RandomAccessLabeling, R: RandomAccessLabeling> RandomAccessLabeling for 
     }
 
     fn outdegree(&self, _node_id: usize) -> usize {
+        // Here we just debug_assert_eq! because it would be too onerous in release mode
         debug_assert_eq!(self.0.outdegree(_node_id), self.1.outdegree(_node_id));
         self.0.outdegree(_node_id)
     }
@@ -167,10 +173,10 @@ impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::
 {
 }
 
-unsafe impl<L, R> SortedLender for Iter<L, R>
-where
-    L: Lender + for<'next> NodeLabelsLender<'next>,
-    R: Lender + for<'next> NodeLabelsLender<'next>,
+unsafe impl<
+    L: SortedLender + for<'next> NodeLabelsLender<'next>,
+    R: SortedLender + for<'next> NodeLabelsLender<'next>,
+> SortedLender for NodeLabels<L, R>
 {
 }
 

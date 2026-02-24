@@ -28,14 +28,14 @@ pub struct ConstCodesEncoder<
 }
 
 impl<
-        E: Endianness,
-        CW: CodesWrite<E> + BitSeek,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > BitSeek for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    CW: CodesWrite<E> + BitSeek,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> BitSeek for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = <CW as BitSeek>::Error;
 
@@ -49,14 +49,14 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        CW: CodesWrite<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    CW: CodesWrite<E>,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Creates a new [`ConstCodesEncoder`] with the given [`CodesWrite`] implementation.
     pub fn new(code_writer: CW) -> Self {
@@ -68,14 +68,14 @@ impl<
 }
 
 impl<
-        E: Endianness,
-        CW: CodesWrite<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > Encode for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    E: Endianness,
+    CW: CodesWrite<E>,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> Encode for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = <CW as BitWrite<E>>::Error;
 
@@ -130,20 +130,21 @@ impl<
         ConstCode::<RESIDUALS>.write(&mut self.code_writer, value)
     }
 
+    #[inline(always)]
     fn flush(&mut self) -> Result<usize, Self::Error> {
         self.code_writer.flush()
     }
 }
 
 impl<
-        E: Endianness,
-        CW: CodesWrite<E>,
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > EncodeAndEstimate
+    E: Endianness,
+    CW: CodesWrite<E>,
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> EncodeAndEstimate
     for ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Estimator<'a>
@@ -166,12 +167,12 @@ pub struct ConstCodesEstimator<
 >;
 
 impl<
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     pub fn new() -> Self {
         Self
@@ -179,12 +180,12 @@ impl<
 }
 
 impl<
-        const OUTDEGREES: usize,
-        const REFERENCES: usize,
-        const BLOCKS: usize,
-        const INTERVALS: usize,
-        const RESIDUALS: usize,
-    > Encode for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
+    const OUTDEGREES: usize,
+    const REFERENCES: usize,
+    const BLOCKS: usize,
+    const INTERVALS: usize,
+    const RESIDUALS: usize,
+> Encode for ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     type Error = Infallible;
 
@@ -239,6 +240,7 @@ impl<
         Ok(ConstCode::<RESIDUALS>.len(value))
     }
 
+    #[inline(always)]
     fn flush(&mut self) -> Result<usize, Self::Error> {
         Ok(0)
     }

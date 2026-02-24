@@ -15,10 +15,6 @@ currently being applied to several other types of graphs. It
 provides simple ways to manage very large graphs, exploiting modern compression
 techniques. More precisely, it is currently made of:
 
-- A set of simple codes, called ζ _codes_, which are particularly suitable for
-  storing web graphs (or, in general, integers with a power-law distribution in a
-  certain exponent range).
-
 - Algorithms for compressing web graphs that exploit gap compression and
   differential compression (à la
   [LINK](https://ieeexplore.ieee.org/document/999950)),
@@ -40,7 +36,7 @@ techniques. More precisely, it is currently made of:
   now in maintenance mode.
 
 - This crate, providing a complete, documented implementation of the algorithms
-  above in Rust. It is free software distributed under either the  [GNU Lesser
+  above in Rust. It is free software distributed under either the [GNU Lesser
   General Public License
   2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
   Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
@@ -64,19 +60,19 @@ our software useful for research, please cite the following papers in your own:
   Sebastiano Vigna, in _Proc. of the 13th international conference on World
   Wide Web_, WWW 2004, pages 595–602, ACM. [DOI
   10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752).
-  
+
 ## Quick Setup
 
 Assuming you have built all binaries, you will first need a graph in BV format,
-for example downloading it from the [LAW website]. For a graph with basename
-`BASENAME`, you will need the `BASENAME.graph` file (the bitstream containing a
-compressed representation of the graph), the `BASENAME.properties` file
-(metadata), and the `BASENAME.offsets` file (a bitstream containing pointers into
-the graph bitstream).
+for example downloading it from the [LAW web site] or the [Common Crawl web
+site]. For a graph with basename `BASENAME`, you will need the `BASENAME.graph`
+file (the bitstream containing a compressed representation of the graph), the
+`BASENAME.properties` file (metadata), and the `BASENAME.offsets` file (a
+bitstream containing pointers into the graph bitstream).
 
 As a first step, if you need random access to the successors of a node, you need
 to build an [Elias–Fano] representation of the offsets (this part can be skipped
-if you just need sequential access). There is a CLI command `webgraph` with many
+if you just need sequential access). There is a [command-line interface] with many
 subcommands, among which `build`, and `webgraph build ef BASENAME` will build
 the representation for you, serializing it with [ε-serde] in a file
 named `BASENAME.ef`.
@@ -84,7 +80,7 @@ named `BASENAME.ef`.
 Then, to load the graph you need to call
 
 ```ignore
-let graph = BVGraph::with_basename("BASENAME").load()?;
+let graph = BvGraph::with_basename("BASENAME").load()?;
 ```
 
 The [`with_basename`] method returns a [`LoadConfig`] instance that can be
@@ -108,6 +104,10 @@ for_![(src, succ) in graph {
 }];
 ```
 
+## Compact Representations
+
+[`CsrGraph`] is a classical immutable compact graph representation.
+
 ## Mutable Graphs
 
 A number of structures make it possible to create dynamically growing graphs:
@@ -119,12 +119,13 @@ gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be serialized with
 
 ## Command–Line Interface
 
-We provide a command-line interface to perform various operations on graphs. The
-CLI is the main method of the library, so it can be executed with `cargo run`.
+We provide a [command-line interface] to perform various operations on graphs.
+The CLI is the main method of the library, so it can be executed with `cargo
+run`.
 
 ## More Options
 
-- By starting from the [`BVGraphSeq`] class you can obtain an instance that does
+- By starting from the [`BvGraphSeq`] class you can obtain an instance that does
   not need the `BASENAME.ef` file, but provides only [iteration].
 
 - Graphs can be labeled by [zipping] them together with a [labeling]. In fact,
@@ -140,24 +141,26 @@ There are many operations available on graphs, such as [transpose],
 A simple way to compress a graph is to provide it as a list of arcs. The
 `webgraph` CLI provides a command `from` with a subcommand `arcs` that reads a
 list of TAB-separated list of arcs from standard input and writes a compressed
-[`BvGraph`]. For example,
+graph in BV graph format. For example,
 
 ```bash
 echo -e "0\t1\n1\t2\n2\t3" >3-cycle.tsv
-cargo run --release from arcs --exact 3-cycle <3-cycle.tsv
+cargo run --release from arcs 3-cycle <3-cycle.tsv
 ```
 
-will create a file compressed graph with basename `3-cycle`. The `--exact` flag
-is used to specify that the labels provided are exactly the node numbers,
-numbered starting from zero: otherwise, a mapping from assigned node number to
-labels will be created in RAM and store in `3-cycle.nodes` file.
-The labels are stored in a `HashMap`, so, for very large graphs, the mapping
-might not fit in RAM. For example,
+will create a file compressed graph with basename `3-cycle`. The numbers
+represent node ids starting from zero.
+
+If the node ids are not numbers, but labels, you can use the `--labels` flag. A
+mapping from assigned node number (in order of appearance) to labels will be
+created in RAM and stored in `3-cycle.nodes` file (one label per line the first
+label corresponding to node id 0). The labels are stored in a `HashMap`, so, for
+very large graphs, the mapping might not fit in RAM. For example,
 
 ```bash
 echo -e "a\tb\nb\tc\nc\ta" > graph.tsv
 # convert to bvgraph
-cat graph.tsv | cargo run --release from arcs graph
+cat graph.tsv | cargo run --release from arcs --labels graph
 ```
 
 The graph can be converted back in the arcs format using the `to arcs` command.
@@ -176,7 +179,7 @@ such as `csv`. For example,
 ```bash
 echo -e "a,b\nb,c\nc,a" > graph.csv
 # convert to bvgraph
-$ cat graph.csv | cargo run --release from arcs --separator=',' graph
+$ cat graph.csv | cargo run --release from arcs --labels --separator=',' graph
 # convert back to csv
 $ cargo run --release to arcs --separator=',' --labels=graph.nodes graph > back.csv
 ```
@@ -190,24 +193,27 @@ opinions expressed are however those of the authors only and do not necessarily
 reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
 
-[transpose]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html>
-[simplify]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html>
-[permute]: <https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html>
-[`with_basename`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename>
-[`BVGraphSeq`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html>
-[`BVGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraph.html>
-[`LoadConfig`]: <https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html>
-[iterate on the whole graph]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
-[zipping]: <https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html>
-[labeling]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html>
-[iteration]: <https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter>
-[retrieve the successors of a node]: <https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors>
-[LAW website]: <http://law.di.unimi.it/>
-[Elias–Fano]: <sux::dict::EliasFano>
-[WebGraph framework]: <https://webgraph.di.unimi.it/>
-[ε-serde]: <https://crates.io/crates/epserde/>
-[`for_`]: <https://docs.rs/lender/latest/lender/macro.for_.html>
-[`VecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html>
-[`LabeledVecGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html>
-[`BTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html>
-[`LabeledBTreeGraph`]: <https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html>
+[transpose]: https://docs.rs/webgraph/latest/webgraph/transform/fn.transpose.html
+[simplify]: https://docs.rs/webgraph/latest/webgraph/transform/fn.simplify.html
+[permute]: https://docs.rs/webgraph/latest/webgraph/transform/fn.permute.html
+[`with_basename`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html#method.with_basename
+[`BvGraphSeq`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/sequential/struct.BvGraphSeq.html
+[`BvGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/random_access/struct.BvGraph.html
+[`LoadConfig`]: https://docs.rs/webgraph/latest/webgraph/graphs/bvgraph/load/struct.LoadConfig.html
+[iterate on the whole graph]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
+[zipping]: https://docs.rs/webgraph/latest/webgraph/labels/zip/struct.Zip.html
+[labeling]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html
+[iteration]: https://docs.rs/webgraph/latest/webgraph/traits/labels/trait.SequentialLabeling.html#method.iter
+[retrieve the successors of a node]: https://docs.rs/webgraph/latest/webgraph/traits/graph/trait.RandomAccessGraph.html#method.successors
+[LAW web site]: http://law.di.unimi.it/
+[Elias–Fano]: https://docs.rs/sux/latest/sux/dict/elias_fano/struct.EliasFano.html
+[WebGraph framework]: https://webgraph.di.unimi.it/
+[ε-serde]: https://crates.io/crates/epserde/
+[`for_`]: https://docs.rs/lender/latest/lender/macro.for_.html
+[`VecGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.VecGraph.html
+[`LabeledVecGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/vec_graph/struct.LabeledVecGraph.html
+[`BTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.BTreeGraph.html
+[`LabeledBTreeGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/btree_graph/struct.LabeledBTreeGraph.html
+[Common Crawl web site]: https://commoncrawl.org/
+[command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
+[`CsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html

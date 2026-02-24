@@ -11,9 +11,9 @@ use super::GlobalArgs;
 
 pub mod arcs;
 
+/// Ingests data into graphs.
 #[derive(Subcommand, Debug)]
 #[command(name = "from")]
-/// Ingest data into graphs.
 pub enum SubCommands {
     Arcs(arcs::CliArgs),
 }

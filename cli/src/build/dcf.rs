@@ -23,11 +23,11 @@ use webgraph::prelude::*;
 #[command(name = "dcf", about = "Builds the Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => build_dcf::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -41,7 +41,7 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
-    let basename = args.src;
+    let basename = args.basename;
     let properties_path = basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(

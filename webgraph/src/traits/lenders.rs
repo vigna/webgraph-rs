@@ -15,6 +15,8 @@
 //! would obtain a normal [`Lender`], which would not be usable as an argument,
 //! say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
 
+use std::marker::PhantomData;
+
 use lender::{DoubleEndedLender, Lend, Lender, Lending};
 
 use crate::traits::Pair;
@@ -34,7 +36,10 @@ use crate::traits::Pair;
 ///
 /// The methods [`into_pairs`](NodeLabelsLender::into_pairs) and
 /// [`into_labeled_pairs`](NodeLabelsLender::into_labeled_pairs) convert a
-/// [`NodeLabelsLender`] into an iterator of pairs or triples, respectively.
+/// [`NodeLabelsLender`] into an iterator of pairs `(usize, usize)` or labeled
+/// pairs `((usize, usize), Label)`, respectively. These are convenience
+/// methods that delegate to [`From`] trait implementations for [`IntoPairs`]
+/// and [`IntoLabeledPairs`].
 ///
 /// # Extension of [`Lender`] Methods
 ///
@@ -94,20 +99,20 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     type Label;
     type IntoIterator: IntoIterator<Item = Self::Label>;
 
-    /// Converts this lender into an iterator of triples, provided
-    /// that the label type implements [`Pair`] with `Left = usize`.
+    /// Converts this lender into an iterator of labeled pairs of type
+    /// `((usize, usize), Label)`, provided that the label type implements
+    /// [`Pair`] with `Left = usize`.
     ///
     /// Typically, this method is used to convert a lender on a labeled graph
-    /// into an iterator of labeled arcs expressed as triples.
+    /// into an iterator of labeled arcs.
+    ///
+    /// This is a convenience method that delegates to the [`From`] trait
+    /// implementation.
     fn into_labeled_pairs<'a>(self) -> IntoLabeledPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
     {
-        IntoLabeledPairs {
-            lender: Box::new(self),
-            current_node: 0,
-            current_iter: None,
-        }
+        self.into()
     }
 
     /// Converts this lender into an iterator of pairs, provided that the label
@@ -115,51 +120,58 @@ pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'
     ///
     /// Typically, this method is used to convert a lender on a graph into an
     /// iterator of arcs expressed as pairs.
+    ///
+    /// This is a convenience method that delegates to the [`From`] trait
+    /// implementation.
     fn into_pairs<'a>(self) -> IntoPairs<'a, Self>
     where
         Self: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
     {
-        IntoPairs {
-            lender: Box::new(self),
-            current_node: 0,
-            current_iter: None,
-        }
+        self.into()
     }
 }
 
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
-/// iterator of triples.
+/// iterator of labeled pairs.
 ///
-/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
-/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
-/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
-/// comes from the inner iterator.
+/// This struct is created via the [`From`] trait. It converts a lender that
+/// yields `(usize, IntoIterator)` pairs into a flat iterator of `((src, dst), label)`
+/// labeled pairs, where each `(dst, label)` comes from the inner iterator.
 pub struct IntoLabeledPairs<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>> + 'a> {
     lender: Box<L>,
     current_node: usize,
     current_iter: Option<LenderIntoIter<'a, L>>,
+    _marker: PhantomData<&'a L>, // That is, L: 'a
+}
+
+impl<L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>> std::fmt::Debug
+    for IntoLabeledPairs<'_, L>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IntoLabeledPairs")
+            .field("current_node", &self.current_node)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>> Iterator
     for IntoLabeledPairs<'a, L>
 {
     type Item = (
-        usize,
-        usize,
+        (usize, usize),
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     );
 
     fn next(
         &mut self,
     ) -> Option<(
-        usize,
-        usize,
+        (usize, usize),
         <<L as NodeLabelsLender<'a>>::Label as Pair>::Right,
     )> {
         loop {
             if let Some(inner) = &mut self.current_iter {
                 if let Some((dst, label)) = inner.next().map(Pair::into_pair) {
-                    return Some((self.current_node, dst, label));
+                    return Some(((self.current_node, dst), label));
                 }
             }
             // SAFETY: We use transmute to extend the lifetime of the iterator from the
@@ -171,11 +183,13 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
             //
             // This pattern is necessary because Rust's borrow checker cannot express the
             // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
-            if let Some((next_node, next_iter)) = self
-                .lender
-                .next()
-                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
-            {
+            if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
+                (x, unsafe {
+                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
+                        it.into_iter(),
+                    )
+                })
+            }) {
                 self.current_node = next_node;
                 self.current_iter = Some(next_iter);
             } else {
@@ -185,17 +199,31 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize, Right: Copy>>
     }
 }
 
+impl<'a, L> From<L> for IntoLabeledPairs<'a, L>
+where
+    L: Sized + for<'b> NodeLabelsLender<'b, Label: Pair<Left = usize>>,
+{
+    fn from(lender: L) -> Self {
+        IntoLabeledPairs {
+            lender: Box::new(lender),
+            current_node: 0,
+            current_iter: None,
+            _marker: PhantomData,
+        }
+    }
+}
+
 /// An [`Iterator`] adapter that converts a [`NodeLabelsLender`] into an
-/// iterator of triples.
+/// iterator of pairs.
 ///
-/// This struct is created by the [`into_pairs`](NodeLabelsLender::into_pairs)
-/// method. It converts a lender that yields `(usize, IntoIterator)` pairs into
-/// a flat iterator of `(src, dst, label)` triples, where each `(dst, label)`
-/// comes from the inner iterator.
+/// This struct is created via the [`From`] trait. It converts a lender that
+/// yields `(usize, IntoIterator)` pairs into a flat iterator of `(src, dst)`
+/// pairs, where each `dst` comes from the inner iterator.
 pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
     lender: Box<L>,
     current_node: usize,
     current_iter: Option<LenderIntoIter<'a, L>>,
+    _marker: PhantomData<&'a L>, // That is, L: 'a
 }
 
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {
@@ -217,16 +245,32 @@ impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<
             //
             // This pattern is necessary because Rust's borrow checker cannot express the
             // "only one lend alive at a time" invariant that the lending iterator pattern maintains.
-            if let Some((next_node, next_iter)) = self
-                .lender
-                .next()
-                .map(|(x, it)| (x, unsafe { std::mem::transmute(it.into_iter()) }))
-            {
+            if let Some((next_node, next_iter)) = self.lender.next().map(|(x, it)| {
+                (x, unsafe {
+                    std::mem::transmute::<LenderIntoIter<'_, L>, LenderIntoIter<'_, L>>(
+                        it.into_iter(),
+                    )
+                })
+            }) {
                 self.current_node = next_node;
                 self.current_iter = Some(next_iter);
             } else {
                 return None;
             }
+        }
+    }
+}
+
+impl<'a, L> From<L> for IntoPairs<'a, L>
+where
+    L: Sized + for<'b> NodeLabelsLender<'b, Label = usize>,
+{
+    fn from(lender: L) -> Self {
+        IntoPairs {
+            lender: Box::new(lender),
+            current_node: 0,
+            current_iter: None,
+            _marker: PhantomData,
         }
     }
 }
@@ -296,7 +340,7 @@ where
 
 impl<L, F, II> NodeLabelsLender<'_> for lender::FilterMap<L, F>
 where
-    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    II: IntoIterator,
     F: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
     L: Lender,
 {
@@ -353,7 +397,7 @@ where
 impl<L, P, II> NodeLabelsLender<'_> for lender::MapWhile<L, P>
 where
     P: for<'all> lender::higher_order::FnMutHKAOpt<'all, Lend<'all, L>, B = (usize, II)>,
-    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    II: IntoIterator,
     L: Lender,
 {
     type Label = II::Item;
@@ -390,7 +434,7 @@ where
     for<'all> F:
         lender::higher_order::FnMutHKAOpt<'all, (&'all mut St, Lend<'all, L>), B = (usize, II)>,
     L: Lender,
-    II: IntoIterator + 'static, // TODO!: check if we can avoid this static
+    II: IntoIterator,
 {
     type Label = II::Item;
     type IntoIterator = II;

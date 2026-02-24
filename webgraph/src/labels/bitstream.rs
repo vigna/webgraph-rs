@@ -13,6 +13,8 @@
 //!
 //! See the examples for a complete implementation based on memory mapping.
 
+use std::iter::FusedIterator;
+
 use crate::prelude::{BitDeserializer, Offsets};
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
@@ -68,7 +70,7 @@ where
     }
 }
 
-pub struct Iter<'a, 'b, E, BR, D, O: Offsets> {
+pub struct NodeLabels<'a, 'b, E, BR, D, O: Offsets> {
     reader: BR,
     bit_deser: &'a D,
     offsets: &'b MemCase<O>,
@@ -78,21 +80,23 @@ pub struct Iter<'a, 'b, E, BR, D, O: Offsets> {
 }
 
 impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    NodeLabelsLender<'succ> for Iter<'_, '_, E, BR, D, O>
+    NodeLabelsLender<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Label = D::DeserType;
     type IntoIterator = SeqLabels<'succ, E, BR, D>;
 }
 
 impl<'succ, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets>
-    Lending<'succ> for Iter<'_, '_, E, BR, D, O>
+    Lending<'succ> for NodeLabels<'_, '_, E, BR, D, O>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offsets> Lender
-    for Iter<'_, '_, E, BR, D, O>
+    for NodeLabels<'_, '_, E, BR, D, O>
 {
+    check_covariance!();
+
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.next_node >= self.num_nodes {
@@ -136,6 +140,11 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
+    for SeqLabels<'_, E, BR, D>
+{
+}
+
 impl<L, E: Endianness, S: Supply, D, O: Offsets> SequentialLabeling
     for BitStreamLabeling<E, S, D, O>
 where
@@ -144,16 +153,17 @@ where
 {
     type Label = L;
     type Lender<'node>
-        = Iter<'node, 'node, E, S::Item<'node>, D, O>
+        = NodeLabels<'node, 'node, E, S::Item<'node>, D, O>
     where
         Self: 'node;
 
+    #[inline(always)]
     fn num_nodes(&self) -> usize {
         self.offsets.uncase().len() - 1
     }
 
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        Iter {
+        NodeLabels {
             offsets: &self.offsets,
             reader: self.reader_supplier.request(),
             bit_deser: &self.bit_deser,
@@ -166,7 +176,7 @@ where
 
 // TODO: avoid duplicate implementation for labels
 
-pub struct RanLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
+pub struct Labels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> {
     reader: BR,
     deserializer: &'a D,
     end_pos: u64,
@@ -174,7 +184,7 @@ pub struct RanLabels<'a, E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserial
 }
 
 impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterator
-    for RanLabels<'_, E, BR, D>
+    for Labels<'_, E, BR, D>
 {
     type Item = <D as BitDeserializer<E, BR>>::DeserType;
 
@@ -182,9 +192,14 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
         if self.reader.bit_pos().unwrap() >= self.end_pos {
             None
         } else {
-            self.deserializer.deserialize(&mut self.reader).ok()
+            Some(self.deserializer.deserialize(&mut self.reader).unwrap())
         }
     }
+}
+
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
+    for Labels<'_, E, BR, D>
+{
 }
 
 impl<L, E: Endianness, S: Supply, D, O: Offsets> RandomAccessLabeling
@@ -194,7 +209,7 @@ where
     for<'a> D: BitDeserializer<E, S::Item<'a>, DeserType = L>,
 {
     type Labels<'succ>
-        = RanLabels<'succ, E, S::Item<'succ>, D>
+        = Labels<'succ, E, S::Item<'succ>, D>
     where
         Self: 'succ;
 
@@ -207,7 +222,7 @@ where
         reader
             .set_bit_pos(self.offsets.uncase().get(node_id) as u64)
             .unwrap();
-        RanLabels {
+        Labels {
             reader,
             deserializer: &self.bit_deser,
             end_pos: self.offsets.uncase().get(node_id + 1) as u64,

@@ -11,7 +11,7 @@ use epserde::{deser::Deserialize, ser::Serialize};
 use webgraph::{
     graphs::csr_graph::{CompressedCsrGraph, CompressedCsrSortedGraph, CsrSortedGraph},
     prelude::{CsrGraph, VecGraph},
-    traits::{graph, labels, SequentialGraph, SortedLender},
+    traits::{SequentialGraph, SortedLender, graph},
 };
 
 /// Helper function to test epserde serialization/deserialization for CSR graph types
@@ -80,45 +80,6 @@ fn test_epserde() -> anyhow::Result<()> {
     test_epserde_roundtrip(&csr, |data| {
         Ok(unsafe { <CompressedCsrSortedGraph>::deserialize_eps(data) }?)
     })?;
-
-    Ok(())
-}
-
-#[test]
-fn test_csr_graph() -> anyhow::Result<()> {
-    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = VecGraph::from_arcs(arcs.iter().copied());
-
-    let csr = CsrGraph::from_seq_graph(&g);
-    labels::check_impl(&csr)?;
-    graph::eq(&csr, &g)?;
-
-    let csr = CompressedCsrGraph::try_from_graph(&g)?;
-    labels::check_impl(&csr)?;
-    graph::eq(&csr, &g)?;
-
-    let csr = CompressedCsrGraph::try_from_graph(&g)?;
-    labels::check_impl(&csr)?;
-    graph::eq(&csr, &g)?;
-
-    let csr = CompressedCsrSortedGraph::try_from_graph(&g)?;
-    labels::check_impl(&csr)?;
-    labels::eq_sorted(&csr, &g)?;
-
-    Ok(())
-}
-
-#[test]
-fn test_sorted() -> anyhow::Result<()> {
-    let arcs = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4)];
-    let g = VecGraph::from_arcs(arcs.iter().copied());
-    // This is just to test that we implemented correctly
-    // the SortedLender and SortedIterator traits.
-    let csr_sorted = CsrSortedGraph::from_seq_graph(&g);
-    labels::eq_sorted(&csr_sorted, &csr_sorted)?;
-
-    let csr_comp_sorted = CompressedCsrSortedGraph::try_from_graph(&g)?;
-    labels::eq_sorted(&csr_comp_sorted, &csr_comp_sorted)?;
 
     Ok(())
 }

@@ -11,31 +11,25 @@ use anyhow::Result;
 use dsi_progress_logger::no_logging;
 use no_break::NoBreak;
 use sux::bits::AtomicBitVec;
+use sux::traits::AtomicBitVecOps;
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::BTreeGraph;
-use webgraph::thread_pool;
 use webgraph::traits::SequentialLabeling;
 use webgraph::transform::transpose;
-use webgraph::visits::breadth_first::{EventPred, Seq};
+use webgraph::utils::MemoryUsage;
 use webgraph::visits::Sequential;
+use webgraph::visits::breadth_first::{EventPred, Seq};
 use webgraph_algo::distances::exact_sum_sweep::*;
 
 #[test]
 fn test_path() -> Result<()> {
-    let arcs = vec![(0_usize, 1_usize), (1, 2), (2, 1), (1, 0)];
+    let arcs = [(0_usize, 1_usize), (1, 2), (2, 1), (1, 0)];
 
-    let mut vec_graph = BTreeGraph::from_arcs(arcs.iter().copied());
-    let mut transposed_vec_graph = vec_graph.clone();
-    for arc in arcs {
-        vec_graph.add_arc(arc.0, arc.1);
-        transposed_vec_graph.add_arc(arc.1, arc.0);
-    }
+    let graph = BTreeGraph::from_arcs(arcs.iter().copied());
+    let transposed = BTreeGraph::from_arcs(arcs.iter().map(|(a, b)| (*b, *a)));
 
-    let graph = vec_graph;
-    let transposed = transposed_vec_graph;
-
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.forward_eccentricities[0], 2);
     assert_eq!(sum_sweep.forward_eccentricities[1], 1);
@@ -73,7 +67,7 @@ fn test_many_scc() -> Result<()> {
     let graph = VecGraph::from_arcs(arcs);
     let transposed = VecGraph::from_arcs(transposed_arcs);
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 2);
     assert_eq!(sum_sweep.radial_vertex, 1);
@@ -83,19 +77,12 @@ fn test_many_scc() -> Result<()> {
 
 #[test]
 fn test_lozenge() -> Result<()> {
-    let arcs = vec![(0, 1), (1, 0), (0, 2), (1, 3), (2, 3)];
+    let arcs = [(0, 1), (1, 0), (0, 2), (1, 3), (2, 3)];
 
-    let mut graph = VecGraph::new();
-    for i in 0..4 {
-        graph.add_node(i);
-    }
-    let mut transpose = graph.clone();
-    for arc in arcs {
-        graph.add_arc(arc.0, arc.1);
-        transpose.add_arc(arc.1, arc.0);
-    }
+    let graph = VecGraph::from_arcs(arcs);
+    let transposed = VecGraph::from_arcs(arcs.iter().map(|(a, b)| (*b, *a)));
 
-    let sum_sweep = Radius::run(graph, transpose, None, &thread_pool![], no_logging![]);
+    let sum_sweep = Radius::run(graph, transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 2);
     assert!(sum_sweep.radial_vertex == 0 || sum_sweep.radial_vertex == 1);
@@ -129,13 +116,7 @@ fn test_many_dir_path() -> Result<()> {
     radial_vertices.set(16, true, std::sync::atomic::Ordering::Relaxed);
     radial_vertices.set(8, true, std::sync::atomic::Ordering::Relaxed);
 
-    let sum_sweep = All::run(
-        graph,
-        transpose,
-        Some(radial_vertices),
-        &thread_pool![],
-        no_logging![],
-    );
+    let sum_sweep = All::run(graph, transpose, Some(radial_vertices), no_logging![]);
 
     assert_eq!(sum_sweep.diameter, 6);
     assert_eq!(sum_sweep.radius, 1);
@@ -166,8 +147,7 @@ fn test_cycle() -> Result<()> {
         let graph = vec_graph;
         let transposed = transposed_vec_graph;
 
-        let sum_sweep =
-            RadiusDiameter::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+        let sum_sweep = RadiusDiameter::run(&graph, &transposed, None, no_logging![]);
 
         assert_eq!(sum_sweep.diameter, size - 1);
         assert_eq!(sum_sweep.radius, size - 1);
@@ -194,27 +174,17 @@ fn test_clique() -> Result<()> {
         let graph = vec_graph.clone();
         let transposed = vec_graph;
         let radial_vertices = AtomicBitVec::new(size);
-        let rngs = [
-            rand::random::<u64>() as usize % size,
-            rand::random::<u64>() as usize % size,
-            rand::random::<u64>() as usize % size,
-        ];
-        radial_vertices.set(rngs[0], true, std::sync::atomic::Ordering::Relaxed);
-        radial_vertices.set(rngs[1], true, std::sync::atomic::Ordering::Relaxed);
-        radial_vertices.set(rngs[2], true, std::sync::atomic::Ordering::Relaxed);
+        let candidates = [0, size / 2, size - 1];
+        radial_vertices.set(candidates[0], true, std::sync::atomic::Ordering::Relaxed);
+        radial_vertices.set(candidates[1], true, std::sync::atomic::Ordering::Relaxed);
+        radial_vertices.set(candidates[2], true, std::sync::atomic::Ordering::Relaxed);
 
-        let sum_sweep = All::run(
-            &graph,
-            &transposed,
-            Some(radial_vertices),
-            &thread_pool![],
-            no_logging![],
-        );
+        let sum_sweep = All::run(&graph, &transposed, Some(radial_vertices), no_logging![]);
 
         for i in 0..size {
             assert_eq!(sum_sweep.forward_eccentricities[i], 1);
         }
-        assert!(rngs.contains(&sum_sweep.radial_vertex));
+        assert!(candidates.contains(&sum_sweep.radial_vertex));
     }
 
     Ok(())
@@ -230,7 +200,7 @@ fn test_empty() -> Result<()> {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 0);
     assert_eq!(sum_sweep.diameter, 0);
@@ -243,7 +213,7 @@ fn test_sparse() -> Result<()> {
     let arcs = [(10, 32), (10, 65), (65, 10), (21, 44)];
     let graph = BTreeGraph::from_arcs(arcs.iter().copied());
     let transpose = BTreeGraph::from_arcs(arcs.iter().map(|(x, y)| (*y, *x)));
-    let sum_sweep = All::run(graph, transpose, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(graph, transpose, None, no_logging![]);
     assert_eq!(sum_sweep.radius, 1);
     assert_eq!(sum_sweep.radial_vertex, 10);
     Ok(())
@@ -267,13 +237,7 @@ fn test_no_radial_vertices() -> Result<()> {
     let transposed = transposed_vec_graph;
     let radial_vertices = AtomicBitVec::new(2);
 
-    let sum_sweep = All::run(
-        &graph,
-        &transposed,
-        Some(radial_vertices),
-        &thread_pool![],
-        no_logging![],
-    );
+    let sum_sweep = All::run(&graph, &transposed, Some(radial_vertices), no_logging![]);
 
     assert_eq!(sum_sweep.radius, usize::MAX);
 
@@ -288,7 +252,7 @@ fn test_empty_graph() {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    All::run(&graph, &transposed, None, no_logging![]);
 }
 
 #[test]
@@ -301,7 +265,7 @@ fn test_graph_no_edges() -> Result<()> {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, &thread_pool![], no_logging![]);
+    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
 
     assert_eq!(sum_sweep.radius, 0);
     assert_eq!(sum_sweep.diameter, 0);
@@ -315,11 +279,9 @@ fn test_er() -> Result<()> {
     for d in 2..=4 {
         let graph = VecGraph::from_lender(ErdosRenyi::new(100, (d as f64) / 100.0, 0).iter());
 
-        let transpose = VecGraph::from_lender(transpose(&graph, 10000)?.iter());
+        let transpose = VecGraph::from_lender(transpose(&graph, MemoryUsage::default())?.iter());
 
-        let thread_pool = thread_pool![];
-
-        let ess = All::run(&graph, transpose, None, &thread_pool, no_logging![]);
+        let ess = All::run(&graph, transpose, None, no_logging![]);
 
         let mut pll = Seq::new(&graph);
         let mut ecc = [0; 100];
@@ -338,7 +300,7 @@ fn test_er() -> Result<()> {
             assert_eq!(
                 ess.forward_eccentricities[node], ecc[node],
                 "node = {}, actual = {}, expected = {}",
-                node, ess.backward_eccentricities[node], ecc[node]
+                node, ess.forward_eccentricities[node], ecc[node]
             );
         }
     }

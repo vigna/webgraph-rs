@@ -8,12 +8,14 @@
 
 use crate::traits::{RandomAccessGraph, RandomAccessLabeling};
 use crate::visits::{
-    depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
     Sequential,
+    depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
 };
 use sealed::sealed;
+use std::iter::FusedIterator;
 use std::ops::ControlFlow::{self, Continue};
 use sux::bits::BitVec;
+use sux::traits::{BitVecOps, BitVecOpsMut};
 
 /// A depth-first visit which does not keep track of predecessors, or nodes on the stack.
 pub type SeqNoPred<'a, G> = SeqIter<'a, TwoStates, G, (), false>;
@@ -134,7 +136,7 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// ```
 ///
 /// Note that the iterator modifies the state of the visit, so it can re-use the
-/// allocations. Other visits, i.e. [`SeqPred`] and [`SeqPath`],  do not
+/// allocations. Other visits, i.e. [`SeqNoPred`] and [`SeqPath`],  do not
 /// implement the [`IntoIterator`] trait, as they would require to put the
 /// predecessor on the stack, which would need more space than needed.
 pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
@@ -155,11 +157,11 @@ pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
 }
 
 /// The iterator returned by [`stack`](SeqPred::stack).
-pub struct StackIterator<'a, 'b, S, G: RandomAccessGraph> {
+pub struct StackIter<'a, 'b, S, G: RandomAccessGraph> {
     visit: &'b mut SeqIter<'a, S, G, usize, true>,
 }
 
-impl<S, G: RandomAccessGraph> Iterator for StackIterator<'_, '_, S, G> {
+impl<S, G: RandomAccessGraph> Iterator for StackIter<'_, '_, S, G> {
     type Item = usize;
 
     fn next(&mut self) -> Option<usize> {
@@ -186,26 +188,21 @@ impl<'a, S: NodeStates, G: RandomAccessGraph, P, const PRED: bool> SeqIter<'a, S
             state: S::new(num_nodes),
         }
     }
-
-    /// Reset
-    pub fn reset(&mut self) {
-        self.stack.clear();
-        self.state.reset();
-    }
 }
 
 impl<'a, S, G: RandomAccessGraph> SeqIter<'a, S, G, usize, true> {
     /// Returns an iterator over the nodes still on the visit path,
     /// except for the last one.
     ///
-    /// Node will be returned in reverse order of visit.
+    /// Nodes are returned in reverse order of previsit (i.e., from deepest to
+    /// shallowest)
     ///
     /// This method is useful only in the case of interrupted visits,
     /// as in a completed visit the stack will be empty. The last node
     /// on the visit path at the moment of the interruption must be
     /// treated separately.
-    pub fn stack(&mut self) -> StackIterator<'a, '_, S, G> {
-        StackIterator { visit: self }
+    pub fn stack(&mut self) -> StackIter<'a, '_, S, G> {
+        StackIter { visit: self }
     }
 }
 
@@ -594,7 +591,7 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
         // while we have a stack
         while let Some((iter, parent)) = stack.last_mut() {
             let parent = *parent; // we need to deref
-                                  // and the top has successors
+            // and the top has successors
             for succ in iter {
                 // Check if node should be visited
                 if state.known(succ) {
@@ -651,3 +648,5 @@ impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for DfsOrder<'a, 'b, G> {
         self.visit.graph.num_nodes() - self.visited_nodes
     }
 }
+
+impl<'a, 'b, G: RandomAccessGraph> FusedIterator for DfsOrder<'a, 'b, G> {}

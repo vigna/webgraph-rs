@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use common_traits::UnsignedInt;
 use core::fmt::Debug;
 use mmap_rs::*;
@@ -81,11 +81,13 @@ impl<W> TryFrom<Mmap> for MmapHelper<W> {
 
 impl<W> MmapHelper<W> {
     /// Returns the size of the memory mapping in `W`'s.
+    #[inline(always)]
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Returns whether the memory mapping is empty.
+    #[inline(always)]
     pub fn is_empty(&self) -> bool {
         // make clippy happy
         self.len == 0
@@ -172,8 +174,8 @@ impl<W> MmapHelper<W, MmapMut> {
 
         ensure!(
             mmap_len == file_len,
-            "File has insufficient padding for word size {}. Use \"webgraph pad BASENAME u{}\" to ensure sufficient padding.",
-            size_of::<W>(),
+            "File has insufficient padding for word size {}. Use \"webgraph run pad BASENAME u{}\" to ensure sufficient padding.",
+            size_of::<W>() * 8,
             size_of::<W>() * 8
         );
 

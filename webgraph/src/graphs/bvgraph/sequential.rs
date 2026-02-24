@@ -12,13 +12,23 @@ use crate::utils::CircularBuffer;
 use anyhow::Result;
 use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
-use dsi_bitstream::traits::BitSeek;
 use dsi_bitstream::traits::BE;
+use dsi_bitstream::traits::BitSeek;
 use lender::*;
 
-/// A sequential BvGraph that can be read from a `codes_reader_builder`.
-/// The builder is needed because we should be able to create multiple iterators
-/// and this allows us to have a single place where to store the mmapped file.
+/// A sequential graph in the BV format.
+///
+/// The graph depends on a [`SequentialDecoderFactory`] that can be used to
+/// create decoders for the graph. This allows to decouple the graph from the
+/// underlying storage format, and to use different storage formats for the same
+/// graph. For example, one can use a memory-mapped file for the graph, or load
+/// it in memory, or even generate it on the fly.
+///
+/// Note that the knowledge of the codes used by the graph is in the factory,
+/// which provides methods to read each component of the BV format (outdegree,
+/// reference offset, block count, etc.), whereas the knowledge of the
+/// compression parameters (compression window and minimum interval length) is
+/// in this structure.
 #[derive(Debug, Clone)]
 pub struct BvGraphSeq<F> {
     factory: F,
@@ -29,6 +39,7 @@ pub struct BvGraphSeq<F> {
 }
 
 impl BvGraphSeq<()> {
+    /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap> {
@@ -62,12 +73,12 @@ where
 impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     type Label = usize;
     type Lender<'a>
-        = Iter<F::Decoder<'a>>
+        = NodeLabels<F::Decoder<'a>>
     where
         Self: 'a;
 
+    /// Returns the number of nodes in the graph.
     #[inline(always)]
-    /// Returns the number of nodes in the graph
     fn num_nodes(&self) -> usize {
         self.number_of_nodes
     }
@@ -79,7 +90,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = Iter::new(
+        let mut iter = NodeLabels::new(
             self.factory.new_decoder().unwrap(),
             self.number_of_nodes,
             self.compression_window,
@@ -90,10 +101,40 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
         iter
     }
+
+    fn build_dcf(&self) -> DCF {
+        let n = self.num_nodes();
+        let num_arcs = self
+            .num_arcs_hint()
+            .expect("build_dcf requires num_arcs_hint()") as usize;
+        let mut efb = sux::dict::EliasFanoBuilder::new(n + 1, num_arcs);
+        efb.push(0);
+        let mut cumul_deg = 0usize;
+        let mut iter = OffsetDegIter::new(
+            self.factory.new_decoder().unwrap(),
+            n,
+            self.compression_window,
+            self.min_interval_length,
+        );
+        for _ in 0..n {
+            cumul_deg += iter.next_degree().unwrap();
+            efb.push(cumul_deg);
+        }
+        unsafe {
+            efb.build().map_high_bits(|high_bits| {
+                sux::rank_sel::SelectZeroAdaptConst::<_, _, 12, 4>::new(
+                    sux::rank_sel::SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
+                )
+            })
+        }
+    }
 }
 
 impl<F: SequentialDecoderFactory> SequentialGraph for BvGraphSeq<F> {}
 
+/// Convenience implementation that makes it possible to iterate
+/// over the graph using the [`for_`] macro
+/// (see the [crate documentation](crate)).
 impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
     type Lender = <BvGraphSeq<F> as SequentialLabeling>::Lender<'a>;
 
@@ -137,21 +178,18 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
         }
     }
 
+    /// Consumes self and returns the factory.
     #[inline(always)]
-    /// Consume self and return the factory
     pub fn into_inner(self) -> F {
         self.factory
     }
 }
 
-impl<F: SequentialDecoderFactory> BvGraphSeq<F>
-where
-    for<'a> F::Decoder<'a>: Decode,
-{
-    #[inline(always)]
+impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     /// Creates an iterator specialized in the degrees of the nodes.
-    /// This is slightly faster because it can avoid decoding some of the nodes
-    /// and completely skip the merging step.
+    /// This is slightly faster because it can avoid decoding some of
+    /// the nodes and completely skip the merging step.
+    #[inline(always)]
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
         OffsetDegIter::new(
             self.factory.new_decoder().unwrap(),
@@ -165,7 +203,7 @@ where
 /// A fast sequential iterator over the nodes of the graph and their successors.
 /// This iterator does not require to know the offsets of each node in the graph.
 #[derive(Debug, Clone)]
-pub struct Iter<D: Decode> {
+pub struct NodeLabels<D: Decode> {
     pub(crate) number_of_nodes: usize,
     pub(crate) compression_window: usize,
     pub(crate) min_interval_length: usize,
@@ -174,16 +212,16 @@ pub struct Iter<D: Decode> {
     pub(crate) current_node: usize,
 }
 
-impl<D: Decode + BitSeek> Iter<D> {
-    #[inline(always)]
-    /// Forward the call of `get_pos` to the inner `codes_reader`.
+impl<D: Decode + BitSeek> NodeLabels<D> {
+    /// Forwards the call of `get_pos` to the inner `codes_reader`.
     /// This returns the current bits offset in the bitstream.
+    #[inline(always)]
     pub fn bit_pos(&mut self) -> Result<u64, <D as BitSeek>::Error> {
         self.decoder.bit_pos()
     }
 }
 
-impl<D: Decode> Iter<D> {
+impl<D: Decode> NodeLabels<D> {
     /// Creates a new iterator from a codes reader
     pub fn new(
         decoder: D,
@@ -204,14 +242,12 @@ impl<D: Decode> Iter<D> {
     /// Get the successors of the next node in the stream
     pub fn next_successors(&mut self) -> Result<&[usize]> {
         let mut res = self.backrefs.take(self.current_node);
-        res.clear();
         self.get_successors_iter_priv(self.current_node, &mut res)?;
         let res = self.backrefs.replace(self.current_node, res);
         self.current_node += 1;
         Ok(res)
     }
 
-    #[inline(always)]
     /// Inner method called by `next_successors` and the iterator `next` method
     fn get_successors_iter_priv(&mut self, node_id: usize, results: &mut Vec<usize>) -> Result<()> {
         let degree = self.decoder.read_outdegree() as usize;
@@ -220,8 +256,9 @@ impl<D: Decode> Iter<D> {
             return Ok(());
         }
 
+        results.clear();
         // ensure that we have enough capacity in the vector for not reallocating
-        results.reserve(degree.saturating_sub(results.capacity()));
+        results.reserve(degree);
         // read the reference offset
         let ref_delta = if self.compression_window != 0 {
             self.decoder.read_reference_offset() as usize
@@ -233,30 +270,30 @@ impl<D: Decode> Iter<D> {
             // compute the node id of the reference
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
-            let neighbours = &self.backrefs[reference_node_id];
+            let successors = &self.backrefs[reference_node_id];
             //debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
             let number_of_blocks = self.decoder.read_block_count() as usize;
             // no blocks, we copy everything
             if number_of_blocks == 0 {
-                results.extend_from_slice(neighbours);
+                results.extend_from_slice(successors);
             } else {
                 // otherwise we copy only the blocks of even index
                 // the first block could be zero
                 let mut idx = self.decoder.read_block() as usize;
-                results.extend_from_slice(&neighbours[..idx]);
+                results.extend_from_slice(&successors[..idx]);
 
                 // while the other can't
                 for block_id in 1..number_of_blocks {
                     let block = self.decoder.read_block() as usize;
                     let end = idx + block + 1;
                     if block_id % 2 == 0 {
-                        results.extend_from_slice(&neighbours[idx..end]);
+                        results.extend_from_slice(&successors[idx..end]);
                     }
                     idx = end;
                 }
                 if number_of_blocks & 1 == 0 {
-                    results.extend_from_slice(&neighbours[idx..]);
+                    results.extend_from_slice(&successors[idx..]);
                 }
             }
         };
@@ -307,18 +344,20 @@ impl<D: Decode> Iter<D> {
     }
 }
 
-impl<'succ, D: Decode> NodeLabelsLender<'succ> for Iter<D> {
+impl<'succ, D: Decode> NodeLabelsLender<'succ> for NodeLabels<D> {
     type Label = usize;
     type IntoIterator = crate::traits::labels::AssumeSortedIterator<
         std::iter::Copied<std::slice::Iter<'succ, Self::Label>>,
     >;
 }
 
-impl<'succ, D: Decode> Lending<'succ> for Iter<D> {
+impl<'succ, D: Decode> Lending<'succ> for NodeLabels<D> {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<D: Decode> Lender for Iter<D> {
+impl<D: Decode> Lender for NodeLabels<D> {
+    check_covariance!();
+
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.current_node >= self.number_of_nodes {
             return None;
@@ -342,9 +381,10 @@ impl<D: Decode> Lender for Iter<D> {
     }
 }
 
-unsafe impl<D: Decode> SortedLender for Iter<D> {}
+unsafe impl<D: Decode> SortedLender for NodeLabels<D> {}
 
-impl<D: Decode> ExactSizeLender for Iter<D> {
+impl<D: Decode> ExactSizeLender for NodeLabels<D> {
+    #[inline(always)]
     fn len(&self) -> usize {
         self.number_of_nodes - self.current_node
     }

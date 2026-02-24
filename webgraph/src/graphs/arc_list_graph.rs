@@ -5,7 +5,7 @@
  */
 
 use crate::{labels::Left, traits::*};
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use lender::*;
 
 /// An adapter exhibiting a list of labeled arcs sorted by source as a [labeled
@@ -14,20 +14,20 @@ use lender::*;
 /// If for every source the arcs are sorted by destination, the successors of
 /// the graph will be sorted.
 ///
-/// The structure [`Iter`] implementing the [`Lender`] returned by the
+/// The structure [`NodeLabels`] implementing the [`Lender`] returned by the
 /// [`iter`](SequentialLabeling::iter) method of this graph can be [built
-/// independently](Iter::new). This is useful in circumstances in which one has
+/// independently](NodeLabels::new). This is useful in circumstances in which one has
 /// a list of arcs sorted by source that represent only part of a graph, but
 /// need to exhibit them has a [`NodeLabelsLender`], for example, for feeding
 /// such lenders to
-/// [`parallel_iter`](crate::graphs::bvgraph::BvComp::parallel_iter).
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 #[derive(Clone)]
-pub struct ArcListGraph<I: Clone> {
+pub struct ArcListGraph<I> {
     num_nodes: usize,
     into_iter: I,
 }
 
-impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clone> ArcListGraph<I> {
+impl<L: Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> ArcListGraph<I> {
     /// Creates a new arc-list graph from the given [`IntoIterator`].
     #[inline(always)]
     pub fn new_labeled(num_nodes: usize, iter: I) -> Self {
@@ -39,7 +39,7 @@ impl<L: Clone + Copy + 'static, I: IntoIterator<Item = (usize, usize, L)> + Clon
 }
 
 impl<I: Iterator<Item = (usize, usize)> + Clone>
-    ArcListGraph<std::iter::Map<I, fn((usize, usize)) -> (usize, usize, ())>>
+    ArcListGraph<std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>
 {
     /// Creates a new arc-list graph from the given [`IntoIterator`].
     ///
@@ -52,13 +52,13 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
     pub fn new(num_nodes: usize, iter: impl IntoIterator<IntoIter = I>) -> Left<Self> {
         Left(Self {
             num_nodes,
-            into_iter: iter.into_iter().map(|(src, dst)| (src, dst, ())),
+            into_iter: iter.into_iter().map(|pair| (pair, ())),
         })
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone + Send + Sync> SplitLabeling
-    for ArcListGraph<I>
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
+    SplitLabeling for ArcListGraph<I>
 where
     L: Send + Sync,
 {
@@ -77,29 +77,29 @@ where
 }
 
 #[derive(Clone)]
-pub struct Iter<L, I: Iterator<Item = (usize, usize, L)>> {
+pub struct NodeLabels<L, I: Iterator<Item = ((usize, usize), L)>> {
     num_nodes: usize,
     /// The next node that will be returned by the lender.
     next_node: usize,
     iter: core::iter::Peekable<I>,
 }
 
-unsafe impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> SortedLender
-    for Iter<L, I>
+unsafe impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SortedLender
+    for NodeLabels<L, I>
 {
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Iter<L, I> {
-    /// Creates an [`Iter`] of outgoing arcs for nodes from `0` to `num_nodes-1`
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabels<L, I> {
+    /// Creates an [`NodeLabels`] of outgoing arcs for nodes from `0` to `num_nodes-1`
     pub fn new(num_nodes: usize, iter: I) -> Self {
-        Iter {
+        NodeLabels {
             num_nodes,
             next_node: 0,
             iter: iter.peekable(),
         }
     }
 
-    /// Creates an [`Iter`] of outgoing arcs for nodes from `from` to `from+num_nodes-1`.
+    /// Creates an [`NodeLabels`] of outgoing arcs for nodes from `from` to `from+num_nodes-1`.
     ///
     /// # Errors
     ///
@@ -107,10 +107,13 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Iter<L, I> {
     /// starting from a source node smaller than `from`.
     pub fn try_new_from(num_nodes: usize, iter: I, from: usize) -> Result<Self> {
         let mut iter = iter.peekable();
-        if let Some((first_src, _, _)) = iter.peek() {
-            ensure!(*first_src >= from, "Tried to create arc_list_graph::Iter starting from {from} using an iterator starting from {first_src}");
+        if let Some(((first_src, _), _)) = iter.peek() {
+            ensure!(
+                *first_src >= from,
+                "Tried to create arc_list_graph::NodeLabels starting from {from} using an iterator starting from {first_src}"
+            );
         }
-        Ok(Iter {
+        Ok(NodeLabels {
             num_nodes: num_nodes + from,
             next_node: from,
             iter,
@@ -118,27 +121,29 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Iter<L, I> {
     }
 }
 
-impl<'succ, L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> NodeLabelsLender<'succ>
-    for Iter<L, I>
+impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> NodeLabelsLender<'succ>
+    for NodeLabels<L, I>
 {
     type Label = (usize, L);
     type IntoIterator = Succ<'succ, L, I>;
 }
 
-impl<'succ, L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Lending<'succ>
-    for Iter<L, I>
+impl<'succ, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lending<'succ>
+    for NodeLabels<L, I>
 {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Lender for Iter<L, I> {
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> Lender for NodeLabels<L, I> {
+    check_covariance!();
+
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         if self.next_node == self.num_nodes {
             return None;
         }
 
         // Discard residual arcs from the previous iteration
-        while let Some(&(node, _, _)) = self.iter.peek() {
+        while let Some(&((node, _), _)) = self.iter.peek() {
             if node >= self.next_node {
                 break;
             }
@@ -157,34 +162,38 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> Lender for Iter<
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)>> ExactSizeLender for Iter<L, I> {
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLender
+    for NodeLabels<L, I>
+{
+    #[inline(always)]
     fn len(&self) -> usize {
         self.num_nodes - self.next_node
     }
 }
 
-impl<'lend, L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Lending<'lend>
+impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Lending<'lend>
     for &ArcListGraph<I>
 {
     type Lend = (usize, Succ<'lend, L, I>);
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> IntoLender
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> IntoLender
     for &ArcListGraph<I>
 {
-    type Lender = Iter<L, I>;
+    type Lender = NodeLabels<L, I>;
 
+    #[inline(always)]
     fn into_lender(self) -> Self::Lender {
         self.iter()
     }
 }
 
-impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> SequentialLabeling
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SequentialLabeling
     for ArcListGraph<I>
 {
     type Label = (usize, L);
     type Lender<'node>
-        = Iter<L, I>
+        = NodeLabels<L, I>
     where
         Self: 'node;
 
@@ -200,7 +209,7 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = Iter::new(self.num_nodes, self.into_iter.clone());
+        let mut iter = NodeLabels::new(self.num_nodes, self.into_iter.clone());
         for _ in 0..from {
             iter.next();
         }
@@ -209,27 +218,27 @@ impl<L: Clone + 'static, I: Iterator<Item = (usize, usize, L)> + Clone> Sequenti
     }
 }
 
-pub struct Succ<'succ, L, I: IntoIterator<Item = (usize, usize, L)>> {
-    node_iter: &'succ mut Iter<L, <I as IntoIterator>::IntoIter>,
+pub struct Succ<'succ, L, I: IntoIterator<Item = ((usize, usize), L)>> {
+    node_iter: &'succ mut NodeLabels<L, <I as IntoIterator>::IntoIter>,
 }
 
-unsafe impl<L, I: IntoIterator<Item = (usize, usize, L)>> SortedIterator for Succ<'_, L, I> where
+unsafe impl<L, I: IntoIterator<Item = ((usize, usize), L)>> SortedIterator for Succ<'_, L, I> where
     I::IntoIter: SortedIterator
 {
 }
 
-impl<L, I: IntoIterator<Item = (usize, usize, L)>> Iterator for Succ<'_, L, I> {
+impl<L, I: IntoIterator<Item = ((usize, usize), L)>> Iterator for Succ<'_, L, I> {
     type Item = (usize, L);
     fn next(&mut self) -> Option<Self::Item> {
         // If the next pair is not there, or it has a different source, we are done
-        if self.node_iter.iter.peek()?.0 >= self.node_iter.next_node {
+        if self.node_iter.iter.peek()?.0.0 >= self.node_iter.next_node {
             return None;
         }
-        // get the next triple
-        let triple = self.node_iter.iter.next();
+        // get the next labeled pair
+        let labeled_pair = self.node_iter.iter.next();
         // Peek already checks this and the compiler doesn't seem to optimize it out
         // so we use unwrap_unchecked here.
-        let (curr, succ, label) = unsafe { triple.unwrap_unchecked() };
+        let ((curr, succ), label) = unsafe { labeled_pair.unwrap_unchecked() };
         // Here `next_node` is one beyond the node whose successors we are returning
         assert_eq!(curr, self.node_iter.next_node - 1);
         Some((succ, label))

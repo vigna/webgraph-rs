@@ -14,9 +14,9 @@ pub mod dcf;
 pub mod ef;
 pub mod offsets;
 
+/// Builds accessory graph data structures (e.g., offsets, ef, dcf).
 #[derive(Subcommand, Debug)]
-#[command(name = "Builds accessory bv graph data structures (e.g., offsets, ef, etc.).")]
-/// Check coherence of files.
+#[command(name = "build")]
 pub enum SubCommands {
     Ef(ef::CliArgs),
     Dcf(dcf::CliArgs),

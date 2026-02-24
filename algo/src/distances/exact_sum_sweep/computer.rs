@@ -14,20 +14,20 @@ use crossbeam_utils::CachePadded;
 use dsi_progress_logger::*;
 use no_break::NoBreak;
 use nonmax::NonMaxUsize;
-use rayon::{prelude::*, ThreadPool};
+use rayon::prelude::*;
 use std::{
     ops::ControlFlow::Continue,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         RwLock,
+        atomic::{AtomicUsize, Ordering},
     },
 };
-use sux::bits::AtomicBitVec;
+use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 use sync_cell_slice::SyncSlice;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{
-    breadth_first::{EventNoPred, ParFairNoPred},
     FilterArgs, Parallel,
+    breadth_first::{EventNoPred, ParFairNoPred},
 };
 
 use super::{Level, Missing};
@@ -119,7 +119,7 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     /// directed graphs.
     ///
     /// # Arguments
-    /// * `graph`: the direct graph.
+    /// * `graph`: the directed graph.
     /// * `transpose`: the transpose of `graph`.
     /// * `output`: the desired output of the algorithm.
     /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node
@@ -158,13 +158,13 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        V1: Parallel<EventNoPred> + Sync,
-        V2: Parallel<EventNoPred> + Sync,
-        OL: Level,
-    > DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL>
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    V1: Parallel<EventNoPred> + Sync,
+    V2: Parallel<EventNoPred> + Sync,
+    OL: Level,
+> DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL>
 {
     #[allow(clippy::too_many_arguments)]
     fn _new(
@@ -220,12 +220,12 @@ impl<
 }
 
 impl<
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        V1: Parallel<EventNoPred> + Sync,
-        V2: Parallel<EventNoPred> + Sync,
-        OL: Level,
-    > DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL>
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    V1: Parallel<EventNoPred> + Sync,
+    V2: Parallel<EventNoPred> + Sync,
+    OL: Level,
+> DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL>
 {
     #[inline(always)]
     fn incomplete_forward(&self, index: usize) -> bool {
@@ -244,16 +244,14 @@ impl<
     /// # Arguments
     /// * `start`: The starting vertex.
     /// * `iterations`: The number of iterations.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A concurrent progress logger.
     fn sum_sweep_heuristic(
         &mut self,
         start: usize,
         iterations: usize,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
     ) {
-        self.step_sum_sweep(Some(start), true, thread_pool, pl, |node| {
+        self.step_sum_sweep(Some(start), true, pl, |node| {
             format!(
                 "Performing initial forward SumSweep heuristic visit from {}...",
                 node
@@ -265,7 +263,7 @@ impl<
                 let v = math::argmax_filtered(&self.backward_tot, &self.backward_low, |i, _| {
                     self.incomplete_backward(i)
                 });
-                self.step_sum_sweep(v, false, thread_pool, pl, |node| {
+                self.step_sum_sweep(v, false, pl, |node| {
                     format!(
                         "Performing initial backward SumSweep heuristic visit from {}...",
                         node
@@ -275,7 +273,7 @@ impl<
                 let v = math::argmax_filtered(&self.forward_tot, &self.forward_low, |i, _| {
                     self.incomplete_forward(i)
                 });
-                self.step_sum_sweep(v, true, thread_pool, pl, |node| {
+                self.step_sum_sweep(v, true, pl, |node| {
                     format!(
                         "Performing initial forward SumSweep heuristic visit from {}...",
                         node
@@ -288,9 +286,8 @@ impl<
     /// Computes diameter, radius, and/or all eccentricities.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
-    pub fn compute(&mut self, thread_pool: &ThreadPool, pl: &mut impl ProgressLog) {
+    pub(super) fn compute(&mut self, pl: &mut impl ProgressLog) {
         if self.num_nodes == 0 {
             return;
         }
@@ -299,23 +296,20 @@ impl<
         let mut cpl = pl.concurrent();
 
         if self.compute_radial_vertices {
-            self.compute_radial_vertices(thread_pool, &mut cpl);
+            self.compute_radial_vertices(&mut cpl);
         }
 
-        let max_outdegree_vertex = thread_pool
-            .install(|| {
-                (0..self.num_nodes)
-                    .into_par_iter()
-                    .map(|v| (self.graph.outdegree(v), v))
-                    .max_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)))
-            })
+        let max_outdegree_vertex = (0..self.num_nodes)
+            .into_par_iter()
+            .map(|v| (self.graph.outdegree(v), v))
+            .max_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)))
             .unwrap()
             .1; // The iterator is not empty
 
-        self.sum_sweep_heuristic(max_outdegree_vertex, 6, thread_pool, &mut cpl);
+        self.sum_sweep_heuristic(max_outdegree_vertex, 6, &mut cpl);
 
         let mut points = [self.graph.num_nodes() as f64; 5];
-        let mut missing_nodes = self.find_missing_nodes(thread_pool, &mut cpl);
+        let mut missing_nodes = self.find_missing_nodes(&mut cpl);
         let mut old_missing_nodes;
 
         pl.info(format_args!(
@@ -328,12 +322,12 @@ impl<
             let step_to_perform = math::argmax(points).expect("Could not find step to perform");
 
             match step_to_perform {
-                0 => self.all_cc_upper_bound(thread_pool, &mut cpl),
+                0 => self.all_cc_upper_bound(&mut cpl),
                 1 => {
                     let v = math::argmax_filtered(&self.forward_high, &self.forward_tot, |i, _| {
                         self.incomplete_forward(i)
                     });
-                    self.step_sum_sweep(v, true, thread_pool, &mut cpl, |node| {
+                    self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node maximizing the upper bound ({})...",
                             node
@@ -344,7 +338,7 @@ impl<
                     let v = math::argmin_filtered(&self.forward_low, &self.forward_tot, |i, _| {
                         self.radial_vertices[i]
                     });
-                    self.step_sum_sweep(v, true, thread_pool, &mut cpl, |node| {
+                    self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node minimizing the lower bound ({})...",
                             node
@@ -356,7 +350,7 @@ impl<
                         math::argmax_filtered(&self.backward_high, &self.backward_tot, |i, _| {
                             self.incomplete_backward(i)
                         });
-                    self.step_sum_sweep(v, false, thread_pool, &mut cpl, |node| {
+                    self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the upper bound ({})...",
                             node
@@ -368,7 +362,7 @@ impl<
                         math::argmax_filtered(&self.backward_tot, &self.backward_high, |i, _| {
                             self.incomplete_backward(i)
                         });
-                    self.step_sum_sweep(v, false, thread_pool, &mut cpl, |node| {
+                    self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the distance sum ({})",
                             node
@@ -382,7 +376,7 @@ impl<
             // For more information see Section 4.6 of the paper.
 
             old_missing_nodes = missing_nodes;
-            missing_nodes = self.find_missing_nodes(thread_pool, &mut cpl);
+            missing_nodes = self.find_missing_nodes(&mut cpl);
             points[step_to_perform] = (old_missing_nodes - missing_nodes) as f64;
 
             // This is to make rust-analyzer happy as it cannot recognize mut reference
@@ -404,7 +398,7 @@ impl<
     }
 
     /// Uses a heuristic to decide which is the best pivot to choose in each strongly connected
-    /// component, in order to perform the [`Self::all_cc_upper_bound`] method.
+    /// component, in order to call the `all_cc_upper_bound` method.
     ///
     /// # Arguments
     /// * `pl`: A progress logger..
@@ -470,13 +464,8 @@ impl<
     /// the biggest strongly connected component.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
-    fn compute_radial_vertices(
-        &mut self,
-        thread_pool: &ThreadPool,
-        pl: &mut impl ConcurrentProgressLog,
-    ) {
+    fn compute_radial_vertices(&mut self, pl: &mut impl ConcurrentProgressLog) {
         if self.num_nodes == 0 {
             return;
         }
@@ -505,18 +494,13 @@ impl<
 
         let radial_vertices = &self.radial_vertices;
         self.transposed_visit
-            .par_visit_with(
-                [v],
-                pl.clone(),
-                |pl, event| {
-                    if let EventNoPred::Visit { node, .. } = event {
-                        pl.light_update();
-                        radial_vertices.set(node, true, Ordering::Relaxed)
-                    }
-                    Continue(())
-                },
-                thread_pool,
-            )
+            .par_visit_with([v], pl.clone(), |pl, event| {
+                if let EventNoPred::Visit { node, .. } = event {
+                    pl.light_update();
+                    radial_vertices.set(node, true, Ordering::Relaxed)
+                }
+                Continue(())
+            })
             .continue_value_no_break();
         self.transposed_visit.reset();
 
@@ -532,32 +516,28 @@ impl<
     /// * `start`: The starting vertex of the BFS. If [`None`], no visit happens.
     /// * `forward`: Whether the BFS is performed following the direction of edges or
     ///   in the opposite direction.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     /// * `message`: The message to print to the log.
     fn step_sum_sweep(
         &mut self,
         start: Option<usize>,
         forward: bool,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
         message: impl FnOnce(usize) -> String,
     ) {
         if let Some(start) = start {
             if forward {
-                self.forward_step_sum_sweep(start, thread_pool, pl, message);
+                self.forward_step_sum_sweep(start, pl, message);
             } else {
-                self.backwards_step_sum_sweep(start, thread_pool, pl, message);
+                self.backwards_step_sum_sweep(start, pl, message);
             }
             self.iterations += 1;
         }
     }
 
-    #[inline(always)]
     fn backwards_step_sum_sweep(
         &mut self,
         start: usize,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
         message: impl FnOnce(usize) -> String,
     ) {
@@ -573,46 +553,41 @@ impl<
         let forward_tot = self.forward_tot.as_sync_slice();
 
         self.transposed_visit
-            .par_visit_with(
-                [start],
-                pl.clone(),
-                |pl, event| {
-                    if let EventNoPred::Visit { node, distance, .. } = event {
-                        pl.light_update();
-                        // Safety for unsafe blocks: each node gets accessed exactly once, so no data races can happen
-                        max_dist.fetch_max(distance, Ordering::Relaxed);
+            .par_visit_with([start], pl.clone(), |pl, event| {
+                if let EventNoPred::Visit { node, distance, .. } = event {
+                    pl.light_update();
+                    // Safety for unsafe blocks: each node gets accessed exactly once, so no data races can happen
+                    max_dist.fetch_max(distance, Ordering::Relaxed);
 
-                        let node_forward_low = unsafe { forward_low[node].get() };
-                        let node_forward_high = self.forward_high[node];
+                    let node_forward_low = unsafe { forward_low[node].get() };
+                    let node_forward_high = self.forward_high[node];
 
-                        unsafe { forward_tot[node].set(forward_tot[node].get() + distance) };
+                    unsafe { forward_tot[node].set(forward_tot[node].get() + distance) };
 
-                        if node_forward_low != node_forward_high && node_forward_low < distance {
-                            unsafe { forward_low[node].set(distance) };
+                    if node_forward_low != node_forward_high && node_forward_low < distance {
+                        unsafe { forward_low[node].set(distance) };
 
-                            if distance == node_forward_high && self.radial_vertices[node] {
-                                let mut update_radius = false;
-                                {
-                                    let radius_lock = radius.read().unwrap();
-                                    if distance < radius_lock.0 {
-                                        update_radius = true;
-                                    }
+                        if distance == node_forward_high && self.radial_vertices[node] {
+                            let mut update_radius = false;
+                            {
+                                let radius_lock = radius.read().unwrap();
+                                if distance < radius_lock.0 {
+                                    update_radius = true;
                                 }
+                            }
 
-                                if update_radius {
-                                    let mut radius_lock = radius.write().unwrap();
-                                    if distance < radius_lock.0 {
-                                        radius_lock.0 = distance;
-                                        radius_lock.1 = node;
-                                    }
+                            if update_radius {
+                                let mut radius_lock = radius.write().unwrap();
+                                if distance < radius_lock.0 {
+                                    radius_lock.0 = distance;
+                                    radius_lock.1 = node;
                                 }
                             }
                         }
-                    };
-                    Continue(())
-                },
-                thread_pool,
-            )
+                    }
+                };
+                Continue(())
+            })
             .continue_value_no_break();
 
         self.transposed_visit.reset();
@@ -632,11 +607,9 @@ impl<
         pl.done();
     }
 
-    #[inline(always)]
     fn forward_step_sum_sweep(
         &mut self,
         start: usize,
-        thread_pool: &ThreadPool,
         pl: &mut impl ConcurrentProgressLog,
         message: impl FnOnce(usize) -> String,
     ) {
@@ -652,28 +625,23 @@ impl<
 
         self.visit.reset();
         self.visit
-            .par_visit_with(
-                [start],
-                pl.clone(),
-                |pl, event| {
-                    if let EventNoPred::Visit { node, distance, .. } = event {
-                        // SAFETY: each node gets accessed exactly once, so no data races can happen
-                        pl.light_update();
-                        max_dist.fetch_max(distance, Ordering::Relaxed);
+            .par_visit_with([start], pl.clone(), |pl, event| {
+                if let EventNoPred::Visit { node, distance, .. } = event {
+                    // SAFETY: each node gets accessed exactly once, so no data races can happen
+                    pl.light_update();
+                    max_dist.fetch_max(distance, Ordering::Relaxed);
 
-                        let node_backward_high = self.backward_high[node];
-                        let node_backward_low = unsafe { backward_low[node].get() };
+                    let node_backward_high = self.backward_high[node];
+                    let node_backward_low = unsafe { backward_low[node].get() };
 
-                        unsafe { backward_tot[node].set(backward_tot[node].get() + distance) };
+                    unsafe { backward_tot[node].set(backward_tot[node].get() + distance) };
 
-                        if node_backward_low != node_backward_high && node_backward_low < distance {
-                            unsafe { backward_low[node].set(distance) };
-                        }
+                    if node_backward_low != node_backward_high && node_backward_low < distance {
+                        unsafe { backward_low[node].set(distance) };
                     }
-                    Continue(())
-                },
-                thread_pool,
-            )
+                }
+                Continue(())
+            })
             .continue_value_no_break();
 
         let ecc_start = max_dist.load(Ordering::Relaxed);
@@ -703,7 +671,6 @@ impl<
     ///   component.
     /// * `forward`: Whether the BFS is performed following the direction of edges or
     ///   in the opposite direction.
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
     ///
     /// # Return
@@ -716,7 +683,6 @@ impl<
         &self,
         pivot: &[usize],
         forward: bool,
-        thread_pool: &ThreadPool,
         pl: &mut impl ProgressLog,
     ) -> (Vec<usize>, Vec<usize>) {
         pl.expected_updates(None);
@@ -724,10 +690,10 @@ impl<
 
         let (dist_pivot, usize_ecc_pivot) = if forward {
             pl.start("Computing forward dist pivots...");
-            self.compute_dist_pivot_from_graph(pivot, self.graph, thread_pool)
+            self.compute_dist_pivot_from_graph(pivot, self.graph)
         } else {
             pl.start("Computing backwards dist pivots...");
-            self.compute_dist_pivot_from_graph(pivot, self.transpose, thread_pool)
+            self.compute_dist_pivot_from_graph(pivot, self.transpose)
         };
 
         pl.done();
@@ -735,12 +701,10 @@ impl<
         (dist_pivot, usize_ecc_pivot)
     }
 
-    #[inline(always)]
     fn compute_dist_pivot_from_graph(
         &self,
         pivot: &[usize],
         graph: &(impl RandomAccessGraph + Sync),
-        thread_pool: &ThreadPool,
     ) -> (Vec<usize>, Vec<usize>) {
         let components = self.scc.components();
         let mut ecc_pivot = Vec::with_capacity(self.scc.num_components());
@@ -749,7 +713,7 @@ impl<
         let dist_pivot_mut = dist_pivot.as_sync_slice();
         let current_index = CachePadded::new(AtomicUsize::new(0));
 
-        thread_pool.broadcast(|_| {
+        rayon::broadcast(|_| {
             let mut bfs = ParFairNoPred::new(graph);
             let mut current_pivot_index = current_index.fetch_add(1, Ordering::Relaxed);
 
@@ -768,7 +732,6 @@ impl<
                         Continue(())
                     },
                     |FilterArgs::<EventNoPred> { node, .. }| components[node] == pivot_component,
-                    thread_pool,
                 )
                 .continue_value_no_break();
 
@@ -793,9 +756,8 @@ impl<
     /// For more information see Section 4.2 of the paper.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
-    fn all_cc_upper_bound(&mut self, thread_pool: &ThreadPool, pl: &mut impl ProgressLog) {
+    fn all_cc_upper_bound(&mut self, pl: &mut impl ProgressLog) {
         pl.item_name("element");
         pl.display_memory(false);
         pl.expected_updates(Some(2 * self.scc.num_components() + self.num_nodes));
@@ -803,10 +765,8 @@ impl<
 
         let pivot = self.find_best_pivot(pl);
 
-        let (dist_pivot_f, mut ecc_pivot_f) =
-            self.compute_dist_pivot(&pivot, true, thread_pool, pl);
-        let (dist_pivot_b, mut ecc_pivot_b) =
-            self.compute_dist_pivot(&pivot, false, thread_pool, pl);
+        let (dist_pivot_f, mut ecc_pivot_f) = self.compute_dist_pivot(&pivot, true, pl);
+        let (dist_pivot_b, mut ecc_pivot_b) = self.compute_dist_pivot(&pivot, false, pl);
         let components = self.scc.components();
 
         // Tarjan's algorithm emits components in reverse topological order.
@@ -862,48 +822,47 @@ impl<
         let backward_high = self.backward_high.as_sync_slice();
 
         pl.info(format_args!("Refining upper bounds of nodes..."));
-        thread_pool.install(|| {
-            (0..self.num_nodes).into_par_iter().for_each(|node| {
-                // Safety for unsafe blocks: each node gets accessed exactly
-                // once, so no data races can happen
 
-                let mut node_forward_high = unsafe { forward_high[node].get() };
-                let pivot_value = dist_pivot_b[node] + ecc_pivot_f[components[node]];
+        (0..self.num_nodes).into_par_iter().for_each(|node| {
+            // Safety for unsafe blocks: each node gets accessed exactly
+            // once, so no data races can happen
 
-                if pivot_value < node_forward_high {
-                    unsafe { forward_high[node].set(pivot_value) };
-                    node_forward_high = pivot_value;
-                }
+            let mut node_forward_high = unsafe { forward_high[node].get() };
+            let pivot_value = dist_pivot_b[node] + ecc_pivot_f[components[node]];
 
-                if node_forward_high == self.forward_low[node] {
-                    let new_ecc = node_forward_high;
+            if pivot_value < node_forward_high {
+                unsafe { forward_high[node].set(pivot_value) };
+                node_forward_high = pivot_value;
+            }
 
-                    if self.radial_vertices[node] {
-                        let mut update_radius = false;
-                        {
-                            let radius_lock = radius.read().unwrap();
-                            if new_ecc < radius_lock.0 {
-                                update_radius = true;
-                            }
+            if node_forward_high == self.forward_low[node] {
+                let new_ecc = node_forward_high;
+
+                if self.radial_vertices[node] {
+                    let mut update_radius = false;
+                    {
+                        let radius_lock = radius.read().unwrap();
+                        if new_ecc < radius_lock.0 {
+                            update_radius = true;
                         }
+                    }
 
-                        if update_radius {
-                            let mut radius_lock = radius.write().unwrap();
-                            if new_ecc < radius_lock.0 {
-                                radius_lock.0 = new_ecc;
-                                radius_lock.1 = node;
-                            }
+                    if update_radius {
+                        let mut radius_lock = radius.write().unwrap();
+                        if new_ecc < radius_lock.0 {
+                            radius_lock.0 = new_ecc;
+                            radius_lock.1 = node;
                         }
                     }
                 }
+            }
 
-                unsafe {
-                    backward_high[node].set(std::cmp::min(
-                        backward_high[node].get(),
-                        dist_pivot_f[node] + ecc_pivot_b[components[node]],
-                    ))
-                };
-            });
+            unsafe {
+                backward_high[node].set(std::cmp::min(
+                    backward_high[node].get(),
+                    dist_pivot_f[node] + ecc_pivot_b[components[node]],
+                ))
+            };
         });
 
         pl.update_with_count(self.num_nodes);
@@ -918,37 +877,34 @@ impl<
     /// Computes how many nodes are still to be processed, before outputting the result.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
-    fn find_missing_nodes(&mut self, thread_pool: &ThreadPool, pl: &mut impl ProgressLog) -> usize {
+    fn find_missing_nodes(&mut self, pl: &mut impl ProgressLog) -> usize {
         pl.item_name("node");
         pl.display_memory(false);
         pl.expected_updates(Some(self.num_nodes));
         pl.start("Computing missing nodes...");
 
-        let missing = thread_pool.install(|| {
-            (0..self.num_nodes)
-                .into_par_iter() // TODO: with_min_len (also elsewhere)
-                .fold(Default::default, |mut acc: Missing, node| {
-                    if self.incomplete_forward(node) {
-                        acc.all_forward += 1;
-                        if self.forward_high[node] > self.diameter_low {
-                            acc.diameter_forward += 1;
-                        }
-                        if self.radial_vertices[node] && self.forward_low[node] < self.radius_high {
-                            acc.radius += 1;
-                        }
+        let missing = (0..self.num_nodes)
+            .into_par_iter() // TODO: with_min_len (also elsewhere)
+            .fold(Default::default, |mut acc: Missing, node| {
+                if self.incomplete_forward(node) {
+                    acc.all_forward += 1;
+                    if self.forward_high[node] > self.diameter_low {
+                        acc.diameter_forward += 1;
                     }
-                    if self.incomplete_backward(node) {
-                        acc.all_backward += 1;
-                        if self.backward_high[node] > self.diameter_low {
-                            acc.diameter_backward += 1;
-                        }
+                    if self.radial_vertices[node] && self.forward_low[node] < self.radius_high {
+                        acc.radius += 1;
                     }
-                    acc
-                })
-                .reduce(Default::default, |acc, elem| acc + elem)
-        });
+                }
+                if self.incomplete_backward(node) {
+                    acc.all_backward += 1;
+                    if self.backward_high[node] > self.diameter_low {
+                        acc.diameter_backward += 1;
+                    }
+                }
+                acc
+            })
+            .reduce(Default::default, |acc, elem| acc + elem);
 
         pl.update_with_count(self.num_nodes);
 

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{create_parent_dir, GlobalArgs};
+use crate::{GlobalArgs, create_parent_dir};
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -20,7 +20,7 @@ use webgraph::prelude::*;
 #[command(name = "bfs", about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 
     /// The filename of the permutation in binary big-endian format.
     pub perm: PathBuf,
@@ -33,7 +33,7 @@ pub struct CliArgs {
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.perm)?;
 
-    match get_endianness(&args.src)?.as_str() {
+    match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => bfs::<BE>(global_args, args),
         #[cfg(feature = "le_bins")]
@@ -51,7 +51,7 @@ where
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
 {
     // load the graph
-    let graph = BvGraph::with_basename(&args.src)
+    let graph = BvGraph::with_basename(&args.basename)
         .mode::<LoadMmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()

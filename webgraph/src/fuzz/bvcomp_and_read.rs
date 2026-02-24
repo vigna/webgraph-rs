@@ -4,57 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Fuzz in-memory compression and reading of bvcomp graphs. This is fast but
+//! uses low-level constructs.
+
+use crate::fuzz::utils::CompFlagsFuzz;
 use crate::prelude::*;
 use arbitrary::Arbitrary;
 use dsi_bitstream::prelude::*;
 use lender::prelude::*;
 use sux::prelude::*;
 use sux::traits::IndexedSeq;
-
-#[derive(Clone, Debug, arbitrary::Arbitrary)]
-pub enum CodeFuzz {
-    Unary,
-    Gamma,
-    Delta,
-    Zeta3,
-}
-impl From<CodeFuzz> for Codes {
-    fn from(value: CodeFuzz) -> Self {
-        match value {
-            CodeFuzz::Unary => Codes::Unary,
-            CodeFuzz::Gamma => Codes::Gamma,
-            CodeFuzz::Delta => Codes::Delta,
-            CodeFuzz::Zeta3 => Codes::Zeta { k: 3 },
-        }
-    }
-}
-
-#[derive(Clone, Debug, arbitrary::Arbitrary)]
-pub struct CompFlagsFuzz {
-    pub outdegrees: CodeFuzz,
-    pub references: CodeFuzz,
-    pub blocks: CodeFuzz,
-    pub intervals: CodeFuzz,
-    pub residuals: CodeFuzz,
-    pub min_interval_length: u8,
-    pub compression_window: u8,
-    pub max_ref_count: u8,
-}
-
-impl From<CompFlagsFuzz> for CompFlags {
-    fn from(value: CompFlagsFuzz) -> Self {
-        CompFlags {
-            outdegrees: value.outdegrees.into(),
-            references: value.references.into(),
-            blocks: value.blocks.into(),
-            intervals: value.intervals.into(),
-            residuals: value.residuals.into(),
-            min_interval_length: value.min_interval_length as usize,
-            compression_window: value.compression_window as usize,
-            max_ref_count: value.max_ref_count as usize,
-        }
-    }
-}
 
 #[derive(Arbitrary, Debug)]
 pub struct FuzzCase {
@@ -74,11 +33,14 @@ pub fn harness(data: FuzzCase) {
     let graph = BTreeGraph::from_arcs(edges);
     // Compress in big endian
     let mut codes_data_be: Vec<u64> = Vec::new();
+    let mut offsets_be: Vec<u8> = vec![];
     {
         let bit_writer = <BufBitWriter<BE, _>>::new(MemWordWriterVec::new(&mut codes_data_be));
         let codes_writer = <DynCodesEncoder<BE, _>>::new(bit_writer, &comp_flags).unwrap();
+        let offsets_writer = OffsetsWriter::from_write(&mut offsets_be, true).unwrap();
         let mut bvcomp = BvComp::new(
             codes_writer,
+            offsets_writer,
             comp_flags.compression_window,
             comp_flags.max_ref_count,
             comp_flags.min_interval_length,
@@ -89,11 +51,14 @@ pub fn harness(data: FuzzCase) {
     }
     // Compress in little endian
     let mut codes_data_le: Vec<u64> = Vec::new();
+    let mut offsets_le: Vec<u8> = vec![];
     {
         let bit_writer = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut codes_data_le));
         let codes_writer = <DynCodesEncoder<LE, _>>::new(bit_writer, &comp_flags).unwrap();
+        let offsets_writer = OffsetsWriter::from_write(&mut offsets_le, true).unwrap();
         let mut bvcomp = BvComp::new(
             codes_writer,
+            offsets_writer,
             comp_flags.compression_window,
             comp_flags.max_ref_count,
             comp_flags.min_interval_length,
@@ -161,7 +126,17 @@ pub fn harness(data: FuzzCase) {
     let mut seq_iter_le = seq_graph_le.iter();
     assert_eq!(seq_iter_be.bit_pos().unwrap(), 0);
     assert_eq!(seq_iter_le.bit_pos().unwrap(), 0);
+
+    let mut offsets_reader_be =
+        BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(offsets_be.as_slice()));
+    let mut offsets_reader_le =
+        BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(offsets_le.as_slice()));
+    assert_eq!(offsets_reader_be.read_gamma().unwrap(), 0);
+    assert_eq!(offsets_reader_le.read_gamma().unwrap(), 0);
+
     // verify that they are the same and build the offsets
+    let mut cumulative_offset_be = 0;
+    let mut cumulative_offset_le = 0;
     for _ in 0..graph.num_nodes() {
         let (node_id, succ) = seq_iter.next().unwrap();
         let (node_id_be, succ_be) = seq_iter_be.next().unwrap();
@@ -171,12 +146,20 @@ pub fn harness(data: FuzzCase) {
         let succ = succ.into_iter().collect::<Vec<_>>();
         assert_eq!(node_id, node_id_be);
         assert_eq!(node_id_be, node_id_le);
-        assert_eq!(
-            seq_iter_be.bit_pos().unwrap(),
-            seq_iter_le.bit_pos().unwrap()
-        );
         assert_eq!(succ_be, succ_le);
         assert_eq!(succ, succ_be);
+
+        let iter_offset_be = seq_iter_be.bit_pos().unwrap();
+        let iter_offset_le = seq_iter_le.bit_pos().unwrap();
+        assert_eq!(iter_offset_be, iter_offset_le);
+
+        let offset_be = offsets_reader_be.read_gamma().unwrap();
+        let offset_le = offsets_reader_le.read_gamma().unwrap();
+        cumulative_offset_be += offset_be;
+        cumulative_offset_le += offset_le;
+        assert_eq!(cumulative_offset_be as usize, iter_offset_be as usize);
+        assert_eq!(cumulative_offset_le as usize, iter_offset_le as usize);
+
         offsets.push(seq_iter_be.bit_pos().unwrap());
         efb.push(seq_iter_be.bit_pos().unwrap() as usize);
     }

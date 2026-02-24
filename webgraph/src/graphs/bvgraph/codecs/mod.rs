@@ -44,7 +44,7 @@ pub trait Decode {
 
 use impl_tools::autoimpl;
 
-/// Methods to encode the component of a [`super::BvGraph`] or [`super::BvGraphSeq`].
+/// Methods to encode the components of a [`super::BvGraph`] or [`super::BvGraphSeq`].
 #[autoimpl(for<T: trait + ?Sized> &mut T, Box<T>)]
 pub trait Encode {
     type Error: Error + Send + Sync + 'static;
@@ -93,6 +93,6 @@ pub trait SequentialDecoderFactory {
     where
         Self: 'a;
 
-    /// Creates a new reader starting at the given node.
+    /// Creates a new reader starting at the beginning of the graph.
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>>;
 }

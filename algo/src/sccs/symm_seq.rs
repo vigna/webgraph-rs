@@ -12,7 +12,7 @@ use std::ops::ControlFlow::Continue;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::{prelude::*, visits::Sequential};
 
-/// Connected components of symmetric graphs by sequential visits.
+/// Computes connected components of symmetric graphs by sequential visits.
 pub fn symm_seq(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {
     // debug_assert!(check_symmetric(&graph)); requires sync
 

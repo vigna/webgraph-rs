@@ -5,7 +5,123 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{bail, ensure, Context, Result};
+//! Computes an approximation of the neighborhood function, of the size of the
+//! reachable sets, and of (discounted) positive geometric centralities of a
+//! graph using HyperBall.
+//!
+//! HyperBall is an algorithm computing by dynamic programming an approximation
+//! of the sizes of the balls of growing radius around the nodes of a graph.
+//! Starting from these data, it can approximate the _neighborhood function_ of
+//! a graph (i.e., the function returning for each _t_ the number of pairs of
+//! nodes at distance at most _t_), the number of nodes reachable from each
+//! node, Bavelas's closeness centrality, Lin's index, and _harmonic centrality_
+//! (studied by Paolo Boldi and Sebastiano Vigna in "[Axioms for
+//! Centrality]", _Internet Math._, 10(3-4):222–262, 2014). HyperBall can also
+//! compute _discounted centralities_, in which the _discount_ assigned to a
+//! node is some specified function of its distance. All centralities are
+//! computed in their _positive_ version (i.e., using distance _from_ the
+//! source: see below how to compute the more usual, and useful, _negative_
+//! version).
+//!
+//! HyperBall has been described by Paolo Boldi and Sebastiano Vigna in
+//! "[In-Core Computation of Geometric Centralities with HyperBall: A Hundred
+//! Billion Nodes and Beyond][HyperBall paper]", _Proc. of 2013 IEEE 13th
+//! International Conference on Data Mining Workshops (ICDMW 2013)_, IEEE, 2013,
+//! and it is a generalization of the method described in "[HyperANF:
+//! Approximating the Neighborhood Function of Very Large Graphs on a
+//! Budget][HyperANF paper]", by Paolo Boldi, Marco Rosa, and Sebastiano Vigna,
+//! _Proceedings of the 20th international conference on World Wide Web_, pages
+//! 625–634, ACM, 2011.
+//!
+//! Incidentally, HyperBall (actually, HyperANF) has been used to show that
+//! Facebook has just [four degrees of separation].
+//!
+//! # Algorithm
+//!
+//! At step _t_, for each node we (approximately) keep track (using
+//! [HyperLogLog counters]) of the set of nodes at distance at most _t_. At
+//! each iteration, the sets associated with the successors of each node are
+//! merged, thus obtaining the new sets. A crucial component in making this
+//! process efficient and scalable is the usage of broadword programming to
+//! implement the merge phase, which requires maximising in parallel the list of
+//! registers associated with each successor.
+//!
+//! Using the approximate sets, for each _t_ we estimate the number of pairs of
+//! nodes (_x_, _y_) such that the distance from _x_ to _y_ is at most _t_.
+//! Since during the computation we are also in possession of the number of
+//! nodes at distance _t_ − 1, we can also perform computations using the
+//! number of nodes at distance _exactly_ _t_ (e.g., centralities).
+//!
+//! # Systolic Computation
+//!
+//! If you additionally pass the _transpose_ of your graph, when three quarters
+//! of the nodes stop changing their value HyperBall will switch to a _systolic_
+//! computation: using the transpose, when a node changes it will signal back to
+//! its predecessors that at the next iteration they could change. At the next
+//! scan, only the successors of signalled nodes will be scanned. In particular,
+//! when a very small number of nodes is modified by an iteration, HyperBall
+//! will switch to a systolic _local_ mode, in which all information about
+//! modified nodes is kept in (traditional) dictionaries, rather than being
+//! represented as arrays of booleans. This strategy makes the last phases of
+//! the computation orders of magnitude faster, and makes in practice the
+//! running time of HyperBall proportional to the theoretical bound
+//! _O_(_m_ log _n_), where _n_ is the number of nodes and _m_ is the number of
+//! arcs of the graph. Note that graphs with a large diameter require a
+//! correspondingly large number of iterations, and these iterations will have
+//! to pass over all nodes if you do not provide the transpose.
+//!
+//! # Stopping Criterion
+//!
+//! Deciding when to stop iterating is a rather delicate issue. The only safe
+//! way is to iterate until no counter is modified, and systolic (local)
+//! computation makes this goal easily attainable. However, in some cases one
+//! can assume that the graph is not pathological, and stop when the relative
+//! increment of the number of pairs goes below some threshold.
+//!
+//! # Computing Centralities
+//!
+//! Note that usually one is interested in the _negative_ version of a
+//! centrality measure, that is, the version that depends on the _incoming_
+//! arcs. HyperBall can compute only _positive_ centralities: if you are
+//! interested (as it usually happens) in the negative version, you must pass to
+//! HyperBall the _transpose_ of the graph (and if you want to run in systolic
+//! mode, the original graph, which is the transpose of the transpose). Note
+//! that the neighborhood function of the transpose is identical to the
+//! neighborhood function of the original graph, so the exchange does not alter
+//! its computation.
+//!
+//! # Node Weights
+//!
+//! HyperBall can manage to a certain extent a notion of _node weight_ in its
+//! computation of centralities. Weights must be nonnegative integers, and the
+//! initialization phase requires generating a random integer for each unit of
+//! overall weight, as weights are simulated by loading the counter of a node
+//! with multiple elements. Combining this feature with discounts, one can
+//! compute _discounted-gain centralities_ as defined in the [HyperBall paper].
+//!
+//! # Performance
+//!
+//! Most of the memory goes into storing HyperLogLog registers. By tuning the
+//! number of registers per counter, you can modify the memory allocated for
+//! them. Note that you can only choose a number of registers per counter that
+//! is a power of two, so your latitude in adjusting the memory used for
+//! registers is somewhat limited.
+//!
+//! If there are several available cores, the iterations will be _decomposed_
+//! into relatively small tasks (small blocks of nodes) and each task will be
+//! assigned to the first available core. Since all tasks are completely
+//! independent, this behavior ensures a very high degree of parallelism. Be
+//! careful, however, because this feature requires a graph with a reasonably
+//! fast random access (e.g., in the case of a short reference chains in a
+//! [`BvGraph`](webgraph::prelude::BvGraph) and a good choice of the granularity.
+//!
+//! [Axioms for Centrality]: <http://vigna.di.unimi.it/papers.php#BoVAC>
+//! [HyperBall paper]: <http://vigna.di.unimi.it/papers.php#BoVHB>
+//! [HyperANF paper]: <http://vigna.di.unimi.it/papers.php#BoRoVHANF>
+//! [four degrees of separation]: <http://vigna.di.unimi.it/papers.php#BBRFDS>
+//! [HyperLogLog counters]: <https://docs.rs/card-est-array/latest/card_est_array/impls/struct.HyperLogLog.html>
+
+use anyhow::{Context, Result, bail, ensure};
 use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceEstimatorArray};
 use card_est_array::traits::{
     AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
@@ -14,9 +130,10 @@ use card_est_array::traits::{
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::ConcurrentProgressLog;
 use kahan::KahanSum;
-use rayon::{prelude::*, ThreadPool};
+use rayon::prelude::*;
 use std::hash::{BuildHasherDefault, DefaultHasher};
-use std::sync::{atomic::*, Mutex};
+use std::sync::{Mutex, atomic::*};
+use sux::traits::AtomicBitVecOps;
 use sux::{bits::AtomicBitVec, traits::Succ};
 use sync_cell_slice::{SyncCell, SyncSlice};
 use webgraph::traits::{RandomAccessGraph, SequentialLabeling};
@@ -24,9 +141,89 @@ use webgraph::utils::Granularity;
 
 /// A builder for [`HyperBall`].
 ///
-/// After creating a builder with [`HyperBallBuilder::new`] you can configure it
-/// using setters such as [`HyperBallBuilder`] its methods, then call
-/// [`HyperBallBuilder::build`] on it to create a [`HyperBall`] instance.
+/// # Creating a Builder
+///
+/// There are three constructors, depending on the type of graph and
+/// cardinality estimator:
+///
+/// - [`with_hyper_log_log`](Self::with_hyper_log_log): the most common entry
+///   point—it creates a builder using [`HyperLogLog`] counters, requiring
+///   only the base-2 logarithm of the number of registers per counter
+///   (`log2m`). Higher values of `log2m` give more precise estimates at the
+///   cost of more memory;
+/// - [`new`](Self::new): creates a builder from two pre-built estimator
+///   arrays and a graph (without its transpose);
+/// - [`with_transpose`](Self::with_transpose): same, but also accepts the
+///   transpose of the graph, enabling [systolic
+///   computation](super::hyperball#systolic-computation).
+///
+/// # Configuration
+///
+/// After creation, the builder can be configured using the following
+/// methods:
+///
+/// - [`sum_of_distances`](Self::sum_of_distances): enables the computation
+///   of the sum of distances from each node (needed for closeness, Lin, and
+///   Nieminen centrality);
+/// - [`sum_of_inverse_distances`](Self::sum_of_inverse_distances): enables
+///   the computation of harmonic centrality;
+/// - [`discount_function`](Self::discount_function): adds a custom discount
+///   function;
+/// - [`granularity`](Self::granularity): sets the arc granularity for the
+///   parallel iterations;
+/// - [`weights`](Self::weights): sets optional nonnegative integer node
+///   weights.
+///
+/// Finally, call [`build`](Self::build) to obtain a [`HyperBall`] instance,
+/// and then [`run`](HyperBall::run) or
+/// [`run_until_done`](HyperBall::run_until_done) to perform the actual
+/// computation.
+///
+/// # Examples
+///
+/// ```
+/// # use webgraph::graphs::vec_graph::VecGraph;
+/// # use webgraph::traits::SequentialLabeling;
+/// # use webgraph_algo::distances::hyperball::*;
+/// # use dsi_progress_logger::no_logging;
+/// # use rand::SeedableRng;
+/// let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+/// let dcf = graph.build_dcf();
+///
+/// // Build and run HyperBall (neighborhood function only)
+/// let rng = rand::rngs::SmallRng::seed_from_u64(0);
+/// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
+///     &graph, None::<&VecGraph>, &dcf, 6, None,
+/// )?.build(no_logging![]);
+/// hyperball.run_until_done(rng, no_logging![])?;
+///
+/// let nf = hyperball.neighborhood_function()?;
+/// assert!(nf.len() >= 4);
+/// # Ok::<(), anyhow::Error>(())
+/// ```
+///
+/// To compute harmonic centrality, enable it on the builder:
+///
+/// ```
+/// # use webgraph::graphs::vec_graph::VecGraph;
+/// # use webgraph::traits::SequentialLabeling;
+/// # use webgraph_algo::distances::hyperball::*;
+/// # use dsi_progress_logger::no_logging;
+/// # use rand::SeedableRng;
+/// # let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3)]);
+/// # let dcf = graph.build_dcf();
+/// # let rng = rand::rngs::SmallRng::seed_from_u64(0);
+/// let mut hyperball = HyperBallBuilder::with_hyper_log_log(
+///     &graph, None::<&VecGraph>, &dcf, 6, None,
+/// )?
+/// .sum_of_inverse_distances(true)
+/// .build(no_logging![]);
+/// hyperball.run_until_done(rng, no_logging![])?;
+///
+/// let centralities = hyperball.harmonic_centralities()?;
+/// assert_eq!(centralities.len(), graph.num_nodes());
+/// # Ok::<(), anyhow::Error>(())
+/// ```
 pub struct HyperBallBuilder<
     'a,
     G1: RandomAccessGraph + Sync,
@@ -46,7 +243,7 @@ pub struct HyperBallBuilder<
     /// Whether to compute the sum of inverse distances (e.g., for harmonic centrality).
     do_sum_of_inv_dists: bool,
     /// Custom discount functions whose sum should be computed.
-    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Sync + 'a>>,
+    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Send + Sync + 'a>>,
     /// The arc granularity.
     arc_granularity: usize,
     /// Integer weights for the nodes, if any.
@@ -60,11 +257,11 @@ pub struct HyperBallBuilder<
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-    >
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+>
     HyperBallBuilder<
         'a,
         G1,
@@ -131,12 +328,12 @@ impl<
 }
 
 impl<
-        'a,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-        G: RandomAccessGraph + Sync,
-        L: MergeEstimationLogic<Item = G::Label> + PartialEq,
-        A: EstimatorArrayMut<L>,
-    > HyperBallBuilder<'a, G, G, D, L, A>
+    'a,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    G: RandomAccessGraph + Sync,
+    L: MergeEstimationLogic<Item = G::Label> + PartialEq,
+    A: EstimatorArrayMut<L>,
+> HyperBallBuilder<'a, G, G, D, L, A>
 {
     /// Creates a new builder with default parameters.
     ///
@@ -144,7 +341,7 @@ impl<
     /// * `graph`: the graph to analyze.
     /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
     /// * `array_0`: a first array of estimators.
-    /// * `array_1`: A second array of estimators of the same length and with the same logic of
+    /// * `array_1`: a second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
         assert!(array_0.logic() == array_1.logic(), "Incompatible logic");
@@ -179,13 +376,13 @@ impl<
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-        L: MergeEstimationLogic<Item = G1::Label>,
-        A: EstimatorArrayMut<L>,
-    > HyperBallBuilder<'a, G1, G2, D, L, A>
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    L: MergeEstimationLogic<Item = G1::Label>,
+    A: EstimatorArrayMut<L>,
+> HyperBallBuilder<'a, G1, G2, D, L, A>
 {
     const DEFAULT_GRANULARITY: usize = 16 * 1024;
 
@@ -208,14 +405,14 @@ impl<
         assert_eq!(
             graph.num_nodes(),
             array_0.len(),
-            "array_0 should have have len {}. Got {}",
+            "array_0 should have len {}. Got {}",
             graph.num_nodes(),
             array_0.len()
         );
         assert_eq!(
             graph.num_nodes(),
             array_1.len(),
-            "array_1 should have have len {}. Got {}",
+            "array_1 should have len {}. Got {}",
             graph.num_nodes(),
             array_1.len()
         );
@@ -229,14 +426,10 @@ impl<
         assert_eq!(
             transpose.num_arcs(),
             graph.num_arcs(),
-            "the transpose should have same number of nodes of the graph ({}). Got {}.",
+            "the transpose should have same number of arcs of the graph ({}). Got {}.",
             graph.num_arcs(),
             transpose.num_arcs()
         );
-        /* TODO debug_assert!(
-            check_transposed(graph, transpose),
-            "the transpose should be the transpose of the graph"
-        );*/
         Self {
             graph,
             transpose: Some(transpose),
@@ -288,7 +481,7 @@ impl<
     /// computed.
     pub fn discount_function(
         mut self,
-        discount_function: impl Fn(usize) -> f64 + Sync + 'a,
+        discount_function: impl Fn(usize) -> f64 + Send + Sync + 'a,
     ) -> Self {
         self.discount_functions.push(Box::new(discount_function));
         self
@@ -302,20 +495,19 @@ impl<
 }
 
 impl<
-        'a,
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize>,
-        L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
-        A: EstimatorArrayMut<L>,
-    > HyperBallBuilder<'a, G1, G2, D, L, A>
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
+    A: EstimatorArrayMut<L>,
+> HyperBallBuilder<'a, G1, G2, D, L, A>
 {
     /// Builds a [`HyperBall`] instance.
     ///
     /// # Arguments
     ///
     /// * `pl`: A progress logger.
-    #[allow(clippy::type_complexity)]
     pub fn build(self, pl: &mut impl ConcurrentProgressLog) -> HyperBall<'a, G1, G2, D, L, A> {
         let num_nodes = self.graph.num_nodes();
 
@@ -441,13 +633,13 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// Whether each estimator has been modified during the current iteration.
     next_modified: AtomicBitVec,
     /// Custom discount functions whose sum should be computed.
-    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Sync + 'a>>,
+    discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Send + Sync + 'a>>,
 }
 
 impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
     /// Resets the iteration context
-    fn reset(&mut self, granularity: usize) {
-        self.arc_granularity = granularity;
+    fn reset(&mut self, arc_granularity: usize) {
+        self.arc_granularity = arc_granularity;
         self.node_cursor.store(0, Ordering::Relaxed);
         *self.arc_cursor.lock().unwrap() = (0, 0);
         self.visited_arcs.store(0, Ordering::Relaxed);
@@ -472,7 +664,7 @@ pub struct HyperBall<
     transposed: Option<&'a G2>,
     /// An optional slice of nonnegative node weights.
     weight: Option<&'a [usize]>,
-    /// The base number of nodes per task. TODO.
+    /// The base number of nodes per task.
     granularity: usize,
     /// The previous state.
     curr_state: A,
@@ -491,7 +683,7 @@ pub struct HyperBall<
     sum_of_dists: Option<Vec<f32>>,
     /// The sum of inverse distances from each given node, if requested.
     sum_of_inv_dists: Option<Vec<f32>>,
-    /// The overall discount centrality for every [`Self::discount_functions`].
+    /// The overall discount centrality for every discount function.
     discounted_centralities: Vec<Vec<f32>>,
     /// Context used in a single iteration.
     iteration_context: IterationContext<'a, G1, D>,
@@ -499,12 +691,12 @@ pub struct HyperBall<
 }
 
 impl<
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
-        L: MergeEstimationLogic<Item = usize> + Sync,
-        A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
-    > HyperBall<'_, G1, G2, D, L, A>
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
+    L: MergeEstimationLogic<Item = usize> + Sync,
+    A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
+> HyperBall<'_, G1, G2, D, L, A>
 where
     L::Backend: PartialEq,
 {
@@ -518,20 +710,17 @@ where
     ///   relative increment if the neighborhood function is being computed. If
     ///   [`None`] the computation will stop when no estimators are modified.
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
-    ///
     /// * `pl`: A progress logger.
     pub fn run(
         &mut self,
         upper_bound: usize,
         threshold: Option<f64>,
-        thread_pool: &ThreadPool,
-        rng: impl rand::Rng,
+        rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         let upper_bound = std::cmp::min(upper_bound, self.graph.num_nodes());
 
-        self.init(thread_pool, rng, pl)
+        self.init(rng, pl)
             .with_context(|| "Could not initialize estimator")?;
 
         pl.item_name("iteration");
@@ -542,7 +731,7 @@ where
         ));
 
         for i in 0..upper_bound {
-            self.iterate(thread_pool, pl)
+            self.iterate(pl)
                 .with_context(|| format!("Could not perform iteration {}", i + 1))?;
 
             pl.update_and_display();
@@ -579,18 +768,15 @@ where
     ///
     /// * `upper_bound`: an upper bound to the number of iterations.
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
-    ///
     /// * `pl`: A progress logger.
     #[inline(always)]
     pub fn run_until_stable(
         &mut self,
         upper_bound: usize,
-        thread_pool: &ThreadPool,
-        rng: impl rand::Rng,
+        rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        self.run(upper_bound, None, thread_pool, rng, pl)
+        self.run(upper_bound, None, rng, pl)
             .with_context(|| "Could not complete run_until_stable")
     }
 
@@ -599,17 +785,14 @@ where
     ///
     /// # Arguments
     ///
-    /// * `thread_pool`: The thread pool to use for parallel computation.
-    ///
     /// * `pl`: A progress logger.
     #[inline(always)]
     pub fn run_until_done(
         &mut self,
-        thread_pool: &ThreadPool,
-        rng: impl rand::Rng,
+        rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
-        self.run_until_stable(usize::MAX, thread_pool, rng, pl)
+        self.run_until_stable(usize::MAX, rng, pl)
             .with_context(|| "Could not complete run_until_done")
     }
 
@@ -632,10 +815,11 @@ where
     pub fn sum_of_distances(&self) -> Result<&[f32]> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
-            // TODO these are COPIES
             Ok(distances)
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute them")
+            bail!(
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute them"
+            )
         }
     }
 
@@ -645,7 +829,9 @@ where
         if let Some(distances) = &self.sum_of_inv_dists {
             Ok(distances)
         } else {
-            bail!("Sum of inverse distances were not requested: use builder.with_sum_of_inverse_distances(true) while building HyperBall to compute them")
+            bail!(
+                "Sum of inverse distances were not requested: use builder.sum_of_inverse_distances(true) while building HyperBall to compute them"
+            )
         }
     }
 
@@ -672,11 +858,13 @@ where
                 .map(|&d| if d == 0.0 { 0.0 } else { d.recip() })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute closeness centrality")
+            bail!(
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute closeness centrality"
+            )
         }
     }
 
-    /// Computes and returns the lin centralities from the sum of distances computed by this instance.
+    /// Computes and returns the Lin centralities from the sum of distances computed by this instance.
     ///
     /// Note that lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
     pub fn lin_centrality(&self) -> Result<Box<[f32]>> {
@@ -696,7 +884,9 @@ where
                 })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
+            bail!(
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute Lin centrality"
+            )
         }
     }
 
@@ -714,7 +904,9 @@ where
                 })
                 .collect())
         } else {
-            bail!("Sum of distances were not requested: use builder.with_sum_of_distances(true) while building HyperBall to compute lin centrality")
+            bail!(
+                "Sum of distances were not requested: use builder.sum_of_distances(true) while building HyperBall to compute Nieminen centrality"
+            )
         }
     }
 
@@ -745,25 +937,20 @@ where
 }
 
 impl<
-        G1: RandomAccessGraph + Sync,
-        G2: RandomAccessGraph + Sync,
-        D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
-        L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
-        A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
-    > HyperBall<'_, G1, G2, D, L, A>
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
+    L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
+    A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
+> HyperBall<'_, G1, G2, D, L, A>
 where
     L::Backend: PartialEq,
 {
     /// Performs a new iteration of HyperBall.
     ///
     /// # Arguments
-    /// * `thread_pool`: The thread pool to use for parallel computation.
     /// * `pl`: A progress logger.
-    fn iterate(
-        &mut self,
-        thread_pool: &ThreadPool,
-        pl: &mut impl ConcurrentProgressLog,
-    ) -> Result<()> {
+    fn iterate(&mut self, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
         let ic = &mut self.iteration_context;
 
         pl.info(format_args!("Performing iteration {}", ic.iteration + 1));
@@ -794,8 +981,9 @@ where
 
         // We run in pre-local mode if we are systolic and few nodes where
         // modified.
-        ic.pre_local =
-            ic.systolic && modified_estimators < (num_nodes * num_nodes) / (num_arcs * 10);
+        ic.pre_local = ic.systolic
+            && modified_estimators
+                < ((num_nodes as u128 * num_nodes as u128) / (num_arcs as u128 * 10)) as u64;
 
         if ic.systolic {
             pl.info(format_args!(
@@ -811,13 +999,13 @@ where
                 ic.next_modified.set(node, false, Ordering::Relaxed);
             }
         } else {
-            thread_pool.install(|| ic.next_modified.fill(false, Ordering::Relaxed));
+            ic.next_modified.fill(false, Ordering::Relaxed);
         }
 
         if ic.local {
             // In case of a local computation, we convert the set of
             // must-be-checked for the next iteration into a check list
-            thread_pool.join(
+            rayon::join(
                 || ic.local_checklist.clear(),
                 || {
                     let mut local_next_must_be_checked =
@@ -831,7 +1019,7 @@ where
                 &mut ic.local_next_must_be_checked.lock().unwrap(),
             );
         } else if ic.systolic {
-            thread_pool.join(
+            rayon::join(
                 || {
                     // Systolic, non-local computations store the could-be-modified set implicitly into Self::next_must_be_checked.
                     ic.next_must_be_checked.fill(false, Ordering::Relaxed);
@@ -846,7 +1034,7 @@ where
         }
 
         let mut granularity = ic.arc_granularity;
-        let num_threads = thread_pool.current_num_threads();
+        let num_threads = rayon::current_num_threads();
 
         if num_threads > 1 && !ic.local {
             if ic.iteration > 0 {
@@ -877,7 +1065,7 @@ where
                 .iter_mut()
                 .map(|s| s.as_sync_slice())
                 .collect::<Vec<_>>();
-            thread_pool.broadcast(|c| {
+            rayon::broadcast(|c| {
                 Self::parallel_task(
                     self.graph,
                     self.transposed,
@@ -1165,8 +1353,7 @@ where
     /// Initializes HyperBall.
     fn init(
         &mut self,
-        thread_pool: &ThreadPool,
-        mut rng: impl rand::Rng,
+        mut rng: impl rand::RngExt,
         pl: &mut impl ConcurrentProgressLog,
     ) -> Result<()> {
         pl.start("Initializing estimators");
@@ -1217,7 +1404,7 @@ where
         self.neighborhood_function.push(self.last);
 
         pl.debug(format_args!("Initializing modified estimators"));
-        thread_pool.install(|| ic.curr_modified.fill(true, Ordering::Relaxed));
+        ic.curr_modified.fill(true, Ordering::Relaxed);
 
         pl.done();
 
@@ -1234,7 +1421,6 @@ mod test {
     use dsi_progress_logger::no_logging;
     use epserde::deser::{Deserialize, Flags};
     use rand::SeedableRng;
-    use webgraph::thread_pool;
     use webgraph::{
         prelude::{BvGraph, DCF},
         traits::SequentialLabeling,
@@ -1306,13 +1492,12 @@ mod test {
         };
 
         let mut modified_estimators = num_nodes as u64;
-        let threads = thread_pool![];
         let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
-        hyperball.init(&threads, &mut rng, no_logging![])?;
+        hyperball.init(&mut rng, no_logging![])?;
         seq_hyperball.init();
 
         while modified_estimators != 0 {
-            hyperball.iterate(&threads, no_logging![])?;
+            hyperball.iterate(no_logging![])?;
             seq_hyperball.iterate();
 
             modified_estimators = hyperball

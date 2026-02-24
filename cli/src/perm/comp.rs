@@ -5,19 +5,19 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{create_parent_dir, GlobalArgs};
-use anyhow::{ensure, Result};
+use crate::{GlobalArgs, create_parent_dir};
+use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use mmap_rs::MmapFlags;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
-use sux::traits::BitFieldSlice;
+use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name="comp", about = "Compose multiple permutations into a single one", long_about = None)]
+#[command(name = "comp", about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
     /// The filename of the resulting permutation in binary big-endian format.
     pub dst: PathBuf,
@@ -47,15 +47,14 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
             perm.push(p);
         }
         let mut merged = Vec::new();
-        // TODO: reduce the number of uncase
+        let len = perm[0].uncase().len();
         ensure!(
-            perm.iter()
-                .all(|p| p.uncase().len() == perm[0].uncase().len()),
+            perm.iter().all(|p| p.uncase().len() == len),
             "All permutations must have the same length"
         );
 
         pl.start("Combining permutations...");
-        for i in 0..perm[0].uncase().len() {
+        for i in 0..len {
             let mut v = i;
             for p in &perm {
                 v = p.uncase()[v];
@@ -83,7 +82,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         for i in 0..perm[0].as_ref().len() {
             let mut v = i;
             for p in &perm {
-                v = p.get(v);
+                v = p.index_value(v);
             }
             writer.write_all(&(v as u64).to_be_bytes())?;
             pl.light_update();

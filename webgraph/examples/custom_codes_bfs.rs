@@ -13,7 +13,10 @@ use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use mmap_rs::MmapFlags;
-use sux::{bits::BitVec, traits::IndexedSeq};
+use sux::{
+    bits::BitVec,
+    traits::{BitVecOpsMut, IndexedSeq},
+};
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]

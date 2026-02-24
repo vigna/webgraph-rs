@@ -41,7 +41,7 @@ where
 /// or [`None`] if no element is approved by the filter.
 ///
 /// In case of ties, this method returns the index for which the corresponding
-/// element in `tie_break` is minimized.
+/// element in `tie_break` is maximized.
 ///
 /// If the maximum appears several times with the same tie break, this methods
 /// returns the position of the first instance.

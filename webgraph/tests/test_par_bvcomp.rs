@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::io::BufReader;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -44,17 +43,10 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         // we can test with different number of threads
         let start = std::time::Instant::now();
         // recompress the graph in parallel
-        BvComp::parallel_graph::<BE>(
-            &tmp_basename,
-            &graph,
-            comp_flags,
-            &rayon::ThreadPoolBuilder::new()
-                .num_threads(thread_num)
-                .build()
-                .expect("Failed to create thread pool"),
-            temp_dir(std::env::temp_dir())?,
-        )
-        .unwrap();
+        BvCompConfig::new(&tmp_basename)
+            .with_comp_flags(comp_flags)
+            .par_comp_graph::<BE>(&graph)?;
+
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 
         let found_size = std::fs::File::open(tmp_basename.with_extension(GRAPH_EXTENSION))?
@@ -77,12 +69,7 @@ fn _test_par_bvcomp(basename: &str) -> Result<()> {
         graph::eq(&graph, &comp_graph)?;
 
         let offsets_path = tmp_basename.with_extension(OFFSETS_EXTENSION);
-        let mut offsets_reader =
-            <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-                std::fs::File::open(&offsets_path)
-                    .unwrap_or_else(|_| panic!("Could not open {}", offsets_path.display())),
-            )));
-
+        let mut offsets_reader = buf_bit_reader::from_path::<BE, u32>(&offsets_path)?;
         let mut pr = ProgressLogger::default();
         pr.display_memory(true)
             .item_name("node")

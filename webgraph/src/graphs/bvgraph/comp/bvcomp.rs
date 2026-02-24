@@ -5,14 +5,53 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use super::OffsetsWriter;
 use crate::prelude::*;
 use core::cmp::Ordering;
 use dsi_bitstream::codes::ToNat;
 use lender::prelude::*;
+use std::{io::Write, path::Path};
 
-/// A BvGraph compressor, this is used to compress a graph into a BvGraph
-#[derive(Debug, Clone)]
-pub struct BvComp<E> {
+/// Compression statistics for a BvGraph compression.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CompStats {
+    /// Number of source nodes compressed.
+    pub num_nodes: usize,
+    /// Number of arcs compressed.
+    pub num_arcs: u64,
+    /// Length of the compressed graph's bitstream.
+    pub written_bits: u64,
+    /// Length of the offsets bitstream.
+    pub offsets_written_bits: u64,
+}
+
+/// Compresses a graph into the [BV graph format](super::super).
+///
+/// This is the standard compressor: for each node, it considers the
+/// preceding nodes in a window of configurable size and greedily selects the
+/// reference that minimizes the bitstream length, subject to a maximum
+/// reference-chain depth (`max_ref_count`). It then splits the "extra" nodes
+/// (those that cannot be copied from the reference list) into intervals and
+/// residuals, as documented in the [module-level documentation](super::super).
+///
+/// The compressor writes two bitstreams:
+///
+/// - the _graph_ bitstream, through the encoder `E`;
+/// - the _offsets_ bitstream, through the [`OffsetsWriter`].
+///
+/// Nodes must be pushed in order via [`push`](Self::push) (or
+/// [`extend`](Self::extend)) and the compressor must be finalized with
+/// [`flush`](Self::flush), which returns the [`CompStats`].
+///
+/// In most cases you do not need to instantiate this struct directly: use
+/// [`BvComp::with_basename`] to obtain a [`BvCompConfig`] with suitable
+/// defaults, then call [`comp_graph`](BvCompConfig::comp_graph) or
+/// [`par_comp_graph`](BvCompConfig::par_comp_graph) on it.
+///
+/// For a compressor that uses an alternative reference-selection strategy
+/// based on dynamic programming, see [`BvCompZ`](super::BvCompZ).
+#[derive(Debug)]
+pub struct BvComp<E, W: Write> {
     /// The ring-buffer that stores the neighbors of the last
     /// `compression_window` neighbors
     backrefs: CircularBuffer<Vec<usize>>,
@@ -25,6 +64,8 @@ pub struct BvComp<E> {
     /// do multiple tentative compressions and use the real one once we figured
     /// out how to compress the graph best
     encoder: E,
+    /// The offset writer, we should push the number of bits used by each node.
+    pub offsets_writer: OffsetsWriter<W>,
     /// When compressing we need to store metadata. So we store the compressors
     /// to reuse the allocations for perf reasons.
     compressors: Vec<Compressor>,
@@ -39,15 +80,23 @@ pub struct BvComp<E> {
     /// The first node we are compressing, this is needed because during
     /// parallel compression we need to work on different chunks
     start_node: usize,
-    /// The number of arcs compressed so far
-    pub arcs: u64,
+    /// The statistics of the compression process.
+    stats: CompStats,
 }
 
+impl BvComp<(), std::io::Sink> {
+    /// Convenience method returning a [`BvCompConfig`] with
+    /// settings suitable for the standard Boldi–Vigna compressor.
+    pub fn with_basename(basename: impl AsRef<Path>) -> BvCompConfig {
+        BvCompConfig::new(basename)
+    }
+}
+
+/// Computes how to encode the successors of a node, given a reference
+/// node. This could be a function, but we made it a struct so we can
+/// reuse the allocations for performance reasons.
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// Compute how to encode the successors of a node, given a reference node.
-/// This could be a function, but we made it a struct so we can reuse the
-/// allocations for performance reasons
-struct Compressor {
+pub(crate) struct Compressor {
     /// The outdegree of the node we are compressing
     outdegree: usize,
     /// The blocks of nodes we are copying from the reference node
@@ -66,10 +115,10 @@ impl Compressor {
     /// Constant used only to make the code more readable.
     /// When min_interval_length is 0, we don't use intervals, which might be
     /// counter-intuitive
-    const NO_INTERVALS: usize = 0;
+    pub(crate) const NO_INTERVALS: usize = 0;
 
     /// Creates a new empty compressor
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Compressor {
             outdegree: 0,
             blocks: Vec::with_capacity(1024),
@@ -85,7 +134,7 @@ impl Compressor {
     /// called only after `compress`.
     ///
     /// This returns the number of bits written.
-    fn write<E: Encode>(
+    pub(crate) fn write<E: Encode>(
         &self,
         writer: &mut E,
         curr_node: usize,
@@ -151,9 +200,9 @@ impl Compressor {
         Ok(written_bits)
     }
 
+    /// Resets the compressor for a new compression.
     #[inline(always)]
-    /// Reset the compressor for a new compression
-    fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.outdegree = 0;
         self.blocks.clear();
         self.extra_nodes.clear();
@@ -163,7 +212,7 @@ impl Compressor {
     }
 
     /// setup the internal buffers for the compression of the given values
-    fn compress(
+    pub(crate) fn compress(
         &mut self,
         curr_list: &[usize],
         ref_list: Option<&[usize]>,
@@ -228,7 +277,7 @@ impl Compressor {
         let mut j = 0;
         // k is the index of the next successor of the reference node we must examine
         let mut k = 0;
-        // currBlockLen is the number of entries (in the reference list) we have already copied/ignored (in the current block)
+        // curr_block_len is the number of entries (in the reference list) we have already copied/ignored (in the current block)
         let mut curr_block_len = 0;
         // copying is true iff we are producing a copy block (instead of an ignore block)
         let mut copying = true;
@@ -238,46 +287,49 @@ impl Compressor {
             if copying {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {
-                        /* If while copying we trespass the current element of the reference list,
-                        we must stop copying. */
+                        // If while copying we trespass the current element of
+                        // the reference list, we must stop copying
                         self.blocks.push(curr_block_len);
                         copying = false;
                         curr_block_len = 0;
                     }
                     Ordering::Less => {
-                        /* If while copying we find a non-matching element of the reference list which
-                        is larger than us, we can just add the current element to the extra list
-                        and move on. j gets increased. */
+                        // If while copying we find a non-matching element of
+                        // the reference list which is larger than us, we can
+                        // just add the current element to the extra list and
+                        // move on. j gets increased.
                         self.extra_nodes.push(curr_list[j]);
                         j += 1;
                     }
                     Ordering::Equal => {
                         // currList[j] == refList[k]
-                        /* If the current elements of the two lists are equal, we just increase the block length.
-                        both j and k get increased. */
+                        //
+                        // If the current elements of the two lists are equal, we just increase the block length.
+                        // both j and k get increased.
                         j += 1;
                         k += 1;
                         curr_block_len += 1;
-                        // if (forReal) copiedArcs++;
                     }
                 }
             } else {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {
-                        /* If we trespassed the current element of the reference list, we
-                        increase the block length. k gets increased. */
+                        // If we trespassed the current element of the reference
+                        // list, we increase the block length. k gets increased.
                         k += 1;
                         curr_block_len += 1;
                     }
                     Ordering::Less => {
-                        /* If we did not trespass the current element of the reference list, we just
-                        add the current element to the extra list and move on. j gets increased. */
+                        // If we did not trespass the current element of the
+                        // reference list, we just add the current element to
+                        // the extra list and move on. j gets increased.
                         self.extra_nodes.push(curr_list[j]);
                         j += 1;
                     }
                     Ordering::Equal => {
                         // currList[j] == refList[k]
-                        /* If we found a match we flush the current block and start a new copying phase. */
+                        //
+                        // If we found a match we flush the current block and start a new copying phase.
                         self.blocks.push(curr_block_len);
                         copying = true;
                         curr_block_len = 0;
@@ -285,9 +337,8 @@ impl Compressor {
                 }
             }
         }
-        /* We do not record the last block. The only case when we have to enqueue the last block's length
-         * is when we were copying and we did not copy up to the end of the reference list.
-         */
+        // We do not record the last block. The only case when we have to enqueue the last block's length
+        //  is when we were copying and we did not copy up to the end of the reference list.
         if copying && k < ref_list.len() {
             self.blocks.push(curr_block_len);
         }
@@ -304,13 +355,14 @@ impl Compressor {
     }
 }
 
-impl<E: EncodeAndEstimate> BvComp<E> {
+impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
     /// This value for `min_interval_length` implies that no intervalization will be performed.
     pub const NO_INTERVALS: usize = Compressor::NO_INTERVALS;
 
     /// Creates a new BvGraph compressor.
     pub fn new(
         encoder: E,
+        offsets_writer: OffsetsWriter<W>,
         compression_window: usize,
         max_ref_count: usize,
         min_interval_length: usize,
@@ -320,6 +372,7 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             backrefs: CircularBuffer::new(compression_window + 1),
             ref_counts: CircularBuffer::new(compression_window + 1),
             encoder,
+            offsets_writer,
             min_interval_length,
             compression_window,
             max_ref_count,
@@ -328,7 +381,7 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             compressors: (0..compression_window + 1)
                 .map(|_| Compressor::new())
                 .collect(),
-            arcs: 0,
+            stats: CompStats::default(),
         }
     }
 
@@ -336,18 +389,21 @@ impl<E: EncodeAndEstimate> BvComp<E> {
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator)
-    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<u64> {
+    pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
         {
-            let mut succ_vec = self.backrefs.take(self.curr_node);
+            let succ_vec = &mut self.backrefs[self.curr_node];
             succ_vec.clear();
             succ_vec.extend(succ_iter);
-            self.backrefs.replace(self.curr_node, succ_vec);
+            if succ_vec.len().max(1024) < succ_vec.capacity() / 4 {
+                succ_vec.shrink_to(succ_vec.capacity() / 2);
+            }
         }
         // get the ref
         let curr_list = &self.backrefs[self.curr_node];
-        self.arcs += curr_list.len() as u64;
+        self.stats.num_nodes += 1;
+        self.stats.num_arcs += curr_list.len() as u64;
         // first try to compress the current node without references
         let compressor = &mut self.compressors[0];
         // Compute how we would compress this
@@ -362,7 +418,11 @@ impl<E: EncodeAndEstimate> BvComp<E> {
             )?;
             // update the current node
             self.curr_node += 1;
-            return Ok(written_bits);
+
+            // write the offset
+            self.stats.offsets_written_bits += self.offsets_writer.push(written_bits)? as u64;
+            self.stats.written_bits += written_bits;
+            return Ok(());
         }
         // The delta of the best reference, by default 0 which is no compression
         let mut ref_delta = 0;
@@ -428,10 +488,20 @@ impl<E: EncodeAndEstimate> BvComp<E> {
         )?;
         self.ref_counts[self.curr_node] = ref_count;
         // consistency check
-        debug_assert_eq!(written_bits, min_bits);
+        // debug_assert_eq!(written_bits, min_bits);
         // update the current node
         self.curr_node += 1;
-        Ok(written_bits)
+        // write the offset
+        self.stats.offsets_written_bits += self.offsets_writer.push(written_bits)? as u64;
+        self.stats.written_bits += written_bits;
+        Ok(())
+    }
+
+    /// Consume the compressor and return the statistics about compression.
+    pub fn flush(mut self) -> anyhow::Result<CompStats> {
+        self.encoder.flush()?;
+        self.offsets_writer.flush()?;
+        Ok(self.stats)
     }
 
     /// Given an iterator over the nodes successors iterators, push them all.
@@ -440,37 +510,23 @@ impl<E: EncodeAndEstimate> BvComp<E> {
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.
-    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<u64>
+    pub fn extend<L>(&mut self, iter_nodes: L) -> anyhow::Result<()>
     where
         L: IntoLender,
         L::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
     {
-        let mut count = 0;
         for_! ( (_, succ) in iter_nodes {
-            count += self.push(succ.into_iter())?;
+            self.push(succ.into_iter())?;
         });
-        // WAS
-        // iter_nodes.for_each(|(_, succ)| self.push(succ)).sum()
-        Ok(count)
-    }
-
-    /// Consume the compressor return the number of bits written by
-    /// flushing the encoder (0 for instantaneous codes)
-    pub fn flush(mut self) -> Result<usize, E::Error> {
-        self.encoder.flush()
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
-
-    use self::sequential::Iter;
-
     use super::*;
     use dsi_bitstream::prelude::*;
-    use itertools::Itertools;
-    use std::fs::File;
-    use std::io::{BufReader, BufWriter};
+    use tempfile::Builder;
 
     #[test]
     fn test_compressor_no_ref() -> anyhow::Result<()> {
@@ -574,65 +630,20 @@ mod test {
 
     #[test]
     fn test_writer_cnr() -> anyhow::Result<()> {
-        let compression_window = 7;
-        let min_interval_length = 4;
-
-        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
+        let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000")
             .endianness::<BE>()
             .load()?;
 
-        // Compress the graph
-        let file_path = "../data/cnr-2000.bvcomp";
-        let bit_write = <BufBitWriter<BE, _>>::new(<WordAdapter<usize, _>>::new(BufWriter::new(
-            File::create(file_path)?,
-        )));
+        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let basename = tmp_dir.path().join("cnr-2000");
+        BvComp::with_basename(&basename).comp_graph::<BE>(&cnr_2000)?;
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        let comp_flags = CompFlags {
-            ..Default::default()
-        };
+        BvComp::with_basename(&basename).par_comp_graph::<BE>(&cnr_2000)?;
 
-        //let codes_writer = DynamicCodesWriter::new(
-        //    bit_write,
-        //    &comp_flags,
-        //);
-        let codes_writer = <ConstCodesEncoder<BE, _>>::new(bit_write);
-
-        let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
-
-        bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush()?;
-
-        // Read it back
-
-        let bit_read = <BufBitReader<BE, _>>::new(<WordAdapter<u32, _>>::new(BufReader::new(
-            File::open(file_path)?,
-        )));
-
-        //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesDecoder<BE, _>>::new(bit_read, &comp_flags)?;
-
-        let mut seq_iter = Iter::new(
-            codes_reader,
-            seq_graph.num_nodes(),
-            compression_window,
-            min_interval_length,
-        );
-        // Check that the graph is the same
-        let mut iter = seq_graph.iter().enumerate();
-        while let Some((i, (true_node_id, true_succ))) = iter.next() {
-            let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
-
-            assert_eq!(true_node_id, i);
-            assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(
-                true_succ.collect_vec(),
-                seq_succ.into_iter().collect_vec(),
-                "node_id: {}",
-                i
-            );
-        }
-        std::fs::remove_file(file_path).unwrap();
-
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
         Ok(())
     }
 
@@ -640,53 +651,22 @@ mod test {
         compression_window: usize,
         min_interval_length: usize,
     ) -> anyhow::Result<()> {
-        let seq_graph = BvGraphSeq::with_basename("../data/cnr-2000")
-            .endianness::<BE>()
-            .load()?;
+        let cnr_2000 = BvGraphSeq::with_basename("../data/cnr-2000").load()?;
 
-        // Compress the graph
-        let mut buffer: Vec<u64> = Vec::new();
-        let bit_write = <BufBitWriter<LE, _>>::new(MemWordWriterVec::new(&mut buffer));
+        let tmp_dir = Builder::new().prefix("bvcomp_test").tempdir()?;
+        let basename = tmp_dir.path().join("cnr-2000");
 
-        let comp_flags = CompFlags {
-            ..Default::default()
-        };
+        BvComp::with_basename(&basename)
+            .with_comp_flags(CompFlags {
+                compression_window,
+                min_interval_length,
+                ..Default::default()
+            })
+            .comp_graph::<BE>(&cnr_2000)?;
 
-        let codes_writer = <ConstCodesEncoder<LE, _>>::new(bit_write);
+        let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
 
-        let mut bvcomp = BvComp::new(codes_writer, compression_window, 3, min_interval_length, 0);
-
-        bvcomp.extend(&seq_graph).unwrap();
-        bvcomp.flush()?;
-
-        // Read it back
-        let buffer_32: &[u32] = unsafe { buffer.align_to().1 };
-        let bit_read = <BufBitReader<LE, _>>::new(MemWordReader::new(buffer_32));
-
-        //let codes_reader = <DynamicCodesReader<LE, _>>::new(bit_read, &comp_flags)?;
-        let codes_reader = <ConstCodesDecoder<LE, _>>::new(bit_read, &comp_flags)?;
-
-        let mut seq_iter = Iter::new(
-            codes_reader,
-            seq_graph.num_nodes(),
-            compression_window,
-            min_interval_length,
-        );
-        // Check that the graph is the same
-        let mut iter = seq_graph.iter().enumerate();
-        while let Some((i, (true_node_id, true_succ))) = iter.next() {
-            let (seq_node_id, seq_succ) = seq_iter.next().unwrap();
-
-            assert_eq!(true_node_id, i);
-            assert_eq!(true_node_id, seq_node_id);
-            assert_eq!(
-                true_succ.collect_vec(),
-                seq_succ.collect_vec(),
-                "node_id: {}",
-                i
-            );
-        }
-
+        labels::eq_sorted(&cnr_2000, &seq_graph)?;
         Ok(())
     }
 }

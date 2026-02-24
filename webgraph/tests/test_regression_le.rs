@@ -9,6 +9,8 @@
 use anyhow::Result;
 #[cfg(feature = "fuzz")]
 use webgraph::fuzz::bvcomp_and_read::*;
+#[cfg(feature = "fuzz")]
+use webgraph::fuzz::utils::{CodeFuzz, CompFlagsFuzz};
 
 #[test]
 #[cfg(feature = "fuzz")]
@@ -26,7 +28,6 @@ fn test_regression_le() -> Result<()> {
         },
         edges: vec![(2, 187)],
     };
-    dbg!(&data);
     harness(data);
     Ok(())
 }

@@ -17,7 +17,7 @@ as a solution to the problem of specifying that a [`Lender`](lender::Lender)
 should return pairs of nodes and successors, and to impose conditions on the two components
 of the pairs. This is not possible directly, as a pair is a type, not a trait.
 
-For example, [when implementing projections](crate::labels::proj) one need
+For example, [when implementing projections](crate::labels::proj) one needs
 to specify that the label of a labeling is a pair, and in the case a
 component is `usize`, the associated projection can be seen as a graph.
 To specify these constraints we have to resort to traitification using
@@ -33,7 +33,7 @@ pub trait Pair {
     type Left;
     /// The type of the second component of the [`Pair`].
     type Right;
-    /// Turn this [`Pair`] into an actual pair (i.e., a Rust 2-tuple).
+    /// Turns this [`Pair`] into an actual pair (i.e., a Rust 2-tuple).
     fn into_pair(self) -> (Self::Left, Self::Right);
 }
 

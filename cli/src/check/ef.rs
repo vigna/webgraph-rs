@@ -8,6 +8,7 @@
 use crate::GlobalArgs;
 use anyhow::{Context, Result};
 use clap::Parser;
+use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
@@ -16,17 +17,33 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use sux::traits::IndexedSeq;
+use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::graphs::bvgraph::{EF, EF_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
+use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "ef", about = "Checks that the '.ef' file (and `.offsets` if present) is consistent with the graph.", long_about = None)]
+#[command(name = "ef", about = "Checks that the \".ef\" file (and \".offsets\" if present) is consistent with the graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
-    pub src: PathBuf,
+    pub basename: PathBuf,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
-    let properties_path = args.src.with_extension(PROPERTIES_EXTENSION);
+    match get_endianness(&args.basename)?.as_str() {
+        #[cfg(feature = "be_bins")]
+        BE::NAME => check_ef::<BE>(global_args, args),
+        #[cfg(feature = "le_bins")]
+        LE::NAME => check_ef::<LE>(global_args, args),
+        e => panic!("Unknown endianness: {}", e),
+    }
+}
+
+pub fn check_ef<E: Endianness + 'static>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
+{
+    let properties_path = args.basename.with_extension(PROPERTIES_EXTENSION);
     let f = File::open(&properties_path).with_context(|| {
         format!(
             "Could not load properties file: {}",
@@ -37,9 +54,9 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
 
     // Creates the offsets file
-    let of_file_path = args.src.with_extension(OFFSETS_EXTENSION);
+    let of_file_path = args.basename.with_extension(OFFSETS_EXTENSION);
 
-    let ef = unsafe { EF::mmap(args.src.with_extension(EF_EXTENSION), Flags::default()) }?;
+    let ef = unsafe { EF::mmap(args.basename.with_extension(EF_EXTENSION), Flags::default()) }?;
     let ef = ef.uncase();
 
     let mut pl = ProgressLogger::default();
@@ -52,9 +69,8 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
-        let of_file = BufReader::with_capacity(1 << 20, File::open(of_file_path)?);
         // create a bit reader on the file
-        let mut reader = BufBitReader::<BE, _>::new(<WordAdapter<u32, _>>::new(of_file));
+        let mut reader = buf_bit_reader::from_path::<BE, u32>(of_file_path)?;
         // progress bar
         pl.start("Checking offsets file against Elias-Fano...");
         // read the graph a write the offsets
@@ -80,9 +96,10 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         pl.log_interval(duration);
     }
 
-    let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
-        .endianness::<BE>()
-        .load()?;
+    let seq_graph =
+        webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)
+            .endianness::<E>()
+            .load()?;
     // otherwise directly read the graph
     // progress bar
     pl.start("Checking graph against Elias-Fano...");

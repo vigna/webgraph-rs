@@ -36,7 +36,7 @@ pub enum Granularity {
     /// For arc-based parallelism, each task will be formed by a number of nodes
     /// that has, tentatively, sum of outdegrees equal to the specified number
     /// of arcs. For node-based parallelism, each task will be formed by a
-    /// number of nodes equal to the specified number of args divided by the
+    /// number of nodes equal to the specified number of arcs divided by the
     /// average outdegree.
     Arcs(u64),
 }

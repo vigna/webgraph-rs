@@ -10,11 +10,9 @@ use clap::Subcommand;
 
 pub mod codes;
 
-pub const COMMAND_NAME: &str = "";
-
+/// Computes statistics on graphs.
 #[derive(Subcommand, Debug)]
 #[command(name = "analyze")]
-/// Compute statistics on a graphs.
 pub enum SubCommands {
     Codes(codes::CliArgs),
 }

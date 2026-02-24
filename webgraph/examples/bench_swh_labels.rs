@@ -5,14 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![allow(clippy::type_complexity)]
-
 use anyhow::{Context, Result};
 use bitstream::Supply;
 use clap::Parser;
 use dsi_bitstream::codes::GammaRead;
 use dsi_bitstream::impls::{BufBitReader, MemWordReader};
-use dsi_bitstream::traits::{BitRead, BitSeek, Endianness, BE};
+use dsi_bitstream::traits::{BE, BitRead, BitSeek, Endianness};
 use dsi_progress_logger::prelude::*;
 use epserde::deser::{Deserialize, Flags};
 use lender::*;

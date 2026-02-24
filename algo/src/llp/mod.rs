@@ -5,27 +5,61 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Layered label propagation.
+//! Layered Label Propagation.
 //!
 //! An implementation of the _layered label propagation_ algorithm described by
-//! Paolo Boldi, Sebastiano Vigna, Marco Rosa, Massimo Santini, and Sebastiano
-//! Vigna in “Layered label propagation: A multiresolution coordinate-free
-//! ordering for compressing social networks”, _Proceedings of the 20th
+//! Paolo Boldi, Marco Rosa, Massimo Santini, and Sebastiano Vigna in "[Layered
+//! Label Propagation: A MultiResolution Coordinate-Free Ordering for
+//! Compressing Social Networks][LLP paper]", _Proceedings of the 20th
 //! international conference on World Wide Web_, pages 587–596, ACM, 2011.
 //!
-//! The function [`layered_label_propagation`] returns a permutation of the
-//! provided symmetric graph which will (hopefully) increase locality (see the
-//! paper). Usually, the permutation is fed to [`permute`](webgraph::transform::permute) to permute the
-//! original graph.
+//! # Requirements
 //!
-//! Note that the graph provided should be _symmetric_ and _loopless_. If this
-//! is not the case, please use [`simplify`](webgraph::transform::simplify) to generate a
+//! The graph provided should be _symmetric_ and _loopless_. If this is not the
+//! case, please use [`simplify`](webgraph::transform::simplify) to generate a
 //! suitable graph.
 //!
-//! # Memory requirements
+//! # Memory Requirements
 //!
 //! LLP requires three `usize` and a boolean per node, plus the memory that is
 //! necessary to load the graph.
+//!
+//! # Algorithm
+//!
+//! Label propagation assigns a _label_ to each node and then iteratively
+//! updates every label to the one that maximizes an objective function based on
+//! the frequency of labels among the node's neighbors and on a resolution
+//! parameter ɣ. Low ɣ values produce many small communities, while high ɣ
+//! values produce few large ones. _Layered_ label propagation runs label
+//! propagation for several values of ɣ and combines the resulting labelings
+//! into a single one that captures community structure at multiple resolutions.
+//!
+//! Nodes of the resulting labeling that share the same label are likely
+//! co-located in the graph, so [permuting the
+//! graph](webgraph::transform::permute) in label order will increase locality,
+//! yielding better compression.
+//!
+//! # Functions
+//!
+//! - [`layered_label_propagation`]: runs LLP and returns the final combined
+//!   labels;
+//! - [`layered_label_propagation_labels_only`]: runs LLP and stores
+//!   per-ɣ labels to disk, but does not combine them; this is useful when
+//!   you want to combine labels in a separate step;
+//! - [`combine_labels`]: combines the per-ɣ labels stored on disk by a
+//!   previous call to [`layered_label_propagation_labels_only`];
+//! - [`labels_to_ranks`]: converts labels to ranks by their natural order,
+//!   yielding a permutation that can be passed to
+//!   [`permute`](webgraph::transform::permute).
+//!
+//! # Choosing ɣ Values
+//!
+//! More values improve the resulting combined labeling, but each value needs a
+//! full run of the label propagation algorithm, so there is a trade-off between
+//! quality and running time. A common choice is a set exponentially-spaced
+//! values, for example ɣ ∈ {1, 1/2, 1/4, …} or ɣ ∈ {1, 1/4, 1/16, …}.
+//!
+//! [LLP paper]: <https://vigna.di.unimi.it/papers.php#BRSLLP>
 //!
 use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
@@ -35,10 +69,10 @@ use predicates::Predicate;
 use preds::PredParams;
 
 use log::info;
+use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
 use rand::seq::SliceRandom;
-use rand::SeedableRng;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -75,30 +109,32 @@ pub struct LabelsStore<A> {
 /// # Arguments
 ///
 /// * `sym_graph` - The symmetric graph to run LLP on.
+///
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
-/// * `num_threads` - The number of threads to use. If `None`, the number of
-///   threads is set to [`num_cpus::get`].
+///
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
 ///   an advanced option: see
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
-/// * `granularity` - The granularity of the parallel processing expressed as
-///   the number of arcs to process at a time. If `None`, the granularity is
-///   computed adaptively. This is an advanced option: see
+///
+/// * `granularity` - The granularity of the parallel processing.
+///   This is an advanced option: see
 ///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///
 /// * `seed` - The seed to use for pseudorandom number generation.
-/// * `work_dir` - The directory where the labels will be stored, if `None`, a
-///   temporary directory will be created.
-#[allow(clippy::type_complexity)]
+///
+/// * `predicate` - The stopping criterion for the iterations of the algorithm.
+///
+/// * `work_dir` - The directory where the labels will be stored.
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
-    num_threads: Option<usize>,
     chunk_size: Option<usize>,
-    arc_granularity: Granularity,
+    granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
@@ -108,9 +144,8 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         sym_graph,
         deg_cumul,
         gammas,
-        num_threads,
         chunk_size,
-        arc_granularity,
+        granularity,
         seed,
         predicate,
         &work_dir,
@@ -119,17 +154,16 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     combine_labels(work_dir)
 }
 
-#[allow(clippy::type_complexity)]
+/// Computes and stores on disk the labels for the given gammas, but
+/// does not combine them. For the arguments look at
+/// [`layered_label_propagation`].
 #[allow(clippy::too_many_arguments)]
-/// Computes and store on disk the labels for the given gammas, but does not combine them.
-/// For the arguments look at [`layered_label_propagation`].
 pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
-    num_threads: Option<usize>,
     chunk_size: Option<usize>,
-    arc_granularity: Granularity,
+    granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
@@ -141,7 +175,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
     let chunk_size = chunk_size.unwrap_or(1_000_000);
-    let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+    let num_threads = rayon::current_num_threads();
 
     // init the permutation with the indices
     let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
@@ -302,9 +336,8 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                     local_obj_func
                 },
                 |delta_obj_func_0: f64, delta_obj_func_1| delta_obj_func_0 + delta_obj_func_1,
-                arc_granularity,
+                granularity,
                 deg_cumul,
-                &thread_pool,
                 &mut update_pl,
             );
 
@@ -374,9 +407,8 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 graph: &sym_graph,
                 perm: &volumes,
             },
-            arc_granularity,
+            granularity,
             deg_cumul,
-            &thread_pool,
             &mut update_pl,
         );
 
@@ -417,7 +449,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
             let path_str = path_name.to_string_lossy();
             path_str.starts_with("labels_")
                 && path_str.ends_with(".bin")
-                && path.file_type().unwrap().is_file()
+                && path.file_type().is_ok_and(|ft| ft.is_file())
         });
 
     let mut num_nodes = None;
