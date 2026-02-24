@@ -23,7 +23,11 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(short, long)]
-    /// Use the parallel compressor.
+    /// Force usage of the sequential algorithm (does not need offsets).
+    pub sequential: bool,
+
+    #[arg(short, long, conflicts_with = "sequential")]
+    /// No-op for backward compatibility (default is parallel).
     pub parallel: bool,
 
     #[clap(flatten)]
@@ -42,18 +46,18 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
-            if args.parallel {
-                par_transpose::<BE>(global_args, args)
-            } else {
+            if args.sequential {
                 transpose::<BE>(global_args, args)
+            } else {
+                par_transpose::<BE>(global_args, args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
-            if args.parallel {
-                par_transpose::<LE>(global_args, args)
-            } else {
+            if args.sequential {
                 transpose::<LE>(global_args, args)
+            } else {
+                par_transpose::<LE>(global_args, args)
             }
         }
         e => panic!("Unknown endianness: {}", e),

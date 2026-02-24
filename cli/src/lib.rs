@@ -629,13 +629,13 @@ pub struct CompressArgs {
     /// The code to use for the residuals
     pub residuals: PrivCode,
 
-    /// Whether to use Zuckerli's reference selection algorithm. This slows down the compression
-    /// process and requires more memory, but improves compression ratio and decoding speed.
+    /// Whether to use Zuckerli's reference selection algorithm. This slows down
+    /// the compression process and requires more memory, but improves
+    /// compression ratio and decoding speed.
     #[clap(long)]
     pub bvgraphz: bool,
 
-    /// How many nodes to process in a chunk; the default (10000) is usually a good
-    /// value.
+    /// How many nodes to process in a chunk with --bvgraphz.
     #[clap(long, default_value = "10000")]
     pub chunk_size: usize,
 }

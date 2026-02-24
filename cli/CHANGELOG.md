@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.5.0] - unreleased
+
+### Changed
+
+- `webgraph transform` now defaults to the parallel version.
+
 ## [0.4.1] - 2026-02-23
 
 ### New
