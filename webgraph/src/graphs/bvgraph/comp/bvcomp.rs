@@ -311,7 +311,6 @@ impl Compressor {
                         j += 1;
                         k += 1;
                         curr_block_len += 1;
-                        // if (forReal) copiedArcs++;
                     }
                 }
             } else {

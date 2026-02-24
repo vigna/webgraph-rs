@@ -742,7 +742,7 @@ pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize,
         .get("arcs")
         .with_context(|| format!("Missing 'arcs' property in {name}"))?
         .parse::<u64>()
-        .with_context(|| format!("Cannot parse arcs as usize in {name}"))?;
+        .with_context(|| format!("Cannot parse arcs as u64 in {name}"))?;
 
     let comp_flags = CompFlags::from_properties::<E>(&map)
         .with_context(|| format!("Cannot parse compression flags from {name}"))?;

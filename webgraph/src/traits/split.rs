@@ -81,7 +81,6 @@ pub mod seq {
         nodes_per_iter: usize,
         how_many: usize,
         remaining: usize,
-        current_node: usize,
     }
 
     impl<L: lender::Lender> Iter<L> {
@@ -92,7 +91,6 @@ pub mod seq {
                 nodes_per_iter,
                 how_many,
                 remaining: how_many,
-                current_node: 0,
             }
         }
     }
@@ -107,7 +105,6 @@ pub mod seq {
             if self.remaining != self.how_many {
                 self.lender.advance_by(self.nodes_per_iter).ok()?;
             }
-            self.current_node += self.nodes_per_iter;
             self.remaining -= 1;
             Some(self.lender.clone().take(self.nodes_per_iter))
         }

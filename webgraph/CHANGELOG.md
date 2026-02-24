@@ -2,6 +2,11 @@
 
 ## [0.7.0] - unreleased
 
+### Fixed
+
+- Replaced a number of wrong `num_cpus::get` calls with
+  `rayon::current_num_threads`.
+
 ### Changed
 
 - Reallocation strategies in `BvComp` and `BvCompZ` do not shrink below capacity 1024.
@@ -9,6 +14,10 @@
 - Removed spurious `reset` inherent method in sequential visits.
 
 - Added `FusedIterator` implementations to `BfsOrder` and `DfsOrder`.
+
+- `par_comp_lenders_endianness` lost its useless `num_nodes` argument.
+
+- Removed dead `current_node` field in `split::seq::Iter`.
 
 ## [0.6.1] - 2026-02-23
 

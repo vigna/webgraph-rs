@@ -4,12 +4,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-#![allow(clippy::non_canonical_partial_ord_impl)]
 
 use crate::prelude::*;
 
 use lender::prelude::*;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, iter::FusedIterator};
 
 /// A mutable [`LabeledRandomAccessGraph`] implementation based on a vector of
 /// [`BTreeMap`].
@@ -411,6 +410,8 @@ impl<L: Clone + 'static> ExactSizeIterator for LabeledSucc<'_, L> {
     }
 }
 
+impl<L: Clone + 'static> FusedIterator for LabeledSucc<'_, L> {}
+
 #[doc(hidden)]
 #[repr(transparent)]
 pub struct Succ<'succ>(core::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>);
@@ -436,6 +437,8 @@ impl ExactSizeIterator for Succ<'_> {
         self.0.len()
     }
 }
+
+impl FusedIterator for Succ<'_> {}
 
 impl SplitLabeling for BTreeGraph {
     type SplitLender<'a>

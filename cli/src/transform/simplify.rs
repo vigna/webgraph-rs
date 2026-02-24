@@ -114,11 +114,7 @@ where
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
                     thread_pool.install(|| {
-                        builder.par_comp_lenders_endianness(
-                            &sorted,
-                            sorted.num_nodes(),
-                            &target_endianness,
-                        )
+                        builder.par_comp_lenders_endianness(&sorted, &target_endianness)
                     })?;
 
                     return Ok(());
@@ -155,9 +151,8 @@ where
 
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
-            thread_pool.install(|| {
-                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
-            })?;
+            thread_pool
+                .install(|| builder.par_comp_lenders_endianness(&sorted, &target_endianness))?;
         }
         // apply the permutation, don't care if the transposed graph is already computed
         // as we cannot really exploit it
@@ -185,11 +180,7 @@ where
                         args.memory_usage.memory_usage,
                     )?;
 
-                    builder.par_comp_lenders_endianness(
-                        &sorted,
-                        sorted.num_nodes(),
-                        &target_endianness,
-                    )
+                    builder.par_comp_lenders_endianness(&sorted, &target_endianness)
                 })?;
 
                 return Ok(());
@@ -211,9 +202,8 @@ where
             let sorted =
                 webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage)?;
 
-            thread_pool.install(|| {
-                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
-            })?;
+            thread_pool
+                .install(|| builder.par_comp_lenders_endianness(&sorted, &target_endianness))?;
         }
         // just compute the transpose on the fly
         (None, None) => {
@@ -235,11 +225,7 @@ where
                         args.memory_usage.memory_usage,
                     )?;
 
-                    builder.par_comp_lenders_endianness(
-                        &sorted,
-                        sorted.num_nodes(),
-                        &target_endianness,
-                    )
+                    builder.par_comp_lenders_endianness(&sorted, &target_endianness)
                 })?;
 
                 return Ok(());
@@ -256,9 +242,8 @@ where
             let sorted =
                 webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)?;
 
-            thread_pool.install(|| {
-                builder.par_comp_lenders_endianness(&sorted, sorted.num_nodes(), &target_endianness)
-            })?;
+            thread_pool
+                .install(|| builder.par_comp_lenders_endianness(&sorted, &target_endianness))?;
         }
     }
 

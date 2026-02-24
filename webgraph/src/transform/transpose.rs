@@ -145,7 +145,7 @@ pub fn transpose_split<
     SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + use<'graph, G>>,
 > {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    let parts = num_cpus::get();
+    let parts = rayon::current_num_threads();
 
     let pairs: Vec<_> = graph
         .split_iter(parts)

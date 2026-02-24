@@ -12,6 +12,7 @@ use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::traits::{BE, Endianness};
 use epserde::deser::Owned;
 use lender::IntoLender;
+use std::iter::FusedIterator;
 use std::path::PathBuf;
 
 use self::sequential::NodeLabels;
@@ -252,7 +253,7 @@ where
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
             let neighbors = self.successors(reference_node_id);
-            debug_assert!(!neighbors.len() != 0);
+            debug_assert!(neighbors.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count() as usize;
             // add +1 if the number of blocks is even, so we have capacity for
@@ -406,6 +407,8 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
         self.size
     }
 }
+
+impl<D: Decode> FusedIterator for Succ<D> {}
 
 unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 

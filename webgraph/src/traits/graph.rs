@@ -66,7 +66,7 @@ pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
 /// Checks if the two provided graphs with sorted lenders are equal.
 ///
-/// This associated function can be used to compare graphs with [sorted
+/// This function can be used to compare graphs with [sorted
 /// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
 /// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
 /// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
@@ -170,7 +170,7 @@ pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
 /// Checks if the two provided labeled graphs with sorted lenders are equal.
 ///
-/// This associated function can be used to compare graphs with [sorted
+/// This function can be used to compare graphs with [sorted
 /// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
 /// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
 /// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used

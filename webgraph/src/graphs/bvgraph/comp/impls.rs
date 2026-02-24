@@ -127,7 +127,7 @@ impl<W: Write> OffsetsWriter<W> {
 
     /// Flushes the buffer.
     pub fn flush(&mut self) -> Result<()> {
-        BitWrite::flush(&mut self.buffer)? as u64;
+        BitWrite::flush(&mut self.buffer)?;
         Ok(())
     }
 }
@@ -390,13 +390,13 @@ impl BvCompConfig {
     pub fn par_comp_lenders_endianness<G: SplitLabeling + SequentialGraph>(
         &mut self,
         graph: &G,
-        num_nodes: usize,
         endianness: &str,
     ) -> Result<u64>
     where
         for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
     {
         let num_threads = current_num_threads();
+        let num_nodes = graph.num_nodes();
 
         match endianness {
             #[cfg(any(

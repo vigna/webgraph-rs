@@ -39,6 +39,7 @@ pub struct BvGraphSeq<F> {
 }
 
 impl BvGraphSeq<()> {
+    /// Returns a load configuration that can be customized.
     pub fn with_basename(
         basename: impl AsRef<std::path::Path>,
     ) -> LoadConfig<BE, Sequential, Dynamic, Mmap, Mmap> {
