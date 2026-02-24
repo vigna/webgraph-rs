@@ -287,9 +287,13 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// successor nodes.
 ///
 /// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
-/// to perform the conversion. Type inference might not work properly if the
-/// call is embedded in a larger expression, in which case an explicit type
-/// annotation might be necessary.
+/// to perform the conversion, albeit before Rust 1.92 you might need to use
+/// `let lenders: Vec<LeftIterator<_>> = split_iters.into()` to help type inference
+/// by forcing the unlabeled case.
+///
+/// Type inference might also not work properly if the call is embedded in a
+/// larger expression, in which case an explicit type annotation might be
+/// necessary.
 impl<
     I: Iterator<Item = (usize, usize)> + Send + Sync,
     IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
