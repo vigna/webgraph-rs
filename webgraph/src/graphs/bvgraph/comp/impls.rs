@@ -110,7 +110,7 @@ impl OffsetsWriter<File> {
 }
 
 impl<W: Write> OffsetsWriter<W> {
-    /// Creates a new writer and writes the first offset value (0).
+    /// Creates a new writer and writes the first offset value (0) if requested.
     pub fn from_write(writer: W, write_zero: bool) -> Result<Self> {
         let mut buffer = BufBitWriter::new(WordAdapter::new(BufWriter::new(writer)));
         if write_zero {

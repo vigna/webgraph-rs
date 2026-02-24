@@ -95,6 +95,6 @@ pub trait SequentialDecoderFactory {
     where
         Self: 'a;
 
-    /// Creates a new reader starting at the given node.
+    /// Creates a new reader starting at the beginning of the graph.
     fn new_decoder(&self) -> anyhow::Result<Self::Decoder<'_>>;
 }
