@@ -23,6 +23,8 @@
 
 - `code_to_str` now actually returns `None` instead of panicking.
 
+- Now also `ParSortIters` uses Rayon threads.
+
 ## [0.6.1] - 2026-02-23
 
 ### Fixed

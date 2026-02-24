@@ -641,7 +641,7 @@ fn test_par_comp_lenders() -> Result<()> {
     let split = sorter.sort(pairs.into_par_iter())?;
 
     // Convert to lenders
-    let lenders: Vec<_> = split.into();
+    let lenders: Vec<LeftIterator<_>> = split.into();
 
     // Compress with par_comp_lenders
     let dir = tempfile::tempdir()?;

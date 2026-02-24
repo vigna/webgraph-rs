@@ -71,12 +71,16 @@ pub fn transpose(
     )?))
 }
 
-/// Returns a [`SplitIters`] structure representing the
-/// transpose of the provided labeled splittable graph.
+/// Returns a [`SplitIters`] structure representing the transpose of the
+/// provided labeled splittable graph, computed in parallel.
 ///
 /// The [`SplitIters`] structure can easily converted into a vector of `(node,
 /// lender)` pairs using [this `From`
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+Iter<L,+I>)>).
+///
+/// Parallelism is controlled via the current Rayon thread pool. Please
+/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
+/// the parallelism.
 ///
 /// For the meaning of the additional parameters, see [`SortPairs`].
 pub fn transpose_labeled_split<
@@ -118,7 +122,11 @@ where
 }
 
 /// Returns a [`SplitIters`] structure representing the
-/// transpose of the provided splittable graph.
+/// transpose of the provided splittable graph, computed in parallel.
+///
+/// Parallelism is controlled via the current Rayon thread pool. Please
+/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
+/// the parallelism.
 ///
 /// The [`SplitIters`] structure can easily converted into a vector of `(node,
 /// lender)` pairs using [this `From`

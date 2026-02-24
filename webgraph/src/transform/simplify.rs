@@ -91,9 +91,11 @@ pub fn simplify(
 }
 
 /// Returns a simplified (i.e., undirected and loopless) version of the provided
-/// graph as a [sequential graph](crate::traits::SequentialGraph).
+/// graph as a [sequential graph](crate::traits::SequentialGraph) computed in parallel.
 ///
-/// This method uses splitting to sort in parallel different parts of the graph.
+/// Parallelism is controlled via the current Rayon thread pool. Please
+/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
+/// the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`SortPairs`].
 pub fn simplify_split<S>(

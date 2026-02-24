@@ -8,6 +8,10 @@
 //! Facilities to sort in parallel externally (labelled) pairs of nodes returned
 //! by a [`ParallelIterator`], returning a [`SplitIters`] structure.
 //!
+//! Parallelism is controlled via the current Rayon thread pool. Please
+//! [install](rayon::ThreadPool::install) a custom pool if you want to customize
+//! the parallelism.
+//!
 //! The typical use of [`ParSortPairs`] is to sort (labelled) pairs of nodes
 //! representing a (labelled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for

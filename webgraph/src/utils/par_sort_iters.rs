@@ -9,6 +9,10 @@
 //! Facilities to sort in parallel externally (labelled) pairs of nodes
 //! returned by a sequence of iterators.
 //!
+//! Parallelism is controlled via the current Rayon thread pool. Please
+//! [install](rayon::ThreadPool::install) a custom pool if you want to customize
+//! the parallelism.
+//!
 //! The typical use of [`ParSortIters`] is to sort (labelled) pairs of nodes
 //! representing a (labelled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for
@@ -33,8 +37,8 @@ use super::sort_pairs::KMergeIters;
 use crate::utils::SplitIters;
 use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 
-/// Takes a sequence of iterators of (labelled)pairs as input, and turns them
-/// into [`SplitIters`] structure which is suitable for
+/// Takes a sequence of iterators of (labelled) pairs as input, and turns them
+/// into a [`SplitIters`] structure which is suitable for
 /// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
@@ -156,13 +160,14 @@ impl ParSortIters {
     /// [`expected_num_pairs`](ParSortIters::expected_num_pairs) can be used to
     /// customize the instance.
     ///
-    /// This method will return an error if the number of CPUs
-    /// returned by [`num_cpus::get()`](num_cpus::get()) is zero.
+    /// This method will return an error if [`rayon::current_num_threads`]
+    /// returns zero.
     pub fn new(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
             expected_num_pairs: None,
-            num_partitions: NonZeroUsize::new(num_cpus::get()).context("zero CPUs")?,
+            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
+                .context("No Rayon threads")?,
             memory_usage: MemoryUsage::default(),
         })
     }
@@ -181,7 +186,7 @@ impl ParSortIters {
     ///
     /// This is the number of iterators in the resulting [`SplitIters`].
     ///
-    /// Defaults to `num_cpus::get()`.
+    /// Defaults to [`rayon::current_num_threads`].
     pub fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
         Self {
             num_partitions,
