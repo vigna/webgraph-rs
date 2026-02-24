@@ -17,7 +17,7 @@ type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
 #[derive(Debug, Clone)]
 pub struct DynCodesEncoder<E: Endianness, CW: CodesWrite<E>> {
-    /// The code writer used by to output the compressed data.
+    /// The code writer used to output the compressed data.
     code_writer: CW,
     /// The estimator for this encoder.
     estimator: DynCodesEstimator,
@@ -52,7 +52,7 @@ impl<E: Endianness, CW: CodesWrite<E>> DynCodesEncoder<E, CW> {
     }
 }
 
-impl<E: Endianness, CW: CodesWrite<E> + BitSeek + Clone> BitSeek for DynCodesEncoder<E, CW> {
+impl<E: Endianness, CW: CodesWrite<E> + BitSeek> BitSeek for DynCodesEncoder<E, CW> {
     type Error = <CW as BitSeek>::Error;
 
     fn set_bit_pos(&mut self, bit_index: u64) -> Result<(), Self::Error> {

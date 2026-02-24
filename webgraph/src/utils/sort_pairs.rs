@@ -20,22 +20,22 @@ use std::path::{Path, PathBuf};
 /// associated label.
 ///
 /// An instance of this structure ingests pairs of nodes with an associated
-/// label, sort them in chunks of `batch_size` triples, and dumps them to disk.
+/// label, sort them in chunks of `batch_size` pairs, and dumps them to disk.
 /// Then, a call to [`iter`](SortPairs::iter) returns an iterator that merges
-/// the batches on disk on the fly, returning the triples sorted by
+/// the batches on disk on the fly, returning the pairs sorted by
 /// lexicographical order of the pairs of nodes.
 ///
 /// A batch should be as large as possible, given the available memory.
-/// Small batches are inefficient because they requires significantly
+/// Small batches are inefficient because they require significantly
 /// more I/O, and more effort during the merge phase.
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
-/// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
+/// using this structure (e.g., `ENOMEM: Out of memory` under Linux), please review
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
 ///
-/// The structure accepts as type parameter a [`BatchCodec`] is used to serialize
-/// and deserialize the triples.
+/// The structure accepts as type parameter a [`BatchCodec`] that is used to
+/// serialize and deserialize the labels.
 ///
 /// You can use this structure in two ways: either create an instance with
 /// [`new_labeled`](SortPairs::new_labeled) and add labeled pairs using
@@ -45,7 +45,7 @@ use std::path::{Path, PathBuf};
 /// [`sort_labeled`](SortPairs::sort_labeled) or
 /// [`try_sort_labeled`](SortPairs::try_sort_labeled).
 ///
-/// `SortPairs<(), ()>` has commodity [`new`](SortPairs::new),
+/// `SortPairs<(), ()>` has convenience [`new`](SortPairs::new),
 /// [`push`](SortPairs::push), [`sort`](SortPairs::sort), and
 /// [`try_sort`](SortPairs::try_sort) methods without labels. Note however that
 /// the [resulting iterator](SortPairs::iter) is labeled, and returns pairs
@@ -311,6 +311,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
     }
 }
 
+// SAFETY: the merge of sorted iterators is itself sorted.
 unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator> SortedIterator
     for KMergeIters<I, T>
 {
@@ -348,6 +349,8 @@ impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIt
             .sum()
     }
 }
+
+impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::FusedIterator for KMergeIters<I, T> {}
 
 impl<T, I: Iterator<Item = ((usize, usize), T)>> core::default::Default for KMergeIters<I, T> {
     fn default() -> Self {

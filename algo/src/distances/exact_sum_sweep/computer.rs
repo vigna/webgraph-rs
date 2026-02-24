@@ -556,9 +556,9 @@ impl<
             .par_visit_with([start], pl.clone(), |pl, event| {
                 if let EventNoPred::Visit { node, distance, .. } = event {
                     pl.light_update();
-                    // Safety for unsafe blocks: each node gets accessed exactly once, so no data races can happen
                     max_dist.fetch_max(distance, Ordering::Relaxed);
 
+                    // SAFETY: each node gets accessed exactly once, so no data races can happen.
                     let node_forward_low = unsafe { forward_low[node].get() };
                     let node_forward_high = self.forward_high[node];
 
@@ -725,7 +725,7 @@ impl<
                     [p],
                     |event| {
                         if let EventNoPred::Visit { node, distance, .. } = event {
-                            // Safety: each node is accessed exactly once
+                            // SAFETY: each node is accessed exactly once.
                             unsafe { dist_pivot_mut[node].set(distance) };
                             component_ecc_pivot.store(distance, Ordering::Relaxed);
                         };
@@ -824,9 +824,8 @@ impl<
         pl.info(format_args!("Refining upper bounds of nodes..."));
 
         (0..self.num_nodes).into_par_iter().for_each(|node| {
-            // Safety for unsafe blocks: each node gets accessed exactly
-            // once, so no data races can happen
-
+            // SAFETY: each node gets accessed exactly once, so no data
+            // races can happen.
             let mut node_forward_high = unsafe { forward_high[node].get() };
             let pivot_value = dist_pivot_b[node] + ecc_pivot_f[components[node]];
 

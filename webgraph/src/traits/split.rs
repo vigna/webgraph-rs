@@ -124,6 +124,8 @@ pub mod seq {
         }
     }
 
+    impl<L: lender::Lender + Clone> core::iter::FusedIterator for Iter<L> {}
+
     pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Lender<'a>>;
     pub type IntoIterator<'a, S> = Iter<<S as SequentialLabeling>::Lender<'a>>;
 }
@@ -207,6 +209,8 @@ pub mod ra {
             self.how_many - self.i
         }
     }
+
+    impl<R: RandomAccessLabeling> core::iter::FusedIterator for Iter<'_, R> {}
 
     pub type Lender<'a, R> = lender::Take<<R as SequentialLabeling>::Lender<'a>>;
     pub type IntoIterator<'a, R> = Iter<'a, R>;

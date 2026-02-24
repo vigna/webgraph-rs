@@ -507,6 +507,11 @@ impl<I: ExactSizeIterator> ExactSizeIterator for AssumeSortedIterator<I> {
     }
 }
 
+impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
+    for AssumeSortedIterator<I>
+{
+}
+
 /// A [`SequentialLabeling`] providing, additionally, random access to
 /// the list of labels associated with a node.
 ///

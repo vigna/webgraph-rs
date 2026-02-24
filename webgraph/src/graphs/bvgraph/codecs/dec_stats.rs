@@ -8,7 +8,7 @@
 use crate::prelude::*;
 use dsi_bitstream::{prelude::CodesStats, traits::BitSeek};
 
-/// A struct that keeps track of how much bits each piece would take
+/// A struct that keeps track of how many bits each piece would take
 /// using different codes for compression.
 #[derive(Debug, Clone, Default)]
 pub struct DecoderStats {
@@ -61,15 +61,15 @@ impl core::iter::Sum for DecoderStats {
     }
 }
 
-/// A wrapper over a generic [`Decode`] that keeps track of how much
-/// bits each piece would take using different codes for compressions
+/// A wrapper over a generic [`Decode`] that keeps track of how many
+/// bits each piece would take using different codes for compression.
 pub struct StatsDecoder<D: Decode> {
     pub codes_reader: D,
     pub stats: DecoderStats,
 }
 
 impl<D: Decode> StatsDecoder<D> {
-    /// Wrap a reader
+    /// Wraps a reader.
     #[inline(always)]
     pub fn new(codes_reader: D, stats: DecoderStats) -> Self {
         Self {

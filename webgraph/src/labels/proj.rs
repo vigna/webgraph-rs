@@ -100,6 +100,11 @@ where
     }
 }
 
+impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator for LeftSucc<I> where
+    I::Item: Pair
+{
+}
+
 impl<I: DoubleEndedIterator> DoubleEndedIterator for LeftSucc<I>
 where
     I::Item: Pair,
@@ -241,6 +246,7 @@ impl<S: SequentialLabeling> SequentialGraph for Left<S> where S::Label: Pair<Lef
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Left<R> where R::Label: Pair<Left = usize> {}
 
+// SAFETY: projecting the left component preserves lender sortedness.
 unsafe impl<L: SortedLender> SortedLender for LeftIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
@@ -248,6 +254,7 @@ where
 {
 }
 
+// SAFETY: projecting the left component preserves iterator sortedness.
 unsafe impl<I: SortedIterator> SortedIterator for LeftSucc<I> where I::Item: Pair {}
 
 /// The projection onto the second component of a pair.
@@ -327,6 +334,11 @@ where
     fn len(&self) -> usize {
         self.0.len()
     }
+}
+
+impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator for RightSucc<I> where
+    I::Item: Pair
+{
 }
 
 impl<I: DoubleEndedIterator> DoubleEndedIterator for RightSucc<I>
@@ -470,6 +482,7 @@ impl<S: SequentialLabeling> SequentialGraph for Right<S> where S::Label: Pair<Ri
 
 impl<R: RandomAccessLabeling> RandomAccessGraph for Right<R> where R::Label: Pair<Right = usize> {}
 
+// SAFETY: projecting the right component preserves lender sortedness.
 unsafe impl<L: SortedLender> SortedLender for RightIterator<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
@@ -477,4 +490,5 @@ where
 {
 }
 
+// SAFETY: projecting the right component preserves iterator sortedness.
 unsafe impl<I: SortedIterator> SortedIterator for RightSucc<I> where I::Item: Pair {}

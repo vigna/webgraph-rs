@@ -247,12 +247,12 @@ pub fn humanize(value: f64) -> String {
 /// returns (labelled) pairs of nodes, and that the first element of
 /// each pair sits between the boundaries associated with the iterator.
 ///
-/// This structures is returned by [`ParSortPairs`] and [`ParSortIters`] and can
+/// This structure is returned by [`ParSortPairs`] and [`ParSortIters`] and can
 /// easily be converted into lenders for use with
 /// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
 /// using a convenient implementation of the [`From`] trait.
 ///
-/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion. Type inference might not work properly if the
 /// call is embedded in a larger expression, in which case an explicit type
 /// annotation might be necessary.
@@ -286,7 +286,7 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// [`LeftIterator`](crate::labels::proj::LeftIterator) to project out just the
 /// successor nodes.
 ///
-/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion, albeit before Rust 1.92 you might need to use
 /// `let lenders: Vec<LeftIterator<_>> = split_iters.into()` to help type inference
 /// by forcing the unlabeled case.
@@ -332,7 +332,7 @@ impl<
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
 /// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
-/// Note that it sufficient to write `let lenders: Vec<_> = split_iters.into()`
+/// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion. Type inference might not work properly if the
 /// call is embedded in a larger expression, in which case an explicit type
 /// annotation might be necessary.

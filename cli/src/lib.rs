@@ -136,7 +136,7 @@ pub struct ArcsArgs {
     pub target_column: usize,
 
     #[arg(long, default_value_t = false)]
-    /// Source and destinations are not node identifiers starting from 0, but labels.
+    /// Sources and destinations are not node identifiers starting from 0, but labels.
     pub labels: bool,
 }
 

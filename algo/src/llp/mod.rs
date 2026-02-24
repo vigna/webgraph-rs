@@ -266,7 +266,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                         if !can_change[node].load(Ordering::Relaxed) {
                             continue;
                         }
-                        // set that the node can't change by default and we'll unset later it if it can
+                        // set that the node can't change by default and we'll unset it later if it can
                         can_change[node].store(false, Ordering::Relaxed);
 
                         let successors = sym_graph.successors(node);

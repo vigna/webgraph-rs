@@ -53,7 +53,7 @@ pub struct CompStats {
 #[derive(Debug)]
 pub struct BvComp<E, W: Write> {
     /// The ring-buffer that stores the neighbors of the last
-    /// `compression_window` neighbors
+    /// `compression_window` nodes
     backrefs: CircularBuffer<Vec<usize>>,
     /// The ring-buffer that stores how many recursion steps are needed to
     /// decode the last `compression_window` nodes, this is used for
@@ -240,8 +240,8 @@ impl Compressor {
         Ok(())
     }
 
-    /// Get the extra nodes, compute all the intervals of consecutive nodes
-    /// longer than min_interval_length and put the rest in the residuals
+    /// Gets the extra nodes, computes all the intervals of consecutive nodes
+    /// longer than min_interval_length, and puts the rest in the residuals
     fn intervalize(&mut self, min_interval_length: usize) {
         let vl = self.extra_nodes.len();
         let mut i = 0;
@@ -270,7 +270,7 @@ impl Compressor {
         }
     }
 
-    /// Compute the copy blocks and the ignore blocks.
+    /// Computes the copy blocks and the ignore blocks.
     /// The copy blocks are blocks of nodes we will copy from the reference node.
     fn diff_comp(&mut self, curr_list: &[usize], ref_list: &[usize]) {
         // j is the index of the next successor of the current node we must examine
@@ -385,10 +385,10 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
         }
     }
 
-    /// Push a new node to the compressor.
+    /// Pushes a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
-    /// empty iterator)
+    /// empty iterator).
     pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated

@@ -14,7 +14,7 @@
 //!
 //! Note that since [`EventPred`] contains the predecessor of the visited node,
 //! all post-initialization visit events can be interpreted as arc events. The
-//! only exception are the previsit and postvisit events of the root.
+//! only exceptions are the previsit and postvisit events of the root.
 
 mod seq;
 pub use seq::*;

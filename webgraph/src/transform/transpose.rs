@@ -74,7 +74,7 @@ pub fn transpose(
 /// Returns a [`SplitIters`] structure representing the transpose of the
 /// provided labeled splittable graph, computed in parallel.
 ///
-/// The [`SplitIters`] structure can easily converted into a vector of `(node,
+/// The [`SplitIters`] structure can be easily converted into a vector of `(node,
 /// lender)` pairs using [this `From`
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+Iter<L,+I>)>).
 ///
@@ -128,7 +128,7 @@ where
 /// [install](rayon::ThreadPool::install) a custom pool if you want to customize
 /// the parallelism.
 ///
-/// The [`SplitIters`] structure can easily converted into a vector of `(node,
+/// The [`SplitIters`] structure can be easily converted into a vector of `(node,
 /// lender)` pairs using [this `From`
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+LeftIterator<Iter<(),+Map<I,+fn((usize,+usize))+->+(usize,+usize,+())>)>).
 ///

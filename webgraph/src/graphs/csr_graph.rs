@@ -576,7 +576,7 @@ where
 /// The iterator on successors returned by the lender.
 ///
 /// This is different from the random-access iterator because for better
-/// efficiency we have a single successors iterators that is forwarded by the
+/// efficiency we have a single successors iterator that is forwarded by the
 /// lender.
 ///
 /// If the DCF and the successors are compressed representations, this might be
@@ -619,3 +619,5 @@ impl<D: Iterator<Item = usize>> ExactSizeIterator for SeqSucc<'_, D> {
         self.last_offset - *self.current_offset
     }
 }
+
+impl<D: Iterator<Item = usize>> core::iter::FusedIterator for SeqSucc<'_, D> {}

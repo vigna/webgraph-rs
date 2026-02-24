@@ -15,11 +15,11 @@ use crate::utils::RaggedArray;
 use common_traits::Sequence;
 use lender::prelude::*;
 
-/// An Entry for the table used to save the intermediate computation
+/// An entry of the table used to store the intermediate computation
 /// of the dynamic algorithm to select the best references.
-/// It represents if a reference to a node, with a known amount of previous
-/// references chain length, is chosen and how much less it costs to all its
-/// referents with respect to compress the node without any selected reference.
+/// It represents whether a reference to a node (with a known chain length of
+/// previous references) is chosen, and how much cost it saves relative to
+/// compressing the node without any reference.
 #[derive(Default, Clone)]
 struct ReferenceTableEntry {
     saved_cost: f32,
@@ -59,9 +59,9 @@ pub struct BvCompZ<E, W: Write> {
     backrefs: RaggedArray<usize>,
     /// The references to the adjacency list to copy
     references: Vec<usize>,
-    /// Saved costs of each reference in the chunk and his compression window
+    /// Saved costs of each reference in the chunk and its compression window
     reference_costs: Matrix<u64>,
-    /// Estimate costs in saved bits using the current reference selection versus the extensive list   
+    /// Estimated costs in saved bits using the current reference selection versus the extensive list
     saved_costs: Vec<f32>,
     /// The number of nodes for which the reference selection algorithm is executed.
     /// Used in the dynamic algorithm to manage the tradeoff between memory consumption
@@ -137,13 +137,13 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         }
     }
 
-    /// Push a new node to the compressor.
+    /// Pushes a new node to the compressor.
     /// The iterator must yield the successors of the node and the nodes HAVE
     /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
     /// empty iterator).
-    /// It returns a non-zero value only if is the last element of a chunk and
-    /// so all the pending adjacency lists are optimized and then written to
-    /// encoder.
+    /// It returns a non-zero value only if this is the last element of a chunk
+    /// and so all the pending adjacency lists are optimized and then written to
+    /// the encoder.
     pub fn push<I: IntoIterator<Item = usize>>(&mut self, succ_iter: I) -> anyhow::Result<()> {
         // collect the iterator inside the backrefs, to reuse the capacity already
         // allocated
@@ -448,7 +448,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         }
     }
 
-    /// Write the current chunk to the encoder and clear the compressor's internal
+    /// Writes the current chunk to the encoder and clears the compressor's internal
     /// state to start compressing the next chunk.
     fn write_and_clear_current_chunk(&mut self) -> anyhow::Result<()> {
         let n = self.references.len();

@@ -14,10 +14,10 @@ use std::collections::HashMap;
 #[cfg_attr(feature = "fuzz", derive(arbitrary::Arbitrary))]
 /// The compression flags for reading or compressing a graph.
 ///
-/// As documented, one code might sets multiple values. This is done for
+/// As documented, one code might set multiple values. This is done for
 /// compatibility with the previous Java version of the library.
-/// But the codes optimizers will return the optimal codes for each of them,
-/// so if it identify some big save from using different codes, we can consider
+/// But the code optimizer will return the optimal codes for each of them,
+/// so if it identifies some big saving from using different codes, we can consider
 /// splitting them.
 pub struct CompFlags {
     /// The instantaneous code to use to encode the `outdegrees`
