@@ -133,7 +133,7 @@ impl<C: AsMut<[usize]> + AsRef<[usize]>> Sccs<C> {
     /// returns the sizes of the components after the renumbering.
     pub fn par_sort_by_size(&mut self) -> Box<[usize]> {
         let mut sizes = self.compute_sizes();
-        assert!(sizes.len() == self.num_components());
+        assert_eq!(sizes.len(), self.num_components());
         let mut sort_perm = Vec::from_iter(0..sizes.len());
         sort_perm.par_sort_unstable_by(|&x, &y| sizes[y].cmp(&sizes[x]));
         let mut inv_perm = vec![0; sizes.len()];

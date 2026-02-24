@@ -8,10 +8,10 @@
 //! Layered Label Propagation.
 //!
 //! An implementation of the _layered label propagation_ algorithm described by
-//! Paolo Boldi, Sebastiano Vigna, Marco Rosa, Massimo Santini, and Sebastiano
-//! Vigna in "[Layered Label Propagation: A MultiResolution Coordinate-Free
-//! Ordering for Compressing Social Networks][LLP paper]", _Proceedings of the
-//! 20th international conference on World Wide Web_, pages 587–596, ACM, 2011.
+//! Paolo Boldi, Marco Rosa, Massimo Santini, and Sebastiano Vigna in "[Layered
+//! Label Propagation: A MultiResolution Coordinate-Free Ordering for
+//! Compressing Social Networks][LLP paper]", _Proceedings of the 20th
+//! international conference on World Wide Web_, pages 587–596, ACM, 2011.
 //!
 //! # Requirements
 //!
