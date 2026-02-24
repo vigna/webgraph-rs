@@ -192,7 +192,7 @@ pub trait SequentialLabeling {
     /// * `fold` - The function to fold the results obtained from each chunk.
     ///   It will be passed to the [`Iterator::fold`].
     ///
-    /// * `granularity` - The granularity of parallel tests.
+    /// * `granularity` - The granularity of parallel tasks.
     ///
     /// * `deg_cumul_func` - The degree cumulative function of the graph.
     ///

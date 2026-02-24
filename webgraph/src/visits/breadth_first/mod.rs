@@ -74,7 +74,7 @@ pub enum EventPred {
         /// A distance.
         distance: usize,
         /// The number of nodes at
-        /// [`distance`](`EventNoPred::FrontierSize::distance`) from the roots.
+        /// [`distance`](`EventPred::FrontierSize::distance`) from the roots.
         size: usize,
     },
     /// The visit has been completed.

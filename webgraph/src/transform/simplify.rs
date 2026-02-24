@@ -72,8 +72,7 @@ pub fn simplify(
         .expected_updates(Some(graph.num_nodes()));
     pl.start("Creating batches...");
     // create batches of sorted edges
-    let mut iter = graph.iter();
-    while let Some((src, succ)) = iter.next() {
+    for_![(src, succ) in graph.iter() {
         for dst in succ {
             if src != dst {
                 sorted.push(src, dst)?;
@@ -81,7 +80,7 @@ pub fn simplify(
             }
         }
         pl.light_update();
-    }
+    }];
     // merge the batches
     let filter: fn(&((usize, usize), ())) -> bool = |((src, dst), ())| src != dst;
     let iter = Itertools::dedup(sorted.iter()?.filter(filter));

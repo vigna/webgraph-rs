@@ -2,12 +2,6 @@
 
 ## [0.7.0] - unreleased
 
-### Changed
-
-- Removed spurious `reset` inherent method in sequential visits.
-
-- Added `FusedIterator` implementatios to `BfsOrder` and `DfsOrder`.
-
 ## [0.6.1] - 2026-02-23
 
 ### New

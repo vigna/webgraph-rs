@@ -13,6 +13,8 @@
 //!
 //! See the examples for a complete implementation based on memory mapping.
 
+use std::iter::FusedIterator;
+
 use crate::prelude::{BitDeserializer, Offsets};
 use crate::prelude::{NodeLabelsLender, RandomAccessLabeling, SequentialLabeling};
 use dsi_bitstream::traits::{BitRead, BitSeek, Endianness};
@@ -138,6 +140,11 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
     }
 }
 
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
+    for SeqLabels<'_, E, BR, D>
+{
+}
+
 impl<L, E: Endianness, S: Supply, D, O: Offsets> SequentialLabeling
     for BitStreamLabeling<E, S, D, O>
 where
@@ -188,6 +195,11 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> Iterato
             Some(self.deserializer.deserialize(&mut self.reader).unwrap())
         }
     }
+}
+
+impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>> FusedIterator
+    for Labels<'_, E, BR, D>
+{
 }
 
 impl<L, E: Endianness, S: Supply, D, O: Offsets> RandomAccessLabeling

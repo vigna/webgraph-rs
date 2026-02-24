@@ -34,7 +34,7 @@ use std::path::{Path, PathBuf};
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
 ///
-/// The structure accept as type parameter a [`BatchCodec`] is used to serialize
+/// The structure accepts as type parameter a [`BatchCodec`] is used to serialize
 /// and deserialize the triples.
 ///
 /// You can use this structure in two ways: either create an instance with

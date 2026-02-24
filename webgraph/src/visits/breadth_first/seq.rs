@@ -13,6 +13,7 @@ use crate::visits::{
 };
 use anyhow::Result;
 use nonmax::NonMaxUsize;
+use std::iter::FusedIterator;
 use std::{collections::VecDeque, ops::ControlFlow, ops::ControlFlow::Continue};
 use sux::bits::BitVec;
 use sux::traits::BitVecOpsMut;
@@ -58,11 +59,11 @@ use sux::traits::BitVecOpsMut;
 /// assert_eq!(d, [0, 1, 2, 2]);
 /// ```
 ///
-/// Here instead we compute the size of the ball of radius two around node 0: to
-/// minimize resource usage, we count nodes in the filter function, rather than
-/// as the result of an event. In this way, node at distance two are counted but
-/// not included in the queue, as it would happen if we were counting during an
-/// [`EventPred::Visit`] event.
+/// Here instead we compute the size of the ball of radius two around node 0: we
+/// count nodes in the filter function, rather than as the result of an event,
+/// to avoid adding them to the queue. In this way, node at distance two are
+/// counted but not included in the queue, as it would happen if we were
+/// counting during an [`EventPred::Visit`] event.
 ///
 /// ```
 /// use std::convert::Infallible;
@@ -133,7 +134,7 @@ impl<'a, G: RandomAccessGraph> Seq<'a, G> {
         }
     }
 
-    /// Returns an iterator over the nodes visited by a BFS visit starting in parallel from multiple nodes.
+    /// Returns an iterator over the nodes visited by a BFS visit starting from multiple nodes.
     pub fn iter_from_roots(
         &mut self,
         roots: impl IntoIterator<Item = usize>,
@@ -425,6 +426,8 @@ impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, 'b, G> {
         self.visit.graph.num_nodes() - self.visited_nodes
     }
 }
+
+impl<'a, 'b, G: RandomAccessGraph> FusedIterator for BfsOrder<'a, 'b, G> {}
 
 /// Iterator on the nodes reachable from the given roots in a BFS order.
 pub struct BfsOrderFromRoots<'a, 'b, G: RandomAccessGraph> {

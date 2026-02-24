@@ -12,6 +12,7 @@ use crate::visits::{
     depth_first::{EventNoPred, EventPred, FilterArgsNoPred, FilterArgsPred},
 };
 use sealed::sealed;
+use std::iter::FusedIterator;
 use std::ops::ControlFlow::{self, Continue};
 use sux::bits::BitVec;
 use sux::traits::{BitVecOps, BitVecOpsMut};
@@ -135,7 +136,7 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// ```
 ///
 /// Note that the iterator modifies the state of the visit, so it can re-use the
-/// allocations. Other visits, i.e. [`SeqPred`] and [`SeqPath`],  do not
+/// allocations. Other visits, i.e. [`SeqNoPred`] and [`SeqPath`],  do not
 /// implement the [`IntoIterator`] trait, as they would require to put the
 /// predecessor on the stack, which would need more space than needed.
 pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
@@ -187,19 +188,14 @@ impl<'a, S: NodeStates, G: RandomAccessGraph, P, const PRED: bool> SeqIter<'a, S
             state: S::new(num_nodes),
         }
     }
-
-    /// Reset
-    pub fn reset(&mut self) {
-        self.stack.clear();
-        self.state.reset();
-    }
 }
 
 impl<'a, S, G: RandomAccessGraph> SeqIter<'a, S, G, usize, true> {
     /// Returns an iterator over the nodes still on the visit path,
     /// except for the last one.
     ///
-    /// Node will be returned in reverse order of visit.
+    /// Nodes are returned in reverse order of previsit (i.e., from deepest to
+    /// shallowest)
     ///
     /// This method is useful only in the case of interrupted visits,
     /// as in a completed visit the stack will be empty. The last node
@@ -652,3 +648,5 @@ impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for DfsOrder<'a, 'b, G> {
         self.visit.graph.num_nodes() - self.visited_nodes
     }
 }
+
+impl<'a, 'b, G: RandomAccessGraph> FusedIterator for DfsOrder<'a, 'b, G> {}

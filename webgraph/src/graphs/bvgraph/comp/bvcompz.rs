@@ -485,7 +485,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         self.saved_costs.clear();
 
         // Custom resizing logic
-        if self.backrefs.num_values() < self.backrefs.values_capacity() / 4 {
+        if self.backrefs.num_values().max(1024) < self.backrefs.values_capacity() / 4 {
             self.backrefs
                 .shrink_values_to(self.backrefs.values_capacity() / 2);
         }

@@ -252,7 +252,7 @@ where
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
             let neighbors = self.successors(reference_node_id);
-            debug_assert!(neighbors.len() != 0);
+            debug_assert!(!neighbors.len() != 0);
             // get the info on which destinations to copy
             let number_of_blocks = result.reader.read_block_count() as usize;
             // add +1 if the number of blocks is even, so we have capacity for
@@ -490,7 +490,7 @@ impl<D: Decode> Iterator for Succ<D> {
 }
 
 /// Convenience implementation that makes it possible to iterate over a
-/// [`BvGraphSeq`] using the [`for_`](lender::for_) macro (see the
+/// [`BvGraph`] using the [`for_`](lender::for_) macro (see the
 /// [crate documentation](crate)).
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BvGraph<F> {
     type Lender = <BvGraph<F> as SequentialLabeling>::Lender<'a>;

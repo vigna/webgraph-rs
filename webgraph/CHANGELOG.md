@@ -1,5 +1,15 @@
 # Change Log
 
+## [0.7.0] - unreleased
+
+### Changed
+
+- Reallocation strategies in `BvComp` and `BvCompZ` do not shrink below capacity 1024.
+
+- Removed spurious `reset` inherent method in sequential visits.
+
+- Added `FusedIterator` implementations to `BfsOrder` and `DfsOrder`.
+
 ## [0.6.1] - 2026-02-23
 
 ### Fixed

@@ -122,7 +122,7 @@ pub enum EventPred {
         /// The root of the current visit tree.
         root: usize,
         /// The depth of the visit, that is, the length of the visit path from the
-        /// [root](`EventPred::Revisit::root`) to [curr](`EventPred::Revisit::node`).
+        /// [root](`EventPred::Revisit::root`) to [node](`EventPred::Revisit::node`).
         depth: usize,
         /// Whether the node is currently on the visit path, that is, if we are
         /// traversing a back arc, and retreating from it. This might be always

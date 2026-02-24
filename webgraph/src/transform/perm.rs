@@ -43,9 +43,11 @@ pub fn permute(
     // get a permuted view
     let pgraph = PermutedGraph { graph, perm };
 
-    let mut pl = ProgressLogger::default();
-    pl.item_name("node")
-        .expected_updates(Some(graph.num_nodes()));
+    let mut pl = progress_logger![
+        item_name = "node",
+        expected_updates = Some(graph.num_nodes()),
+        display_memory = true
+    ];
     pl.start("Creating batches...");
     // create batches of sorted edges
     for_!( (src, succ) in pgraph.iter() {

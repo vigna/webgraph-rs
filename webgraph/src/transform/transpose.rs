@@ -106,7 +106,7 @@ where
     CodecIter<C>: Clone + Send + Sync,
 {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    let parts = num_cpus::get();
+    let parts = rayon::current_num_threads();
 
     let pairs: Vec<_> = graph
         .split_iter(parts)

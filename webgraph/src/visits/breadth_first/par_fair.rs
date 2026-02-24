@@ -177,8 +177,8 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventNoPred> for ParFair<G, false> {
         }
 
         callback(&mut init, EventNoPred::Init {})?;
-        // We do not provide a capacity in the hope of allocating dynamically
-        // space as the frontiers grow.
+        // We do not provide a capacity to allow the frontier to grow
+        // dynamically
         let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;
@@ -250,7 +250,7 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
         T: Clone + Send + Sync,
         E: Send,
         C: Fn(&mut T, EventPred) -> ControlFlow<E, ()> + Sync,
-        F: Fn(&mut T, <EventPred as super::super::Event>::FilterArgs) -> bool + Sync,
+        F: Fn(&mut T, FilterArgsPred) -> bool + Sync,
     >(
         &mut self,
         roots: R,
@@ -283,8 +283,8 @@ impl<G: RandomAccessGraph + Sync> Parallel<EventPred> for ParFair<G, true> {
         }
 
         callback(&mut init, EventPred::Init {})?;
-        // We do not provide a capacity in the hope of allocating dynamically
-        // space as the frontiers grow.
+        // We do not provide a capacity to allow the frontier to grow
+        // dynamically
         let mut curr_frontier = Frontier::new();
         // Inject the filtered roots in the frontier.
         curr_frontier.as_mut()[0] = filtered_roots;

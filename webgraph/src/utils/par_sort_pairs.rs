@@ -226,7 +226,7 @@ impl ParSortPairs {
     /// Sorts the output of the provided parallel iterator,
     /// returning a [`SplitIters`] structure.
     ///
-    /// This method accept as type parameter a
+    /// This method accepts as type parameter a
     /// [`BitSerializer`](crate::traits::BitSerializer) and a
     /// [`BitDeserializer`](crate::traits::BitDeserializer) that are used to
     /// serialize and deserialize the labels.

@@ -279,7 +279,7 @@ impl Compressor {
         let mut j = 0;
         // k is the index of the next successor of the reference node we must examine
         let mut k = 0;
-        // currBlockLen is the number of entries (in the reference list) we have already copied/ignored (in the current block)
+        // curr_block_len is the number of entries (in the reference list) we have already copied/ignored (in the current block)
         let mut curr_block_len = 0;
         // copying is true iff we are producing a copy block (instead of an ignore block)
         let mut copying = true;
@@ -289,23 +289,25 @@ impl Compressor {
             if copying {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {
-                        /* If while copying we trespass the current element of the reference list,
-                        we must stop copying. */
+                        // If while copying we trespass the current element of
+                        // the reference list, we must stop copying
                         self.blocks.push(curr_block_len);
                         copying = false;
                         curr_block_len = 0;
                     }
                     Ordering::Less => {
-                        /* If while copying we find a non-matching element of the reference list which
-                        is larger than us, we can just add the current element to the extra list
-                        and move on. j gets increased. */
+                        // If while copying we find a non-matching element of
+                        // the reference list which is larger than us, we can
+                        // just add the current element to the extra list and
+                        // move on. j gets increased.
                         self.extra_nodes.push(curr_list[j]);
                         j += 1;
                     }
                     Ordering::Equal => {
                         // currList[j] == refList[k]
-                        /* If the current elements of the two lists are equal, we just increase the block length.
-                        both j and k get increased. */
+                        //
+                        // If the current elements of the two lists are equal, we just increase the block length.
+                        // both j and k get increased.
                         j += 1;
                         k += 1;
                         curr_block_len += 1;
@@ -315,20 +317,22 @@ impl Compressor {
             } else {
                 match curr_list[j].cmp(&ref_list[k]) {
                     Ordering::Greater => {
-                        /* If we trespassed the current element of the reference list, we
-                        increase the block length. k gets increased. */
+                        // If we trespassed the current element of the reference
+                        // list, we increase the block length. k gets increased.
                         k += 1;
                         curr_block_len += 1;
                     }
                     Ordering::Less => {
-                        /* If we did not trespass the current element of the reference list, we just
-                        add the current element to the extra list and move on. j gets increased. */
+                        // If we did not trespass the current element of the
+                        // reference list, we just add the current element to
+                        // the extra list and move on. j gets increased.
                         self.extra_nodes.push(curr_list[j]);
                         j += 1;
                     }
                     Ordering::Equal => {
                         // currList[j] == refList[k]
-                        /* If we found a match we flush the current block and start a new copying phase. */
+                        //
+                        // If we found a match we flush the current block and start a new copying phase.
                         self.blocks.push(curr_block_len);
                         copying = true;
                         curr_block_len = 0;
@@ -336,9 +340,8 @@ impl Compressor {
                 }
             }
         }
-        /* We do not record the last block. The only case when we have to enqueue the last block's length
-         * is when we were copying and we did not copy up to the end of the reference list.
-         */
+        // We do not record the last block. The only case when we have to enqueue the last block's length
+        //  is when we were copying and we did not copy up to the end of the reference list.
         if copying && k < ref_list.len() {
             self.blocks.push(curr_block_len);
         }
@@ -396,7 +399,7 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
             let succ_vec = &mut self.backrefs[self.curr_node];
             succ_vec.clear();
             succ_vec.extend(succ_iter);
-            if succ_vec.len() < succ_vec.capacity() / 4 {
+            if succ_vec.len().max(1024) < succ_vec.capacity() / 4 {
                 succ_vec.shrink_to(succ_vec.capacity() / 2);
             }
         }
