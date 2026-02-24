@@ -43,6 +43,11 @@ pub struct CliArgs {
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
+    if args.parallel {
+        log::warn!(
+            "The --parallel flag is deprecated and will be removed in a future release. The parallel algorithm is now the default."
+        );
+    }
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
