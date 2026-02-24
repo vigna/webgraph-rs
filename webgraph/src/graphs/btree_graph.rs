@@ -388,6 +388,7 @@ impl From<LabeledBTreeGraph<()>> for BTreeGraph {
 #[repr(transparent)]
 pub struct LabeledSucc<'a, L: Clone + 'static>(std::collections::btree_map::Iter<'a, usize, L>);
 
+// SAFETY: successors are stored in a BTreeMap, which iterates in sorted order.
 unsafe impl<L: Clone + 'static> SortedIterator for LabeledSucc<'_, L> {}
 
 impl<L: Clone + 'static> Iterator for LabeledSucc<'_, L> {
@@ -416,6 +417,7 @@ impl<L: Clone + 'static> FusedIterator for LabeledSucc<'_, L> {}
 #[repr(transparent)]
 pub struct Succ<'succ>(core::iter::Copied<std::collections::btree_map::Keys<'succ, usize, ()>>);
 
+// SAFETY: successors are stored in a BTreeMap, which iterates in sorted order.
 unsafe impl SortedIterator for Succ<'_> {}
 
 impl Iterator for Succ<'_> {

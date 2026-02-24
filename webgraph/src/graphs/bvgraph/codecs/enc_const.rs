@@ -11,7 +11,7 @@ use std::convert::Infallible;
 
 use super::{Encode, EncodeAndEstimate};
 
-/// An implementation of [`EncodeAndEstimate`] with compile time defined codes
+/// An implementation of [`EncodeAndEstimate`] with compile-time defined codes.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ConstCodesEncoder<

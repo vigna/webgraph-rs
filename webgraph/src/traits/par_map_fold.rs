@@ -10,7 +10,7 @@
 ///
 /// This trait extends the [`Iterator`] trait with methods that map values and
 /// fold them. Differently from the [Rayon](rayon) approach, elements of the iterator
-/// are submitted for processing to a thread pool in the order in which the are
+/// are submitted for processing to a thread pool in the order in which they are
 /// emitted. Each thread performs internal folding of the results: at the end,
 /// all results provided by the threads are folded together.
 ///
@@ -57,7 +57,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `init`: an init value for the map function; it will cloned as needed.
+    /// * `init`: an init value for the map function; it will be cloned as needed.
     ///
     /// * `map`: a function that maps an item to a result.
     ///
@@ -117,7 +117,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `init`: an init value for the map function; it will cloned as needed.
+    /// * `init`: an init value for the map function; it will be cloned as needed.
     ///
     /// * `map`: a function that maps an item to a result.
     ///

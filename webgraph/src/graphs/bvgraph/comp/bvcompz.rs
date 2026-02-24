@@ -235,9 +235,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         // save the cost and the chosen reference
         // the `references` array represents the maximum forest: each node
         // contains the index of its parent.
-        // Note that in the forest exists a node from A to B
-        // if B choose A as a reference, so it's a forest because can exists
-        // multiple children but each node have at most one parent (my
+        // Note that in the forest there exists a node from A to B
+        // if B chooses A as a reference, so it's a forest because there can exist
+        // multiple children but each node has at most one parent (my
         // reference).
         self.saved_costs.push(saved_cost as f32);
         self.references.push(ref_delta);

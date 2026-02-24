@@ -92,8 +92,8 @@ pub mod preds;
 
 const RAYON_MIN_LEN: usize = 100000;
 
-#[derive(Epserde, Debug, Clone)]
 /// This struct is how the labels and their metadata are stored on disk.
+#[derive(Epserde, Debug, Clone)]
 pub struct LabelsStore<A> {
     pub gap_cost: f64,
     pub gamma: f64,
@@ -423,6 +423,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
             gap_cost,
             gamma: *gamma,
         };
+        // SAFETY: the type is ε-serde serializable and the path is valid.
         unsafe {
             labels_store
                 .store(labels_path(gamma_index))
@@ -557,7 +558,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
     Ok(result_labels.into_boxed_slice())
 }
 
-/// combine the labels from two permutations into a single one
+/// Combines the labels from two permutations into a single one.
 fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> Result<usize> {
     // re-init the permutation
     temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
@@ -591,6 +592,7 @@ pub fn invert_permutation(perm: &[usize], inv_perm: &mut [usize]) {
         .with_min_len(RAYON_MIN_LEN)
         .enumerate()
         .for_each(|(i, &x)| {
+            // SAFETY: each element x is accessed exactly once, so there are no data races.
             unsafe { sync_slice[x].set(i) };
         });
 }

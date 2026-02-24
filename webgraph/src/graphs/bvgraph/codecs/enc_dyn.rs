@@ -15,6 +15,7 @@ use std::convert::Infallible;
 
 type WriteResult<E, CW> = Result<usize, <CW as BitWrite<E>>::Error>;
 
+/// An implementation of [`EncodeAndEstimate`] with runtime defined codes.
 #[derive(Debug, Clone)]
 pub struct DynCodesEncoder<E: Endianness, CW: CodesWrite<E>> {
     /// The code writer used to output the compressed data.

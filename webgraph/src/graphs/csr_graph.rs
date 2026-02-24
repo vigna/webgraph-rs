@@ -143,6 +143,7 @@ impl CsrGraph {
         }
         dcf.shrink_to_fit();
         successors.shrink_to_fit();
+        // SAFETY: the cumulative function and successors are built consistently from the arcs.
         unsafe { Self::from_parts(dcf.into(), successors.into()) }
     }
 
@@ -240,6 +241,7 @@ impl CompressedCsrGraph {
             efb.push(successors.len());
         }
         let ef = efb.build();
+        // SAFETY: the Elias-Fano structure and successors are built consistently from the graph.
         let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
         unsafe { Ok(Self::from_parts(ef, successors)) }
     }
@@ -353,7 +355,7 @@ where
 {
     type Label = usize;
     type Lender<'a>
-        = LenderSortedImpl<IterFrom<'a, DCF>, IterFrom<'a, S>>
+        = SortedNodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>
     where
         Self: 'a;
 
@@ -369,7 +371,7 @@ where
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        LenderSortedImpl(self.0.iter_from(from))
+        SortedNodeLabels(self.0.iter_from(from))
     }
 
     fn build_dcf(&self) -> crate::graphs::bvgraph::DCF {
@@ -442,6 +444,7 @@ where
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         let labels = <CsrGraph<DCF, S> as RandomAccessLabeling>::labels(&self.0, node);
+        // SAFETY: successors in CSR sorted graphs are stored in sorted order.
         unsafe { AssumeSortedIterator::new(labels) }
     }
 }
@@ -476,6 +479,7 @@ pub struct NodeLabels<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
     successors_iter: S,
 }
 
+// SAFETY: CSR successors are stored in sorted order.
 unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
     for NodeLabels<O, S>
 {
@@ -535,14 +539,15 @@ where
 /// Sequential Lender for the CSR graph.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct LenderSortedImpl<O: Iterator<Item = usize>, S: Iterator<Item = usize>>(NodeLabels<O, S>);
+pub struct SortedNodeLabels<O: Iterator<Item = usize>, S: Iterator<Item = usize>>(NodeLabels<O, S>);
 
+// SAFETY: CSR successors are stored in sorted order.
 unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
-    for LenderSortedImpl<O, S>
+    for SortedNodeLabels<O, S>
 {
 }
 
-impl<'succ, I, D> NodeLabelsLender<'succ> for LenderSortedImpl<I, D>
+impl<'succ, I, D> NodeLabelsLender<'succ> for SortedNodeLabels<I, D>
 where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
@@ -551,7 +556,7 @@ where
     type IntoIterator = AssumeSortedIterator<SeqSucc<'succ, D>>;
 }
 
-impl<'succ, I, D> Lending<'succ> for LenderSortedImpl<I, D>
+impl<'succ, I, D> Lending<'succ> for SortedNodeLabels<I, D>
 where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
@@ -559,7 +564,7 @@ where
     type Lend = (usize, AssumeSortedIterator<SeqSucc<'succ, D>>);
 }
 
-impl<I, D> Lender for LenderSortedImpl<I, D>
+impl<I, D> Lender for SortedNodeLabels<I, D>
 where
     I: Iterator<Item = usize>,
     D: Iterator<Item = usize>,
@@ -569,6 +574,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Lend<'_, Self>> {
         let (src, succ) = self.0.next()?;
+        // SAFETY: successors in CSR sorted graphs are stored in sorted order.
         Some((src, unsafe { AssumeSortedIterator::new(succ) }))
     }
 }

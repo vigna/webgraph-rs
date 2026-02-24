@@ -64,8 +64,8 @@ where
     /// Remaps the offsets in a slice of `usize`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
-    /// representing the offsets as a slice increasing significantly the
-    /// memory footprint. It just replaces current decoder factory with
+    /// representing the offsets as a slice increases significantly the
+    /// memory footprint. It just replaces the current decoder factory with
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(self) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
         BvGraph {
@@ -84,8 +84,8 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     /// Remaps the offsets in a slice of `usize`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
-    /// representing the offsets as a slice increasing significantly the
-    /// memory footprint. It just replaces current decoder factory with
+    /// representing the offsets as a slice increases significantly the
+    /// memory footprint. It just replaces the current decoder factory with
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
     pub fn offsets_to_slice(self) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
         BvGraph {
@@ -409,6 +409,7 @@ impl<D: Decode> ExactSizeIterator for Succ<D> {
 
 impl<D: Decode> FusedIterator for Succ<D> {}
 
+// SAFETY: BvGraph successors are always returned in sorted order.
 unsafe impl<D: Decode> SortedIterator for Succ<D> {}
 
 impl<D: Decode> Succ<D> {

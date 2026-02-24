@@ -88,6 +88,7 @@ impl SliceByValue for JavaPermutation {
     }
     #[inline(always)]
     unsafe fn get_value_unchecked(&self, index: usize) -> usize {
+        // SAFETY: the caller guarantees that index is within bounds.
         u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
             as usize
     }
@@ -101,6 +102,7 @@ impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
     }
     #[inline(always)]
     unsafe fn get_value_unchecked(&self, index: usize) -> usize {
+        // SAFETY: the caller guarantees that index is within bounds.
         u64::from_be_bytes(unsafe { self.perm.as_ref().get_unchecked(index).to_ne_bytes() })
             as usize
     }
@@ -109,6 +111,7 @@ impl SliceByValue for JavaPermutation<MmapHelper<u64, MmapMut>> {
 impl SliceByValueMut for JavaPermutation<MmapHelper<u64, MmapMut>> {
     #[inline(always)]
     unsafe fn set_value_unchecked(&mut self, index: usize, value: usize) {
+        // SAFETY: the caller guarantees that index is within bounds.
         unsafe {
             *self.perm.as_mut().get_unchecked_mut(index) =
                 u64::from_ne_bytes((value as u64).to_be_bytes());

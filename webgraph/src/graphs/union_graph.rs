@@ -163,6 +163,7 @@ impl<
     }
 }
 
+// SAFETY: the merge of two sorted lenders produces a sorted lender.
 unsafe impl<
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
     M: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
@@ -204,6 +205,7 @@ impl<I: Iterator<Item = usize>, J: Iterator<Item = usize>> Iterator for Succ<I, 
     }
 }
 
+// SAFETY: the merge of two sorted iterators produces a sorted iterator.
 unsafe impl<I: Iterator<Item = usize> + SortedIterator, J: Iterator<Item = usize> + SortedIterator>
     SortedIterator for Succ<I, J>
 {

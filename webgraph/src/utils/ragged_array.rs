@@ -10,7 +10,7 @@
 ///
 /// This structure keeps track of a list of vectors of different lengths in a
 /// compact form: a vector of values contains all the values concatenated, and
-/// an vector of offsets contains the starting index of each vector in the
+/// a vector of offsets contains the starting index of each vector in the
 /// values list.
 ///
 /// We support appending new vectors, indexing to retrieve existing vectors,

@@ -223,9 +223,9 @@ impl<C: BatchCodec> SortPairs<C> {
     }
 }
 
-#[derive(Clone, Debug)]
 /// Private struct that can be used to sort labeled pairs based only on the pair of
 /// nodes and ignoring the label.
+#[derive(Clone, Debug)]
 struct HeadTail<T, I: Iterator<Item = ((usize, usize), T)>> {
     head: ((usize, usize), T),
     tail: I,

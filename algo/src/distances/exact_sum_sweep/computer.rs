@@ -401,7 +401,7 @@ impl<
     /// component, in order to call the `all_cc_upper_bound` method.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger..
+    /// * `pl`: A progress logger.
     fn find_best_pivot(&self, pl: &mut impl ProgressLog) -> Vec<usize> {
         debug_assert!(self.num_nodes < usize::MAX);
 
@@ -830,6 +830,7 @@ impl<
             let pivot_value = dist_pivot_b[node] + ecc_pivot_f[components[node]];
 
             if pivot_value < node_forward_high {
+                // SAFETY: each node is accessed exactly once, so there are no data races.
                 unsafe { forward_high[node].set(pivot_value) };
                 node_forward_high = pivot_value;
             }
@@ -856,6 +857,7 @@ impl<
                 }
             }
 
+            // SAFETY: each node is accessed exactly once, so there are no data races.
             unsafe {
                 backward_high[node].set(std::cmp::min(
                     backward_high[node].get(),

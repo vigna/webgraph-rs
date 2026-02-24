@@ -36,7 +36,7 @@ struct Args {
     mmap: bool,
 }
 
-/// This is the factory that we can plug in BVGraph to read the custom codes
+/// This is the factory that we can plug in BVGraph to read the custom codes.
 pub struct CustomDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> {
     pub factory: F,
     // The [`MemCase`]` here is needed to memory-map the offsets, otherwise

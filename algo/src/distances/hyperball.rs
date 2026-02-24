@@ -112,7 +112,7 @@
 //! assigned to the first available core. Since all tasks are completely
 //! independent, this behavior ensures a very high degree of parallelism. Be
 //! careful, however, because this feature requires a graph with a reasonably
-//! fast random access (e.g., in the case of a short reference chains in a
+//! fast random access (e.g., in the case of short reference chains in a
 //! [`BvGraph`](webgraph::prelude::BvGraph) and a good choice of the granularity.
 //!
 //! [Axioms for Centrality]: <http://vigna.di.unimi.it/papers.php#BoVAC>
@@ -866,7 +866,7 @@ where
 
     /// Computes and returns the Lin centralities from the sum of distances computed by this instance.
     ///
-    /// Note that lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
+    /// Note that Lin's index for isolated nodes is by (our) definition one (it's smaller than any other node).
     pub fn lin_centrality(&self) -> Result<Box<[f32]>> {
         self.ensure_iteration()?;
         if let Some(distances) = &self.sum_of_dists {
@@ -1263,6 +1263,7 @@ where
                             if delta > 0.0 {
                                 if let Some(distances) = sum_of_dists {
                                     let new_value = delta * (ic.iteration + 1) as f64;
+                                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
                                     unsafe {
                                         distances[node]
                                             .set((distances[node].get() as f64 + new_value) as f32)
@@ -1270,6 +1271,7 @@ where
                                 }
                                 if let Some(distances) = sum_of_inv_dists {
                                     let new_value = delta / (ic.iteration + 1) as f64;
+                                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
                                     unsafe {
                                         distances[node]
                                             .set((distances[node].get() as f64 + new_value) as f32)
@@ -1281,6 +1283,7 @@ where
                                     .zip(discounted_centralities.iter())
                                 {
                                     let new_value = delta * func(ic.iteration + 1);
+                                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
                                     unsafe {
                                         distances[node]
                                             .set((distances[node].get() as f64 + new_value) as f32)
@@ -1328,6 +1331,7 @@ where
                         modified_estimators += 1;
                     }
 
+                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
                     unsafe {
                         next_state.set(node, next_estimator.as_ref());
                     }
@@ -1336,6 +1340,7 @@ where
                     // in the result vector might need to be updated because it does not
                     // reflect our current value.
                     if ic.curr_modified[node] {
+                        // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
                         unsafe {
                             next_state.set(node, prev_estimator);
                         }

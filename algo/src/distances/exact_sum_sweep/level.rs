@@ -96,6 +96,7 @@ pub trait Level: Sync {
 /// Computes all eccentricities of a graph, its diameter, and its radius.
 ///
 /// This variant is equivalent to [`AllForward`] in the symmetric case.
+#[derive(Debug, Clone, Copy)]
 pub struct All;
 
 impl Level for All {
@@ -184,6 +185,7 @@ impl Level for All {
 }
 
 /// Computes all forward eccentricities of a graph, its diameter, and its radius.
+#[derive(Debug, Clone, Copy)]
 pub struct AllForward;
 
 impl Level for AllForward {
@@ -243,6 +245,7 @@ impl Level for AllForward {
 }
 
 /// Computes the diameter and the radius of a graph.
+#[derive(Debug, Clone, Copy)]
 pub struct RadiusDiameter;
 
 impl Level for RadiusDiameter {
@@ -317,6 +320,7 @@ impl Level for RadiusDiameter {
 }
 
 /// Computes the diameter of a graph.
+#[derive(Debug, Clone, Copy)]
 pub struct Diameter;
 
 impl Level for Diameter {
@@ -376,6 +380,7 @@ impl Level for Diameter {
 }
 
 /// Computes the radius of a graph.
+#[derive(Debug, Clone, Copy)]
 pub struct Radius;
 
 impl Level for Radius {

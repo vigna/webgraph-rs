@@ -62,17 +62,18 @@ build info: built on {} for {} with {}",
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 /// Enum for instantaneous codes.
 ///
 /// It is used to implement [`ValueEnum`] here instead of in [`dsi_bitstream`].
 ///
 /// For CLI ergonomics and compatibility, these codes must be the same as those
 /// appearing in [`CompFlags::code_from_str`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum PrivCode {
     Unary,
     Gamma,
     Delta,
+    Omega,
     Zeta1,
     Zeta2,
     Zeta3,
@@ -92,6 +93,7 @@ impl From<PrivCode> for Codes {
             PrivCode::Unary => Codes::Unary,
             PrivCode::Gamma => Codes::Gamma,
             PrivCode::Delta => Codes::Delta,
+            PrivCode::Omega => Codes::Omega,
             PrivCode::Zeta1 => Codes::Zeta(1),
             PrivCode::Zeta2 => Codes::Zeta(2),
             PrivCode::Zeta3 => Codes::Zeta(3),
@@ -107,8 +109,8 @@ impl From<PrivCode> for Codes {
     }
 }
 
-#[derive(Args, Debug)]
 /// Shared CLI arguments for reading files containing arcs.
+#[derive(Args, Debug)]
 pub struct ArcsArgs {
     #[arg(long, default_value_t = '#')]
     /// Ignore lines that start with this symbol.
@@ -194,8 +196,8 @@ pub struct MemoryUsageArg {
     pub memory_usage: MemoryUsage,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
 /// Formats for storing and loading vectors of floats.
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum FloatVectorFormat {
     /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
     Java,
@@ -234,6 +236,7 @@ impl FloatVectorFormat {
         match self {
             FloatVectorFormat::Epserde => {
                 log::info!("Storing in ε-serde format at {}", path_display);
+                // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     values
                         .serialize(&mut file)
@@ -415,8 +418,8 @@ impl FloatVectorFormat {
     }
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
 /// How to store vectors of integers.
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum IntVectorFormat {
     /// Java-compatible format: a sequence of big-endian longs (64 bits).
     Java,
@@ -454,6 +457,7 @@ impl IntVectorFormat {
         match self {
             IntVectorFormat::Epserde => {
                 log::info!("Storing in epserde format at {}", path.as_ref().display());
+                // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     data.serialize(&mut buf).with_context(|| {
                         format!("Could not write vector to {}", path.as_ref().display())
@@ -475,6 +479,7 @@ impl IntVectorFormat {
                 log::info!("Using {} bits per element", bit_width);
                 let mut bit_field_vec = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
+                // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     bit_field_vec.store(&path).with_context(|| {
                         format!("Could not write vector to {}", path.as_ref().display())
@@ -532,6 +537,7 @@ impl IntVectorFormat {
     ) -> Result<()> {
         self.store(
             path,
+            // SAFETY: usize and u64 have the same size and alignment on 64-bit platforms.
             unsafe { core::mem::transmute::<&[usize], &[u64]>(data) },
             max.map(|x| x as u64),
         )
@@ -592,8 +598,8 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     }
 }
 
-#[derive(Args, Debug, Clone)]
 /// Shared CLI arguments for compression.
+#[derive(Args, Debug, Clone)]
 pub struct CompressArgs {
     /// The endianness of the graph to write
     #[clap(short = 'E', long)]

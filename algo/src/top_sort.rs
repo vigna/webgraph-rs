@@ -46,6 +46,7 @@ pub fn top_sort(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Box
         .continue_value_no_break();
 
     pl.done();
-    // SAFETY: we write in each element of top_sort
+    // SAFETY: all nodes have been visited, so all entries of `top_sort` have
+    // been initialized.
     unsafe { top_sort.assume_init() }
 }

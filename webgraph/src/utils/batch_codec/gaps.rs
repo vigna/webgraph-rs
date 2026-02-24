@@ -21,7 +21,6 @@ use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
 use rdst::*;
 
-#[derive(Clone, Debug)]
 /// A codec for encoding and decoding batches of triples using gap compression.
 ///
 /// This codec encodes triples of the form `(src, dst, label)` by encoding the
@@ -45,6 +44,7 @@ use rdst::*;
 /// The bit deserializer must be [`Clone`] because we need one for each
 /// [`GapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
+#[derive(Clone, Debug)]
 pub struct GapsCodec<
     E: Endianness = NE,
     S: BitSerializer<E, BitWriter<E>> = (),
@@ -60,7 +60,7 @@ pub struct GapsCodec<
     /// Deserializer for the labels
     pub deserializer: D,
     /// Marker for the endianness
-    pub _marker: std::marker::PhantomData<E>,
+    _marker: std::marker::PhantomData<E>,
 }
 
 impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize> GapsCodec<E, S, D, SRC_CODE, DST_CODE>
@@ -95,8 +95,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
 /// Statistics about the encoding performed by [`GapsCodec`].
+#[derive(Debug, Clone, Copy)]
 pub struct GapsStats {
     /// Total number of triples encoded
     pub total_triples: usize,
@@ -232,8 +232,8 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
 /// An iterator over triples encoded with gaps, this is returned by [`GapsCodec`].
+#[derive(Clone, Debug)]
 pub struct GapsIter<
     E: Endianness = NE,
     D: BitDeserializer<E, BitReader<E>> = (),
@@ -257,6 +257,7 @@ pub struct GapsIter<
     prev_dst: usize,
 }
 
+// SAFETY: gaps are decoded in non-decreasing (src, dst) order.
 unsafe impl<
     E: Endianness,
     D: BitDeserializer<E, BitReader<E>>,

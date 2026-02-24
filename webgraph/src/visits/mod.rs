@@ -65,15 +65,15 @@ pub mod depth_first;
 use std::ops::ControlFlow;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
 /// The visit was interrupted.
+#[derive(Error, Debug)]
 #[error("The visit was interrupted")]
 pub struct Interrupted;
 
-#[derive(Error, Debug)]
 /// The result of the visit was computed without completing the visit; for
 /// example, during an acyclicity test a single arc pointing at the visit path
 /// is sufficient to compute the result.
+#[derive(Error, Debug)]
 #[error("Stopped when done")]
 pub struct StoppedWhenDone;
 

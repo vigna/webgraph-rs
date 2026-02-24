@@ -43,6 +43,7 @@ pub fn symm_par(graph: impl RandomAccessGraph + Sync, pl: &mut impl ConcurrentPr
                     EventNoPred::Init { .. } => {}
                     EventNoPred::Visit { node, .. } => {
                         pl.light_update();
+                        // SAFETY: each node is visited exactly once, so there are no data races.
                         unsafe {
                             slice[node].set(MaybeUninit::new(
                                 number_of_components.load(Ordering::Relaxed),
@@ -59,6 +60,8 @@ pub fn symm_par(graph: impl RandomAccessGraph + Sync, pl: &mut impl ConcurrentPr
             .continue_value_no_break();
     }
 
+    // SAFETY: all nodes have been visited, so all entries of `component` have
+    // been initialized.
     let component = unsafe { component.assume_init() };
 
     pl.done();

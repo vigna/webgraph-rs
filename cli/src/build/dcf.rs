@@ -98,6 +98,7 @@ where
 
     info!("Writing to disk...");
 
+    // SAFETY: the type is ε-serde serializable.
     unsafe {
         ef.serialize(&mut ef_file).with_context(|| {
             format!(

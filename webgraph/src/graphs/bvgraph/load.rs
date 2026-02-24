@@ -147,6 +147,7 @@ impl LoadMode for File {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
+        // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::load_full(path)
                 .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
@@ -177,6 +178,7 @@ impl LoadMode for Mmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
+        // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::mmap(path, flags.into())
                 .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
@@ -204,6 +206,7 @@ impl LoadMode for LoadMem {
         _flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
+        // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::load_mem(path)
                 .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
@@ -233,6 +236,7 @@ impl LoadMode for LoadMmap {
         flags: MemoryFlags,
     ) -> Result<MemCase<Self::Offsets>> {
         let path = offsets.as_ref();
+        // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::load_mmap(path, flags.into())
                 .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))

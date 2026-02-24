@@ -30,7 +30,7 @@ pub struct CliArgs {
     pub repeats: usize,
 
     #[clap(long, default_value = "false")]
-    /// Whether to use mmap for the graph, otherwise it will be load in memory
+    /// Whether to use mmap for the graph, otherwise it will be loaded in memory
     pub mmap: bool,
 }
 

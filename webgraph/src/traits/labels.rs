@@ -124,6 +124,7 @@ pub trait SequentialLabeling {
             cumul += succs.into_iter().count();
             efb.push(cumul);
         }
+        // SAFETY: the values are pushed in non-decreasing order.
         unsafe {
             efb.build().map_high_bits(|high_bits| {
                 SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(
@@ -398,6 +399,7 @@ impl<L> AssumeSortedLender<L> {
     }
 }
 
+// SAFETY: the caller guarantees that the underlying lender yields items in sorted order.
 unsafe impl<L: Lender> SortedLender for AssumeSortedLender<L> {}
 
 impl<'succ, L: Lender> Lending<'succ> for AssumeSortedLender<L> {
@@ -484,6 +486,7 @@ impl<I> AssumeSortedIterator<I> {
     }
 }
 
+// SAFETY: the caller guarantees that the underlying iterator yields items in sorted order.
 unsafe impl<I: Iterator> SortedIterator for AssumeSortedIterator<I> {}
 
 impl<I: Iterator> Iterator for AssumeSortedIterator<I> {
@@ -653,6 +656,7 @@ pub struct LenderImpl<'node, G: RandomAccessLabeling> {
     pub nodes: core::ops::Range<usize>,
 }
 
+// SAFETY: RandomAccessLabeling::labels returns a sorted iterator.
 unsafe impl<G: RandomAccessLabeling> SortedLender for LenderImpl<'_, G> {}
 
 impl<'succ, G: RandomAccessLabeling> NodeLabelsLender<'succ> for LenderImpl<'_, G> {

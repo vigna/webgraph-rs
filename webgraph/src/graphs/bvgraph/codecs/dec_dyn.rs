@@ -16,6 +16,8 @@ use dsi_bitstream::prelude::*;
 use epserde::deser::{MemCase, Owned};
 use sux::traits::IndexedSeq;
 
+/// A decoder that reads the codes of a graph from a bitstream using
+/// dynamically-dispatched functions.
 #[derive(Debug)]
 pub struct DynCodesDecoder<E: Endianness, CR: CodesRead<E>> {
     pub(crate) code_reader: CR,
@@ -133,6 +135,7 @@ impl<E: Endianness, CR: CodesRead<E>> Decode for DynCodesDecoder<E, CR> {
     }
 }
 
+/// A factory [`DynCodesDecoder`]s.
 pub struct DynCodesDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> {
     /// The owned data we will read as a bitstream.
     factory: F,
@@ -162,7 +165,7 @@ where
     /// Remaps the offsets in a slice of `usize`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
-    /// representing the offsets as a slice increasing significantly the
+    /// representing the offsets as a slice increases significantly the
     /// memory footprint.
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].

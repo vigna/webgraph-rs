@@ -35,6 +35,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     perm.shuffle(&mut rng);
 
     if args.epserde {
+        // SAFETY: the type is ε-serde serializable.
         unsafe {
             perm.store(&args.dst)
                 .with_context(|| format!("Could not store permutation to {}", args.dst.display()))

@@ -41,6 +41,8 @@ pub fn symm_seq(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Scc
         })
         .continue_value_no_break();
 
+    // SAFETY: all nodes have been visited, so all entries of `component` have
+    // been initialized.
     let component = unsafe { component.assume_init() };
 
     pl.done();

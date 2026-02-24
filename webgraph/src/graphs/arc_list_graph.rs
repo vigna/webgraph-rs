@@ -18,7 +18,7 @@ use lender::*;
 /// [`iter`](SequentialLabeling::iter) method of this graph can be [built
 /// independently](NodeLabels::new). This is useful in circumstances in which one has
 /// a list of arcs sorted by source that represent only part of a graph, but
-/// need to exhibit them has a [`NodeLabelsLender`], for example, for feeding
+/// need to exhibit them as a [`NodeLabelsLender`], for example, for feeding
 /// such lenders to
 /// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 #[derive(Clone)]
@@ -84,6 +84,7 @@ pub struct NodeLabels<L, I: Iterator<Item = ((usize, usize), L)>> {
     iter: core::iter::Peekable<I>,
 }
 
+// SAFETY: the underlying iterator is assumed to be sorted by the caller.
 unsafe impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> SortedLender
     for NodeLabels<L, I>
 {
@@ -222,6 +223,7 @@ pub struct Succ<'succ, L, I: IntoIterator<Item = ((usize, usize), L)>> {
     node_iter: &'succ mut NodeLabels<L, <I as IntoIterator>::IntoIter>,
 }
 
+// SAFETY: the underlying arc list is assumed to be sorted by the caller.
 unsafe impl<L, I: IntoIterator<Item = ((usize, usize), L)>> SortedIterator for Succ<'_, L, I> where
     I::IntoIter: SortedIterator
 {

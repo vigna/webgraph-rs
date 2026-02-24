@@ -76,6 +76,7 @@ where
     pl.done();
 
     if args.epserde {
+        // SAFETY: the type is ε-serde serializable.
         unsafe {
             perm.store(&args.perm)
                 .with_context(|| format!("Could not write permutation to {}", args.perm.display()))

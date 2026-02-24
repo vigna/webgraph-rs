@@ -245,18 +245,21 @@ impl<W> MmapHelper<W, MmapMut> {
 
 impl<W> AsRef<[W]> for MmapHelper<W> {
     fn as_ref(&self) -> &[W] {
+        // SAFETY: the mmap region is properly aligned and sized for W.
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
     }
 }
 
 impl<W> AsRef<[W]> for MmapHelper<W, MmapMut> {
     fn as_ref(&self) -> &[W] {
+        // SAFETY: the mmap region is properly aligned and sized for W.
         unsafe { std::slice::from_raw_parts(self.mmap.as_ptr() as *const W, self.len) }
     }
 }
 
 impl<W> AsMut<[W]> for MmapHelper<W, MmapMut> {
     fn as_mut(&mut self) -> &mut [W] {
+        // SAFETY: the mmap region is properly aligned and sized for W.
         unsafe { std::slice::from_raw_parts_mut(self.mmap.as_mut_ptr() as *mut W, self.len) }
     }
 }
@@ -279,6 +282,7 @@ impl<W: Debug> Debug for ArcMmapHelper<W> {
 
 impl<W> AsRef<[W]> for ArcMmapHelper<W> {
     fn as_ref(&self) -> &[W] {
+        // SAFETY: the mmap region is properly aligned and sized for W.
         unsafe { std::slice::from_raw_parts(self.0.mmap.as_ptr() as *const W, self.0.len) }
     }
 }

@@ -63,6 +63,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
             pl.light_update();
         }
         pl.done();
+        // SAFETY: the type is ε-serde serializable.
         unsafe { merged.store(&args.dst) }?;
     } else {
         let mut writer = BufWriter::new(std::fs::File::create(&args.dst)?);

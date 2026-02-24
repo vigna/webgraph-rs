@@ -127,6 +127,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
             cumul_deg += iter.next_degree().unwrap();
             efb.push(cumul_deg);
         }
+        // SAFETY: the cumulative degrees are pushed in non-decreasing order.
         unsafe {
             efb.build().map_high_bits(|high_bits| {
                 sux::rank_sel::SelectZeroAdaptConst::<_, _, 12, 4>::new(
@@ -387,6 +388,7 @@ impl<D: Decode> Lender for NodeLabels<D> {
     }
 }
 
+// SAFETY: BvGraph successors are always returned in sorted order.
 unsafe impl<D: Decode> SortedLender for NodeLabels<D> {}
 
 impl<D: Decode> ExactSizeLender for NodeLabels<D> {

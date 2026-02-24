@@ -173,6 +173,7 @@ impl<G: RandomAccessGraph, L: RandomAccessLabeling> LabeledRandomAccessGraph<L::
 {
 }
 
+// SAFETY: both underlying lenders are sorted, and zipping preserves order.
 unsafe impl<
     L: SortedLender + for<'next> NodeLabelsLender<'next>,
     R: SortedLender + for<'next> NodeLabelsLender<'next>,
@@ -180,4 +181,5 @@ unsafe impl<
 {
 }
 
+// SAFETY: both underlying iterators are sorted, and zipping preserves order.
 unsafe impl<I: SortedIterator, J: SortedIterator> SortedIterator for core::iter::Zip<I, J> {}

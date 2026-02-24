@@ -7,7 +7,7 @@
 
 //! Algorithms used to compute and work with strongly connected components.
 //!
-//! There are two implementations for directed graph: [Tarjan's
+//! There are two implementations for directed graphs: [Tarjan's
 //! algorithm](tarjan()) and [Kosaraju's algorithm](kosaraju()). The former is to be
 //! preferred in almost all cases: Kosaraju's algorithm is slower and requires
 //! the transpose of the graph—it is mainly useful for testing and debugging.

@@ -67,7 +67,9 @@ impl SequentialLabeling for ErdosRenyi {
     }
 }
 
+// SAFETY: Erdős–Rényi successors are generated in sorted order.
 unsafe impl SortedLender for NodeLabels {}
+// SAFETY: Erdős–Rényi successors are generated in sorted order.
 unsafe impl SortedIterator for Succ {}
 
 #[derive(Debug, Clone)]
@@ -98,7 +100,23 @@ impl Iterator for Succ {
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
 }
+
+impl ExactSizeIterator for Succ {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl core::iter::FusedIterator for Succ {}
 
 impl IntoIterator for IntoSucc {
     type Item = usize;

@@ -159,7 +159,7 @@ pub fn build_elias_fano_from_graph(
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,
 ) -> Result<()> {
-    info!("The offsets file does not exists, reading the graph to build Elias-Fano");
+    info!("The offsets file does not exist, reading the graph to build Elias-Fano");
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => build_elias_fano_from_graph_with_endianness::<BE>(args, pl, efb),
@@ -256,6 +256,7 @@ pub fn serialize_elias_fano(
     );
 
     // serialize and dump the schema to disk
+    // SAFETY: the type is ε-serde serializable.
     unsafe {
         ef.serialize(&mut ef_file)
             .with_context(|| format!("Could not serialize EliasFano to {}", ef_path.display()))

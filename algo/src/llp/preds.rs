@@ -87,11 +87,11 @@ impl Predicate<PredParams> for MaxUpdates {
     }
 }
 
-#[derive(Debug, Clone)]
 /// Stop if the gain of the objective function is below the given threshold.
 ///
 /// The [default threshold](Self::DEFAULT_THRESHOLD) is the same as that
 /// of the Java implementation.
+#[derive(Debug, Clone)]
 pub struct MinGain {
     threshold: f64,
 }
@@ -140,12 +140,12 @@ impl Predicate<PredParams> for MinGain {
     }
 }
 
-#[derive(Debug, Clone)]
 /// Stop if the average improvement of the gain of the objective function on
 /// a window of ten updates is below the given threshold.
+#[derive(Debug, Clone)]
 ///
 /// This criterion is a second-order version of [`MinGain`]. It is very useful
-/// to avoid a large number of iteration which do not improve the objective
+/// to avoid a large number of iterations which do not improve the objective
 /// function significantly.
 pub struct MinAvgImprov {
     threshold: f64,
@@ -197,9 +197,9 @@ impl Predicate<PredParams> for MinAvgImprov {
     }
 }
 
-#[derive(Debug, Clone, Default)]
 /// Stop after the number of modified nodes falls below the square root of the
 /// number of nodes.
+#[derive(Debug, Clone, Default)]
 pub struct MinModified {}
 
 impl Display for MinModified {
@@ -215,9 +215,9 @@ impl Predicate<PredParams> for MinModified {
     }
 }
 
-#[derive(Debug, Clone, Default)]
 /// Stop after the number of modified nodes falls below
 /// a specified percentage of the number of nodes.
+#[derive(Debug, Clone, Default)]
 pub struct PercModified {
     threshold: f64,
 }

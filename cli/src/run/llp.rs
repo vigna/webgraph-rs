@@ -106,6 +106,7 @@ pub struct CliArgs {
 /// Stores labels with or without epserde.
 pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
     if epserde {
+        // SAFETY: the type is ε-serde serializable.
         unsafe {
             data.store(&perm).with_context(|| {
                 format!("Could not write permutation to {}", perm.as_ref().display())

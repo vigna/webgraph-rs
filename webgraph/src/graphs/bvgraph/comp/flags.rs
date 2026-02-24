@@ -85,6 +85,7 @@ impl CompFlags {
             "GAMMA" => Some(Codes::Gamma),
             "DELTA" => Some(Codes::Delta),
             "ZETA" => Some(Codes::Zeta(k)),
+            "OMEGA" => Some(Codes::Omega),
             "PI1" => Some(Codes::Pi(1)),
             "PI2" => Some(Codes::Pi(2)),
             "PI3" => Some(Codes::Pi(3)),
@@ -106,6 +107,7 @@ impl CompFlags {
                 Codes::Unary => Some("UNARY"),
                 Codes::Gamma => Some("GAMMA"),
                 Codes::Delta => Some("DELTA"),
+                Codes::Omega => Some("OMEGA"),
                 Codes::Zeta(_) => Some("ZETA"),
                 _ => None,
             }
@@ -121,6 +123,7 @@ impl CompFlags {
                 Codes::Zeta(5) => Some("ZETA5"),
                 Codes::Zeta(6) => Some("ZETA6"),
                 Codes::Zeta(7) => Some("ZETA7"),
+                Codes::Omega => Some("OMEGA"),
                 Codes::Pi(1) => Some("PI1"),
                 Codes::Pi(2) => Some("PI2"),
                 Codes::Pi(3) => Some("PI3"),

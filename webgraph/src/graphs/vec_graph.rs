@@ -327,6 +327,7 @@ impl<L: Clone + 'static> RandomAccessLabeling for LabeledVecGraph<L> {
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
+        // SAFETY: successors are stored in a BTreeSet, which iterates in sorted order.
         unsafe { AssumeSortedIterator::new(self.succ[node].iter().cloned().map(Into::into)) }
     }
 }

@@ -244,7 +244,7 @@ pub fn humanize(value: f64) -> String {
 ///
 /// This type holds a list of iterators and a list of boundaries, one more
 /// than the number of iterators. The implied semantics is that each iterator
-/// returns (labelled) pairs of nodes, and that the first element of
+/// returns (labeled) pairs of nodes, and that the first element of
 /// each pair sits between the boundaries associated with the iterator.
 ///
 /// This structure is returned by [`ParSortPairs`] and [`ParSortIters`] and can

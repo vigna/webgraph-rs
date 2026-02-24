@@ -211,7 +211,7 @@ impl Compressor {
         self.residuals.clear();
     }
 
-    /// setup the internal buffers for the compression of the given values
+    /// Sets up the internal buffers for the compression of the given values.
     pub(crate) fn compress(
         &mut self,
         curr_list: &[usize],

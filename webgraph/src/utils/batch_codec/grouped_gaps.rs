@@ -19,7 +19,6 @@ use dsi_bitstream::prelude::*;
 use mmap_rs::MmapFlags;
 use rdst::*;
 
-#[derive(Clone, Debug)]
 /// A codec for encoding and decoding batches of triples using grouped gap compression.
 ///
 /// This codec encodes triples of the form `(src, dst, label)` by grouping edges
@@ -48,6 +47,7 @@ use rdst::*;
 /// The bit deserializer must be [`Clone`] because we need one for each
 /// [`GroupedGapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
+#[derive(Clone, Debug)]
 pub struct GroupedGapsCodec<
     E: Endianness = NE,
     S: BitSerializer<E, BitWriter<E>> = (),
@@ -64,7 +64,7 @@ pub struct GroupedGapsCodec<
     /// Deserializer for the labels.
     pub deserializer: D,
 
-    pub _marker: core::marker::PhantomData<E>,
+    _marker: core::marker::PhantomData<E>,
 }
 
 impl<E, S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize>
@@ -107,8 +107,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
 /// Statistics about the encoding performed by [`GroupedGapsCodec`].
+#[derive(Debug, Clone, Copy)]
 pub struct GroupedGapsStats {
     /// Total number of triples encoded
     pub total_triples: usize,
@@ -259,8 +259,8 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
 /// An iterator over triples encoded with gaps, this is returned by [`GroupedGapsCodec`].
+#[derive(Clone, Debug)]
 pub struct GroupedGapsIter<
     E: Endianness = NE,
     D: BitDeserializer<E, BitReader<E>> = (),
@@ -287,6 +287,7 @@ pub struct GroupedGapsIter<
     prev_dst: usize,
 }
 
+// SAFETY: gaps are decoded in non-decreasing (src, dst) order.
 unsafe impl<
     E: Endianness,
     D: BitDeserializer<E, BitReader<E>>,

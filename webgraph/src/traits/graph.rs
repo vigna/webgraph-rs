@@ -247,6 +247,7 @@ where
     }
 }
 
+// SAFETY: the underlying lender is sorted.
 unsafe impl<L: SortedLender> SortedLender for UnitLender<L> where
     L: for<'next> NodeLabelsLender<'next, Label = usize>
 {
@@ -265,6 +266,7 @@ impl<I: Iterator<Item = usize>> Iterator for UnitSucc<I> {
     }
 }
 
+// SAFETY: the underlying iterator is sorted.
 unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for UnitSucc<I> {}
 
 impl<G: SequentialGraph> SequentialLabeling for UnitLabelGraph<G> {

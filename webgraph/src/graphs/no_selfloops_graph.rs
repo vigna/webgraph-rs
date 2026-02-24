@@ -90,6 +90,7 @@ impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> Lendi
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
+// SAFETY: removing self-loops preserves the sorted order of the underlying lender.
 unsafe impl<I: SortedLender + Lender + for<'next> NodeLabelsLender<'next, Label = usize>>
     SortedLender for NodeLabels<I>
 {
@@ -143,6 +144,7 @@ impl<I: Iterator<Item = usize>> Iterator for Succ<I> {
     }
 }
 
+// SAFETY: removing self-loops preserves the sorted order of the underlying iterator.
 unsafe impl<I: Iterator<Item = usize> + SortedIterator> SortedIterator for Succ<I> {}
 
 impl<I: Iterator<Item = usize> + std::iter::FusedIterator> std::iter::FusedIterator for Succ<I> {}

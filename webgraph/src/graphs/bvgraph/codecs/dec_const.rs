@@ -18,7 +18,7 @@ use epserde::deser::MemCase;
 use epserde::deser::Owned;
 use sux::traits::IndexedSeq;
 
-/// An implementation of [`Decode`]  with compile-time defined codes.
+/// An implementation of [`Decode`] with compile-time defined codes.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ConstCodesDecoder<
@@ -68,8 +68,8 @@ impl<
     const RESIDUALS: usize,
 > ConstCodesDecoder<E, CR, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
-    /// Creates a new [`ConstCodesDecoder`] from a [`CodesRead`] implementation.
-    /// and a [`CompFlags`] struct
+    /// Creates a new [`ConstCodesDecoder`] from a [`CodesRead`] implementation
+    /// and a [`CompFlags`] struct.
     /// # Errors
     /// If the codes in the [`CompFlags`] do not match the compile-time defined codes
     pub fn new(code_reader: CR, comp_flags: &CompFlags) -> Result<Self> {
@@ -147,6 +147,7 @@ impl<
     }
 }
 
+/// A factory of [`ConstCodesDecoder`]s.
 pub struct ConstCodesDecoderFactory<
     E: Endianness,
     F: CodesReaderFactoryHelper<E>,
@@ -180,7 +181,7 @@ impl<
     /// Remaps the offsets in a slice of `usize`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
-    /// representing the offsets as a slice increasing significantly the
+    /// representing the offsets as a slice increases significantly the
     /// memory footprint.
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
