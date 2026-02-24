@@ -44,6 +44,10 @@ impl<D: Decode + BitSeek> Iterator for OffsetDegIter<D> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.len(), Some(self.len()))
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
 
 impl<D: Decode + BitSeek> ExactSizeIterator for OffsetDegIter<D> {

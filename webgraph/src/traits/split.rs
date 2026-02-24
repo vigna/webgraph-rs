@@ -112,6 +112,10 @@ pub mod seq {
         fn size_hint(&self) -> (usize, Option<usize>) {
             (self.remaining, Some(self.remaining))
         }
+
+        fn count(self) -> usize {
+            self.len()
+        }
     }
 
     impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {
@@ -191,6 +195,10 @@ pub mod ra {
         fn size_hint(&self) -> (usize, Option<usize>) {
             let len = self.how_many - self.i;
             (len, Some(len))
+        }
+
+        fn count(self) -> usize {
+            self.len()
         }
     }
 

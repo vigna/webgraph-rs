@@ -327,6 +327,13 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> 
             Some((pair, label)) => Some(std::mem::replace(&mut head_tail.head, (pair, label))),
         }
     }
+
+    fn count(self) -> usize {
+        self.heap
+            .into_iter()
+            .map(|head_tail| 1 + head_tail.tail.count())
+            .sum()
+    }
 }
 impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIterator
     for KMergeIters<I, T>

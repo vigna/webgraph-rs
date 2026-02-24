@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use anyhow::{Result, bail, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use dsi_bitstream::dispatch::Codes;
 use dsi_bitstream::traits::{BigEndian, Endianness, LittleEndian};
 use std::collections::HashMap;
@@ -107,7 +107,7 @@ impl CompFlags {
                 Codes::Gamma => Some("GAMMA"),
                 Codes::Delta => Some("DELTA"),
                 Codes::Zeta(_) => Some("ZETA"),
-                _ => unimplemented!("Code {:?} not supported", c),
+                _ => None,
             }
         } else {
             match c {
@@ -125,7 +125,7 @@ impl CompFlags {
                 Codes::Pi(2) => Some("PI2"),
                 Codes::Pi(3) => Some("PI3"),
                 Codes::Pi(4) => Some("PI4"),
-                _ => unimplemented!("Code {:?} not supported", c),
+                _ => None,
             }
         }
     }
@@ -189,28 +189,40 @@ impl CompFlags {
         if self.outdegrees != Codes::Gamma {
             s.push_str(&format!(
                 "OUTDEGREES_{}|",
-                Self::code_to_str(self.outdegrees, version).unwrap()
+                Self::code_to_str(self.outdegrees, version).with_context(|| format!(
+                    "Code {:?} is not supported for outdegrees in version {version}",
+                    self.outdegrees
+                ))?
             ));
             comp_flags = true;
         }
         if self.references != Codes::Unary {
             s.push_str(&format!(
                 "REFERENCES_{}|",
-                Self::code_to_str(self.references, version).unwrap()
+                Self::code_to_str(self.references, version).with_context(|| format!(
+                    "Code {:?} is not supported for references in version {version}",
+                    self.references
+                ))?
             ));
             comp_flags = true;
         }
         if self.blocks != Codes::Gamma {
             s.push_str(&format!(
                 "BLOCKS_{}|",
-                Self::code_to_str(self.blocks, version).unwrap()
+                Self::code_to_str(self.blocks, version).with_context(|| format!(
+                    "Code {:?} is not supported for blocks in version {version}",
+                    self.blocks
+                ))?
             ));
             comp_flags = true;
         }
         if self.intervals != Codes::Gamma {
             s.push_str(&format!(
                 "INTERVALS_{}|",
-                Self::code_to_str(self.intervals, version).unwrap()
+                Self::code_to_str(self.intervals, version).with_context(|| format!(
+                    "Code {:?} is not supported for intervals in version {version}",
+                    self.intervals
+                ))?
             ));
             comp_flags = true;
         }
@@ -219,7 +231,10 @@ impl CompFlags {
         {
             s.push_str(&format!(
                 "RESIDUALS_{}|",
-                Self::code_to_str(self.residuals, version).unwrap()
+                Self::code_to_str(self.residuals, version).with_context(|| format!(
+                    "Code {:?} is not supported for residuals in version {version}",
+                    self.residuals
+                ))?
             ));
             comp_flags = true;
         }
@@ -235,7 +250,10 @@ impl CompFlags {
                     match $code {
                         Codes::Zeta(new_k) => {
                             if let Some(old_k) = k {
-                                ensure!(old_k == new_k, "Only one value of k is supported")
+                                ensure!(
+                                    old_k == new_k,
+                                    "Only one value of k is supported in version 0"
+                                )
                             }
                             k = Some(new_k)
                         }

@@ -18,9 +18,9 @@ use epserde::deser::MemCase;
 use epserde::deser::Owned;
 use sux::traits::IndexedSeq;
 
-#[repr(transparent)]
 /// An implementation of [`Decode`]  with compile-time defined codes.
 #[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct ConstCodesDecoder<
     E: Endianness,
     CR: CodesRead<E>,

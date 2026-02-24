@@ -11,9 +11,9 @@ use std::convert::Infallible;
 
 use super::{Encode, EncodeAndEstimate};
 
-#[repr(transparent)]
 /// An implementation of [`EncodeAndEstimate`] with compile time defined codes
 #[derive(Debug, Clone)]
+#[repr(transparent)]
 pub struct ConstCodesEncoder<
     E: Endianness,
     CW: CodesWrite<E>,

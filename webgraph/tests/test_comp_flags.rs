@@ -40,6 +40,8 @@ fn test_code_to_str_version0() {
     // version 0: all zeta variants map to "ZETA"
     assert_eq!(CompFlags::code_to_str(Codes::Zeta(3), 0), Some("ZETA"));
     assert_eq!(CompFlags::code_to_str(Codes::Zeta(7), 0), Some("ZETA"));
+    // version 0: unsupported codes return None
+    assert_eq!(CompFlags::code_to_str(Codes::Pi(1), 0), None);
 }
 
 #[test]
@@ -59,6 +61,9 @@ fn test_code_to_str_version1() {
     assert_eq!(CompFlags::code_to_str(Codes::Pi(2), 1), Some("PI2"));
     assert_eq!(CompFlags::code_to_str(Codes::Pi(3), 1), Some("PI3"));
     assert_eq!(CompFlags::code_to_str(Codes::Pi(4), 1), Some("PI4"));
+    // version 1: unsupported codes return None
+    assert_eq!(CompFlags::code_to_str(Codes::Zeta(8), 1), None);
+    assert_eq!(CompFlags::code_to_str(Codes::Pi(5), 1), None);
 }
 
 #[test]

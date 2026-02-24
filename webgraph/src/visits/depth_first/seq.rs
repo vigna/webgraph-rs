@@ -641,6 +641,10 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for DfsOrder<'a, 'b, G> {
             depth: 0,
         })
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
 
 impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for DfsOrder<'a, 'b, G> {

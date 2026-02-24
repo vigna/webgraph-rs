@@ -271,7 +271,6 @@ impl<D: Decode> NodeLabels<D> {
             let reference_node_id = node_id - ref_delta;
             // retrieve the data
             let successors = &self.backrefs[reference_node_id];
-            //debug_assert!(!neighbours.is_empty());
             // get the info on which destinations to copy
             let number_of_blocks = self.decoder.read_block_count() as usize;
             // no blocks, we copy everything

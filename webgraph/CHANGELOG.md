@@ -21,6 +21,8 @@
 
 - Removed `num_of_residuals` method from `Encode` and `Decode`.
 
+- `code_to_str` now actually returns `None` instead of panicking.
+
 ## [0.6.1] - 2026-02-23
 
 ### Fixed

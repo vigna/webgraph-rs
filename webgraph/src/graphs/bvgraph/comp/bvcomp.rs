@@ -302,7 +302,7 @@ impl Compressor {
                         j += 1;
                     }
                     Ordering::Equal => {
-                        // currList[j] == refList[k]
+                        // curr_list[j] == ref_list[k]
                         //
                         // If the current elements of the two lists are equal, we just increase the block length.
                         // both j and k get increased.
@@ -327,7 +327,7 @@ impl Compressor {
                         j += 1;
                     }
                     Ordering::Equal => {
-                        // currList[j] == refList[k]
+                        // curr_list[j] == ref_list[k]
                         //
                         // If we found a match we flush the current block and start a new copying phase.
                         self.blocks.push(curr_block_len);

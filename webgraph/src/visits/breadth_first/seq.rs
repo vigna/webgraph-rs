@@ -419,6 +419,10 @@ impl<'a, 'b, G: RandomAccessGraph> Iterator for BfsOrder<'a, 'b, G> {
             }
         }
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
 
 impl<'a, 'b, G: RandomAccessGraph> ExactSizeIterator for BfsOrder<'a, 'b, G> {
