@@ -26,7 +26,6 @@ value-traits.workspace = true
 
 anyhow.workspace = true
 predicates.workspace = true
-num_cpus.workspace = true
 rand.workspace = true
 log.workspace = true
 rayon.workspace = true

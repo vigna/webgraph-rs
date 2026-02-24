@@ -41,7 +41,6 @@ tempfile.workspace = true
 itertools.workspace = true
 rayon.workspace = true
 mmap-rs.workspace = true
-num_cpus.workspace = true
 java-properties.workspace = true
 sync-cell-slice.workspace = true
 arbitrary = { workspace = true, optional = true }
