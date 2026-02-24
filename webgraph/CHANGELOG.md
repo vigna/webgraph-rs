@@ -19,6 +19,8 @@
 
 - Removed dead `current_node` field in `split::seq::Iter`.
 
+- Removed `num_of_residuals` method from `Encode` and `Decode`.
+
 ## [0.6.1] - 2026-02-23
 
 ### Fixed

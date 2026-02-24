@@ -254,7 +254,4 @@ fn test_converter_decode_all_methods() {
     assert_eq!(conv.read_interval_len(), 3);
     assert_eq!(conv.read_first_residual(), 3);
     assert_eq!(conv.read_residual(), 3);
-
-    // num_of_residuals just delegates
-    conv.num_of_residuals(5);
 }

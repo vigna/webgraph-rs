@@ -195,7 +195,6 @@ impl<D: Decode> OffsetDegIter<D> {
         }
 
         // decode the extra nodes if needed
-        self.decoder.num_of_residuals(nodes_left_to_decode);
         if nodes_left_to_decode != 0 {
             // pre-allocate with capacity for efficiency
             let _ = self.decoder.read_first_residual();
