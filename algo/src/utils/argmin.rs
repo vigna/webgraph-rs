@@ -8,7 +8,7 @@
 /// Returns the index of the minimum value in an iterator, or [`None`] if the
 /// iterator is empty.
 ///
-/// If the minimum appears several times, this methods returns the position of
+/// If the minimum appears several times, this method returns the position of
 /// the first instance.
 ///
 /// # Arguments

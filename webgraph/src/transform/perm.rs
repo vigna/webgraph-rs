@@ -18,7 +18,7 @@ use value_traits::slices::SliceByValue;
 /// Note that if the graph is [splittable](SplitLabeling),
 /// [`permute_split`] will be much faster.
 ///
-/// This assumes that the permutation is bijective. For the meaning of the
+/// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see [`SortPairs`].
 pub fn permute(
     graph: &impl SequentialGraph,
@@ -71,7 +71,7 @@ pub fn permute(
 /// Note that if the graph is not [splittable](SplitLabeling) you must use
 /// [`permute`], albeit it will be slower.
 ///
-/// This assumes that the permutation is bijective. For the meaning of the
+/// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see [`SortPairs`].
 pub fn permute_split<S, P>(
     graph: &S,

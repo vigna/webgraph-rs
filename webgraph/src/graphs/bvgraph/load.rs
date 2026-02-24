@@ -370,7 +370,7 @@ pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM:
 impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
     LoadConfig<E, A, D, GLM, OLM>
 {
-    /// Set the endianness of the graph and offsets file.
+    /// Sets the endianness of the graph and offsets file.
     pub fn endianness<E2: Endianness>(self) -> LoadConfig<E2, A, D, GLM, OLM>
     where
         GLM: LoadMode,
@@ -414,7 +414,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap> {
-    /// Set flags for memory-mapping (both graph and offsets).
+    /// Sets flags for memory-mapping (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, Mmap> {
         LoadConfig {
             basename: self.basename,
@@ -426,7 +426,7 @@ impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, Mmap, Mmap> {
 }
 
 impl<E: Endianness, A: Access, D: Dispatch> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
-    /// Set flags for memory obtained from `mmap()` (both graph and offsets).
+    /// Sets flags for memory obtained from `mmap()` (both graph and offsets).
     pub fn flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, LoadMmap> {
         LoadConfig {
             basename: self.basename,
@@ -452,7 +452,7 @@ impl<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode>
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, Mmap, OLM> {
-    /// Set flags for memory-mapping the graph.
+    /// Sets flags for memory-mapping the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, Mmap, OLM> {
         LoadConfig {
             basename: self.basename,
@@ -464,7 +464,7 @@ impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, M
 }
 
 impl<E: Endianness, A: Access, D: Dispatch, OLM: LoadMode> LoadConfig<E, A, D, LoadMmap, OLM> {
-    /// Set flags for memory obtained from `mmap()` for the graph.
+    /// Sets flags for memory obtained from `mmap()` for the graph.
     pub fn graph_flags(self, flags: MemoryFlags) -> LoadConfig<E, A, D, LoadMmap, OLM> {
         LoadConfig {
             basename: self.basename,
@@ -488,7 +488,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Ran
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mmap> {
-    /// Set flags for memory-mapping the offsets.
+    /// Sets flags for memory-mapping the offsets.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, Mmap> {
         LoadConfig {
             basename: self.basename,
@@ -500,7 +500,7 @@ impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, Mm
 }
 
 impl<E: Endianness, D: Dispatch, GLM: LoadMode> LoadConfig<E, Random, D, GLM, LoadMmap> {
-    /// Set flags for memory obtained from `mmap()` for the graph.
+    /// Sets flags for memory obtained from `mmap()` for the offsets.
     pub fn offsets_flags(self, flags: MemoryFlags) -> LoadConfig<E, Random, D, GLM, LoadMmap> {
         LoadConfig {
             basename: self.basename,
@@ -708,7 +708,7 @@ fn warn_if_ef_stale(basename: &Path) {
     }
 }
 
-/// Read the .properties file and return the endianness
+/// Reads the `.properties` file and returns the endianness.
 pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
     let path = basename.as_ref().with_extension(PROPERTIES_EXTENSION);
     let f = std::fs::File::open(&path)
@@ -724,8 +724,8 @@ pub fn get_endianness<P: AsRef<Path>>(basename: P) -> Result<String> {
     Ok(endianness)
 }
 
-/// Read the .properties file and return the number of nodes, number of arcs and compression flags
-/// for the graph. The endianness is checked against the expected one.
+/// Reads the `.properties` file and returns the number of nodes, number of arcs, and compression
+/// flags for the graph. The endianness is checked against the expected one.
 pub fn parse_properties<E: Endianness>(path: impl AsRef<Path>) -> Result<(usize, u64, CompFlags)> {
     let name = path.as_ref().display();
     let f =

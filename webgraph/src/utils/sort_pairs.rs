@@ -155,7 +155,7 @@ impl<C: BatchCodec> SortPairs<C> {
         Ok(())
     }
 
-    /// Dump the current batch to disk
+    /// Dumps the current batch to disk.
     fn dump(&mut self) -> anyhow::Result<()> {
         // This method must be idempotent as it is called by `iter`
         if self.batch.is_empty() {

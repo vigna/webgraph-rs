@@ -89,7 +89,7 @@ pub(super) struct DirExactSumSweepComputer<
 impl<'a, G: RandomAccessGraph + Sync, OL: Level>
     DirExactSumSweepComputer<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL>
 {
-    /// Build a new instance to compute the *ExactSumSweep* algorithm on
+    /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
     pub(super) fn new_symm(graph: &'a G, pl: &mut impl ProgressLog) -> Self {
         // TODO debug_assert!(check_symmetric(graph), "graph should be symmetric");
@@ -115,7 +115,7 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level>
 impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     DirExactSumSweepComputer<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL>
 {
-    /// Build a new instance to compute the *ExactSumSweep* algorithm on
+    /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// directed graphs.
     ///
     /// # Arguments

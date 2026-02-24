@@ -300,6 +300,10 @@ where
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.len(), Some(self.len()))
     }
+
+    fn count(self) -> usize {
+        self.len()
+    }
 }
 
 impl<
@@ -315,4 +319,16 @@ where
     fn len(&self) -> usize {
         self.len - self.current
     }
+}
+
+impl<
+    E: Endianness,
+    D: BitDeserializer<E, BitReader<E>>,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+> core::iter::FusedIterator for GapsIter<E, D, SRC_CODE, DST_CODE>
+where
+    BitReader<E>: BitRead<E> + CodesRead<E>,
+    BitWriter<E>: BitWrite<E> + CodesWrite<E>,
+{
 }

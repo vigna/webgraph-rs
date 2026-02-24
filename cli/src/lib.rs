@@ -667,10 +667,12 @@ impl From<CompressArgs> for CompFlags {
 
 /// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
-    rayon::ThreadPoolBuilder::new()
+    let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build()
-        .expect("Failed to create thread pool")
+        .expect("Failed to create thread pool");
+    log::info!("Using {} threads", thread_pool.current_num_threads());
+    thread_pool
 }
 
 /// Appends a string to the filename of a path.

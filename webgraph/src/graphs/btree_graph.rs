@@ -51,7 +51,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         }
     }
 
-    /// Add an isolated node to the graph and return true if it is a new node.
+    /// Adds an isolated node to the graph and returns true if it is a new node.
     ///
     /// If the node index is greater than the current number of nodes,
     /// the missing nodes will be added (as isolated nodes).
@@ -61,7 +61,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         len <= node
     }
 
-    /// Add a labeled arc to the graph and return whether it is a new one.
+    /// Adds a labeled arc to the graph and returns whether it is a new one.
     pub fn add_arc(&mut self, u: usize, v: usize, l: L) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -76,7 +76,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         is_new_arc
     }
 
-    /// Remove an arc from the graph and return whether it was present or not.
+    /// Removes an arc from the graph and returns whether it was present or not.
     pub fn remove_arc(&mut self, u: usize, v: usize) -> bool {
         let max = u.max(v);
         if max >= self.succ.len() {
@@ -91,7 +91,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         arc_existed
     }
 
-    /// Add nodes and labeled successors from an [`IntoLender`] yielding a
+    /// Adds nodes and labeled successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I)
     where
@@ -117,7 +117,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         g
     }
 
-    /// Add labeled arcs from an [`IntoIterator`], adding new nodes as needed.
+    /// Adds labeled arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
     /// The items must be labeled pairs of the form `((usize, usize), l)` specifying an
     /// arc and its label.
@@ -139,7 +139,7 @@ impl<L: Clone + 'static> LabeledBTreeGraph<L> {
         g
     }
 
-    /// Shrink the capacity of the graph to fit its current size.
+    /// Shrinks the capacity of the graph to fit its current size.
     ///
     /// # Implementation Notes
     ///
@@ -258,17 +258,17 @@ impl BTreeGraph {
         LabeledBTreeGraph::empty(n).into()
     }
 
-    /// Add an isolated node to the graph and return true if it is a new node.
+    /// Adds an isolated node to the graph and returns true if it is a new node.
     pub fn add_node(&mut self, node: usize) -> bool {
         self.0.add_node(node)
     }
 
-    /// Add an arc to the graph and return whether it is a new one.
+    /// Adds an arc to the graph and returns whether it is a new one.
     pub fn add_arc(&mut self, u: usize, v: usize) -> bool {
         self.0.add_arc(u, v, ())
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a
+    /// Adds nodes and successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
@@ -289,7 +289,7 @@ impl BTreeGraph {
         g
     }
 
-    /// Add arcs from an [`IntoIterator`], adding new nodes as needed.
+    /// Adds arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying an arc.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
@@ -306,7 +306,7 @@ impl BTreeGraph {
         g
     }
 
-    /// Shrink the capacity of the graph to fit its current size.
+    /// Shrinks the capacity of the graph to fit its current size.
     ///
     /// # Implementation Notes
     ///

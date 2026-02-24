@@ -97,6 +97,13 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
             self.min_interval_length,
         );
 
+        debug_assert!(
+            from <= self.number_of_nodes,
+            "from ({from}) is greater than the number of nodes ({})",
+            self.number_of_nodes
+        );
+        // advance_by returns Err only if the lender is exhausted before
+        // reaching `from`, which is expected when `from == num_nodes`.
         let _ = iter.advance_by(from);
 
         iter
@@ -239,7 +246,7 @@ impl<D: Decode> NodeLabels<D> {
         }
     }
 
-    /// Get the successors of the next node in the stream
+    /// Gets the successors of the next node in the stream.
     pub fn next_successors(&mut self) -> Result<&[usize]> {
         let mut res = self.backrefs.take(self.current_node);
         self.get_successors_iter_priv(self.current_node, &mut res)?;

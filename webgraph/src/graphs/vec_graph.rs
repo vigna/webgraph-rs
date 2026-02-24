@@ -70,14 +70,14 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Add an isolated node to the graph and return true if it is a new node.
+    /// Adds an isolated node to the graph and returns true if it is a new node.
     pub fn add_node(&mut self, node: usize) -> bool {
         let len = self.succ.len();
         self.succ.extend((len..=node).map(|_| Vec::new()));
         len <= node
     }
 
-    /// Add an arc to the graph.
+    /// Adds an arc to the graph.
     ///
     /// New arcs must be added in increasing successor order, or this method
     /// will panic.
@@ -118,7 +118,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         }
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a
+    /// Adds nodes and successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
     /// If the lender is sorted, consider using
@@ -158,7 +158,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         g
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`].
     ///
     /// This method is faster than [`add_lender`](Self::add_lender) as
@@ -195,7 +195,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         g
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
     ///
     /// This method has a better memory behavior than
@@ -235,7 +235,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         g
     }
 
-    /// Add labeled arcs from an [`IntoIterator`], adding new nodes as needed.
+    /// Adds labeled arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
     /// The items must be labeled pairs of the form `((usize, usize), l)` specifying an
     /// arc and its label.
@@ -259,7 +259,7 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
         g
     }
 
-    /// Shrink the capacity of the graph to fit its current size.
+    /// Shrinks the capacity of the graph to fit its current size.
     pub fn shrink_to_fit(&mut self) {
         self.succ.shrink_to_fit();
         for s in self.succ.iter_mut() {
@@ -381,12 +381,12 @@ impl VecGraph {
         LabeledVecGraph::empty(n).into()
     }
 
-    /// Add an isolated node to the graph and return true if it is a new node.
+    /// Adds an isolated node to the graph and returns true if it is a new node.
     pub fn add_node(&mut self, node: usize) -> bool {
         self.0.add_node(node)
     }
 
-    /// Add an arc to the graph.
+    /// Adds an arc to the graph.
     ///
     /// New arcs must be added in increasing successor order, or this method
     /// will panic.
@@ -402,7 +402,7 @@ impl VecGraph {
         self.0.add_arc(u, v, ())
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a
+    /// Adds nodes and successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
     /// If the lender is sorted, consider using
@@ -431,7 +431,7 @@ impl VecGraph {
         g
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`].
     ///
     /// This method is faster than [`add_lender`](Self::add_lender) as
@@ -463,7 +463,7 @@ impl VecGraph {
         g
     }
 
-    /// Add nodes and successors from an [`IntoLender`] yielding a sorted
+    /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
     ///
     /// This method has a better memory behavior than
@@ -503,7 +503,7 @@ impl VecGraph {
         g
     }
 
-    /// Add arcs from an [`IntoIterator`], adding new nodes as needed.
+    /// Adds arcs from an [`IntoIterator`], adding new nodes as needed.
     ///
     /// The items must be pairs of the form `(usize, usize)` specifying an arc.
     pub fn add_arcs(&mut self, arcs: impl IntoIterator<Item = (usize, usize)>) {
@@ -519,7 +519,7 @@ impl VecGraph {
         g
     }
 
-    /// Shrink the capacity of the graph to fit its current size.
+    /// Shrinks the capacity of the graph to fit its current size.
     pub fn shrink_to_fit(&mut self) {
         self.0.shrink_to_fit();
     }
