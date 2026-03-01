@@ -16,6 +16,7 @@ authors = [
 rust-version = "1.85"
 
 [dependencies]
+funcperm = { path = "../../funcperm-rs" }
 card-est-array.workspace = true
 webgraph.workspace = true
 dsi-progress-logger.workspace = true

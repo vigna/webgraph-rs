@@ -12,7 +12,8 @@ webgraph-cli = { path = "./cli" }
 
 card-est-array = "0.2.1"
 epserde = "0.12.0"
-dsi-bitstream = "0.7.0"
+#dsi-bitstream = "0.7.0"
+dsi-bitstream = { path = "../dsi-bitstream-rs" }
 dsi-progress-logger = "=0.8.2" # For Rust 1.85
 sux = { version = "0.12.2", features = ["epserde", "rayon", "mmap"] }
 common_traits = "0.12.0"

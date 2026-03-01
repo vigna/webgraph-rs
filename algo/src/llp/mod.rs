@@ -65,6 +65,7 @@ use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
+use funcperm::FuncPerm;
 use predicates::Predicate;
 use preds::PredParams;
 
@@ -240,7 +241,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 gammas.len()
             ));
 
-            update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
+            /*update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
             thread_pool.install(|| {
                 // parallel shuffle
                 update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
@@ -248,16 +249,18 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                     let mut rand = SmallRng::seed_from_u64(seed);
                     chunk.shuffle(&mut rand);
                 });
-            });
+            });*/
 
             // If this iteration modified anything (early stop)
             let modified = CachePadded::new(AtomicUsize::new(0));
+            let funcperm = FuncPerm::new_simple_hash(num_nodes as u64, 42, 42);
 
             let delta_obj_func = sym_graph.par_apply(
                 |range| {
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
-                    for &node in &update_perm[range] {
+                    for node in range {
+                        let node = funcperm.get(node as u64) as usize;
                         // Note that here we are using a heuristic optimization:
                         // if no neighbor has changed, the label of a node
                         // cannot change. If gamma != 0, this is not necessarily
