@@ -51,7 +51,15 @@ use std::path::{Path, PathBuf};
 /// the [resulting iterator](SortPairs::iter) is labeled, and returns pairs
 /// labeled with `()`. Use [`Left`](crate::prelude::proj::Left) to project away
 /// the labels if needed.
-pub struct SortPairs<C: BatchCodec = DefaultBatchCodec> {
+///
+/// If `DEDUP` is `true`, the iterators returned by [`iter`](SortPairs::iter),
+/// [`sort`](SortPairs::sort), [`sort_labeled`](SortPairs::sort_labeled),
+/// and their fallible variants will skip consecutive elements sharing
+/// the same pair of nodes, keeping only the first occurrence. Use
+/// [`new_dedup`](SortPairs::new_dedup) or
+/// [`new_labeled_dedup`](SortPairs::new_labeled_dedup) to enable
+/// deduplication.
+pub struct SortPairs<C: BatchCodec = DefaultBatchCodec, const DEDUP: bool = false> {
     /// The batch size.
     batch_size: usize,
     /// Where we are going to store the batches.
@@ -65,67 +73,11 @@ pub struct SortPairs<C: BatchCodec = DefaultBatchCodec> {
     last_batch_len: usize,
     /// The batch of triples we are currently building.
     batch: Vec<((usize, usize), C::Label)>,
-    /// Whether to deduplicate the result.
-    dedup: bool,
 }
 
-impl SortPairs {
-    /// Creates a new `SortPairs` without labels.
-    ///
-    /// The `tmp_dir` must be empty, and in particular it must not be shared
-    /// with other `SortPairs` instances.
-    ///
-    /// We suggest to use the [`tempfile`](https://crates.io/crates/tempfile)
-    /// crate to obtain a suitable temporary directory, as it will be
-    /// automatically deleted when no longer needed, but be careful to not pass
-    /// the directory obtained directly, but rather its path (i.e., use
-    /// `dir.path()`) because otherwise [the directory will be deleted too
-    /// soon](https://github.com/Stebalien/tempfile/issues/115).
-    pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, tmp_dir: P) -> anyhow::Result<Self> {
-        Self::new_labeled(memory_usage, tmp_dir, DefaultBatchCodec::default())
-    }
-    /// Adds an unlabeled pair to the graph.
-    pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
-        self.push_labeled(x, y, ())
-    }
-
-    /// Takes an iterator of pairs, pushes all elements, and returns an iterator
-    /// over the sorted pairs.
-    ///
-    /// This is a convenience method that combines multiple
-    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
-    pub fn sort(
-        &mut self,
-        pairs: impl IntoIterator<Item = (usize, usize)>,
-    ) -> anyhow::Result<KMergeIters<CodecIter<DefaultBatchCodec>>> {
-        self.try_sort::<std::convert::Infallible>(pairs.into_iter().map(Ok))
-    }
-
-    /// Takes an iterator of fallible pairs, pushes all elements, and returns an
-    /// iterator over the sorted pairs.
-    ///
-    /// This is a convenience method that combines multiple
-    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
-    pub fn try_sort<E: Into<anyhow::Error>>(
-        &mut self,
-        pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
-    ) -> anyhow::Result<KMergeIters<CodecIter<DefaultBatchCodec>, ()>> {
-        for pair in pairs {
-            let (x, y) = pair.map_err(Into::into)?;
-            self.push(x, y)?;
-        }
-        self.iter()
-    }
-}
-
-impl<C: BatchCodec> SortPairs<C> {
-    /// Creates a new `SortPairs` with labels.
-    ///
-    /// The `dir` must be empty, and in particular it must not be shared
-    /// with other `SortPairs` instances. Please use the
-    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
-    /// a suitable directory.
-    pub fn new_labeled<P: AsRef<Path>>(
+impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
+    /// Creates a new `SortPairs` with the given codec.
+    fn create<P: AsRef<Path>>(
         memory_usage: MemoryUsage,
         dir: P,
         batch_codec: C,
@@ -144,22 +96,106 @@ impl<C: BatchCodec> SortPairs<C> {
                 num_batches: 0,
                 last_batch_len: 0,
                 batch: Vec::with_capacity(batch_size),
-                dedup: false,
             })
         }
     }
+}
 
-    /// Sets whether to deduplicate the result.
+impl SortPairs {
+    /// Creates a new `SortPairs` without labels.
     ///
-    /// When enabled, the iterators returned by [`iter`](SortPairs::iter),
-    /// [`sort`](SortPairs::sort), [`sort_labeled`](SortPairs::sort_labeled),
-    /// and their fallible variants will skip consecutive elements sharing
-    /// the same pair of nodes, keeping only the first occurrence.
-    pub fn dedup(mut self, dedup: bool) -> Self {
-        self.dedup = dedup;
-        self
+    /// The `tmp_dir` must be empty, and in particular it must not be shared
+    /// with other `SortPairs` instances.
+    ///
+    /// We suggest to use the [`tempfile`](https://crates.io/crates/tempfile)
+    /// crate to obtain a suitable temporary directory, as it will be
+    /// automatically deleted when no longer needed, but be careful to not pass
+    /// the directory obtained directly, but rather its path (i.e., use
+    /// `dir.path()`) because otherwise [the directory will be deleted too
+    /// soon](https://github.com/Stebalien/tempfile/issues/115).
+    pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, tmp_dir: P) -> anyhow::Result<Self> {
+        Self::create(memory_usage, tmp_dir, DefaultBatchCodec::default())
     }
 
+    /// Creates a new `SortPairs` without labels that deduplicates the result.
+    ///
+    /// See [`new`](SortPairs::new) for details. When deduplication is enabled,
+    /// the returned iterators will skip consecutive elements sharing the same
+    /// pair of nodes, keeping only the first occurrence.
+    pub fn new_dedup<P: AsRef<Path>>(
+        memory_usage: MemoryUsage,
+        tmp_dir: P,
+    ) -> anyhow::Result<SortPairs<DefaultBatchCodec, true>> {
+        SortPairs::create(memory_usage, tmp_dir, DefaultBatchCodec::default())
+    }
+}
+
+impl<C: BatchCodec> SortPairs<C> {
+    /// Creates a new `SortPairs` with labels.
+    ///
+    /// The `dir` must be empty, and in particular it must not be shared
+    /// with other `SortPairs` instances. Please use the
+    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
+    /// a suitable directory.
+    pub fn new_labeled<P: AsRef<Path>>(
+        memory_usage: MemoryUsage,
+        dir: P,
+        batch_codec: C,
+    ) -> anyhow::Result<Self> {
+        Self::create(memory_usage, dir, batch_codec)
+    }
+
+    /// Creates a new `SortPairs` with labels that deduplicates the result.
+    ///
+    /// See [`new_labeled`](SortPairs::new_labeled) for details. When
+    /// deduplication is enabled, the returned iterators will skip consecutive
+    /// elements sharing the same pair of nodes, keeping only the first
+    /// occurrence.
+    pub fn new_labeled_dedup<P: AsRef<Path>>(
+        memory_usage: MemoryUsage,
+        dir: P,
+        batch_codec: C,
+    ) -> anyhow::Result<SortPairs<C, true>> {
+        SortPairs::create(memory_usage, dir, batch_codec)
+    }
+}
+
+impl<const DEDUP: bool> SortPairs<DefaultBatchCodec, DEDUP> {
+    /// Adds an unlabeled pair to the graph.
+    pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
+        self.push_labeled(x, y, ())
+    }
+
+    /// Takes an iterator of pairs, pushes all elements, and returns an iterator
+    /// over the sorted pairs.
+    ///
+    /// This is a convenience method that combines multiple
+    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
+    pub fn sort(
+        &mut self,
+        pairs: impl IntoIterator<Item = (usize, usize)>,
+    ) -> anyhow::Result<KMergeIters<CodecIter<DefaultBatchCodec>, (), DEDUP>> {
+        self.try_sort::<std::convert::Infallible>(pairs.into_iter().map(Ok))
+    }
+
+    /// Takes an iterator of fallible pairs, pushes all elements, and returns an
+    /// iterator over the sorted pairs.
+    ///
+    /// This is a convenience method that combines multiple
+    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
+    pub fn try_sort<E: Into<anyhow::Error>>(
+        &mut self,
+        pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
+    ) -> anyhow::Result<KMergeIters<CodecIter<DefaultBatchCodec>, (), DEDUP>> {
+        for pair in pairs {
+            let (x, y) = pair.map_err(Into::into)?;
+            self.push(x, y)?;
+        }
+        self.iter()
+    }
+}
+
+impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
     /// Adds a labeled pair to the graph.
     pub fn push_labeled(&mut self, x: usize, y: usize, t: C::Label) -> anyhow::Result<()> {
         self.batch.push(((x, y), t));
@@ -195,17 +231,15 @@ impl<C: BatchCodec> SortPairs<C> {
     }
 
     /// Returns an iterator over the labeled pairs, lexicographically sorted.
-    pub fn iter(&mut self) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label>> {
+    pub fn iter(&mut self) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label, DEDUP>> {
         self.dump()?;
-        let mut kmerge = KMergeIters::new((0..self.num_batches).map(|batch_idx| {
+        Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
             let batch_path = self.tmp_dir.join(format!("{batch_idx:06x}"));
             self.batch_codec
                 .decode_batch(batch_path)
                 .unwrap()
                 .into_iter()
-        }));
-        kmerge.dedup(self.dedup);
-        Ok(kmerge)
+        })))
     }
 
     /// Takes an iterator of labeled pairs, pushes all elements, and returns an
@@ -217,7 +251,7 @@ impl<C: BatchCodec> SortPairs<C> {
     pub fn sort_labeled(
         &mut self,
         pairs: impl IntoIterator<Item = ((usize, usize), C::Label)>,
-    ) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label>> {
+    ) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label, DEDUP>> {
         self.try_sort_labeled::<std::convert::Infallible>(pairs.into_iter().map(Ok))
     }
 
@@ -230,7 +264,7 @@ impl<C: BatchCodec> SortPairs<C> {
     pub fn try_sort_labeled<E: Into<anyhow::Error>>(
         &mut self,
         pairs: impl IntoIterator<Item = Result<((usize, usize), C::Label), E>>,
-    ) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label>> {
+    ) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label, DEDUP>> {
         for pair in pairs {
             let ((x, y), label) = pair.map_err(Into::into)?;
             self.push_labeled(x, y, label)?;
@@ -270,12 +304,34 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Ord for HeadTail<T, I> {
     }
 }
 
+/// Builds the heap used by [`KMergeIters`] from a collection of sorted
+/// iterators.
+fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
+    iters: impl IntoIterator<Item = I>,
+) -> dary_heap::QuaternaryHeap<HeadTail<T, I>> {
+    let iters = iters.into_iter();
+    let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
+    for mut iter in iters {
+        if let Some((pair, label)) = iter.next() {
+            heap.push(HeadTail {
+                head: (pair, label),
+                tail: iter,
+            });
+        }
+    }
+    heap
+}
+
 /// A structure using a [quaternary heap](dary_heap::QuaternaryHeap) to merge sorted iterators.
 ///
 /// The iterators must be sorted by the pair of nodes, and the structure will return the labeled pairs
 /// sorted by lexicographical order of the pairs of nodes.
 ///
 /// The structure implements [`Iterator`] and returns labeled pairs of the form `((src, dst), label)`.
+///
+/// If `DEDUP` is `true`, the iterator will skip consecutive elements sharing
+/// the same pair of nodes, keeping only the first occurrence. Use
+/// [`new_dedup`](KMergeIters::new_dedup) to enable deduplication.
 ///
 /// The structure implements [`Default`], [`core::iter::Sum`],
 /// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`]
@@ -307,48 +363,41 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Ord for HeadTail<T, I> {
 /// let merged = iter.into_iter().collect::<KMergeIters<_, usize>>();
 /// ```
 #[derive(Clone, Debug)]
-pub struct KMergeIters<I: Iterator<Item = ((usize, usize), T)>, T = ()> {
+pub struct KMergeIters<I: Iterator<Item = ((usize, usize), T)>, T = (), const DEDUP: bool = false> {
     heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
-    /// Whether to deduplicate consecutive elements sharing the same pair of
-    /// nodes.
-    dedup: bool,
     /// The last pair returned, used for deduplication.
     last_pair: Option<(usize, usize)>,
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> KMergeIters<I, T, DEDUP> {
     pub fn new(iters: impl IntoIterator<Item = I>) -> Self {
-        let iters = iters.into_iter();
-        let mut heap = dary_heap::QuaternaryHeap::with_capacity(iters.size_hint().1.unwrap_or(10));
-        for mut iter in iters {
-            if let Some((pair, label)) = iter.next() {
-                heap.push(HeadTail {
-                    head: (pair, label),
-                    tail: iter,
-                });
-            }
-        }
         KMergeIters {
-            heap,
-            dedup: false,
+            heap: build_kmerge_heap(iters),
             last_pair: None,
         }
     }
+}
 
-    /// Sets whether to deduplicate consecutive elements sharing the same pair
-    /// of nodes.
-    pub fn dedup(&mut self, dedup: bool) {
-        self.dedup = dedup;
+impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
+    /// Creates a new `KMergeIters` that deduplicates consecutive elements
+    /// sharing the same pair of nodes.
+    pub fn new_dedup(iters: impl IntoIterator<Item = I>) -> KMergeIters<I, T, true> {
+        KMergeIters {
+            heap: build_kmerge_heap(iters),
+            last_pair: None,
+        }
     }
 }
 
 // SAFETY: the merge of sorted iterators is itself sorted.
-unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator> SortedIterator
-    for KMergeIters<I, T>
+unsafe impl<T, I: Iterator<Item = ((usize, usize), T)> + SortedIterator, const DEDUP: bool>
+    SortedIterator for KMergeIters<I, T, DEDUP>
 {
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> Iterator
+    for KMergeIters<I, T, DEDUP>
+{
     type Item = ((usize, usize), T);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -357,12 +406,10 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> 
 
             let result = match head_tail.tail.next() {
                 None => PeekMut::pop(head_tail).head,
-                Some((pair, label)) => {
-                    std::mem::replace(&mut head_tail.head, (pair, label))
-                }
+                Some((pair, label)) => std::mem::replace(&mut head_tail.head, (pair, label)),
             };
 
-            if self.dedup {
+            if DEDUP {
                 if self.last_pair == Some(result.0) {
                     continue;
                 }
@@ -374,7 +421,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> 
     }
 
     fn count(self) -> usize {
-        if self.dedup {
+        if DEDUP {
             self.fold(0, |count, _| count + 1)
         } else {
             self.heap
@@ -384,6 +431,7 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> 
         }
     }
 }
+
 impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIterator
     for KMergeIters<I, T>
 {
@@ -398,60 +446,63 @@ impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIt
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::FusedIterator for KMergeIters<I, T> {}
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::FusedIterator
+    for KMergeIters<I, T, DEDUP>
+{
+}
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> core::default::Default for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::default::Default
+    for KMergeIters<I, T, DEDUP>
+{
     fn default() -> Self {
         KMergeIters {
             heap: dary_heap::QuaternaryHeap::default(),
-            dedup: false,
             last_pair: None,
         }
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::Sum for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::Sum
+    for KMergeIters<I, T, DEDUP>
+{
     fn sum<J: Iterator<Item = Self>>(iter: J) -> Self {
         let mut heap = dary_heap::QuaternaryHeap::default();
-        let mut dedup = false;
         for mut kmerge in iter {
-            dedup |= kmerge.dedup;
             heap.extend(kmerge.heap.drain());
         }
         KMergeIters {
             heap,
-            dedup,
             last_pair: None,
         }
     }
 }
 
-impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::iter::Sum<I>
-    for KMergeIters<I::IntoIter, T>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::Sum<I>
+    for KMergeIters<I::IntoIter, T, DEDUP>
 {
     fn sum<J: Iterator<Item = I>>(iter: J) -> Self {
         KMergeIters::new(iter.map(IntoIterator::into_iter))
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::FromIterator<Self>
-    for KMergeIters<I, T>
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::FromIterator<Self>
+    for KMergeIters<I, T, DEDUP>
 {
     fn from_iter<J: IntoIterator<Item = Self>>(iter: J) -> Self {
         iter.into_iter().sum()
     }
 }
 
-impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::iter::FromIterator<I>
-    for KMergeIters<I::IntoIter, T>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool>
+    core::iter::FromIterator<I> for KMergeIters<I::IntoIter, T, DEDUP>
 {
     fn from_iter<J: IntoIterator<Item = I>>(iter: J) -> Self {
         KMergeIters::new(iter.into_iter().map(IntoIterator::into_iter))
     }
 }
 
-impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::ops::AddAssign<I>
-    for KMergeIters<I::IntoIter, T>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::ops::AddAssign<I>
+    for KMergeIters<I::IntoIter, T, DEDUP>
 {
     fn add_assign(&mut self, rhs: I) {
         let mut rhs = rhs.into_iter();
@@ -464,14 +515,17 @@ impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::ops::AddAssign<I>
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> core::ops::AddAssign for KMergeIters<I, T> {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::ops::AddAssign
+    for KMergeIters<I, T, DEDUP>
+{
     fn add_assign(&mut self, mut rhs: Self) {
-        self.dedup |= rhs.dedup;
         self.heap.extend(rhs.heap.drain());
     }
 }
 
-impl<T, I: IntoIterator<Item = ((usize, usize), T)>> Extend<I> for KMergeIters<I::IntoIter, T> {
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool> Extend<I>
+    for KMergeIters<I::IntoIter, T, DEDUP>
+{
     fn extend<J: IntoIterator<Item = I>>(&mut self, iter: J) {
         self.heap.extend(iter.into_iter().filter_map(|iter| {
             let mut iter = iter.into_iter();
@@ -484,10 +538,11 @@ impl<T, I: IntoIterator<Item = ((usize, usize), T)>> Extend<I> for KMergeIters<I
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>> Extend<KMergeIters<I, T>> for KMergeIters<I, T> {
-    fn extend<J: IntoIterator<Item = KMergeIters<I, T>>>(&mut self, iter: J) {
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool>
+    Extend<KMergeIters<I, T, DEDUP>> for KMergeIters<I, T, DEDUP>
+{
+    fn extend<J: IntoIterator<Item = KMergeIters<I, T, DEDUP>>>(&mut self, iter: J) {
         for mut kmerge in iter {
-            self.dedup |= kmerge.dedup;
             self.heap.extend(kmerge.heap.drain());
         }
     }

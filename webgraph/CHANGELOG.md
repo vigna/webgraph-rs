@@ -27,8 +27,8 @@
 
 ### Improved
 
-- `SortPairs`, `ParSortPairs` and `ParSortIters` now have a `dedup` option
-  that directly removes duplicates.
+- `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a
+  `const DEDUP: bool` type parameter that enables deduplication at compile time.
 
 ## [0.6.1] - 2026-02-23
 

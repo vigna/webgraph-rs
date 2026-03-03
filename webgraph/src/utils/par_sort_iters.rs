@@ -117,15 +117,14 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 ///     par_comp_lenders::<BE, _>(pairs, num_nodes)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ParSortIters {
+pub struct ParSortIters<const DEDUP: bool = false> {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
-    dedup: bool,
 }
 
-impl ParSortIters {
+impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// This is a convenience method for iterators that cannot fail.
     /// See [`try_sort`](ParSortIters::try_sort).
     pub fn sort(
@@ -147,7 +146,7 @@ impl ParSortIters {
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
-        let split = <ParSortIters>::try_sort_labeled::<DefaultBatchCodec, E, _>(
+        let split = <ParSortIters<DEDUP>>::try_sort_labeled::<DefaultBatchCodec, E, _>(
             self,
             DefaultBatchCodec::default(),
             pairs
@@ -169,6 +168,19 @@ impl ParSortIters {
     }
 }
 
+impl<const DEDUP: bool> ParSortIters<DEDUP> {
+    /// Creates a new [`ParSortIters`] instance.
+    fn create(num_nodes: usize) -> Result<Self> {
+        Ok(Self {
+            num_nodes,
+            expected_num_pairs: None,
+            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
+                .context("No Rayon threads")?,
+            memory_usage: MemoryUsage::default(),
+        })
+    }
+}
+
 impl ParSortIters {
     /// Creates a new [`ParSortIters`] instance.
     ///
@@ -181,16 +193,22 @@ impl ParSortIters {
     /// This method will return an error if [`rayon::current_num_threads`]
     /// returns zero.
     pub fn new(num_nodes: usize) -> Result<Self> {
-        Ok(Self {
-            num_nodes,
-            expected_num_pairs: None,
-            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
-                .context("No Rayon threads")?,
-            memory_usage: MemoryUsage::default(),
-            dedup: false,
-        })
+        Self::create(num_nodes)
     }
 
+    /// Creates a new [`ParSortIters`] instance with deduplication enabled.
+    ///
+    /// When enabled, each partition iterator in the resulting [`SplitIters`]
+    /// will skip consecutive elements sharing the same pair of nodes, keeping
+    /// only the first occurrence.
+    ///
+    /// See [`new`](ParSortIters::new) for details.
+    pub fn new_dedup(num_nodes: usize) -> Result<ParSortIters<true>> {
+        ParSortIters::create(num_nodes)
+    }
+}
+
+impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// Approximate number of pairs to be sorted.
     ///
     /// Used only for progress reporting.
@@ -226,15 +244,6 @@ impl ParSortIters {
         }
     }
 
-    /// Sets whether to deduplicate the result.
-    ///
-    /// When enabled, each partition iterator in the resulting [`SplitIters`]
-    /// will skip consecutive elements sharing the same pair of nodes, keeping
-    /// only the first occurrence.
-    pub const fn dedup(self, dedup: bool) -> Self {
-        Self { dedup, ..self }
-    }
-
     /// See [`try_sort_labeled`](ParSortIters::try_sort_labeled).
     ///
     /// This is a convenience method for iterators that cannot fail.
@@ -250,7 +259,8 @@ impl ParSortIters {
         pairs: P,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + use<C, P>,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
+                + use<C, P, DEDUP>,
         >,
     > {
         self.try_sort_labeled::<C, std::convert::Infallible, P>(batch_codec, pairs)
@@ -280,7 +290,8 @@ impl ParSortIters {
         pairs: P,
     ) -> Result<
         SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + use<C, E, P>,
+            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
+                + use<C, E, P, DEDUP>,
         >,
     > {
         let unsorted_pairs = pairs;
@@ -411,16 +422,13 @@ impl ParSortIters {
             .collect();
 
         // Build iterators array
-        let dedup = self.dedup;
-        let iters: Vec<_> = partitioned_presorted_pairs
+        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP>> = partitioned_presorted_pairs
             .into_iter()
             .map(|partition| {
                 // 'partition' contains N iterators that are not sorted with
                 // respect to each other. We merge them and turn them into a
                 // single sorted iterator.
-                let mut kmerge = KMergeIters::new(partition);
-                kmerge.dedup(dedup);
-                kmerge
+                KMergeIters::new(partition)
             })
             .collect();
 

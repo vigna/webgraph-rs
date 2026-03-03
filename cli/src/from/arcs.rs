@@ -58,7 +58,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
-    let mut group_by = SortPairs::new(args.memory_usage.memory_usage, &dir)?.dedup(true);
+    let mut group_by = SortPairs::new_dedup(args.memory_usage.memory_usage, &dir)?;
     let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs

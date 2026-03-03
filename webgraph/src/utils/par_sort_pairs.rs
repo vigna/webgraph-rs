@@ -127,15 +127,14 @@ use crate::utils::SplitIters;
 ///     par_comp_lenders::<BE, _>(pairs, num_nodes)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ParSortPairs {
+pub struct ParSortPairs<const DEDUP: bool = false> {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
-    dedup: bool,
 }
 
-impl ParSortPairs {
+impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     /// See [`try_sort`](ParSortPairs::try_sort).
     pub fn sort(
         &self,
@@ -174,6 +173,19 @@ impl ParSortPairs {
     }
 }
 
+impl<const DEDUP: bool> ParSortPairs<DEDUP> {
+    /// Creates a new [`ParSortPairs`] instance.
+    fn create(num_nodes: usize) -> Result<Self> {
+        Ok(Self {
+            num_nodes,
+            expected_num_pairs: None,
+            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
+                .context("No Rayon threads")?,
+            memory_usage: MemoryUsage::default(),
+        })
+    }
+}
+
 impl ParSortPairs {
     /// Creates a new [`ParSortPairs`] instance.
     ///
@@ -186,16 +198,22 @@ impl ParSortPairs {
     /// This method will return an error if [`rayon::current_num_threads`]
     /// returns zero.
     pub fn new(num_nodes: usize) -> Result<Self> {
-        Ok(Self {
-            num_nodes,
-            expected_num_pairs: None,
-            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
-                .context("No Rayon threads")?,
-            memory_usage: MemoryUsage::default(),
-            dedup: false,
-        })
+        Self::create(num_nodes)
     }
 
+    /// Creates a new [`ParSortPairs`] instance with deduplication enabled.
+    ///
+    /// When enabled, each partition iterator in the resulting [`SplitIters`]
+    /// will skip consecutive elements sharing the same pair of nodes, keeping
+    /// only the first occurrence.
+    ///
+    /// See [`new`](ParSortPairs::new) for details.
+    pub fn new_dedup(num_nodes: usize) -> Result<ParSortPairs<true>> {
+        ParSortPairs::create(num_nodes)
+    }
+}
+
+impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     /// Approximate number of pairs to be sorted.
     ///
     /// Used only for progress reporting.
@@ -231,15 +249,6 @@ impl ParSortPairs {
         }
     }
 
-    /// Sets whether to deduplicate the result.
-    ///
-    /// When enabled, each partition iterator in the resulting [`SplitIters`]
-    /// will skip consecutive elements sharing the same pair of nodes, keeping
-    /// only the first occurrence.
-    pub const fn dedup(self, dedup: bool) -> Self {
-        Self { dedup, ..self }
-    }
-
     /// See [`try_sort_labeled`](ParSortPairs::try_sort_labeled).
     ///
     /// This is a convenience method for parallel iterators that cannot fail.
@@ -250,7 +259,7 @@ impl ParSortPairs {
     ) -> Result<
         SplitIters<
             impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>
-            + use<C, P>,
+            + use<C, P, DEDUP>,
         >,
     > {
         self.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs.map(Ok))
@@ -278,7 +287,7 @@ impl ParSortPairs {
     ) -> Result<
         SplitIters<
             impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Clone + Send + Sync>
-            + use<C, E, P>,
+            + use<C, E, P, DEDUP>,
         >,
     > {
         let unsorted_pairs = pairs;
@@ -454,16 +463,13 @@ impl ParSortPairs {
             .collect();
 
         // Build iterators array
-        let dedup = self.dedup;
-        let iters: Vec<_> = partitioned_presorted_pairs
+        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP>> = partitioned_presorted_pairs
             .into_iter()
             .map(|partition| {
                 // 'partition' contains N iterators that are not sorted with
                 // respect to each other. We merge them and turn them into a
                 // single sorted iterator.
-                let mut kmerge = KMergeIters::new(partition);
-                kmerge.dedup(dedup);
-                kmerge
+                KMergeIters::new(partition)
             })
             .collect();
 

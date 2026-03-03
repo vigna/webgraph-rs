@@ -64,7 +64,7 @@ pub fn simplify(
     >,
 > {
     let dir = Builder::new().prefix("simplify_").tempdir()?;
-    let mut sorted = SortPairs::new(memory_usage, dir.path())?.dedup(true);
+    let mut sorted = SortPairs::new_dedup(memory_usage, dir.path())?;
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -102,7 +102,7 @@ pub fn simplify_split<S>(
     memory_usage: MemoryUsage,
 ) -> Result<
     Left<
-        arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>,
+        arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, (), true>>,
     >,
 >
 where
@@ -127,7 +127,7 @@ where
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
                 let mut sorted =
-                    SortPairs::new(memory_usage, dir_path).unwrap().dedup(true);
+                    SortPairs::new_dedup(memory_usage, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         if src != dst {
@@ -147,7 +147,7 @@ where
 
     // get a graph on the sorted data
     log::debug!("Waiting for threads to finish");
-    let edges: KMergeIters<CodecIter<DefaultBatchCodec>> = rx.into_rayon_iter().sum();
+    let edges: KMergeIters<CodecIter<DefaultBatchCodec>, (), true> = rx.into_rayon_iter().sum();
     log::debug!("All threads finished");
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
 
