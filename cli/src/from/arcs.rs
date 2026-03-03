@@ -176,10 +176,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     }
 
     // convert the iter to a graph
-    let g = ArcListGraph::new(
-        num_nodes,
-        group_by.iter().unwrap().map(|(pair, _)| pair),
-    );
+    let g = ArcListGraph::new(num_nodes, group_by.iter().unwrap().map(|(pair, _)| pair));
 
     create_parent_dir(&args.dst)?;
 

@@ -493,8 +493,8 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::
     }
 }
 
-impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool>
-    core::iter::FromIterator<I> for KMergeIters<I::IntoIter, T, DEDUP>
+impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool> core::iter::FromIterator<I>
+    for KMergeIters<I::IntoIter, T, DEDUP>
 {
     fn from_iter<J: IntoIterator<Item = I>>(iter: J) -> Self {
         KMergeIters::new(iter.into_iter().map(IntoIterator::into_iter))
@@ -538,8 +538,8 @@ impl<T, I: IntoIterator<Item = ((usize, usize), T)>, const DEDUP: bool> Extend<I
     }
 }
 
-impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool>
-    Extend<KMergeIters<I, T, DEDUP>> for KMergeIters<I, T, DEDUP>
+impl<T, I: Iterator<Item = ((usize, usize), T)>, const DEDUP: bool> Extend<KMergeIters<I, T, DEDUP>>
+    for KMergeIters<I, T, DEDUP>
 {
     fn extend<J: IntoIterator<Item = KMergeIters<I, T, DEDUP>>>(&mut self, iter: J) {
         for mut kmerge in iter {

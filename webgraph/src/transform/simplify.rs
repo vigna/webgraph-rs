@@ -100,11 +100,7 @@ pub fn simplify(
 pub fn simplify_split<S>(
     graph: &S,
     memory_usage: MemoryUsage,
-) -> Result<
-    Left<
-        arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, (), true>>,
-    >,
->
+) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, (), true>>>>
 where
     S: SequentialGraph + SplitLabeling,
 {
@@ -126,8 +122,7 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted =
-                    SortPairs::new_dedup(memory_usage, dir_path).unwrap();
+                let mut sorted = SortPairs::new_dedup(memory_usage, dir_path).unwrap();
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         if src != dst {

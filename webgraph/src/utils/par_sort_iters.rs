@@ -260,7 +260,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     ) -> Result<
         SplitIters<
             impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
-                + use<C, P, DEDUP>,
+            + use<C, P, DEDUP>,
         >,
     > {
         self.try_sort_labeled::<C, std::convert::Infallible, P>(batch_codec, pairs)
@@ -291,7 +291,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     ) -> Result<
         SplitIters<
             impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
-                + use<C, E, P, DEDUP>,
+            + use<C, E, P, DEDUP>,
         >,
     > {
         let unsorted_pairs = pairs;

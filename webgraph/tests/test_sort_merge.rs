@@ -653,8 +653,7 @@ fn test_par_sort_pairs_dedup() -> Result<()> {
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs = vec![(0, 1), (0, 1), (1, 2), (1, 2), (2, 3), (0, 1)];
-    let sorter = ParSortPairs::new_dedup(4)?
-        .num_partitions(NonZeroUsize::new(2).unwrap());
+    let sorter = ParSortPairs::new_dedup(4)?.num_partitions(NonZeroUsize::new(2).unwrap());
 
     let split = sorter.sort(pairs.par_iter().copied())?;
 
@@ -675,8 +674,7 @@ fn test_par_sort_iters_dedup() -> Result<()> {
     // Two iterators with overlapping pairs
     let iter1 = vec![((0usize, 1usize), ()), ((1, 2), ()), ((0, 1), ())];
     let iter2 = vec![((1usize, 2usize), ()), ((2, 3), ()), ((2, 3), ())];
-    let sorter = ParSortIters::new_dedup(4)?
-        .num_partitions(NonZeroUsize::new(2).unwrap());
+    let sorter = ParSortIters::new_dedup(4)?.num_partitions(NonZeroUsize::new(2).unwrap());
 
     let split = sorter.sort_labeled(
         webgraph::utils::DefaultBatchCodec::default(),
