@@ -68,6 +68,7 @@ use crate::graphs::{
 };
 
 /// A decoder that encodes the read values using the given encoder.
+///
 /// This is commonly used to change the codes of a graph without decoding and
 /// re-encoding it but by changing the codes.
 pub struct Converter<D: Decode, E: Encode> {
@@ -252,10 +253,14 @@ pub fn humanize(value: f64) -> String {
 /// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
 /// using a convenient implementation of the [`From`] trait.
 ///
-/// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
-/// to perform the conversion. Type inference might not work properly if the
-/// call is embedded in a larger expression, in which case an explicit type
-/// annotation might be necessary.
+/// Note that it is sufficient to write `let lenders: Vec<_> =
+/// split_iters.into()` to perform the conversion, albeit in the unlabeled case
+/// before Rust 1.92 you might need to use `let lenders: Vec<LeftIterator<_>> =
+/// split_iters.into()` to help type inference.
+///
+/// Type inference might also not work properly if the call is embedded in a
+/// larger expression, in which case an explicit type annotation might be
+/// necessary.
 pub struct SplitIters<I> {
     pub boundaries: Box<[usize]>,
     pub iters: Box<[I]>,

@@ -7,11 +7,26 @@
  */
 
 //! Facilities to sort in parallel externally (labelled) pairs of nodes
-//! returned by a sequence of iterators.
+//! returned by a sequence of iterators, returning [partitioned sorted iterators of
+//! (labelled) pairs of nodes](SplitIters).
+//!
+//! The algorithm implemented in this module is a derivation of
+//! [`ParSortPairs`](super::par_sort_pairs). It circumvents the bottleneck of
+//! merging sorted batches and then partitioning them for parallel compression
+//! by building an already partitioned result. Each thread sorts one of the
+//! input iterators but partition the inputs it is sorting in a [settable number
+//! of partitions](ParSortIters::num_partitions). Then, we build the result
+//! iterators by merging the first partition from each thread, then the second
+//! partition from each thread, and so on. At that point the iterators can be
+//! used directly for parallel compression, without ever building a globally
+//! merged list of pairs. Merging happens in parallel in each returned iterator.
 //!
 //! Parallelism is controlled via the current Rayon thread pool. Please
 //! [install](rayon::ThreadPool::install) a custom pool if you want to customize
-//! the parallelism.
+//! the parallelism. By default the number of partitions is equal to the number
+//! of threads, as one expects to use the same level of parallelism for sorting
+//! and for compression, but there might be situations in which it might be
+//! beneficial to have a different number of partitions and threads.
 //!
 //! The typical use of [`ParSortIters`] is to sort (labelled) pairs of nodes
 //! representing a (labelled) graph; the resulting [`SplitIters`] structure can
@@ -45,6 +60,8 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
+///
+/// See the [module documentation](self) for more details.
 ///
 /// # Examples
 ///
@@ -237,8 +254,8 @@ impl ParSortIters {
     /// used to serialize and deserialize the labels.
     ///
     /// The bit deserializer must be [`Clone`] because we need one for each
-    /// `BatchIterator`, and there are possible
-    /// scenarios in which the deserializer might be stateful.
+    /// `BatchIterator`, and there are possible scenarios in which the
+    /// deserializer might be stateful.
     pub fn try_sort_labeled<
         C: BatchCodec,
         E: Into<anyhow::Error>,
@@ -275,7 +292,7 @@ impl ParSortIters {
         let total_memory =
             batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
         pl.info(format_args!(
-            "Threads: {}, partitions: {}, batch size: {}, memory: {}B",
+            "Threads: {}; partitions: {}; batch size: {}; memory: {}B",
             rayon::current_num_threads(),
             num_partitions,
             batch_size,
@@ -352,9 +369,8 @@ impl ParSortIters {
             )
             .collect::<Result<Vec<_>>>()?;
 
-        // At this point, the iterator could be collected into
-        // {worker_id -> {partition_id -> [iterators]}}
-        // ie. Vec<Vec<Vec<BatchIterator>>>>.
+        // At this point, the iterator could be collected into {worker_id ->
+        // {partition_id -> [iterators]}} ie. Vec<Vec<Vec<BatchIterator>>>>.
         //
         // Let's merge the {partition_id -> [iterators]} maps of each worker
         let partitioned_presorted_pairs = partitioned_presorted_pairs.into_par_iter().reduce(
@@ -373,12 +389,12 @@ impl ParSortIters {
                 pair_partitions1
             },
         );
-        // At this point, the iterator was turned into
-        // {partition_id -> [iterators]}
-        // ie. Vec<Vec<BatchIterator>>>.
+        // At this point, the iterator was turned into {partition_id ->
+        // [iterators]} ie. Vec<Vec<BatchIterator>>>.
         pl.done();
 
-        // Build boundaries array: [0, nodes_per_partition, 2*nodes_per_partition, ..., num_nodes]
+        // Build boundaries array: [0, nodes_per_partition,
+        // 2*nodes_per_partition, ..., num_nodes]
         let boundaries: Vec<usize> = (0..=num_partitions)
             .map(|i| (i * num_nodes_per_partition).min(self.num_nodes))
             .collect();
@@ -387,8 +403,9 @@ impl ParSortIters {
         let iters: Vec<_> = partitioned_presorted_pairs
             .into_iter()
             .map(|partition| {
-                // 'partition' contains N iterators that are not sorted with respect to each other.
-                // We merge them and turn them into a single sorted iterator.
+                // 'partition' contains N iterators that are not sorted with
+                // respect to each other. We merge them and turn them into a
+                // single sorted iterator.
                 KMergeIters::new(partition)
             })
             .collect();

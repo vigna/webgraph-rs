@@ -6,11 +6,26 @@
  */
 
 //! Facilities to sort in parallel externally (labelled) pairs of nodes returned
-//! by a [`ParallelIterator`], returning a [`SplitIters`] structure.
+//! by a [`ParallelIterator`], returning  [partitioned sorted iterators of
+//! (labelled) pairs of nodes](SplitIters).
+//!
+//! The algorithm implemented in this module was developed by Valentin Lorentz.
+//! It circumvents the bottleneck of merging sorted batches and then
+//! partitioning them for parallel compression by building an already
+//! partitioned result. Each thread feeds from the parallel iterator but
+//! partition the inputs it is sorting in a [settable number of
+//! partitions](ParSortPairs::num_partitions). Then, we build the result
+//! iterators by merging the first partition from each thread, then the second
+//! partition from each thread, and so on. At that point the iterators can be
+//! used directly for parallel compression, without ever building a globally
+//! merged list of pairs. Merging happens in parallel in each returned iterator.
 //!
 //! Parallelism is controlled via the current Rayon thread pool. Please
 //! [install](rayon::ThreadPool::install) a custom pool if you want to customize
-//! the parallelism.
+//! the parallelism. By default the number of partitions is equal to the number
+//! of threads, as one expects to use the same level of parallelism for sorting
+//! and for compression, but there might be situations in which it might be
+//! beneficial to have a different number of partitions and threads.
 //!
 //! The typical use of [`ParSortPairs`] is to sort (labelled) pairs of nodes
 //! representing a (labelled) graph; the resulting [`SplitIters`] structure can
@@ -50,6 +65,8 @@ use crate::utils::SplitIters;
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
+///
+/// See the [module documentation](self) for more details.
 ///
 /// # Examples
 ///
@@ -273,7 +290,7 @@ impl ParSortPairs {
         let total_memory =
             batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
         pl.info(format_args!(
-            "Threads: {}, partitions: {}, batch size: {}, memory: {}B",
+            "Threads: {}; partitions: {}; batch size: {}; memory: {}B",
             rayon::current_num_threads(),
             num_partitions,
             batch_size,
@@ -286,18 +303,23 @@ impl ParSortPairs {
 
         let sorter_thread_states = Arc::new(SegQueue::<SorterThreadState<C>>::new());
 
-        // iterators in partitioned_presorted_pairs[partition_id] contain all pairs (src, dst, label)
-        // where num_nodes_per_partition*partition_id <= src < num_nodes_per_partition*(partition_id+1)
+        // Iterators in partitioned_presorted_pairs[partition_id] contain all
+        // pairs (src, dst, label) where num_nodes_per_partition*partition_id <=
+        // src < num_nodes_per_partition*(partition_id+1)
         unsorted_pairs.try_for_each_init(
-            // Rayon calls this initializer on every sequential iterator inside the parallel
-            // iterator. Depending on how the parallel iterator was constructed (and if
-            // IndexedParallelIterator::with_min_len was not used) this can result in lots of:
-            // * tiny iterators, and we don't want to create as many tiny BatchIterators because that's
-            //   extremely inefficient.
-            // * unsorted_buffers arrays with batch_size as capacity, but are mostly empty and sit
-            //   in memory until we flush them
-            // Thus, we use ThreadLocal to have one SorterThreadState per thread, which is reused
-            // across multiple sequential iterators.
+            // Rayon calls this initializer on every sequential iterator inside
+            // the parallel iterator. Depending on how the parallel iterator was
+            // constructed (and if IndexedParallelIterator::with_min_len was not
+            // used) this can result in lots of:
+            //
+            // * tiny iterators, and we don't want to create as many tiny
+            // BatchIterators because that's extremely inefficient.
+            //
+            // * unsorted_buffers arrays with batch_size as capacity, but are
+            // mostly empty and sit in memory until we flush them
+            //
+            // Thus, we use ThreadLocal to have one SorterThreadState per
+            // thread, which is reused across multiple sequential iterators.
             || {
                 let mut state = sorter_thread_states
                     .pop()
@@ -358,48 +380,64 @@ impl ParSortPairs {
 
         // flush remaining buffers
         let partitioned_presorted_pairs: Vec<Vec<CodecIter<C>>> = sorter_thread_states
-        .into_par_iter()
-        .map_with(pl.clone(), |pl, mut thread_state: SorterThreadState<C>| {
-            let mut sorted_pairs = Vec::new();
-            std::mem::swap(&mut sorted_pairs, &mut thread_state.sorted_pairs);
-            let mut unsorted_buffers = Vec::new();
-            std::mem::swap(&mut unsorted_buffers, &mut thread_state.unsorted_buffers);
+            .into_par_iter()
+            .map_with(pl.clone(), |pl, mut thread_state: SorterThreadState<C>| {
+                let mut sorted_pairs = Vec::new();
+                std::mem::swap(&mut sorted_pairs, &mut thread_state.sorted_pairs);
+                let mut unsorted_buffers = Vec::new();
+                std::mem::swap(&mut unsorted_buffers, &mut thread_state.unsorted_buffers);
 
-            let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
-            assert_eq!(sorted_pairs.len(), num_partitions);
-            assert_eq!(unsorted_buffers.len(), num_partitions);
-            for (partition_id, (mut sorted_pairs, mut buf)) in sorted_pairs.into_iter().zip(unsorted_buffers.into_iter()).enumerate() {
-                let buf_len = buf.len();
-                flush_buffer(presort_tmp_dir.path(), batch_codec, thread_state.worker_id, partition_id, &mut sorted_pairs, &mut buf).context("Could not flush buffer at the end")?;
-                assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
-                pl.update_with_count(buf_len);
+                let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
+                assert_eq!(sorted_pairs.len(), num_partitions);
+                assert_eq!(unsorted_buffers.len(), num_partitions);
+                for (partition_id, (mut sorted_pairs, mut buf)) in sorted_pairs
+                    .into_iter()
+                    .zip(unsorted_buffers.into_iter())
+                    .enumerate()
+                {
+                    let buf_len = buf.len();
+                    flush_buffer(
+                        presort_tmp_dir.path(),
+                        batch_codec,
+                        thread_state.worker_id,
+                        partition_id,
+                        &mut sorted_pairs,
+                        &mut buf,
+                    )
+                    .context("Could not flush buffer at the end")?;
+                    assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
+                    pl.update_with_count(buf_len);
 
-                partitioned_sorted_pairs.push(sorted_pairs);
-            }
-            Ok(partitioned_sorted_pairs)
-        })
-        // At this point, the iterator could be collected into
-        // {worker_id -> {partition_id -> [iterators]}}
-        // ie. Vec<Vec<Vec<BatchIterator>>>>.
-        //
-        // Let's merge the {partition_id -> [iterators]} maps of each worker
-        .try_reduce(
-            || (0..num_partitions).map(|_| Vec::new()).collect(),
-            |mut pair_partitions1: Vec<Vec<CodecIter<C>>>, pair_partitions2: Vec<Vec<CodecIter<C>>>| -> Result<Vec<Vec<CodecIter<C>>>> {
-            assert_eq!(pair_partitions1.len(), num_partitions);
-            assert_eq!(pair_partitions2.len(), num_partitions);
-            for (partition1, partition2) in pair_partitions1.iter_mut().zip(pair_partitions2.into_iter()) {
-                partition1.extend(partition2.into_iter());
-            }
-            Ok(pair_partitions1)
-        })?
-        // At this point, the iterator was turned into
-        // {partition_id -> [iterators]}
-        // ie. Vec<Vec<BatchIterator>>>.
-        ;
+                    partitioned_sorted_pairs.push(sorted_pairs);
+                }
+                Ok(partitioned_sorted_pairs)
+            })
+            // At this point, the iterator could be collected into {worker_id ->
+            // {partition_id -> [iterators]}} ie. Vec<Vec<Vec<BatchIterator>>>>.
+            //
+            // Let's merge the {partition_id -> [iterators]} maps of each worker
+            .try_reduce(
+                || (0..num_partitions).map(|_| Vec::new()).collect(),
+                |mut pair_partitions1: Vec<Vec<CodecIter<C>>>,
+                 pair_partitions2: Vec<Vec<CodecIter<C>>>|
+                 -> Result<Vec<Vec<CodecIter<C>>>> {
+                    assert_eq!(pair_partitions1.len(), num_partitions);
+                    assert_eq!(pair_partitions2.len(), num_partitions);
+                    for (partition1, partition2) in pair_partitions1
+                        .iter_mut()
+                        .zip(pair_partitions2.into_iter())
+                    {
+                        partition1.extend(partition2.into_iter());
+                    }
+                    Ok(pair_partitions1)
+                },
+            )?;
+        // At this point, the iterator was turned into {partition_id ->
+        // [iterators]} ie. Vec<Vec<BatchIterator>>>.
         pl.done();
 
-        // Build boundaries array: [0, nodes_per_partition, 2*nodes_per_partition, ..., num_nodes]
+        // Build boundaries array: [0, nodes_per_partition,
+        // 2*nodes_per_partition, ..., num_nodes]
         let boundaries: Vec<usize> = (0..=num_partitions)
             .map(|i| (i * num_nodes_per_partition).min(self.num_nodes))
             .collect();
@@ -408,8 +446,9 @@ impl ParSortPairs {
         let iters: Vec<_> = partitioned_presorted_pairs
             .into_iter()
             .map(|partition| {
-                // 'partition' contains N iterators that are not sorted with respect to each other.
-                // We merge them and turn them into a single sorted iterator.
+                // 'partition' contains N iterators that are not sorted with
+                // respect to each other. We merge them and turn them into a
+                // single sorted iterator.
                 KMergeIters::new(partition)
             })
             .collect();
@@ -476,7 +515,8 @@ pub(crate) fn flush_buffer<C: BatchCodec>(
         sorted_pairs.len()
     ));
 
-    // Safety check. It's not foolproof (TOCTOU) but should catch most programming errors.
+    // Safety check. It's not foolproof (TOCTOU) but should catch most
+    // programming errors.
     ensure!(
         !path.exists(),
         "Can't create temporary file {}, it already exists",
