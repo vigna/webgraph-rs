@@ -272,7 +272,14 @@ impl ParSortIters {
             expected_updates = self.expected_num_pairs,
         );
         pl.start("Reading and sorting pairs");
-        pl.info(format_args!("Per-processor batch size: {}", batch_size));
+        let total_memory = batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
+        pl.info(format_args!(
+            "Threads: {}, partitions: {}, batch size: {}, memory: {}B",
+            rayon::current_num_threads(),
+            num_partitions,
+            batch_size,
+            super::humanize(total_memory as f64),
+        ));
 
         let presort_tmp_dir =
             tempfile::tempdir().context("Could not create temporary directory")?;
