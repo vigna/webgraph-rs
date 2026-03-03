@@ -272,7 +272,8 @@ impl ParSortIters {
             expected_updates = self.expected_num_pairs,
         );
         pl.start("Reading and sorting pairs");
-        let total_memory = batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
+        let total_memory =
+            batch_size * num_buffers * std::mem::size_of::<((usize, usize), C::Label)>();
         pl.info(format_args!(
             "Threads: {}, partitions: {}, batch size: {}, memory: {}B",
             rayon::current_num_threads(),
