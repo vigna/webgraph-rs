@@ -70,7 +70,7 @@ pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
 impl<C: AsRef<[usize]>> Sccs<C> {
     /// Creates a new instance from the number of components and the
     /// component assignment for each node.
-    pub fn new(num_components: usize, components: C) -> Self {
+    pub const fn new(num_components: usize, components: C) -> Self {
         Sccs {
             num_components,
             components,
@@ -79,7 +79,7 @@ impl<C: AsRef<[usize]>> Sccs<C> {
 
     /// Returns the number of strongly connected components.
     #[inline(always)]
-    pub fn num_components(&self) -> usize {
+    pub const fn num_components(&self) -> usize {
         self.num_components
     }
 

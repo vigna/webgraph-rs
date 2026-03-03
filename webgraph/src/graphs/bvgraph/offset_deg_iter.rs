@@ -99,12 +99,12 @@ impl<D: Decode> OffsetDegIter<D> {
 
     /// Returns the number of nodes in the graph.
     #[inline(always)]
-    pub fn num_nodes(&self) -> usize {
+    pub const fn num_nodes(&self) -> usize {
         self.number_of_nodes
     }
 
     /// Returns a reference to the decoder so it can be inspected during iteration.
-    pub fn get_decoder(&self) -> &D {
+    pub const fn get_decoder(&self) -> &D {
         &self.decoder
     }
 

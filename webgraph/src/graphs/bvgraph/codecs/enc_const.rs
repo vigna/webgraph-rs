@@ -59,7 +59,7 @@ impl<
 > ConstCodesEncoder<E, CW, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
     /// Creates a new [`ConstCodesEncoder`] with the given [`CodesWrite`] implementation.
-    pub fn new(code_writer: CW) -> Self {
+    pub const fn new(code_writer: CW) -> Self {
         Self {
             code_writer,
             _marker: core::marker::PhantomData,
@@ -174,7 +174,7 @@ impl<
     const RESIDUALS: usize,
 > ConstCodesEstimator<OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

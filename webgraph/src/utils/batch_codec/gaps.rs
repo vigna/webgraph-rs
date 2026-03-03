@@ -72,7 +72,7 @@ where
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
     /// Creates a new `GapsCodec` with the given serializer and deserializer.
-    pub fn new(serializer: S, deserializer: D) -> Self {
+    pub const fn new(serializer: S, deserializer: D) -> Self {
         Self {
             serializer,
             deserializer,

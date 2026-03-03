@@ -267,7 +267,7 @@ pub struct SplitIters<I> {
 }
 
 impl<I> SplitIters<I> {
-    pub fn new(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
+    pub const fn new(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
         Self { boundaries, iters }
     }
 }

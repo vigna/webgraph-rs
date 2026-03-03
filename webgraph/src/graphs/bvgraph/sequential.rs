@@ -155,7 +155,7 @@ impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
 impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     /// Creates a new sequential graph from a codes reader builder
     /// and the number of nodes.
-    pub fn new(
+    pub const fn new(
         codes_reader_builder: F,
         number_of_nodes: usize,
         number_of_arcs: Option<u64>,

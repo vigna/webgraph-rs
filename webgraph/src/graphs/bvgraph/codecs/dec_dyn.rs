@@ -199,7 +199,7 @@ impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
 {
     #[inline(always)]
     /// Returns a clone of the compression flags.
-    pub fn get_compression_flags(&self) -> CompFlags {
+    pub const fn get_compression_flags(&self) -> CompFlags {
         self.compression_flags
     }
 

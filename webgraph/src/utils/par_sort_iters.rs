@@ -192,7 +192,7 @@ impl ParSortIters {
     /// Approximate number of pairs to be sorted.
     ///
     /// Used only for progress reporting.
-    pub fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
+    pub const fn expected_num_pairs(self, expected_num_pairs: usize) -> Self {
         Self {
             expected_num_pairs: Some(expected_num_pairs),
             ..self
@@ -204,7 +204,7 @@ impl ParSortIters {
     /// This is the number of iterators in the resulting [`SplitIters`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
+    pub const fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
         Self {
             num_partitions,
             ..self
@@ -217,7 +217,7 @@ impl ParSortIters {
     /// number of batches to merge) but consume linearly more memory. We suggest
     /// to set this parameter as large as possible, depending on the available
     /// memory. The default is the default of [`MemoryUsage`].
-    pub fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
+    pub const fn memory_usage(self, memory_usage: MemoryUsage) -> Self {
         Self {
             memory_usage,
             ..self

@@ -104,7 +104,7 @@ impl<L> Triple<L> {
     ///
     /// The conversion is safe because `Triple` is `repr(transparent)` of the
     /// same tuple type.
-    pub fn cast_batch(batch: &[((usize, usize), L)]) -> &[Triple<L>] {
+    pub const fn cast_batch(batch: &[((usize, usize), L)]) -> &[Triple<L>] {
         // SAFETY: `Triple` is `repr(transparent)` of the same tuple type.
         unsafe { std::mem::transmute(batch) }
     }
@@ -114,7 +114,7 @@ impl<L> Triple<L> {
     ///
     /// The conversion is safe because `Triple` is `repr(transparent)` of the
     /// same tuple type.
-    pub fn cast_batch_mut(batch: &mut [((usize, usize), L)]) -> &mut [Triple<L>] {
+    pub const fn cast_batch_mut(batch: &mut [((usize, usize), L)]) -> &mut [Triple<L>] {
         // SAFETY: `Triple` is `repr(transparent)` of the same tuple type.
         unsafe { std::mem::transmute(batch) }
     }

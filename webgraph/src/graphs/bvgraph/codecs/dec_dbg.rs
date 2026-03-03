@@ -15,7 +15,7 @@ pub struct DebugDecoder<CR: Decode> {
 }
 
 impl<CR: Decode> DebugDecoder<CR> {
-    pub fn new(cr: CR) -> Self {
+    pub const fn new(cr: CR) -> Self {
         Self { cr }
     }
 }

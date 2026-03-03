@@ -50,7 +50,7 @@ pub struct ChunksIter {
 }
 
 impl ChunksIter {
-    pub fn new(total: core::ops::Range<usize>, chunk_size: usize) -> Self {
+    pub const fn new(total: core::ops::Range<usize>, chunk_size: usize) -> Self {
         Self { total, chunk_size }
     }
 }

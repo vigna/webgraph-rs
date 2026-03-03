@@ -101,7 +101,7 @@ impl CompFlags {
         }
     }
 
-    pub fn code_to_str(c: Codes, version: usize) -> Option<&'static str> {
+    pub const fn code_to_str(c: Codes, version: usize) -> Option<&'static str> {
         if version == 0 {
             match c {
                 Codes::Unary => Some("UNARY"),

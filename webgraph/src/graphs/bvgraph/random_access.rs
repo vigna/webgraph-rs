@@ -135,7 +135,7 @@ where
     /// - `number_of_nodes`: the number of nodes in the graph.
     /// - `number_of_arcs`: the number of arcs in the graph.
     ///
-    pub fn new(
+    pub const fn new(
         factory: F,
         number_of_nodes: usize,
         number_of_arcs: u64,

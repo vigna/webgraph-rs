@@ -50,10 +50,10 @@ pub struct Centralities {
 }
 
 impl Centralities {
-    pub fn should_compute_sum_of_distances(&self) -> bool {
+    pub const fn should_compute_sum_of_distances(&self) -> bool {
         self.sum_of_distances.is_some() || self.closeness.is_some()
     }
-    pub fn should_compute_sum_of_inverse_distances(&self) -> bool {
+    pub const fn should_compute_sum_of_inverse_distances(&self) -> bool {
         self.harmonic.is_some()
     }
 }

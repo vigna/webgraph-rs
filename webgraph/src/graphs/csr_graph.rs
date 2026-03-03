@@ -69,19 +69,19 @@ impl<DCF, S> CsrGraph<DCF, S> {
     /// # Safety
     /// The degree cumulative function must be monotone and coherent with the
     /// successors.
-    pub unsafe fn from_parts(dcf: DCF, successors: S) -> Self {
+    pub const unsafe fn from_parts(dcf: DCF, successors: S) -> Self {
         Self { dcf, successors }
     }
 
     /// Returns a reference to the degree cumulative function.
     #[inline(always)]
-    pub fn dcf(&self) -> &DCF {
+    pub const fn dcf(&self) -> &DCF {
         &self.dcf
     }
 
     /// Returns a reference to the successors.
     #[inline(always)]
-    pub fn successors(&self) -> &S {
+    pub const fn successors(&self) -> &S {
         &self.successors
     }
 

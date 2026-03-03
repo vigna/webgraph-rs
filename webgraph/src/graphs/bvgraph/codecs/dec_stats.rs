@@ -71,7 +71,7 @@ pub struct StatsDecoder<D: Decode> {
 impl<D: Decode> StatsDecoder<D> {
     /// Wraps a reader.
     #[inline(always)]
-    pub fn new(codes_reader: D, stats: DecoderStats) -> Self {
+    pub const fn new(codes_reader: D, stats: DecoderStats) -> Self {
         Self {
             codes_reader,
             stats,

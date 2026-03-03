@@ -476,7 +476,7 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
 
     /// Returns the number of iterations performed by the last call to
     /// [`run`](Self::run).
-    pub fn iterations(&self) -> usize {
+    pub const fn iterations(&self) -> usize {
         self.iteration
     }
 
@@ -485,7 +485,7 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
     /// This is an upper bound on the L₁ error between the current
     /// approximation and the true PageRank, computed as
     /// α / (1 − α) · ‖*x*(*t*) − *x*(*t* − 1)‖₁.
-    pub fn norm_delta(&self) -> f64 {
+    pub const fn norm_delta(&self) -> f64 {
         self.norm_delta
     }
 
