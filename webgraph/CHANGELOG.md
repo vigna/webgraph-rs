@@ -25,6 +25,11 @@
 
 - Now also `ParSortIters` uses Rayon threads.
 
+### Improved
+
+- `SortPairs`, `ParSortPairs` and `ParSortIters` now have a `dedup` option
+  that directly removes duplicates.
+
 ## [0.6.1] - 2026-02-23
 
 ### Fixed

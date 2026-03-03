@@ -16,7 +16,6 @@ use crate::utils::sort_pairs::{KMergeIters, SortPairs};
 use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
-use itertools::Itertools;
 use lender::*;
 use tempfile::Builder;
 
@@ -65,7 +64,7 @@ pub fn simplify(
     >,
 > {
     let dir = Builder::new().prefix("simplify_").tempdir()?;
-    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
+    let mut sorted = SortPairs::new(memory_usage, dir.path())?.dedup(true);
 
     let mut pl = ProgressLogger::default();
     pl.item_name("node")
@@ -83,7 +82,7 @@ pub fn simplify(
     }];
     // merge the batches
     let filter: fn(&((usize, usize), ())) -> bool = |((src, dst), ())| src != dst;
-    let iter = Itertools::dedup(sorted.iter()?.filter(filter));
+    let iter = sorted.iter()?.filter(filter);
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), iter);
     pl.done();
 
@@ -103,9 +102,7 @@ pub fn simplify_split<S>(
     memory_usage: MemoryUsage,
 ) -> Result<
     Left<
-        arc_list_graph::ArcListGraph<
-            itertools::Dedup<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>,
-        >,
+        arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>,
     >,
 >
 where
@@ -129,7 +126,8 @@ where
             dirs.push(dir);
             scope.spawn(move |_| {
                 log::debug!("Spawned thread {thread_id}");
-                let mut sorted = SortPairs::new(memory_usage, dir_path).unwrap();
+                let mut sorted =
+                    SortPairs::new(memory_usage, dir_path).unwrap().dedup(true);
                 for_!( (src, succ) in iter {
                     for dst in succ {
                         if src != dst {
@@ -150,7 +148,6 @@ where
     // get a graph on the sorted data
     log::debug!("Waiting for threads to finish");
     let edges: KMergeIters<CodecIter<DefaultBatchCodec>> = rx.into_rayon_iter().sum();
-    let edges = edges.dedup();
     log::debug!("All threads finished");
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
 

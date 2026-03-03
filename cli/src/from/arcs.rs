@@ -11,7 +11,6 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
-use itertools::Itertools;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -59,7 +58,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
-    let mut group_by = SortPairs::new(args.memory_usage.memory_usage, &dir)?;
+    let mut group_by = SortPairs::new(args.memory_usage.memory_usage, &dir)?.dedup(true);
     let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
@@ -179,7 +178,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     // convert the iter to a graph
     let g = ArcListGraph::new(
         num_nodes,
-        group_by.iter().unwrap().map(|(pair, _)| pair).dedup(),
+        group_by.iter().unwrap().map(|(pair, _)| pair),
     );
 
     create_parent_dir(&args.dst)?;

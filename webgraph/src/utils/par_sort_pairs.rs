@@ -132,6 +132,7 @@ pub struct ParSortPairs {
     expected_num_pairs: Option<usize>,
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
+    dedup: bool,
 }
 
 impl ParSortPairs {
@@ -191,6 +192,7 @@ impl ParSortPairs {
             num_partitions: NonZeroUsize::new(rayon::current_num_threads())
                 .context("No Rayon threads")?,
             memory_usage: MemoryUsage::default(),
+            dedup: false,
         })
     }
 
@@ -227,6 +229,15 @@ impl ParSortPairs {
             memory_usage,
             ..self
         }
+    }
+
+    /// Sets whether to deduplicate the result.
+    ///
+    /// When enabled, each partition iterator in the resulting [`SplitIters`]
+    /// will skip consecutive elements sharing the same pair of nodes, keeping
+    /// only the first occurrence.
+    pub const fn dedup(self, dedup: bool) -> Self {
+        Self { dedup, ..self }
     }
 
     /// See [`try_sort_labeled`](ParSortPairs::try_sort_labeled).
@@ -443,13 +454,16 @@ impl ParSortPairs {
             .collect();
 
         // Build iterators array
+        let dedup = self.dedup;
         let iters: Vec<_> = partitioned_presorted_pairs
             .into_iter()
             .map(|partition| {
                 // 'partition' contains N iterators that are not sorted with
                 // respect to each other. We merge them and turn them into a
                 // single sorted iterator.
-                KMergeIters::new(partition)
+                let mut kmerge = KMergeIters::new(partition);
+                kmerge.dedup(dedup);
+                kmerge
             })
             .collect();
 

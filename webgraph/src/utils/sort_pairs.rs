@@ -65,6 +65,8 @@ pub struct SortPairs<C: BatchCodec = DefaultBatchCodec> {
     last_batch_len: usize,
     /// The batch of triples we are currently building.
     batch: Vec<((usize, usize), C::Label)>,
+    /// Whether to deduplicate the result.
+    dedup: bool,
 }
 
 impl SortPairs {
@@ -142,8 +144,20 @@ impl<C: BatchCodec> SortPairs<C> {
                 num_batches: 0,
                 last_batch_len: 0,
                 batch: Vec::with_capacity(batch_size),
+                dedup: false,
             })
         }
+    }
+
+    /// Sets whether to deduplicate the result.
+    ///
+    /// When enabled, the iterators returned by [`iter`](SortPairs::iter),
+    /// [`sort`](SortPairs::sort), [`sort_labeled`](SortPairs::sort_labeled),
+    /// and their fallible variants will skip consecutive elements sharing
+    /// the same pair of nodes, keeping only the first occurrence.
+    pub fn dedup(mut self, dedup: bool) -> Self {
+        self.dedup = dedup;
+        self
     }
 
     /// Adds a labeled pair to the graph.
@@ -183,13 +197,15 @@ impl<C: BatchCodec> SortPairs<C> {
     /// Returns an iterator over the labeled pairs, lexicographically sorted.
     pub fn iter(&mut self) -> anyhow::Result<KMergeIters<CodecIter<C>, C::Label>> {
         self.dump()?;
-        Ok(KMergeIters::new((0..self.num_batches).map(|batch_idx| {
+        let mut kmerge = KMergeIters::new((0..self.num_batches).map(|batch_idx| {
             let batch_path = self.tmp_dir.join(format!("{batch_idx:06x}"));
             self.batch_codec
                 .decode_batch(batch_path)
                 .unwrap()
                 .into_iter()
-        })))
+        }));
+        kmerge.dedup(self.dedup);
+        Ok(kmerge)
     }
 
     /// Takes an iterator of labeled pairs, pushes all elements, and returns an
@@ -293,6 +309,11 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Ord for HeadTail<T, I> {
 #[derive(Clone, Debug)]
 pub struct KMergeIters<I: Iterator<Item = ((usize, usize), T)>, T = ()> {
     heap: dary_heap::QuaternaryHeap<HeadTail<T, I>>,
+    /// Whether to deduplicate consecutive elements sharing the same pair of
+    /// nodes.
+    dedup: bool,
+    /// The last pair returned, used for deduplication.
+    last_pair: Option<(usize, usize)>,
 }
 
 impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
@@ -307,7 +328,17 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> KMergeIters<I, T> {
                 });
             }
         }
-        KMergeIters { heap }
+        KMergeIters {
+            heap,
+            dedup: false,
+            last_pair: None,
+        }
+    }
+
+    /// Sets whether to deduplicate consecutive elements sharing the same pair
+    /// of nodes.
+    pub fn dedup(&mut self, dedup: bool) {
+        self.dedup = dedup;
     }
 }
 
@@ -321,19 +352,36 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> Iterator for KMergeIters<I, T> 
     type Item = ((usize, usize), T);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut head_tail = self.heap.peek_mut()?;
+        loop {
+            let mut head_tail = self.heap.peek_mut()?;
 
-        match head_tail.tail.next() {
-            None => Some(PeekMut::pop(head_tail).head),
-            Some((pair, label)) => Some(std::mem::replace(&mut head_tail.head, (pair, label))),
+            let result = match head_tail.tail.next() {
+                None => PeekMut::pop(head_tail).head,
+                Some((pair, label)) => {
+                    std::mem::replace(&mut head_tail.head, (pair, label))
+                }
+            };
+
+            if self.dedup {
+                if self.last_pair == Some(result.0) {
+                    continue;
+                }
+                self.last_pair = Some(result.0);
+            }
+
+            return Some(result);
         }
     }
 
     fn count(self) -> usize {
-        self.heap
-            .into_iter()
-            .map(|head_tail| 1 + head_tail.tail.count())
-            .sum()
+        if self.dedup {
+            self.fold(0, |count, _| count + 1)
+        } else {
+            self.heap
+                .into_iter()
+                .map(|head_tail| 1 + head_tail.tail.count())
+                .sum()
+        }
     }
 }
 impl<T, I: Iterator<Item = ((usize, usize), T)> + ExactSizeIterator> ExactSizeIterator
@@ -356,6 +404,8 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> core::default::Default for KMer
     fn default() -> Self {
         KMergeIters {
             heap: dary_heap::QuaternaryHeap::default(),
+            dedup: false,
+            last_pair: None,
         }
     }
 }
@@ -363,10 +413,16 @@ impl<T, I: Iterator<Item = ((usize, usize), T)>> core::default::Default for KMer
 impl<T, I: Iterator<Item = ((usize, usize), T)>> core::iter::Sum for KMergeIters<I, T> {
     fn sum<J: Iterator<Item = Self>>(iter: J) -> Self {
         let mut heap = dary_heap::QuaternaryHeap::default();
+        let mut dedup = false;
         for mut kmerge in iter {
+            dedup |= kmerge.dedup;
             heap.extend(kmerge.heap.drain());
         }
-        KMergeIters { heap }
+        KMergeIters {
+            heap,
+            dedup,
+            last_pair: None,
+        }
     }
 }
 
@@ -410,6 +466,7 @@ impl<T, I: IntoIterator<Item = ((usize, usize), T)>> core::ops::AddAssign<I>
 
 impl<T, I: Iterator<Item = ((usize, usize), T)>> core::ops::AddAssign for KMergeIters<I, T> {
     fn add_assign(&mut self, mut rhs: Self) {
+        self.dedup |= rhs.dedup;
         self.heap.extend(rhs.heap.drain());
     }
 }
@@ -430,6 +487,7 @@ impl<T, I: IntoIterator<Item = ((usize, usize), T)>> Extend<I> for KMergeIters<I
 impl<T, I: Iterator<Item = ((usize, usize), T)>> Extend<KMergeIters<I, T>> for KMergeIters<I, T> {
     fn extend<J: IntoIterator<Item = KMergeIters<I, T>>>(&mut self, iter: J) {
         for mut kmerge in iter {
+            self.dedup |= kmerge.dedup;
             self.heap.extend(kmerge.heap.drain());
         }
     }

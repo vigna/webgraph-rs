@@ -555,3 +555,148 @@ fn test_par_sort_iters() -> Result<()> {
     assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]);
     Ok(())
 }
+
+#[test]
+fn test_sort_pairs_dedup() -> Result<()> {
+    use webgraph::utils::SortPairs;
+    let dir = tempfile::tempdir()?;
+    let mut sp =
+        SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?.dedup(true);
+    sp.push(0, 1)?;
+    sp.push(0, 1)?;
+    sp.push(1, 2)?;
+    sp.push(1, 2)?;
+    sp.push(1, 2)?;
+    sp.push(2, 3)?;
+    let result: Vec<_> = sp.iter()?.map(|(k, _)| k).collect();
+    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
+    Ok(())
+}
+
+#[test]
+fn test_sort_pairs_dedup_across_batches() -> Result<()> {
+    use webgraph::utils::SortPairs;
+    let dir = tempfile::tempdir()?;
+    // Tiny batch size to force duplicates to span batches
+    let mut sp =
+        SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(2), dir.path())?.dedup(true);
+    // Push the same pair in every batch
+    for _ in 0..6 {
+        sp.push(0, 1)?;
+    }
+    sp.push(1, 2)?;
+    let result: Vec<_> = sp.iter()?.map(|(k, _)| k).collect();
+    assert_eq!(result, vec![(0, 1), (1, 2)]);
+    Ok(())
+}
+
+#[test]
+fn test_sort_pairs_dedup_no_duplicates() -> Result<()> {
+    use webgraph::utils::SortPairs;
+    let dir = tempfile::tempdir()?;
+    let mut sp =
+        SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?.dedup(true);
+    sp.push(0, 1)?;
+    sp.push(1, 2)?;
+    sp.push(2, 3)?;
+    let result: Vec<_> = sp.iter()?.map(|(k, _)| k).collect();
+    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
+    Ok(())
+}
+
+#[test]
+fn test_sort_pairs_dedup_sort_method() -> Result<()> {
+    use webgraph::utils::SortPairs;
+    let dir = tempfile::tempdir()?;
+    let mut sp =
+        SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?.dedup(true);
+    let pairs = vec![(1, 2), (0, 1), (1, 2), (0, 1), (2, 3)];
+    let result: Vec<_> = sp.sort(pairs)?.map(|(k, _)| k).collect();
+    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
+    Ok(())
+}
+
+#[test]
+fn test_kmerge_iters_dedup() {
+    use webgraph::utils::sort_pairs::KMergeIters;
+    let mut merged = KMergeIters::new(vec![
+        vec![((0, 1), ()), ((0, 1), ()), ((2, 3), ())].into_iter(),
+        vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())].into_iter(),
+    ]);
+    merged.dedup(true);
+    let result: Vec<_> = merged.map(|(k, _)| k).collect();
+    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
+}
+
+#[test]
+fn test_kmerge_iters_dedup_count() {
+    use webgraph::utils::sort_pairs::KMergeIters;
+    let mut merged = KMergeIters::new(vec![
+        vec![((0, 1), ()), ((0, 1), ()), ((2, 3), ())].into_iter(),
+        vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())].into_iter(),
+    ]);
+    merged.dedup(true);
+    assert_eq!(merged.count(), 3);
+}
+
+#[test]
+fn test_kmerge_iters_dedup_sum() {
+    use webgraph::utils::sort_pairs::KMergeIters;
+    let mut a: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
+        KMergeIters::new(vec![vec![((0, 1), ()), ((0, 1), ())].into_iter()]);
+    a.dedup(true);
+    let b = KMergeIters::new(vec![vec![((0, 1), ()), ((1, 2), ())].into_iter()]);
+    // dedup propagates through sum
+    let merged: KMergeIters<std::vec::IntoIter<((usize, usize), ())>> =
+        vec![a, b].into_iter().sum();
+    let result: Vec<_> = merged.map(|(k, _)| k).collect();
+    assert_eq!(result, vec![(0, 1), (1, 2)]);
+}
+
+#[test]
+fn test_par_sort_pairs_dedup() -> Result<()> {
+    use rayon::prelude::*;
+    use std::num::NonZeroUsize;
+    use webgraph::utils::par_sort_pairs::ParSortPairs;
+
+    let pairs = vec![(0, 1), (0, 1), (1, 2), (1, 2), (2, 3), (0, 1)];
+    let sorter = ParSortPairs::new(4)?
+        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .dedup(true);
+
+    let split = sorter.sort(pairs.par_iter().copied())?;
+
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        all_pairs.extend(iter.into_iter());
+    }
+    all_pairs.sort();
+    assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3)]);
+    Ok(())
+}
+
+#[test]
+fn test_par_sort_iters_dedup() -> Result<()> {
+    use std::num::NonZeroUsize;
+    use webgraph::utils::par_sort_iters::ParSortIters;
+
+    // Two iterators with overlapping pairs
+    let iter1 = vec![((0usize, 1usize), ()), ((1, 2), ()), ((0, 1), ())];
+    let iter2 = vec![((1usize, 2usize), ()), ((2, 3), ()), ((2, 3), ())];
+    let sorter = ParSortIters::new(4)?
+        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .dedup(true);
+
+    let split = sorter.sort_labeled(
+        webgraph::utils::DefaultBatchCodec::default(),
+        vec![iter1, iter2],
+    )?;
+
+    let mut all_pairs = Vec::new();
+    for iter in split.iters.into_vec() {
+        all_pairs.extend(iter.into_iter().map(|(k, _)| k));
+    }
+    all_pairs.sort();
+    assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3)]);
+    Ok(())
+}
