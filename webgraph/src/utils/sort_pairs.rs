@@ -274,8 +274,14 @@ impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
     }
 }
 
-/// Private struct that can be used to sort labeled pairs based only on the pair of
-/// nodes and ignoring the label.
+/// Private struct that keeps the head of an iterator and its tail.
+///
+/// Note that we cannot use [`Peekable`](std::iter::Peekable) for the same
+/// purpose because [`Peekable::peek`](std::iter::Peekable::peek) needs a
+/// mutable reference, but we would be calling it inside
+/// [`Ord::cmp`](std::cmp::Ord::cmp), which only has an immutable reference.
+///
+/// Comparison is implemented only on the pair of nodes and ignoring the label.
 #[derive(Clone, Debug)]
 struct HeadTail<T, I: Iterator<Item = ((usize, usize), T)>> {
     head: ((usize, usize), T),
