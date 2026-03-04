@@ -51,6 +51,7 @@ pub struct GapsCodec<
     D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone = (),
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
+    const DEDUP: bool = false,
 > where
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
@@ -63,7 +64,8 @@ pub struct GapsCodec<
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize> GapsCodec<E, S, D, SRC_CODE, DST_CODE>
+impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize, const DEDUP: bool>
+    GapsCodec<E, S, D, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -81,8 +83,8 @@ where
     }
 }
 
-impl<E, S: Default, D: Default, const SRC_CODE: usize, const DST_CODE: usize> core::default::Default
-    for GapsCodec<E, S, D, SRC_CODE, DST_CODE>
+impl<E, S: Default, D: Default, const SRC_CODE: usize, const DST_CODE: usize, const DEDUP: bool>
+    core::default::Default for GapsCodec<E, S, D, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -126,8 +128,8 @@ impl core::fmt::Display for GapsStats {
     }
 }
 
-impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize> BatchCodec
-    for GapsCodec<E, S, D, SRC_CODE, DST_CODE>
+impl<E, S, D, const SRC_CODE: usize, const DST_CODE: usize, const DEDUP: bool> BatchCodec
+    for GapsCodec<E, S, D, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -166,21 +168,39 @@ where
             )
         })?;
 
+        // Pre-count unique pairs for the length prefix when deduplicating
+        let batch_len = if DEDUP {
+            if batch.is_empty() {
+                0
+            } else {
+                1 + batch.windows(2).filter(|w| w[0].0 != w[1].0).count()
+            }
+        } else {
+            batch.len()
+        };
+
         // prefix the stream with the length of the batch
         // we use a delta code since it'll be a big number most of the time
         stream
-            .write_delta(batch.len() as u64)
+            .write_delta(batch_len as u64)
             .context("Could not write length")?;
 
         let mut stats = GapsStats {
-            total_triples: batch.len(),
+            total_triples: batch_len,
             src_bits: 0,
             dst_bits: 0,
             labels_bits: 0,
         };
         // Dump the triples to the bitstream
         let (mut prev_src, mut prev_dst) = (0, 0);
+        let mut prev_pair: Option<(usize, usize)> = None;
         for ((src, dst), label) in batch.iter() {
+            if DEDUP {
+                if prev_pair == Some((*src, *dst)) {
+                    continue;
+                }
+                prev_pair = Some((*src, *dst));
+            }
             // write the source gap as gamma
             stats.src_bits += ConstCode::<SRC_CODE>
                 .write(&mut stream, (src - prev_src) as u64)

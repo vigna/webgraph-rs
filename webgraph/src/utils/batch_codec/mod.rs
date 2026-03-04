@@ -31,7 +31,18 @@ pub mod gaps;
 pub mod grouped_gaps;
 
 /// The recommended default batch codec for unlabelled batches.
-pub type DefaultBatchCodec = grouped_gaps::GroupedGapsCodec;
+///
+/// When `DEDUP` is `true`, duplicates are eliminated during batch
+/// serialization, reducing I/O and disk usage.
+pub type DefaultBatchCodec<const DEDUP: bool = false> = grouped_gaps::GroupedGapsCodec<
+    NE,
+    (),
+    (),
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::DELTA },
+    DEDUP,
+>;
 
 pub type BitWriter<E> = BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>;
 pub type BitReader<E> = BufBitReader<E, MemWordReader<u32, ArcMmapHelper<u32>>>;

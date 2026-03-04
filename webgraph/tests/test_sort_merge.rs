@@ -266,7 +266,7 @@ fn test_sort_pairs_labeled() -> Result<()> {
     let mut sp = SortPairs::new_labeled(
         MemoryUsage::BatchSize(100),
         tmp.path(),
-        webgraph::utils::DefaultBatchCodec::default(),
+        <webgraph::utils::DefaultBatchCodec>::default(),
     )?;
     sp.push_labeled(2, 3, ())?;
     sp.push_labeled(0, 1, ())?;
@@ -333,7 +333,7 @@ fn test_sort_pairs_labeled_with_values() -> Result<()> {
     let mut sp = SortPairs::new_labeled(
         MemoryUsage::BatchSize(100),
         tmp.path(),
-        webgraph::utils::DefaultBatchCodec::default(),
+        <webgraph::utils::DefaultBatchCodec>::default(),
     )?;
     sp.push_labeled(2, 3, ())?;
     sp.push_labeled(0, 1, ())?;
@@ -361,7 +361,7 @@ fn test_par_sort_pairs_labeled() -> Result<()> {
         .memory_usage(MemoryUsage::BatchSize(20));
 
     let split = sorter.sort_labeled(
-        &webgraph::utils::DefaultBatchCodec::default(),
+        &<webgraph::utils::DefaultBatchCodec>::default(),
         pairs.par_iter().copied(),
     )?;
     assert_eq!(split.boundaries[0], 0);
@@ -677,7 +677,7 @@ fn test_par_sort_iters_dedup() -> Result<()> {
     let sorter = ParSortIters::new_dedup(4)?.num_partitions(NonZeroUsize::new(2).unwrap());
 
     let split = sorter.sort_labeled(
-        webgraph::utils::DefaultBatchCodec::default(),
+        <webgraph::utils::DefaultBatchCodec<true>>::default(),
         vec![iter1, iter2],
     )?;
 

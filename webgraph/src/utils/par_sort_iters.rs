@@ -139,6 +139,9 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
 
     /// Sorts the output of the provided sequence of iterators, returning a
     /// [`SplitIters`] structure.
+    ///
+    /// When `DEDUP` is `true`, [`DefaultBatchCodec<true>`] is used to also
+    /// eliminate duplicates during batch serialization.
     pub fn try_sort<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<
@@ -146,9 +149,9 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
-        let split = <ParSortIters<DEDUP>>::try_sort_labeled::<DefaultBatchCodec, E, _>(
+        let split = <ParSortIters<DEDUP>>::try_sort_labeled::<DefaultBatchCodec<DEDUP>, E, _>(
             self,
-            DefaultBatchCodec::default(),
+            <DefaultBatchCodec<DEDUP>>::default(),
             pairs
                 .into_iter()
                 .map(|iter| iter.into_iter().map(|pair| (pair, ()))),

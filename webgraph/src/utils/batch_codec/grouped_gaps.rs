@@ -55,6 +55,7 @@ pub struct GroupedGapsCodec<
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
+    const DEDUP: bool = false,
 > where
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
@@ -67,8 +68,15 @@ pub struct GroupedGapsCodec<
     _marker: core::marker::PhantomData<E>,
 }
 
-impl<E, S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize>
-    GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+impl<
+    E,
+    S,
+    D,
+    const OUTDEGREE_CODE: usize,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+    const DEDUP: bool,
+> GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -93,7 +101,8 @@ impl<
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
-> Default for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+    const DEDUP: bool,
+> Default for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
 where
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
@@ -139,8 +148,15 @@ impl core::fmt::Display for GroupedGapsStats {
     }
 }
 
-impl<E, S, D, const OUTDEGREE_CODE: usize, const SRC_CODE: usize, const DST_CODE: usize> BatchCodec
-    for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>
+impl<
+    E,
+    S,
+    D,
+    const OUTDEGREE_CODE: usize,
+    const SRC_CODE: usize,
+    const DST_CODE: usize,
+    const DEDUP: bool,
+> BatchCodec for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
     S: BitSerializer<E, BitWriter<E>> + Send + Sync,
@@ -179,14 +195,25 @@ where
             )
         })?;
 
+        // Pre-count unique pairs for the length prefix when deduplicating
+        let batch_len = if DEDUP {
+            if batch.is_empty() {
+                0
+            } else {
+                1 + batch.windows(2).filter(|w| w[0].0 != w[1].0).count()
+            }
+        } else {
+            batch.len()
+        };
+
         // prefix the stream with the length of the batch
         // we use a delta code since it'll be a big number most of the time
         stream
-            .write_delta(batch.len() as u64)
+            .write_delta(batch_len as u64)
             .context("Could not write length")?;
 
         let mut stats = GroupedGapsStats {
-            total_triples: batch.len(),
+            total_triples: batch_len,
             outdegree_bits: 0,
             src_bits: 0,
             dst_bits: 0,
@@ -202,7 +229,20 @@ where
                 .write(&mut stream, (src - prev_src) as _)
                 .with_context(|| format!("Could not write {src} after {prev_src}"))?;
             // figure out how many edges have this source
-            let outdegree = batch[i..].iter().take_while(|t| t.0.0 == src).count();
+            let group_size = batch[i..].iter().take_while(|t| t.0.0 == src).count();
+
+            // compute outdegree (unique destinations when deduplicating)
+            let outdegree = if DEDUP {
+                let group = &batch[i..i + group_size];
+                if group.is_empty() {
+                    0
+                } else {
+                    1 + group.windows(2).filter(|w| w[0].0.1 != w[1].0.1).count()
+                }
+            } else {
+                group_size
+            };
+
             // write the outdegree
             stats.outdegree_bits += ConstCode::<OUTDEGREE_CODE>
                 .write(&mut stream, outdegree as _)
@@ -210,8 +250,17 @@ where
 
             // encode the destinations
             let mut prev_dst = 0;
-            for _ in 0..outdegree {
+            let mut last_written_dst: Option<usize> = None;
+            let end = i + group_size;
+            while i < end {
                 let ((_, dst), label) = &batch[i];
+                if DEDUP && last_written_dst == Some(*dst) {
+                    i += 1;
+                    continue;
+                }
+                if DEDUP {
+                    last_written_dst = Some(*dst);
+                }
                 // write the destination gap as gamma
                 stats.dst_bits += ConstCode::<DST_CODE>
                     .write(&mut stream, (dst - prev_dst) as _)

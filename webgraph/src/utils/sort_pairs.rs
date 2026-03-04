@@ -121,12 +121,13 @@ impl SortPairs {
     ///
     /// See [`new`](SortPairs::new) for details. When deduplication is enabled,
     /// the returned iterators will skip consecutive elements sharing the same
-    /// pair of nodes, keeping only the first occurrence.
+    /// pair of nodes, keeping only the first occurrence. Duplicates are also
+    /// eliminated during batch serialization, reducing I/O and disk usage.
     pub fn new_dedup<P: AsRef<Path>>(
         memory_usage: MemoryUsage,
         tmp_dir: P,
-    ) -> anyhow::Result<SortPairs<DefaultBatchCodec, true>> {
-        SortPairs::create(memory_usage, tmp_dir, DefaultBatchCodec::default())
+    ) -> anyhow::Result<SortPairs<DefaultBatchCodec<true>, true>> {
+        SortPairs::create(memory_usage, tmp_dir, <DefaultBatchCodec<true>>::default())
     }
 }
 
@@ -160,7 +161,7 @@ impl<C: BatchCodec> SortPairs<C> {
     }
 }
 
-impl<const DEDUP: bool> SortPairs<DefaultBatchCodec, DEDUP> {
+impl<C: BatchCodec<Label = ()>, const DEDUP: bool> SortPairs<C, DEDUP> {
     /// Adds an unlabeled pair to the graph.
     pub fn push(&mut self, x: usize, y: usize) -> anyhow::Result<()> {
         self.push_labeled(x, y, ())
@@ -174,7 +175,7 @@ impl<const DEDUP: bool> SortPairs<DefaultBatchCodec, DEDUP> {
     pub fn sort(
         &mut self,
         pairs: impl IntoIterator<Item = (usize, usize)>,
-    ) -> anyhow::Result<KMergeIters<CodecIter<DefaultBatchCodec>, (), DEDUP>> {
+    ) -> anyhow::Result<KMergeIters<CodecIter<C>, (), DEDUP>> {
         self.try_sort::<std::convert::Infallible>(pairs.into_iter().map(Ok))
     }
 
@@ -186,7 +187,7 @@ impl<const DEDUP: bool> SortPairs<DefaultBatchCodec, DEDUP> {
     pub fn try_sort<E: Into<anyhow::Error>>(
         &mut self,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
-    ) -> anyhow::Result<KMergeIters<CodecIter<DefaultBatchCodec>, (), DEDUP>> {
+    ) -> anyhow::Result<KMergeIters<CodecIter<C>, (), DEDUP>> {
         for pair in pairs {
             let (x, y) = pair.map_err(Into::into)?;
             self.push(x, y)?;

@@ -67,7 +67,7 @@ pub fn transpose(
     Ok(Left(transpose_labeled(
         &UnitLabelGraph(graph),
         memory_usage,
-        DefaultBatchCodec::default(),
+        <DefaultBatchCodec>::default(),
     )?))
 }
 
@@ -161,7 +161,7 @@ pub fn transpose_split<
         .map(|iter| iter.into_pairs().map(|(src, dst)| ((dst, src), ())))
         .collect();
 
-    let batch_codec = DefaultBatchCodec::default();
+    let batch_codec = <DefaultBatchCodec>::default();
     let SplitIters { boundaries, iters } = par_sort_iters
         .try_sort_labeled::<DefaultBatchCodec, std::convert::Infallible, _>(batch_codec, pairs)?;
 

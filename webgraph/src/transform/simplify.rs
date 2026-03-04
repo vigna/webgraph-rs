@@ -100,7 +100,9 @@ pub fn simplify(
 pub fn simplify_split<S>(
     graph: &S,
     memory_usage: MemoryUsage,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, (), true>>>>
+) -> Result<
+    Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>,
+>
 where
     S: SequentialGraph + SplitLabeling,
 {
@@ -142,7 +144,8 @@ where
 
     // get a graph on the sorted data
     log::debug!("Waiting for threads to finish");
-    let edges: KMergeIters<CodecIter<DefaultBatchCodec>, (), true> = rx.into_rayon_iter().sum();
+    let edges: KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true> =
+        rx.into_rayon_iter().sum();
     log::debug!("All threads finished");
     let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
 
