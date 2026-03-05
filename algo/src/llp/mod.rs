@@ -65,7 +65,6 @@ use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
-use funcperm::FuncPerm;
 use predicates::Predicate;
 use preds::PredParams;
 
@@ -73,13 +72,12 @@ use log::info;
 use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
-use rand::seq::SliceRandom;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use sux::traits::Succ;
 use sync_cell_slice::SyncSlice;
 use webgraph::prelude::PermutedGraph;
@@ -134,7 +132,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
-    chunk_size: Option<usize>,
+    _chunk_size: Option<usize>,
     granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
@@ -145,7 +143,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         sym_graph,
         deg_cumul,
         gammas,
-        chunk_size,
+        _chunk_size,
         granularity,
         seed,
         predicate,
@@ -163,9 +161,9 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     gammas: Vec<f64>,
-    chunk_size: Option<usize>,
+    _chunk_size: Option<usize>,
     granularity: Granularity,
-    seed: u64,
+    mut seed: u64,
     predicate: impl Predicate<preds::PredParams>,
     work_dir: impl AsRef<Path>,
 ) -> Result<()> {
@@ -175,7 +173,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     let labels_path = |gamma_index| work_path.join(format!("labels_{gamma_index}.bin"));
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
-    let chunk_size = chunk_size.unwrap_or(1_000_000);
     let num_threads = rayon::current_num_threads();
 
     // init the permutation with the indices
@@ -205,7 +202,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     // init the update progress logger
     let mut update_pl = concurrent_progress_logger![item_name = "node", local_speed = true];
 
-    let seed = CachePadded::new(AtomicU64::new(seed));
     let mut costs = Vec::with_capacity(gammas.len());
 
     gamma_pl.start(format!("Running {} threads", num_threads));
@@ -241,19 +237,10 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 gammas.len()
             ));
 
-            /*update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
-            thread_pool.install(|| {
-                // parallel shuffle
-                update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
-                    let seed = seed.fetch_add(1, Ordering::Relaxed);
-                    let mut rand = SmallRng::seed_from_u64(seed);
-                    chunk.shuffle(&mut rand);
-                });
-            });*/
-
             // If this iteration modified anything (early stop)
             let modified = CachePadded::new(AtomicUsize::new(0));
-            let funcperm = FuncPerm::new_simple_hash(num_nodes as u64, 42, 42);
+            let funcperm = funcperm::murmur(num_nodes as u64, seed, seed);
+			seed += 1;
 
             let delta_obj_func = sym_graph.par_apply(
                 |range| {
