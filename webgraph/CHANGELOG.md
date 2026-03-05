@@ -9,6 +9,8 @@
 
 ### Changed
 
+- Upgraded to `dsi-bitstream` 0.8.0.
+
 - Reallocation strategies in `BvComp` and `BvCompZ` do not shrink below capacity 1024.
 
 - Removed spurious `reset` inherent method in sequential visits.
