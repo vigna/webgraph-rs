@@ -71,7 +71,7 @@ where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
     let mut pl = ProgressLogger::default();
-    pl.display_memory(true).item_name("offset");
+    pl.display_memory(true).item_name("node");
     if let Some(duration) = &global_args.log_interval {
         pl.log_interval(*duration);
     }

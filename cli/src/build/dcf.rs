@@ -63,7 +63,7 @@ where
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true)
-        .item_name("offset")
+        .item_name("node")
         .expected_updates(Some(num_nodes));
     if let Some(duration) = global_args.log_interval {
         pl.log_interval(duration);
