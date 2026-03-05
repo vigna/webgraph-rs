@@ -379,12 +379,13 @@ impl BvCompConfig {
         Ok(comp_stats.written_bits)
     }
 
-    /// A wrapper over [`par_comp_lenders`](Self::par_comp_lenders) that takes the
-    /// endianness as a string.
+    /// Splits a graph into as many parts as there are threads in the current
+    /// Rayon thread pool and compresses it in parallel, returning the length
+    /// in bits of the graph bitstream.
     ///
     /// Endianness can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
     ///
-    ///  A given endianness is enabled only if the corresponding feature is
+    /// A given endianness is enabled only if the corresponding feature is
     /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
     /// neither features are enabled.
     pub fn par_comp_lenders_endianness<G: SplitLabeling + SequentialGraph>(
@@ -395,7 +396,44 @@ impl BvCompConfig {
     where
         for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
     {
-        let num_threads = current_num_threads();
+        let num_nodes = graph.num_nodes();
+        let n = rayon::current_num_threads();
+
+        match endianness {
+            #[cfg(any(
+                feature = "be_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            BE::NAME => self.par_comp_lenders::<BigEndian, _>(graph.split_iter(n), num_nodes),
+            #[cfg(any(
+                feature = "le_bins",
+                not(any(feature = "be_bins", feature = "le_bins"))
+            ))]
+            LE::NAME => self.par_comp_lenders::<LittleEndian, _>(graph.split_iter(n), num_nodes),
+            x => anyhow::bail!("Unknown endianness {}", x),
+        }
+    }
+
+    /// Splits a graph at the given cutpoints and compresses it in parallel,
+    /// returning the length in bits of the graph bitstream.
+    ///
+    /// The cutpoints are passed to
+    /// [`split_iter_at`](SplitLabeling::split_iter_at).
+    ///
+    /// Endianness can only be [`BE::NAME`](BE) or [`LE::NAME`](LE).
+    ///
+    /// A given endianness is enabled only if the corresponding feature is
+    /// enabled, `be_bins` for big endian and `le_bins` for little endian, or if
+    /// neither features are enabled.
+    pub fn par_comp_lenders_endianness_at<G: SplitLabeling + SequentialGraph>(
+        &mut self,
+        graph: &G,
+        endianness: &str,
+        cutpoints: impl IntoIterator<Item = usize>,
+    ) -> Result<u64>
+    where
+        for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + Send + Sync,
+    {
         let num_nodes = graph.num_nodes();
 
         match endianness {
@@ -404,16 +442,14 @@ impl BvCompConfig {
                 not(any(feature = "be_bins", feature = "le_bins"))
             ))]
             BE::NAME => {
-                // compress the transposed graph
-                self.par_comp_lenders::<BigEndian, _>(graph.split_iter(num_threads), num_nodes)
+                self.par_comp_lenders::<BigEndian, _>(graph.split_iter_at(cutpoints), num_nodes)
             }
             #[cfg(any(
                 feature = "le_bins",
                 not(any(feature = "be_bins", feature = "le_bins"))
             ))]
             LE::NAME => {
-                // compress the transposed graph
-                self.par_comp_lenders::<LittleEndian, _>(graph.split_iter(num_threads), num_nodes)
+                self.par_comp_lenders::<LittleEndian, _>(graph.split_iter_at(cutpoints), num_nodes)
             }
             x => anyhow::bail!("Unknown endianness {}", x),
         }

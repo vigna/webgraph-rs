@@ -27,6 +27,10 @@
 
 - Now also `ParSortIters` uses Rayon threads.
 
+- `SplitLabeling` has a new `split_iter_at` method that makes it possible to
+  select arbitrary cut points. CLI support makes it possible to use the degree
+  cumulative function to split the compression work in a more balanced way.
+
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a

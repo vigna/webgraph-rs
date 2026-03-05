@@ -65,8 +65,8 @@ where
     where
         Self: 'a;
 
-    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        split::seq::Iter::new(self.iter(), cutpoints)
     }
 }
 
@@ -194,9 +194,12 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
 }
 
 impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
-    /// Creates an iterator specialized in the degrees of the nodes.
-    /// This is slightly faster because it can avoid decoding some of
-    /// the nodes and completely skip the merging step.
+    /// Returns a specialized iterator that iterates over the offsets and
+    /// degrees of the nodes.
+    ///
+    /// This iterator is slightly faster than the lender returned by
+    /// [`iter`](Self::iter) because it does not require to rebuild the
+    /// successors of each node.
     #[inline(always)]
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
         OffsetDegIter::new(

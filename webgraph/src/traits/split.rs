@@ -15,15 +15,19 @@ use impl_tools::autoimpl;
 
 use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 
-/// A trait with a single method that splits a labeling into `n` parts which are
-/// thread safe.
+/// A trait providing methods to split the labeling
+/// [iterator](SequentialLabeling::Lender) into multiple thread-safe parts.
 ///
-/// Labeling implementing this trait can be analyzed in parallel by calling
-/// [`split_iter`](SplitLabeling::split_iter) to split the labeling
-/// [iterator](SequentialLabeling::Lender) into `n` parts.
+/// The main method is [`split_iter_at`](SplitLabeling::split_iter_at), which
+/// takes a sequence of cutpoints and splits the iteration at those points.
+/// Each cutpoint is a node id; the sequence must be non-decreasing and contain
+/// at least two elements.
 ///
-/// Each part is returned as a tuple `(usize, SplitLender)` where the first
-/// element indicates the first node ID covered by that lender.
+/// The convenience method [`split_iter`](SplitLabeling::split_iter) provides a
+/// default implementation that splits the iteration into `n` approximately
+/// equal parts. It is implemented in terms of
+/// [`split_iter_at`](SplitLabeling::split_iter_at), so implementors only need
+/// to provide the latter.
 ///
 /// Note that the parts are required to be [`Send`] and [`Sync`], so that they
 /// can be safely shared among threads.
@@ -32,8 +36,8 @@ use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 /// blanket implementations for this trait. However, we provide ready-made
 /// implementations for the [sequential](seq) and [random-access](ra) cases. To
 /// use them, you must implement the trait by specifying the associated types
-/// `Lender` and `IntoIterator`, and then just return a [`seq::Iter`] or
-/// [`ra::Iter`] structure.
+/// `SplitLender` and `IntoIterator`, and then just return a [`seq::Iter`] or
+/// [`ra::Iter`] structure from [`split_iter_at`](SplitLabeling::split_iter_at).
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SplitLabeling: SequentialLabeling {
     type SplitLender<'a>: for<'next> NodeLabelsLender<'next, Label = <Self as SequentialLabeling>::Label>
@@ -42,19 +46,34 @@ pub trait SplitLabeling: SequentialLabeling {
     where
         Self: 'a;
 
-    type IntoIterator<'a>: IntoIterator<Item = Self::SplitLender<'a>, IntoIter: ExactSizeIterator>
+    type IntoIterator<'a>: IntoIterator<Item = Self::SplitLender<'a>>
     where
         Self: 'a;
 
-    fn split_iter(&self, n: usize) -> Self::IntoIterator<'_>;
+    /// Splits the labeling iterator at the given cutpoints.
+    ///
+    /// The cutpoints are a non-decreasing sequence of node ids with at least
+    /// two elements. They define `n` − 1 segments, where `n` is the number of
+    /// cutpoints, and the `i`-th segment covers nodes in [`cutpoints[i]` . . `cutpoints[i + 1]`).
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_>;
+
+    /// Splits the labeling iterator into `n` approximately equal parts.
+    ///
+    /// This is a convenience method implemented in terms of
+    /// [`split_iter_at`](SplitLabeling::split_iter_at).
+    fn split_iter(&self, n: usize) -> Self::IntoIterator<'_> {
+        let step = self.num_nodes().div_ceil(n);
+        let num_nodes = self.num_nodes();
+        self.split_iter_at((0..n + 1).map(move |i| (i * step).min(num_nodes)))
+    }
 }
 
 /// Ready-made implementation for the sequential case.
 ///
 /// This implementation walks through the iterator of a labeling and
-/// clones it at regular intervals. To use it, you have to implement the
-/// trait by specifying the associated types `Lender` and `IntoIterator`
-/// using the [`seq::Lender`] and [`seq::IntoIterator`] types aliases,
+/// clones it at the cutpoints. To use it, you have to implement the
+/// trait by specifying the associated types `SplitLender` and `IntoIterator`
+/// using the [`seq::Lender`] and [`seq::IntoIterator`] type aliases,
 /// and then return a [`seq::Iter`] structure.
 ///
 /// # Examples
@@ -68,29 +87,40 @@ pub trait SplitLabeling: SequentialLabeling {
 ///     type SplitLender<'a> = split::seq::Lender<'a, BvGraphSeq<F>> where Self: 'a;
 ///     type IntoIterator<'a> = split::seq::IntoIterator<'a, BvGraphSeq<F>> where Self: 'a;
 ///
-///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-///         split::seq::Iter::new(self.iter(), self.num_nodes(), how_many)
+///     fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+///         split::seq::Iter::new(self.iter(), cutpoints)
 ///     }
 /// }
 /// ```
 pub mod seq {
     use crate::prelude::SequentialLabeling;
 
+    /// An iterator over segments of a sequential labeling defined by cutpoints.
     pub struct Iter<L> {
         lender: L,
-        nodes_per_iter: usize,
-        how_many: usize,
-        remaining: usize,
+        cutpoints: Vec<usize>,
+        i: usize,
     }
 
     impl<L: lender::Lender> Iter<L> {
-        pub fn new(lender: L, number_of_nodes: usize, how_many: usize) -> Self {
-            let nodes_per_iter = number_of_nodes.div_ceil(how_many);
+        /// Creates a new iterator from a lender and a sequence of cutpoints.
+        ///
+        /// The cutpoints must be a non-decreasing sequence with at least 2
+        /// elements.
+        pub fn new(lender: L, cutpoints: impl core::iter::IntoIterator<Item = usize>) -> Self {
+            let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
+            assert!(
+                cutpoints.len() >= 2,
+                "cutpoints must have at least 2 elements"
+            );
+            assert!(
+                cutpoints.windows(2).all(|w| w[0] <= w[1]),
+                "cutpoints must be non-decreasing"
+            );
             Self {
                 lender,
-                nodes_per_iter,
-                how_many,
-                remaining: how_many,
+                cutpoints,
+                i: 0,
             }
         }
     }
@@ -99,28 +129,25 @@ pub mod seq {
         type Item = lender::Take<L>;
 
         fn next(&mut self) -> Option<Self::Item> {
-            if self.remaining == 0 {
+            if self.i + 1 >= self.cutpoints.len() {
                 return None;
             }
-            if self.remaining != self.how_many {
-                self.lender.advance_by(self.nodes_per_iter).ok()?;
+            if self.i > 0 {
+                let advance = self.cutpoints[self.i] - self.cutpoints[self.i - 1];
+                self.lender.advance_by(advance).ok()?;
             }
-            self.remaining -= 1;
-            Some(self.lender.clone().take(self.nodes_per_iter))
+            let len = self.cutpoints[self.i + 1] - self.cutpoints[self.i];
+            self.i += 1;
+            Some(self.lender.clone().take(len))
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
-            (self.remaining, Some(self.remaining))
+            let remaining = self.cutpoints.len() - 1 - self.i;
+            (remaining, Some(remaining))
         }
 
         fn count(self) -> usize {
-            self.len()
-        }
-    }
-
-    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {
-        fn len(&self) -> usize {
-            self.remaining
+            self.cutpoints.len() - 1 - self.i
         }
     }
 
@@ -132,11 +159,11 @@ pub mod seq {
 
 /// Ready-made implementation for the random-access case.
 ///
-/// This implementation uses the [`iter_from`](SequentialLabeling::iter_from) at
-/// regular intervals. To use it, you have to implement the trait by specifying
-/// the associated types `Lender` and `IntoIterator` using the [`ra::Lender`]
-/// and [`ra::IntoIterator`] types aliases, and then return a [`ra::Iter`]
-/// structure.
+/// This implementation uses [`iter_from`](SequentialLabeling::iter_from) at
+/// each cutpoint. To use it, you have to implement the trait by specifying
+/// the associated types `SplitLender` and `IntoIterator` using the
+/// [`ra::Lender`] and [`ra::IntoIterator`] type aliases, and then return a
+/// [`ra::Iter`] structure.
 ///
 /// # Examples
 ///
@@ -149,28 +176,43 @@ pub mod seq {
 ///     type SplitLender<'a> = split::ra::Lender<'a, BvGraph<F>> where Self: 'a;
 ///     type IntoIterator<'a> = split::ra::IntoIterator<'a, BvGraph<F>> where Self: 'a;
 ///
-///     fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-///         split::ra::Iter::new(self, how_many)
+///     fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+///         split::ra::Iter::new(self, cutpoints)
 ///     }
 /// }
 /// ```
 pub mod ra {
     use crate::prelude::{RandomAccessLabeling, SequentialLabeling};
 
+    /// An iterator over segments of a random-access labeling defined by
+    /// cutpoints.
     pub struct Iter<'a, R: RandomAccessLabeling> {
         labeling: &'a R,
-        nodes_per_iter: usize,
-        how_many: usize,
+        cutpoints: Vec<usize>,
         i: usize,
     }
 
     impl<'a, R: RandomAccessLabeling> Iter<'a, R> {
-        pub fn new(labeling: &'a R, how_many: usize) -> Self {
-            let nodes_per_iter = labeling.num_nodes().div_ceil(how_many);
+        /// Creates a new iterator from a labeling and a sequence of cutpoints.
+        ///
+        /// The cutpoints must be a non-decreasing sequence with at least 2
+        /// elements.
+        pub fn new(
+            labeling: &'a R,
+            cutpoints: impl core::iter::IntoIterator<Item = usize>,
+        ) -> Self {
+            let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
+            assert!(
+                cutpoints.len() >= 2,
+                "cutpoints must have at least 2 elements"
+            );
+            assert!(
+                cutpoints.windows(2).all(|w| w[0] <= w[1]),
+                "cutpoints must be non-decreasing"
+            );
             Self {
                 labeling,
-                nodes_per_iter,
-                how_many,
+                cutpoints,
                 i: 0,
             }
         }
@@ -182,31 +224,22 @@ pub mod ra {
         fn next(&mut self) -> Option<Self::Item> {
             use lender::Lender;
 
-            if self.i == self.how_many {
+            if self.i + 1 >= self.cutpoints.len() {
                 return None;
             }
-            let start_node = self.i * self.nodes_per_iter;
+            let start = self.cutpoints[self.i];
+            let end = self.cutpoints[self.i + 1];
             self.i += 1;
-            Some(
-                self.labeling
-                    .iter_from(start_node)
-                    .take(self.nodes_per_iter),
-            )
+            Some(self.labeling.iter_from(start).take(end - start))
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
-            let len = self.how_many - self.i;
-            (len, Some(len))
+            let remaining = self.cutpoints.len() - 1 - self.i;
+            (remaining, Some(remaining))
         }
 
         fn count(self) -> usize {
-            self.len()
-        }
-    }
-
-    impl<R: RandomAccessLabeling> ExactSizeIterator for Iter<'_, R> {
-        fn len(&self) -> usize {
-            self.how_many - self.i
+            self.cutpoints.len() - 1 - self.i
         }
     }
 

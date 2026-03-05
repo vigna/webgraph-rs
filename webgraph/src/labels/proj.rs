@@ -185,8 +185,11 @@ where
     where
         Self: 'a;
 
-    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        self.0.split_iter(how_many).into_iter().map(LeftIterator)
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        self.0
+            .split_iter_at(cutpoints)
+            .into_iter()
+            .map(LeftIterator)
     }
 }
 
@@ -421,8 +424,11 @@ where
     where
         Self: 'a;
 
-    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        self.0.split_iter(how_many).into_iter().map(RightIterator)
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        self.0
+            .split_iter_at(cutpoints)
+            .into_iter()
+            .map(RightIterator)
     }
 }
 

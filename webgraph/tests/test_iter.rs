@@ -130,3 +130,89 @@ where
     assert!(iter.next().is_none(), "Too few nodes in split_iter");
     Ok(())
 }
+
+/// Checks that `split_iter_at` with custom cutpoints returns the correct
+/// node/successor pairs.
+#[test]
+fn test_split_iter_at_bvrnd() -> Result<()> {
+    let g = BvGraph::with_basename("../data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
+
+    // Cutpoints that don't start at 0 and don't end at num_nodes
+    let cutpoints = [10, 20, 50, 100];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    // Cutpoints starting at 0 but not ending at num_nodes
+    let cutpoints = [0, 7, 42, 100];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    // Cutpoints spanning the full range
+    let n = g.num_nodes();
+    let cutpoints = [0, n / 4, n / 2, 3 * n / 4, n];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    // Cutpoints with empty segments (repeated values)
+    let cutpoints = [10, 10, 30, 30, 50];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    // Two-element cutpoints (single segment)
+    let cutpoints = [5, 15];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    Ok(())
+}
+
+#[test]
+fn test_split_iter_at_bvseq() -> Result<()> {
+    let g = BvGraphSeq::with_basename("../data/cnr-2000")
+        .endianness::<BE>()
+        .load()?;
+
+    // Cutpoints starting at 0 (required for seq, which walks from the start)
+    let cutpoints = [0, 7, 42, 100];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    let n = g.num_nodes();
+    let cutpoints = [0, n / 3, 2 * n / 3, n];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    // Empty segments
+    let cutpoints = [0, 0, 50, 50, 100];
+    test_split_iter_at(&g, &cutpoints)?;
+
+    Ok(())
+}
+
+fn test_split_iter_at<'a, S: SequentialGraph + SplitLabeling>(
+    g: &'a S,
+    cutpoints: &[usize],
+) -> anyhow::Result<()>
+where
+    <S as SplitLabeling>::SplitLender<'a>: Clone,
+{
+    let mut count = 0;
+    for (i, lender) in g
+        .split_iter_at(cutpoints.iter().copied())
+        .into_iter()
+        .enumerate()
+    {
+        let start = cutpoints[i];
+        let end = cutpoints[i + 1];
+        let mut iter = g.iter_from(start).take(end - start);
+        for_![(split_node_id, split_succ) in lender {
+            let Some((seq_node_id, seq_succ)) = iter.next() else {
+                bail!("Too many nodes in split_iter_at segment {i}");
+            };
+            assert_eq!(seq_node_id, split_node_id);
+            assert!(itertools::equal(seq_succ, split_succ));
+        }];
+        assert!(
+            iter.next().is_none(),
+            "Too few nodes in split_iter_at segment {i}"
+        );
+        count += 1;
+    }
+    assert_eq!(count, cutpoints.len() - 1, "Wrong number of segments");
+    Ok(())
+}

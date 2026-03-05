@@ -111,8 +111,8 @@ where
     where
         Self: 'a;
 
-    fn split_iter(&self, how_many: usize) -> Self::IntoIterator<'_> {
-        split::ra::Iter::new(self, how_many)
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        split::ra::Iter::new(self, cutpoints)
     }
 }
 
