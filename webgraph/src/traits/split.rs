@@ -106,7 +106,8 @@ pub mod seq {
         /// Creates a new iterator from a lender and a sequence of cutpoints.
         ///
         /// The cutpoints must be a non-decreasing sequence with at least 2
-        /// elements.
+        /// elements, and the last cutpoint must be at most the number of nodes
+        /// in the labeling.
         pub fn new(lender: L, cutpoints: impl core::iter::IntoIterator<Item = usize>) -> Self {
             let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
             assert!(
@@ -196,7 +197,8 @@ pub mod ra {
         /// Creates a new iterator from a labeling and a sequence of cutpoints.
         ///
         /// The cutpoints must be a non-decreasing sequence with at least 2
-        /// elements.
+        /// elements, and the last cutpoint must be at most
+        /// [`num_nodes()`](SequentialLabeling::num_nodes).
         pub fn new(
             labeling: &'a R,
             cutpoints: impl core::iter::IntoIterator<Item = usize>,
@@ -209,6 +211,12 @@ pub mod ra {
             assert!(
                 cutpoints.windows(2).all(|w| w[0] <= w[1]),
                 "cutpoints must be non-decreasing"
+            );
+            assert!(
+                *cutpoints.last().unwrap() <= labeling.num_nodes(),
+                "last cutpoint ({}) must be <= num_nodes ({})",
+                cutpoints.last().unwrap(),
+                labeling.num_nodes()
             );
             Self {
                 labeling,
