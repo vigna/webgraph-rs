@@ -16,7 +16,7 @@ authors = [
 rust-version = "1.85"
 
 [dependencies]
-funcperm = "0.1.0"
+funcperm = "0.2.0"
 card-est-array.workspace = true
 webgraph.workspace = true
 dsi-progress-logger.workspace = true
