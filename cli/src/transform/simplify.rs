@@ -39,6 +39,11 @@ pub struct CliArgs {
     #[arg(long)]
     /// The path to an optional permutation in binary big-endian format to apply to the graph.
     pub permutation: Option<PathBuf>,
+
+    #[arg(long)]
+    /// Use the degree cumulative function to balance work by arcs rather than
+    /// by nodes. The DCF must have been pre-built with `webgraph build dcf`.
+    pub dcf: bool,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -64,6 +69,8 @@ where
 {
     // TODO!: speed it up by using random access graph if possible
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
+    let use_dcf = args.dcf;
+    let src = args.src.clone();
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
@@ -114,7 +121,17 @@ where
                     let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
 
                     thread_pool.install(|| {
-                        builder.par_comp_lenders_endianness(&sorted, &target_endianness)
+                        let cp = crate::cutpoints(
+                            &src,
+                            sorted.num_nodes(),
+                            sorted.num_arcs_hint(),
+                            use_dcf,
+                        )?;
+                        builder.par_comp_lenders_endianness_at(
+                            &sorted,
+                            &target_endianness,
+                            cp,
+                        )
                     })?;
 
                     return Ok(());
@@ -151,8 +168,15 @@ where
 
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
-            thread_pool
-                .install(|| builder.par_comp_lenders_endianness(&sorted, &target_endianness))?;
+            thread_pool.install(|| {
+                let cp = crate::cutpoints(
+                    &src,
+                    sorted.num_nodes(),
+                    sorted.num_arcs_hint(),
+                    use_dcf,
+                )?;
+                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+            })?;
         }
         // apply the permutation, don't care if the transposed graph is already computed
         // as we cannot really exploit it
@@ -180,7 +204,13 @@ where
                         args.memory_usage.memory_usage,
                     )?;
 
-                    builder.par_comp_lenders_endianness(&sorted, &target_endianness)
+                    let cp = crate::cutpoints(
+                        &src,
+                        sorted.num_nodes(),
+                        sorted.num_arcs_hint(),
+                        use_dcf,
+                    )?;
+                    builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
                 })?;
 
                 return Ok(());
@@ -202,8 +232,15 @@ where
             let sorted =
                 webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage)?;
 
-            thread_pool
-                .install(|| builder.par_comp_lenders_endianness(&sorted, &target_endianness))?;
+            thread_pool.install(|| {
+                let cp = crate::cutpoints(
+                    &src,
+                    sorted.num_nodes(),
+                    sorted.num_arcs_hint(),
+                    use_dcf,
+                )?;
+                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+            })?;
         }
         // just compute the transpose on the fly
         (None, None) => {
@@ -225,7 +262,13 @@ where
                         args.memory_usage.memory_usage,
                     )?;
 
-                    builder.par_comp_lenders_endianness(&sorted, &target_endianness)
+                    let cp = crate::cutpoints(
+                        &src,
+                        sorted.num_nodes(),
+                        sorted.num_arcs_hint(),
+                        use_dcf,
+                    )?;
+                    builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
                 })?;
 
                 return Ok(());
@@ -242,8 +285,15 @@ where
             let sorted =
                 webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)?;
 
-            thread_pool
-                .install(|| builder.par_comp_lenders_endianness(&sorted, &target_endianness))?;
+            thread_pool.install(|| {
+                let cp = crate::cutpoints(
+                    &src,
+                    sorted.num_nodes(),
+                    sorted.num_arcs_hint(),
+                    use_dcf,
+                )?;
+                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+            })?;
         }
     }
 

@@ -36,6 +36,11 @@ pub struct CliArgs {
     #[clap(flatten)]
     pub memory_usage: MemoryUsageArg,
 
+    #[arg(long)]
+    /// Use the degree cumulative function to balance work by arcs rather than
+    /// by nodes. The DCF must have been pre-built with `webgraph build dcf`.
+    pub dcf: bool,
+
     #[clap(flatten)]
     pub ca: CompressArgs,
 }
@@ -84,6 +89,8 @@ where
     let sorted = webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage)?;
 
     let target_endianness = args.ca.endianness.clone();
+    let use_dcf = args.dcf;
+    let src = args.src.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
@@ -96,9 +103,11 @@ where
     }
 
     thread_pool.install(|| {
-        builder.par_comp_lenders_endianness(
+        let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
+        builder.par_comp_lenders_endianness_at(
             &sorted,
             &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+            cp,
         )
     })?;
 

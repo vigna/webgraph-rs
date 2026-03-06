@@ -709,6 +709,63 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
+/// Computes cutpoints for splitting a graph into chunks for parallel
+/// compression.
+///
+/// If `use_dcf` is true, loads the DCF file for the given basename and uses
+/// `FairChunks` to balance by arc count. Otherwise, falls back to uniform
+/// cutpoints by node count.
+pub fn cutpoints(
+    basename: &Path,
+    num_nodes: usize,
+    num_arcs: Option<u64>,
+    use_dcf: bool,
+) -> Result<Vec<usize>> {
+    use epserde::prelude::*;
+    use sux::traits::IndexedSeq;
+    use sux::utils::FairChunks;
+    use webgraph::prelude::{DCF, DEG_CUMUL_EXTENSION};
+
+    if use_dcf {
+        let dcf_path = basename.with_extension(DEG_CUMUL_EXTENSION);
+        ensure!(
+            dcf_path.exists(),
+            "DCF file {} does not exist; build it with `webgraph build dcf`",
+            dcf_path.display()
+        );
+        let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
+        let dcf = dcf.uncase();
+        ensure!(
+            dcf.len() == num_nodes + 1,
+            "DCF has {} entries, expected {} (num_nodes + 1)",
+            dcf.len(),
+            num_nodes + 1
+        );
+        ensure!(dcf.get(0) == 0, "DCF does not start with 0");
+        let num_arcs = num_arcs.expect("num_arcs_hint required for --dcf") as usize;
+        ensure!(
+            dcf.get(num_nodes) == num_arcs,
+            "DCF ends with {}, expected {} (num_arcs)",
+            dcf.get(num_nodes),
+            num_arcs
+        );
+        let num_threads = rayon::current_num_threads();
+        let target_weight = num_arcs.div_ceil(num_threads);
+        let cutpoints: Vec<usize> = std::iter::once(0)
+            .chain(FairChunks::new(target_weight, &dcf).map(|r| r.end))
+            .collect();
+        log::info!(
+            "Using DCF-based splitting into {} parts",
+            cutpoints.len() - 1
+        );
+        Ok(cutpoints)
+    } else {
+        let n = rayon::current_num_threads();
+        let step = num_nodes.div_ceil(n);
+        Ok((0..n + 1).map(move |i| (i * step).min(num_nodes)).collect())
+    }
+}
+
 /// Parses a duration from a string.
 /// For compatibility with Java, if no suffix is given, it is assumed to be in milliseconds.
 /// You can use suffixes, the available ones are:

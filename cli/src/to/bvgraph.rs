@@ -11,11 +11,8 @@ use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 
-use epserde::prelude::*;
 use mmap_rs::MmapFlags;
 use std::path::PathBuf;
-use sux::traits::IndexedSeq;
-use sux::utils::FairChunks;
 use tempfile::Builder;
 use webgraph::prelude::*;
 use webgraph::traits::SequentialLabeling;
@@ -66,56 +63,6 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     }
 }
 
-/// Computes cutpoints for splitting a graph into chunks.
-///
-/// If `use_dcf` is true and a `.dcf` file exists, uses `FairChunks` to balance
-/// by arc count. Otherwise, falls back to uniform cutpoints by node count.
-fn cutpoints(
-    basename: &std::path::Path,
-    num_nodes: usize,
-    num_arcs: Option<u64>,
-    use_dcf: bool,
-) -> Result<Vec<usize>> {
-    if use_dcf {
-        let dcf_path = basename.with_extension(DEG_CUMUL_EXTENSION);
-        anyhow::ensure!(
-            dcf_path.exists(),
-            "DCF file {} does not exist; build it with `webgraph build dcf`",
-            dcf_path.display()
-        );
-        let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
-        let dcf = dcf.uncase();
-        anyhow::ensure!(
-            dcf.len() == num_nodes + 1,
-            "DCF has {} entries, expected {} (num_nodes + 1)",
-            dcf.len(),
-            num_nodes + 1
-        );
-        anyhow::ensure!(dcf.get(0) == 0, "DCF does not start with 0");
-        let num_arcs = num_arcs.expect("num_arcs_hint required for --dcf") as usize;
-        anyhow::ensure!(
-            dcf.get(num_nodes) == num_arcs,
-            "DCF ends with {}, expected {} (num_arcs)",
-            dcf.get(num_nodes),
-            num_arcs
-        );
-        let num_threads = rayon::current_num_threads();
-        let target_weight = num_arcs.div_ceil(num_threads);
-        let cutpoints: Vec<usize> = std::iter::once(0)
-            .chain(FairChunks::new(target_weight, &dcf).map(|r| r.end))
-            .collect();
-        log::info!(
-            "Using DCF-based splitting into {} parts",
-            cutpoints.len() - 1
-        );
-        Ok(cutpoints)
-    } else {
-        let n = rayon::current_num_threads();
-        let step = num_nodes.div_ceil(n);
-        Ok((0..n + 1).map(move |i| (i * step).min(num_nodes)).collect())
-    }
-}
-
 pub fn compress<E: Endianness>(
     _global_args: GlobalArgs,
     args: CliArgs,
@@ -155,7 +102,7 @@ where
                     "Permuted the graph. It took {:.3} seconds",
                     start.elapsed().as_secs_f64()
                 );
-                let cp = cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
+                let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
                 builder.par_comp_lenders_endianness_at(
                     &sorted,
                     &target_endianness.unwrap_or_else(|| BE::NAME.into()),
@@ -164,7 +111,7 @@ where
             })?;
         } else {
             thread_pool.install(|| {
-                let cp = cutpoints(&src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
+                let cp = crate::cutpoints(&src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
                 builder.par_comp_lenders_endianness_at(
                     &graph,
                     &target_endianness.unwrap_or_else(|| BE::NAME.into()),
