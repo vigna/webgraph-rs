@@ -8,7 +8,6 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
-use common_traits::UnsignedInt;
 use log::info;
 use std::{
     mem::size_of,
@@ -58,7 +57,7 @@ pub fn pad(path: impl AsRef<Path>, block_size: usize) -> Result<()> {
         .with_context(|| format!("Cannot extract metadata from file {}", path.display()))?
         .len();
 
-    let padded_len = file_len.align_to(block_size as u64);
+    let padded_len = file_len.next_multiple_of(block_size as u64);
 
     if file_len == padded_len {
         info!(

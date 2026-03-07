@@ -29,7 +29,6 @@ use crate::{
 };
 use anyhow::{Context, ensure};
 use bitflags::bitflags;
-use common_traits::UnsignedInt;
 use dsi_bitstream::{
     impls::{BufBitReader, MemWordReader, WordAdapter, buf_bit_reader},
     prelude::{CodesRead, CodesReaderFactory},
@@ -202,7 +201,7 @@ impl<E: Endianness> MemoryFactory<E, MmapHelper<u32>> {
             .len() as usize;
         let mut file = std::fs::File::open(path)
             .with_context(|| format!("Could not open {}", path.display()))?;
-        let capacity = file_len.align_to(16);
+        let capacity = file_len.next_multiple_of(16);
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
             .with_flags(flags.into())

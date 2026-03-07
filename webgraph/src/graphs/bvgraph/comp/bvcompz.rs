@@ -12,7 +12,6 @@ use super::OffsetsWriter;
 use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
 use crate::utils::RaggedArray;
-use common_traits::Sequence;
 use lender::prelude::*;
 
 /// An entry of the table used to store the intermediate computation
@@ -309,7 +308,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
 
         // dag of nodes that points to the i-th element of the vector
         let mut out_edges: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for (i, reference) in self.references.iter().enumerate() {
+        for (i, &reference) in self.references.iter().enumerate() {
             // 0 <= references[i] <= windows_size
             if reference != 0 {
                 // for each j in out_edges, for each i in out_edges[j]: j + window_size >= i
@@ -331,7 +330,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
             // in the paper M_r(i) so the case where I don't choose this node to be referred from other lists
             // and favor the children so they can be have paths of the maximum length (n)
             let mut child_sum_full_chain = 0.0;
-            for child in out_edges[i].iter() {
+            for &child in out_edges[i].iter() {
                 child_sum_full_chain += dyn_table[(child, max_available_references)].saved_cost;
             }
 
@@ -346,7 +345,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
                 // (because we used 'max_length - links_to_use' links before somewhere)
                 let mut child_sum = self.saved_costs[i];
                 // Take it.
-                for child in out_edges[i].iter() {
+                for &child in out_edges[i].iter() {
                     child_sum += dyn_table[(child, links_to_use - 1)].saved_cost;
                 }
                 dyn_table[(i, links_to_use)] = if child_sum > child_sum_full_chain {
@@ -368,7 +367,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         for i in 0..self.references.len() {
             if dyn_table[(i, available_length[i])].chosen {
                 // Taken: push available_length.
-                for child in out_edges[i].iter() {
+                for &child in out_edges[i].iter() {
                     available_length[child] = available_length[i] - 1;
                 }
             } else {

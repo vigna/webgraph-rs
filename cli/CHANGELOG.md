@@ -6,6 +6,8 @@
 
 - `webgraph transform` now defaults to the parallel version.
 
+- Removed dependency from `common_traits`, replaced by `num-traits`.
+
 ## [0.4.1] - 2026-02-23
 
 ### New

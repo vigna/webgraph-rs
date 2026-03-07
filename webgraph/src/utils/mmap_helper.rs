@@ -6,7 +6,6 @@
  */
 
 use anyhow::{Context, Result, ensure};
-use common_traits::UnsignedInt;
 use core::fmt::Debug;
 use mmap_rs::*;
 use std::{mem::size_of, path::Path, sync::Arc};
@@ -107,7 +106,7 @@ impl<W> MmapHelper<W> {
             .try_into()
             .with_context(|| "Cannot convert file length to usize")?;
         // Align to multiple of size_of::<W>
-        let mmap_len = file_len.align_to(size_of::<W>());
+        let mmap_len = file_len.next_multiple_of(size_of::<W>());
         #[cfg(windows)]
         {
             ensure!(
@@ -170,7 +169,7 @@ impl<W> MmapHelper<W, MmapMut> {
             })?;
 
         // Align to multiple of size_of::<W>
-        let mmap_len = file_len.align_to(size_of::<W>());
+        let mmap_len = file_len.next_multiple_of(size_of::<W>());
 
         ensure!(
             mmap_len == file_len,

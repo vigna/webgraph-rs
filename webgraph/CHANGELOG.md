@@ -7,6 +7,8 @@
 - Replaced a number of wrong `num_cpus::get` calls with
   `rayon::current_num_threads`.
 
+- Removed dependency from `common_traits`, replaced by `num-traits`.
+
 ### Changed
 
 - Upgraded to `dsi-bitstream` 0.8.0.
@@ -30,6 +32,8 @@
 - `SplitLabeling` has a new `split_iter_at` method that makes it possible to
   select arbitrary cut points. CLI support makes it possible to use the degree
   cumulative function to split the compression work in a more balanced way.
+
+- Removed dependency from `common_traits`, replaced by `num-traits`.
 
 ### Improved
 

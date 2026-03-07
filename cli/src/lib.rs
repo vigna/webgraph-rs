@@ -20,7 +20,7 @@
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use common_traits::{AsBytes, FromBytes, ToBytes, UnsignedInt};
+use num_traits::{FromBytes, ToBytes};
 use dsi_bitstream::dispatch::Codes;
 use epserde::deser::Deserialize;
 use epserde::ser::Serialize;
@@ -29,6 +29,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::SystemTime;
 use sux::bits::BitFieldVec;
+use sux::utils::PrimitiveUnsignedExt;
 use webgraph::prelude::CompFlags;
 use webgraph::utils::{Granularity, MemoryUsage};
 
@@ -291,7 +292,7 @@ impl FloatVectorFormat {
     pub fn load<F>(&self, path: impl AsRef<Path>) -> Result<Vec<F>>
     where
         F: FromBytes + std::str::FromStr + Copy,
-        <F as AsBytes>::Bytes: for<'a> TryFrom<&'a [u8]>,
+        <F as FromBytes>::Bytes: for<'a> TryFrom<&'a [u8]>,
         <F as std::str::FromStr>::Err: std::error::Error + Send + Sync + 'static,
         Vec<F>: epserde::deser::Deserialize,
     {
@@ -329,7 +330,7 @@ impl FloatVectorFormat {
                     let bytes = buf.as_slice().try_into().map_err(|_| {
                         anyhow!("Could not convert bytes at index {i} in {}", path_display)
                     })?;
-                    result.push(F::from_be_bytes(bytes));
+                    result.push(F::from_be_bytes(&bytes));
                 }
                 Ok(result)
             }
@@ -475,7 +476,7 @@ impl IntVectorFormat {
                         .max()
                         .unwrap_or_else(|| panic!("Empty vector"))
                 });
-                let bit_width = max.len() as usize;
+                let bit_width = max.bit_len() as usize;
                 log::info!("Using {} bits per element", bit_width);
                 let mut bit_field_vec = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
