@@ -8,6 +8,8 @@
   to have functionally or algorithmically generated preference vectors without
   the need to materialize them in memory.
 
+- Upgraded to `card-est-array` 0.3.0.
+
 ## [0.6.1] - 2026-02-23
 
 ### New

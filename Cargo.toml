@@ -10,7 +10,7 @@ webgraph = { path = "./webgraph", version = "0.6.1" }
 webgraph-algo = { path = "./algo", version = "0.6.1" }
 webgraph-cli = { path = "./cli" }
 
-card-est-array = "0.2.1"
+card-est-array = "0.3.0"
 epserde = "0.12.0"
 dsi-bitstream = "0.8.0"
 dsi-progress-logger = "=0.8.2" # For Rust 1.85

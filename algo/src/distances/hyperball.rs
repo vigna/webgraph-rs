@@ -267,11 +267,11 @@ impl<
         G1,
         G2,
         D,
-        HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, usize>,
+        HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, u64>,
         SliceEstimatorArray<
-            HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, usize>,
-            usize,
-            Box<[usize]>,
+            HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, u64>,
+            u64,
+            Box<[u64]>,
         >,
     >
 {
@@ -305,8 +305,7 @@ impl<
 
         let logic = HyperLogLogBuilder::new(num_elements)
             .log_2_num_reg(log2m)
-            .build()
-            .with_context(|| "Could not build HyperLogLog logic")?;
+            .build();
 
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
@@ -1432,9 +1431,9 @@ mod test {
     };
 
     type HyperBallArray<G> = SliceEstimatorArray<
-        HyperLogLog<<G as SequentialLabeling>::Label, BuildHasherDefault<DefaultHasher>, usize>,
-        usize,
-        Box<[usize]>,
+        HyperLogLog<<G as SequentialLabeling>::Label, BuildHasherDefault<DefaultHasher>, u64>,
+        u64,
+        Box<[u64]>,
     >;
 
     struct SeqHyperBall<'a, G: RandomAccessGraph> {
@@ -1473,9 +1472,7 @@ mod test {
 
         let num_nodes = graph.num_nodes();
 
-        let hyper_log_log = HyperLogLogBuilder::new(num_nodes)
-            .log_2_num_reg(6)
-            .build()?;
+        let hyper_log_log = HyperLogLogBuilder::new(num_nodes).log_2_num_reg(6);
 
         let seq_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
         let seq_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
