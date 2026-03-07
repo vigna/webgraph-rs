@@ -43,7 +43,7 @@
 //! each iteration, the sets associated with the successors of each node are
 //! merged, thus obtaining the new sets. A crucial component in making this
 //! process efficient and scalable is the usage of broadword programming to
-//! implement the merge phase, which requires maximising in parallel the list of
+//! implement the merge phase, which requires maximizing in parallel the list of
 //! registers associated with each successor.
 //!
 //! Using the approximate sets, for each _t_ we estimate the number of pairs of
