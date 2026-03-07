@@ -2,6 +2,12 @@
 
 ## [0.7.0] - unreleased
 
+### Changed
+
+- The `PageRank` preference vector is now a `SliceByValue`, making it possible
+  to have functionally or algorithmically generated preference vectors without
+  the need to materialize them in memory.
+
 ## [0.6.1] - 2026-02-23
 
 ### New

@@ -9,7 +9,7 @@ use rand::{Rng, RngExt, SeedableRng};
 use webgraph::graphs::random::ErdosRenyi;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
-use webgraph_algo::rank::pagerank::{Mode, PageRank, preds};
+use webgraph_algo::rank::pagerank::{Mode, PageRank, UniformPreference, preds};
 
 /// Builds a transpose graph consisting of a k-clique (nodes 0..k) and a
 /// p-cycle (nodes k..k+p) with optional bridge arcs between node k−1 and
@@ -400,15 +400,15 @@ fn test_erdos_renyi_vs_power_method() {
 
         // Reuse a single PageRank instance across all alpha/mode combinations
         // for the same graph, exercising the inv_outdegrees caching.
+        // The preference() method consumes self and transfers all state
+        // (including cached inv_outdegrees).
         let mut pr = PageRank::new(&gt);
 
         for &alpha in &[0.25, 0.50, 0.85] {
             // 1. Strongly preferential, uniform preference (default)
             {
                 let expected = power_method(&g, alpha, None, None, false);
-                pr.alpha(alpha)
-                    .preference(None)
-                    .mode(Mode::StronglyPreferential);
+                pr.alpha(alpha).mode(Mode::StronglyPreferential);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,
@@ -418,37 +418,35 @@ fn test_erdos_renyi_vs_power_method() {
             }
 
             // 2. Strongly preferential, non-uniform preference
+            let mut pr_custom = pr.preference(pref.as_slice());
             {
                 let expected = power_method(&g, alpha, Some(&pref), None, false);
-                pr.alpha(alpha)
-                    .preference(Some(&pref))
-                    .mode(Mode::StronglyPreferential);
-                pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
+                pr_custom.alpha(alpha).mode(Mode::StronglyPreferential);
+                pr_custom.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
-                    l_inf_distance(&expected, pr.rank()) < tolerance,
+                    l_inf_distance(&expected, pr_custom.rank()) < tolerance,
                     "strongly-nonuniform n={n} alpha={alpha}: L∞={}",
-                    l_inf_distance(&expected, pr.rank())
+                    l_inf_distance(&expected, pr_custom.rank())
                 );
             }
 
             // 3. Weakly preferential, non-uniform preference
             {
                 let expected = power_method(&g, alpha, Some(&pref), Some(&uniform), false);
-                pr.alpha(alpha)
-                    .preference(Some(&pref))
-                    .mode(Mode::WeaklyPreferential);
-                pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
+                pr_custom.alpha(alpha).mode(Mode::WeaklyPreferential);
+                pr_custom.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
-                    l_inf_distance(&expected, pr.rank()) < tolerance,
+                    l_inf_distance(&expected, pr_custom.rank()) < tolerance,
                     "weakly-nonuniform n={n} alpha={alpha}: L∞={}",
-                    l_inf_distance(&expected, pr.rank())
+                    l_inf_distance(&expected, pr_custom.rank())
                 );
             }
 
             // 4. Pseudorank, uniform preference
+            pr = pr_custom.preference(UniformPreference::new(n));
             {
                 let expected = power_method(&g, alpha, None, None, true);
-                pr.alpha(alpha).preference(None).mode(Mode::PseudoRank);
+                pr.alpha(alpha).mode(Mode::PseudoRank);
                 pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
                     l_inf_distance(&expected, pr.rank()) < tolerance,
@@ -458,18 +456,20 @@ fn test_erdos_renyi_vs_power_method() {
             }
 
             // 5. Pseudorank, non-uniform preference
+            let mut pr_custom = pr.preference(pref.as_slice());
             {
                 let expected = power_method(&g, alpha, Some(&pref), None, true);
-                pr.alpha(alpha)
-                    .preference(Some(&pref))
-                    .mode(Mode::PseudoRank);
-                pr.run(preds::L1Norm::try_from(gs_threshold).unwrap());
+                pr_custom.alpha(alpha).mode(Mode::PseudoRank);
+                pr_custom.run(preds::L1Norm::try_from(gs_threshold).unwrap());
                 assert!(
-                    l_inf_distance(&expected, pr.rank()) < tolerance,
+                    l_inf_distance(&expected, pr_custom.rank()) < tolerance,
                     "pseudo-nonuniform n={n} alpha={alpha}: L∞={}",
-                    l_inf_distance(&expected, pr.rank())
+                    l_inf_distance(&expected, pr_custom.rank())
                 );
             }
+
+            // Transfer back to uniform for next alpha iteration
+            pr = pr_custom.preference(UniformPreference::new(n));
         }
     }
 }

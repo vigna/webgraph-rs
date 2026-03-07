@@ -11,8 +11,10 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logger};
 use predicates::prelude::*;
 use std::path::PathBuf;
+use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::BvGraph;
+use webgraph::traits::RandomAccessGraph;
 use webgraph_algo::rank::pagerank::preds::{L1Norm, MaxIter};
 use webgraph_algo::rank::{Mode, PageRank};
 
@@ -109,6 +111,26 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     }
 }
 
+fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64> + Sync + Send>(
+    pr: &mut PageRank<G, V>,
+    predicate: impl predicates::Predicate<webgraph_algo::rank::pagerank::preds::PredParams> + Send,
+    pl: &mut (impl dsi_progress_logger::ProgressLog + Send),
+    cpl: &mut impl dsi_progress_logger::ConcurrentProgressLog,
+    thread_pool: &rayon::ThreadPool,
+    args: &CliArgs,
+) -> Result<()> {
+    thread_pool.install(|| pr.run_with_logging(predicate, pl, cpl));
+
+    log::info!(
+        "Completed after {} iteration(s), norm delta = {}",
+        pr.iterations(),
+        pr.norm_delta()
+    );
+
+    args.fmt.store(&args.output, pr.rank(), args.precision)?;
+    Ok(())
+}
+
 pub fn pagerank<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     let mut pl = progress_logger![];
     pl.display_memory(true);
@@ -142,24 +164,20 @@ pub fn pagerank<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result
         predicate = predicate.or(MaxIter::from(max_iter)).boxed();
     }
 
-    // Configure PageRank
-    let mut pr = PageRank::new(&transpose);
-    pr.alpha(args.alpha)
-        .mode(args.mode.into())
-        .granularity(args.granularity.into_granularity())
-        .preference(preference.as_deref());
-
-    // Run
-    thread_pool.install(|| pr.run_with_logging(predicate, &mut pl, &mut cpl));
-
-    log::info!(
-        "Completed after {} iteration(s), norm delta = {}",
-        pr.iterations(),
-        pr.norm_delta()
-    );
-
-    // Store results
-    args.fmt.store(&args.output, pr.rank(), args.precision)?;
+    // Configure and run PageRank
+    if let Some(pref) = &preference {
+        let mut pr = PageRank::new(&transpose).preference(pref.as_slice());
+        pr.alpha(args.alpha)
+            .mode(args.mode.into())
+            .granularity(args.granularity.into_granularity());
+        run_and_store(&mut pr, predicate, &mut pl, &mut cpl, &thread_pool, &args)?;
+    } else {
+        let mut pr = PageRank::new(&transpose);
+        pr.alpha(args.alpha)
+            .mode(args.mode.into())
+            .granularity(args.granularity.into_granularity());
+        run_and_store(&mut pr, predicate, &mut pl, &mut cpl, &thread_pool, &args)?;
+    }
 
     Ok(())
 }

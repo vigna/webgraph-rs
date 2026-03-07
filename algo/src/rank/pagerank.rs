@@ -305,17 +305,57 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 use sync_cell_slice::SyncSlice;
+use value_traits::slices::SliceByValue;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::utils::Granularity;
 
+/// A functional [`SliceByValue`] that returns 1/*n* for all indices,
+/// representing the uniform distribution over *n* nodes.
+///
+/// Used as the default preference vector for [`PageRank`].
+pub struct UniformPreference {
+    n: usize,
+    inv_n: f64,
+}
+
+impl UniformPreference {
+    /// Creates a new uniform preference vector of length `n`.
+    pub fn new(n: usize) -> Self {
+        Self {
+            n,
+            inv_n: if n == 0 { 0.0 } else { 1.0 / n as f64 },
+        }
+    }
+}
+
+impl SliceByValue for UniformPreference {
+    type Value = f64;
+    fn len(&self) -> usize {
+        self.n
+    }
+    unsafe fn get_value_unchecked(&self, _index: usize) -> f64 {
+        self.inv_n
+    }
+}
+
 /// Computes PageRank using a parallel Gauss-Seidel iteration.
+///
+/// For details about the algorithm used, see the [module-level
+/// documentation](self).
 ///
 /// The struct is configured via setters and then executed via
 /// [`run`](Self::run). After completion the rank vector is available via the
 /// [`rank`](Self::rank) method.
 ///
+/// Note that the [`preference`](Self::preference) setter consumes `self`
+/// because the preference type may differ from the current one; all internal
+/// state (including cached inverse outdegrees) is preserved.
+///
 /// The constructor takes the _transpose_ of the graph, because the algorithm
 /// needs to iterate over the predecessors of each node.
+///
+/// If you compute multiple variants of PageRank on the same graph, please reuse
+/// this structure, as it caches the inverse outdegrees of the graph.
 ///
 /// # Examples
 ///
@@ -347,12 +387,10 @@ use webgraph::utils::Granularity;
 /// gt.add_arcs([(1, 0), (2, 0), (2, 1), (0, 2), (0, 3), (3, 4)]);
 ///
 /// // Custom preference: favor node 0
-/// let pref = [0.5, 0.2, 0.1, 0.1, 0.1];
+/// let pref: &[f64] = &[0.5, 0.2, 0.1, 0.1, 0.1];
 ///
-/// let mut pr = PageRank::new(&gt);
-/// pr.alpha(0.9)
-///     .preference(Some(&pref))
-///     .mode(Mode::WeaklyPreferential);
+/// let mut pr = PageRank::new(&gt).preference(pref);
+/// pr.alpha(0.9).mode(Mode::WeaklyPreferential);
 /// pr.run(preds::L1Norm::try_from(1E-9).unwrap());
 ///
 /// // Node 0 has the highest rank
@@ -360,11 +398,15 @@ use webgraph::utils::Granularity;
 /// assert_eq!(pr.rank().len(), 5);
 /// assert!((pr.rank().iter().sum::<f64>() - 1.0).abs() < 1E-9);
 /// ```
-pub struct PageRank<'a, G: RandomAccessGraph + Sync> {
+pub struct PageRank<
+    'a,
+    G: RandomAccessGraph + Sync,
+    V: SliceByValue<Value = f64> = UniformPreference,
+> {
     transpose: &'a G,
     alpha: f64,
     inv_outdegrees: Option<Box<[f64]>>,
-    preference: Option<&'a [f64]>,
+    preference: V,
     mode: Mode,
     granularity: Granularity,
     norm_delta: f64,
@@ -373,7 +415,9 @@ pub struct PageRank<'a, G: RandomAccessGraph + Sync> {
     iteration: usize,
 }
 
-impl<G: RandomAccessGraph + Sync> std::fmt::Debug for PageRank<'_, G> {
+impl<G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> std::fmt::Debug
+    for PageRank<'_, G, V>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PageRank")
             .field("alpha", &self.alpha)
@@ -386,26 +430,27 @@ impl<G: RandomAccessGraph + Sync> std::fmt::Debug for PageRank<'_, G> {
 }
 
 impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
-    /// Creates a new PageRank computation.
+    /// Creates a new PageRank computation with uniform preference.
     ///
     /// This constructor takes the _transpose_ of the graph, because the algorithm
     /// needs to iterate over the predecessors of each node.
     pub fn new(transpose: &'a G) -> Self {
         let n = transpose.num_nodes();
-        let rank = vec![0.0; n].into_boxed_slice();
         Self {
             transpose,
             alpha: 0.85,
             inv_outdegrees: None,
-            preference: None,
+            preference: UniformPreference::new(n),
             mode: Mode::default(),
             granularity: Granularity::default(),
             norm_delta: f64::INFINITY,
-            rank,
+            rank: vec![0.0; n].into_boxed_slice(),
             iteration: 0,
         }
     }
+}
 
+impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a, G, V> {
     /// Sets the damping factor α.
     ///
     /// # Panics
@@ -423,31 +468,44 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
 
     /// Sets the preference (personalization) vector.
     ///
+    /// The preference vector is any [`SliceByValue<Value =
+    /// f64>`](SliceByValue): for example, a `&[f64]`, a `Vec<f64>`, or a
+    /// functional/implicit implementation such as [`UniformPreference`].
+    ///
     /// When set, the preference vector is also used as the dangling-node
     /// distribution in [`StronglyPreferential`](Mode::StronglyPreferential)
     /// mode.
     ///
-    /// Pass `None` to revert to the uniform preference (1/*n*).
+    /// This method consumes `self` because the preference type may differ
+    /// from the current one; all internal state (including cached inverse
+    /// outdegrees) is preserved.
     ///
     /// # Panics
     ///
     /// Panics if the length of the vector does not match the number of nodes.
     /// In test mode, we also check for stochasticity (nonnegative entries
     /// summing to 1 within a tolerance of 1E-6) and panic if the check fails.
-    pub fn preference(&mut self, preference: Option<&'a [f64]>) -> &mut Self {
-        if let Some(v) = preference {
-            let n = self.transpose.num_nodes();
-            assert_eq!(
-                v.len(),
-                n,
-                "Preference vector length ({}) does not match the number of nodes ({n})",
-                v.len()
-            );
-            #[cfg(test)]
-            Self::assert_stochastic(v, "preference");
+    pub fn preference<W: SliceByValue<Value = f64>>(self, preference: W) -> PageRank<'a, G, W> {
+        let n = self.transpose.num_nodes();
+        assert_eq!(
+            preference.len(),
+            n,
+            "Preference vector length ({}) does not match the number of nodes ({n})",
+            preference.len()
+        );
+        #[cfg(test)]
+        PageRank::<G, W>::assert_stochastic(&preference, "preference");
+        PageRank {
+            transpose: self.transpose,
+            alpha: self.alpha,
+            inv_outdegrees: self.inv_outdegrees,
+            preference,
+            mode: self.mode,
+            granularity: self.granularity,
+            norm_delta: self.norm_delta,
+            rank: self.rank,
+            iteration: self.iteration,
         }
-        self.preference = preference;
-        self
     }
 
     /// Sets the PageRank [mode](Mode).
@@ -489,6 +547,26 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
         self.norm_delta
     }
 
+    /// Checks that a vector is stochastic (all entries nonnegative and summing
+    /// to 1 within a tolerance of 1E-6).
+    #[cfg(test)]
+    fn assert_stochastic(v: &impl SliceByValue<Value = f64>, name: &str) {
+        for i in 0..v.len() {
+            let x = v.index_value(i);
+            assert!(
+                x >= 0.0,
+                "The {name} vector has a negative entry at index {i}: {x}"
+            );
+        }
+        let sum: f64 = (0..v.len()).map(|i| v.index_value(i)).sum();
+        assert!(
+            (sum - 1.0).abs() < 1E-6,
+            "The {name} vector is not stochastic (sum = {sum})"
+        );
+    }
+}
+
+impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageRank<'a, G, V> {
     /// Runs the PageRank computation until the given predicate is satisfied.
     pub fn run(&mut self, predicate: impl Predicate<preds::PredParams>) {
         self.run_with_logging(predicate, no_logging![], no_logging![]);
@@ -519,23 +597,15 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
 
         log::info!("Mode: {}", self.mode);
         log::info!("Alpha: {}", self.alpha);
-        log::info!(
-            "Preference: {}",
-            if self.preference.is_some() {
-                "custom"
-            } else {
-                "uniform"
-            }
-        );
         log::info!("Stopping criterion: {}", predicate);
 
         self.iteration = 0;
         let inv_n = 1.0 / n as f64;
 
         // Fill rank with preference vector
-        match self.preference {
-            Some(v) => self.rank.copy_from_slice(v),
-            None => self.rank.fill(inv_n),
+        for i in 0..n {
+            // SAFETY: i < n == self.preference.len()
+            self.rank[i] = unsafe { self.preference.get_value_unchecked(i) };
         }
 
         let inv_outdegrees = self.inv_outdegrees.get_or_insert_with(|| {
@@ -643,10 +713,8 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
                             }
 
                             // Preference and dangling distribution for node i
-                            let v_i = match self.preference {
-                                Some(v) => v[i],
-                                None => inv_n,
-                            };
+                            // SAFETY: i < n == self.preference.len()
+                            let v_i = self.preference.get_value_unchecked(i);
                             // u_i = v_i in strongly preferential mode,
                             // u_i = 1/n in weakly preferential mode.
                             let u_i = match self.mode {
@@ -732,22 +800,5 @@ impl<'a, G: RandomAccessGraph + Sync> PageRank<'a, G> {
         }
 
         pl.done();
-    }
-
-    /// Checks that a vector is stochastic (all entries nonnegative and summing
-    /// to 1 within a tolerance of 1E-6).
-    #[cfg(test)]
-    fn assert_stochastic(v: &[f64], name: &str) {
-        for (i, &x) in v.iter().enumerate() {
-            assert!(
-                x >= 0.0,
-                "The {name} vector has a negative entry at index {i}: {x}"
-            );
-        }
-        let sum: f64 = v.iter().sum();
-        assert!(
-            (sum - 1.0).abs() < 1E-6,
-            "The {name} vector is not stochastic (sum = {sum})"
-        );
     }
 }
