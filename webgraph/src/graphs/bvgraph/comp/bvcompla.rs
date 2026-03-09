@@ -74,9 +74,12 @@ pub struct BvCompLa<E, W: Write> {
     encoder: E,
     /// The offset writer, we should push the number of bits used by each node.
     pub offsets_writer: OffsetsWriter<W>,
-    /// When compressing we need to store metadata. So we store the compressors
-    /// to reuse the allocations for perf reasons.
-    compressors: Vec<Compressor>,
+    /// Reusable compressor for computing compression costs and writing.
+    /// Unlike BvComp which needs per-delta compressor states for the final
+    /// write, BvCompLa re-compresses in write_oldest_node, so a single
+    /// compressor suffices. This also improves cache locality (~40KB working
+    /// set vs ~680KB with compression_window+1 compressors).
+    compressor: Compressor,
     /// The number of previous nodes that will be considered during the compression
     compression_window: usize,
     /// The maximum recursion depth that will be used to decompress a node
@@ -137,9 +140,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             oldest_unwritten: start_node,
             start_node,
             curr_node: start_node,
-            compressors: (0..compression_window + 1)
-                .map(|_| Compressor::new())
-                .collect(),
+            compressor: Compressor::new(),
             stats: CompStats::default(),
             greedy_arcs: Vec::new(),
             greedy_parent: Vec::new(),
@@ -155,11 +156,12 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
         savings.clear();
 
         // Cost with no reference (delta = 0) - this is our baseline
-        let compressor = &mut self.compressors[0];
-        compressor.compress(curr_list, None, self.min_interval_length)?;
+        self.compressor
+            .compress(curr_list, None, self.min_interval_length)?;
         let base_cost = {
             let mut estimator = self.encoder.estimator();
-            compressor.write(&mut estimator, node_id, Some(0), self.min_interval_length)?
+            self.compressor
+                .write(&mut estimator, node_id, Some(0), self.min_interval_length)?
         };
 
         // Savings with each possible reference (delta >= 1)
@@ -168,19 +170,24 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             let ref_node = node_id - delta;
 
             // If ref_node is already written, check max_ref_count constraint
-            // If it would be violated, this reference is invalid
             if ref_node < self.oldest_unwritten && self.ref_counts[ref_node] >= self.max_ref_count {
-                // 0 savings means this reference is no better than no reference
                 savings.push(0);
                 continue;
             }
 
             let ref_list = &self.backrefs[ref_node];
-            let compressor = &mut self.compressors[delta];
-            compressor.compress(curr_list, Some(ref_list), self.min_interval_length)?;
+
+            // Skip empty reference lists — they can't improve compression
+            if ref_list.is_empty() {
+                savings.push(0);
+                continue;
+            }
+
+            self.compressor
+                .compress(curr_list, Some(ref_list), self.min_interval_length)?;
             let cost = {
                 let mut estimator = self.encoder.estimator();
-                compressor.write(
+                self.compressor.write(
                     &mut estimator,
                     node_id,
                     Some(delta),
@@ -342,11 +349,10 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             None
         };
 
-        // re-compress and write, we recompress to save memory, we are trading
-        // 1 computation for look_ahead * compression_window memory
-        let compressor = &mut self.compressors[0];
-        compressor.compress(curr_list, ref_list, self.min_interval_length)?;
-        let written_bits = compressor.write(
+        // Re-compress with the chosen delta and write
+        self.compressor
+            .compress(curr_list, ref_list, self.min_interval_length)?;
+        let written_bits = self.compressor.write(
             &mut self.encoder,
             node_id,
             Some(ref_delta),
@@ -379,9 +385,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             curr_list.clear();
             curr_list.extend(succ_iter);
             // compress and write immediately
-            let compressor = &mut self.compressors[0];
-            compressor.compress(curr_list, None, self.min_interval_length)?;
-            let written_bits = compressor.write(
+            self.compressor
+                .compress(curr_list, None, self.min_interval_length)?;
+            let written_bits = self.compressor.write(
                 &mut self.encoder,
                 self.curr_node,
                 None,
