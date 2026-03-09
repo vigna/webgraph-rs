@@ -13,8 +13,37 @@ use super::bvcomp::{CompStats, Compressor};
 use crate::prelude::*;
 use crate::utils::RaggedArray;
 use common_traits::Sequence;
-use dary_heap::QuaternaryHeap;
+
 use lender::prelude::*;
+
+/// An arc representing a possible reference from a node to another,
+/// used by the Kruskal-like greedy algorithm.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct GreedyArc {
+    /// How many bits we save by taking this reference
+    savings: u64,
+    /// The delta of the reference (negated for ordering: smaller delta wins ties)
+    neg_delta: isize,
+    /// The index in the chunk that is using this reference
+    node_idx: usize,
+}
+
+impl Ord for GreedyArc {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Higher savings first, then higher neg_delta (= smaller delta), then smaller node_idx
+        (self.savings, self.neg_delta, other.node_idx).cmp(&(
+            other.savings,
+            other.neg_delta,
+            self.node_idx,
+        ))
+    }
+}
+
+impl PartialOrd for GreedyArc {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 /// A BvGraph compressor based on a Kruskal-like greedy algorithm applied to chunks.
 ///
@@ -36,10 +65,11 @@ pub struct BvCompZ2<E, W: Write> {
     backrefs: RaggedArray<usize>,
     /// The chosen reference delta for each node in the chunk (0 = no reference).
     references: Vec<usize>,
-    /// Savings for each node and reference delta.
+    /// Savings for each node and reference delta, stored as a flat ragged array
+    /// for better cache locality.
     /// savings[node][delta-1] = bits saved by using reference delta instead of no reference.
     /// We don't store delta=0 since it always has 0 savings.
-    savings: Vec<Vec<u64>>,
+    savings: RaggedArray<u64>,
     /// The number of nodes for which the reference selection algorithm is executed.
     chunk_size: usize,
     /// The bitstream writer.
@@ -61,6 +91,12 @@ pub struct BvCompZ2<E, W: Write> {
     start_chunk_node: usize,
     /// The statistics of the compression process.
     stats: CompStats,
+    /// Reusable buffer for arcs in the greedy algorithm.
+    greedy_arcs: Vec<GreedyArc>,
+    /// Reusable buffer for parent pointers in the DSU.
+    greedy_parent: Vec<usize>,
+    /// Reusable buffer for heights in the DSU.
+    greedy_height: Vec<usize>,
 }
 
 impl BvCompZ2<(), std::io::Sink> {
@@ -93,7 +129,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ2<E, W> {
         BvCompZ2 {
             backrefs: RaggedArray::new(),
             references: Vec::with_capacity(chunk_size + 1),
-            savings: Vec::with_capacity(chunk_size + 1),
+            savings: RaggedArray::new(),
             chunk_size,
             encoder,
             offsets_writer,
@@ -106,6 +142,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ2<E, W> {
                 .map(|_| Compressor::new())
                 .collect(),
             stats: CompStats::default(),
+            greedy_arcs: Vec::new(),
+            greedy_parent: Vec::new(),
+            greedy_height: Vec::new(),
         }
     }
 
@@ -233,42 +272,14 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ2<E, W> {
             return;
         }
 
-        /// An arc representing a possible reference from a node to another.
-        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-        struct Arc {
-            /// How many bits we save by taking this reference
-            savings: u64,
-            /// The delta of the reference (negated for ordering: smaller delta wins ties)
-            neg_delta: isize,
-            /// The index in the chunk that is using this reference
-            node_idx: usize,
-        }
-
-        impl Ord for Arc {
-            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                // Max-heap: higher savings first, then higher neg_delta (= smaller delta), then smaller node_idx
-                (self.savings, self.neg_delta, other.node_idx).cmp(&(
-                    other.savings,
-                    other.neg_delta,
-                    self.node_idx,
-                ))
-            }
-        }
-
-        impl PartialOrd for Arc {
-            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-                Some(self.cmp(other))
-            }
-        }
-
-        // Build heap with all positive-savings arcs
-        let mut heap = QuaternaryHeap::with_capacity(n * self.compression_window);
+        // Build a sorted vec with all positive-savings arcs, reusing the buffer.
+        self.greedy_arcs.clear();
         for node_idx in 0..n {
             let max_delta = self.compression_window.min(node_idx);
             for delta in 1..=max_delta {
                 let savings = self.savings[node_idx][delta - 1];
                 if savings > 0 {
-                    heap.push(Arc {
+                    self.greedy_arcs.push(GreedyArc {
                         savings,
                         neg_delta: -(delta as isize),
                         node_idx,
@@ -276,24 +287,26 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ2<E, W> {
                 }
             }
         }
+        // Sort in ascending order so we can pop from the end (highest savings first)
+        self.greedy_arcs.sort_unstable();
 
-        // Disjoint-set-like structure to track reference chains
-        // parent[i] = parent node index, or usize::MAX if unassigned
-        let mut parent = vec![usize::MAX; n];
-        // height[i] = maximum distance from this node to any of its descendants
-        let mut height = vec![0usize; n];
+        // Disjoint-set-like structure to track reference chains, reusing buffers.
+        self.greedy_parent.clear();
+        self.greedy_parent.resize(n, usize::MAX);
+        self.greedy_height.clear();
+        self.greedy_height.resize(n, 0);
 
         // Kruskal-like greedy: repeatedly pick the globally best arc
-        while let Some(Arc {
+        while let Some(GreedyArc {
             neg_delta,
             node_idx,
             ..
-        }) = heap.pop()
+        }) = self.greedy_arcs.pop()
         {
             let delta = (-neg_delta) as usize;
 
             // Skip if already assigned a reference
-            if parent[node_idx] != usize::MAX {
+            if self.greedy_parent[node_idx] != usize::MAX {
                 continue;
             }
 
@@ -302,14 +315,14 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ2<E, W> {
             let depth = {
                 let mut d = 1;
                 let mut idx = ref_idx;
-                while idx < n && parent[idx] != usize::MAX {
+                while idx < n && self.greedy_parent[idx] != usize::MAX {
                     d += 1;
-                    idx = parent[idx];
+                    idx = self.greedy_parent[idx];
                 }
                 d
             };
 
-            let h = height[node_idx];
+            let h = self.greedy_height[node_idx];
 
             // Check if the resulting chain depth would exceed max_ref_count
             if depth + h > self.max_ref_count {
@@ -318,21 +331,21 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ2<E, W> {
 
             // Accept this reference
             self.references[node_idx] = delta;
-            parent[node_idx] = ref_idx;
+            self.greedy_parent[node_idx] = ref_idx;
 
             // Propagate height to ancestors within the chunk
             {
                 let mut idx = ref_idx;
                 let mut propagated_h = h + 1;
                 while idx < n {
-                    if height[idx] >= propagated_h {
+                    if self.greedy_height[idx] >= propagated_h {
                         break;
                     }
-                    height[idx] = propagated_h;
-                    if parent[idx] == usize::MAX {
+                    self.greedy_height[idx] = propagated_h;
+                    if self.greedy_parent[idx] == usize::MAX {
                         break;
                     }
-                    idx = parent[idx];
+                    idx = self.greedy_parent[idx];
                     propagated_h += 1;
                 }
             }

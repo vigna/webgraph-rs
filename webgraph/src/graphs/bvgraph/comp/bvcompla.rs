@@ -5,11 +5,48 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use dary_heap::QuaternaryHeap;
+
 use super::OffsetsWriter;
 use crate::graphs::bvgraph::comp::bvcomp::*;
 use crate::prelude::*;
 use lender::prelude::*;
 use std::{io::Write, path::Path};
+
+/// An arc representing a possible reference from a node in the buffer
+/// to another node in the buffer (or outside).
+/// Ordering: highest savings first, then smallest delta (prefer delta=0 for ties).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct GreedyArc {
+    /// How many bits we save taking this reference
+    savings: u64,
+    /// The delta of the reference
+    delta: usize,
+    /// The idx in the buffer that is using this reference
+    buf_idx: usize,
+}
+
+impl Ord for GreedyArc {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // sort by the arc that saves the most bits
+        self.savings
+            .cmp(&other.savings)
+            // then give priority to the node that is oldest, as it's the
+            // one that will be written sooner
+            .then_with(|| {
+                let self_ref_node = self.buf_idx as isize - self.delta as isize;
+                let other_ref_node = other.buf_idx as isize - other.delta as isize;
+                self_ref_node.cmp(&other_ref_node).reverse()
+                // we reverse because it's a max-heap and we prefer small node ids
+            })
+    }
+}
+
+impl PartialOrd for GreedyArc {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 /// A BvGraph compressor with configurable look-ahead buffer.
 ///
@@ -56,6 +93,13 @@ pub struct BvCompLa<E, W: Write> {
     start_node: usize,
     /// The statistics of the compression process.
     stats: CompStats,
+    /// Reusable buffer for arcs in the greedy algorithm (stored as Vec,
+    /// converted to/from QuaternaryHeap each call to avoid reallocations).
+    greedy_arcs: Vec<GreedyArc>,
+    /// Reusable buffer for parent pointers in the DSU.
+    greedy_parent: Vec<usize>,
+    /// Reusable buffer for heights in the DSU.
+    greedy_height: Vec<usize>,
 }
 
 impl BvCompLa<(), std::io::Sink> {
@@ -97,6 +141,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
                 .map(|_| Compressor::new())
                 .collect(),
             stats: CompStats::default(),
+            greedy_arcs: Vec::new(),
+            greedy_parent: Vec::new(),
+            greedy_height: Vec::new(),
         }
     }
 
@@ -154,9 +201,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
     /// Returns (ref_delta, ref_count) for the oldest unwritten node:
     /// - ref_delta: the reference delta to use (0 = no reference)
     /// - ref_count: the depth of the reference chain for this node
-    fn greedy_with_lookahead(&self) -> (usize, usize) {
-        use dary_heap::QuaternaryHeap;
-
+    fn greedy_with_lookahead(&mut self) -> (usize, usize) {
         // compute the **real** size of the lookahead and the compression window
         let lookahead_size = self.curr_node - self.oldest_unwritten;
         let compression_window = self
@@ -169,49 +214,15 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             return (0, 0);
         }
 
-        /// An arc representing a possible reference from a node in the buffer
-        /// to another node in the buffer (or outside).
-        /// Ordering: highest savings first, then smallest delta (prefer delta=0 for ties).
-        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-        struct Arc {
-            /// How many bits we save taking this reference
-            savings: u64,
-            /// The delta of the reference
-            delta: usize,
-            /// The idx in the buffer that is using this reference
-            buf_idx: usize,
-        }
-
-        impl Ord for Arc {
-            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                // sort by the arc that saves the most bits
-                self.savings.cmp(&other.savings)
-                    // then give priority to the node that is oldest, as it's the 
-                    // one that will be written sooner
-                    .then_with(|| {
-                        let self_ref_node = self.buf_idx as isize - self.delta as isize;
-                        let other_ref_node = other.buf_idx as isize - other.delta as isize;
-                        self_ref_node.cmp(&other_ref_node).reverse()
-                        // we reverse because it's a max-heap and we prefer small node ids
-                    })
-            }
-        }
-
-        impl PartialOrd for Arc {
-            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-                Some(self.cmp(other))
-            }
-        }
-
-        // Build heap with only positive-savings arcs.
+        // Build heap with only positive-savings arcs, reusing the buffer.
         // Arcs with savings=0 are worse than no reference (increase chain depth with no benefit).
-        let mut heap = QuaternaryHeap::with_capacity(lookahead_size * (compression_window + 1));
+        self.greedy_arcs.clear();
         for buf_idx in 0..lookahead_size {
             let window = self.compression_window.min(buf_idx + compression_window);
             for delta in 1..=window {
                 let savings = self.savings[base_idx + buf_idx][delta - 1];
                 if savings > 0 {
-                    heap.push(Arc {
+                    self.greedy_arcs.push(GreedyArc {
                         savings,
                         delta,
                         buf_idx,
@@ -219,32 +230,29 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
                 }
             }
         }
+        // Take the Vec out, build O(n) heap, then recover the buffer after use.
+        let arcs = std::mem::take(&mut self.greedy_arcs);
+        let mut heap = QuaternaryHeap::from(arcs);
 
-        // These vectors acts as a Disjoint Set Union structure with extra info.
-        // We don't do path compression as max_ref_count, i.e. the height of the tree,
-        // is usually small, so the overhead might not be worth.
-        //
-        // TODO: benchmark with path compression.
-        // TODO: AoS vs SoA benchmark.
-
-        // Which node is the parent of this one, usize::MAX if not assigned
-        // and the node_id of this node if it is root.
-        let mut parent = vec![usize::MAX; lookahead_size];
-        // The maximum distance between this node and any of its leaves
-        let mut height = vec![0; lookahead_size];
+        // DSU buffers, reused across calls.
+        self.greedy_parent.clear();
+        self.greedy_parent.resize(lookahead_size, usize::MAX);
+        self.greedy_height.clear();
+        self.greedy_height.resize(lookahead_size, 0);
 
         // Kruskal / Prim greedy: repeatedly pick the globally best arc.
-        // We pop from the heap and skip arcs that are no longer valid.
-        // We have rooted trees, so every time we pick an arc we are merging
-        // two trees, specifically we are connecting a leaf to a root.
-        // So we need to make sure that the resulting tree height is valid.
-        while let Some(Arc {
-            delta, buf_idx, ..
-        }) = heap.pop()
-        {
+        let result = loop {
+            let Some(GreedyArc {
+                delta, buf_idx, ..
+            }) = heap.pop()
+            else {
+                // finished all arcs, use no reference
+                break (0, 0);
+            };
+
             // skip if already assigned: parent stores absolute node ID,
             // so assigned means parent <= node's own absolute ID
-            if parent[buf_idx] <= base_idx + buf_idx {
+            if self.greedy_parent[buf_idx] <= base_idx + buf_idx {
                 continue;
             }
 
@@ -260,7 +268,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
                         break;
                     }
                     // In buffer - check parent
-                    let p = parent[ref_id - base_idx];
+                    let p = self.greedy_parent[ref_id - base_idx];
                     if p >= ref_id {
                         // Not assigned (MAX) or root (p == ref_id)
                         break;
@@ -270,7 +278,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
                 d
             };
 
-            let h = height[buf_idx];
+            let h = self.greedy_height[buf_idx];
 
             // using this reference means that we are merging the tree of which
             // this node is root, and the tree of which the referenced node is a leaf
@@ -282,11 +290,11 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             // if we reached the oldest node, we can stop because we would
             // still throw away any more work
             if buf_idx == 0 {
-                return (delta, depth);
+                break (delta, depth);
             }
 
             // choose this reference: store absolute node ID of parent
-            parent[buf_idx] = base_idx + buf_idx - delta;
+            self.greedy_parent[buf_idx] = base_idx + buf_idx - delta;
 
             // propagate height to ancestors within the buffer
             // (skip if root or parent is outside buffer)
@@ -295,11 +303,11 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
                 let mut propagated_h = h + 1;
                 while ref_id >= base_idx {
                     let ref_buf_idx = ref_id - base_idx;
-                    if height[ref_buf_idx] >= propagated_h {
+                    if self.greedy_height[ref_buf_idx] >= propagated_h {
                         break;
                     }
-                    height[ref_buf_idx] = propagated_h;
-                    let p = parent[ref_buf_idx];
+                    self.greedy_height[ref_buf_idx] = propagated_h;
+                    let p = self.greedy_parent[ref_buf_idx];
                     if p >= ref_id {
                         // Not assigned (MAX) or root
                         break;
@@ -308,10 +316,12 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
                     propagated_h += 1;
                 }
             }
-        }
+        };
 
-        // if we finished all the non-delta=0 arcs, we have to use no reference
-        (0, 0)
+        // Recover the buffer from the heap for reuse.
+        self.greedy_arcs = heap.into_vec();
+
+        result
     }
 
     /// Write the oldest node in the buffer and remove it from the buffer.
