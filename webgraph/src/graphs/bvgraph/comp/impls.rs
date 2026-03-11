@@ -149,10 +149,14 @@ pub struct BvCompConfig {
     bvgraphz: bool,
     /// Selects the chunk-based greedy BVGraph compressor (BvCompZ2)
     bvgraphz2: bool,
+    /// Selects the exact DP BVGraph compressor (BvCompDP)
+    bvgraphdp: bool,
     /// The chunk size for the Zuckerli-based compressor
     chunk_size: usize,
     /// Look-ahead buffer size for BvCompLa (incompatible with bvgraphz)
     look_ahead: Option<usize>,
+    /// Discount factor for look-ahead savings (1.0 = no discount, 0.0 < gamma < 1.0 = geometric discount)
+    discount: f64,
     /// Temporary directory for all operations.
     tmp_dir: Option<PathBuf>,
     /// Owns the TempDir that [`Self::tmp_dir`] refers to, if it was created by default.
@@ -174,8 +178,10 @@ impl BvCompConfig {
             comp_flags: CompFlags::default(),
             bvgraphz: false,
             bvgraphz2: false,
+            bvgraphdp: false,
             chunk_size: 10_000,
             look_ahead: None,
+            discount: 1.0,
             tmp_dir: None,
             owned_tmp_dir: None,
         }
@@ -203,6 +209,12 @@ impl BvCompConfig {
         self
     }
 
+    pub fn with_bvgraphdp(mut self) -> Self {
+        self.bvgraphdp = true;
+        self
+    }
+
+
     pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
         self.chunk_size = chunk_size;
         self
@@ -210,6 +222,11 @@ impl BvCompConfig {
 
     pub fn with_look_ahead(mut self, look_ahead: usize) -> Self {
         self.look_ahead = Some(look_ahead);
+        self
+    }
+
+    pub fn with_discount(mut self, discount: f64) -> Self {
+        self.discount = discount;
         self
     }
 
@@ -270,20 +287,35 @@ impl BvCompConfig {
         ];
         pl.start("Compressing successors...");
 
-        ensure!(
-            !(self.bvgraphz && self.look_ahead.is_some()),
-            "bvgraphz and look_ahead are mutually exclusive"
-        );
-        ensure!(
-            !(self.bvgraphz2 && self.look_ahead.is_some()),
-            "bvgraphz2 and look_ahead are mutually exclusive"
-        );
-        ensure!(
-            !(self.bvgraphz && self.bvgraphz2),
-            "bvgraphz and bvgraphz2 are mutually exclusive"
-        );
+        {
+            let count = self.bvgraphz as u8
+                + self.bvgraphz2 as u8
+                + self.bvgraphdp as u8
+                + self.look_ahead.is_some() as u8;
+            ensure!(
+                count <= 1,
+                "bvgraphz, bvgraphz2, bvgraphdp, and look_ahead are mutually exclusive"
+            );
+        }
 
-        let comp_stats = if let Some(look_ahead) = self.look_ahead {
+        let comp_stats = if self.bvgraphdp {
+            let mut bvcompdp = BvCompDP::new(
+                codes_writer,
+                offset_writer,
+                self.comp_flags.compression_window,
+                self.comp_flags.max_ref_count,
+                self.comp_flags.min_interval_length,
+                0,
+            );
+
+            for_! ( (_node_id, successors) in iter {
+                bvcompdp.push(successors).context("Could not push successors")?;
+                pl.update();
+            });
+            pl.done();
+
+            bvcompdp.flush()?
+        } else if let Some(look_ahead) = self.look_ahead {
             let mut bvcompla = BvCompLa::new(
                 codes_writer,
                 offset_writer,
@@ -292,6 +324,7 @@ impl BvCompConfig {
                 self.comp_flags.min_interval_length,
                 look_ahead,
                 0,
+                self.discount,
             );
 
             for_! ( (_node_id, successors) in iter {
@@ -485,25 +518,25 @@ impl BvCompConfig {
         ];
         comp_pl.start("Compressing successors in parallel...");
 
-        ensure!(
-            !(self.bvgraphz && self.look_ahead.is_some()),
-            "bvgraphz and look_ahead are mutually exclusive"
-        );
-        ensure!(
-            !(self.bvgraphz2 && self.look_ahead.is_some()),
-            "bvgraphz2 and look_ahead are mutually exclusive"
-        );
-        ensure!(
-            !(self.bvgraphz && self.bvgraphz2),
-            "bvgraphz and bvgraphz2 are mutually exclusive"
-        );
+        {
+            let count = self.bvgraphz as u8
+                + self.bvgraphz2 as u8
+                + self.bvgraphdp as u8
+                + self.look_ahead.is_some() as u8;
+            ensure!(
+                count <= 1,
+                "bvgraphz, bvgraphz2, bvgraphdp, and look_ahead are mutually exclusive"
+            );
+        }
 
         let mut expected_first_node = 0;
         let cp_flags = &self.comp_flags;
         let bvgraphz = self.bvgraphz;
         let bvgraphz2 = self.bvgraphz2;
+        let bvgraphdp = self.bvgraphdp;
         let chunk_size = self.chunk_size;
         let look_ahead = self.look_ahead;
+        let discount = self.discount;
 
         in_place_scope(|s| {
             for (thread_id, mut thread_lender) in iter.into_iter().enumerate() {
@@ -536,7 +569,24 @@ impl BvCompConfig {
 
                     let stats;
                     let mut last_node;
-                    if let Some(look_ahead) = look_ahead {
+                    if bvgraphdp {
+                        let mut bvcomp = BvCompDP::new(
+                            codes_encoder,
+                            OffsetsWriter::from_path(&chunk_offsets_path, false).unwrap(),
+                            cp_flags.compression_window,
+                            cp_flags.max_ref_count,
+                            cp_flags.min_interval_length,
+                            node_id,
+                        );
+                        bvcomp.push(successors).unwrap();
+                        last_node = first_node;
+                        let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
+                        for_! ( (_, succ) in iter_nodes {
+                            bvcomp.push(succ.into_iter()).unwrap();
+                            comp_pl.update();
+                        });
+                        stats = bvcomp.flush().unwrap();
+                    } else if let Some(look_ahead) = look_ahead {
                         let mut bvcomp = BvCompLa::new(
                             codes_encoder,
                             OffsetsWriter::from_path(&chunk_offsets_path, false).unwrap(),
@@ -545,6 +595,7 @@ impl BvCompConfig {
                             cp_flags.min_interval_length,
                             look_ahead,
                             node_id,
+                            discount,
                         );
                         bvcomp.push(successors).unwrap();
                         last_node = first_node;
