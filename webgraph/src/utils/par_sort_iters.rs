@@ -49,8 +49,8 @@ use rayon::prelude::*;
 
 use super::MemoryUsage;
 use super::sort_pairs::KMergeIters;
-use crate::utils::SplitIters;
 use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
+use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a sequence of iterators of (labelled) pairs as input, and turns them
 /// into a [`SplitIters`] structure which is suitable for
@@ -133,7 +133,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
-    ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
+    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
         self.try_sort::<std::convert::Infallible>(pairs)
     }
 
@@ -148,7 +148,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
-    ) -> Result<SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync>>> {
+    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
         let split = <ParSortIters<DEDUP>>::try_sort_labeled::<DefaultBatchCodec<DEDUP>, E, _>(
             self,
             <DefaultBatchCodec<DEDUP>>::default(),
@@ -157,11 +157,12 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
                 .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
         )?;
 
+        let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
         let iters_without_labels: Vec<_> = split
             .iters
             .into_vec()
             .into_iter()
-            .map(|iter| iter.into_iter().map(|(pair, _)| pair))
+            .map(|iter| iter.map(strip))
             .collect();
 
         Ok(SplitIters::new(
@@ -260,12 +261,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         batch_codec: C,
         pairs: P,
-    ) -> Result<
-        SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
-            + use<C, P, DEDUP>,
-        >,
-    > {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         self.try_sort_labeled::<C, std::convert::Infallible, P>(batch_codec, pairs)
     }
 
@@ -291,12 +287,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         &self,
         batch_codec: C,
         pairs: P,
-    ) -> Result<
-        SplitIters<
-            impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
-            + use<C, E, P, DEDUP>,
-        >,
-    > {
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         let unsorted_pairs = pairs;
 
         let num_partitions = self.num_partitions.into();

@@ -35,9 +35,15 @@
 //!   permutation;
 //! - [`permute_split`]: same, using splitting to sort in parallel.
 //!
+//! # Map
+//!
+//! - [`map`]: returns the graph with nodes mapped through an arbitrary (not
+//!   necessarily bijective) function, deduplicating arcs;
+//! - [`map_split`]: same, using splitting to sort in parallel.
+//!
 //! # Memory Usage
 //!
-//! The transpose, simplify, and permute functions internally use
+//! The transpose, simplify, permute, and map functions internally use
 //! [`SortPairs`](crate::utils::SortPairs), which sorts arcs by batching them to
 //! temporary files and then merging. The amount of memory used for batching is
 //! controlled by the [`MemoryUsage`](crate::utils::MemoryUsage) parameter. The
@@ -53,3 +59,6 @@ pub use transpose::*;
 
 mod perm;
 pub use perm::*;
+
+mod map;
+pub use map::*;

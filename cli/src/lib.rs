@@ -20,17 +20,21 @@
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
-use num_traits::{FromBytes, ToBytes};
 use dsi_bitstream::dispatch::Codes;
-use epserde::deser::Deserialize;
+use epserde::deser::{Deserialize, Flags, MemCase};
 use epserde::ser::Serialize;
+use mmap_rs::MmapFlags;
+use num_traits::{FromBytes, ToBytes};
+use std::fmt::Display;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::time::Duration;
 use std::time::SystemTime;
 use sux::bits::BitFieldVec;
 use sux::utils::PrimitiveUnsignedExt;
-use webgraph::prelude::CompFlags;
+use value_traits::slices::SliceByValue;
+use webgraph::prelude::{CompFlags, JavaPermutation};
 use webgraph::utils::{Granularity, MemoryUsage};
 
 macro_rules! SEQ_PROC_WARN {
@@ -197,9 +201,9 @@ pub struct MemoryUsageArg {
     pub memory_usage: MemoryUsage,
 }
 
-/// Formats for storing and loading vectors of floats.
+/// Formats for storing and loading slices of floats.
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum FloatVectorFormat {
+pub enum FloatSliceFormat {
     /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
     Java,
     /// A slice of floats (32 or 64 bits) serialized using ε-serde.
@@ -210,8 +214,8 @@ pub enum FloatVectorFormat {
     Json,
 }
 
-impl FloatVectorFormat {
-    /// Stores float values in the specified `path` using the format defined by
+impl FloatSliceFormat {
+    /// Stores as slice of floats in the specified `path` using the format defined by
     /// `self`.
     ///
     /// If the result is a textual format, that is, ASCII or JSON, `precision`
@@ -225,33 +229,33 @@ impl FloatVectorFormat {
         precision: Option<usize>,
     ) -> Result<()>
     where
-        F: ToBytes + core::fmt::Display + epserde::ser::Serialize + Copy + zmij::Float,
+        F: ToBytes + Display + epserde::ser::Serialize + Copy + zmij::Float,
         for<'a> &'a [F]: epserde::ser::Serialize,
     {
         create_parent_dir(&path)?;
         let path_display = path.as_ref().display();
         let file = std::fs::File::create(&path)
-            .with_context(|| format!("Could not create vector at {}", path_display))?;
+            .with_context(|| format!("Could not create slice at {}", path_display))?;
         let mut file = BufWriter::new(file);
 
         match self {
-            FloatVectorFormat::Epserde => {
+            FloatSliceFormat::Epserde => {
                 log::info!("Storing in ε-serde format at {}", path_display);
                 // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     values
                         .serialize(&mut file)
-                        .with_context(|| format!("Could not write vector to {}", path_display))
+                        .with_context(|| format!("Could not write slice to {}", path_display))
                 }?;
             }
-            FloatVectorFormat::Java => {
+            FloatSliceFormat::Java => {
                 log::info!("Storing in Java format at {}", path_display);
                 for word in values.iter() {
                     file.write_all(word.to_be_bytes().as_ref())
-                        .with_context(|| format!("Could not write vector to {}", path_display))?;
+                        .with_context(|| format!("Could not write slice to {}", path_display))?;
                 }
             }
-            FloatVectorFormat::Ascii => {
+            FloatSliceFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path_display);
                 let mut buf = zmij::Buffer::new();
                 for word in values.iter() {
@@ -259,10 +263,10 @@ impl FloatVectorFormat {
                         None => writeln!(file, "{}", buf.format(*word)),
                         Some(precision) => writeln!(file, "{word:.precision$}"),
                     }
-                    .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    .with_context(|| format!("Could not write slice to {}", path_display))?;
                 }
             }
-            FloatVectorFormat::Json => {
+            FloatSliceFormat::Json => {
                 log::info!("Storing in JSON format at {}", path_display);
                 let mut buf = zmij::Buffer::new();
                 write!(file, "[")?;
@@ -271,14 +275,14 @@ impl FloatVectorFormat {
                         None => write!(file, "{}, ", buf.format(*word)),
                         Some(precision) => write!(file, "{word:.precision$}, "),
                     }
-                    .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    .with_context(|| format!("Could not write slice to {}", path_display))?;
                 }
                 if let Some(last) = values.last() {
                     match precision {
                         None => write!(file, "{}", buf.format(*last)),
                         Some(precision) => write!(file, "{last:.precision$}"),
                     }
-                    .with_context(|| format!("Could not write vector to {}", path_display))?;
+                    .with_context(|| format!("Could not write slice to {}", path_display))?;
                 }
                 write!(file, "]")?;
             }
@@ -291,23 +295,23 @@ impl FloatVectorFormat {
     /// by `self`.
     pub fn load<F>(&self, path: impl AsRef<Path>) -> Result<Vec<F>>
     where
-        F: FromBytes + std::str::FromStr + Copy,
+        F: FromBytes + FromStr + Copy + serde::de::DeserializeOwned,
         <F as FromBytes>::Bytes: for<'a> TryFrom<&'a [u8]>,
-        <F as std::str::FromStr>::Err: std::error::Error + Send + Sync + 'static,
+        <F as FromStr>::Err: std::error::Error + Send + Sync + 'static,
         Vec<F>: epserde::deser::Deserialize,
     {
         let path = path.as_ref();
         let path_display = path.display();
 
         match self {
-            FloatVectorFormat::Epserde => {
+            FloatSliceFormat::Epserde => {
                 log::info!("Loading ε-serde format from {}", path_display);
                 Ok(unsafe {
                     <Vec<F>>::load_full(path)
-                        .with_context(|| format!("Could not load vector from {}", path_display))?
+                        .with_context(|| format!("Could not load slice from {}", path_display))?
                 })
             }
-            FloatVectorFormat::Java => {
+            FloatSliceFormat::Java => {
                 log::info!("Loading Java format from {}", path_display);
                 let file = std::fs::File::open(path)
                     .with_context(|| format!("Could not open {}", path_display))?;
@@ -334,7 +338,7 @@ impl FloatVectorFormat {
                 }
                 Ok(result)
             }
-            FloatVectorFormat::Ascii => {
+            FloatSliceFormat::Ascii => {
                 log::info!("Loading ASCII format from {}", path_display);
                 let file = std::fs::File::open(path)
                     .with_context(|| format!("Could not open {}", path_display))?;
@@ -353,76 +357,24 @@ impl FloatVectorFormat {
                     })
                     .collect()
             }
-            FloatVectorFormat::Json => {
+            FloatSliceFormat::Json => {
                 log::info!("Loading JSON format from {}", path_display);
                 let file = std::fs::File::open(path)
                     .with_context(|| format!("Could not open {}", path_display))?;
-                let mut reader = BufReader::new(file);
-                let mut result = Vec::new();
-                let mut byte = [0u8; 1];
-
-                // Skip whitespace and opening bracket
-                loop {
-                    reader
-                        .read_exact(&mut byte)
-                        .with_context(|| format!("Unexpected end of file in {}", path_display))?;
-                    match byte[0] {
-                        b'[' => break,
-                        b if b.is_ascii_whitespace() => continue,
-                        _ => bail!("Expected '[' at start of JSON array in {}", path_display),
-                    }
-                }
-
-                // Parse comma-separated values until ']'
-                let mut token = String::new();
-                let mut index = 0usize;
-                loop {
-                    reader
-                        .read_exact(&mut byte)
-                        .with_context(|| format!("Unexpected end of file in {}", path_display))?;
-                    match byte[0] {
-                        b']' => {
-                            let trimmed = token.trim();
-                            if !trimmed.is_empty() {
-                                result.push(trimmed.parse::<F>().map_err(|e| {
-                                    anyhow!(
-                                        "Error parsing element {} of {}: {}",
-                                        index + 1,
-                                        path_display,
-                                        e
-                                    )
-                                })?);
-                            }
-                            break;
-                        }
-                        b',' => {
-                            let trimmed = token.trim();
-                            result.push(trimmed.parse::<F>().map_err(|e| {
-                                anyhow!(
-                                    "Error parsing element {} of {}: {}",
-                                    index + 1,
-                                    path_display,
-                                    e
-                                )
-                            })?);
-                            token.clear();
-                            index += 1;
-                        }
-                        c => {
-                            token.push(c as char);
-                        }
-                    }
-                }
-                Ok(result)
+                let reader = BufReader::new(file);
+                serde_json::from_reader(reader)
+                    .with_context(|| format!("Could not parse JSON from {}", path_display))
             }
         }
     }
 }
 
-/// How to store vectors of integers.
+/// How to store slices of integers.
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum IntVectorFormat {
+pub enum IntSliceFormat {
+    #[cfg(target_pointer_width = "64")]
     /// Java-compatible format: a sequence of big-endian longs (64 bits).
+    /// Available only on 64-bit platforms.
     Java,
     /// A slice of usize serialized using ε-serde.
     Epserde,
@@ -436,36 +388,135 @@ pub enum IntVectorFormat {
     Json,
 }
 
-impl IntVectorFormat {
-    /// Stores a vector of `u64` in the specified `path` using the format defined by `self`.
+impl Default for IntSliceFormat {
+    fn default() -> Self {
+        IntSliceFormat::Ascii
+    }
+}
+
+/// Loaded integer slice, returned by [`IntSliceFormat::load`].
+///
+/// Depending on the format, the data may be backed by a memory-mapped file
+/// (Java, ε-serde, and [`BitFieldVec`]) or fully loaded into memory (ASCII,
+/// JSON).
+///
+/// This enum implements [`SliceByValue`] with `Value = usize`, so it can
+/// be used directly wherever a [`SliceByValue`] is expected. However, each
+/// access goes through enum dispatch, which may be undesirable in
+/// performance-critical code.
+///
+/// For native, dispatch-free access, match on the variants and use each
+/// inner type directly—they all implement [`SliceByValue<Value = usize>`]:
+///
+/// ```ignore
+/// match args.fmt.load(&path)? {
+///     IntSlice::Owned(v) => do_transform(&v, ...),
+///     IntSlice::Java(j) => do_transform(&j, ...),
+///     IntSlice::Epserde(m) => do_transform(m.uncase(), ...),
+///     IntSlice::BitFieldVec(m) => do_transform(m.uncase(), ...),
+/// }
+/// ```
+///
+/// This incurs one monomorphization of `do_transform` per arm; arms that
+/// share the same inner type can be merged to reduce monomorphization cost.
+pub enum IntSlice {
+    /// Fully loaded into memory (ASCII, JSON).
+    Owned(Box<[usize]>),
+    #[cfg(target_pointer_width = "64")]
+    /// Memory-mapped Java big-endian format (64-bit only).
+    Java(JavaPermutation),
+    /// Memory-mapped ε-serde serialized slice.
+    Epserde(MemCase<Box<[usize]>>),
+    /// Memory-mapped ε-serde serialized [`BitFieldVec`].
+    BitFieldVec(MemCase<sux::bits::BitFieldVec<usize>>),
+}
+
+impl SliceByValue for IntSlice {
+    type Value = usize;
+
+    unsafe fn get_value_unchecked(&self, index: usize) -> usize {
+        match self {
+            IntSlice::Owned(v) => unsafe { *v.get_unchecked(index) },
+            #[cfg(target_pointer_width = "64")]
+            IntSlice::Java(j) => unsafe { j.get_value_unchecked(index) },
+            IntSlice::Epserde(m) => unsafe { *m.uncase().get_unchecked(index) },
+            IntSlice::BitFieldVec(m) => unsafe { m.uncase().get_value_unchecked(index) },
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            IntSlice::Owned(v) => v.len(),
+            #[cfg(target_pointer_width = "64")]
+            IntSlice::Java(j) => j.len(),
+            IntSlice::Epserde(m) => m.uncase().len(),
+            IntSlice::BitFieldVec(m) => m.uncase().len(),
+        }
+    }
+}
+
+/// Dispatches on an [`IntSlice`], binding the concrete inner
+/// [`SliceByValue`] type to `$var` and evaluating `$body` for each variant.
+///
+/// The bound types are `&Box<[usize]>` (Owned and Epserde),
+/// `&JavaPermutation` (Java, 64-bit only), and `&BitFieldVec<usize>`
+/// (BitFieldVec). All bound types are `Sized`.
+#[macro_export]
+macro_rules! dispatch_int_slice {
+    ($slice:expr, |$var:ident| $body:expr) => {
+        match $slice {
+            $crate::IntSlice::Owned(ref __v) => {
+                let $var = __v;
+                $body
+            }
+            #[cfg(target_pointer_width = "64")]
+            $crate::IntSlice::Java(ref __j) => {
+                let $var = __j;
+                $body
+            }
+            $crate::IntSlice::Epserde(ref __m) => {
+                let $var = __m.uncase();
+                $body
+            }
+            $crate::IntSlice::BitFieldVec(ref __m) => {
+                let $var = __m.uncase();
+                $body
+            }
+        }
+    };
+}
+
+impl IntSliceFormat {
+    /// Stores a slice of `usize` in the specified `path` using the format
+    /// defined by `self`.
     ///
-    /// `max` is the maximum value of the vector. If it is not provided, it will
+    /// `max` is the maximum value of the slice. If it is not provided, it will
     /// be computed from the data.
-    pub fn store(&self, path: impl AsRef<Path>, data: &[u64], max: Option<u64>) -> Result<()> {
+    pub fn store(&self, path: impl AsRef<Path>, data: &[usize], max: Option<usize>) -> Result<()> {
         // Ensure the parent directory exists
         create_parent_dir(&path)?;
 
         let mut file = std::fs::File::create(&path)
-            .with_context(|| format!("Could not create vector at {}", path.as_ref().display()))?;
+            .with_context(|| format!("Could not create slice at {}", path.as_ref().display()))?;
         let mut buf = BufWriter::new(&mut file);
 
         debug_assert_eq!(
             max,
             max.map(|_| { data.iter().copied().max().unwrap_or(0) }),
-            "The wrong maximum value was provided for the vector"
+            "The wrong maximum value was provided for the slice"
         );
 
         match self {
-            IntVectorFormat::Epserde => {
+            IntSliceFormat::Epserde => {
                 log::info!("Storing in epserde format at {}", path.as_ref().display());
                 // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     data.serialize(&mut buf).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })
                 }?;
             }
-            IntVectorFormat::BitFieldVec => {
+            IntSliceFormat::BitFieldVec => {
                 log::info!(
                     "Storing in BitFieldVec format at {}",
                     path.as_ref().display()
@@ -474,74 +525,111 @@ impl IntVectorFormat {
                     data.iter()
                         .copied()
                         .max()
-                        .unwrap_or_else(|| panic!("Empty vector"))
+                        .unwrap_or_else(|| panic!("Empty slice"))
                 });
                 let bit_width = max.bit_len() as usize;
                 log::info!("Using {} bits per element", bit_width);
-                let mut bit_field_vec = <BitFieldVec<u64, _>>::with_capacity(bit_width, data.len());
+                let mut bit_field_vec =
+                    <BitFieldVec<usize, _>>::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
                 // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     bit_field_vec.store(&path).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })
                 }?;
             }
-            IntVectorFormat::Java => {
+            #[cfg(target_pointer_width = "64")]
+            IntSliceFormat::Java => {
                 log::info!("Storing in Java format at {}", path.as_ref().display());
                 for word in data.iter() {
                     buf.write_all(&word.to_be_bytes()).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })?;
                 }
             }
-            IntVectorFormat::Ascii => {
+            IntSliceFormat::Ascii => {
                 log::info!("Storing in ASCII format at {}", path.as_ref().display());
                 for word in data.iter() {
                     writeln!(buf, "{}", word).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
+                        format!("Could not write slice to {}", path.as_ref().display())
                     })?;
                 }
             }
-            IntVectorFormat::Json => {
+            IntSliceFormat::Json => {
                 log::info!("Storing in JSON format at {}", path.as_ref().display());
-                write!(buf, "[")?;
-                for word in data.iter().take(data.len().saturating_sub(1)) {
-                    write!(buf, "{}, ", word).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
-                }
-                if let Some(last) = data.last() {
-                    write!(buf, "{}", last).with_context(|| {
-                        format!("Could not write vector to {}", path.as_ref().display())
-                    })?;
-                }
-                write!(buf, "]")?;
+                serde_json::to_writer(&mut buf, data).with_context(|| {
+                    format!("Could not write slice to {}", path.as_ref().display())
+                })?;
             }
         };
 
         Ok(())
     }
 
-    #[cfg(target_pointer_width = "64")]
-    /// Stores a vector of `usize` in the specified `path` using the format defined by `self`.
-    /// `max` is the maximum value of the vector, if it is not provided, it will
-    /// be computed from the data.
+    /// Loads integer values from the specified `path` using the format defined
+    /// by `self`, returning an [`IntSlice`].
     ///
-    /// This helper method is available only on 64-bit architectures as Java's format
-    /// uses 64-bit integers.
-    pub fn store_usizes(
-        &self,
-        path: impl AsRef<Path>,
-        data: &[usize],
-        max: Option<usize>,
-    ) -> Result<()> {
-        self.store(
-            path,
-            // SAFETY: usize and u64 have the same size and alignment on 64-bit platforms.
-            unsafe { core::mem::transmute::<&[usize], &[u64]>(data) },
-            max.map(|x| x as u64),
-        )
+    /// The ε-serde-based formats (Epserde, BitFieldVec) and the Java format
+    /// use memory mapping; ASCII and JSON are fully loaded into memory.
+    pub fn load(&self, path: impl AsRef<Path>) -> Result<IntSlice> {
+        let path = path.as_ref();
+        let path_display = path.display();
+
+        match self {
+            IntSliceFormat::Epserde => {
+                log::info!("Loading ε-serde format from {}", path_display);
+                let mem_case = unsafe {
+                    <Box<[usize]>>::mmap(path, Flags::RANDOM_ACCESS)
+                        .with_context(|| format!("Could not load slice from {}", path_display))?
+                };
+                Ok(IntSlice::Epserde(mem_case))
+            }
+            IntSliceFormat::BitFieldVec => {
+                log::info!("Loading BitFieldVec format from {}", path_display);
+                let mem_case = unsafe {
+                    <BitFieldVec<usize>>::mmap(path, Flags::RANDOM_ACCESS)
+                        .with_context(|| format!("Could not load slice from {}", path_display))?
+                };
+                Ok(IntSlice::BitFieldVec(mem_case))
+            }
+            #[cfg(target_pointer_width = "64")]
+            IntSliceFormat::Java => {
+                log::info!("Loading Java format from {}", path_display);
+                let perm = JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)
+                    .with_context(|| format!("Could not load slice from {}", path_display))?;
+                Ok(IntSlice::Java(perm))
+            }
+            IntSliceFormat::Ascii => {
+                log::info!("Loading ASCII format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let reader = BufReader::new(file);
+                let v: Vec<usize> = reader
+                    .lines()
+                    .enumerate()
+                    .filter(|(_, line)| line.as_ref().map_or(true, |l| !l.trim().is_empty()))
+                    .map(|(i, line)| {
+                        let line = line.with_context(|| {
+                            format!("Error reading line {} of {}", i + 1, path_display)
+                        })?;
+                        line.trim().parse::<usize>().map_err(|e| {
+                            anyhow!("Error parsing line {} of {}: {}", i + 1, path_display, e)
+                        })
+                    })
+                    .collect::<Result<_>>()?;
+                Ok(IntSlice::Owned(v.into_boxed_slice()))
+            }
+            IntSliceFormat::Json => {
+                log::info!("Loading JSON format from {}", path_display);
+                let file = std::fs::File::open(path)
+                    .with_context(|| format!("Could not open {}", path_display))?;
+                let reader = BufReader::new(file);
+                let v: Vec<usize> = serde_json::from_reader(reader)
+                    .with_context(|| format!("Could not parse JSON from {}", path_display))?;
+                Ok(IntSlice::Owned(v.into_boxed_slice()))
+            }
+        }
     }
 }
 
@@ -602,7 +690,7 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
 /// Shared CLI arguments for compression.
 #[derive(Args, Debug, Clone)]
 pub struct CompressArgs {
-    /// The endianness of the graph to write
+    /// The endianness of the graph to write [default: same as source]
     #[clap(short = 'E', long)]
     pub endianness: Option<String>,
 
@@ -636,7 +724,7 @@ pub struct CompressArgs {
     /// The code to use for the residuals
     pub residuals: PrivCode,
 
-    /// Whether to use Zuckerli's reference selection algorithm. This slows down
+    /// Whether to use Zuckerli's reference selection algorithm; this slows down
     /// the compression process and requires more memory, but improves
     /// compression ratio and decoding speed.
     #[clap(long)]
@@ -989,404 +1077,4 @@ fn pretty_print_elapsed(elapsed: f64) -> String {
 
     result.push_str(&format!("{:.3} seconds ({}s)", elapsed % 60.0, elapsed));
     result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    mod float_vector_format {
-        use super::*;
-
-        #[test]
-        fn test_ascii_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
-            FloatVectorFormat::Ascii
-                .store(&path, &values, None)
-                .unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            // Default precision is f64::DIGITS (15)
-            for (line, expected) in content.lines().zip(&values) {
-                let parsed: f64 = line.trim().parse().unwrap();
-                assert!((parsed - expected).abs() < 1e-10);
-            }
-            assert_eq!(content.lines().count(), 3);
-        }
-
-        #[test]
-        fn test_ascii_f32() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let values: Vec<f32> = vec![1.5, 2.75, 3.0];
-            FloatVectorFormat::Ascii
-                .store(&path, &values, None)
-                .unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            for (line, expected) in content.lines().zip(&values) {
-                let parsed: f32 = line.trim().parse().unwrap();
-                assert!((parsed - expected).abs() < 1e-6);
-            }
-        }
-
-        #[test]
-        fn test_ascii_with_precision() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let values: Vec<f64> = vec![1.123456789, 2.987654321];
-            FloatVectorFormat::Ascii
-                .store(&path, &values, Some(3))
-                .unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let lines: Vec<&str> = content.lines().collect();
-            assert_eq!(lines[0], "1.123");
-            assert_eq!(lines[1], "2.988");
-        }
-
-        #[test]
-        fn test_json_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
-            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let parsed: Vec<f64> = serde_json::from_str(&content).unwrap();
-            assert_eq!(parsed, values);
-        }
-
-        #[test]
-        fn test_json_with_precision() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let values: Vec<f64> = vec![1.123456789, 2.987654321];
-            FloatVectorFormat::Json
-                .store(&path, &values, Some(2))
-                .unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            assert_eq!(content, "[1.12, 2.99]");
-        }
-
-        #[test]
-        fn test_json_empty() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let values: Vec<f64> = vec![];
-            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            assert_eq!(content, "[]");
-        }
-
-        #[test]
-        fn test_json_single_element() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let values: Vec<f64> = vec![42.0];
-            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let parsed: Vec<f64> = serde_json::from_str(&content).unwrap();
-            assert_eq!(parsed, values);
-        }
-
-        #[test]
-        fn test_java_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
-            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
-            let bytes = std::fs::read(&path).unwrap();
-            assert_eq!(bytes.len(), 3 * 8);
-            for (i, expected) in values.iter().enumerate() {
-                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
-                let val = f64::from_be_bytes(chunk);
-                assert_eq!(val, *expected);
-            }
-        }
-
-        #[test]
-        fn test_java_f32() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let values: Vec<f32> = vec![1.5, 2.75, 3.0];
-            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
-            let bytes = std::fs::read(&path).unwrap();
-            assert_eq!(bytes.len(), 3 * 4);
-            for (i, expected) in values.iter().enumerate() {
-                let chunk: [u8; 4] = bytes[i * 4..(i + 1) * 4].try_into().unwrap();
-                let val = f32::from_be_bytes(chunk);
-                assert_eq!(val, *expected);
-            }
-        }
-
-        #[test]
-        fn test_epserde_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0];
-            FloatVectorFormat::Epserde
-                .store(&path, &values, None)
-                .unwrap();
-            // Just verify the file was created and is non-empty
-            let metadata = std::fs::metadata(&path).unwrap();
-            assert!(metadata.len() > 0);
-        }
-
-        #[test]
-        fn test_ascii_empty() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let values: Vec<f64> = vec![];
-            FloatVectorFormat::Ascii
-                .store(&path, &values, None)
-                .unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            assert!(content.is_empty());
-        }
-
-        #[test]
-        fn test_creates_parent_dirs() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("a").join("b").join("test.txt");
-            let values: Vec<f64> = vec![1.0];
-            FloatVectorFormat::Ascii
-                .store(&path, &values, None)
-                .unwrap();
-            assert!(path.exists());
-        }
-
-        #[test]
-        fn test_roundtrip_ascii_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            FloatVectorFormat::Ascii
-                .store(&path, &values, None)
-                .unwrap();
-            let loaded: Vec<f64> = FloatVectorFormat::Ascii.load(&path).unwrap();
-            assert_eq!(loaded, values);
-        }
-
-        #[test]
-        fn test_roundtrip_json_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            FloatVectorFormat::Json.store(&path, &values, None).unwrap();
-            let loaded: Vec<f64> = FloatVectorFormat::Json.load(&path).unwrap();
-            assert_eq!(loaded, values);
-        }
-
-        #[test]
-        fn test_roundtrip_java_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            FloatVectorFormat::Java.store(&path, &values, None).unwrap();
-            let loaded: Vec<f64> = FloatVectorFormat::Java.load(&path).unwrap();
-            assert_eq!(loaded, values);
-        }
-
-        #[test]
-        fn test_roundtrip_epserde_f64() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let values: Vec<f64> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            FloatVectorFormat::Epserde
-                .store(&path, &values, None)
-                .unwrap();
-            let loaded: Vec<f64> = FloatVectorFormat::Epserde.load(&path).unwrap();
-            assert_eq!(loaded, values);
-        }
-
-        #[test]
-        fn test_roundtrip_empty() {
-            let dir = tempfile::tempdir().unwrap();
-            for (fmt, ext) in [
-                (FloatVectorFormat::Ascii, "txt"),
-                (FloatVectorFormat::Json, "json"),
-                (FloatVectorFormat::Java, "bin"),
-                (FloatVectorFormat::Epserde, "eps"),
-            ] {
-                let path = dir.path().join(format!("empty.{ext}"));
-                let values: Vec<f64> = vec![];
-                fmt.store(&path, &values, None).unwrap();
-                let loaded: Vec<f64> = fmt.load(&path).unwrap();
-                assert_eq!(loaded, values, "roundtrip failed for {ext}");
-            }
-        }
-
-        #[test]
-        fn test_roundtrip_f32() {
-            let dir = tempfile::tempdir().unwrap();
-            let values: Vec<f32> = vec![1.5, 2.75, 3.0, 0.0, -1.25];
-            for (fmt, ext) in [
-                (FloatVectorFormat::Ascii, "txt"),
-                (FloatVectorFormat::Json, "json"),
-                (FloatVectorFormat::Java, "bin"),
-                (FloatVectorFormat::Epserde, "eps"),
-            ] {
-                let path = dir.path().join(format!("f32.{ext}"));
-                fmt.store(&path, &values, None).unwrap();
-                let loaded: Vec<f32> = fmt.load(&path).unwrap();
-                assert_eq!(loaded, values, "f32 roundtrip failed for {ext}");
-            }
-        }
-    }
-
-    mod int_vector_format {
-        use super::*;
-
-        #[test]
-        fn test_ascii() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let data: Vec<u64> = vec![10, 20, 30];
-            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let lines: Vec<u64> = content.lines().map(|l| l.trim().parse().unwrap()).collect();
-            assert_eq!(lines, data);
-        }
-
-        #[test]
-        fn test_ascii_empty() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let data: Vec<u64> = vec![];
-            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            assert!(content.is_empty());
-        }
-
-        #[test]
-        fn test_json() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let data: Vec<u64> = vec![10, 20, 30];
-            IntVectorFormat::Json.store(&path, &data, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let parsed: Vec<u64> = serde_json::from_str(&content).unwrap();
-            assert_eq!(parsed, data);
-        }
-
-        #[test]
-        fn test_json_empty() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let data: Vec<u64> = vec![];
-            IntVectorFormat::Json.store(&path, &data, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            assert_eq!(content, "[]");
-        }
-
-        #[test]
-        fn test_json_single_element() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.json");
-            let data: Vec<u64> = vec![42];
-            IntVectorFormat::Json.store(&path, &data, None).unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let parsed: Vec<u64> = serde_json::from_str(&content).unwrap();
-            assert_eq!(parsed, data);
-        }
-
-        #[test]
-        fn test_java() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let data: Vec<u64> = vec![1, 256, 65535];
-            IntVectorFormat::Java.store(&path, &data, None).unwrap();
-            let bytes = std::fs::read(&path).unwrap();
-            assert_eq!(bytes.len(), 3 * 8);
-            for (i, expected) in data.iter().enumerate() {
-                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
-                let val = u64::from_be_bytes(chunk);
-                assert_eq!(val, *expected);
-            }
-        }
-
-        #[test]
-        fn test_java_empty() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let data: Vec<u64> = vec![];
-            IntVectorFormat::Java.store(&path, &data, None).unwrap();
-            let bytes = std::fs::read(&path).unwrap();
-            assert!(bytes.is_empty());
-        }
-
-        #[test]
-        fn test_epserde() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let data: Vec<u64> = vec![10, 20, 30];
-            IntVectorFormat::Epserde.store(&path, &data, None).unwrap();
-            let metadata = std::fs::metadata(&path).unwrap();
-            assert!(metadata.len() > 0);
-        }
-
-        #[test]
-        fn test_bitfieldvec() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let data: Vec<u64> = vec![1, 3, 7, 15];
-            IntVectorFormat::BitFieldVec
-                .store(&path, &data, Some(15))
-                .unwrap();
-            let metadata = std::fs::metadata(&path).unwrap();
-            assert!(metadata.len() > 0);
-        }
-
-        #[test]
-        fn test_bitfieldvec_max_computed() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let data: Vec<u64> = vec![1, 3, 7, 15];
-            // max is None, so it should be computed from data
-            IntVectorFormat::BitFieldVec
-                .store(&path, &data, None)
-                .unwrap();
-            assert!(path.exists());
-        }
-
-        #[test]
-        fn test_creates_parent_dirs() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("a").join("b").join("test.txt");
-            let data: Vec<u64> = vec![1];
-            IntVectorFormat::Ascii.store(&path, &data, None).unwrap();
-            assert!(path.exists());
-        }
-
-        #[cfg(target_pointer_width = "64")]
-        #[test]
-        fn test_store_usizes() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.txt");
-            let data: Vec<usize> = vec![10, 20, 30];
-            IntVectorFormat::Ascii
-                .store_usizes(&path, &data, None)
-                .unwrap();
-            let content = std::fs::read_to_string(&path).unwrap();
-            let lines: Vec<usize> = content.lines().map(|l| l.trim().parse().unwrap()).collect();
-            assert_eq!(lines, data);
-        }
-
-        #[cfg(target_pointer_width = "64")]
-        #[test]
-        fn test_store_usizes_java() {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("test.bin");
-            let data: Vec<usize> = vec![1, 256, 65535];
-            IntVectorFormat::Java
-                .store_usizes(&path, &data, None)
-                .unwrap();
-            let bytes = std::fs::read(&path).unwrap();
-            assert_eq!(bytes.len(), 3 * 8);
-            for (i, expected) in data.iter().enumerate() {
-                let chunk: [u8; 8] = bytes[i * 8..(i + 1) * 8].try_into().unwrap();
-                let val = u64::from_be_bytes(chunk) as usize;
-                assert_eq!(val, *expected);
-            }
-        }
-    }
 }

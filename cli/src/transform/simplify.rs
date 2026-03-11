@@ -8,7 +8,6 @@
 use crate::*;
 use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
-use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::graphs::union_graph::UnionGraph;
@@ -23,8 +22,8 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(long)]
-    /// The basename of a pre-computed transposed version of the source graph, which
-    /// will be use to speed up the simplification.
+    /// The basename of a pre-computed transposed version of the source graph,
+    /// which will be used to speed up the simplification.
     pub transposed: Option<PathBuf>,
 
     #[clap(flatten)]
@@ -37,12 +36,16 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 
     #[arg(long)]
-    /// The path to an optional permutation in binary big-endian format to apply to the graph.
+    /// The path to an optional permutation to apply to the graph.
     pub permutation: Option<PathBuf>,
+
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the permutation file.
+    pub fmt: IntSliceFormat,
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes. The DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.
     pub dcf: bool,
 }
 
@@ -127,11 +130,7 @@ where
                             sorted.num_arcs_hint(),
                             use_dcf,
                         )?;
-                        builder.par_comp_lenders_endianness_at(
-                            &sorted,
-                            &target_endianness,
-                            cp,
-                        )
+                        builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
                     })?;
 
                     return Ok(());
@@ -169,12 +168,8 @@ where
             let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
 
             thread_pool.install(|| {
-                let cp = crate::cutpoints(
-                    &src,
-                    sorted.num_nodes(),
-                    sorted.num_arcs_hint(),
-                    use_dcf,
-                )?;
+                let cp =
+                    crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
                 builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
             })?;
         }
@@ -183,63 +178,72 @@ where
         (Some(perm_path), None | Some(_)) => {
             log::info!("Permutation provided, applying it to the graph");
 
-            let perm = JavaPermutation::mmap(perm_path, MmapFlags::RANDOM_ACCESS)?;
+            let loaded = args.fmt.load(perm_path)?;
+            let memory_usage = args.memory_usage.memory_usage;
+            let src_basename = args.src;
 
-            // if the .ef file exists, we can use the simplify split
-            if std::fs::metadata(args.src.with_extension("ef")).is_ok_and(|x| x.is_file()) {
-                log::info!(".ef file found, using simplify split");
-                let graph =
-                    webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
-                        .endianness::<E>()
-                        .load()?;
-
-                let perm_graph = PermutedGraph {
-                    graph: &graph,
-                    perm: &perm,
-                };
-
-                thread_pool.install(|| {
-                    let sorted = webgraph::transform::simplify_split(
-                        &perm_graph,
-                        args.memory_usage.memory_usage,
-                    )?;
-
-                    let cp = crate::cutpoints(
-                        &src,
-                        sorted.num_nodes(),
-                        sorted.num_arcs_hint(),
-                        use_dcf,
-                    )?;
-                    builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
-                })?;
-
-                return Ok(());
-            }
-
-            no_ef_warn(&args.src);
-
-            let seq_graph =
-                webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
+            dispatch_int_slice!(loaded, |perm| {
+                if std::fs::metadata(src_basename.with_extension("ef"))
+                    .is_ok_and(|x| x.is_file())
+                {
+                    log::info!(".ef file found, using parallel simplify + permute");
+                    let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(
+                        &src_basename,
+                    )
                     .endianness::<E>()
                     .load()?;
+                    let perm_graph = PermutedGraph {
+                        graph: &graph,
+                        perm,
+                    };
+                    let num_nodes = perm_graph.num_nodes();
 
-            let perm_graph = PermutedGraph {
-                graph: &seq_graph,
-                perm: &perm,
-            };
-
-            // simplify the graph
-            let sorted =
-                webgraph::transform::simplify(&perm_graph, args.memory_usage.memory_usage)?;
-
-            thread_pool.install(|| {
-                let cp = crate::cutpoints(
-                    &src,
-                    sorted.num_nodes(),
-                    sorted.num_arcs_hint(),
-                    use_dcf,
-                )?;
-                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+                    thread_pool.install(|| {
+                        let sorted =
+                            webgraph::transform::simplify_split(&perm_graph, memory_usage)?;
+                        let pairs: Vec<_> = sorted.into();
+                        match target_endianness.as_str() {
+                            #[cfg(any(
+                                feature = "be_bins",
+                                not(any(feature = "be_bins", feature = "le_bins"))
+                            ))]
+                            BE::NAME => {
+                                builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes)
+                            }
+                            #[cfg(any(
+                                feature = "le_bins",
+                                not(any(feature = "be_bins", feature = "le_bins"))
+                            ))]
+                            LE::NAME => {
+                                builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes)
+                            }
+                            e => anyhow::bail!("Unknown endianness: {}", e),
+                        }
+                    })
+                } else {
+                    no_ef_warn(&src_basename);
+                    let seq_graph =
+                        webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(
+                            &src_basename,
+                        )
+                        .endianness::<E>()
+                        .load()?;
+                    let perm_graph = PermutedGraph {
+                        graph: &seq_graph,
+                        perm,
+                    };
+                    let sorted = webgraph::transform::simplify(&perm_graph, memory_usage)?;
+                    thread_pool.install(|| {
+                        let cp = crate::cutpoints(
+                            &src,
+                            sorted.num_nodes(),
+                            sorted.num_arcs_hint(),
+                            use_dcf,
+                        )?;
+                        builder
+                            .par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+                    })
+                }
             })?;
         }
         // just compute the transpose on the fly
@@ -255,6 +259,7 @@ where
                     webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                         .endianness::<E>()
                         .load()?;
+                let num_nodes = graph.num_nodes();
 
                 thread_pool.install(|| {
                     let sorted = webgraph::transform::simplify_split(
@@ -262,13 +267,20 @@ where
                         args.memory_usage.memory_usage,
                     )?;
 
-                    let cp = crate::cutpoints(
-                        &src,
-                        sorted.num_nodes(),
-                        sorted.num_arcs_hint(),
-                        use_dcf,
-                    )?;
-                    builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+                    let pairs: Vec<_> = sorted.into();
+                    match target_endianness.as_str() {
+                        #[cfg(any(
+                            feature = "be_bins",
+                            not(any(feature = "be_bins", feature = "le_bins"))
+                        ))]
+                        BE::NAME => builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes),
+                        #[cfg(any(
+                            feature = "le_bins",
+                            not(any(feature = "be_bins", feature = "le_bins"))
+                        ))]
+                        LE::NAME => builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes),
+                        e => anyhow::bail!("Unknown endianness: {}", e),
+                    }
                 })?;
 
                 return Ok(());
@@ -286,12 +298,8 @@ where
                 webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)?;
 
             thread_pool.install(|| {
-                let cp = crate::cutpoints(
-                    &src,
-                    sorted.num_nodes(),
-                    sorted.num_arcs_hint(),
-                    use_dcf,
-                )?;
+                let cp =
+                    crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
                 builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
             })?;
         }

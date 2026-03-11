@@ -10,8 +10,8 @@ use crate::*;
 use anyhow::Result;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
+use value_traits::slices::SliceByValue;
 
-use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::prelude::*;
@@ -29,8 +29,12 @@ pub struct CliArgs {
     pub num_threads: NumThreadsArg,
 
     #[arg(long)]
-    /// The path to an optional permutation in binary big-endian format to be applied to the graph.
+    /// The path to an optional permutation to be applied to the graph.
     pub permutation: Option<PathBuf>,
+
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the permutation file.
+    pub fmt: IntSliceFormat,
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
@@ -47,18 +51,12 @@ pub struct CliArgs {
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    let permutation = if let Some(path) = args.permutation.as_ref() {
-        Some(JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)?)
-    } else {
-        None
-    };
-
     let target_endianness = args.ca.endianness.clone();
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => compress::<BE>(global_args, args, target_endianness, permutation),
+        BE::NAME => compress::<BE>(global_args, args, target_endianness),
         #[cfg(feature = "le_bins")]
-        LE::NAME => compress::<LE>(global_args, args, target_endianness, permutation),
+        LE::NAME => compress::<LE>(global_args, args, target_endianness),
         e => panic!("Unknown endianness: {}", e),
     }
 }
@@ -67,7 +65,6 @@ pub fn compress<E: Endianness>(
     _global_args: GlobalArgs,
     args: CliArgs,
     target_endianness: Option<String>,
-    permutation: Option<JavaPermutation>,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
@@ -80,6 +77,7 @@ where
     let bvgraphz = args.ca.bvgraphz;
     let use_dcf = args.dcf;
     let src = args.src.clone();
+    let memory_usage = args.memory_usage.memory_usage;
     let mut builder = BvCompConfig::new(&args.dst)
         .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
@@ -88,82 +86,110 @@ where
         builder = builder.with_chunk_size(chunk_size);
     }
 
-    if src.with_extension(EF_EXTENSION).exists() {
-        let graph = BvGraph::with_basename(&src).endianness::<E>().load()?;
-
-        if let Some(permutation) = permutation {
-            let memory_usage = args.memory_usage.memory_usage;
-            thread_pool.install(|| {
-                log::info!("Permuting graph with memory usage {}", memory_usage);
-                let start = std::time::Instant::now();
-                let sorted =
-                    webgraph::transform::permute_split(&graph, &permutation, memory_usage)?;
-                log::info!(
-                    "Permuted the graph. It took {:.3} seconds",
-                    start.elapsed().as_secs_f64()
-                );
-                let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
-                builder.par_comp_lenders_endianness_at(
-                    &sorted,
-                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-                    cp,
-                )
-            })?;
-        } else {
-            thread_pool.install(|| {
-                let cp = crate::cutpoints(&src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
-                builder.par_comp_lenders_endianness_at(
-                    &graph,
-                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-                    cp,
-                )
-            })?;
-        }
+    if let Some(path) = args.permutation.as_ref() {
+        let loaded = args.fmt.load(path)?;
+        dispatch_int_slice!(loaded, |perm| {
+            compress_with_perm::<E, _>(
+                thread_pool, builder, &src, target_endianness, memory_usage, use_dcf, perm,
+            )
+        })
     } else {
-        log::warn!(
-            "The .ef file does not exist. The graph will be read sequentially which will result in slower compression. If you can, run `webgraph build ef` before recompressing."
-        );
-        let seq_graph = BvGraphSeq::with_basename(&src).endianness::<E>().load()?;
+        compress_no_perm::<E>(thread_pool, builder, &src, target_endianness, use_dcf)
+    }
+}
 
-        if let Some(permutation) = permutation {
-            let memory_usage = args.memory_usage.memory_usage;
+pub fn compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync>(
+    thread_pool: rayon::ThreadPool,
+    mut builder: BvCompConfig,
+    src: &std::path::Path,
+    target_endianness: Option<String>,
+    memory_usage: webgraph::utils::MemoryUsage,
+    use_dcf: bool,
+    perm: &P,
+) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
+{
+    let te = target_endianness.unwrap_or_else(|| E::NAME.into());
 
+    if std::fs::metadata(src.with_extension(EF_EXTENSION)).is_ok_and(|x| x.is_file()) {
+        let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
+        let num_nodes = graph.num_nodes();
+        thread_pool.install(|| {
             log::info!("Permuting graph with memory usage {}", memory_usage);
             let start = std::time::Instant::now();
-            let permuted = webgraph::transform::permute(&seq_graph, &permutation, memory_usage)?;
+            let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage)?;
             log::info!(
                 "Permuted the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()
             );
+            let pairs: Vec<_> = sorted.into();
+            match te.as_str() {
+                #[cfg(any(
+                    feature = "be_bins",
+                    not(any(feature = "be_bins", feature = "le_bins"))
+                ))]
+                BE::NAME => builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes),
+                #[cfg(any(
+                    feature = "le_bins",
+                    not(any(feature = "be_bins", feature = "le_bins"))
+                ))]
+                LE::NAME => builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes),
+                e => anyhow::bail!("Unknown endianness: {}", e),
+            }
+        })?;
+    } else {
+        log::warn!(SEQ_PROC_WARN![], src.display());
+        let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
 
-            thread_pool.install(|| {
-                let cp = cutpoints(
-                    &src,
-                    permuted.num_nodes(),
-                    permuted.num_arcs_hint(),
-                    use_dcf,
-                )?;
-                builder.par_comp_lenders_endianness_at(
-                    &permuted,
-                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-                    cp,
-                )
-            })?;
-        } else {
-            thread_pool.install(|| {
-                let cp = cutpoints(
-                    &src,
-                    seq_graph.num_nodes(),
-                    seq_graph.num_arcs_hint(),
-                    use_dcf,
-                )?;
-                builder.par_comp_lenders_endianness_at(
-                    &seq_graph,
-                    &target_endianness.unwrap_or_else(|| BE::NAME.into()),
-                    cp,
-                )
-            })?;
-        }
+        log::info!("Permuting graph with memory usage {}", memory_usage);
+        let start = std::time::Instant::now();
+        let permuted = webgraph::transform::permute(&seq_graph, perm, memory_usage)?;
+        log::info!(
+            "Permuted the graph. It took {:.3} seconds",
+            start.elapsed().as_secs_f64()
+        );
+
+        thread_pool.install(|| {
+            let cp = cutpoints(src, permuted.num_nodes(), permuted.num_arcs_hint(), use_dcf)?;
+            builder.par_comp_lenders_endianness_at(&permuted, &te, cp)
+        })?;
+    }
+    Ok(())
+}
+
+fn compress_no_perm<E: Endianness>(
+    thread_pool: rayon::ThreadPool,
+    mut builder: BvCompConfig,
+    src: &std::path::Path,
+    target_endianness: Option<String>,
+    use_dcf: bool,
+) -> Result<()>
+where
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
+{
+    let te = target_endianness.unwrap_or_else(|| E::NAME.into());
+
+    if std::fs::metadata(src.with_extension(EF_EXTENSION)).is_ok_and(|x| x.is_file()) {
+        let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
+        thread_pool.install(|| {
+            let cp = crate::cutpoints(src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
+            builder.par_comp_lenders_endianness_at(&graph, &te, cp)
+        })?;
+    } else {
+        log::warn!(SEQ_PROC_WARN![], src.display());
+        let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
+        thread_pool.install(|| {
+            let cp = cutpoints(
+                src,
+                seq_graph.num_nodes(),
+                seq_graph.num_arcs_hint(),
+                use_dcf,
+            )?;
+            builder.par_comp_lenders_endianness_at(&seq_graph, &te, cp)
+        })?;
     }
     Ok(())
 }

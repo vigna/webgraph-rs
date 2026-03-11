@@ -5,29 +5,48 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, create_parent_dir};
+use crate::{GlobalArgs, IntSlice, IntSliceFormat, create_parent_dir};
 use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_progress_logger::prelude::*;
-use epserde::prelude::*;
-use mmap_rs::MmapFlags;
-use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
-use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "comp", about = "Compose multiple permutations into a single one", long_about = None)]
 pub struct CliArgs {
-    /// The filename of the resulting permutation in binary big-endian format.
+    /// The filename of the resulting permutation.
     pub dst: PathBuf,
 
-    /// Filenames of the permutations in binary big-endian format to compose (in order of application).
+    /// Filenames of the permutations to compose (in order of application).
     pub perms: Vec<PathBuf>,
 
-    #[arg(short, long)]
-    /// Load and store permutations in ε-serde format.
-    pub epserde: bool,
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the source permutation files.
+    pub src_fmt: IntSliceFormat,
+
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the destination permutation file.
+    pub dst_fmt: IntSliceFormat,
+}
+
+fn compose<P: SliceByValue<Value = usize>>(
+    perms: &[&P],
+    len: usize,
+    pl: &mut ProgressLogger,
+) -> Vec<usize> {
+    let mut merged = Vec::with_capacity(len);
+    pl.start("Combining permutations...");
+    for i in 0..len {
+        let mut v = i;
+        for p in perms {
+            v = p.index_value(v);
+        }
+        merged.push(v);
+        pl.light_update();
+    }
+    pl.done();
+    merged
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -40,55 +59,53 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         pl.log_interval(duration);
     }
 
-    if args.epserde {
-        let mut perm = Vec::new();
-        for path in args.perms {
-            let p = unsafe { <Vec<usize>>::mmap(&path, Flags::RANDOM_ACCESS) }?;
-            perm.push(p);
-        }
-        let mut merged = Vec::new();
-        let len = perm[0].uncase().len();
-        ensure!(
-            perm.iter().all(|p| p.uncase().len() == len),
-            "All permutations must have the same length"
-        );
-
-        pl.start("Combining permutations...");
-        for i in 0..len {
-            let mut v = i;
-            for p in &perm {
-                v = p.uncase()[v];
-            }
-            merged.push(v);
-            pl.light_update();
-        }
-        pl.done();
-        // SAFETY: the type is ε-serde serializable.
-        unsafe { merged.store(&args.dst) }?;
-    } else {
-        let mut writer = BufWriter::new(std::fs::File::create(&args.dst)?);
-        let mut perm = Vec::new();
-        for path in args.perms {
-            let p = JavaPermutation::mmap(&path, MmapFlags::RANDOM_ACCESS)?;
-            perm.push(p);
-        }
-
-        ensure!(
-            perm.iter()
-                .all(|p| p.as_ref().len() == perm[0].as_ref().len()),
-            "All permutations must have the same length"
-        );
-
-        pl.start("Combining permutations...");
-        for i in 0..perm[0].as_ref().len() {
-            let mut v = i;
-            for p in &perm {
-                v = p.index_value(v);
-            }
-            writer.write_all(&(v as u64).to_be_bytes())?;
-            pl.light_update();
-        }
-        pl.done();
+    let mut perms: Vec<IntSlice> = Vec::new();
+    for path in &args.perms {
+        perms.push(args.src_fmt.load(path)?);
     }
+
+    let len = perms[0].len();
+    ensure!(
+        perms.iter().all(|p| p.len() == len),
+        "All permutations must have the same length"
+    );
+
+    // Dispatch on the concrete type for static dispatch in the composition
+    // loop. All perms share the same variant since they are loaded with the
+    // same src_fmt.
+    let merged = match &perms[0] {
+        IntSlice::Owned(_) => {
+            let refs: Vec<_> = perms.iter().map(|p| {
+                let IntSlice::Owned(v) = p else { unreachable!() };
+                v
+            }).collect();
+            compose(&refs, len, &mut pl)
+        }
+        #[cfg(target_pointer_width = "64")]
+        IntSlice::Java(_) => {
+            let refs: Vec<_> = perms.iter().map(|p| {
+                let IntSlice::Java(j) = p else { unreachable!() };
+                j
+            }).collect();
+            compose(&refs, len, &mut pl)
+        }
+        IntSlice::Epserde(_) => {
+            let refs: Vec<_> = perms.iter().map(|p| {
+                let IntSlice::Epserde(m) = p else { unreachable!() };
+                m.uncase()
+            }).collect();
+            compose(&refs, len, &mut pl)
+        }
+        IntSlice::BitFieldVec(_) => {
+            let refs: Vec<_> = perms.iter().map(|p| {
+                let IntSlice::BitFieldVec(m) = p else { unreachable!() };
+                m.uncase()
+            }).collect();
+            compose(&refs, len, &mut pl)
+        }
+    };
+
+    args.dst_fmt.store(&args.dst, &merged, None)?;
+
     Ok(())
 }

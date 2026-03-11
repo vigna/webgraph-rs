@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
+use crate::{FloatSliceFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
 use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -71,17 +71,17 @@ pub struct CliArgs {
     /// Path to a preference (personalization) vector.
     pub preference: Option<PathBuf>,
 
-    #[arg(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
+    #[arg(long, value_enum, default_value_t = FloatSliceFormat::Ascii)]
     /// The input format for the preference vector.
-    pub preference_fmt: FloatVectorFormat,
+    pub preference_fmt: FloatSliceFormat,
 
     #[arg(short, long, value_enum, default_value_t = CliMode::StronglyPreferential)]
     /// The PageRank mode.
     pub mode: CliMode,
 
-    #[arg(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
+    #[arg(long, value_enum, default_value_t = FloatSliceFormat::Ascii)]
     /// The output format for the rank vector.
-    pub fmt: FloatVectorFormat,
+    pub fmt: FloatSliceFormat,
 
     #[arg(long)]
     /// Decimal digits for text output formats.

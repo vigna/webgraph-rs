@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{IntVectorFormat, build_info, num_threads_parser, pretty_print_elapsed};
+use crate::{IntSliceFormat, build_info, num_threads_parser, pretty_print_elapsed};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
@@ -49,9 +49,9 @@ pub struct CliArgs {
     /// The number of threads to use to compute the sizes of the components.
     pub num_threads: usize,
 
-    #[arg(long, value_enum, default_value_t = IntVectorFormat::Ascii)]
+    #[arg(long, value_enum, default_value_t = IntSliceFormat::Ascii)]
     /// The storage format for components and component sizes.
-    pub fmt: IntVectorFormat,
+    pub fmt: IntSliceFormat,
 }
 
 pub fn cli_main<I, T>(args: I) -> Result<()>
@@ -115,15 +115,15 @@ where
         };
         if let Some(sizes_path) = &args.sizes {
             let max = component_sizes.first().copied();
-            args.fmt.store_usizes(sizes_path, &component_sizes, max)?;
+            args.fmt.store(sizes_path, &component_sizes, max)?;
         }
     } else if let Some(sizes_path) = &args.sizes {
         log::info!("Computing the sizes of the components");
         let sizes = sccs.compute_sizes();
-        args.fmt.store_usizes(sizes_path, &sizes, None)?;
+        args.fmt.store(sizes_path, &sizes, None)?;
     };
 
-    args.fmt.store_usizes(
+    args.fmt.store(
         &args.sccs,
         sccs.components(),
         Some(sccs.num_components() - 1),

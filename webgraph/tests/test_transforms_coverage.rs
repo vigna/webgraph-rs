@@ -188,12 +188,19 @@ fn test_permute_split() -> Result<()> {
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let perm = vec![2, 0, 1];
     let p = permute_split(&seq, &perm, MemoryUsage::BatchSize(2))?;
-    let p = VecGraph::from_lender(&p);
-    assert_eq!(p.num_nodes(), 3);
+    // Collect all arcs via From conversion
+    let lenders: Vec<_> = p.into();
+    let mut arcs = vec![];
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
+    arcs.sort();
     // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
-    assert_eq!(p.successors(0).collect::<Vec<_>>(), vec![1]);
-    assert_eq!(p.successors(1).collect::<Vec<_>>(), Vec::<usize>::new());
-    assert_eq!(p.successors(2).collect::<Vec<_>>(), vec![0, 1]);
+    assert_eq!(arcs, vec![(0, 1), (2, 0), (2, 1)]);
     Ok(())
 }
 
@@ -261,16 +268,120 @@ fn test_simplify_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let s = simplify_split(&seq, MemoryUsage::BatchSize(2))?;
-    assert_eq!(s.num_nodes(), 3);
     // Collect all arcs and verify symmetrization
+    let lenders: Vec<_> = s.into();
     let mut arcs = vec![];
-    for_!((node, succs) in s.iter() {
-        for succ in succs {
-            arcs.push((node, succ));
-        }
-    });
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
     arcs.sort();
     // 3-cycle simplified: each node has exactly 2 neighbors, 6 arcs total
     assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
+    Ok(())
+}
+
+// ── map ──
+
+#[test]
+fn test_map() -> Result<()> {
+    // Graph: 0->1, 0->2, 1->2, 2->3
+    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 3)]);
+    // Map: 0->0, 1->0, 2->1, 3->1 (merges 0,1 into 0 and 2,3 into 1)
+    let m = [0, 0, 1, 1];
+    let mapped = transform::map(&g, &m, 2, MemoryUsage::default())?;
+    let mapped = VecGraph::from_lender(&mapped);
+    assert_eq!(mapped.num_nodes(), 2);
+    // Arcs: (0,0),(0,1),(0,1),(1,1) → deduped: (0,0),(0,1),(1,1)
+    assert_eq!(mapped.successors(0).collect::<Vec<_>>(), vec![0, 1]);
+    assert_eq!(mapped.successors(1).collect::<Vec<_>>(), vec![1]);
+    Ok(())
+}
+
+#[test]
+fn test_map_identity() -> Result<()> {
+    let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+    let id = [0, 1, 2];
+    let mapped = transform::map(&g, &id, 3, MemoryUsage::BatchSize(2))?;
+    let mapped = VecGraph::from_lender(&mapped);
+    webgraph::traits::graph::eq(&g, &mapped)?;
+    Ok(())
+}
+
+#[test]
+fn test_map_enlarges() -> Result<()> {
+    // Map to a larger node space
+    let g = VecGraph::from_arcs([(0, 1), (1, 0)]);
+    let m = [5, 10];
+    let mapped = transform::map(&g, &m, 11, MemoryUsage::default())?;
+    let mapped = VecGraph::from_lender(&mapped);
+    assert_eq!(mapped.num_nodes(), 11);
+    assert_eq!(mapped.successors(5).collect::<Vec<_>>(), vec![10]);
+    assert_eq!(mapped.successors(10).collect::<Vec<_>>(), vec![5]);
+    Ok(())
+}
+
+#[test]
+fn test_map_size_mismatch() {
+    let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
+    let m = vec![0, 1]; // 2 elements but graph has 3 nodes
+    let result = transform::map(&g, &m, 3, MemoryUsage::default());
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_map_split() -> Result<()> {
+    use webgraph::transform::map_split;
+
+    // Graph: 0->1, 0->2, 1->2 with map 0->2, 1->0, 2->1 (a permutation)
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let m = vec![2, 0, 1];
+    let s = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2))?;
+    let lenders: Vec<_> = s.into();
+    let mut arcs = vec![];
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
+    arcs.sort();
+    // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
+    assert_eq!(arcs, vec![(0, 1), (2, 0), (2, 1)]);
+    Ok(())
+}
+
+#[test]
+fn test_map_split_shrinks() -> Result<()> {
+    use webgraph::transform::map_split;
+
+    // Graph: 0->1, 1->2, 2->0; map merges 1 and 2 into node 1
+    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
+    let s = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2))?;
+    let lenders: Vec<_> = s.into();
+    let mut arcs = vec![];
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
+    arcs.sort();
+    // (0,1)->(0,1), (1,2)->(1,1), (2,0)->(1,0) → deduped: (0,1),(1,0),(1,1)
+    assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 1)]);
     Ok(())
 }

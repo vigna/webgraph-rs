@@ -272,6 +272,21 @@ impl<I> SplitIters<I> {
     }
 }
 
+/// Iterator type obtained by merging sorted batches of unlabeled pairs.
+///
+/// This is the concrete iterator type inside
+/// [`SplitIters`]`<SortedPairIter>`, as returned by methods that sort
+/// unlabeled pairs, such as
+/// [`ParSortIters::sort`](par_sort_iters::ParSortIters::sort),
+/// [`ParSortPairs::sort`](par_sort_pairs::ParSortPairs::sort), and the
+/// transform functions [`permute_split`](crate::transform::permute_split),
+/// [`transpose_split`](crate::transform::transpose_split), and
+/// [`simplify_split`](crate::transform::simplify_split).
+pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<
+    sort_pairs::KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP>,
+    fn(((usize, usize), ())) -> (usize, usize),
+>;
+
 impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
     fn from((boundaries, iters): (Box<[usize]>, Box<[I]>)) -> Self {
         Self::new(boundaries, iters)

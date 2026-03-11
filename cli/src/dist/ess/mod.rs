@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{GlobalArgs, IntVectorFormat, NumThreadsArg};
+use crate::{GlobalArgs, IntSliceFormat, NumThreadsArg};
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
@@ -40,9 +40,9 @@ pub struct CliArgs {
     #[arg(long, value_enum)]
     pub level: LevelArg,
 
-    #[arg(long, value_enum, default_value_t = IntVectorFormat::Ascii)]
+    #[arg(long, value_enum, default_value_t = IntSliceFormat::Ascii)]
     /// The storage format for eccentricities.
-    pub fmt: IntVectorFormat,
+    pub fmt: IntSliceFormat,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
@@ -99,9 +99,9 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 fn store_eccentricities(
     eccentricities: &[usize],
     path: &PathBuf,
-    fmt: IntVectorFormat,
+    fmt: IntSliceFormat,
 ) -> Result<()> {
-    fmt.store_usizes(path, eccentricities, None)
+    fmt.store(path, eccentricities, None)
 }
 
 pub fn exact_sum_sweep<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {

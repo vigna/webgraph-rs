@@ -2,11 +2,33 @@
 
 ## [0.5.0] - unreleased
 
+### New
+
+- New `transform perm` command that acts like `bvgraph to --perm`, but can
+  be found easily.
+
+- Extensive support for optionally loading a degree cumulative function
+  to split a work on a graph by arcs rather than by nodes.
+
 ### Changed
 
 - `webgraph transform` now defaults to the parallel version.
 
 - Removed dependency from `common_traits`, replaced by `num-traits`.
+
+- `to bvgraph` default endianness is now the source endianness (it
+  used to be big endian).
+
+- Complete overhaul of the loading/storing framework for slices of values (like
+  permutations); the framework is now based on `usize` rather than `u64`, and it
+  is available also on 32-bit platforms (except for Java 64-bit permutations).
+
+- Load methods return boxed slices when they do not return specific types (e.g.,
+  `JavaPermutation`).
+
+- Except for storing floats, all JSON I/O is handled by `serde_json`.
+
+- `*Vector*` types are now `*Slice*` types.
 
 ## [0.4.1] - 2026-02-23
 

@@ -7,6 +7,8 @@
 use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::*;
+use crate::utils::par_sort_iters::ParSortIters;
+use crate::utils::{SortedPairIter, SplitIters};
 use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -65,23 +67,33 @@ pub fn permute(
     Ok(Left(sorted))
 }
 
-/// Returns a [sequential](crate::traits::SequentialGraph) permuted graph
-/// starting from a [splittable](SplitLabeling) graph.
+/// Returns a [`SplitIters`] structure representing the permuted graph
+/// starting from a [splittable](SplitLabeling) graph, computed in parallel.
+///
+/// The [`SplitIters`] structure can be easily converted into a vector of
+/// lenders using the [`From`] trait, suitable for
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
 /// Note that if the graph is not [splittable](SplitLabeling) you must use
 /// [`permute`], albeit it will be slower.
 ///
+/// Parallelism is controlled via the current Rayon thread pool. Please
+/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
+/// the parallelism.
+///
 /// The permutation is assumed to be bijective. For the meaning of the
-/// additional parameter, see [`SortPairs`].
-pub fn permute_split<S, P>(
-    graph: &S,
+/// additional parameter, see [`ParSortIters`].
+pub fn permute_split<'g, S, P>(
+    graph: &'g S,
     perm: &P,
     memory_usage: MemoryUsage,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>>
+) -> Result<SplitIters<SortedPairIter>>
 where
-    S: SequentialGraph + SplitLabeling,
-    P: SliceByValue<Value = usize> + Send + Sync + Clone,
-    for<'a> <S as SequentialLabeling>::Lender<'a>: Send + Sync + Clone + ExactSizeLender,
+    S: SequentialGraph
+        + for<'a> SplitLabeling<
+            SplitLender<'g>: NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
+        >,
+    P: SliceByValue<Value = usize> + Send + Sync,
 {
     ensure!(
         perm.len() == graph.num_nodes(),
@@ -90,46 +102,17 @@ where
         graph.num_nodes(),
     );
 
-    // get a permuted view
-    let pgraph = PermutedGraph { graph, perm };
+    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let parts = rayon::current_num_threads();
 
-    let num_threads = rayon::current_num_threads();
-    let mut dirs = vec![];
+    let pairs: Vec<_> = graph
+        .split_iter(parts)
+        .into_iter()
+        .map(|iter| {
+            iter.into_pairs()
+                .map(|(src, dst)| (perm.index_value(src), perm.index_value(dst)))
+        })
+        .collect();
 
-    let edges = rayon::in_place_scope(|scope| {
-        let (tx, rx) = crossbeam_channel::unbounded();
-
-        for (thread_id, iter) in pgraph.split_iter(num_threads).enumerate() {
-            let tx = tx.clone();
-            let dir = Builder::new()
-                .prefix(&format!("permute_split_{thread_id}_"))
-                .tempdir()
-                .expect("Could not create a temporary directory");
-            let dir_path = dir.path().to_path_buf();
-            dirs.push(dir);
-            scope.spawn(move |_| {
-                log::debug!("Spawned thread {thread_id}");
-                let mut sorted = SortPairs::new(memory_usage / num_threads, dir_path).unwrap();
-                for_!( (src, succ) in iter {
-                    for dst in succ {
-                        sorted.push(src, dst).unwrap();
-                    }
-                });
-                tx.send(sorted.iter().context("Could not read arcs").unwrap())
-                    .expect("Could not send the sorted pairs");
-                log::debug!("Thread {thread_id} finished");
-            });
-        }
-        drop(tx);
-
-        // get a graph on the sorted data
-        log::debug!("Waiting for threads to finish");
-        rx.into_rayon_iter().sum()
-    });
-
-    log::debug!("All threads finished");
-    Ok(Left(arc_list_graph::ArcListGraph::new_labeled(
-        graph.num_nodes(),
-        edges,
-    )))
+    par_sort_iters.sort(pairs)
 }

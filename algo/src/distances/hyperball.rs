@@ -1472,7 +1472,7 @@ mod test {
 
         let num_nodes = graph.num_nodes();
 
-        let hyper_log_log = HyperLogLogBuilder::new(num_nodes).log_2_num_reg(6);
+        let hyper_log_log = HyperLogLogBuilder::new(num_nodes).log_2_num_reg(6).build();
 
         let seq_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
         let seq_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);

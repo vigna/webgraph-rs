@@ -7,7 +7,8 @@
 - Replaced a number of wrong `num_cpus::get` calls with
   `rayon::current_num_threads`.
 
-- Removed dependency from `common_traits`, replaced by `num-traits`.
+- There are no more parallel instances of `SortPairs`. All parallel
+  code uses `ParSortPairs` or `ParSortIters`.
 
 ### Changed
 

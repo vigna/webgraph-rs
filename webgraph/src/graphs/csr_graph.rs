@@ -225,10 +225,8 @@ impl CompressedCsrGraph {
         ))?;
         let mut efb = EliasFanoBuilder::new(n + 1, u as usize + 1);
         efb.push(0);
-        let mut successors = BitFieldVec::with_capacity(
-            if n == 0 { 0 } else { n.bit_len() as usize },
-            u as usize,
-        );
+        let mut successors =
+            BitFieldVec::with_capacity(if n == 0 { 0 } else { n.bit_len() as usize }, u as usize);
         let mut last_src = 0;
         for_!((src, succ) in g.iter() {
             while last_src < src {

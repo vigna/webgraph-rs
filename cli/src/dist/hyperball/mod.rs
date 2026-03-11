@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{FloatVectorFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
+use crate::{FloatSliceFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
 use anyhow::{Result, bail, ensure};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
@@ -26,8 +26,8 @@ use webgraph_algo::distances::hyperball::HyperBallBuilder;
 /// like `--harmonic >(zstd > harmonic.zstd)`.
 pub struct Centralities {
     /// How all the centralities will be stored.
-    #[clap(long, value_enum, default_value_t = FloatVectorFormat::Ascii)]
-    pub fmt: FloatVectorFormat,
+    #[clap(long, value_enum, default_value_t = FloatSliceFormat::Ascii)]
+    pub fmt: FloatSliceFormat,
     #[clap(long)]
     /// How many decimal digits will be used to store centralities in text formats.
     pub precision: Option<usize>,

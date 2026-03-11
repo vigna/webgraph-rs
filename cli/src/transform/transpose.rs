@@ -38,7 +38,7 @@ pub struct CliArgs {
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes. The DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.
     pub dcf: bool,
 
     #[clap(flatten)]

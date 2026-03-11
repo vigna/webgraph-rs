@@ -9,11 +9,11 @@ use crate::graphs::{
 };
 use crate::labels::Left;
 use crate::traits::{
-    LenderIntoIter, RayonChannelIterExt, SequentialGraph, SortedIterator, SortedLender,
-    SplitLabeling,
+    LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator, SortedLender, SplitLabeling,
 };
+use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::sort_pairs::{KMergeIters, SortPairs};
-use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage};
+use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage, SortedPairIter, SplitIters};
 use anyhow::{Context, Result};
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -89,66 +89,44 @@ pub fn simplify(
     Ok(Left(sorted))
 }
 
-/// Returns a simplified (i.e., undirected and loopless) version of the provided
-/// graph as a [sequential graph](crate::traits::SequentialGraph) computed in parallel.
+/// Returns a [`SplitIters`] structure representing a simplified (i.e.,
+/// undirected and loopless) version of the provided graph, computed in parallel.
+///
+/// The [`SplitIters`] structure can be easily converted into a vector of
+/// lenders using the [`From`] trait, suitable for
+/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install](rayon::ThreadPool::install) a custom pool if you want to customize
 /// the parallelism.
 ///
-/// For the meaning of the additional parameter, see [`SortPairs`].
-pub fn simplify_split<S>(
-    graph: &S,
+/// For the meaning of the additional parameter, see [`ParSortIters`].
+pub fn simplify_split<'g, S>(
+    graph: &'g S,
     memory_usage: MemoryUsage,
-) -> Result<
-    Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>,
->
+) -> Result<SplitIters<SortedPairIter<true>>>
 where
-    S: SequentialGraph + SplitLabeling,
+    S: SequentialGraph
+        + for<'a> SplitLabeling<
+            SplitLender<'g>: NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
+        >,
 {
-    let num_threads = rayon::current_num_threads();
-    let (tx, rx) = crossbeam_channel::unbounded();
+    let par_sort_iters = ParSortIters::new_dedup(graph.num_nodes())?.memory_usage(memory_usage);
+    let parts = rayon::current_num_threads();
 
-    let mut dirs = vec![];
+    let pairs: Vec<_> = graph
+        .split_iter(parts)
+        .into_iter()
+        .map(|iter| {
+            iter.into_pairs().flat_map(|(src, dst)| {
+                if src != dst {
+                    Some((src, dst)).into_iter().chain(Some((dst, src)))
+                } else {
+                    None.into_iter().chain(None)
+                }
+            })
+        })
+        .collect();
 
-    rayon::in_place_scope(|scope| {
-        let mut thread_id = 0;
-        #[allow(clippy::explicit_counter_loop)] // enumerate requires some extra bounds here
-        for iter in graph.split_iter(num_threads) {
-            let tx = tx.clone();
-            let dir = Builder::new()
-                .prefix(&format!("simplify_split_{thread_id}_"))
-                .tempdir()
-                .expect("Could not create a temporary directory");
-            let dir_path = dir.path().to_path_buf();
-            dirs.push(dir);
-            scope.spawn(move |_| {
-                log::debug!("Spawned thread {thread_id}");
-                let mut sorted = SortPairs::new_dedup(memory_usage, dir_path).unwrap();
-                for_!( (src, succ) in iter {
-                    for dst in succ {
-                        if src != dst {
-                            sorted.push(src, dst).unwrap();
-                            sorted.push(dst, src).unwrap();
-                        }
-                    }
-                });
-                let result = sorted.iter().context("Could not read arcs").unwrap();
-                tx.send(result).expect("Could not send the sorted pairs");
-                log::debug!("Thread {thread_id} finished");
-            });
-            thread_id += 1;
-        }
-    });
-    drop(tx);
-
-    // get a graph on the sorted data
-    log::debug!("Waiting for threads to finish");
-    let edges: KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true> =
-        rx.into_rayon_iter().sum();
-    log::debug!("All threads finished");
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
-
-    drop(dirs);
-    Ok(Left(sorted))
+    par_sort_iters.sort(pairs)
 }

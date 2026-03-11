@@ -12,7 +12,7 @@ use crate::prelude::{LabeledSequentialGraph, SequentialGraph, SortPairs};
 use crate::traits::graph::UnitLabelGraph;
 use crate::traits::{NodeLabelsLender, SplitLabeling};
 use crate::utils::{
-    BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
+    BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SortedPairIter, SplitIters,
 };
 use anyhow::Result;
 use dsi_progress_logger::prelude::*;
@@ -84,9 +84,7 @@ pub fn transpose(
 ///
 /// For the meaning of the additional parameters, see [`SortPairs`].
 pub fn transpose_labeled_split<
-    'graph,
-    G: 'graph
-        + LabeledSequentialGraph<C::Label>
+    G: LabeledSequentialGraph<C::Label>
         + for<'a> SplitLabeling<
             SplitLender<'a>: for<'b> NodeLabelsLender<
                 'b,
@@ -96,16 +94,12 @@ pub fn transpose_labeled_split<
                                  + Sync,
             IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
         >,
-    C: BatchCodec + 'graph,
+    C: BatchCodec,
 >(
-    graph: &'graph G,
+    graph: &G,
     memory_usage: MemoryUsage,
     batch_codec: C,
-) -> Result<
-    SplitIters<
-        impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + use<'graph, G, C>,
-    >,
->
+) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label>>>
 where
     CodecIter<C>: Clone + Send + Sync,
 {
@@ -134,42 +128,23 @@ where
 ///
 /// For the meaning of the additional parameters, see [`SortPairs`].
 pub fn transpose_split<
-    'graph,
-    G: 'graph
-        + SequentialGraph
+    'g,
+    G: SequentialGraph
         + for<'a> SplitLabeling<
-            SplitLender<'a>: for<'b> NodeLabelsLender<
-                'b,
-                Label = usize,
-                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-            > + Send
-                                 + Sync,
-            IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
+            SplitLender<'g>: NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
         >,
 >(
-    graph: &'graph G,
+    graph: &'g G,
     memory_usage: MemoryUsage,
-) -> Result<
-    SplitIters<impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + use<'graph, G>>,
-> {
+) -> Result<SplitIters<SortedPairIter>> {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     let parts = rayon::current_num_threads();
 
     let pairs: Vec<_> = graph
         .split_iter(parts)
         .into_iter()
-        .map(|iter| iter.into_pairs().map(|(src, dst)| ((dst, src), ())))
+        .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
         .collect();
 
-    let batch_codec = <DefaultBatchCodec>::default();
-    let SplitIters { boundaries, iters } = par_sort_iters
-        .try_sort_labeled::<DefaultBatchCodec, std::convert::Infallible, _>(batch_codec, pairs)?;
-
-    Ok(SplitIters {
-        boundaries,
-        iters: Box::into_iter(iters)
-            .map(|iter| iter.into_iter().map(|(pair, _)| pair))
-            .collect::<Vec<_>>()
-            .into_boxed_slice(),
-    })
+    par_sort_iters.sort(pairs)
 }
