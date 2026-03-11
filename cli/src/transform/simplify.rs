@@ -70,11 +70,14 @@ where
     let dir = Builder::new().prefix("transform_simplify_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
+    let bvgraphdp = args.ca.bvgraphdp;
     let mut builder = BvCompConfig::new(&args.dst)
         .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
 
-    if bvgraphz {
+    if bvgraphdp {
+        builder = builder.with_bvgraphdp();
+    } else if bvgraphz {
         builder = builder.with_chunk_size(chunk_size);
     }
 
