@@ -482,6 +482,11 @@ pub struct CompressArgs {
     #[clap(long)]
     pub bvgraphz2: bool,
 
+    /// Whether to use exact DP reference selection. Finds the globally optimal
+    /// reference assignment via sliding-window Viterbi DP. Slowest but best compression.
+    #[clap(long)]
+    pub bvgraphdp: bool,
+
     /// How many nodes to process in a chunk; the default (10000) is usually a good
     /// value.
     #[clap(long, default_value = "10000")]
@@ -491,6 +496,12 @@ pub struct CompressArgs {
     /// A good value is (max_ref_count + 1) * compression_window.
     #[clap(long)]
     pub look_ahead: Option<usize>,
+
+    /// Discount factor for look-ahead savings (0 < gamma <= 1). At gamma=1 (default),
+    /// all buffer arcs are weighted equally. Lower values prioritize the oldest
+    /// (committed) node's arcs over ephemeral interior assignments.
+    #[clap(long)]
+    pub discount: Option<f64>,
 }
 
 impl From<CompressArgs> for CompFlags {

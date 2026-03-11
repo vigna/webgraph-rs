@@ -202,12 +202,26 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
+    let bvgraphz2 = args.ca.bvgraphz2;
+    let bvgraphdp = args.ca.bvgraphdp;
+    let look_ahead = args.ca.look_ahead;
+    let discount = args.ca.discount;
     let mut builder = BvCompConfig::new(&args.dst)
         .with_comp_flags(args.ca.into())
         .with_tmp_dir(&dir);
 
-    if bvgraphz {
-        builder = builder.with_chunk_size(chunk_size);
+    if let Some(look_ahead) = look_ahead {
+        builder = builder.with_look_ahead(look_ahead);
+    } else if bvgraphdp {
+        builder = builder.with_bvgraphdp();
+    } else if bvgraphz {
+        builder = builder.with_bvgraphz().with_chunk_size(chunk_size);
+    } else if bvgraphz2 {
+        builder = builder.with_bvgraphz2().with_chunk_size(chunk_size);
+    }
+
+    if let Some(discount) = discount {
+        builder = builder.with_discount(discount);
     }
 
     thread_pool.install(|| {
