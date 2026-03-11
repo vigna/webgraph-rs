@@ -103,6 +103,11 @@ pub struct BvCompLa<E, W: Write> {
     greedy_parent: Vec<usize>,
     /// Reusable buffer for heights in the DSU.
     greedy_height: Vec<usize>,
+    /// Discount factor for look-ahead savings (1.0 = no discount).
+    discount: f64,
+    /// Precomputed fixed-point table: gamma_pow[k] = round(discount^k * (1<<32)).
+    /// Used to discount interior arc savings in the greedy heap.
+    gamma_pow: Vec<u64>,
 }
 
 impl BvCompLa<(), std::io::Sink> {
@@ -126,6 +131,7 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
         min_interval_length: usize,
         look_ahead: usize,
         start_node: usize,
+        discount: f64,
     ) -> Self {
         BvCompLa {
             backrefs: CircularBuffer::new(compression_window + look_ahead + 1),
@@ -145,6 +151,18 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
             greedy_arcs: Vec::new(),
             greedy_parent: Vec::new(),
             greedy_height: Vec::new(),
+            discount,
+            gamma_pow: {
+                let scale = 1u64 << 32;
+                let mut table = Vec::with_capacity(look_ahead + 1);
+                let mut pow = 1.0_f64;
+                for _ in 0..=look_ahead {
+                    // Clamp to 1 so non-zero savings never collapse to 0
+                    table.push((pow * scale as f64).round().max(1.0) as u64);
+                    pow *= discount;
+                }
+                table
+            },
         }
     }
 
@@ -227,10 +245,14 @@ impl<E: EncodeAndEstimate, W: Write> BvCompLa<E, W> {
         for buf_idx in 0..lookahead_size {
             let window = self.compression_window.min(buf_idx + compression_window);
             for delta in 1..=window {
-                let savings = self.savings[base_idx + buf_idx][delta - 1];
-                if savings > 0 {
+                let raw_savings = self.savings[base_idx + buf_idx][delta - 1];
+                if raw_savings > 0 {
+                    // Apply geometric discount: interior arcs (large buf_idx) are
+                    // devalued relative to the oldest node (buf_idx=0) which is
+                    // the one actually committed this round.
+                    let savings = ((raw_savings as u128 * self.gamma_pow[buf_idx] as u128) >> 32) as u64;
                     self.greedy_arcs.push(GreedyArc {
-                        savings,
+                        savings: savings.max(1), // preserve non-zero
                         delta,
                         buf_idx,
                     });
