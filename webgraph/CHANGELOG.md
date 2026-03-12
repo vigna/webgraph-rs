@@ -5,8 +5,7 @@
 ### New
 
 - `par_map_fold_ord` family of methods that work like `par_map_fold`, but
-  guarantee to process results in the same order of the input. Use to
-  make parallel the computation of degree cumulative functions.
+  guarantee to process results in the same order as the input.
 
 ### Fixed
 

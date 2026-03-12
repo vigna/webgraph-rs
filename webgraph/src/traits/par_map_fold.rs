@@ -20,8 +20,9 @@ use std::collections::VecDeque;
 /// which helps when the original iterator is somewhat CPU bound.
 ///
 /// The more generic method is
-/// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with), which allows to
-/// specify a different function for the inner and outer fold, and to pass an
+/// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with), which makes it
+/// possible to specify a different function for the inner and outer fold, and
+/// to pass an
 /// initial value to the map function. The other methods are convenience
 /// methods delegating to this one.
 ///
@@ -51,6 +52,8 @@ where
     ///
     /// # Arguments
     ///
+    /// * `map`: a function that maps an item to a result.
+    ///
     /// * `fold`: a function that folds the results of the map function.
     #[inline(always)]
     fn par_map_fold<
@@ -77,7 +80,8 @@ where
     ///
     /// # Arguments
     ///
-    /// * `init`: an init value for the map function; it will be cloned as needed.
+    /// * `map_init`: an init value for the map function; it will be cloned
+    ///   as needed.
     ///
     /// * `map`: a function that maps an item to a result.
     ///
@@ -90,11 +94,11 @@ where
         F: Fn(R, R) -> R + Sync,
     >(
         &mut self,
-        init: T,
+        map_init: T,
         map: M,
         fold: F,
     ) -> R {
-        self.par_map_fold2_with(init, map, &fold, &fold)
+        self.par_map_fold2_with(map_init, map, &fold, &fold)
     }
 
     /// Map and fold in parallel the items returned by an iterator.
@@ -132,20 +136,22 @@ where
 
     /// Map and fold in parallel the items returned by an iterator.
     ///
-    /// This method is the most generic one, allowing to specify different
-    /// functions for the inner and outer fold, which makes it possible to
-    /// have the return type of the map function to be different from the
-    /// type of the fold accumulator.
+    /// This method is the most generic one, making it possible to specify
+    /// different functions for the inner and outer fold so that the return
+    /// type of the map function can be different from the type of the fold
+    /// accumulator.
     ///
     /// If you need to process items in the order in which they are emitted,
     /// consider using [`par_map_fold_ord_with`](ParMapFold::par_map_fold_ord_with)
     /// instead.
     ///
-    /// Moreover, you can pass an init value that will be cloned as needed.
+    /// Moreover, you can pass an init value for the map function that will
+    /// be cloned as needed.
     ///
     /// # Arguments
     ///
-    /// * `init`: an init value for the map function; it will be cloned as needed.
+    /// * `map_init`: an init value for the map function; it will be cloned
+    ///   as needed.
     ///
     /// * `map`: a function that maps an item to a result.
     ///
@@ -161,7 +167,7 @@ where
         OF: Fn(A, A) -> A,
     >(
         &mut self,
-        init: T,
+        map_init: T,
         map: M,
         inner_fold: IF,
         outer_fold: OF,
@@ -181,7 +187,7 @@ where
         rayon::in_place_scope(|scope| {
             for _thread_id in 0..num_scoped_threads {
                 // create some references so that we can share them across threads
-                let mut init = init.clone();
+                let mut init = map_init.clone();
                 let map = &map;
                 let inner_fold = &inner_fold;
                 let out_tx = out_tx.clone();
@@ -226,17 +232,17 @@ where
     ///
     /// # Arguments
     ///
-    /// * `fold_init`: the initial value for the fold accumulator.
-    ///
     /// * `map`: a function that maps an item to a result.
+    ///
+    /// * `fold_init`: the initial value for the fold accumulator.
     ///
     /// * `fold`: a function that folds the results of the map function,
     ///   called in the original iterator order.
     #[inline(always)]
     fn par_map_fold_ord<R: Send, A, M: Fn(Self::Item) -> R + Send + Sync, F: FnMut(A, R) -> A>(
         &mut self,
-        fold_init: A,
         map: M,
+        fold_init: A,
         fold: F,
     ) -> A
     where
@@ -258,8 +264,12 @@ where
     /// is very slow to process) it can grow up to the number of returned
     /// elements. With any reasonable granularity, however, the buffer should
     /// occupy negligible memory. Most of the memory occupation, in any case,
-    /// will be due to the items completed by still not processed because of
-    /// some slow item that is still pending.
+    /// will be due to the items completed but not yet processed because of
+    /// some slow item that is still being computed.
+    ///
+    /// Note that `map_init` must be [`Sync`] (in addition to [`Clone`] and
+    /// [`Send`]) because the implementation uses [`std::thread::scope`] to
+    /// run the drain loop concurrently with the Rayon workers.
     ///
     /// If you don't need the order guarantee, consider using
     /// [`par_map_fold_with`](ParMapFold::par_map_fold_with) instead.
@@ -388,10 +398,7 @@ impl<T> Iterator for RayonChannelIter<T> {
     }
 }
 
-/// Turns `self` into a Rayon-friendly iterator.
-///
-/// Mainly used through the extension trait implemented for
-/// [`Receiver`](crossbeam_channel::Receiver).
+#[doc(hidden)]
 pub trait RayonChannelIterExt<T>: Sized {
     fn into_rayon_iter(self) -> RayonChannelIter<T>;
 }

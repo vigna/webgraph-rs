@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(clippy::type_complexity)]
+
 //! Tests for SortPairs, KMergeIters, ParSortPairs, ParSortIters, and Matrix.
 
 use anyhow::Result;
@@ -218,7 +220,7 @@ fn test_par_sort_pairs_single_partition() -> Result<()> {
     let split = sorter.sort(pairs.par_iter().copied())?;
     assert_eq!(split.boundaries.len(), 2); // [0, 3]
     assert_eq!(split.iters.len(), 1);
-    let result: Vec<_> = split.iters.into_vec().pop().unwrap().into_iter().collect();
+    let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
     assert_eq!(result, vec![(0, 1), (1, 2), (2, 0)]);
     Ok(())
 }
@@ -319,7 +321,7 @@ fn test_par_sort_iters_single_partition() -> Result<()> {
 
     let split = sorter.sort(vec![iter1, iter2])?;
     assert_eq!(split.boundaries.len(), 2);
-    let result: Vec<_> = split.iters.into_vec().pop().unwrap().into_iter().collect();
+    let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
     assert_eq!(result, vec![(0, 1), (1, 2), (2, 0)]);
     Ok(())
 }

@@ -6,7 +6,7 @@
 
 //! Tests for utility types: Granularity, MemoryUsage, humanize, SplitIters,
 //! RaggedArray, MaskedIter, JavaPermutation, ArcListGraph, par_node_apply,
-//! par_map_fold, and temp_dir.
+//! par_map_fold, par_map_fold_ord, and temp_dir.
 
 use anyhow::Result;
 use lender::*;
@@ -381,4 +381,40 @@ fn test_par_map_fold2_basic() {
         .into_iter()
         .par_map_fold2(|x| x * x, |acc, v| acc + v, |a, b| a + b);
     assert_eq!(result, 55); // 1+4+9+16+25
+}
+
+#[test]
+fn test_par_map_fold_ord() {
+    use webgraph::traits::par_map_fold::ParMapFold;
+    // Verifies that results are folded in the original iterator order
+    // using a non-commutative fold (Vec::push).
+    for &n in &[0, 1, 2, 5, 20, 100, 1000] {
+        let result: Vec<usize> = (0..n).par_map_fold_ord(
+            |x| x * x,
+            Vec::new(),
+            |mut acc, val| {
+                acc.push(val);
+                acc
+            },
+        );
+        let expected: Vec<usize> = (0..n).map(|x: usize| x * x).collect();
+        assert_eq!(result, expected);
+    }
+}
+
+#[test]
+fn test_par_map_fold_ord_with() {
+    use webgraph::traits::par_map_fold::ParMapFold;
+    // Verifies that map_init is properly cloned and passed to each worker.
+    let result: Vec<usize> = (0..100usize).par_map_fold_ord_with(
+        10usize, // map_init: an offset added by the map function
+        |offset, x| x + *offset,
+        Vec::new(),
+        |mut acc, val| {
+            acc.push(val);
+            acc
+        },
+    );
+    let expected: Vec<usize> = (0..100).map(|x: usize| x + 10).collect();
+    assert_eq!(result, expected);
 }

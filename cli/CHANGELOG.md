@@ -21,7 +21,7 @@
 - New `seq` subcommand providing bidirectional conversion between all
   available formats for sequences.
 
-- Parallel DCF construction (by default).
+- Parallel DCF construction (by default) using `par_map_fold_ord`.
 
 ### Changed
 

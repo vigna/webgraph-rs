@@ -62,7 +62,7 @@ pub fn main(args: CliArgs) -> Result<()> {
     }
 }
 
-fn build_and_serialize(efb: EliasFanoBuilder, ef_path: &PathBuf) -> Result<()> {
+fn build_and_serialize(efb: EliasFanoBuilder, ef_path: &std::path::Path) -> Result<()> {
     let ef = efb.build();
     let ef: DCF = unsafe {
         ef.map_high_bits(|bits| {
