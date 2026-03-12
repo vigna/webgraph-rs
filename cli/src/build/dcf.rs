@@ -119,7 +119,10 @@ where
     })?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
+    let num_arcs_u64 = map.get("arcs").unwrap().parse::<u64>()?;
+    let num_arcs: usize = num_arcs_u64
+        .try_into()
+        .with_context(|| format!("num_arcs ({}) exceeds usize::MAX", num_arcs_u64))?;
 
     let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&basename)
         .endianness::<E>()
@@ -131,7 +134,7 @@ where
     let node_granularity = args
         .granularity
         .into_granularity()
-        .node_granularity(num_nodes, Some(num_arcs as u64));
+        .node_granularity(num_nodes, Some(num_arcs_u64));
 
     let mut pl = concurrent_progress_logger![
         item_name = "node",
@@ -197,7 +200,10 @@ where
     })?;
     let map = java_properties::read(BufReader::new(f))?;
     let num_nodes = map.get("nodes").unwrap().parse::<usize>()?;
-    let num_arcs = map.get("arcs").unwrap().parse::<usize>()?;
+    let num_arcs_u64 = map.get("arcs").unwrap().parse::<u64>()?;
+    let num_arcs: usize = num_arcs_u64
+        .try_into()
+        .with_context(|| format!("num_arcs ({}) exceeds usize::MAX", num_arcs_u64))?;
 
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
 

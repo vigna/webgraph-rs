@@ -838,7 +838,10 @@ pub fn cutpoints(
             num_nodes + 1
         );
         ensure!(dcf.get(0) == 0, "DCF does not start with 0");
-        let num_arcs = num_arcs.expect("num_arcs_hint required for --dcf") as usize;
+        let num_arcs: usize = num_arcs
+            .expect("num_arcs_hint required for --dcf")
+            .try_into()
+            .expect("num_arcs exceeds usize::MAX");
         ensure!(
             dcf.get(num_nodes) == num_arcs,
             "DCF ends with {}, expected {} (num_arcs)",

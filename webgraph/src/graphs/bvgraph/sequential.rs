@@ -111,9 +111,11 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
     fn build_dcf(&self) -> DCF {
         let n = self.num_nodes();
-        let num_arcs = self
+        let num_arcs: usize = self
             .num_arcs_hint()
-            .expect("build_dcf requires num_arcs_hint()") as usize;
+            .expect("build_dcf requires num_arcs_hint()")
+            .try_into()
+            .expect("num_arcs exceeds usize::MAX");
         let mut efb = sux::dict::EliasFanoBuilder::new(n + 1, num_arcs);
         efb.push(0);
         let mut cumul_deg = 0usize;

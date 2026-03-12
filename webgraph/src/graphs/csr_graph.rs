@@ -331,7 +331,11 @@ where
 
     fn build_dcf(&self) -> crate::graphs::bvgraph::DCF {
         let n = self.num_nodes();
-        let num_arcs = self.num_arcs_hint().unwrap() as usize;
+        let num_arcs: usize = self
+            .num_arcs_hint()
+            .unwrap()
+            .try_into()
+            .expect("num_arcs exceeds usize::MAX");
         let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
         for val in self.dcf.iter_value_from(0).take(n + 1) {
             efb.push(val);
