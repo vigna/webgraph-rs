@@ -10,6 +10,10 @@
 
 - Upgraded to `card-est-array` 0.3.0.
 
+### Fixed
+
+- Fixed problems with granularity interpretation in HyperBall.
+
 ## [0.6.1] - 2026-02-23
 
 ### New

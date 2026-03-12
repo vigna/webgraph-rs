@@ -17,7 +17,7 @@ use webgraph::{traits::*, utils::Granularity};
 /// as a measure of cost, whereas the Java implementation uses the _ceiling_.
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
-    arc_granularity: Granularity,
+    granularity: Granularity,
     deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
     pr: &mut impl ConcurrentProgressLog,
 ) -> f64 {
@@ -43,7 +43,7 @@ pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
                 .sum::<usize>() as f64
         },
         |a, b| a + b,
-        arc_granularity,
+        granularity,
         deg_cumul,
         pr,
     )

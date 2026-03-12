@@ -169,8 +169,8 @@ use webgraph::utils::Granularity;
 ///   the computation of harmonic centrality;
 /// - [`discount_function`](Self::discount_function): adds a custom discount
 ///   function;
-/// - [`granularity`](Self::granularity): sets the arc granularity for the
-///   parallel iterations;
+/// - [`granularity`](Self::granularity): sets the granularity for the parallel
+///   iterations;
 /// - [`weights`](Self::weights): sets optional nonnegative integer node
 ///   weights.
 ///
@@ -244,8 +244,8 @@ pub struct HyperBallBuilder<
     do_sum_of_inv_dists: bool,
     /// Custom discount functions whose sum should be computed.
     discount_functions: Vec<Box<dyn Fn(usize) -> f64 + Send + Sync + 'a>>,
-    /// The arc granularity.
-    arc_granularity: usize,
+    /// The granularity of parallel tasks.
+    granularity: Granularity,
     /// Integer weights for the nodes, if any.
     weights: Option<&'a [usize]>,
     /// A first array of estimators.
@@ -317,7 +317,7 @@ impl<
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
-            arc_granularity: Self::DEFAULT_GRANULARITY,
+            granularity: Self::DEFAULT_GRANULARITY,
             weights,
             array_0,
             array_1,
@@ -365,7 +365,7 @@ impl<
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
-            arc_granularity: Self::DEFAULT_GRANULARITY,
+            granularity: Self::DEFAULT_GRANULARITY,
             weights: None,
             array_0,
             array_1,
@@ -383,7 +383,7 @@ impl<
     A: EstimatorArrayMut<L>,
 > HyperBallBuilder<'a, G1, G2, D, L, A>
 {
-    const DEFAULT_GRANULARITY: usize = 16 * 1024;
+    const DEFAULT_GRANULARITY: Granularity = Granularity::Nodes(16 * 1024);
 
     /// Creates a new builder with default parameters using also the transpose.
     ///
@@ -436,7 +436,7 @@ impl<
             do_sum_of_dists: false,
             do_sum_of_inv_dists: false,
             discount_functions: Vec::new(),
-            arc_granularity: Self::DEFAULT_GRANULARITY,
+            granularity: Self::DEFAULT_GRANULARITY,
             weights: None,
             array_0,
             array_1,
@@ -458,8 +458,7 @@ impl<
 
     /// Sets the base granularity used in the parallel phases of the iterations.
     pub fn granularity(mut self, granularity: Granularity) -> Self {
-        self.arc_granularity =
-            granularity.arc_granularity(self.graph.num_nodes(), Some(self.graph.num_arcs()));
+        self.granularity = granularity;
         self
     }
 
@@ -549,7 +548,7 @@ impl<
             graph: self.graph,
             transposed: self.transpose,
             weight: self.weights,
-            granularity: self.arc_granularity,
+            granularity: self.granularity,
             curr_state: self.array_0,
             next_state: self.array_1,
             completed: false,
@@ -563,7 +562,7 @@ impl<
                 cumul_outdeg: self.cumul_outdegree,
                 iteration: 0,
                 current_nf: Mutex::new(0.0),
-                arc_granularity: 0,
+                node_granularity: 0,
                 node_cursor: AtomicUsize::new(0).into(),
                 arc_cursor: Mutex::new((0, 0)),
                 visited_arcs: AtomicU64::new(0).into(),
@@ -598,9 +597,9 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     iteration: usize,
     /// The value of the neighborhood function computed during the current iteration.
     current_nf: Mutex<f64>,
-    /// The arc granularity: each task will try to process at least this number
-    /// of arcs.
-    arc_granularity: usize,
+    /// The node granularity for the current iteration: each task will try to
+    /// process at least this number of nodes.
+    node_granularity: usize,
     /// A cursor scanning the nodes to process during local computations.
     node_cursor: CachePadded<AtomicUsize>,
     /// A cursor scanning the nodes and arcs to process during non-local
@@ -637,8 +636,8 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
 
 impl<G1: SequentialLabeling, D> IterationContext<'_, G1, D> {
     /// Resets the iteration context
-    fn reset(&mut self, arc_granularity: usize) {
-        self.arc_granularity = arc_granularity;
+    fn reset(&mut self, node_granularity: usize) {
+        self.node_granularity = node_granularity;
         self.node_cursor.store(0, Ordering::Relaxed);
         *self.arc_cursor.lock().unwrap() = (0, 0);
         self.visited_arcs.store(0, Ordering::Relaxed);
@@ -663,8 +662,8 @@ pub struct HyperBall<
     transposed: Option<&'a G2>,
     /// An optional slice of nonnegative node weights.
     weight: Option<&'a [usize]>,
-    /// The base number of nodes per task.
-    granularity: usize,
+    /// The granularity of parallel tasks.
+    granularity: Granularity,
     /// The previous state.
     curr_state: A,
     /// The next state.
@@ -1032,24 +1031,24 @@ where
             );
         }
 
-        let mut granularity = ic.arc_granularity;
+        let mut node_granularity = ic.node_granularity;
         let num_threads = rayon::current_num_threads();
 
         if num_threads > 1 && !ic.local {
             if ic.iteration > 0 {
-                granularity = f64::min(
+                node_granularity = f64::min(
                     std::cmp::max(1, num_nodes as usize / num_threads) as _,
-                    granularity as f64
+                    node_granularity as f64
                         * (num_nodes as f64 / std::cmp::max(1, modified_estimators) as f64),
                 ) as usize;
             }
             pl.info(format_args!(
-                "Adaptive granularity for this iteration: {}",
-                granularity
+                "Adaptive node granularity for this iteration: {}",
+                node_granularity
             ));
         }
 
-        ic.reset(granularity);
+        ic.reset(node_granularity);
 
         pl.item_name("arc");
         pl.expected_updates(if ic.local { None } else { Some(num_arcs as _) });
@@ -1152,8 +1151,8 @@ where
         discounted_centralities: &[&[SyncCell<f32>]],
         _broadcast_context: rayon::BroadcastContext,
     ) {
-        let node_granularity = ic.arc_granularity;
-        let arc_granularity = ((graph.num_arcs() as f64 * node_granularity as f64)
+        let node_granularity = ic.node_granularity;
+        let target_arcs = ((graph.num_arcs() as f64 * node_granularity as f64)
             / graph.num_nodes() as f64)
             .ceil() as usize;
         let do_centrality = sum_of_dists.is_some()
@@ -1192,7 +1191,7 @@ where
                     (node_upper_limit, node_upper_limit)
                 } else {
                     let start = next_node;
-                    let target = next_arc + arc_granularity;
+                    let target = next_arc + target_arcs;
                     if target as u64 >= arc_upper_limit {
                         next_node = node_upper_limit;
                     } else {
@@ -1388,7 +1387,10 @@ where
         ic.systolic = false;
         ic.local = false;
         ic.pre_local = false;
-        ic.reset(self.granularity);
+        ic.reset(
+            self.granularity
+                .node_granularity(self.graph.num_nodes(), Some(self.graph.num_arcs())),
+        );
 
         pl.debug(format_args!("Initializing distances"));
         if let Some(distances) = &mut self.sum_of_dists {
