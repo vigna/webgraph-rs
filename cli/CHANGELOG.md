@@ -48,6 +48,10 @@
 
 - `to ascii` was never calling `ProgressLog::update`.
 
+- `to endianness` was using an additional `length` property that is not
+  part of the properties emitted by Java code, making impossible to change endianness
+  of graphs compressed in Java.
+
 ## [0.4.1] - 2026-02-23
 
 ### New
