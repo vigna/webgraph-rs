@@ -15,6 +15,7 @@ use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
@@ -153,11 +154,8 @@ where
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
 
     // Parallel workers compute degree chunks and send them through a
-    // bounded channel. The main thread receives chunks and pushes them
-    // into the EF builder in order, buffering out-of-order arrivals.
-    // Memory is bounded by the number of in-flight chunks rather than
-    // the total number of nodes. We can't use par_map_fold here as
-    // we need to examine the results in a specific order.
+    // bounded channel. The main thread receives chunks and drains them
+    // in order into the EF builder using a reorder buffer.
     let (tx, rx) = std::sync::mpsc::sync_channel::<(usize, Box<[usize]>)>(num_threads * 2);
 
     std::thread::scope(|s| {
@@ -178,14 +176,18 @@ where
         });
 
         let mut next_chunk = 0;
-        let buf_size = num_threads * 2;
-        let mut buffer: Vec<Option<Box<[usize]>>> = (0..buf_size).map(|_| None).collect();
+        let mut buffer: VecDeque<Option<Box<[usize]>>> = VecDeque::new();
         let mut cumul_deg = 0;
         efb.push(0);
 
         for (chunk_idx, degs) in rx {
-            buffer[chunk_idx % buf_size] = Some(degs);
-            while let Some(degs) = buffer[next_chunk % buf_size].take() {
+            let offset = chunk_idx - next_chunk;
+            if offset >= buffer.len() {
+                buffer.resize(offset + 1, None);
+            }
+            buffer[offset] = Some(degs);
+            while let Some(Some(degs)) = buffer.front_mut().map(Option::take) {
+                buffer.pop_front();
                 for &deg in degs.iter() {
                     cumul_deg += deg;
                     efb.push(cumul_deg);
