@@ -207,7 +207,6 @@ where
 
                         let pairs: Vec<_> = graph
                             .split_iter(parts)
-                            .into_iter()
                             .map(|iter| {
                                 iter.into_pairs().flat_map(|(src, dst)| {
                                     // The two-element iterator is fully inlined by LLVM,

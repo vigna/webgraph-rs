@@ -152,8 +152,7 @@ fn test_llp_pipeline() -> Result<()> {
     assert_eq!(original.num_nodes(), final_graph.num_nodes());
     assert_eq!(original.num_arcs(), final_graph.num_arcs());
 
-    let permutation =
-        IntSliceFormat::default().load(format!("{}.composed", basename))?;
+    let permutation = IntSliceFormat::default().load(format!("{}.composed", basename))?;
 
     for node in 0..original.num_nodes() {
         assert_eq!(
