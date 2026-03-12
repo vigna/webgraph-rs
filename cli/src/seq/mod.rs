@@ -12,7 +12,7 @@ pub mod int;
 
 #[derive(Subcommand, Debug)]
 #[command(name = "seq")]
-/// Sequence-related subcommands.​
+/// Converts sequences (e.g., permutations, centralities) between formats.​
 pub enum SubCommands {
     Float(float::CliArgs),
     Int(int::CliArgs),

@@ -11,7 +11,10 @@ Command-line interface for the Rust implementation of the [WebGraph framework]
 for graph compression.
 
 This crate provides the `webgraph` CLI tool with various subcommands for working
-with compressed graphs. The tool supports:
+with compressed graphs. The tool can be installed with `cargo install webgraph-cli`,
+or by invoking `cargo build` and retrieving it from your target directory.
+
+The tool supports:
 
 - **Building** accessory data structures (Elias–Fano offsets, DCF)
 - **Converting** graphs between formats (arcs, ASCII, endianness)
@@ -24,7 +27,14 @@ Each module corresponds to a group of commands, and each command is
 implemented as a submodule.
 
 The command `webgraph build complete` will generate completion code for
-several commonly used shells, making it easier to use the CLI tool.
+several commonly used shells, making it easier to use the CLI tool. For
+example if you are using `bash`, you can run:
+
+```bash
+source <(webgraph build complete bash)
+```
+
+to have completions in the current shell session.
 
 ## Subcommands
 

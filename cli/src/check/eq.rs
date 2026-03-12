@@ -8,10 +8,9 @@ use anyhow::Result;
 use clap::Args;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
-use dsi_progress_logger::prelude::*;
 use std::{path::PathBuf, process::exit};
 use webgraph::graphs::bvgraph::get_endianness;
-use webgraph::traits::{SequentialLabeling, graph};
+use webgraph::traits::graph;
 use webgraph::utils::MmapHelper;
 
 #[derive(Args, Debug)]
@@ -46,20 +45,13 @@ where
             .endianness::<E>()
             .load()?;
 
-    let mut pl = progress_logger![
-        display_memory = true,
-        item_name = "compare graphs",
-        expected_updates = Some(first_graph.num_nodes()),
-    ];
-
-    pl.start("Start comparing the graphs...");
-
+    log::info!("Comparing graphs...");
     let result = graph::eq(&first_graph, &second_graph);
     if let Err(eq_error) = result {
         eprintln!("{}", eq_error);
         exit(1);
     }
+    log::info!("Graphs are equal.");
 
-    pl.done();
     Ok(())
 }

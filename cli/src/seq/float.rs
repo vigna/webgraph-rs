@@ -10,7 +10,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "float", about = "Converts a float sequence between formats.", long_about = None, next_line_help = true)]
+#[command(name = "float", about = "Converts a float sequence (e.g., centralities, ranks) between formats.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The source file path.​
     pub src: PathBuf,

@@ -22,7 +22,9 @@ pub enum SubCommands {
     Complete(CompleteArgs),
 }
 
-/// Generates shell completions. Use with `source <(webgraph build completions $SHELL)`.​
+/// Generates shell completions. Use with `source <(webgraph build complete
+/// $SHELL)` to install completions locally, or redirect standard output to a
+/// proper location for a permanent installation.​
 #[derive(Parser, Debug)]
 #[command(next_line_help = true)]
 pub struct CompleteArgs {

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
 
 #[derive(Parser, Debug)]
-#[command(name = "int", about = "Converts an integer sequence between formats.", long_about = None, next_line_help = true)]
+#[command(name = "int", about = "Converts an integer sequence (e.g., permutations, eccentricities, components) between formats.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The source file path.​
     pub src: PathBuf,
