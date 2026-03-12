@@ -39,6 +39,12 @@
 - There are no more parallel instances of `SortPairs`. All parallel
   code uses `ParSortPairs` or `ParSortIters`.
 
+- All transformation methods acting on splittable graphs take an
+  optional list of cutpoints to split the work in a more balanced way.
+
+- `simplify*` methods are now `symmetrize*` methods, with an option
+  to remove self-loops (i.e., the old `simplify*` behavior).
+
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a

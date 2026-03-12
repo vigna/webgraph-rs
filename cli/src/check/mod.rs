@@ -10,6 +10,7 @@ use clap::Subcommand;
 
 pub mod ef;
 pub mod eq;
+pub mod symm;
 
 /// Checks coherence of files.​
 #[derive(Subcommand, Debug)]
@@ -17,11 +18,13 @@ pub mod eq;
 pub enum SubCommands {
     Ef(ef::CliArgs),
     Eq(eq::CliArgs),
+    Symm(symm::CliArgs),
 }
 
 pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
         SubCommands::Ef(args) => ef::main(args),
         SubCommands::Eq(args) => eq::main(args),
+        SubCommands::Symm(args) => symm::main(args),
     }
 }

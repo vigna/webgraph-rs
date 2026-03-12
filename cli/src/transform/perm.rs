@@ -26,6 +26,10 @@ pub struct CliArgs {
     /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
+    #[arg(short, long)]
+    /// Use the sequential algorithm (does not need offsets).​
+    pub sequential: bool,
+
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
@@ -35,7 +39,7 @@ pub struct CliArgs {
     #[clap(flatten)]
     pub ca: CompressArgs,
 
-    #[arg(long)]
+    #[arg(long, conflicts_with = "sequential")]
     /// Use the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
@@ -59,6 +63,7 @@ where
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
+    let sequential = args.sequential;
     let use_dcf = args.dcf;
     let src = args.src.clone();
     let target_endianness = args.ca.endianness.clone();
@@ -76,15 +81,28 @@ where
     }
 
     let loaded = args.fmt.load(&args.permutation)?;
-    dispatch_int_slice!(loaded, |perm| {
-        crate::to::bvgraph::compress_with_perm::<E, _>(
-            thread_pool,
-            builder,
-            &src,
-            target_endianness,
-            memory_usage,
-            use_dcf,
-            perm,
-        )
-    })
+    if sequential {
+        dispatch_int_slice!(loaded, |perm| {
+            crate::to::bvgraph::seq_compress_with_perm::<E, _>(
+                thread_pool,
+                builder,
+                &src,
+                target_endianness,
+                memory_usage,
+                perm,
+            )
+        })
+    } else {
+        dispatch_int_slice!(loaded, |perm| {
+            crate::to::bvgraph::par_compress_with_perm::<E, _>(
+                thread_pool,
+                builder,
+                &src,
+                target_endianness,
+                memory_usage,
+                use_dcf,
+                perm,
+            )
+        })
+    }
 }

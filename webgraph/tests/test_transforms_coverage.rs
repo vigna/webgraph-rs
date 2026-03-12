@@ -49,7 +49,7 @@ fn test_transpose_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let split = transpose_split(&seq, MemoryUsage::BatchSize(2))?;
+    let split = transpose_split(&seq, MemoryUsage::BatchSize(2), None)?;
     assert_eq!(split.boundaries[0], 0);
     assert_eq!(*split.boundaries.last().unwrap(), 3);
     // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
@@ -74,7 +74,7 @@ fn test_transpose_split_bvgraph() -> Result<()> {
     let graph = BvGraph::with_basename(basename).load()?;
     let num_nodes = graph.num_nodes();
 
-    let split = transform::transpose_split(&graph, MemoryUsage::BatchSize(100_000))?;
+    let split = transform::transpose_split(&graph, MemoryUsage::BatchSize(100_000), None)?;
 
     assert_eq!(*split.boundaries.first().unwrap(), 0);
     assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
@@ -187,7 +187,7 @@ fn test_permute_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let perm = vec![2, 0, 1];
-    let p = permute_split(&seq, &perm, MemoryUsage::BatchSize(2))?;
+    let p = permute_split(&seq, &perm, MemoryUsage::BatchSize(2), None)?;
     // Collect all arcs via From conversion
     let lenders: Vec<_> = p.into();
     let mut arcs = vec![];
@@ -267,7 +267,7 @@ fn test_simplify_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = simplify_split(&seq, MemoryUsage::BatchSize(2))?;
+    let s = simplify_split(&seq, MemoryUsage::BatchSize(2), None)?;
     // Collect all arcs and verify symmetrization
     let lenders: Vec<_> = s.into();
     let mut arcs = vec![];
@@ -343,7 +343,7 @@ fn test_map_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![2, 0, 1];
-    let s = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2))?;
+    let s = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2), None)?;
     let lenders: Vec<_> = s.into();
     let mut arcs = vec![];
     for lender in lenders {
@@ -370,7 +370,7 @@ fn test_map_split_shrinks() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
-    let s = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2))?;
+    let s = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2), None)?;
     let lenders: Vec<_> = s.into();
     let mut arcs = vec![];
     for lender in lenders {

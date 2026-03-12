@@ -27,17 +27,13 @@ pub struct CliArgs {
     /// Use the sequential algorithm (does not need offsets).​
     pub sequential: bool,
 
-    #[arg(short, long, conflicts_with = "sequential")]
-    /// No-op for backward compatibility (default is parallel).​
-    pub parallel: bool,
-
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
     #[clap(flatten)]
     pub memory_usage: MemoryUsageArg,
 
-    #[arg(long)]
+    #[arg(long, conflicts_with = "sequential")]
     /// Use the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
@@ -49,11 +45,6 @@ pub struct CliArgs {
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    if args.parallel {
-        log::warn!(
-            "The --parallel flag is deprecated and will be removed in a future release. The parallel algorithm is now the default."
-        );
-    }
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
@@ -90,7 +81,6 @@ where
     let sorted = webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage)?;
 
     let target_endianness = args.ca.endianness.clone();
-    let use_dcf = args.dcf;
     let src = args.src.clone();
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
@@ -103,8 +93,10 @@ where
         builder = builder.with_chunk_size(chunk_size);
     }
 
+    // Use uniform cutpoints for compression of the transposed graph
+    // (the source DCF does not match the transpose's degree distribution)
     thread_pool.install(|| {
-        let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
+        let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), false)?;
         builder.par_comp_lenders_endianness_at(
             &sorted,
             &target_endianness.unwrap_or_else(|| E::NAME.into()),
@@ -129,8 +121,16 @@ where
         .endianness::<E>()
         .load()?;
 
+    let cp = crate::cutpoints(
+        &args.src,
+        seq_graph.num_nodes(),
+        seq_graph.num_arcs_hint(),
+        args.dcf,
+    )?;
+
     // transpose the graph
-    let split = webgraph::transform::transpose_split(&seq_graph, args.memory_usage.memory_usage)?;
+    let split =
+        webgraph::transform::transpose_split(&seq_graph, args.memory_usage.memory_usage, Some(cp))?;
 
     // Convert to (node, lender) pairs
     let pairs: Vec<_> = split.into();

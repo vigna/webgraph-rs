@@ -103,6 +103,7 @@ pub fn simplify(
 pub fn simplify_split<'g, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
+    cutpoints: Option<Vec<usize>>,
 ) -> Result<SplitIters<SortedPairIter<true>>>
 where
     S: SequentialGraph
@@ -114,23 +115,27 @@ where
         >,
 {
     let par_sort_iters = ParSortIters::new_dedup(graph.num_nodes())?.memory_usage(memory_usage);
-    let parts = rayon::current_num_threads();
 
-    let pairs: Vec<_> = graph
-        .split_iter(parts)
-        .into_iter()
-        .map(|iter| {
-            iter.into_pairs().flat_map(|(src, dst)| {
-                // The two-element iterator is fully inlined by LLVM,
-                // generating the same code as a hand-written loop.
-                if src != dst {
-                    Some((src, dst)).into_iter().chain(Some((dst, src)))
-                } else {
-                    None.into_iter().chain(None)
-                }
-            })
+    let pairs: Vec<_> = match cutpoints {
+        Some(cp) => graph.split_iter_at(cp),
+        None => {
+            let parts = rayon::current_num_threads();
+            graph.split_iter(parts)
+        }
+    }
+    .into_iter()
+    .map(|iter| {
+        iter.into_pairs().flat_map(|(src, dst)| {
+            // The two-element iterator is fully inlined by LLVM,
+            // generating the same code as a hand-written loop.
+            if src != dst {
+                Some((src, dst)).into_iter().chain(Some((dst, src)))
+            } else {
+                None.into_iter().chain(None)
+            }
         })
-        .collect();
+    })
+    .collect();
 
     par_sort_iters.sort(pairs)
 }

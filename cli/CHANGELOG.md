@@ -51,6 +51,12 @@
 - Subcommand descriptions start from the same line of the subcommand, but option
   descriptions are forced on the next line.
 
+- All commands that benefit from parallel execution will try to use it, and
+  refuse to execute sequential code unless the user explicitly asks for it.
+
+- `simplify` is now `symmetrize`, with an option to remove self-loops (i.e., the
+  old `simplify` behavior).
+
 ### Fixed
 
 - Sequential transposition was using big-endian format regardless of the

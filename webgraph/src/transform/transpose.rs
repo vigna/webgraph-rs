@@ -99,18 +99,23 @@ pub fn transpose_labeled_split<
     graph: &G,
     memory_usage: MemoryUsage,
     batch_codec: C,
+    cutpoints: Option<Vec<usize>>,
 ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label>>>
 where
     CodecIter<C>: Clone + Send + Sync,
 {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    let parts = rayon::current_num_threads();
 
-    let pairs: Vec<_> = graph
-        .split_iter(parts)
-        .into_iter()
-        .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
-        .collect();
+    let pairs: Vec<_> = match cutpoints {
+        Some(cp) => graph.split_iter_at(cp),
+        None => {
+            let parts = rayon::current_num_threads();
+            graph.split_iter(parts)
+        }
+    }
+    .into_iter()
+    .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
+    .collect();
 
     par_sort_iters.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs)
 }
@@ -139,15 +144,20 @@ pub fn transpose_split<
 >(
     graph: &'g G,
     memory_usage: MemoryUsage,
+    cutpoints: Option<Vec<usize>>,
 ) -> Result<SplitIters<SortedPairIter>> {
     let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    let parts = rayon::current_num_threads();
 
-    let pairs: Vec<_> = graph
-        .split_iter(parts)
-        .into_iter()
-        .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
-        .collect();
+    let pairs: Vec<_> = match cutpoints {
+        Some(cp) => graph.split_iter_at(cp),
+        None => {
+            let parts = rayon::current_num_threads();
+            graph.split_iter(parts)
+        }
+    }
+    .into_iter()
+    .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
+    .collect();
 
     par_sort_iters.sort(pairs)
 }
