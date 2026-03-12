@@ -159,6 +159,7 @@ pub mod seq {
         }
     }
 
+    impl<L: lender::Lender + Clone> ExactSizeIterator for Iter<L> {}
     impl<L: lender::Lender + Clone> core::iter::FusedIterator for Iter<L> {}
 
     pub type Lender<'a, S> = lender::Take<<S as SequentialLabeling>::Lender<'a>>;
@@ -270,6 +271,7 @@ pub mod ra {
         }
     }
 
+    impl<R: RandomAccessLabeling> ExactSizeIterator for Iter<'_, R> {}
     impl<R: RandomAccessLabeling> core::iter::FusedIterator for Iter<'_, R> {}
 
     pub type Lender<'a, R> = lender::Take<<R as SequentialLabeling>::Lender<'a>>;

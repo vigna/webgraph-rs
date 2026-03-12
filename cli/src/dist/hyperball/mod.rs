@@ -32,20 +32,20 @@ pub struct Centralities {
     /// How many decimal digits will be used to store centralities in text formats.
     pub precision: Option<usize>,
 
-    /// Compute the approximate sum of distances and save them as at the given path.
+    /// Compute the approximate sum of distances and save them at the given path.
     #[clap(long)]
     pub sum_of_distances: Option<PathBuf>,
-    /// Compute the approximate number of reachable nodes and save them as at the given path.
+    /// Compute the approximate number of reachable nodes and save them at the given path.
     #[clap(long)]
     pub reachable_nodes: Option<PathBuf>,
-    /// Compute the approximate harmonic centralities and save them as at the given path.
+    /// Compute the approximate harmonic centralities and save them at the given path.
     #[clap(long)]
     pub harmonic: Option<PathBuf>,
-    /// Compute the approximate closeness centralities and save them as at the given path.
+    /// Compute the approximate closeness centralities and save them at the given path.
     #[clap(long)]
     pub closeness: Option<PathBuf>,
     #[clap(long)]
-    /// Compute the approximate neighborhood function and save it as at the given path.
+    /// Compute the approximate neighborhood function and save it at the given path.
     pub neighborhood_function: Option<PathBuf>,
 }
 

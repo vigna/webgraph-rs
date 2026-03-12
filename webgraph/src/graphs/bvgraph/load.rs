@@ -150,7 +150,7 @@ impl LoadMode for File {
         // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::load_full(path)
-                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+                .with_context(|| format!("Cannot load Elias–Fano pointer list {}", path.display()))
                 .map(Into::into)
         }
     }
@@ -181,7 +181,7 @@ impl LoadMode for Mmap {
         // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::mmap(path, flags.into())
-                .with_context(|| format!("Cannot map Elias-Fano pointer list {}", path.display()))
+                .with_context(|| format!("Cannot map Elias–Fano pointer list {}", path.display()))
         }
     }
 }
@@ -209,7 +209,7 @@ impl LoadMode for LoadMem {
         // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::load_mem(path)
-                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+                .with_context(|| format!("Cannot load Elias–Fano pointer list {}", path.display()))
         }
     }
 }
@@ -239,7 +239,7 @@ impl LoadMode for LoadMmap {
         // SAFETY: the file was written by a compatible version of ε-serde.
         unsafe {
             EF::load_mmap(path, flags.into())
-                .with_context(|| format!("Cannot load Elias-Fano pointer list {}", path.display()))
+                .with_context(|| format!("Cannot load Elias–Fano pointer list {}", path.display()))
         }
     }
 }
@@ -701,7 +701,7 @@ fn warn_if_ef_stale(basename: &Path) {
 
     if ef_modified < graph_modified {
         log::warn!(
-            "The Elias-Fano file {} is older than the graph file {}; \
+            "The Elias–Fano file {} is older than the graph file {}; \
              this may indicate that the graph has been modified and the .ef file is stale. \
              Consider rebuilding it with \"webgraph build ef {}\", just touch it if this warning is spurious, \
              or set the environment variable DO_NOT_CHECK_MOD_TIMES to disable this check.",

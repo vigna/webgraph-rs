@@ -124,10 +124,10 @@ fn test_llp_pipeline() -> Result<()> {
     ])?;
     // check that the offsets are the same
     let original_offsets = std::fs::read(&final_offsets_orig)?;
-    let finalified_offsets = std::fs::read(final_offsets)?;
+    let final_offsets_data = std::fs::read(final_offsets)?;
     assert_eq!(
-        original_offsets, finalified_offsets,
-        "Offsets do not match after finalification"
+        original_offsets, final_offsets_data,
+        "Offsets do not match after final permutation"
     );
     std::fs::remove_file(final_offsets_orig)?;
 

@@ -38,7 +38,7 @@ use webgraph::prelude::{CompFlags, JavaPermutation};
 use webgraph::utils::{Granularity, MemoryUsage};
 
 macro_rules! SEQ_PROC_WARN {
-    () => {"Processing the graph sequentially: for parallel processing please build the Elias-Fano offsets list using 'webgraph build ef {}'"}
+    () => {"Processing the graph sequentially: for parallel processing please build the Elias–Fano offsets list using 'webgraph build ef {}'"}
 }
 
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
@@ -191,13 +191,19 @@ impl GranularityArgs {
 }
 
 /// Shared CLI arguments for commands that specify a memory usage.
+///
+/// Accepts a plain number, a number with a suffix, or a percentage. If the
+/// value ends with `b` or `B` it is interpreted as a number of bytes;
+/// otherwise, it is interpreted as a number of elements. The available SI
+/// and NIST multipliers are k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. A
+/// trailing `%` interprets the value as a percentage of the available
+/// memory. The default is `50%`.
 #[derive(Args, Debug)]
 pub struct MemoryUsageArg {
     #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "50%")]
-    /// The number of pairs to be used in batches.
-    /// If the number ends with a "b" or "B" it is interpreted as a number of bytes, otherwise as a number of elements.
-    /// You can use the SI and NIST multipliers k, M, G, T, P, ki, Mi, Gi, Ti, and Pi.
-    /// You can also use a percentage of the available memory by appending a "%" to the number.
+    /// The memory usage for batches (a number of elements with an optional
+    /// SI/NIST suffix; append "b"/"B" for bytes, "%" for a percentage of
+    /// available memory).
     pub memory_usage: MemoryUsage,
 }
 
@@ -216,11 +222,11 @@ pub enum FloatSliceFormat {
 }
 
 impl FloatSliceFormat {
-    /// Stores as slice of floats in the specified `path` using the format defined by
+    /// Stores a slice of floats in the specified `path` using the format defined by
     /// `self`.
     ///
     /// If the result is a textual format, that is, ASCII or JSON, `precision`
-    /// will be used to truncate the float values to the specified number of
+    /// will be used to round the float values to the specified number of
     /// decimal digits. If `None`, [zmij](https://crates.io/crates/zmij)
     /// formatting will be used.
     pub fn store<F>(
@@ -503,7 +509,7 @@ impl IntSliceFormat {
 
         match self {
             IntSliceFormat::Epserde => {
-                log::info!("Storing in epserde format at {}", path.as_ref().display());
+                log::info!("Storing in ε-serde format at {}", path.as_ref().display());
                 // SAFETY: the type is ε-serde serializable.
                 unsafe {
                     data.serialize(&mut buf).with_context(|| {
@@ -665,12 +671,18 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     let number = arg[..num_digits].parse::<f64>()?;
     let suffix = &arg[num_digits..].trim();
 
+    if suffix.is_empty() {
+        let value = number as usize;
+        ensure!(value > 0, "batch size must be greater than zero");
+        return Ok(MemoryUsage::BatchSize(value));
+    }
+
     let prefix = suffix.strip_suffix('b').unwrap_or(suffix);
     let multiplier = PREF_SYMS
         .iter()
         .find(|(x, _)| *x == prefix)
         .map(|(_, m)| m)
-        .ok_or(anyhow!("invalid prefix symbol {}", suffix))?;
+        .ok_or(anyhow!("invalid suffix {}", suffix))?;
 
     let value = (number * (*multiplier as f64)) as usize;
     ensure!(value > 0, "batch size must be greater than zero");
@@ -685,17 +697,17 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
 /// Shared CLI arguments for compression.
 #[derive(Args, Debug, Clone)]
 pub struct CompressArgs {
-    /// The endianness of the graph to write [default: same as source]
+    /// The endianness of the graph to write [default: same as source].
     #[clap(short = 'E', long)]
     pub endianness: Option<String>,
 
-    /// The compression windows
+    /// The compression window.
     #[clap(short = 'w', long, default_value_t = 7)]
     pub compression_window: usize,
-    /// The minimum interval length
+    /// The minimum interval length.
     #[clap(short = 'i', long, default_value_t = 4)]
     pub min_interval_length: usize,
-    /// The maximum recursion depth for references (-1 for infinite recursion depth)
+    /// The maximum recursion depth for references (-1 for infinite recursion depth).
     #[clap(short = 'r', long, default_value_t = 3)]
     pub max_ref_count: isize,
 

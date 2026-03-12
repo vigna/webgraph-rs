@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     // create the offsets file while we re-encode the graph so we avoid
-    // having to scan the graph afterwards. We can't do an Elias-Fano yet
+    // having to scan the graph afterwards. We can't do an Elias–Fano yet
     // because we don't know the length of the final graph.
     let offsets_path = args.dst.with_extension(OFFSETS_EXTENSION);
     let mut offsets_writer = buf_bit_writer::from_path::<BE, usize>(&offsets_path)

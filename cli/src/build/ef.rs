@@ -21,12 +21,12 @@ use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "ef", about = "Builds the Elias-Fano representation of the offsets of a graph.", long_about = None)]
+#[command(name = "ef", about = "Builds the Elias–Fano representation of the offsets of a graph.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph (or labels).
     pub basename: PathBuf,
     /// The number of nodes of the graph. When passed, we don't need to load the
-    /// ".properties" file. This allows to build Elias-Fano from the offsets of
+    /// ".properties" file. This allows to build Elias–Fano from the offsets of
     /// something that might not be a graph but that has offsets, like labels.
     /// For this reason, if passed, we will also try to read the ".labeloffsets"
     /// file and then fallback to the usual ".offsets" file.
@@ -86,7 +86,7 @@ where
             let file_len = file_len_bits(&basename.with_extension(LABELS_EXTENSION))?;
             pl.expected_updates(Some(num_nodes));
             let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
-            info!("The label offsets file exists, reading it to build Elias-Fano");
+            info!("The label offsets file exists, reading it to build Elias–Fano");
             let of = <MmapHelper<u32>>::mmap(label_offsets_path, MmapFlags::SEQUENTIAL)?;
             build_elias_fano_from_offsets(
                 &global_args,
@@ -109,7 +109,7 @@ where
     info!("Graph file size: {} bits", file_len);
 
     // if the num_of_nodes is not present, read it from the properties file
-    // otherwise use the provided value, this is so we can build the Elias-Fano
+    // otherwise use the provided value, this is so we can build the Elias–Fano
     // for offsets of any custom format that might not use the standard
     // properties file
     let num_nodes = args
@@ -137,7 +137,7 @@ where
     info!("Checking if offsets exists at '{}'", of_file_path.display());
     // if the offset files exists, read it to build elias-fano
     if of_file_path.exists() {
-        info!("The offsets file exists, reading it to build Elias-Fano");
+        info!("The offsets file exists, reading it to build Elias–Fano");
         let of = <MmapHelper<u32>>::mmap(of_file_path, MmapFlags::SEQUENTIAL)?;
         build_elias_fano_from_offsets(
             &global_args,
@@ -159,7 +159,7 @@ pub fn build_elias_fano_from_graph(
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,
 ) -> Result<()> {
-    info!("The offsets file does not exist, reading the graph to build Elias-Fano");
+    info!("The offsets file does not exist, reading the graph to build Elias–Fano");
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => build_elias_fano_from_graph_with_endianness::<BE>(args, pl, efb),
@@ -177,7 +177,7 @@ pub fn build_elias_fano_from_offsets<E: Endianness>(
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder,
 ) -> Result<()> {
-    info!("Building Elias-Fano from offsets...");
+    info!("Building Elias–Fano from offsets...");
 
     // progress bar
     pl.start("Translating offsets to EliasFano...");
@@ -249,7 +249,7 @@ pub fn serialize_elias_fano(
     pl.start("Writing to disk...");
 
     let ef_path = args.basename.with_extension(EF_EXTENSION);
-    info!("Creating Elias-Fano at '{}'", ef_path.display());
+    info!("Creating Elias–Fano at '{}'", ef_path.display());
     let mut ef_file = BufWriter::new(
         File::create(&ef_path)
             .with_context(|| format!("Could not create {}", ef_path.display()))?,

@@ -72,7 +72,7 @@ where
         // create a bit reader on the file
         let mut reader = buf_bit_reader::from_path::<BE, u32>(of_file_path)?;
         // progress bar
-        pl.start("Checking offsets file against Elias-Fano...");
+        pl.start("Checking offsets file against Elias–Fano...");
         // read the graph a write the offsets
         let mut offset = 0;
         for node_id in 0..num_nodes + 1 {
@@ -102,7 +102,7 @@ where
             .load()?;
     // otherwise directly read the graph
     // progress bar
-    pl.start("Checking graph against Elias-Fano...");
+    pl.start("Checking graph against Elias–Fano...");
     // read the graph a write the offsets
     for (node, (new_offset, _degree)) in seq_graph.offset_deg_iter().enumerate() {
         // decode the next nodes so we know where the next node_id starts

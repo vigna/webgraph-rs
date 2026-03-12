@@ -35,6 +35,11 @@
 
 - `*Vector*` types are now `*Slice*` types.
 
+### Fixed
+
+- Sequential transposition was using big-endian format regardless of the
+  specified endianness.
+
 ## [0.4.1] - 2026-02-23
 
 ### New

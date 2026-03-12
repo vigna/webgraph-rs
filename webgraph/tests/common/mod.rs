@@ -39,7 +39,7 @@ pub fn test_graph() -> VecGraph {
     ])
 }
 
-/// Builds the Elias-Fano representation of offsets for a graph.
+/// Builds the Elias–Fano representation of offsets for a graph.
 ///
 /// Replicates the core of `webgraph build ef` by reading the .offsets file.
 pub fn build_ef(basename: &Path) -> Result<()> {

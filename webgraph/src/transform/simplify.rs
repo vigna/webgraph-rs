@@ -81,9 +81,7 @@ pub fn simplify(
         pl.light_update();
     }];
     // merge the batches
-    let filter: fn(&((usize, usize), ())) -> bool = |((src, dst), ())| src != dst;
-    let iter = sorted.iter()?.filter(filter);
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), iter);
+    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), sorted.iter()?);
     pl.done();
 
     Ok(Left(sorted))

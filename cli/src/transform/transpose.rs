@@ -106,7 +106,7 @@ where
         let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
         builder.par_comp_lenders_endianness_at(
             &sorted,
-            &target_endianness.unwrap_or_else(|| BE::NAME.into()),
+            &target_endianness.unwrap_or_else(|| E::NAME.into()),
             cp,
         )
     })?;

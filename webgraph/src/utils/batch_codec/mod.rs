@@ -30,7 +30,7 @@ use std::path::Path;
 pub mod gaps;
 pub mod grouped_gaps;
 
-/// The recommended default batch codec for unlabelled batches.
+/// The recommended default batch codec for unlabeled batches.
 ///
 /// When `DEDUP` is `true`, duplicates are eliminated during batch
 /// serialization, reducing I/O and disk usage.

@@ -310,7 +310,7 @@ fn test_bvgraph_random_access_all_paths() -> Result<()> {
         })
         .comp_graph::<BE>(&graph)?;
 
-    // Build Elias-Fano for random access
+    // Build Elias–Fano for random access
     build_ef(&basename)?;
 
     let ra = BvGraph::with_basename(&basename)

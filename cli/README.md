@@ -13,7 +13,7 @@ for graph compression.
 This crate provides the `webgraph` CLI tool with various subcommands for working
 with compressed graphs. The tool supports:
 
-- **Building** accessory data structures (Elias-Fano offsets, DCF)
+- **Building** accessory data structures (Elias–Fano offsets, DCF)
 - **Converting** graphs between formats (arcs, ASCII, endianness)
 - **Transforming** graphs (transpose, simplify)
 - **Analyzing** graphs (code statistics)

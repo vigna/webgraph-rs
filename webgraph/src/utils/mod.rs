@@ -345,7 +345,7 @@ impl<
     }
 }
 
-/// Conversion of a [`SplitIters`] of iterators on labelled pairs into a
+/// Conversion of a [`SplitIters`] of iterators on labeled pairs into a
 /// sequences of pairs of starting points and associated lenders.
 ///
 /// This is useful for converting the output of sorting utilities like

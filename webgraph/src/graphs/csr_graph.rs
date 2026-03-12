@@ -33,7 +33,7 @@ pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 /// It is a graph representation that stores the degree cumulative function
 /// (DCF) and the successors in a compressed format. The DCF is a sequence of
 /// offsets that indicates the start of the neighbors for each node in the
-/// graph. Building a CSR graph requires always a sorted lender.
+/// graph. Building a CSR graph always requires a sorted lender.
 ///
 /// The lenders returned by a CSR graph are sorted; however, the successors may
 /// be unsorted. If you need the additional guarantee that the successors are
@@ -45,7 +45,7 @@ pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 /// slices for both the DCF and successors, which is the fastest choice.
 ///
 /// A [`CompressedCsrGraph`], instead, is a [`CsrGraph`] where the DCF is
-/// represented using an Elias-Fano encoding, and the successors are represented
+/// represented using an Elias–Fano encoding, and the successors are represented
 /// using a [`BitFieldVec`]. There is also a [version with sorted
 /// successors](CompressedCsrSortedGraph). Their construction requires a
 /// sequential graph providing the number of arcs.
@@ -239,7 +239,7 @@ impl CompressedCsrGraph {
             efb.push(successors.len());
         }
         let ef = efb.build();
-        // SAFETY: the Elias-Fano structure and successors are built consistently from the graph.
+        // SAFETY: the Elias–Fano structure and successors are built consistently from the graph.
         let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
         unsafe { Ok(Self::from_parts(ef, successors)) }
     }

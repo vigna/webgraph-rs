@@ -6,15 +6,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Facilities to sort in parallel externally (labelled) pairs of nodes
+//! Facilities to sort in parallel externally (labeled) pairs of nodes
 //! returned by a sequence of iterators, returning [partitioned sorted iterators of
-//! (labelled) pairs of nodes](SplitIters).
+//! (labeled) pairs of nodes](SplitIters).
 //!
 //! The algorithm implemented in this module is a derivation of
 //! [`ParSortPairs`](super::par_sort_pairs). It circumvents the bottleneck of
 //! merging sorted batches and then partitioning them for parallel compression
 //! by building an already partitioned result. Each thread sorts one of the
-//! input iterators but partition the inputs it is sorting in a [settable number
+//! input iterators but partitions the inputs it is sorting in a [settable number
 //! of partitions](ParSortIters::num_partitions). Then, we build the result
 //! iterators by merging the first partition from each thread, then the second
 //! partition from each thread, and so on. At that point the iterators can be
@@ -28,8 +28,8 @@
 //! and for compression, but there might be situations in which it might be
 //! beneficial to have a different number of partitions and threads.
 //!
-//! The typical use of [`ParSortIters`] is to sort (labelled) pairs of nodes
-//! representing a (labelled) graph; the resulting [`SplitIters`] structure can
+//! The typical use of [`ParSortIters`] is to sort (labeled) pairs of nodes
+//! representing a (labeled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for
 //! example,
 //! [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
@@ -52,7 +52,7 @@ use super::sort_pairs::KMergeIters;
 use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 use crate::utils::{SortedPairIter, SplitIters};
 
-/// Takes a sequence of iterators of (labelled) pairs as input, and turns them
+/// Takes a sequence of iterators of (labeled) pairs as input, and turns them
 /// into a [`SplitIters`] structure which is suitable for
 /// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
 ///
@@ -108,7 +108,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// // Convert to (node, lender) pairs using From trait
 /// let pairs: Vec<_> = sorted.into();
 ///
-/// // Compress in parallel using par
+/// // Compress in parallel using par_comp_lenders
 /// let bvcomp_tmp_dir = tempfile::tempdir()?;
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
@@ -265,7 +265,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         self.try_sort_labeled::<C, std::convert::Infallible, P>(batch_codec, pairs)
     }
 
-    /// Sorts the output of the provided sequence of iterators of (labelled)
+    /// Sorts the output of the provided sequence of iterators of (labeled)
     /// pairs, returning a [`SplitIters`] structure.
     ///
     /// This method accepts as type parameter a
@@ -336,7 +336,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
                     for ((src, dst), label) in pair {
                         ensure!(
                             src < self.num_nodes,
-                            "Expected {}, but got {src}",
+                            "Source node {src} is out of bounds (num_nodes = {})",
                             self.num_nodes
                         );
                         let partition_id = src / num_nodes_per_partition;
@@ -386,7 +386,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             .collect::<Result<Vec<_>>>()?;
 
         // At this point, the iterator could be collected into {worker_id ->
-        // {partition_id -> [iterators]}} ie. Vec<Vec<Vec<BatchIterator>>>>.
+        // {partition_id -> [iterators]}}, i.e., Vec<Vec<Vec<BatchIterator>>>>.
         //
         // Let's merge the {partition_id -> [iterators]} maps of each worker
         let partitioned_presorted_pairs = partitioned_presorted_pairs.into_par_iter().reduce(
@@ -406,7 +406,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             },
         );
         // At this point, the iterator was turned into {partition_id ->
-        // [iterators]} ie. Vec<Vec<BatchIterator>>>.
+        // [iterators]}, i.e., Vec<Vec<BatchIterator>>>.
         pl.done();
 
         // Build boundaries array: [0, nodes_per_partition,

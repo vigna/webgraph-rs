@@ -9,7 +9,7 @@ use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use webgraph::{graphs::bvgraph::get_endianness, prelude::BvGraph};
 use webgraph_algo::distances::exact_sum_sweep::{
     All, AllForward, Diameter, Level, Radius, RadiusDiameter,
@@ -79,7 +79,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     );
     ensure!(
         !(args.backward.is_some() && args.level != LevelArg::All),
-        "You cannot only pass --backward with --level=all as the backward eccentricities won't be computed otherwise."
+        "You can only pass --backward with --level=all as the backward eccentricities won't be computed otherwise."
     );
     ensure!(
         !(args.level == LevelArg::All && args.symmetric && args.backward.is_some()),
@@ -98,7 +98,7 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 /// Stores eccentricities to a file using the specified format.
 fn store_eccentricities(
     eccentricities: &[usize],
-    path: &PathBuf,
+    path: &Path,
     fmt: IntSliceFormat,
 ) -> Result<()> {
     fmt.store(path, eccentricities, None)
