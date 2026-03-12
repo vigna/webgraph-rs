@@ -46,10 +46,11 @@ where
             .endianness::<E>()
             .load()?;
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("compare graphs")
-        .expected_updates(Some(first_graph.num_nodes()));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "compare graphs",
+        expected_updates = Some(first_graph.num_nodes()),
+    ];
 
     pl.start("Start comparing the graphs...");
 

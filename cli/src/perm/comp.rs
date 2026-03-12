@@ -56,8 +56,7 @@ fn compose<P: SliceByValue<Value = usize>>(
 pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true).item_name("indices");
+    let mut pl = progress_logger![display_memory = true, item_name = "indices"];
 
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
@@ -73,6 +72,7 @@ pub fn main(args: CliArgs) -> Result<()> {
         perms.iter().all(|p| p.len() == len),
         "All permutations must have the same length"
     );
+    pl.expected_updates(Some(len));
 
     // Dispatch on the concrete type for static dispatch in the composition
     // loop. All perms share the same variant since they are loaded with the

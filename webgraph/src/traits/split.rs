@@ -176,10 +176,10 @@ pub mod seq {
 /// [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph)), use
 /// [`seq::Iter`] instead.
 ///
-/// The bound is [`RandomAccessLabeling`] rather than
-/// [`SequentialLabeling`] even though only `iter_from` is used: the
-/// stronger bound ensures that `iter_from` is efficient, preventing
-/// silent quadratic slowdowns.
+/// The bound is [`RandomAccessLabeling`](RandomAccessLabeling) rather than
+/// [`SequentialLabeling`] even though only `iter_from` is used: the stronger
+/// bound ensures that `iter_from` is efficient, preventing silent quadratic
+/// slowdowns.
 ///
 /// To use it, you have to implement the trait by specifying the associated
 /// types `SplitLender` and `IntoIterator` using the [`ra::Lender`] and

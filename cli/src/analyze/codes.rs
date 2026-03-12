@@ -94,9 +94,11 @@ where
             .endianness::<E>()
             .load()?;
 
-        let mut pl = concurrent_progress_logger![item_name = "node"];
-        pl.display_memory(true)
-            .expected_updates(Some(graph.num_nodes()));
+        let mut pl = concurrent_progress_logger![
+            item_name = "node",
+            display_memory = true,
+            expected_updates = Some(graph.num_nodes()),
+        ];
         pl.start("Scanning...");
 
         if let Some(duration) = args.log_interval.log_interval {
@@ -150,10 +152,11 @@ where
             .endianness::<E>()
             .load()?;
 
-        let mut pl = ProgressLogger::default();
-        pl.display_memory(true)
-            .item_name("node")
-            .expected_updates(Some(graph.num_nodes()));
+        let mut pl = progress_logger![
+            display_memory = true,
+            item_name = "node",
+            expected_updates = Some(graph.num_nodes()),
+        ];
 
         pl.start("Scanning...");
 

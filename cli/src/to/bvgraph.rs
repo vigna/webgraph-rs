@@ -18,7 +18,7 @@ use webgraph::prelude::*;
 use webgraph::traits::SequentialLabeling;
 
 #[derive(Parser, Debug)]
-#[command(name = "bvgraph", about = "Recompresses a BvGraph, possibly applying a permutation to its node identifiers.", long_about = None)]
+#[command(name = "bvgraph", about = "Writes a graph in the BV format, possibly applying a permutation to its node identifiers.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the source graph.
     pub src: PathBuf,

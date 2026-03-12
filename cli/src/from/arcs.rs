@@ -65,10 +65,11 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     let mut nodes = HashMap::new();
 
     // read the csv and put it inside the sort pairs
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("lines")
-        .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "lines",
+        expected_updates = args.arcs_args.max_arcs.or(args.num_arcs),
+    ];
 
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
@@ -205,10 +206,11 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     // save the nodes
     if args.arcs_args.labels {
         let nodes_file = args.dst.with_extension("nodes");
-        let mut pl = ProgressLogger::default();
-        pl.display_memory(true)
-            .item_name("lines")
-            .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
+        let mut pl = progress_logger![
+            display_memory = true,
+            item_name = "lines",
+            expected_updates = args.arcs_args.max_arcs.or(args.num_arcs),
+        ];
         if let Some(duration) = args.log_interval.log_interval {
             pl.log_interval(duration);
         }

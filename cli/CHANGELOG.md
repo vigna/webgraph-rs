@@ -46,6 +46,8 @@
 - The setting of the log interval does not appear anymore in all commands, but
   just in the ones that do logging.
 
+- `to ascii` was never calling `ProgressLog::update`.
+
 ## [0.4.1] - 2026-02-23
 
 ### New

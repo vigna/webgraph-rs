@@ -47,10 +47,11 @@ where
     let mut writer = buf_bit_writer::from_path::<BE, usize>(&offsets)
         .with_context(|| format!("Could not create {}", offsets.display()))?;
     // progress bar
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("node")
-        .expected_updates(Some(seq_graph.num_nodes()));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "node",
+        expected_updates = Some(seq_graph.num_nodes()),
+    ];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }

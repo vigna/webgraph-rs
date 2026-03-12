@@ -62,10 +62,11 @@ where
     let ef = unsafe { EF::mmap(args.basename.with_extension(EF_EXTENSION), Flags::default()) }?;
     let ef = ef.uncase();
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("offset")
-        .expected_updates(Some(num_nodes));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "offset",
+        expected_updates = Some(num_nodes),
+    ];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
@@ -91,10 +92,11 @@ where
         info!("No offsets file, checking against graph file only");
     }
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("offset")
-        .expected_updates(Some(num_nodes));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "offset",
+        expected_updates = Some(num_nodes),
+    ];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }

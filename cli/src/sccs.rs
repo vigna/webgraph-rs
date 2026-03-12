@@ -92,7 +92,7 @@ where
         .endianness::<E>()
         .load()?;
 
-    let mut pl = progress_logger![];
+    let mut pl = progress_logger![expected_updates = Some(graph.num_nodes())];
     if let Some(log_interval) = args.log_interval.log_interval {
         pl.log_interval(log_interval);
     }

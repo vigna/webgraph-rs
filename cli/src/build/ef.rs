@@ -70,8 +70,7 @@ pub fn build_elias_fano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true).item_name("node");
+    let mut pl = progress_logger![display_memory = true, item_name = "node"];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
@@ -215,8 +214,7 @@ pub fn serialize_elias_fano(
     let ef = efb.build();
     pl.done();
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
+    let mut pl = progress_logger![display_memory = true];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
@@ -224,8 +222,7 @@ pub fn serialize_elias_fano(
     let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
     pl.done();
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true);
+    let mut pl = progress_logger![display_memory = true];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }

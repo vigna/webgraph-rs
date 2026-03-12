@@ -64,10 +64,11 @@ where
             .with_context(|| format!("Could not create {}", ef_path.display()))?,
     );
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("node")
-        .expected_updates(Some(num_nodes));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "node",
+        expected_updates = Some(num_nodes),
+    ];
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }

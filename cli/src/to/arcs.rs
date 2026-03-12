@@ -19,7 +19,11 @@ use webgraph::traits::SequentialLabeling;
 use webgraph::utils::MmapHelper;
 
 #[derive(Parser, Debug)]
-#[command(name = "arcs", about = "Writes to standard out a graph as a list of arcs to stdout. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The \".nodes\" file created by the \"from arcs\" command is compatible with \"--labels\".", long_about = None)]
+#[command(
+    name = "arcs",
+    about = "Writes a graph in ASCII to standard output as a list of arcs.",
+    long_about = "Writes a graph in ASCII to standard output as a list of arcs. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, the command will write nodes as numerical identifiers, but you can use --labels to pass a file containing the identifier of each node. The first string will be the label of node 0, the second for node 1, and so on. The \".nodes\" file created by the \"from arcs\" command is compatible with \"--labels\"."
+)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
@@ -70,10 +74,11 @@ where
 
     // read the csv and put it inside the sort pairs
     let mut stdout = std::io::BufWriter::new(std::io::stdout().lock());
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("nodes")
-        .expected_updates(Some(num_nodes));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "nodes",
+        expected_updates = Some(num_nodes),
+    ];
 
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);

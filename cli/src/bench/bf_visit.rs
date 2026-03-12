@@ -101,11 +101,12 @@ fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     let mut seen = BitVec::new(num_nodes);
     let mut queue = VecDeque::new();
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true)
-        .item_name("node")
-        .local_speed(true)
-        .expected_updates(Some(num_nodes));
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "node",
+        local_speed = true,
+        expected_updates = Some(num_nodes),
+    ];
     pl.start("Visiting graph...");
 
     for start in 0..num_nodes {

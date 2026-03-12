@@ -18,7 +18,7 @@ use webgraph::traits::SequentialLabeling;
 use webgraph::utils::MmapHelper;
 
 #[derive(Parser, Debug)]
-#[command(name = "ascii", about = "Dumps a graph in ASCII format: a line for each node with successors separated by tabs.", long_about = None)]
+#[command(name = "ascii", about = "Writes a graph in ASCII to standard output as a line for each node with successors separated by TABs.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
@@ -45,14 +45,17 @@ where
         .endianness::<E>()
         .load()?;
 
-    let mut pl = ProgressLogger::default();
-    pl.display_memory(true).item_name("node");
+    let mut pl = progress_logger![
+        display_memory = true,
+        item_name = "node",
+        expected_updates = Some(seq_graph.num_nodes())
+    ];
 
     if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
 
-    pl.start("Dumping graph in ASCII format...");
+    pl.start("Writing graph in ASCII format...");
 
     let mut iter = seq_graph.iter();
     while let Some((node_id, successors)) = iter.next() {
@@ -64,6 +67,7 @@ where
                 .collect::<Vec<_>>()
                 .join("\t")
         );
+        pl.light_update();
     }
 
     pl.done();

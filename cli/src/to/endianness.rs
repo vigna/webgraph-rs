@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "endianness", about = "Inverts the endianness of a BvGraph.", long_about = None)]
+#[command(name = "endianness", about = "Inverts the endianness of a graph in the BV format.", long_about = None)]
 pub struct CliArgs {
     /// The basename of the source graph.
     pub src: PathBuf,
@@ -65,10 +65,11 @@ macro_rules! impl_convert {
                 )
             })?;
 
-        let mut pl = ProgressLogger::default();
-        pl.display_memory(true)
-            .item_name("node")
-            .expected_updates(Some(num_nodes as usize));
+        let mut pl = progress_logger![
+            display_memory = true,
+            item_name = "node",
+            expected_updates = Some(num_nodes as usize),
+        ];
 
         if let Some(duration) = $args.log_interval.log_interval {
             pl.log_interval(duration);
