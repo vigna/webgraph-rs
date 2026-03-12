@@ -35,10 +35,16 @@
 
 - `*Vector*` types are now `*Slice*` types.
 
+- `GlobalArgs` has been removed, and the log interval is now passed as an
+  argument to the commands that need it.
+
 ### Fixed
 
 - Sequential transposition was using big-endian format regardless of the
   specified endianness.
+
+- The setting of the log interval does not appear anymore in all commands, but
+  just in the ones that do logging.
 
 ## [0.4.1] - 2026-02-23
 

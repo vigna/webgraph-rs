@@ -6,7 +6,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -34,7 +33,7 @@ pub struct CliArgs {
     pub mmap: bool,
 }
 
-pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     let config = BvGraph::with_basename(&args.basename);
 
     for _ in 0..args.repeats {

@@ -944,9 +944,10 @@ pub fn init_env_logger() -> Result<()> {
     Ok(())
 }
 
-#[derive(Args, Debug)]
-pub struct GlobalArgs {
-    #[arg(long, value_parser = parse_duration, global=true, display_order = 1000)]
+/// Shared CLI arguments for commands that use a log interval.
+#[derive(Args, Debug, Clone)]
+pub struct LogIntervalArg {
+    #[arg(long, value_parser = parse_duration)]
     /// How often to log progress. Default is 10s. You can use the suffixes "s"
     /// for seconds, "m" for minutes, "h" for hours, and "d" for days. If no
     /// suffix is provided it is assumed to be in milliseconds.
@@ -984,8 +985,6 @@ pub enum SubCommands {
 pub struct Cli {
     #[command(subcommand)]
     pub command: SubCommands,
-    #[clap(flatten)]
-    pub args: GlobalArgs,
 }
 
 pub mod dist;
@@ -1012,31 +1011,31 @@ where
     let cli = Cli::parse_from(args);
     match cli.command {
         SubCommands::Analyze(args) => {
-            analyze::main(cli.args, args)?;
+            analyze::main(args)?;
         }
         SubCommands::Bench(args) => {
-            bench::main(cli.args, args)?;
+            bench::main(args)?;
         }
         SubCommands::Build(args) => {
-            build::main(cli.args, args, Cli::command())?;
+            build::main(args, Cli::command())?;
         }
         SubCommands::Check(args) => {
-            check::main(cli.args, args)?;
+            check::main(args)?;
         }
         SubCommands::From(args) => {
-            from::main(cli.args, args)?;
+            from::main(args)?;
         }
         SubCommands::Perm(args) => {
-            perm::main(cli.args, args)?;
+            perm::main(args)?;
         }
         SubCommands::Run(args) => {
-            run::main(cli.args, args)?;
+            run::main(args)?;
         }
         SubCommands::To(args) => {
-            to::main(cli.args, args)?;
+            to::main(args)?;
         }
         SubCommands::Transform(args) => {
-            transform::main(cli.args, args)?;
+            transform::main(args)?;
         }
     }
 

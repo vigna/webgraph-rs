@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, GranularityArgs, NumThreadsArg};
+use crate::{GranularityArgs, LogIntervalArg, NumThreadsArg};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
@@ -29,14 +29,17 @@ pub struct CliArgs {
     /// How many codes to show for each type, if k is bigger than the number of codes available
     /// all codes will be shown.
     pub top_k: usize,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => optimize_codes::<BE>(global_args, args),
+        BE::NAME => optimize_codes::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => optimize_codes::<LE>(global_args, args),
+        LE::NAME => optimize_codes::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
@@ -70,7 +73,7 @@ impl Iterator for ChunksIter {
     }
 }
 
-pub fn optimize_codes<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
+pub fn optimize_codes<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
@@ -96,7 +99,7 @@ where
             .expected_updates(Some(graph.num_nodes()));
         pl.start("Scanning...");
 
-        if let Some(duration) = global_args.log_interval {
+        if let Some(duration) = args.log_interval.log_interval {
             pl.log_interval(duration);
         }
 

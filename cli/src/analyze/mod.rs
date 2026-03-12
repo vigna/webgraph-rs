@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
 use anyhow::Result;
 use clap::Subcommand;
 
@@ -17,8 +16,8 @@ pub enum SubCommands {
     Codes(codes::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Codes(args) => codes::main(global_args, args),
+        SubCommands::Codes(args) => codes::main(args),
     }
 }

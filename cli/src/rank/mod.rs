@@ -7,8 +7,6 @@ use crate::{build_info, pretty_print_elapsed};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use super::GlobalArgs;
-
 pub mod pagerank;
 
 #[derive(Subcommand, Debug)]
@@ -24,8 +22,6 @@ pub enum SubCommands {
 #[doc = include_str!("../common_ps.txt")]
 #[doc = include_str!("../common_env.txt")]
 pub struct Cli {
-    #[clap(flatten)]
-    args: GlobalArgs,
     #[command(subcommand)]
     command: SubCommands,
 }
@@ -39,7 +35,7 @@ where
     let cli = Cli::parse_from(args);
     match cli.command {
         SubCommands::PageRank(args) => {
-            pagerank::main(cli.args, args)?;
+            pagerank::main(args)?;
         }
     }
 

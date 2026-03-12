@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
+use crate::LogIntervalArg;
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -24,19 +24,22 @@ use webgraph::prelude::*;
 pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => build_dcf::<BE>(global_args, args),
+        BE::NAME => build_dcf::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => build_dcf::<LE>(global_args, args),
+        LE::NAME => build_dcf::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_dcf<E: Endianness + 'static>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
+pub fn build_dcf<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
@@ -65,7 +68,7 @@ where
     pl.display_memory(true)
         .item_name("node")
         .expected_updates(Some(num_nodes));
-    if let Some(duration) = global_args.log_interval {
+    if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
     let seq_graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&basename)

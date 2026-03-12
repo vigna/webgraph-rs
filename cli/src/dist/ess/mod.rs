@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{GlobalArgs, IntSliceFormat, NumThreadsArg};
+use crate::{IntSliceFormat, LogIntervalArg, NumThreadsArg};
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};
 use dsi_bitstream::prelude::*;
@@ -46,6 +46,9 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 /// The level of exact sum sweep to compute.
@@ -60,7 +63,7 @@ pub enum LevelArg {
     All,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     ensure!(
         args.symmetric || args.transposed.is_some(),
         "You have to either pass --transposed with the basename of the transposed graph or --symm if the graph is symmetric."
@@ -88,28 +91,24 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => exact_sum_sweep::<BE>(global_args, args),
+        BE::NAME => exact_sum_sweep::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => exact_sum_sweep::<LE>(global_args, args),
+        LE::NAME => exact_sum_sweep::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
 /// Stores eccentricities to a file using the specified format.
-fn store_eccentricities(
-    eccentricities: &[usize],
-    path: &Path,
-    fmt: IntSliceFormat,
-) -> Result<()> {
+fn store_eccentricities(eccentricities: &[usize], path: &Path, fmt: IntSliceFormat) -> Result<()> {
     fmt.store(path, eccentricities, None)
 }
 
-pub fn exact_sum_sweep<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
     let graph = BvGraph::with_basename(&args.basename).load()?;
 
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let mut pl = concurrent_progress_logger![];
-    if let Some(log_interval) = global_args.log_interval {
+    if let Some(log_interval) = args.log_interval.log_interval {
         pl.log_interval(log_interval);
     }
 

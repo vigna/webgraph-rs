@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
+use crate::LogIntervalArg;
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -31,6 +31,9 @@ pub struct CliArgs {
     /// For this reason, if passed, we will also try to read the ".labeloffsets"
     /// file and then fallback to the usual ".offsets" file.
     pub number_of_nodes: Option<usize>,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 /// Returns the length in bits of the given file.
@@ -43,7 +46,7 @@ fn file_len_bits(path: &Path) -> Result<usize> {
     Ok(len as usize)
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     let ef_path = args.basename.with_extension(EF_EXTENSION);
     // check that ef_path is writable, this is the only portable way I found
     // to check that the file is writable.
@@ -56,24 +59,21 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => build_elias_fano::<BE>(global_args, args),
+        BE::NAME => build_elias_fano::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => build_elias_fano::<LE>(global_args, args),
+        LE::NAME => build_elias_fano::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn build_elias_fano<E: Endianness + 'static>(
-    global_args: GlobalArgs,
-    args: CliArgs,
-) -> Result<()>
+pub fn build_elias_fano<E: Endianness + 'static>(args: CliArgs) -> Result<()>
 where
     for<'a> BufBitReader<E, MemWordReader<u32, &'a [u32]>>: CodesRead<E> + BitSeek,
 {
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("node");
-    if let Some(duration) = &global_args.log_interval {
-        pl.log_interval(*duration);
+    if let Some(duration) = args.log_interval.log_interval {
+        pl.log_interval(duration);
     }
 
     let basename = args.basename.clone();
@@ -88,15 +88,8 @@ where
             let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
             info!("The label offsets file exists, reading it to build Elias–Fano");
             let of = <MmapHelper<u32>>::mmap(label_offsets_path, MmapFlags::SEQUENTIAL)?;
-            build_elias_fano_from_offsets(
-                &global_args,
-                &args,
-                num_nodes,
-                of.new_reader(),
-                &mut pl,
-                &mut efb,
-            )?;
-            return serialize_elias_fano(&global_args, &args, efb, &mut pl);
+            build_elias_fano_from_offsets(num_nodes, of.new_reader(), &mut pl, &mut efb)?;
+            return serialize_elias_fano(&args, efb, &mut pl);
         }
     }
 
@@ -139,19 +132,12 @@ where
     if of_file_path.exists() {
         info!("The offsets file exists, reading it to build Elias–Fano");
         let of = <MmapHelper<u32>>::mmap(of_file_path, MmapFlags::SEQUENTIAL)?;
-        build_elias_fano_from_offsets(
-            &global_args,
-            &args,
-            num_nodes,
-            of.new_reader(),
-            &mut pl,
-            &mut efb,
-        )?;
+        build_elias_fano_from_offsets(num_nodes, of.new_reader(), &mut pl, &mut efb)?;
     } else {
         build_elias_fano_from_graph(&args, &mut pl, &mut efb)?;
     }
 
-    serialize_elias_fano(&global_args, &args, efb, &mut pl)
+    serialize_elias_fano(&args, efb, &mut pl)
 }
 
 pub fn build_elias_fano_from_graph(
@@ -170,8 +156,6 @@ pub fn build_elias_fano_from_graph(
 }
 
 pub fn build_elias_fano_from_offsets<E: Endianness>(
-    _global_args: &GlobalArgs,
-    _args: &CliArgs,
     num_nodes: usize,
     mut reader: impl GammaRead<E>,
     pl: &mut impl ProgressLog,
@@ -224,7 +208,6 @@ where
 }
 
 pub fn serialize_elias_fano(
-    global_args: &GlobalArgs,
     args: &CliArgs,
     efb: EliasFanoBuilder,
     pl: &mut impl ProgressLog,
@@ -234,8 +217,8 @@ pub fn serialize_elias_fano(
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
-    if let Some(duration) = &global_args.log_interval {
-        pl.log_interval(*duration);
+    if let Some(duration) = args.log_interval.log_interval {
+        pl.log_interval(duration);
     }
     pl.start("Building the Index over the ones in the high-bits...");
     let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
@@ -243,8 +226,8 @@ pub fn serialize_elias_fano(
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true);
-    if let Some(duration) = &global_args.log_interval {
-        pl.log_interval(*duration);
+    if let Some(duration) = args.log_interval.log_interval {
+        pl.log_interval(duration);
     }
     pl.start("Writing to disk...");
 

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, IntSliceFormat, create_parent_dir};
+use crate::{IntSliceFormat, create_parent_dir};
 use anyhow::Result;
 use clap::Parser;
 use rand::prelude::SliceRandom;
@@ -24,7 +24,7 @@ pub struct CliArgs {
     pub fmt: IntSliceFormat,
 }
 
-pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     let mut rng = rand::rng();

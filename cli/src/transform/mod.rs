@@ -7,8 +7,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use super::GlobalArgs;
-
 pub mod map;
 pub mod perm;
 pub mod simplify;
@@ -24,11 +22,11 @@ pub enum SubCommands {
     Transpose(transpose::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Map(args) => map::main(global_args, args),
-        SubCommands::Perm(args) => perm::main(global_args, args),
-        SubCommands::Simplify(args) => simplify::main(global_args, args),
-        SubCommands::Transpose(args) => transpose::main(global_args, args),
+        SubCommands::Map(args) => map::main(args),
+        SubCommands::Perm(args) => perm::main(args),
+        SubCommands::Simplify(args) => simplify::main(args),
+        SubCommands::Transpose(args) => transpose::main(args),
     }
 }

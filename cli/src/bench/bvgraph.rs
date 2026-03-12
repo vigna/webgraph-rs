@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -55,7 +54,7 @@ pub struct CliArgs {
     pub slice: bool,
 }
 
-pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => match args._static {

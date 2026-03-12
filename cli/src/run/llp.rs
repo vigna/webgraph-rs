@@ -6,7 +6,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
 use crate::GranularityArgs;
 use crate::IntSliceFormat;
 use crate::NumThreadsArg;
@@ -111,7 +110,7 @@ pub fn store_perm(
     fmt.store(perm, data, None)
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     if args.perm.is_none() && args.work_dir.is_none() {
         log::warn!(concat!(
             "If `perm` is not set the llp will just compute the labels and not produce the final permutation. ",
@@ -127,17 +126,14 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => llp::<BE>(global_args, args),
+        BE::NAME => llp::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => llp::<LE>(global_args, args),
+        LE::NAME => llp::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn llp<E: Endianness + 'static + Send + Sync>(
-    _global_args: GlobalArgs,
-    args: CliArgs,
-) -> Result<()>
+pub fn llp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,

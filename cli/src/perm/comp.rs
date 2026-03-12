@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, IntSlice, IntSliceFormat, create_parent_dir};
+use crate::{IntSlice, IntSliceFormat, LogIntervalArg, create_parent_dir};
 use anyhow::{Result, ensure};
 use clap::Parser;
 use dsi_progress_logger::prelude::*;
@@ -29,6 +29,9 @@ pub struct CliArgs {
     #[arg(long, value_enum, default_value_t)]
     /// The format of the destination permutation file.
     pub dst_fmt: IntSliceFormat,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 fn compose<P: SliceByValue<Value = usize>>(
@@ -50,13 +53,13 @@ fn compose<P: SliceByValue<Value = usize>>(
     merged
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     let mut pl = ProgressLogger::default();
     pl.display_memory(true).item_name("indices");
 
-    if let Some(duration) = global_args.log_interval {
+    if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
 

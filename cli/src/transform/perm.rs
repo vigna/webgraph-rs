@@ -41,19 +41,19 @@ pub struct CliArgs {
     pub dcf: bool,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => perm::<BE>(global_args, args),
+        BE::NAME => perm::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => perm::<LE>(global_args, args),
+        LE::NAME => perm::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn perm<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
+pub fn perm<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,

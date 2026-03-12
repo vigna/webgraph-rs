@@ -7,8 +7,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use super::GlobalArgs;
-
 pub mod bf_visit;
 pub mod bvgraph;
 
@@ -20,9 +18,9 @@ pub enum SubCommands {
     BFVisit(bf_visit::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Bvgraph(args) => bvgraph::main(global_args, args),
-        SubCommands::BFVisit(args) => bf_visit::main(global_args, args),
+        SubCommands::Bvgraph(args) => bvgraph::main(args),
+        SubCommands::BFVisit(args) => bf_visit::main(args),
     }
 }

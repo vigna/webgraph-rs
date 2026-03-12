@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::GlobalArgs;
 use anyhow::Result;
 use clap::Args;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -24,7 +23,7 @@ pub struct CliArgs {
     pub second_basename: PathBuf,
 }
 
-pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     match get_endianness(&args.first_basename)?.as_str() {
         #[cfg(feature = "be_bins")]
         BE::NAME => compare_graphs::<BE>(args),

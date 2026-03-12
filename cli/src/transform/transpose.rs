@@ -45,7 +45,7 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     if args.parallel {
@@ -57,24 +57,24 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
             if args.sequential {
-                transpose::<BE>(global_args, args)
+                transpose::<BE>(args)
             } else {
-                par_transpose::<BE>(global_args, args)
+                par_transpose::<BE>(args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
             if args.sequential {
-                transpose::<LE>(global_args, args)
+                transpose::<LE>(args)
             } else {
-                par_transpose::<LE>(global_args, args)
+                par_transpose::<LE>(args)
             }
         }
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn transpose<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
+pub fn transpose<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
@@ -114,7 +114,7 @@ where
     Ok(())
 }
 
-pub fn par_transpose<E: Endianness>(_global_args: GlobalArgs, args: CliArgs) -> Result<()>
+pub fn par_transpose<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>:

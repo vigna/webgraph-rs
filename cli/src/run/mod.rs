@@ -7,8 +7,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use super::GlobalArgs;
-
 pub mod llp;
 pub mod llp_combine;
 pub mod pad;
@@ -22,10 +20,10 @@ pub enum SubCommands {
     Pad(pad::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Llp(args) => llp::main(global_args, args),
-        SubCommands::LlpCombine(args) => llp_combine::main(global_args, args),
-        SubCommands::Pad(args) => pad::main(global_args, args),
+        SubCommands::Llp(args) => llp::main(args),
+        SubCommands::LlpCombine(args) => llp_combine::main(args),
+        SubCommands::Pad(args) => pad::main(args),
     }
 }

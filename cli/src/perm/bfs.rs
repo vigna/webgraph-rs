@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, IntSliceFormat, create_parent_dir};
+use crate::{IntSliceFormat, LogIntervalArg, create_parent_dir};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -26,24 +26,24 @@ pub struct CliArgs {
     #[arg(long, value_enum, default_value_t)]
     /// The format of the permutation file.
     pub fmt: IntSliceFormat,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.perm)?;
 
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => bfs::<BE>(global_args, args),
+        BE::NAME => bfs::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => bfs::<LE>(global_args, args),
+        LE::NAME => bfs::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn bfs<E: Endianness + 'static + Send + Sync>(
-    global_args: GlobalArgs,
-    args: CliArgs,
-) -> Result<()>
+pub fn bfs<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
@@ -59,7 +59,7 @@ where
     pl.display_memory(true)
         .item_name("nodes")
         .expected_updates(Some(graph.num_nodes()));
-    if let Some(duration) = global_args.log_interval {
+    if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
 

@@ -4,7 +4,7 @@
 * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 */
 
-use crate::{GlobalArgs, create_parent_dir};
+use crate::{LogIntervalArg, create_parent_dir};
 use anyhow::{Context, Result};
 use clap::Parser;
 use dsi_bitstream::prelude::*;
@@ -20,10 +20,13 @@ pub struct CliArgs {
     pub src: PathBuf,
     /// The basename of the destination graph.
     pub dst: PathBuf,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 macro_rules! impl_convert {
-    ($global_args:expr, $args:expr, $src:ty, $dst:ty) => {{
+    ($args:expr, $src:ty, $dst:ty) => {{
         info!(
             "The source graph was {}-endian, converting to {}-endian",
             <$src>::NAME,
@@ -67,7 +70,7 @@ macro_rules! impl_convert {
             .item_name("node")
             .expected_updates(Some(num_nodes as usize));
 
-        if let Some(duration) = $global_args.log_interval {
+        if let Some(duration) = $args.log_interval.log_interval {
             pl.log_interval(duration);
         }
 
@@ -129,14 +132,14 @@ macro_rules! impl_convert {
     }};
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => impl_convert!(global_args, args, BE, LE),
+        BE::NAME => impl_convert!(args, BE, LE),
         #[cfg(feature = "le_bins")]
-        LE::NAME => impl_convert!(global_args, args, LE, BE),
+        LE::NAME => impl_convert!(args, LE, BE),
         e => panic!("Unknown endianness: {}", e),
     }
 }

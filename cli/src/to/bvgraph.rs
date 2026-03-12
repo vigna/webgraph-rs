@@ -48,24 +48,20 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     let target_endianness = args.ca.endianness.clone();
     match get_endianness(&args.src)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => compress::<BE>(global_args, args, target_endianness),
+        BE::NAME => compress::<BE>(args, target_endianness),
         #[cfg(feature = "le_bins")]
-        LE::NAME => compress::<LE>(global_args, args, target_endianness),
+        LE::NAME => compress::<LE>(args, target_endianness),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn compress<E: Endianness>(
-    _global_args: GlobalArgs,
-    args: CliArgs,
-    target_endianness: Option<String>,
-) -> Result<()>
+pub fn compress<E: Endianness>(args: CliArgs, target_endianness: Option<String>) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,

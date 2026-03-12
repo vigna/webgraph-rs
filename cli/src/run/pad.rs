@@ -14,8 +14,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::GlobalArgs;
-
 #[derive(Parser, Debug)]
 #[command(name = "pad", about = "Zero-pad graph files to a length multiple of a word size.", long_about = None)]
 pub struct CliArgs {
@@ -39,7 +37,7 @@ pub enum WordSize {
     U128,
 }
 
-pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     let word_size = match args.word_size {
         WordSize::U16 => size_of::<u16>(),
         WordSize::U32 => size_of::<u32>(),

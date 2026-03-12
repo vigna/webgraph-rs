@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{FloatSliceFormat, GlobalArgs, GranularityArgs, NumThreadsArg, get_thread_pool};
+use crate::{FloatSliceFormat, GranularityArgs, LogIntervalArg, NumThreadsArg, get_thread_pool};
 use anyhow::{Result, bail, ensure};
 use clap::{ArgGroup, Args, Parser};
 use dsi_bitstream::prelude::*;
@@ -103,12 +103,15 @@ pub struct CliArgs {
     #[clap(flatten)]
     pub granularity: GranularityArgs,
 
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
+
     #[clap(long, default_value_t = 0)]
     /// The seed of the pseudorandom number generator used for initialization.
     pub seed: u64,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     ensure!(
         !args.symm || args.transposed.is_none(),
         "If the graph is symmetric, you should not pass the transpose."
@@ -116,16 +119,16 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
 
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => hyperball::<BE>(global_args, args),
+        BE::NAME => hyperball::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => hyperball::<LE>(global_args, args),
+        LE::NAME => hyperball::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn hyperball<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
     let mut pl = concurrent_progress_logger![];
-    if let Some(log_interval) = global_args.log_interval {
+    if let Some(log_interval) = args.log_interval.log_interval {
         pl.log_interval(log_interval);
     }
     let thread_pool = get_thread_pool(args.num_threads.num_threads);

@@ -7,8 +7,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use super::GlobalArgs;
-
 pub mod bfs;
 pub mod comp;
 pub mod rand;
@@ -22,10 +20,10 @@ pub enum SubCommands {
     Rand(rand::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Bfs(args) => bfs::main(global_args, args),
-        SubCommands::Comp(args) => comp::main(global_args, args),
-        SubCommands::Rand(args) => rand::main(global_args, args),
+        SubCommands::Bfs(args) => bfs::main(args),
+        SubCommands::Comp(args) => comp::main(args),
+        SubCommands::Rand(args) => rand::main(args),
     }
 }

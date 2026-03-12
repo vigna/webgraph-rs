@@ -8,8 +8,6 @@ use anyhow::Result;
 use clap::{Command, Parser, Subcommand};
 use clap_complete::shells::Shell;
 
-use super::GlobalArgs;
-
 pub mod dcf;
 pub mod ef;
 pub mod offsets;
@@ -30,15 +28,11 @@ pub struct CompleteArgs {
     shell: Shell,
 }
 
-pub fn main(
-    global_args: GlobalArgs,
-    subcommand: SubCommands,
-    mut top_command: Command,
-) -> Result<()> {
+pub fn main(subcommand: SubCommands, mut top_command: Command) -> Result<()> {
     match subcommand {
-        SubCommands::Ef(args) => ef::main(global_args, args),
-        SubCommands::Dcf(args) => dcf::main(global_args, args),
-        SubCommands::Offsets(args) => offsets::main(global_args, args),
+        SubCommands::Ef(args) => ef::main(args),
+        SubCommands::Dcf(args) => dcf::main(args),
+        SubCommands::Offsets(args) => offsets::main(args),
         SubCommands::Complete(args) => {
             clap_complete::generate(
                 args.shell,

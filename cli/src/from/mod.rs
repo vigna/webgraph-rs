@@ -7,8 +7,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use super::GlobalArgs;
-
 pub mod arcs;
 
 /// Ingests data into graphs.
@@ -18,8 +16,8 @@ pub enum SubCommands {
     Arcs(arcs::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Arcs(args) => arcs::main(global_args, args),
+        SubCommands::Arcs(args) => arcs::main(args),
     }
 }

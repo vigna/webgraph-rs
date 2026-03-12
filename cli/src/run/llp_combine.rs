@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, IntSliceFormat, NumThreadsArg, get_thread_pool};
+use crate::{IntSliceFormat, NumThreadsArg, get_thread_pool};
 use anyhow::Result;
 use clap::Parser;
 use webgraph_algo::{combine_labels, labels_to_ranks};
@@ -34,7 +34,7 @@ pub struct CliArgs {
     pub num_threads: NumThreadsArg,
 }
 
-pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
     thread_pool.install(|| -> Result<()> {
         let labels = combine_labels(args.work_dir)?;

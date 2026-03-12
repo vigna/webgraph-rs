@@ -7,8 +7,6 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use super::GlobalArgs;
-
 pub mod ef;
 pub mod eq;
 
@@ -20,9 +18,9 @@ pub enum SubCommands {
     Eq(eq::CliArgs),
 }
 
-pub fn main(global_args: GlobalArgs, subcommand: SubCommands) -> Result<()> {
+pub fn main(subcommand: SubCommands) -> Result<()> {
     match subcommand {
-        SubCommands::Ef(args) => ef::main(global_args, args),
-        SubCommands::Eq(args) => eq::main(global_args, args),
+        SubCommands::Ef(args) => ef::main(args),
+        SubCommands::Eq(args) => eq::main(args),
     }
 }

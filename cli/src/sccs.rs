@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
-use crate::{IntSliceFormat, build_info, num_threads_parser, pretty_print_elapsed};
+use crate::{IntSliceFormat, LogIntervalArg, build_info, num_threads_parser, pretty_print_elapsed};
 use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::prelude::factory::CodesReaderFactoryHelper;
@@ -14,16 +14,12 @@ use std::path::PathBuf;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::*;
 
-use super::GlobalArgs;
-
 #[derive(Parser, Debug)]
 #[command(name = "webgraph-sccs", version=build_info::version_string())]
 /// Computes the strongly connected components of a graph of given basename.
 #[doc = include_str!("common_ps.txt")]
 #[doc = include_str!("common_env.txt")]
 pub struct Cli {
-    #[clap(flatten)]
-    global_args: GlobalArgs,
     #[clap(flatten)]
     args: CliArgs,
 }
@@ -52,6 +48,9 @@ pub struct CliArgs {
     #[arg(long, value_enum, default_value_t = IntSliceFormat::Ascii)]
     /// The storage format for components and component sizes.
     pub fmt: IntSliceFormat,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
 pub fn cli_main<I, T>(args: I) -> Result<()>
@@ -61,7 +60,7 @@ where
 {
     let start = std::time::Instant::now();
     let cli = Cli::parse_from(args);
-    main(cli.global_args, cli.args)?;
+    main(cli.args)?;
 
     log::info!(
         "The command took {}",
@@ -71,17 +70,17 @@ where
     Ok(())
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     match get_endianness(&args.basename)?.as_str() {
         #[cfg(feature = "be_bins")]
-        BE::NAME => sccs::<BE>(global_args, args),
+        BE::NAME => sccs::<BE>(args),
         #[cfg(feature = "le_bins")]
-        LE::NAME => sccs::<LE>(global_args, args),
+        LE::NAME => sccs::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn sccs<E: Endianness>(global_args: GlobalArgs, args: CliArgs) -> Result<()>
+pub fn sccs<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
@@ -94,7 +93,7 @@ where
         .load()?;
 
     let mut pl = progress_logger![];
-    if let Some(log_interval) = global_args.log_interval {
+    if let Some(log_interval) = args.log_interval.log_interval {
         pl.log_interval(log_interval);
     }
 

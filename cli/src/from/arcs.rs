@@ -47,15 +47,18 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub ca: CompressArgs,
+
+    #[clap(flatten)]
+    pub log_interval: LogIntervalArg,
 }
 
-pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
+pub fn main(args: CliArgs) -> Result<()> {
     log::info!("Reading arcs from stdin...");
     let stdin = std::io::stdin().lock();
-    from_csv(global_args, args, stdin)
+    from_csv(args, stdin)
 }
 
-pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> Result<()> {
+pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     let dir = Builder::new().prefix("from_arcs_sort_").tempdir()?;
 
     let mut group_by = SortPairs::new_dedup(args.memory_usage.memory_usage, &dir)?;
@@ -67,7 +70,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
         .item_name("lines")
         .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
 
-    if let Some(duration) = global_args.log_interval {
+    if let Some(duration) = args.log_interval.log_interval {
         pl.log_interval(duration);
     }
     pl.start("Reading arcs CSV");
@@ -206,7 +209,7 @@ pub fn from_csv(global_args: GlobalArgs, args: CliArgs, file: impl BufRead) -> R
         pl.display_memory(true)
             .item_name("lines")
             .expected_updates(args.arcs_args.max_arcs.or(args.num_arcs));
-        if let Some(duration) = global_args.log_interval {
+        if let Some(duration) = args.log_interval.log_interval {
             pl.log_interval(duration);
         }
 
