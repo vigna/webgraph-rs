@@ -161,8 +161,7 @@ where
             |pl, chunk_idx| {
                 let start = chunk_idx * node_granularity;
                 let end = num_nodes.min(start + node_granularity);
-                let degs: Box<[usize]> =
-                    (start..end).map(|node| graph.outdegree(node)).collect();
+                let degs: Box<[usize]> = (start..end).map(|node| graph.outdegree(node)).collect();
                 pl.update_with_count(end - start);
                 degs
             },

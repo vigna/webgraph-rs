@@ -15,7 +15,12 @@ use webgraph::traits::graph;
 use webgraph::utils::MmapHelper;
 
 #[derive(Args, Debug)]
-#[command(name = "eq", about = "Checks that two graphs have the same contents, listed in the same order.", long_about = "Checks that two graphs have the same contents, listed in the same order. Useful to verify equality when two graphs are compressed with different parameters or algorithms (e.g., reference selection).", next_line_help = true)]
+#[command(
+    name = "eq",
+    about = "Checks that two graphs have the same contents, listed in the same order.",
+    long_about = "Checks that two graphs have the same contents, listed in the same order. Useful to verify equality when two graphs are compressed with different parameters or algorithms (e.g., reference selection).",
+    next_line_help = true
+)]
 pub struct CliArgs {
     /// The basename of the first graph.​
     pub first_basename: PathBuf,

@@ -88,9 +88,7 @@ macro_rules! impl_convert {
             .context("Could not write gamma")?;
         pl.light_update();
         pl.done();
-        offsets_writer
-            .flush()
-            .context("Could not flush offsets")?;
+        offsets_writer.flush().context("Could not flush offsets")?;
 
         // Write properties after recompression so we can use the actual
         // bitstream length instead of reading a "length" property that

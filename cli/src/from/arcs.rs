@@ -29,7 +29,9 @@ use webgraph::prelude::*;
         as string labels: numerical identifiers will be assigned in appearance \
         order, and the final list of labels will be saved in a file with the same \
         basename as the graph and extension .nodes. Without --labels, nodes are \
-        numbered starting from zero.", next_line_help = true)]
+        numbered starting from zero.",
+    next_line_help = true
+)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub dst: PathBuf,
