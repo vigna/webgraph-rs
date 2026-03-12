@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -35,7 +36,7 @@ pub struct CliArgs {
     pub log_interval: LogIntervalArg,
 }
 
-/// Returns the length in bits of the given file.​
+/// Returns the length in bits of the given file.
 fn file_len_bits(path: &Path) -> Result<usize> {
     let mut file =
         File::open(path).with_context(|| format!("Could not open {}", path.display()))?;

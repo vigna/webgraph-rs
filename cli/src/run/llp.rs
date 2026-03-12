@@ -97,7 +97,7 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
-/// Stores a permutation using the given format.​
+/// Stores a permutation using the given format.
 pub fn store_perm(
     data: &[usize],
     perm: impl AsRef<std::path::Path>,

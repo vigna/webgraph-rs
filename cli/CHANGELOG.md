@@ -21,6 +21,8 @@
 - New `seq` subcommand providing bidirectional conversion between all
   available formats for sequences.
 
+- Parallel DCF construction (by default).
+
 ### Changed
 
 - `webgraph transform` now defaults to the parallel version.

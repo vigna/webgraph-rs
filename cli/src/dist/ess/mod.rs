@@ -98,7 +98,7 @@ pub fn main(args: CliArgs) -> Result<()> {
     }
 }
 
-/// Stores eccentricities to a file using the specified format.​
+/// Stores eccentricities to a file using the specified format.
 fn store_eccentricities(eccentricities: &[usize], path: &Path, fmt: IntSliceFormat) -> Result<()> {
     fmt.store(path, eccentricities, None)
 }

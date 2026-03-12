@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -188,7 +189,7 @@ where
 }
 
 /// Gets the size in bits used by a given code.
-/// This should go in dsi-bitstream eventually.​
+/// This should go in dsi-bitstream eventually.
 fn get_size_by_code(stats: &CodesStats, code: Codes) -> Option<u64> {
     match code {
         Codes::Unary => Some(stats.unary),
@@ -207,7 +208,7 @@ fn get_size_by_code(stats: &CodesStats, code: Codes) -> Option<u64> {
     }
 }
 
-/// Prints the statistics of how much the optimal codes improve over the reference ones.​
+/// Prints the statistics of how much the optimal codes improve over the reference ones.
 pub fn compare_codes(stats: &DecoderStats, reference: CompFlags, top_k: usize) {
     macro_rules! impl_best_code {
         ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident -> $old:expr),*) => {

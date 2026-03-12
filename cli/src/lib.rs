@@ -151,7 +151,7 @@ pub struct ArcsArgs {
 /// Parses the number of threads from a string.
 ///
 /// This function is meant to be used with `#[arg(...,  value_parser =
-/// num_threads_parser)]`.​
+/// num_threads_parser)]`.
 pub fn num_threads_parser(arg: &str) -> Result<usize> {
     let num_threads = arg.parse::<usize>()?;
     ensure!(num_threads > 0, "Number of threads must be greater than 0");
@@ -229,7 +229,7 @@ impl FloatSliceFormat {
     /// If the result is a textual format, that is, ASCII or JSON, `precision`
     /// will be used to round the float values to the specified number of
     /// decimal digits. If `None`, [zmij](https://crates.io/crates/zmij)
-    /// formatting will be used.​
+    /// formatting will be used.
     pub fn store<F>(
         &self,
         path: impl AsRef<Path>,
@@ -300,7 +300,7 @@ impl FloatSliceFormat {
     }
 
     /// Loads float values from the specified `path` using the format defined
-    /// by `self`.​
+    /// by `self`.
     pub fn load<F>(&self, path: impl AsRef<Path>) -> Result<Vec<F>>
     where
         F: FromBytes + FromStr + Copy + serde::de::DeserializeOwned,
@@ -420,16 +420,16 @@ pub enum IntSliceFormat {
 /// ```
 ///
 /// This incurs one monomorphization of `do_transform` per arm; arms that
-/// share the same inner type can be merged to reduce monomorphization cost.​
+/// share the same inner type can be merged to reduce monomorphization cost.
 pub enum IntSlice {
-    /// Fully loaded into memory (ASCII, JSON).​
+    /// Fully loaded into memory (ASCII, JSON).
     Owned(Box<[usize]>),
     #[cfg(target_pointer_width = "64")]
-    /// Memory-mapped Java big-endian format (64-bit only).​
+    /// Memory-mapped Java big-endian format (64-bit only).
     Java(JavaPermutation),
-    /// Memory-mapped ε-serde serialized slice.​
+    /// Memory-mapped ε-serde serialized slice.
     Epserde(MemCase<Box<[usize]>>),
-    /// Memory-mapped ε-serde serialized [`BitFieldVec`].​
+    /// Memory-mapped ε-serde serialized [`BitFieldVec`].
     BitFieldVec(MemCase<sux::bits::BitFieldVec<usize>>),
 }
 
@@ -462,7 +462,7 @@ impl SliceByValue for IntSlice {
 ///
 /// The bound types are `&Box<[usize]>` (Owned and Epserde),
 /// `&JavaPermutation` (Java, 64-bit only), and `&BitFieldVec<usize>`
-/// (BitFieldVec). All bound types are `Sized`.​
+/// (BitFieldVec). All bound types are `Sized`.
 #[macro_export]
 macro_rules! dispatch_int_slice {
     ($slice:expr, |$var:ident| $body:expr) => {
@@ -493,7 +493,7 @@ impl IntSliceFormat {
     /// defined by `self`.
     ///
     /// `max` is the maximum value of the slice. If it is not provided, it will
-    /// be computed from the data.​
+    /// be computed from the data.
     pub fn store(&self, path: impl AsRef<Path>, data: &[usize], max: Option<usize>) -> Result<()> {
         // Ensure the parent directory exists
         create_parent_dir(&path)?;
@@ -573,7 +573,7 @@ impl IntSliceFormat {
     /// by `self`, returning an [`IntSlice`].
     ///
     /// The ε-serde-based formats (Epserde, BitFieldVec) and the Java format
-    /// use memory mapping; ASCII and JSON are fully loaded into memory.​
+    /// use memory mapping; ASCII and JSON are fully loaded into memory.
     pub fn load(&self, path: impl AsRef<Path>) -> Result<IntSlice> {
         let path = path.as_ref();
         let path_display = path.display();
@@ -641,7 +641,7 @@ impl IntSliceFormat {
 /// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
 /// (followed by a `%`) that is interpreted as a percentage of the core
 /// memory. If the value ends with a `b` or `B` it is interpreted as a number of
-/// bytes, otherwise as a number of elements.​
+/// bytes, otherwise as a number of elements.
 pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
         ("ki", 1 << 10),
@@ -767,7 +767,7 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.​
+/// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
@@ -781,7 +781,7 @@ pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
 ///
 /// # Panics
 /// * Will panic if there is no filename.
-/// * Will panic in test mode if the path has an extension.​
+/// * Will panic in test mode if the path has an extension.
 pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     debug_assert!(path.as_ref().extension().is_none());
     let mut path_buf = path.as_ref().to_owned();
@@ -791,7 +791,7 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     path_buf
 }
 
-/// Creates all parent directories of the given file path.​
+/// Creates all parent directories of the given file path.
 pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     // ensure that the dst directory exists
     if let Some(parent_dir) = file_path.as_ref().parent() {
@@ -810,7 +810,7 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
 ///
 /// If `use_dcf` is true, loads the DCF file for the given basename and uses
 /// `FairChunks` to balance by arc count. Otherwise, falls back to uniform
-/// cutpoints by node count.​
+/// cutpoints by node count.
 pub fn cutpoints(
     basename: &Path,
     num_nodes: usize,
@@ -870,7 +870,7 @@ pub fn cutpoints(
 /// - `h` for hours
 /// - `d` for days
 ///
-/// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.​
+/// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.
 fn parse_duration(value: &str) -> Result<Duration> {
     if value.is_empty() {
         bail!("Empty duration string, if you want every 0 milliseconds use `0`.");
@@ -902,7 +902,7 @@ fn parse_duration(value: &str) -> Result<Duration> {
 }
 
 /// Initializes the `env_logger` logger with a custom format including
-/// timestamps with elapsed time since initialization.​
+/// timestamps with elapsed time since initialization.
 pub fn init_env_logger() -> Result<()> {
     use jiff::SpanRound;
     use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
@@ -1003,7 +1003,7 @@ pub mod seq;
 pub mod to;
 pub mod transform;
 
-/// The entry point of the command-line interface.​
+/// The entry point of the command-line interface.
 pub fn cli_main<I, T>(args: I) -> Result<()>
 where
     I: IntoIterator<Item = T>,
@@ -1052,7 +1052,7 @@ where
     Ok(())
 }
 
-/// Pretty-prints seconds in a human-readable format.​
+/// Pretty-prints seconds in a human-readable format.
 fn pretty_print_elapsed(elapsed: f64) -> String {
     let mut result = String::new();
     let mut elapsed_seconds = elapsed as u64;

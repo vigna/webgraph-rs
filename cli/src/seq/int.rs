@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -28,13 +28,13 @@ pub struct CliArgs {
     pub dst_fmt: IntSliceFormat,
 }
 
-/// Stores a slice with its computed max.​
+/// Stores a slice with its computed max.
 fn store_slice(data: &[usize], dst: &PathBuf, dst_fmt: IntSliceFormat) -> Result<()> {
     let max = data.iter().copied().max().unwrap_or(0);
     dst_fmt.store(dst, data, Some(max))
 }
 
-/// Collects a [`SliceByValue`] into a [`Vec<usize>`] and stores it.​
+/// Collects a [`SliceByValue`] into a [`Vec<usize>`] and stores it.
 fn collect_and_store(
     slice: &impl SliceByValue<Value = usize>,
     dst: &PathBuf,
