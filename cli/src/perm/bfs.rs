@@ -5,14 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, create_parent_dir};
-use anyhow::{Context, Result};
+use crate::{GlobalArgs, IntSliceFormat, create_parent_dir};
+use anyhow::Result;
 use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
-use epserde::prelude::Serialize;
-use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use webgraph::prelude::*;
 
@@ -22,12 +20,12 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
 
-    /// The filename of the permutation in binary big-endian format.
+    /// The filename of the permutation.
     pub perm: PathBuf,
 
-    #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    pub epserde: bool,
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the permutation file.
+    pub fmt: IntSliceFormat,
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -75,24 +73,7 @@ where
     }
     pl.done();
 
-    if args.epserde {
-        // SAFETY: the type is ε-serde serializable.
-        unsafe {
-            perm.store(&args.perm)
-                .with_context(|| format!("Could not write permutation to {}", args.perm.display()))
-        }?;
-    } else {
-        let mut file = std::fs::File::create(&args.perm)
-            .with_context(|| format!("Could not create permutation at {}", args.perm.display()))?;
-        let mut buf = BufWriter::new(&mut file);
-        pl.start(format!("Storing the nodes to {}", args.perm.display()));
-        for word in perm.iter() {
-            buf.write_all(&word.to_be_bytes()).with_context(|| {
-                format!("Could not write permutation to {}", args.perm.display())
-            })?;
-            pl.light_update();
-        }
-        pl.done();
-    }
+    args.fmt.store(&args.perm, &perm, None)?;
+
     Ok(())
 }

@@ -10,6 +10,11 @@
 - Extensive support for optionally loading a degree cumulative function
   to split a work on a graph by arcs rather than by nodes.
 
+- Everything reading or writing integers or floats has ASCII as default
+  format, and JSON, Java and ε-serde storage of boxed slices or `BitFieldVec`
+  instances as alternatives. Note that some commands previously defaulting to
+  the Java format now default to ASCII.
+
 ### Changed
 
 - `webgraph transform` now defaults to the parallel version.

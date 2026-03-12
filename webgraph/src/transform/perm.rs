@@ -91,7 +91,10 @@ pub fn permute_split<'g, S, P>(
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
+            SplitLender<'g>: NodeLabelsLender<
+                'a,
+                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+            >,
         >,
     P: SliceByValue<Value = usize> + Send + Sync,
 {

@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{GlobalArgs, NumThreadsArg, get_thread_pool};
+use crate::{GlobalArgs, IntSliceFormat, NumThreadsArg, get_thread_pool};
 use anyhow::Result;
 use clap::Parser;
 use webgraph_algo::{combine_labels, labels_to_ranks};
@@ -18,15 +18,16 @@ use super::llp::store_perm;
 #[derive(Parser, Debug)]
 #[command(name = "llp-combine", about = "Combines the pre-computed labels from Layered Label Propagation into a permutation.", long_about = None)]
 pub struct CliArgs {
-    /// The folder where the LLP labels are stored.
+    /// The folder where the LLP labels are stored in Java format
+    /// (big-endian 64-bit integers).
     pub work_dir: PathBuf,
 
-    /// A filename for the LLP permutation in binary big-endian format.
+    /// A filename for the LLP permutation.
     pub perm: PathBuf,
 
-    #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    pub epserde: bool,
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the permutation file.
+    pub fmt: IntSliceFormat,
 
     /// The number of threads to use.
     #[command(flatten)]
@@ -40,7 +41,7 @@ pub fn main(_global_args: GlobalArgs, args: CliArgs) -> Result<()> {
         log::info!("Combined labels...");
         let rank_perm = labels_to_ranks(&labels);
         log::info!("Saving permutation...");
-        store_perm(&rank_perm, &args.perm, args.epserde)?;
+        store_perm(&rank_perm, &args.perm, args.fmt)?;
         Ok(())
     })
 }

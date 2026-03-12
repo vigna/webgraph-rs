@@ -8,6 +8,7 @@
 
 use crate::GlobalArgs;
 use crate::GranularityArgs;
+use crate::IntSliceFormat;
 use crate::NumThreadsArg;
 use crate::create_parent_dir;
 use crate::get_thread_pool;
@@ -21,8 +22,6 @@ use webgraph_algo::llp::preds::{MaxUpdates, MinAvgImprov, MinGain, MinModified, 
 use webgraph_algo::{combine_labels, labels_to_ranks};
 
 use predicates::prelude::*;
-use std::io::{BufWriter, Write};
-use std::path::Path;
 use std::path::PathBuf;
 use tempfile::tempdir;
 
@@ -32,16 +31,16 @@ pub struct CliArgs {
     /// The basename of the graph.
     pub basename: PathBuf,
 
-    /// A filename for the LLP permutation in binary big-endian format. If not
-    /// provided, we will compute the labels but not combine them into the final
-    /// permutation. If you don't set this parameter, be sure to set "work_dir"
-    /// so the labels will not be deleted at the end.
+    /// A filename for the LLP permutation. If not provided, we will compute
+    /// the labels but not combine them into the final permutation. If you
+    /// don't set this parameter, be sure to set "work_dir" so the labels
+    /// will not be deleted at the end.
     pub perm: Option<PathBuf>,
 
-    /// The folder where the LLP labels are stored. If not specified, a temp
-    /// dir will be used which will be deleted at the end of the computation.
-    /// The temp dir parent folder can be specified with the TMPDIR environment
-    /// variable.
+    /// The folder where the LLP labels are stored in Java format (big-endian
+    /// 64-bit integers). If not specified, a temp dir will be used which will
+    /// be deleted at the end of the computation. The temp dir parent folder
+    /// can be specified with the TMPDIR environment variable.
     /// Setting a work_dir has two purposes: saving the information they
     /// compute and to be able to resume the computation of gammas as their
     /// computation on large graphs might take days.
@@ -53,9 +52,9 @@ pub struct CliArgs {
     #[arg(short, long)]
     pub work_dir: Option<PathBuf>,
 
-    #[arg(short, long)]
-    /// Save the permutation in ε-serde format.
-    pub epserde: bool,
+    #[arg(long, value_enum, default_value_t)]
+    /// The format of the permutation file.
+    pub fmt: IntSliceFormat,
 
     #[arg(short, long, allow_hyphen_values = true, use_value_delimiter = true, value_delimiter = ',', default_values_t = vec!["-0".to_string(), "-1".to_string(), "-2".to_string(), "-3".to_string(), "-4".to_string(), "-5".to_string(), "-6".to_string(), "-7".to_string(), "-8".to_string(), "-9".to_string(), "-10".to_string()])]
     /// The ɣ's to use in LLP, separated by commas. The format is given by a
@@ -103,30 +102,13 @@ pub struct CliArgs {
     pub chunk_size: Option<usize>,
 }
 
-/// Stores labels with or without epserde.
-pub fn store_perm(data: &[usize], perm: impl AsRef<Path>, epserde: bool) -> Result<()> {
-    if epserde {
-        // SAFETY: the type is ε-serde serializable.
-        unsafe {
-            data.store(&perm).with_context(|| {
-                format!("Could not write permutation to {}", perm.as_ref().display())
-            })
-        }
-    } else {
-        let mut file = std::fs::File::create(&perm).with_context(|| {
-            format!(
-                "Could not create permutation at {}",
-                perm.as_ref().display()
-            )
-        })?;
-        let mut buf = BufWriter::new(&mut file);
-        for word in data.iter() {
-            buf.write_all(&word.to_be_bytes()).with_context(|| {
-                format!("Could not write permutation to {}", perm.as_ref().display())
-            })?;
-        }
-        Ok(())
-    }
+/// Stores a permutation using the given format.
+pub fn store_perm(
+    data: &[usize],
+    perm: impl AsRef<std::path::Path>,
+    fmt: IntSliceFormat,
+) -> Result<()> {
+    fmt.store(perm, data, None)
 }
 
 pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
@@ -249,7 +231,7 @@ where
             log::info!("Combined labels...");
             let rank_perm = labels_to_ranks(&labels);
             log::info!("Saving permutation...");
-            store_perm(&rank_perm, perm_path, args.epserde)?;
+            store_perm(&rank_perm, perm_path, args.fmt)?;
         }
 
         Ok(())

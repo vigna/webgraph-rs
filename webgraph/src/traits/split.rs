@@ -71,10 +71,17 @@ pub trait SplitLabeling: SequentialLabeling {
 /// Ready-made implementation for the sequential case.
 ///
 /// This implementation walks through the iterator of a labeling and
-/// clones it at the cutpoints. To use it, you have to implement the
-/// trait by specifying the associated types `SplitLender` and `IntoIterator`
-/// using the [`seq::Lender`] and [`seq::IntoIterator`] type aliases,
-/// and then return a [`seq::Iter`] structure.
+/// clones it at the cutpoints, using
+/// [`advance_by`](lender::Lender::advance_by) to skip nodes between
+/// cutpoints. It is designed for labelings whose
+/// [`iter_from`](SequentialLabeling::iter_from) is not more efficient than
+/// sequential iteration (e.g., compressed graphs without an index); if
+/// `iter_from` can seek efficiently, use [`ra::Iter`] instead.
+///
+/// To use it, you have to implement the trait by specifying the associated
+/// types `SplitLender` and `IntoIterator` using the [`seq::Lender`] and
+/// [`seq::IntoIterator`] type aliases, and then return a [`seq::Iter`]
+/// structure.
 ///
 /// # Examples
 ///
@@ -160,11 +167,23 @@ pub mod seq {
 
 /// Ready-made implementation for the random-access case.
 ///
-/// This implementation uses [`iter_from`](SequentialLabeling::iter_from) at
-/// each cutpoint. To use it, you have to implement the trait by specifying
-/// the associated types `SplitLender` and `IntoIterator` using the
-/// [`ra::Lender`] and [`ra::IntoIterator`] type aliases, and then return a
-/// [`ra::Iter`] structure.
+/// This implementation calls [`iter_from`](SequentialLabeling::iter_from)
+/// at each cutpoint, seeking directly to the desired position. It is
+/// designed for labelings with an efficient `iter_from` (e.g., compressed
+/// graphs with an index such as an `.ef` file). If `iter_from` is no
+/// faster than sequential iteration (e.g.,
+/// [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph)), use
+/// [`seq::Iter`] instead.
+///
+/// The bound is [`RandomAccessLabeling`] rather than
+/// [`SequentialLabeling`] even though only `iter_from` is used: the
+/// stronger bound ensures that `iter_from` is efficient, preventing
+/// silent quadratic slowdowns.
+///
+/// To use it, you have to implement the trait by specifying the associated
+/// types `SplitLender` and `IntoIterator` using the [`ra::Lender`] and
+/// [`ra::IntoIterator`] type aliases, and then return a [`ra::Iter`]
+/// structure.
 ///
 /// # Examples
 ///

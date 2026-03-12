@@ -75,32 +75,50 @@ pub fn main(global_args: GlobalArgs, args: CliArgs) -> Result<()> {
     // same src_fmt.
     let merged = match &perms[0] {
         IntSlice::Owned(_) => {
-            let refs: Vec<_> = perms.iter().map(|p| {
-                let IntSlice::Owned(v) = p else { unreachable!() };
-                v
-            }).collect();
+            let refs: Vec<_> = perms
+                .iter()
+                .map(|p| {
+                    let IntSlice::Owned(v) = p else {
+                        unreachable!()
+                    };
+                    v
+                })
+                .collect();
             compose(&refs, len, &mut pl)
         }
         #[cfg(target_pointer_width = "64")]
         IntSlice::Java(_) => {
-            let refs: Vec<_> = perms.iter().map(|p| {
-                let IntSlice::Java(j) = p else { unreachable!() };
-                j
-            }).collect();
+            let refs: Vec<_> = perms
+                .iter()
+                .map(|p| {
+                    let IntSlice::Java(j) = p else { unreachable!() };
+                    j
+                })
+                .collect();
             compose(&refs, len, &mut pl)
         }
         IntSlice::Epserde(_) => {
-            let refs: Vec<_> = perms.iter().map(|p| {
-                let IntSlice::Epserde(m) = p else { unreachable!() };
-                m.uncase()
-            }).collect();
+            let refs: Vec<_> = perms
+                .iter()
+                .map(|p| {
+                    let IntSlice::Epserde(m) = p else {
+                        unreachable!()
+                    };
+                    m.uncase()
+                })
+                .collect();
             compose(&refs, len, &mut pl)
         }
         IntSlice::BitFieldVec(_) => {
-            let refs: Vec<_> = perms.iter().map(|p| {
-                let IntSlice::BitFieldVec(m) = p else { unreachable!() };
-                m.uncase()
-            }).collect();
+            let refs: Vec<_> = perms
+                .iter()
+                .map(|p| {
+                    let IntSlice::BitFieldVec(m) = p else {
+                        unreachable!()
+                    };
+                    m.uncase()
+                })
+                .collect();
             compose(&refs, len, &mut pl)
         }
     };

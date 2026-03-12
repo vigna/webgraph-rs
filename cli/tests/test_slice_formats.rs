@@ -51,7 +51,11 @@ fn test_int_roundtrip_empty() {
     for (fmt, ext) in formats {
         let path = dir.path().join(format!("empty.{ext}"));
         fmt.store(&path, &[], None).unwrap();
-        assert_eq!(fmt.load(&path).unwrap().len(), 0, "empty roundtrip failed for {ext}");
+        assert_eq!(
+            fmt.load(&path).unwrap().len(),
+            0,
+            "empty roundtrip failed for {ext}"
+        );
     }
 }
 

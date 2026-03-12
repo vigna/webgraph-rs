@@ -90,7 +90,13 @@ where
         let loaded = args.fmt.load(path)?;
         dispatch_int_slice!(loaded, |perm| {
             compress_with_perm::<E, _>(
-                thread_pool, builder, &src, target_endianness, memory_usage, use_dcf, perm,
+                thread_pool,
+                builder,
+                &src,
+                target_endianness,
+                memory_usage,
+                use_dcf,
+                perm,
             )
         })
     } else {

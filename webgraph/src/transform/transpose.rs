@@ -131,7 +131,10 @@ pub fn transpose_split<
     'g,
     G: SequentialGraph
         + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
+            SplitLender<'g>: NodeLabelsLender<
+                'a,
+                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+            >,
         >,
 >(
     graph: &'g G,

@@ -202,15 +202,16 @@ pub struct MemoryUsageArg {
 }
 
 /// Formats for storing and loading slices of floats.
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum FloatSliceFormat {
     /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
     Java,
-    /// A slice of floats (32 or 64 bits) serialized using ε-serde.
+    /// A sequence of floats (32 or 64 bits) serialized using ε-serde.
     Epserde,
     /// ASCII format, one float per line.
+    #[default]
     Ascii,
-    /// A JSON Array.
+    /// A JSON array.
     Json,
 }
 
@@ -370,28 +371,22 @@ impl FloatSliceFormat {
 }
 
 /// How to store slices of integers.
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum IntSliceFormat {
     #[cfg(target_pointer_width = "64")]
-    /// Java-compatible format: a sequence of big-endian longs (64 bits).
-    /// Available only on 64-bit platforms.
+    /// Java-compatible format: a sequence of big-endian 64-bit integers; available only on 64-bit platforms.
     Java,
-    /// A slice of usize serialized using ε-serde.
+    /// A sequence of usize serialized using ε-serde.
     Epserde,
-    /// A BitFieldVec stored using ε-serde. It stores each element using
-    /// ⌊log₂(max)⌋ + 1 bits. It requires to allocate the `BitFieldVec` in RAM
+    /// A BitFieldVec stored using ε-serde: it stores each element using
+    /// ⌊log₂(max)⌋ + 1 bits, and it requires to allocate the `BitFieldVec` in RAM
     /// before serializing it.
     BitFieldVec,
     /// ASCII format, one integer per line.
+    #[default]
     Ascii,
-    /// A JSON Array.
+    /// A JSON array.
     Json,
-}
-
-impl Default for IntSliceFormat {
-    fn default() -> Self {
-        IntSliceFormat::Ascii
-    }
 }
 
 /// Loaded integer slice, returned by [`IntSliceFormat::load`].

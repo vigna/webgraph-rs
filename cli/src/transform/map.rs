@@ -107,8 +107,7 @@ where
         };
 
         // if the .ef file exists, we can use map_split
-        if std::fs::metadata(src_basename.with_extension(EF_EXTENSION)).is_ok_and(|x| x.is_file())
-        {
+        if std::fs::metadata(src_basename.with_extension(EF_EXTENSION)).is_ok_and(|x| x.is_file()) {
             log::info!(".ef file found, using map split");
             let graph =
                 webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&src_basename)

@@ -1,13 +1,12 @@
 #![cfg(feature = "slow_tests")]
 use anyhow::Result;
 use dsi_bitstream::traits::BigEndian;
-use mmap_rs::MmapFlags;
 use std::path::PathBuf;
 use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::{GRAPH_EXTENSION, OFFSETS_EXTENSION, PROPERTIES_EXTENSION};
-use webgraph::prelude::JavaPermutation;
 use webgraph::traits::{RandomAccessGraph, RandomAccessLabeling, SequentialLabeling};
+use webgraph_cli::IntSliceFormat;
 use webgraph_cli::cli_main;
 use webgraph_cli::init_env_logger;
 
@@ -154,7 +153,7 @@ fn test_llp_pipeline() -> Result<()> {
     assert_eq!(original.num_arcs(), final_graph.num_arcs());
 
     let permutation =
-        JavaPermutation::mmap(format!("{}.composed", basename), MmapFlags::RANDOM_ACCESS)?;
+        IntSliceFormat::default().load(format!("{}.composed", basename))?;
 
     for node in 0..original.num_nodes() {
         assert_eq!(

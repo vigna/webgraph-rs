@@ -108,7 +108,10 @@ pub fn simplify_split<'g, S>(
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
+            SplitLender<'g>: NodeLabelsLender<
+                'a,
+                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+            >,
         >,
 {
     let par_sort_iters = ParSortIters::new_dedup(graph.num_nodes())?.memory_usage(memory_usage);
@@ -119,6 +122,8 @@ where
         .into_iter()
         .map(|iter| {
             iter.into_pairs().flat_map(|(src, dst)| {
+                // The two-element iterator is fully inlined by LLVM,
+                // generating the same code as a hand-written loop.
                 if src != dst {
                     Some((src, dst)).into_iter().chain(Some((dst, src)))
                 } else {

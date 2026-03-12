@@ -183,24 +183,47 @@ where
             let src_basename = args.src;
 
             dispatch_int_slice!(loaded, |perm| {
-                if std::fs::metadata(src_basename.with_extension("ef"))
-                    .is_ok_and(|x| x.is_file())
-                {
+                if std::fs::metadata(src_basename.with_extension("ef")).is_ok_and(|x| x.is_file()) {
                     log::info!(".ef file found, using parallel simplify + permute");
+
+                    // We split the BvGraph directly and apply the permutation
+                    // inline rather than wrapping it in a PermutedGraph and
+                    // calling simplify_split. PermutedGraph's SplitLabeling
+                    // uses split::seq::Iter, which advances sequentially to
+                    // each cutpoint; it cannot use split::ra::Iter because
+                    // PermutedGraph does not implement RandomAccessLabeling
+                    // (that would require the inverse permutation).
                     let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(
                         &src_basename,
                     )
                     .endianness::<E>()
                     .load()?;
-                    let perm_graph = PermutedGraph {
-                        graph: &graph,
-                        perm,
-                    };
-                    let num_nodes = perm_graph.num_nodes();
+                    let num_nodes = graph.num_nodes();
 
                     thread_pool.install(|| {
-                        let sorted =
-                            webgraph::transform::simplify_split(&perm_graph, memory_usage)?;
+                        let par_sort_iters = webgraph::utils::ParSortIters::new_dedup(num_nodes)?
+                            .memory_usage(memory_usage);
+                        let parts = rayon::current_num_threads();
+
+                        let pairs: Vec<_> = graph
+                            .split_iter(parts)
+                            .into_iter()
+                            .map(|iter| {
+                                iter.into_pairs().flat_map(|(src, dst)| {
+                                    // The two-element iterator is fully inlined by LLVM,
+                                    // generating the same code as a hand-written loop.
+                                    let ps = perm.index_value(src);
+                                    let pd = perm.index_value(dst);
+                                    if ps != pd {
+                                        Some((ps, pd)).into_iter().chain(Some((pd, ps)))
+                                    } else {
+                                        None.into_iter().chain(None)
+                                    }
+                                })
+                            })
+                            .collect();
+
+                        let sorted = par_sort_iters.sort(pairs)?;
                         let pairs: Vec<_> = sorted.into();
                         match target_endianness.as_str() {
                             #[cfg(any(
@@ -240,8 +263,7 @@ where
                             sorted.num_arcs_hint(),
                             use_dcf,
                         )?;
-                        builder
-                            .par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+                        builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
                     })
                 }
             })?;
