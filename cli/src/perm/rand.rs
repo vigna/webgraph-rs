@@ -12,7 +12,7 @@ use rand::prelude::SliceRandom;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "rand", about = "Creates a random permutation.", long_about = None)]
+#[command(name = "rand", about = "Creates a random permutation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The number of elements in the permutation.​
     pub len: usize,

@@ -17,11 +17,11 @@ use sux::traits::BitVecOpsMut;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None)]
+#[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,
-    /// Static dispatch (default BvGraph parameters).​
+    /// Static dispatch (default parameters for the BV format).​
     #[arg(short = 'S', long = "static")]
     pub _static: bool,
     /// Number of repeats (usually to warm up the cache or memory mapping).​

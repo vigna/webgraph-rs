@@ -22,7 +22,8 @@ use webgraph::utils::MmapHelper;
 #[command(
     name = "arcs",
     about = "Writes a graph in ASCII to standard output as a list of arcs.",
-    long_about = "Writes a graph in ASCII to standard output as a list of arcs. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, nodes are written as numerical identifiers. The --labels option accepts a file containing the label of each node (the first string is the label of node 0, the second of node 1, and so on). The \".nodes\" file created by \"from arcs\" is compatible with --labels."
+    long_about = "Writes a graph in ASCII to standard output as a list of arcs. Each arc comprises a pair of nodes separated by a TAB (but the format is customizable). By default, nodes are written as numerical identifiers. The --labels option accepts a file containing the label of each node (the first string is the label of node 0, the second of node 1, and so on). The \".nodes\" file created by \"from arcs\" is compatible with --labels.",
+    next_line_help = true
 )]
 pub struct CliArgs {
     /// The basename of the graph.​

@@ -15,7 +15,7 @@ use std::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "pad", about = "Zero-pads graph files to a length that is a multiple of a word size.", long_about = None)]
+#[command(name = "pad", about = "Zero-pads graph files to a length that is a multiple of a word size.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The file to pad, usually a graph or offsets file.​
     pub file: PathBuf,

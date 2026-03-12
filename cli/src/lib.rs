@@ -972,13 +972,15 @@ pub enum SubCommands {
     #[command(subcommand)]
     Run(run::SubCommands),
     #[command(subcommand)]
+    Seq(seq::SubCommands),
+    #[command(subcommand)]
     To(to::SubCommands),
     #[command(subcommand)]
     Transform(transform::SubCommands),
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "webgraph", version=build_info::version_string(), max_term_width = 100, next_line_help = true)]
+#[command(name = "webgraph", version=build_info::version_string(), max_term_width = 100)]
 /// WebGraph tools to build, convert, modify, and analyze graphs.​
 #[doc = include_str!("common_env.txt")]
 pub struct Cli {
@@ -997,6 +999,7 @@ pub mod check;
 pub mod from;
 pub mod perm;
 pub mod run;
+pub mod seq;
 pub mod to;
 pub mod transform;
 
@@ -1029,6 +1032,9 @@ where
         }
         SubCommands::Run(args) => {
             run::main(args)?;
+        }
+        SubCommands::Seq(args) => {
+            seq::main(args)?;
         }
         SubCommands::To(args) => {
             to::main(args)?;

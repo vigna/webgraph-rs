@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "offsets", about = "Builds the offsets file of a graph.", long_about = None)]
+#[command(name = "offsets", about = "Builds the offsets file of a graph.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,

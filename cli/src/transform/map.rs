@@ -13,7 +13,7 @@ use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "map", about = "Maps a graph in the BV format through an arbitrary function on nodes, deduplicating arcs.", long_about = None)]
+#[command(name = "map", about = "Maps a graph in the BV format through an arbitrary function on nodes, deduplicating arcs.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the source graph.​
     pub src: PathBuf,

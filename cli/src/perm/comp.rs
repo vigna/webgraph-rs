@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use value_traits::slices::SliceByValue;
 
 #[derive(Parser, Debug)]
-#[command(name = "comp", about = "Composes multiple permutations into a single one.", long_about = None)]
+#[command(name = "comp", about = "Composes multiple permutations into a single one.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The filename of the resulting permutation.​
     pub dst: PathBuf,

@@ -41,6 +41,11 @@
 - `GlobalArgs` has been removed, and the log interval is now passed as an
   argument to the commands that need it.
 
+- Help is wrapped to at most 100 columns.
+
+- Subcommand descriptions start from the same line of the subcommand, but option
+  descriptions are forced on the next line.
+
 ### Fixed
 
 - Sequential transposition was using big-endian format regardless of the

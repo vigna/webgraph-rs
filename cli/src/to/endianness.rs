@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "endianness", about = "Inverts the endianness of a graph in the BV format.", long_about = None)]
+#[command(name = "endianness", about = "Inverts the endianness of a graph in the BV format.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the source graph.​
     pub src: PathBuf,

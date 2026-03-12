@@ -21,7 +21,7 @@ use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "ef", about = "Builds the Elias–Fano representation of the offsets of a graph.", long_about = None)]
+#[command(name = "ef", about = "Builds the Elias–Fano representation of the offsets of a graph.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph (or labels).​
     pub basename: PathBuf,

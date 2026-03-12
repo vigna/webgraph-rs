@@ -20,7 +20,7 @@ use sux::prelude::*;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "dcf", about = "Builds the Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
+#[command(name = "dcf", about = "Builds the Elias–Fano representation of the degree cumulative function of a graph.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,

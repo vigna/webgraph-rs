@@ -12,7 +12,7 @@ use tempfile::Builder;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "perm", about = "Permutes a graph in the BV format according to a given permutation.", long_about = None)]
+#[command(name = "perm", about = "Permutes a graph in the BV format according to a given permutation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub src: PathBuf,

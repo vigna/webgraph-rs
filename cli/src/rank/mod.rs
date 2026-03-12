@@ -17,7 +17,7 @@ pub enum SubCommands {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "webgraph-rank", version=build_info::version_string())]
+#[command(name = "webgraph-rank", version=build_info::version_string(), max_term_width = 100)]
 /// WebGraph tools computing centrality measures.​
 #[doc = include_str!("../common_ps.txt")]
 #[doc = include_str!("../common_env.txt")]

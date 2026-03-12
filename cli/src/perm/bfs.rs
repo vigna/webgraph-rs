@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "bfs", about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
+#[command(name = "bfs", about = "Computes the permutation induced by a breadth-first visit.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,

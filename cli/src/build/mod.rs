@@ -24,6 +24,7 @@ pub enum SubCommands {
 
 /// Generates shell completions. Use with `source <(webgraph build completions $SHELL)`.​
 #[derive(Parser, Debug)]
+#[command(next_line_help = true)]
 pub struct CompleteArgs {
     shell: Shell,
 }

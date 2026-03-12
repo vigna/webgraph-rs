@@ -25,7 +25,7 @@ use std::path::PathBuf;
 use tempfile::tempdir;
 
 #[derive(Parser, Debug)]
-#[command(name = "llp", about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None)]
+#[command(name = "llp", about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,

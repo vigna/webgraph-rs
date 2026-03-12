@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use super::llp::store_perm;
 
 #[derive(Parser, Debug)]
-#[command(name = "llp-combine", about = "Combines the pre-computed labels from Layered Label Propagation into a permutation.", long_about = None)]
+#[command(name = "llp-combine", about = "Combines the pre-computed labels from Layered Label Propagation into a permutation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The folder where the LLP labels are stored in Java format
     /// (big-endian 64-bit integers).​

@@ -45,8 +45,7 @@ impl From<CliMode> for Mode {
 #[command(
     name = "pagerank",
     about = "Computes PageRank using parallel Gauss–Seidel iteration.",
-    long_about = None
-)]
+    long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the transpose of the graph.​
     pub transpose: PathBuf,

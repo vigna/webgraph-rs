@@ -14,7 +14,7 @@ use webgraph::graphs::union_graph::UnionGraph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "simplify", about = "Makes a graph in the BV format simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
+#[command(name = "simplify", about = "Makes a graph in the BV format simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub src: PathBuf,

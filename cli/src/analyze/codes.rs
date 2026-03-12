@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "codes", about = "Reads a graph and suggests the best codes to use.", long_about = None)]
+#[command(name = "codes", about = "Reads a graph and suggests the best codes to use.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,

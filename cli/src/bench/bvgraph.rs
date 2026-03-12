@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "bvgraph", about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]
+#[command(name = "bvgraph", about = "Benchmarks the Rust implementation of the BV format.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,

@@ -23,6 +23,9 @@ with compressed graphs. The tool supports:
 Each module corresponds to a group of commands, and each command is
 implemented as a submodule.
 
+The command `webgraph build complete` will generate completion code for
+several commonly used shells, making it easier to use the CLI tool.
+
 ## Subcommands
 
 - `analyze`: computes statistics on graphs;

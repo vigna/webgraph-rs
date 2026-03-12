@@ -11,19 +11,15 @@ pub mod arcs;
 pub mod ascii;
 pub mod bvgraph;
 pub mod endianness;
-pub mod floatfmt;
-pub mod intfmt;
 
 #[derive(Subcommand, Debug)]
 #[command(name = "to")]
-/// Converts graphs and slices from a representation to another.​
+/// Converts graphs from a representation to another.​
 pub enum SubCommands {
     Ascii(ascii::CliArgs),
     Bvgraph(bvgraph::CliArgs),
     Arcs(arcs::CliArgs),
     Endianness(endianness::CliArgs),
-    Floatfmt(floatfmt::CliArgs),
-    Intfmt(intfmt::CliArgs),
 }
 
 pub fn main(subcommand: SubCommands) -> Result<()> {
@@ -32,7 +28,5 @@ pub fn main(subcommand: SubCommands) -> Result<()> {
         SubCommands::Bvgraph(args) => bvgraph::main(args),
         SubCommands::Arcs(args) => arcs::main(args),
         SubCommands::Endianness(args) => endianness::main(args),
-        SubCommands::Floatfmt(args) => floatfmt::main(args),
-        SubCommands::Intfmt(args) => intfmt::main(args),
     }
 }
