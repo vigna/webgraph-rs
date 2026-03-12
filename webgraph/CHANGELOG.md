@@ -2,6 +2,12 @@
 
 ## [0.7.0] - unreleased
 
+### New
+
+- `par_map_fold_ord` family of methods that work like `par_map_fold`, but
+  guarantee to process results in the same order of the input. Use to
+  make parallel the computation of degree cumulative functions.
+
 ### Fixed
 
 - Replaced a number of wrong `num_cpus::get` calls with

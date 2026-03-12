@@ -14,8 +14,6 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
 use log::info;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
@@ -150,51 +148,33 @@ where
         num_threads
     ));
 
-    let num_chunks = num_nodes.div_ceil(node_granularity);
     let mut efb = EliasFanoBuilder::new(num_nodes + 1, num_arcs);
+    efb.push(0);
 
-    // Parallel workers compute degree chunks and send them through a
-    // bounded channel. The main thread receives chunks and drains them
-    // in order into the EF builder using a reorder buffer.
-    let (tx, rx) = std::sync::mpsc::sync_channel::<(usize, Box<[usize]>)>(num_threads * 2);
+    let num_chunks = num_nodes.div_ceil(node_granularity);
+    let mut cumul_deg = 0;
 
-    std::thread::scope(|s| {
-        s.spawn(|| {
-            thread_pool.install(|| {
-                (0..num_chunks).into_par_iter().for_each_with(
-                    (tx, pl.clone()),
-                    |(tx, pl), chunk_idx| {
-                        let start = chunk_idx * node_granularity;
-                        let end = num_nodes.min(start + node_granularity);
-                        let degs: Box<[usize]> =
-                            (start..end).map(|node| graph.outdegree(node)).collect();
-                        pl.update_with_count(end - start);
-                        tx.send((chunk_idx, degs)).unwrap();
-                    },
-                );
-            });
-        });
-
-        let mut next_chunk = 0;
-        let mut buffer: VecDeque<Option<Box<[usize]>>> = VecDeque::new();
-        let mut cumul_deg = 0;
-        efb.push(0);
-
-        for (chunk_idx, degs) in rx {
-            let offset = chunk_idx - next_chunk;
-            if offset >= buffer.len() {
-                buffer.resize(offset + 1, None);
-            }
-            buffer[offset] = Some(degs);
-            while let Some(Some(degs)) = buffer.front_mut().map(Option::take) {
-                buffer.pop_front();
+    thread_pool.install(|| {
+        use webgraph::traits::ParMapFold;
+        (0..num_chunks).par_map_fold_ord_with(
+            pl.clone(),
+            |pl, chunk_idx| {
+                let start = chunk_idx * node_granularity;
+                let end = num_nodes.min(start + node_granularity);
+                let degs: Box<[usize]> =
+                    (start..end).map(|node| graph.outdegree(node)).collect();
+                pl.update_with_count(end - start);
+                degs
+            },
+            &mut efb,
+            |efb, degs| {
                 for &deg in degs.iter() {
                     cumul_deg += deg;
                     efb.push(cumul_deg);
                 }
-                next_chunk += 1;
-            }
-        }
+                efb
+            },
+        );
     });
 
     pl.done();
