@@ -37,8 +37,8 @@
 
 ### Changed
 
-- Several methods previously accepting a `&ThreadPool` now
-  they don't. The user can use the standard Rayon global thread pool
+- Several methods previously accepting a `&ThreadPool` no
+  longer do. The user can use the standard Rayon global thread pool
   or configure their own and use `ThreadPool::install`.
 
 - Visits have been moved to the main WebGraph crate.

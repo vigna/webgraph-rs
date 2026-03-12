@@ -17,7 +17,7 @@
 /// express naturally the granularity of their tasks via a number of nodes,
 /// whereas others (e.g.,
 /// [`par_apply`](crate::traits::SequentialLabeling::par_apply)) via a
-/// number of arcs. This enum allows to specify the granularity of parallel
+/// number of arcs. This enum makes it possible to specify the granularity of parallel
 /// tasks in a transparent way, by nodes or arcs. Conversion between the two
 /// specifications is done by the methods
 /// [`arc_granularity`](Self::arc_granularity) and
@@ -76,8 +76,8 @@ impl Granularity {
     /// Returns an arc granularity for a given number of nodes and arcs.
     ///
     /// For the [`Arcs`](Self::Arcs) variant, the specified number of arcs is
-    /// returned. For the [`Nodes`](Self::Nodes) variant, the number of nodes is
-    /// computed as the specified number of arcs divided by the average degree.
+    /// returned. For the [`Nodes`](Self::Nodes) variant, the number of arcs is
+    /// computed as the specified number of nodes divided by the average degree.
     ///
     /// # Panics
     ///

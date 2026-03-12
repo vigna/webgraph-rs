@@ -8,7 +8,7 @@
   be found easily.
 
 - Extensive support for optionally loading a degree cumulative function
-  to split a work on a graph by arcs rather than by nodes.
+  to split work on a graph by arcs rather than by nodes.
 
 - Everything reading or writing integers or floats has ASCII as default
   format, and JSON, Java and ε-serde storage of boxed slices or `BitFieldVec`

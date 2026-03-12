@@ -19,7 +19,7 @@ use lender::*;
 /// A sequential graph in the BV format.
 ///
 /// The graph depends on a [`SequentialDecoderFactory`] that can be used to
-/// create decoders for the graph. This allows to decouple the graph from the
+/// create decoders for the graph. This makes it possible to decouple the graph from the
 /// underlying storage format, and to use different storage formats for the same
 /// graph. For example, one can use a memory-mapped file for the graph, or load
 /// it in memory, or even generate it on the fly.

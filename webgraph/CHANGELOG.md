@@ -7,23 +7,22 @@
 - `par_map_fold_ord` family of methods that work like `par_map_fold`, but
   guarantee to process results in the same order as the input.
 
+- `SplitLabeling` has a new `split_iter_at` method that makes it possible to
+  select arbitrary cut points. CLI support makes it possible to use the degree
+  cumulative function to split the compression work in a more balanced way.
+
 ### Fixed
 
 - Replaced a number of wrong `num_cpus::get` calls with
   `rayon::current_num_threads`.
 
-- There are no more parallel instances of `SortPairs`. All parallel
-  code uses `ParSortPairs` or `ParSortIters`.
-
 ### Changed
 
-- Upgraded to `dsi-bitstream` 0.8.0.
+- Upgraded to `dsi-bitstream` 0.9.0.
 
 - Reallocation strategies in `BvComp` and `BvCompZ` do not shrink below capacity 1024.
 
 - Removed spurious `reset` inherent method in sequential visits.
-
-- Added `FusedIterator` implementations to `BfsOrder` and `DfsOrder`.
 
 - `par_comp_lenders_endianness` lost its useless `num_nodes` argument.
 
@@ -35,16 +34,17 @@
 
 - Now also `ParSortIters` uses Rayon threads.
 
-- `SplitLabeling` has a new `split_iter_at` method that makes it possible to
-  select arbitrary cut points. CLI support makes it possible to use the degree
-  cumulative function to split the compression work in a more balanced way.
-
 - Removed dependency from `common_traits`, replaced by `num-traits`.
+
+- There are no more parallel instances of `SortPairs`. All parallel
+  code uses `ParSortPairs` or `ParSortIters`.
 
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a
   `const DEDUP: bool` type parameter that enables deduplication at compile time.
+
+- Added `FusedIterator` implementations to `BfsOrder` and `DfsOrder`.
 
 ## [0.6.1] - 2026-02-23
 
