@@ -21,19 +21,26 @@ use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(
-    about = "Read from standard input a list of arcs and create a BvGraph. Each arc is specified by a pair of labels separated by a TAB (but the format is customizable), and numerical identifiers will be assigned to the labels in appearance order. The final list of node labels will be saved in a file with the same basename of the graph and extension .nodes. The option --exact can be used to use the labels directly as node identifiers. Note that in that case nodes are numbered starting from zero."
+    about = "Reads a list of arcs from standard input and creates a graph in the BV format.",
+    long_about = "Reads a list of arcs from standard input and creates a graph in the BV format. Each arc is \
+        a pair of numeric node identifiers separated by a TAB (but the format is \
+        customizable). If --labels is used, source and target values are treated \
+        as string labels: numerical identifiers will be assigned in appearance \
+        order, and the final list of labels will be saved in a file with the same \
+        basename as the graph and extension .nodes. Without --labels, nodes are \
+        numbered starting from zero."
 )]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub dst: PathBuf,
 
     #[arg(long)]
-    /// The number of nodes in the graph; if specified this will be used instead of the number inferred.
-    /// This is useful if you want to add disconnected nodes at the end of the graph.
+    /// The number of nodes in the graph. If specified, overrides the value
+    /// inferred from the arcs; useful for adding isolated nodes at the end.​
     pub num_nodes: Option<usize>,
 
     #[arg(long)]
-    /// The number of arcs in the graph; if specified, it will be used to estimate the progress.
+    /// The number of arcs in the graph; if specified, it will be used to estimate the progress.​
     pub num_arcs: Option<usize>,
 
     #[clap(flatten)]

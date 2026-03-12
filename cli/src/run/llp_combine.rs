@@ -19,17 +19,17 @@ use super::llp::store_perm;
 #[command(name = "llp-combine", about = "Combines the pre-computed labels from Layered Label Propagation into a permutation.", long_about = None)]
 pub struct CliArgs {
     /// The folder where the LLP labels are stored in Java format
-    /// (big-endian 64-bit integers).
+    /// (big-endian 64-bit integers).​
     pub work_dir: PathBuf,
 
-    /// A filename for the LLP permutation.
+    /// A filename for the LLP permutation.​
     pub perm: PathBuf,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the permutation file.
+    /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
-    /// The number of threads to use.
+    /// The number of threads to use.​
     #[command(flatten)]
     pub num_threads: NumThreadsArg,
 }

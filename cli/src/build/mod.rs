@@ -12,7 +12,7 @@ pub mod dcf;
 pub mod ef;
 pub mod offsets;
 
-/// Builds accessory graph data structures (e.g., offsets, ef, dcf).
+/// Builds accessory graph data structures (e.g., offsets, ef, dcf).​
 #[derive(Subcommand, Debug)]
 #[command(name = "build")]
 pub enum SubCommands {
@@ -22,7 +22,7 @@ pub enum SubCommands {
     Complete(CompleteArgs),
 }
 
-/// Generates shell completions. Use with `source <(webgraph build completions $SHELL)`.
+/// Generates shell completions. Use with `source <(webgraph build completions $SHELL)`.​
 #[derive(Parser, Debug)]
 pub struct CompleteArgs {
     shell: Shell,

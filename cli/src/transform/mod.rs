@@ -12,7 +12,7 @@ pub mod perm;
 pub mod simplify;
 pub mod transpose;
 
-/// Applies a transformation to a graph.
+/// Applies a transformation to a graph.​
 #[derive(Subcommand, Debug)]
 #[command(name = "transform")]
 pub enum SubCommands {

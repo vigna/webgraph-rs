@@ -24,7 +24,7 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "ef", about = "Checks that the \".ef\" file (and \".offsets\" if present) is consistent with the graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
     #[clap(flatten)]

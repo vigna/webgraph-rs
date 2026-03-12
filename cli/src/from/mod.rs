@@ -9,7 +9,7 @@ use clap::Subcommand;
 
 pub mod arcs;
 
-/// Ingests data into graphs.
+/// Ingests data into graphs.​
 #[derive(Subcommand, Debug)]
 #[command(name = "from")]
 pub enum SubCommands {

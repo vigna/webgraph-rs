@@ -21,35 +21,35 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "bvgraph", about = "Benchmarks the Rust BvGraph implementation.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
-    /// Perform a random-access test on this number of randomly selected nodes.
+    /// Perform a random-access test on this number of randomly selected nodes.​
     #[arg(short, long)]
     pub random: Option<usize>,
 
-    /// The number of repeats.
+    /// The number of repeats.​
     #[arg(short = 'R', long, default_value = "10")]
     pub repeats: usize,
 
-    /// In random-access tests, test just access to the first successor.
+    /// In random-access tests, test just access to the first successor.​
     #[arg(short = 'f', long)]
     pub first: bool,
 
-    /// Static dispatch for speed tests (default BvGraph parameters).
+    /// Static dispatch for speed tests (default BvGraph parameters).​
     #[arg(short = 'S', long = "static")]
     pub _static: bool,
 
-    /// Test sequential high-speed offset/degree scanning.
+    /// Test sequential high-speed offset/degree scanning.​
     #[arg(short = 'd', long)]
     pub degrees: bool,
 
-    /// Do not test speed, but check that the sequential and random-access successor lists are the same.
+    /// Do not test speed, but check that the sequential and random-access successor lists are the same.​
     #[arg(short = 'c', long)]
     pub check: bool,
 
     /// Expand offsets into a slice of usize before testing random-access
-    /// successor lists.
+    /// successor lists.​
     #[arg(long)]
     pub slice: bool,
 }

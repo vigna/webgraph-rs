@@ -14,16 +14,16 @@ use webgraph::graphs::union_graph::UnionGraph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "simplify", about = "Makes a BvGraph simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
+#[command(name = "simplify", about = "Makes a graph in the BV format simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub src: PathBuf,
-    /// The basename of the simplified graph.
+    /// The basename of the simplified graph.​
     pub dst: PathBuf,
 
     #[arg(long)]
     /// The basename of a pre-computed transposed version of the source graph,
-    /// which will be used to speed up the simplification.
+    /// which will be used to speed up the simplification.​
     pub transposed: Option<PathBuf>,
 
     #[clap(flatten)]
@@ -36,16 +36,16 @@ pub struct CliArgs {
     pub ca: CompressArgs,
 
     #[arg(long)]
-    /// The path to an optional permutation to apply to the graph.
+    /// The path to an optional permutation to apply to the graph.​
     pub permutation: Option<PathBuf>,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the permutation file.
+    /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
 }
 

@@ -20,7 +20,7 @@ use webgraph::utils::MmapHelper;
 #[derive(Parser, Debug)]
 #[command(name = "ascii", about = "Writes a graph in ASCII to standard output as a line for each node with successors separated by TABs.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
     #[clap(flatten)]

@@ -16,9 +16,9 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "endianness", about = "Inverts the endianness of a graph in the BV format.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the source graph.
+    /// The basename of the source graph.​
     pub src: PathBuf,
-    /// The basename of the destination graph.
+    /// The basename of the destination graph.​
     pub dst: PathBuf,
 
     #[clap(flatten)]

@@ -12,7 +12,7 @@ pub mod bvgraph;
 
 #[derive(Subcommand, Debug)]
 #[command(name = "bench")]
-/// A few benchmark utilities.
+/// A few benchmark utilities.​
 pub enum SubCommands {
     Bvgraph(bvgraph::CliArgs),
     BFVisit(bf_visit::CliArgs),

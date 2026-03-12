@@ -16,7 +16,7 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "offsets", about = "Builds the offsets file of a graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
     #[clap(flatten)]

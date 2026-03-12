@@ -13,24 +13,24 @@ use value_traits::slices::SliceByValue;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "map", about = "Maps a BvGraph through an arbitrary function on nodes, deduplicating arcs.", long_about = None)]
+#[command(name = "map", about = "Maps a graph in the BV format through an arbitrary function on nodes, deduplicating arcs.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the source graph.
+    /// The basename of the source graph.​
     pub src: PathBuf,
-    /// The basename of the mapped graph.
+    /// The basename of the mapped graph.​
     pub dst: PathBuf,
 
-    /// The path to the map to apply to the graph.
+    /// The path to the map to apply to the graph.​
     pub map: PathBuf,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the map file.
+    /// The format of the map file.​
     pub fmt: IntSliceFormat,
 
     #[arg(long)]
     /// The number of nodes of the resulting graph; if not specified, it is
     /// computed as one plus the maximum value in the map; if specified, it must
-    /// be strictly greater than the maximum value in the map.
+    /// be strictly greater than the maximum value in the map.​
     pub num_nodes: Option<usize>,
 
     #[clap(flatten)]
@@ -44,7 +44,7 @@ pub struct CliArgs {
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
 }
 

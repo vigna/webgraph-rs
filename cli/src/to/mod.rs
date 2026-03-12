@@ -16,7 +16,7 @@ pub mod intfmt;
 
 #[derive(Subcommand, Debug)]
 #[command(name = "to")]
-/// Converts graphs and slices from a representation to another.
+/// Converts graphs and slices from a representation to another.​
 pub enum SubCommands {
     Ascii(ascii::CliArgs),
     Bvgraph(bvgraph::CliArgs),

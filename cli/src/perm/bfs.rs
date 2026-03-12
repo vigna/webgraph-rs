@@ -17,14 +17,14 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "bfs", about = "Computes the permutation induced by a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
-    /// The filename of the permutation.
+    /// The filename of the permutation.​
     pub perm: PathBuf,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the permutation file.
+    /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
     #[clap(flatten)]

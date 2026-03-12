@@ -15,11 +15,11 @@ use std::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "pad", about = "Zero-pad graph files to a length multiple of a word size.", long_about = None)]
+#[command(name = "pad", about = "Zero-pads graph files to a length that is a multiple of a word size.", long_about = None)]
 pub struct CliArgs {
-    /// The file to pad, usually it's either a graph or offsets.
+    /// The file to pad, usually a graph or offsets file.​
     pub file: PathBuf,
-    /// The word size to pad to.
+    /// The word size to pad to.​
     #[clap(value_enum)]
     pub word_size: WordSize,
 }

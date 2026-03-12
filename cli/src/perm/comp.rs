@@ -15,19 +15,19 @@ use value_traits::slices::SliceByValue;
 #[derive(Parser, Debug)]
 #[command(name = "comp", about = "Composes multiple permutations into a single one.", long_about = None)]
 pub struct CliArgs {
-    /// The filename of the resulting permutation.
+    /// The filename of the resulting permutation.​
     pub dst: PathBuf,
 
     #[arg(num_args(1..))]
-    /// Filenames of the permutations to compose (in order of application).
+    /// Filenames of the permutations to compose (in order of application).​
     pub perms: Vec<PathBuf>,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the source permutation files.
+    /// The format of the source permutation files.​
     pub src_fmt: IntSliceFormat,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the destination permutation file.
+    /// The format of the destination permutation file.​
     pub dst_fmt: IntSliceFormat,
 
     #[clap(flatten)]

@@ -16,7 +16,7 @@ use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "webgraph-sccs", version=build_info::version_string())]
-/// Computes the strongly connected components of a graph of given basename.
+/// Computes the strongly connected components of a graph.​
 #[doc = include_str!("common_ps.txt")]
 #[doc = include_str!("common_env.txt")]
 pub struct Cli {
@@ -26,27 +26,27 @@ pub struct Cli {
 
 #[derive(Parser, Debug)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
-    /// The path where to save the strongly connected components.
+    /// Output path for the strongly connected components.​
     pub sccs: PathBuf,
 
     #[arg(short = 's', long)]
-    /// Compute the size of the strongly connected components and store them
-    /// at the given path.
+    /// Compute the sizes of the strongly connected components and store them
+    /// at the given path.​
     pub sizes: Option<PathBuf>,
 
     #[arg(short, long)]
-    /// Renumber components in decreasing-size order (implicitly, compute sizes).
+    /// Renumber components in decreasing-size order (implicitly, compute sizes).​
     pub renumber: bool,
 
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
-    /// The number of threads to use to compute the sizes of the components.
+    /// The number of threads to use to compute the sizes of the components.​
     pub num_threads: usize,
 
     #[arg(long, value_enum, default_value_t = IntSliceFormat::Ascii)]
-    /// The storage format for components and component sizes.
+    /// The storage format for components and component sizes.​
     pub fmt: IntSliceFormat,
 
     #[clap(flatten)]

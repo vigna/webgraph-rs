@@ -19,17 +19,17 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "bf-visit", about = "Benchmarks a breadth-first visit.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
-    /// Static dispatch (default BvGraph parameters).
+    /// Static dispatch (default BvGraph parameters).​
     #[arg(short = 'S', long = "static")]
     pub _static: bool,
-    /// Number of repeats (usually to warm up the cache or memory mapping).
+    /// Number of repeats (usually to warm up the cache or memory mapping).​
     #[arg(short = 'R', long, default_value_t = 1)]
     pub repeats: usize,
 
     #[clap(long, default_value = "false")]
-    /// Whether to use mmap for the graph, otherwise it will be loaded in memory
+    /// Use memory mapping instead of loading the graph into memory.​
     pub mmap: bool,
 }
 

@@ -15,6 +15,9 @@
   instances as alternatives. Note that some commands previously defaulting to
   the Java format now default to ASCII.
 
+- All commands descriptions now have a zero-width space after the final period,
+  to prevent Clap from stripping it.
+
 ### Changed
 
 - `webgraph transform` now defaults to the parallel version.

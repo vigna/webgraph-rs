@@ -16,7 +16,7 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "codes", about = "Reads a graph and suggests the best codes to use.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
     #[clap(flatten)]
@@ -26,8 +26,8 @@ pub struct CliArgs {
     pub granularity: GranularityArgs,
 
     #[clap(short = 'k', long, default_value_t = 3)]
-    /// How many codes to show for each type, if k is bigger than the number of codes available
-    /// all codes will be shown.
+    /// Number of codes to show for each type. If larger than available, all
+    /// codes are shown.​
     pub top_k: usize,
 
     #[clap(flatten)]
@@ -46,7 +46,7 @@ pub fn main(args: CliArgs) -> Result<()> {
 
 /// Returns ranges of nodes to process in parallel of size `chunk_size` each,
 /// with the last chunk possibly being smaller.
-/// The equivalent of `std::iter::Chunks` but with a `Range` instead of a `Slice`.
+/// The equivalent of `std::iter::Chunks` but with a `Range` instead of a `Slice`.​
 pub struct ChunksIter {
     total: core::ops::Range<usize>,
     chunk_size: usize,
@@ -188,7 +188,7 @@ where
 }
 
 /// Gets the size in bits used by a given code.
-/// This should go in dsi-bitstream eventually.
+/// This should go in dsi-bitstream eventually.​
 fn get_size_by_code(stats: &CodesStats, code: Codes) -> Option<u64> {
     match code {
         Codes::Unary => Some(stats.unary),
@@ -207,7 +207,7 @@ fn get_size_by_code(stats: &CodesStats, code: Codes) -> Option<u64> {
     }
 }
 
-/// Prints the statistics of how much the optimal codes improve over the reference ones.
+/// Prints the statistics of how much the optimal codes improve over the reference ones.​
 pub fn compare_codes(stats: &DecoderStats, reference: CompFlags, top_k: usize) {
     macro_rules! impl_best_code {
         ($new_bits:expr, $old_bits:expr, $stats:expr, $($code:ident -> $old:expr),*) => {

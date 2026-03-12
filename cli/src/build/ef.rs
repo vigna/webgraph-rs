@@ -23,20 +23,19 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug, Clone)]
 #[command(name = "ef", about = "Builds the Elias–Fano representation of the offsets of a graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph (or labels).
+    /// The basename of the graph (or labels).​
     pub basename: PathBuf,
-    /// The number of nodes of the graph. When passed, we don't need to load the
-    /// ".properties" file. This allows to build Elias–Fano from the offsets of
-    /// something that might not be a graph but that has offsets, like labels.
-    /// For this reason, if passed, we will also try to read the ".labeloffsets"
-    /// file and then fallback to the usual ".offsets" file.
+    /// The number of nodes. When specified, the .properties file is not needed,
+    /// making it possible to build Elias–Fano for offsets of non-graph data
+    /// such as labels. In that case, .labeloffsets is tried first, falling back
+    /// to .offsets.​
     pub number_of_nodes: Option<usize>,
 
     #[clap(flatten)]
     pub log_interval: LogIntervalArg,
 }
 
-/// Returns the length in bits of the given file.
+/// Returns the length in bits of the given file.​
 fn file_len_bits(path: &Path) -> Result<usize> {
     let mut file =
         File::open(path).with_context(|| format!("Could not open {}", path.display()))?;

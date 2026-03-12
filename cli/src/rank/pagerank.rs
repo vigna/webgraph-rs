@@ -18,16 +18,16 @@ use webgraph::traits::RandomAccessGraph;
 use webgraph_algo::rank::pagerank::preds::{L1Norm, MaxIter};
 use webgraph_algo::rank::{Mode, PageRank};
 
-/// The PageRank mode.
+/// The PageRank mode.​
 #[derive(clap::ValueEnum, Debug, Clone, Copy, Default)]
 pub enum CliMode {
-    /// Use the preference vector as dangling-node distribution.
+    /// Use the preference vector as dangling-node distribution.​
     #[default]
     StronglyPreferential,
     /// Use a uniform dangling-node distribution regardless of the preference
-    /// vector.
+    /// vector.​
     WeaklyPreferential,
-    /// Zero out the dangling-node contribution (pseudorank).
+    /// Zero out the dangling-node contribution (pseudorank).​
     PseudoRank,
 }
 
@@ -44,47 +44,47 @@ impl From<CliMode> for Mode {
 #[derive(Parser, Debug)]
 #[command(
     name = "pagerank",
-    about = "Compute PageRank using parallel Gauss–Seidel iteration.",
+    about = "Computes PageRank using parallel Gauss–Seidel iteration.",
     long_about = None
 )]
 pub struct CliArgs {
-    /// The basename of the transpose of the graph.
+    /// The basename of the transpose of the graph.​
     pub transpose: PathBuf,
 
     #[arg(short, long)]
-    /// Where to store the rank vector.
+    /// Where to store the rank vector.​
     pub output: PathBuf,
 
     #[arg(short, long, default_value_t = 0.85)]
-    /// The damping factor α (must be in the interval [0 . . 1).
+    /// The damping factor α (must be in the interval [0 . . 1).​
     pub alpha: f64,
 
     #[arg(long)]
-    /// Maximum number of iterations.
+    /// Maximum number of iterations.​
     pub max_iter: Option<usize>,
 
     #[arg(short, long, default_value_t = 1e-6)]
-    /// The ℓ₁ error threshold to stop.
+    /// The ℓ₁ error threshold to stop.​
     pub threshold: f64,
 
     #[arg(short, long)]
-    /// Path to a preference (personalization) vector.
+    /// Path to a preference (personalization) vector.​
     pub preference: Option<PathBuf>,
 
     #[arg(long, value_enum, default_value_t = FloatSliceFormat::Ascii)]
-    /// The input format for the preference vector.
+    /// The input format for the preference vector.​
     pub preference_fmt: FloatSliceFormat,
 
     #[arg(short, long, value_enum, default_value_t = CliMode::StronglyPreferential)]
-    /// The PageRank mode.
+    /// The PageRank mode.​
     pub mode: CliMode,
 
     #[arg(long, value_enum, default_value_t = FloatSliceFormat::Ascii)]
-    /// The output format for the rank vector.
+    /// The output format for the rank vector.​
     pub fmt: FloatSliceFormat,
 
     #[arg(long)]
-    /// Decimal digits for text output formats.
+    /// Decimal digits for text output formats.​
     pub precision: Option<usize>,
 
     #[clap(flatten)]

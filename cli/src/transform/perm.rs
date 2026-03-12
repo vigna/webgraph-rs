@@ -12,18 +12,18 @@ use tempfile::Builder;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "perm", about = "Permutes a BvGraph according to a given permutation.", long_about = None)]
+#[command(name = "perm", about = "Permutes a graph in the BV format according to a given permutation.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub src: PathBuf,
-    /// The basename of the permuted graph.
+    /// The basename of the permuted graph.​
     pub dst: PathBuf,
 
-    /// The path to the permutation to apply to the graph.
+    /// The path to the permutation to apply to the graph.​
     pub permutation: PathBuf,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the permutation file.
+    /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
     #[clap(flatten)]
@@ -37,7 +37,7 @@ pub struct CliArgs {
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
 }
 

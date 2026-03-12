@@ -9,7 +9,7 @@ use clap::Subcommand;
 
 pub mod codes;
 
-/// Computes statistics on graphs.
+/// Computes statistics on graphs.​
 #[derive(Subcommand, Debug)]
 #[command(name = "analyze")]
 pub enum SubCommands {

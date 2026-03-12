@@ -72,7 +72,7 @@ build info: built on {} for {} with {}",
 /// It is used to implement [`ValueEnum`] here instead of in [`dsi_bitstream`].
 ///
 /// For CLI ergonomics and compatibility, these codes must be the same as those
-/// appearing in [`CompFlags::code_from_str`].
+/// appearing in [`CompFlags::code_from_str`].​
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum PrivCode {
     Unary,
@@ -114,68 +114,69 @@ impl From<PrivCode> for Codes {
     }
 }
 
-/// Shared CLI arguments for reading files containing arcs.
+/// Shared CLI arguments for reading files containing arcs.​
 #[derive(Args, Debug)]
 pub struct ArcsArgs {
     #[arg(long, default_value_t = '#')]
-    /// Ignore lines that start with this symbol.
+    /// Ignore lines that start with this symbol.​
     pub line_comment_symbol: char,
 
     #[arg(long, default_value_t = 0)]
-    /// How many lines to skip, ignoring comment lines.
+    /// Number of lines to skip, ignoring comment lines.​
     pub lines_to_skip: usize,
 
     #[arg(long)]
-    /// How many lines to parse, after skipping the first lines_to_skip and
-    /// ignoring comment lines.
+    /// Maximum number of lines to parse, after skipping and ignoring comment
+    /// lines.​
     pub max_arcs: Option<usize>,
 
     #[arg(long, default_value_t = '\t')]
-    /// The column separator.
+    /// The column separator.​
     pub separator: char,
 
     #[arg(long, default_value_t = 0)]
-    /// The index of the column containing the source node of an arc.
+    /// The index of the column containing the source node of an arc.​
     pub source_column: usize,
 
     #[arg(long, default_value_t = 1)]
-    /// The index of the column containing the target node of an arc.
+    /// The index of the column containing the target node of an arc.​
     pub target_column: usize,
 
     #[arg(long, default_value_t = false)]
-    /// Sources and destinations are not node identifiers starting from 0, but labels.
+    /// Treat source and target values as string labels rather than numeric
+    /// node identifiers.​
     pub labels: bool,
 }
 
 /// Parses the number of threads from a string.
 ///
 /// This function is meant to be used with `#[arg(...,  value_parser =
-/// num_threads_parser)]`.
+/// num_threads_parser)]`.​
 pub fn num_threads_parser(arg: &str) -> Result<usize> {
     let num_threads = arg.parse::<usize>()?;
     ensure!(num_threads > 0, "Number of threads must be greater than 0");
     Ok(num_threads)
 }
 
-/// Shared CLI arguments for commands that specify a number of threads.
+/// Shared CLI arguments for commands that specify a number of threads.​
 #[derive(Args, Debug)]
 pub struct NumThreadsArg {
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]
-    /// The number of threads to use.
+    /// The number of threads to use.​
     pub num_threads: usize,
 }
 
-/// Shared CLI arguments for commands that specify a granularity.
+/// Shared CLI arguments for commands that specify a granularity.​
 #[derive(Args, Debug)]
 pub struct GranularityArgs {
     #[arg(long, conflicts_with("node_granularity"))]
     /// The tentative number of arcs used to define the size of a parallel job
-    /// (advanced option).
+    /// (advanced option).​
     pub arc_granularity: Option<u64>,
 
     #[arg(long, conflicts_with("arc_granularity"))]
     /// The tentative number of nodes used to define the size of a parallel job
-    /// (advanced option).
+    /// (advanced option).​
     pub node_granularity: Option<usize>,
 }
 
@@ -197,27 +198,27 @@ impl GranularityArgs {
 /// otherwise, it is interpreted as a number of elements. The available SI
 /// and NIST multipliers are k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. A
 /// trailing `%` interprets the value as a percentage of the available
-/// memory. The default is `50%`.
+/// memory. The default is `50%`.​
 #[derive(Args, Debug)]
 pub struct MemoryUsageArg {
     #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "50%")]
     /// The memory usage for batches (a number of elements with an optional
     /// SI/NIST suffix; append "b"/"B" for bytes, "%" for a percentage of
-    /// available memory).
+    /// available memory).​
     pub memory_usage: MemoryUsage,
 }
 
-/// Formats for storing and loading slices of floats.
+/// Formats for storing and loading slices of floats.​
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum FloatSliceFormat {
-    /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).
+    /// Java-compatible format: a sequence of big-endian floats (32 or 64 bits).​
     Java,
-    /// A sequence of floats (32 or 64 bits) serialized using ε-serde.
+    /// A sequence of floats (32 or 64 bits) serialized using ε-serde.​
     Epserde,
-    /// ASCII format, one float per line.
+    /// ASCII format, one float per line.​
     #[default]
     Ascii,
-    /// A JSON array.
+    /// A JSON array.​
     Json,
 }
 
@@ -228,7 +229,7 @@ impl FloatSliceFormat {
     /// If the result is a textual format, that is, ASCII or JSON, `precision`
     /// will be used to round the float values to the specified number of
     /// decimal digits. If `None`, [zmij](https://crates.io/crates/zmij)
-    /// formatting will be used.
+    /// formatting will be used.​
     pub fn store<F>(
         &self,
         path: impl AsRef<Path>,
@@ -299,7 +300,7 @@ impl FloatSliceFormat {
     }
 
     /// Loads float values from the specified `path` using the format defined
-    /// by `self`.
+    /// by `self`.​
     pub fn load<F>(&self, path: impl AsRef<Path>) -> Result<Vec<F>>
     where
         F: FromBytes + FromStr + Copy + serde::de::DeserializeOwned,
@@ -376,22 +377,22 @@ impl FloatSliceFormat {
     }
 }
 
-/// How to store slices of integers.
+/// How to store slices of integers.​
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum IntSliceFormat {
     #[cfg(target_pointer_width = "64")]
-    /// Java-compatible format: a sequence of big-endian 64-bit integers; available only on 64-bit platforms.
+    /// Java-compatible format: a sequence of big-endian 64-bit integers; available only on 64-bit platforms.​
     Java,
-    /// A sequence of usize serialized using ε-serde.
+    /// A sequence of usize serialized using ε-serde.​
     Epserde,
     /// A BitFieldVec stored using ε-serde: it stores each element using
     /// ⌊log₂(max)⌋ + 1 bits, and it requires to allocate the `BitFieldVec` in RAM
-    /// before serializing it.
+    /// before serializing it.​
     BitFieldVec,
-    /// ASCII format, one integer per line.
+    /// ASCII format, one integer per line.​
     #[default]
     Ascii,
-    /// A JSON array.
+    /// A JSON array.​
     Json,
 }
 
@@ -419,16 +420,16 @@ pub enum IntSliceFormat {
 /// ```
 ///
 /// This incurs one monomorphization of `do_transform` per arm; arms that
-/// share the same inner type can be merged to reduce monomorphization cost.
+/// share the same inner type can be merged to reduce monomorphization cost.​
 pub enum IntSlice {
-    /// Fully loaded into memory (ASCII, JSON).
+    /// Fully loaded into memory (ASCII, JSON).​
     Owned(Box<[usize]>),
     #[cfg(target_pointer_width = "64")]
-    /// Memory-mapped Java big-endian format (64-bit only).
+    /// Memory-mapped Java big-endian format (64-bit only).​
     Java(JavaPermutation),
-    /// Memory-mapped ε-serde serialized slice.
+    /// Memory-mapped ε-serde serialized slice.​
     Epserde(MemCase<Box<[usize]>>),
-    /// Memory-mapped ε-serde serialized [`BitFieldVec`].
+    /// Memory-mapped ε-serde serialized [`BitFieldVec`].​
     BitFieldVec(MemCase<sux::bits::BitFieldVec<usize>>),
 }
 
@@ -461,7 +462,7 @@ impl SliceByValue for IntSlice {
 ///
 /// The bound types are `&Box<[usize]>` (Owned and Epserde),
 /// `&JavaPermutation` (Java, 64-bit only), and `&BitFieldVec<usize>`
-/// (BitFieldVec). All bound types are `Sized`.
+/// (BitFieldVec). All bound types are `Sized`.​
 #[macro_export]
 macro_rules! dispatch_int_slice {
     ($slice:expr, |$var:ident| $body:expr) => {
@@ -492,7 +493,7 @@ impl IntSliceFormat {
     /// defined by `self`.
     ///
     /// `max` is the maximum value of the slice. If it is not provided, it will
-    /// be computed from the data.
+    /// be computed from the data.​
     pub fn store(&self, path: impl AsRef<Path>, data: &[usize], max: Option<usize>) -> Result<()> {
         // Ensure the parent directory exists
         create_parent_dir(&path)?;
@@ -572,7 +573,7 @@ impl IntSliceFormat {
     /// by `self`, returning an [`IntSlice`].
     ///
     /// The ε-serde-based formats (Epserde, BitFieldVec) and the Java format
-    /// use memory mapping; ASCII and JSON are fully loaded into memory.
+    /// use memory mapping; ASCII and JSON are fully loaded into memory.​
     pub fn load(&self, path: impl AsRef<Path>) -> Result<IntSlice> {
         let path = path.as_ref();
         let path_display = path.display();
@@ -640,7 +641,7 @@ impl IntSliceFormat {
 /// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
 /// (followed by a `%`) that is interpreted as a percentage of the core
 /// memory. If the value ends with a `b` or `B` it is interpreted as a number of
-/// bytes, otherwise as a number of elements.
+/// bytes, otherwise as a number of elements.​
 pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
         ("ki", 1 << 10),
@@ -694,50 +695,49 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     }
 }
 
-/// Shared CLI arguments for compression.
+/// Shared CLI arguments for compression.​
 #[derive(Args, Debug, Clone)]
 pub struct CompressArgs {
-    /// The endianness of the graph to write [default: same as source].
+    /// The endianness of the graph to write [default: same as source].​
     #[clap(short = 'E', long)]
     pub endianness: Option<String>,
 
-    /// The compression window.
+    /// The compression window.​
     #[clap(short = 'w', long, default_value_t = 7)]
     pub compression_window: usize,
-    /// The minimum interval length.
+    /// The minimum interval length.​
     #[clap(short = 'i', long, default_value_t = 4)]
     pub min_interval_length: usize,
-    /// The maximum recursion depth for references (-1 for infinite recursion depth).
+    /// The maximum recursion depth for references (-1 for infinite recursion depth).​
     #[clap(short = 'r', long, default_value_t = 3)]
     pub max_ref_count: isize,
 
     #[arg(value_enum)]
     #[clap(long, default_value = "gamma")]
-    /// The code to use for the outdegree
+    /// The code to use for outdegrees.​
     pub outdegrees: PrivCode,
 
     #[arg(value_enum)]
     #[clap(long, default_value = "unary")]
-    /// The code to use for the reference offsets
+    /// The code to use for reference offsets.​
     pub references: PrivCode,
 
     #[arg(value_enum)]
     #[clap(long, default_value = "gamma")]
-    /// The code to use for the blocks
+    /// The code to use for blocks.​
     pub blocks: PrivCode,
 
     #[arg(value_enum)]
     #[clap(long, default_value = "zeta3")]
-    /// The code to use for the residuals
+    /// The code to use for residuals.​
     pub residuals: PrivCode,
 
-    /// Whether to use Zuckerli's reference selection algorithm; this slows down
-    /// the compression process and requires more memory, but improves
-    /// compression ratio and decoding speed.
+    /// Use Zuckerli's reference selection algorithm (slower, more memory,
+    /// but better compression and decoding speed).​
     #[clap(long)]
     pub bvgraphz: bool,
 
-    /// How many nodes to process in a chunk with --bvgraphz.
+    /// Number of nodes per chunk with --bvgraphz.​
     #[clap(long, default_value = "10000")]
     pub chunk_size: usize,
 }
@@ -767,7 +767,7 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.
+/// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.​
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
@@ -781,7 +781,7 @@ pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
 ///
 /// # Panics
 /// * Will panic if there is no filename.
-/// * Will panic in test mode if the path has an extension.
+/// * Will panic in test mode if the path has an extension.​
 pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     debug_assert!(path.as_ref().extension().is_none());
     let mut path_buf = path.as_ref().to_owned();
@@ -791,7 +791,7 @@ pub fn append(path: impl AsRef<Path>, s: impl AsRef<str>) -> PathBuf {
     path_buf
 }
 
-/// Creates all parent directories of the given file path.
+/// Creates all parent directories of the given file path.​
 pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
     // ensure that the dst directory exists
     if let Some(parent_dir) = file_path.as_ref().parent() {
@@ -810,7 +810,7 @@ pub fn create_parent_dir(file_path: impl AsRef<Path>) -> Result<()> {
 ///
 /// If `use_dcf` is true, loads the DCF file for the given basename and uses
 /// `FairChunks` to balance by arc count. Otherwise, falls back to uniform
-/// cutpoints by node count.
+/// cutpoints by node count.​
 pub fn cutpoints(
     basename: &Path,
     num_nodes: usize,
@@ -870,7 +870,7 @@ pub fn cutpoints(
 /// - `h` for hours
 /// - `d` for days
 ///
-/// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.
+/// Example: `1d2h3m4s567` this is parsed as: 1 day, 2 hours, 3 minutes, 4 seconds, and 567 milliseconds.​
 fn parse_duration(value: &str) -> Result<Duration> {
     if value.is_empty() {
         bail!("Empty duration string, if you want every 0 milliseconds use `0`.");
@@ -902,7 +902,7 @@ fn parse_duration(value: &str) -> Result<Duration> {
 }
 
 /// Initializes the `env_logger` logger with a custom format including
-/// timestamps with elapsed time since initialization.
+/// timestamps with elapsed time since initialization.​
 pub fn init_env_logger() -> Result<()> {
     use jiff::SpanRound;
     use jiff::fmt::friendly::{Designator, Spacing, SpanPrinter};
@@ -944,15 +944,14 @@ pub fn init_env_logger() -> Result<()> {
     Ok(())
 }
 
-/// Shared CLI arguments for commands that use a log interval.
+/// Shared CLI arguments for commands that use a log interval.​
 #[derive(Args, Debug, Clone)]
 pub struct LogIntervalArg {
     #[arg(long, value_parser = parse_duration)]
-    /// How often to log progress. Default is 10s. You can use the suffixes "s"
-    /// for seconds, "m" for minutes, "h" for hours, and "d" for days. If no
-    /// suffix is provided it is assumed to be in milliseconds.
-    /// Example: "1d2h3m4s567" is parsed as 1 day + 2 hours + 3 minutes + 4
-    /// seconds + 567 milliseconds = 93784567 milliseconds.
+    /// How often to log progress (default: 10s). Supported suffixes: "s"
+    /// (seconds), "m" (minutes), "h" (hours), "d" (days). Without a suffix,
+    /// the value is interpreted as milliseconds. Example: "1d2h3m4s567" means
+    /// 1 day + 2 hours + 3 minutes + 4 seconds + 567 milliseconds.​
     pub log_interval: Option<Duration>,
 }
 
@@ -979,8 +978,8 @@ pub enum SubCommands {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "webgraph", version=build_info::version_string())]
-/// Webgraph tools to build, convert, modify, and analyze graphs.
+#[command(name = "webgraph", version=build_info::version_string(), max_term_width = 100, next_line_help = true)]
+/// WebGraph tools to build, convert, modify, and analyze graphs.​
 #[doc = include_str!("common_env.txt")]
 pub struct Cli {
     #[command(subcommand)]
@@ -1001,7 +1000,7 @@ pub mod run;
 pub mod to;
 pub mod transform;
 
-/// The entry point of the command-line interface.
+/// The entry point of the command-line interface.​
 pub fn cli_main<I, T>(args: I) -> Result<()>
 where
     I: IntoIterator<Item = T>,
@@ -1047,7 +1046,7 @@ where
     Ok(())
 }
 
-/// Pretty-prints seconds in a human-readable format.
+/// Pretty-prints seconds in a human-readable format.​
 fn pretty_print_elapsed(elapsed: f64) -> String {
     let mut result = String::new();
     let mut elapsed_seconds = elapsed as u64;

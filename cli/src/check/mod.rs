@@ -10,7 +10,7 @@ use clap::Subcommand;
 pub mod ef;
 pub mod eq;
 
-/// Checks coherence of files.
+/// Checks coherence of files.​
 #[derive(Subcommand, Debug)]
 #[command(name = "check")]
 pub enum SubCommands {

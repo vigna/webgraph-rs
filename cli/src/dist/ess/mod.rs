@@ -18,30 +18,30 @@ use webgraph_algo::distances::exact_sum_sweep::{
 #[derive(Parser, Debug)]
 #[command(name = "exact-sum-sweep", about = "Computes radius, diameter, and possibly eccentricities using the ExactSumSweep algorithm (scalar values are printed on stdout).", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
-    /// The transposed graph of "basename".
+    /// The transposed graph of "basename".​
     pub transposed: Option<PathBuf>,
 
     #[arg(short, long = "symm")]
-    /// If passed, we assume that the graph is symmetric.
+    /// The graph is symmetric.​
     pub symmetric: bool,
 
-    /// The path where to store the forward eccentricities.
+    /// Output path for the forward eccentricities.​
     #[arg(short, long)]
     pub forward: Option<PathBuf>,
 
-    /// The path where to store the backward eccentricities.
+    /// Output path for the backward eccentricities.​
     #[arg(short, long)]
     pub backward: Option<PathBuf>,
 
-    /// The items to be computed (all-forward computes forward eccentricities, all computes both forward and backward eccentricities).
+    /// The items to be computed (all-forward computes forward eccentricities, all computes both forward and backward eccentricities).​
     #[arg(long, value_enum)]
     pub level: LevelArg,
 
     #[arg(long, value_enum, default_value_t = IntSliceFormat::Ascii)]
-    /// The storage format for eccentricities.
+    /// The storage format for eccentricities.​
     pub fmt: IntSliceFormat,
 
     #[clap(flatten)]
@@ -51,7 +51,7 @@ pub struct CliArgs {
     pub log_interval: LogIntervalArg,
 }
 
-/// The level of exact sum sweep to compute.
+/// The level of exact sum sweep to compute.​
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum LevelArg {
     Radius,
@@ -98,7 +98,7 @@ pub fn main(args: CliArgs) -> Result<()> {
     }
 }
 
-/// Stores eccentricities to a file using the specified format.
+/// Stores eccentricities to a file using the specified format.​
 fn store_eccentricities(eccentricities: &[usize], path: &Path, fmt: IntSliceFormat) -> Result<()> {
     fmt.store(path, eccentricities, None)
 }

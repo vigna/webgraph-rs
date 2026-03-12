@@ -23,29 +23,29 @@ use webgraph_algo::distances::hyperball::HyperBallBuilder;
 /// Centralities that can be computed with hyperball.
 ///
 /// To compress the result you can use named pipes or process substitution
-/// like `--harmonic >(zstd > harmonic.zstd)`.
+/// like `--harmonic >(zstd > harmonic.zstd)`.​
 pub struct Centralities {
-    /// How all the centralities will be stored.
+    /// Storage format for centralities.​
     #[clap(long, value_enum, default_value_t = FloatSliceFormat::Ascii)]
     pub fmt: FloatSliceFormat,
     #[clap(long)]
-    /// How many decimal digits will be used to store centralities in text formats.
+    /// Number of decimal digits for centralities in text formats.​
     pub precision: Option<usize>,
 
-    /// Compute the approximate sum of distances and save them at the given path.
+    /// Compute the approximate sum of distances and save them at the given path.​
     #[clap(long)]
     pub sum_of_distances: Option<PathBuf>,
-    /// Compute the approximate number of reachable nodes and save them at the given path.
+    /// Compute the approximate number of reachable nodes and save them at the given path.​
     #[clap(long)]
     pub reachable_nodes: Option<PathBuf>,
-    /// Compute the approximate harmonic centralities and save them at the given path.
+    /// Compute the approximate harmonic centralities and save them at the given path.​
     #[clap(long)]
     pub harmonic: Option<PathBuf>,
-    /// Compute the approximate closeness centralities and save them at the given path.
+    /// Compute the approximate closeness centralities and save them at the given path.​
     #[clap(long)]
     pub closeness: Option<PathBuf>,
     #[clap(long)]
-    /// Compute the approximate neighborhood function and save it at the given path.
+    /// Compute the approximate neighborhood function and save it at the given path.​
     pub neighborhood_function: Option<PathBuf>,
 }
 
@@ -61,21 +61,20 @@ impl Centralities {
 #[derive(Parser, Debug)]
 #[command(
     name = "hyperball",
-    about = "Use hyperball to compute centralities.",
+    about = "Computes centralities using HyperBall.",
     long_about = None
 )]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
     #[clap(long, default_value_t = false)]
-    /// Whether the graph is symmetric or not. If true, the algorithm will
-    /// use the graph as its transposed.
+    /// The graph is symmetric (it will be used as its own transpose).​
     pub symm: bool,
 
     /// The basename of the transposed graph. If available, HyperBall will
     /// perform systolic iterations which will speed up the computation.
-    /// If the graph is symmetric, use the --symm option instead.
+    /// If the graph is symmetric, use the --symm option instead.​
     #[clap(short, long)]
     pub transposed: Option<PathBuf>,
 
@@ -84,17 +83,17 @@ pub struct CliArgs {
 
     #[clap(short = 'm', long, default_value_t = 14)]
     /// The base-2 logarithm of the number of registers for the HyperLogLog
-    /// cardinality estimators.
+    /// cardinality estimators.​
     pub log2m: usize,
 
     #[clap(long, default_value_t = usize::MAX)]
-    /// Maximum number of iterations to run.
+    /// Maximum number of iterations to run.​
     pub upper_bound: usize,
 
     #[clap(long)]
     /// A value that will be used to stop the computation by relative increment
     /// if the neighborhood function is being computed. Otherwise, the
-    /// computation will stop when all estimators do not change their values.
+    /// computation will stop when all estimators do not change their values.​
     pub threshold: Option<f64>,
 
     #[clap(flatten)]
@@ -107,7 +106,7 @@ pub struct CliArgs {
     pub log_interval: LogIntervalArg,
 
     #[clap(long, default_value_t = 0)]
-    /// The seed of the pseudorandom number generator used for initialization.
+    /// The seed of the pseudorandom number generator used for initialization.​
     pub seed: u64,
 }
 

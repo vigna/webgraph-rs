@@ -22,7 +22,7 @@ use webgraph::prelude::*;
 #[derive(Parser, Debug)]
 #[command(name = "dcf", about = "Builds the Elias–Fano representation of the degree cumulative function of a graph.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub basename: PathBuf,
 
     #[clap(flatten)]

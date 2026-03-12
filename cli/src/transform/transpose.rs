@@ -15,19 +15,19 @@ use tempfile::Builder;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "transpose", about = "Transposes a BvGraph.", long_about = None)]
+#[command(name = "transpose", about = "Transposes a graph in the BV format.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the graph.
+    /// The basename of the graph.​
     pub src: PathBuf,
-    /// The basename of the transposed graph.
+    /// The basename of the transposed graph.​
     pub dst: PathBuf,
 
     #[arg(short, long)]
-    /// Force usage of the sequential algorithm (does not need offsets).
+    /// Use the sequential algorithm (does not need offsets).​
     pub sequential: bool,
 
     #[arg(short, long, conflicts_with = "sequential")]
-    /// No-op for backward compatibility (default is parallel).
+    /// No-op for backward compatibility (default is parallel).​
     pub parallel: bool,
 
     #[clap(flatten)]
@@ -38,7 +38,7 @@ pub struct CliArgs {
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
 
     #[clap(flatten)]

@@ -20,25 +20,25 @@ use webgraph::traits::SequentialLabeling;
 #[derive(Parser, Debug)]
 #[command(name = "bvgraph", about = "Writes a graph in the BV format, possibly applying a permutation to its node identifiers.", long_about = None)]
 pub struct CliArgs {
-    /// The basename of the source graph.
+    /// The basename of the source graph.​
     pub src: PathBuf,
-    /// The basename of the destination graph.
+    /// The basename of the destination graph.​
     pub dst: PathBuf,
 
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
     #[arg(long)]
-    /// The path to an optional permutation to be applied to the graph.
+    /// The path to an optional permutation to be applied to the graph.​
     pub permutation: Option<PathBuf>,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the permutation file.
+    /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 
     #[arg(long)]
     /// Use the degree cumulative function to balance work by arcs rather than
-    /// by nodes. The DCF must have been pre-built with `webgraph build dcf`.
+    /// by nodes. The DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
 
     #[clap(flatten)]

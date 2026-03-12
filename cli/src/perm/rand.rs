@@ -14,13 +14,13 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "rand", about = "Creates a random permutation.", long_about = None)]
 pub struct CliArgs {
-    /// The number of elements in the permutation.
+    /// The number of elements in the permutation.​
     pub len: usize,
-    /// The filename of the random permutation.
+    /// The filename of the random permutation.​
     pub dst: PathBuf,
 
     #[arg(long, value_enum, default_value_t)]
-    /// The format of the permutation file.
+    /// The format of the permutation file.​
     pub fmt: IntSliceFormat,
 }
 
