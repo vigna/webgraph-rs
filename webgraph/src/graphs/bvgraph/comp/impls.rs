@@ -662,13 +662,13 @@ impl BvCompConfig {
             })?;
 
             log::info!(
-                "Compressed {} arcs into {} bits for {:.4} bits/arc",
+                "Compressed {} arcs into {} bits at {:.4} bits/arc",
                 total_arcs,
                 total_written_bits,
                 total_written_bits as f64 / total_arcs as f64
             );
             log::info!(
-                "Created offsets file with {} bits for {:.4} bits/node",
+                "Created offsets file with {} bits at {:.4} bits/node",
                 total_offsets_written_bits,
                 total_offsets_written_bits as f64 / num_nodes as f64
             );

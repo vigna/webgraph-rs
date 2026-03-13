@@ -182,7 +182,10 @@ where
         NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
 {
     // Sort only the reverse arcs in parallel
-    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    if let Some(num_arcs) = graph.num_arcs_hint() {
+        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
+    }
 
     let reverse_pairs: Vec<_> = match cutpoints {
         Some(cp) => graph.split_iter_at(cp),
@@ -283,7 +286,10 @@ where
             >,
         >,
 {
-    let par_sort_iters = ParSortIters::new_dedup(graph.num_nodes())?.memory_usage(memory_usage);
+    let mut par_sort_iters = ParSortIters::new_dedup(graph.num_nodes())?.memory_usage(memory_usage);
+    if let Some(num_arcs) = graph.num_arcs_hint() {
+        par_sort_iters = par_sort_iters.expected_num_pairs(2 * num_arcs as usize);
+    }
 
     let pairs: Vec<_> = match cutpoints {
         Some(cp) => graph.split_iter_at(cp),

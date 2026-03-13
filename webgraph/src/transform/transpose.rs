@@ -104,7 +104,10 @@ pub fn transpose_labeled_split<
 where
     CodecIter<C>: Clone + Send + Sync,
 {
-    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    if let Some(num_arcs) = graph.num_arcs_hint() {
+        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
+    }
 
     let pairs: Vec<_> = match cutpoints {
         Some(cp) => graph.split_iter_at(cp),
@@ -146,7 +149,10 @@ pub fn transpose_split<
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
 ) -> Result<SplitIters<SortedPairIter>> {
-    let par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
+    if let Some(num_arcs) = graph.num_arcs_hint() {
+        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
+    }
 
     let pairs: Vec<_> = match cutpoints {
         Some(cp) => graph.split_iter_at(cp),

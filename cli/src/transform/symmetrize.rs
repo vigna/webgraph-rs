@@ -182,7 +182,8 @@ where
 
                 thread_pool.install(|| {
                     let par_sort_iters = webgraph::utils::ParSortIters::new_dedup(num_nodes)?
-                        .memory_usage(memory_usage);
+                        .memory_usage(memory_usage)
+                        .expected_num_pairs(2 * graph.num_arcs() as usize);
 
                     let pairs: Vec<_> = graph
                         .split_iter_at(cp)

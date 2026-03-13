@@ -888,6 +888,18 @@ pub fn cutpoints(
         );
         Ok(cutpoints)
     } else {
+        let dcf_path = basename.with_extension(DEG_CUMUL_EXTENSION);
+        if dcf_path.exists() {
+            log::warn!(
+                "A DCF (degree cumulative function) file exists at {}; consider using --dcf for better load balancing",
+                dcf_path.display()
+            );
+        } else {
+            log::warn!(
+                "No DCF (degree cumulative function) file found; consider building one with `webgraph build dcf {}` for better load balancing",
+                basename.display()
+            );
+        }
         let n = rayon::current_num_threads();
         let step = num_nodes.div_ceil(n);
         Ok((0..n + 1).map(move |i| (i * step).min(num_nodes)).collect())
