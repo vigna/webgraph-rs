@@ -138,7 +138,7 @@ where
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
     let num_nodes = graph.num_nodes();
-    let cp = crate::cutpoints(src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
+    let cp = crate::cutpoints(src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let start = std::time::Instant::now();
