@@ -8,9 +8,7 @@
 
 use crate::*;
 use anyhow::Result;
-use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
-use dsi_bitstream::prelude::*;
-use std::io::BufReader;
+use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::prelude::*;
@@ -80,8 +78,7 @@ where
     // transpose the graph
     let sorted = webgraph::transform::transpose(&seq_graph, args.memory_usage.memory_usage)?;
 
-    let target_endianness = args.ca.endianness.clone();
-    let src = args.src.clone();
+    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
@@ -95,12 +92,13 @@ where
 
     // Use uniform cutpoints for compression of the transposed graph
     // (the source DCF does not match the transpose's degree distribution)
+    let num_nodes = sorted.num_nodes();
     thread_pool.install(|| {
-        let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), false)?;
-        builder.par_comp_lenders_endianness_at(
-            &sorted,
-            &target_endianness.unwrap_or_else(|| E::NAME.into()),
-            cp,
+        par_comp_lenders!(
+            builder,
+            sorted.split_iter(rayon::current_num_threads()),
+            num_nodes,
+            target_endianness
         )
     })?;
 
@@ -110,31 +108,29 @@ where
 pub fn par_transpose<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
-    for<'a> <MmapHelper<u32> as CodesReaderFactory<E>>::CodesReader<'a>:
-        BitSeek + Clone + Send + Sync,
-    BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
-    BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
 
-    let seq_graph = webgraph::graphs::bvgraph::BvGraph::with_basename(&args.src)
+    let graph = webgraph::graphs::bvgraph::BvGraph::with_basename(&args.src)
         .endianness::<E>()
         .load()?;
 
     let cp = crate::cutpoints(
         &args.src,
-        seq_graph.num_nodes(),
-        seq_graph.num_arcs_hint(),
+        graph.num_nodes(),
+        graph.num_arcs_hint(),
         args.dcf,
     )?;
 
     // transpose the graph
     let split =
-        webgraph::transform::transpose_split(&seq_graph, args.memory_usage.memory_usage, Some(cp))?;
+        webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, Some(cp))?;
 
     // Convert to (node, lender) pairs
     let pairs: Vec<_> = split.into();
 
+    let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
@@ -146,7 +142,8 @@ where
         builder = builder.with_chunk_size(chunk_size);
     }
 
+    let num_nodes = graph.num_nodes();
     thread_pool
-        .install(|| builder.par_comp_lenders::<E, _>(pairs.into_iter(), seq_graph.num_nodes()))?;
+        .install(|| par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness))?;
     Ok(())
 }

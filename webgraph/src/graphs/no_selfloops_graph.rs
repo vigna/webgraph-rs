@@ -78,6 +78,13 @@ pub struct NodeLabels<I> {
     iter: I,
 }
 
+impl<I> NodeLabels<I> {
+    /// Creates a new [`NodeLabels`] lender filtering out self-loops.
+    pub fn new(iter: I) -> Self {
+        Self { iter }
+    }
+}
+
 impl<'succ, I: Lender + for<'next> NodeLabelsLender<'next, Label = usize>> NodeLabelsLender<'succ>
     for NodeLabels<I>
 {

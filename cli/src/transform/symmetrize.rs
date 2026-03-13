@@ -11,20 +11,23 @@ use anyhow::Result;
 use dsi_bitstream::{dispatch::factory::CodesReaderFactoryHelper, prelude::*};
 use std::path::PathBuf;
 use tempfile::Builder;
-use webgraph::graphs::union_graph::UnionGraph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
-#[command(name = "simplify", about = "Makes a graph in the BV format simple (undirected and loopless) by adding missing arcs and removing loops, optionally applying a permutation.", long_about = None, next_line_help = true)]
+#[command(name = "symmetrize", about = "Symmetrizes a graph in the BV format by adding missing reverse arcs, optionally removing self-loops and applying a permutation.", long_about = None, next_line_help = true)]
 pub struct CliArgs {
     /// The basename of the graph.​
     pub src: PathBuf,
-    /// The basename of the simplified graph.​
+    /// The basename of the symmetrized graph.​
     pub dst: PathBuf,
 
     #[arg(long)]
+    /// Remove self-loops from the result.​
+    pub no_loops: bool,
+
+    #[arg(long)]
     /// The basename of a pre-computed transposed version of the source graph,
-    /// which will be used to speed up the simplification.​
+    /// which will be used to speed up the symmetrization.​
     pub transposed: Option<PathBuf>,
 
     #[arg(short, long)]
@@ -61,35 +64,36 @@ pub fn main(args: CliArgs) -> Result<()> {
         #[cfg(feature = "be_bins")]
         BE::NAME => {
             if args.sequential {
-                seq_simplify::<BE>(args)
+                seq_symmetrize::<BE>(args)
             } else {
-                par_simplify::<BE>(args)
+                par_symmetrize::<BE>(args)
             }
         }
         #[cfg(feature = "le_bins")]
         LE::NAME => {
             if args.sequential {
-                seq_simplify::<LE>(args)
+                seq_symmetrize::<LE>(args)
             } else {
-                par_simplify::<LE>(args)
+                par_symmetrize::<LE>(args)
             }
         }
         e => panic!("Unknown endianness: {}", e),
     }
 }
 
-pub fn par_simplify<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn par_symmetrize<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Clone + Send + Sync,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let use_dcf = args.dcf;
+    let no_loops = args.no_loops;
     let src = args.src.clone();
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
-    let dir = Builder::new().prefix("transform_simplify_").tempdir()?;
+    let dir = Builder::new().prefix("transform_symmetrize_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
@@ -101,10 +105,10 @@ where
     }
 
     match (args.permutation, args.transposed) {
-        // load the transposed graph and use it to directly compress the graph
+        // Load the transposed graph and use it to directly compress the graph
         // without doing any sorting
         (None, Some(t_path)) => {
-            log::info!("Transposed graph provided, using it to simplify the graph");
+            log::info!("Transposed graph provided, using it to symmetrize the graph");
 
             let graph = webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.src)
                 .endianness::<E>()
@@ -122,13 +126,35 @@ where
                 );
             }
 
-            let sorted = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
+            // Splits both graphs independently at the same cutpoints
+            // so that each partition uses split::ra::Iter (direct
+            // seeking), then merges successor lists at the lender level.
+            let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
+            if no_loops {
+                thread_pool.install(|| {
+                    let lenders: Vec<_> = graph
+                        .split_iter_at(cp.clone())
+                        .zip(graph_t.split_iter_at(cp))
+                        .map(|(g, gt)| {
+                            webgraph::graphs::no_selfloops_graph::NodeLabels::new(
+                                webgraph::graphs::union_graph::NodeLabels::new(g, gt),
+                            )
+                        })
+                        .collect();
 
-            thread_pool.install(|| {
-                let cp =
-                    crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), use_dcf)?;
-                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
-            })?;
+                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
+                })?;
+            } else {
+                thread_pool.install(|| {
+                    let lenders: Vec<_> = graph
+                        .split_iter_at(cp.clone())
+                        .zip(graph_t.split_iter_at(cp))
+                        .map(|(g, gt)| webgraph::graphs::union_graph::NodeLabels::new(g, gt))
+                        .collect();
+
+                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
+                })?;
+            }
         }
         // apply the permutation, don't care if the transposed graph is already computed
         // as we cannot really exploit it
@@ -141,7 +167,7 @@ where
             dispatch_int_slice!(loaded, |perm| {
                 // We split the BvGraph directly and apply the permutation
                 // inline rather than wrapping it in a PermutedGraph and
-                // calling simplify_split. PermutedGraph's SplitLabeling
+                // calling symmetrize_split. PermutedGraph's SplitLabeling
                 // uses split::seq::Iter, which advances sequentially to
                 // each cutpoint; it cannot use split::ra::Iter because
                 // PermutedGraph does not implement RandomAccessLabeling
@@ -152,7 +178,7 @@ where
                         .load()?;
                 let num_nodes = graph.num_nodes();
 
-                let cp = crate::cutpoints(&src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
+                let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
                 thread_pool.install(|| {
                     let par_sort_iters = webgraph::utils::ParSortIters::new_dedup(num_nodes)?
@@ -161,13 +187,13 @@ where
                     let pairs: Vec<_> = graph
                         .split_iter_at(cp)
                         .map(|iter| {
-                            iter.into_pairs().flat_map(|(src, dst)| {
-                                // The two-element iterator is fully inlined by LLVM,
-                                // generating the same code as a hand-written loop.
+                            iter.into_pairs().flat_map(move |(src, dst)| {
                                 let ps = perm.index_value(src);
                                 let pd = perm.index_value(dst);
                                 if ps != pd {
                                     Some((ps, pd)).into_iter().chain(Some((pd, ps)))
+                                } else if !no_loops {
+                                    Some((ps, pd)).into_iter().chain(None)
                                 } else {
                                     None.into_iter().chain(None)
                                 }
@@ -177,23 +203,11 @@ where
 
                     let sorted = par_sort_iters.sort(pairs)?;
                     let pairs: Vec<_> = sorted.into();
-                    match target_endianness.as_str() {
-                        #[cfg(any(
-                            feature = "be_bins",
-                            not(any(feature = "be_bins", feature = "le_bins"))
-                        ))]
-                        BE::NAME => builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes),
-                        #[cfg(any(
-                            feature = "le_bins",
-                            not(any(feature = "be_bins", feature = "le_bins"))
-                        ))]
-                        LE::NAME => builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes),
-                        e => anyhow::bail!("Unknown endianness: {}", e),
-                    }
+                    par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness)
                 })
             })?;
         }
-        // just compute the transpose on the fly
+        // Compute the transpose on the fly
         (None, None) => {
             log::info!(
                 "No permutation or transposed graph provided, computing the transpose on the fly"
@@ -203,47 +217,43 @@ where
                 .endianness::<E>()
                 .load()?;
             let num_nodes = graph.num_nodes();
-            let cp = crate::cutpoints(&src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
+            let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
-            thread_pool.install(|| {
-                let sorted = webgraph::transform::simplify_split(
-                    &graph,
-                    args.memory_usage.memory_usage,
-                    Some(cp),
-                )?;
-
-                let pairs: Vec<_> = sorted.into();
-                match target_endianness.as_str() {
-                    #[cfg(any(
-                        feature = "be_bins",
-                        not(any(feature = "be_bins", feature = "le_bins"))
-                    ))]
-                    BE::NAME => builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes),
-                    #[cfg(any(
-                        feature = "le_bins",
-                        not(any(feature = "be_bins", feature = "le_bins"))
-                    ))]
-                    LE::NAME => builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes),
-                    e => anyhow::bail!("Unknown endianness: {}", e),
-                }
-            })?;
+            macro_rules! symmetrize_and_compress {
+                ($no_loops:expr) => {
+                    thread_pool.install(|| {
+                        let sorted = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
+                            &graph,
+                            args.memory_usage.memory_usage,
+                            Some(cp),
+                        )?;
+                        let pairs: Vec<_> = sorted.into();
+                        par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness)
+                    })?
+                };
+            }
+            if no_loops {
+                symmetrize_and_compress!(true);
+            } else {
+                symmetrize_and_compress!(false);
+            }
         }
     }
 
     Ok(())
 }
 
-pub fn seq_simplify<E: Endianness>(args: CliArgs) -> Result<()>
+pub fn seq_symmetrize<E: Endianness>(args: CliArgs) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: Clone + Send + Sync,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let src = args.src.clone();
+    let no_loops = args.no_loops;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
-    let dir = Builder::new().prefix("transform_simplify_").tempdir()?;
+    let dir = Builder::new().prefix("transform_symmetrize_").tempdir()?;
     let chunk_size = args.ca.chunk_size;
     let bvgraphz = args.ca.bvgraphz;
     let mut builder = BvCompConfig::new(&args.dst)
@@ -256,7 +266,7 @@ where
 
     match (args.permutation, args.transposed) {
         (None, Some(t_path)) => {
-            log::info!("Transposed graph provided, using it to simplify the graph");
+            log::info!("Transposed graph provided, using it to symmetrize the graph");
 
             let seq_graph =
                 webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
@@ -276,12 +286,31 @@ where
                 );
             }
 
-            let sorted = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
+            if no_loops {
+                let lenders: Vec<_> = seq_graph
+                    .split_iter(rayon::current_num_threads())
+                    .zip(seq_graph_t.split_iter(rayon::current_num_threads()))
+                    .map(|(g, gt)| {
+                        webgraph::graphs::no_selfloops_graph::NodeLabels::new(
+                            webgraph::graphs::union_graph::NodeLabels::new(g, gt),
+                        )
+                    })
+                    .collect();
 
-            thread_pool.install(|| {
-                let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), false)?;
-                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
-            })?;
+                thread_pool.install(|| {
+                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
+                })?;
+            } else {
+                let lenders: Vec<_> = seq_graph
+                    .split_iter(rayon::current_num_threads())
+                    .zip(seq_graph_t.split_iter(rayon::current_num_threads()))
+                    .map(|(g, gt)| webgraph::graphs::union_graph::NodeLabels::new(g, gt))
+                    .collect();
+
+                thread_pool.install(|| {
+                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
+                })?;
+            }
         }
         (Some(perm_path), None | Some(_)) => {
             log::info!("Permutation provided, applying it to the graph");
@@ -298,12 +327,28 @@ where
                     graph: &seq_graph,
                     perm,
                 };
-                let sorted = webgraph::transform::simplify(&perm_graph, memory_usage)?;
-                thread_pool.install(|| {
-                    let cp =
-                        crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), false)?;
-                    builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
-                })
+                macro_rules! symmetrize_and_compress {
+                    ($no_loops:expr) => {{
+                        let sorted = webgraph::transform::symmetrize::<$no_loops>(
+                            &perm_graph,
+                            memory_usage,
+                        )?;
+                        let num_nodes = sorted.num_nodes();
+                        thread_pool.install(|| {
+                            par_comp_lenders!(
+                                builder,
+                                sorted.split_iter(rayon::current_num_threads()),
+                                num_nodes,
+                                target_endianness
+                            )
+                        })
+                    }};
+                }
+                if no_loops {
+                    symmetrize_and_compress!(true)
+                } else {
+                    symmetrize_and_compress!(false)
+                }
             })?;
         }
         (None, None) => {
@@ -316,13 +361,28 @@ where
                     .endianness::<E>()
                     .load()?;
 
-            let sorted =
-                webgraph::transform::simplify_sorted(seq_graph, args.memory_usage.memory_usage)?;
-
-            thread_pool.install(|| {
-                let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), false)?;
-                builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
-            })?;
+            macro_rules! symmetrize_and_compress {
+                ($no_loops:expr) => {{
+                    let symmetrized = webgraph::transform::symmetrize_sorted::<$no_loops, _>(
+                        &seq_graph,
+                        args.memory_usage.memory_usage,
+                    )?;
+                    let num_nodes = symmetrized.num_nodes();
+                    thread_pool.install(|| {
+                        par_comp_lenders!(
+                            builder,
+                            symmetrized.split_iter(rayon::current_num_threads()),
+                            num_nodes,
+                            target_endianness
+                        )
+                    })?
+                }};
+            }
+            if no_loops {
+                symmetrize_and_compress!(true);
+            } else {
+                symmetrize_and_compress!(false);
+            }
         }
     }
 

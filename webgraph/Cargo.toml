@@ -23,8 +23,6 @@ fuzz = [
 	"dsi-bitstream/fuzz",
 ] # Expose the fuzzing harnesses
 serde = ["dep:serde"]
-be_bins = [] # Enable read / write of only BE bvgraphs (to reduce code size)
-le_bins = [] # Enable read / write of only LE bvgraphs (to reduce code size)
 
 [dependencies]
 anyhow.workspace = true

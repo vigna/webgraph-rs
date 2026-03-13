@@ -103,15 +103,7 @@ pub fn main() -> Result<()> {
         .try_init()?;
 
     match get_endianness(&args.basename)?.as_str() {
-        #[cfg(any(
-            feature = "be_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
         BE::NAME => bench_impl::<BE>(args),
-        #[cfg(any(
-            feature = "le_bins",
-            not(any(feature = "be_bins", feature = "le_bins"))
-        ))]
         LE::NAME => bench_impl::<LE>(args),
         e => panic!("Unknown endianness: {}", e),
     }

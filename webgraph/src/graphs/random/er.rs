@@ -89,9 +89,9 @@ impl<'succ> Lending<'succ> for NodeLabels {
     type Lend = (usize, <Self as NodeLabelsLender<'succ>>::IntoIterator);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntoSucc(Vec<usize>);
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Succ(IntoIter<usize>);
 
 impl Iterator for Succ {
@@ -180,6 +180,6 @@ mod tests {
         // This is just to test that we implemented correctly
         // the SortedIterator and SortedLender traits.
         let er = ErdosRenyi::new(100, 0.1, 0);
-        transform::simplify_sorted(er, MemoryUsage::BatchSize(100)).unwrap();
+        transform::symmetrize_sorted::<false, _>(&er, MemoryUsage::BatchSize(100)).unwrap();
     }
 }

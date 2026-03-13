@@ -150,19 +150,7 @@ where
             );
 
             let pairs: Vec<_> = sorted.into();
-            match target_endianness.as_str() {
-                #[cfg(any(
-                    feature = "be_bins",
-                    not(any(feature = "be_bins", feature = "le_bins"))
-                ))]
-                BE::NAME => builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes),
-                #[cfg(any(
-                    feature = "le_bins",
-                    not(any(feature = "be_bins", feature = "le_bins"))
-                ))]
-                LE::NAME => builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes),
-                e => anyhow::bail!("Unknown endianness: {}", e),
-            }
+            par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness)
         })?;
 
         Ok(())
@@ -174,7 +162,6 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
 {
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
-    let src = args.src.clone();
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
 
@@ -208,9 +195,14 @@ where
             start.elapsed().as_secs_f64()
         );
 
+        let num_nodes = sorted.num_nodes();
         thread_pool.install(|| {
-            let cp = crate::cutpoints(&src, sorted.num_nodes(), sorted.num_arcs_hint(), false)?;
-            builder.par_comp_lenders_endianness_at(&sorted, &target_endianness, cp)
+            par_comp_lenders!(
+                builder,
+                sorted.split_iter(rayon::current_num_threads()),
+                num_nodes,
+                target_endianness
+            )
         })?;
 
         Ok(())

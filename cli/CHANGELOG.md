@@ -57,6 +57,9 @@
 - `simplify` is now `symmetrize`, with an option to remove self-loops (i.e., the
   old `simplify` behavior).
 
+- A new macro `par_comp_lenders!` replaces the methods `par_comp_endianness*`
+  from the `webgraph` crate.
+
 ### Fixed
 
 - Sequential transposition was using big-endian format regardless of the
@@ -70,6 +73,11 @@
 - `to endianness` was using an additional `length` property that is not
   part of the properties emitted by Java code, making impossible to change endianness
   of graphs compressed in Java.
+
+### Improved
+
+- All transformation use directly pair-sorting techniques, rather than graph
+  wrappers, when beneficial.
 
 ## [0.4.1] - 2026-02-23
 

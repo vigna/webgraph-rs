@@ -204,12 +204,12 @@ fn test_permute_split() -> Result<()> {
     Ok(())
 }
 
-// ── simplify ──
+// ── symmetrize ──
 
 #[test]
-fn test_simplify() -> Result<()> {
+fn test_symmetrize_no_loops() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::simplify(&g, MemoryUsage::default())?;
+    let s = transform::symmetrize::<true>(&g, MemoryUsage::default())?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 3);
 
@@ -227,12 +227,32 @@ fn test_simplify() -> Result<()> {
 }
 
 #[test]
-fn test_simplify_with_batch_size() -> Result<()> {
+fn test_symmetrize_keep_loops() -> Result<()> {
+    let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
+    let s = transform::symmetrize::<false>(&g, MemoryUsage::default())?;
+    let s = VecGraph::from_lender(&s);
+    assert_eq!(s.num_nodes(), 3);
+
+    // Self-loop should be kept, all edges bidirectional
+    let mut s0: Vec<_> = s.successors(0).collect();
+    s0.sort();
+    assert_eq!(s0, vec![0, 1]);
+    let mut s1: Vec<_> = s.successors(1).collect();
+    s1.sort();
+    assert_eq!(s1, vec![0, 2]);
+    let mut s2: Vec<_> = s.successors(2).collect();
+    s2.sort();
+    assert_eq!(s2, vec![1]);
+    Ok(())
+}
+
+#[test]
+fn test_symmetrize_with_batch_size() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
-    let s = transform::simplify(&g, MemoryUsage::BatchSize(2))?;
+    let s = transform::symmetrize::<true>(&g, MemoryUsage::BatchSize(2))?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 4);
-    // Each node in a 4-cycle has exactly 2 neighbors after simplification
+    // Each node in a 4-cycle has exactly 2 neighbors after symmetrization
     assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 3]);
     assert_eq!(s.successors(1).collect::<Vec<_>>(), vec![0, 2]);
     assert_eq!(s.successors(2).collect::<Vec<_>>(), vec![1, 3]);
@@ -241,17 +261,17 @@ fn test_simplify_with_batch_size() -> Result<()> {
 }
 
 #[test]
-fn test_simplify_sorted() -> Result<()> {
-    use webgraph::transform::simplify_sorted;
+fn test_symmetrize_sorted() -> Result<()> {
+    use webgraph::transform::symmetrize_sorted;
 
     let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = simplify_sorted(seq, MemoryUsage::BatchSize(2))?;
+    let s = symmetrize_sorted::<true, _>(&seq, MemoryUsage::BatchSize(2))?;
     let s = VecGraph::from_lender(s.iter());
-    // Simplification symmetrizes: every edge becomes bidirectional, no self-loops
+    // Every edge becomes bidirectional, no self-loops
     assert_eq!(s.successors(0).collect::<Vec<_>>(), vec![1, 2]);
     assert_eq!(s.successors(1).collect::<Vec<_>>(), vec![0, 2]);
     assert_eq!(s.successors(2).collect::<Vec<_>>(), vec![0, 1]);
@@ -259,15 +279,65 @@ fn test_simplify_sorted() -> Result<()> {
 }
 
 #[test]
-fn test_simplify_split() -> Result<()> {
-    use webgraph::transform::simplify_split;
+fn test_symmetrize_sorted_split() -> Result<()> {
+    use webgraph::transform::symmetrize_sorted_split;
+
+    let graph = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let s = symmetrize_sorted_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
+    let lenders: Vec<_> = s.into();
+    let mut arcs = vec![];
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
+    arcs.sort();
+    assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
+    Ok(())
+}
+
+#[test]
+fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
+    use webgraph::transform::symmetrize_sorted_split;
+
+    // Graph with self-loop
+    let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 2)]);
+    let tmp = tempfile::NamedTempFile::new()?;
+    let path = tmp.path();
+    BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
+    let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
+    let s = symmetrize_sorted_split::<false, _>(&seq, MemoryUsage::BatchSize(2), None)?;
+    let lenders: Vec<_> = s.into();
+    let mut arcs = vec![];
+    for lender in lenders {
+        for_!((node, succs) in lender {
+            for succ in succs {
+                arcs.push((node, succ));
+            }
+        });
+    }
+    arcs.sort();
+    // Self-loop preserved, all edges bidirectional
+    assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 2), (2, 1), (2, 2)]);
+    Ok(())
+}
+
+#[test]
+fn test_symmetrize_split_no_loops() -> Result<()> {
+    use webgraph::transform::symmetrize_split;
 
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = simplify_split(&seq, MemoryUsage::BatchSize(2), None)?;
+    let s = symmetrize_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
     // Collect all arcs and verify symmetrization
     let lenders: Vec<_> = s.into();
     let mut arcs = vec![];
@@ -279,7 +349,7 @@ fn test_simplify_split() -> Result<()> {
         });
     }
     arcs.sort();
-    // 3-cycle simplified: each node has exactly 2 neighbors, 6 arcs total
+    // 3-cycle symmetrized: each node has exactly 2 neighbors, 6 arcs total
     assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
     Ok(())
 }

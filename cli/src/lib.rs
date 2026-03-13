@@ -44,6 +44,35 @@ macro_rules! SEQ_PROC_WARN {
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
 
+/// Calls
+/// [`par_comp_lenders`](webgraph::prelude::BvCompConfig::par_comp_lenders)
+/// dispatching on a runtime endianness string.
+///
+/// * `config` is the [`BvCompConfig`](webgraph::prelude::BvCompConfig) to call
+///   [`par_comp_lenders`](webgraph::prelude::BvCompConfig::par_comp_lenders) on;
+///
+/// * `lenders` and `num_nodes` are the arguments to
+///   [`par_comp_lenders`](webgraph::prelude::BvCompConfig::par_comp_lenders);
+///
+/// * `endianness` is a string specifying the endianness type to use for the
+///   call; it must implement `AsRef<str>`, and must be equal to the name of one
+///   of the endianness types supported by the binary (e.g., "BE" or "LE").
+///
+/// The macro returns a [`Result`] with the output of the call if the endianness
+/// is recognized, and an error otherwise.
+#[macro_export]
+macro_rules! par_comp_lenders {
+    ($config:expr, $lenders:expr, $num_nodes:expr, $endianness:expr) => {
+        match $endianness.as_str() {
+            #[cfg(feature = "be_bins")]
+            BE::NAME => $config.par_comp_lenders::<BE, _>($lenders, $num_nodes),
+            #[cfg(feature = "le_bins")]
+            LE::NAME => $config.par_comp_lenders::<LE, _>($lenders, $num_nodes),
+            _e => anyhow::bail!("Unknown endianness: {}", _e),
+        }
+    };
+}
+
 pub mod build_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 

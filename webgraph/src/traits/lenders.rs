@@ -226,6 +226,21 @@ pub struct IntoPairs<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> {
     _marker: PhantomData<&'a L>, // That is, L: 'a
 }
 
+impl<'a, L> Clone for IntoPairs<'a, L>
+where
+    L: for<'b> NodeLabelsLender<'b, Label = usize> + Clone,
+    LenderIntoIter<'a, L>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            lender: self.lender.clone(),
+            current_node: self.current_node,
+            current_iter: self.current_iter.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+
 impl<'a, L: for<'b> NodeLabelsLender<'b, Label = usize>> Iterator for IntoPairs<'a, L> {
     type Item = (usize, usize);
 

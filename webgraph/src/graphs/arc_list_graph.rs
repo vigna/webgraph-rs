@@ -25,16 +25,16 @@ use lender::*;
 #[derive(Clone)]
 pub struct ArcListGraph<I> {
     num_nodes: usize,
-    into_iter: I,
+    iter: I,
 }
 
 impl<L: Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> ArcListGraph<I> {
-    /// Creates a new arc-list graph from the given [`IntoIterator`].
+    /// Creates a new arc-list graph from the given [`Iterator`].
     #[inline(always)]
-    pub const fn new_labeled(num_nodes: usize, iter: I) -> Self {
+    pub fn new_labeled(num_nodes: usize, into_iter: impl IntoIterator<IntoIter = I>) -> Self {
         Self {
             num_nodes,
-            into_iter: iter,
+            iter: into_iter.into_iter(),
         }
     }
 }
@@ -50,10 +50,10 @@ impl<I: Iterator<Item = (usize, usize)> + Clone>
     /// unit type `()` wrapped into a  [left
     /// projection](crate::prelude::proj::Left).
     #[inline(always)]
-    pub fn new(num_nodes: usize, iter: impl IntoIterator<IntoIter = I>) -> Left<Self> {
+    pub fn new(num_nodes: usize, into_iter: impl IntoIterator<IntoIter = I>) -> Left<Self> {
         Left(Self {
             num_nodes,
-            into_iter: iter.into_iter().map(|pair| (pair, ())),
+            iter: into_iter.into_iter().map(|pair| (pair, ())),
         })
     }
 }
@@ -211,7 +211,7 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Sequen
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        let mut iter = NodeLabels::new(self.num_nodes, self.into_iter.clone());
+        let mut iter = NodeLabels::new(self.num_nodes, self.iter.clone());
         for _ in 0..from {
             iter.next();
         }

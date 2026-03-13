@@ -16,7 +16,7 @@
 //! # Requirements
 //!
 //! The graph provided should be _symmetric_ and _loopless_. If this is not the
-//! case, please use [`simplify`](webgraph::transform::simplify) to generate a
+//! case, please use [`symmetrize`](webgraph::transform::symmetrize) to generate a
 //! suitable graph.
 //!
 //! # Memory Requirements

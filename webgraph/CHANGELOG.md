@@ -45,6 +45,10 @@
 - `simplify*` methods are now `symmetrize*` methods, with an option
   to remove self-loops (i.e., the old `simplify*` behavior).
 
+- The methods `par_comp_endianness*` have been removed, and replaced
+  by a `par_comp_lenders!` macro in the `webgraph-cli` crate. Consequently,
+  the features `le_bins` and `be_bins` have been removed.
+
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a

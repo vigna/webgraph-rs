@@ -10,7 +10,7 @@ use crate::create_parent_dir;
 use crate::*;
 use anyhow::{Context, Result};
 use clap::Parser;
-use dsi_bitstream::prelude::{BE, Endianness};
+use dsi_bitstream::prelude::{BE, Endianness, LE};
 use dsi_progress_logger::prelude::*;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::HashMap;
@@ -194,7 +194,11 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     create_parent_dir(&args.dst)?;
 
     // compress it
-    let target_endianness = args.ca.endianness.clone();
+    let target_endianness = args
+        .ca
+        .endianness
+        .clone()
+        .unwrap_or_else(|| BE::NAME.into());
     let dir = Builder::new().prefix("from_arcs_compress_").tempdir()?;
     let thread_pool = crate::get_thread_pool(args.num_threads.num_threads);
     let chunk_size = args.ca.chunk_size;
@@ -207,9 +211,14 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         builder = builder.with_chunk_size(chunk_size);
     }
 
+    let num_nodes = g.num_nodes();
     thread_pool.install(|| {
-        builder
-            .par_comp_lenders_endianness(&g, &target_endianness.unwrap_or_else(|| BE::NAME.into()))
+        par_comp_lenders!(
+            builder,
+            g.split_iter(rayon::current_num_threads()),
+            num_nodes,
+            target_endianness
+        )
     })?;
 
     // save the nodes

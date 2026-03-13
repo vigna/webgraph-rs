@@ -7,11 +7,7 @@
 
 //! Transformations on labelings and graphs.
 //!
-//! This module provides functions that compute common graph transformations. All
-//! functions return the result as a [sequential
-//! graph](crate::traits::SequentialGraph), which can then be compressed into a
-//! [BvGraph](crate::graphs::bvgraph) using
-//! [`BvComp`](crate::graphs::bvgraph::BvComp) or stored in any other format.
+//! This module provides functions that compute common graph transformations.
 //!
 //! # Transpose
 //!
@@ -21,13 +17,18 @@
 //!   [splittable](crate::traits::SplitLabeling) graph, sorting in parallel;
 //! - [`transpose_labeled_split`]: same, for labeled graphs.
 //!
-//! # Simplify
+//! # Symmetrize
 //!
-//! - [`simplify`]: returns a simplified (undirected and loopless) version of a
-//!   graph;
-//! - [`simplify_sorted`]: same, but exploits the fact that the input is already
-//!   sorted, halving the number of arcs to sort;
-//! - [`simplify_split`]: same, using splitting to sort in parallel.
+//! - [`symmetrize`]: returns a symmetrized version of a graph, optionally
+//!   removing self-loops;
+//! - [`symmetrize_sorted`]: same, but exploits the fact that the input is
+//!   already sorted, halving the number of arcs to sort;
+//! - [`symmetrize_split`]: same, using splitting to sort in parallel;
+//! - [`symmetrize_sorted_split`]: same, but sorting the transpose arcs in
+//!   parallel.
+//!
+//! The order above is in general from slower to faster, but the actual
+//! performance depends on the graph and the hardware.
 //!
 //! # Permute
 //!
@@ -43,7 +44,7 @@
 //!
 //! # Memory Usage
 //!
-//! The transpose, simplify, permute, and map functions internally use
+//! The transpose, symmetrize, permute, and map functions internally use
 //! [`SortPairs`](crate::utils::SortPairs), which sorts arcs by batching them to
 //! temporary files and then merging. The amount of memory used for batching is
 //! controlled by the [`MemoryUsage`](crate::utils::MemoryUsage) parameter. The
@@ -51,8 +52,8 @@
 //! [`ParSortIters`](crate::utils::ParSortIters) and are significantly faster on
 //! [splittable](crate::traits::SplitLabeling) graphs.
 
-mod simplify;
-pub use simplify::*;
+mod symmetrize;
+pub use symmetrize::*;
 
 mod transpose;
 pub use transpose::*;

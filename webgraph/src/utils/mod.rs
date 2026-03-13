@@ -281,7 +281,7 @@ impl<I> SplitIters<I> {
 /// [`ParSortPairs::sort`](par_sort_pairs::ParSortPairs::sort), and the
 /// transform functions [`permute_split`](crate::transform::permute_split),
 /// [`transpose_split`](crate::transform::transpose_split), and
-/// [`simplify_split`](crate::transform::simplify_split).
+/// [`symmetrize_split`](crate::transform::symmetrize_split).
 pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<
     sort_pairs::KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP>,
     fn(((usize, usize), ())) -> (usize, usize),

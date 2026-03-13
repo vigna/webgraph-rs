@@ -148,19 +148,7 @@ where
             start.elapsed().as_secs_f64()
         );
         let pairs: Vec<_> = sorted.into();
-        match te.as_str() {
-            #[cfg(any(
-                feature = "be_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
-            BE::NAME => builder.par_comp_lenders::<BE, _>(pairs.into_iter(), num_nodes),
-            #[cfg(any(
-                feature = "le_bins",
-                not(any(feature = "be_bins", feature = "le_bins"))
-            ))]
-            LE::NAME => builder.par_comp_lenders::<LE, _>(pairs.into_iter(), num_nodes),
-            e => anyhow::bail!("Unknown endianness: {}", e),
-        }
+        par_comp_lenders!(builder, pairs.into_iter(), num_nodes, te)
     })?;
     Ok(())
 }
@@ -188,9 +176,14 @@ where
         start.elapsed().as_secs_f64()
     );
 
+    let num_nodes = permuted.num_nodes();
     thread_pool.install(|| {
-        let cp = cutpoints(src, permuted.num_nodes(), permuted.num_arcs_hint(), false)?;
-        builder.par_comp_lenders_endianness_at(&permuted, &te, cp)
+        par_comp_lenders!(
+            builder,
+            permuted.split_iter(rayon::current_num_threads()),
+            num_nodes,
+            te
+        )
     })?;
     Ok(())
 }
@@ -206,12 +199,18 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek + Send + Sync + Clone,
 {
-    let te = target_endianness.unwrap_or_else(|| E::NAME.into());
+    let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
+    let num_nodes = graph.num_nodes();
     thread_pool.install(|| {
-        let cp = crate::cutpoints(src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
-        builder.par_comp_lenders_endianness_at(&graph, &te, cp)
+        let cp = crate::cutpoints(src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
+        par_comp_lenders!(
+            builder,
+            graph.split_iter_at(cp),
+            num_nodes,
+            target_endianness
+        )
     })?;
     Ok(())
 }
@@ -226,12 +225,17 @@ where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
     for<'a> LoadModeCodesReader<'a, E, Mmap>: Clone + Send + Sync,
 {
-    let te = target_endianness.unwrap_or_else(|| E::NAME.into());
+    let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
 
     let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
+    let num_nodes = seq_graph.num_nodes();
     thread_pool.install(|| {
-        let cp = cutpoints(src, seq_graph.num_nodes(), seq_graph.num_arcs_hint(), false)?;
-        builder.par_comp_lenders_endianness_at(&seq_graph, &te, cp)
+        par_comp_lenders!(
+            builder,
+            seq_graph.split_iter(rayon::current_num_threads()),
+            num_nodes,
+            target_endianness
+        )
     })?;
     Ok(())
 }

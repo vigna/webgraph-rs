@@ -95,6 +95,13 @@ where
 #[derive(Debug, Clone)]
 pub struct NodeLabels<L, M>(L, M);
 
+impl<L, M> NodeLabels<L, M> {
+    /// Creates a new [`NodeLabels`] lender merging two lenders.
+    pub fn new(left: L, right: M) -> Self {
+        Self(left, right)
+    }
+}
+
 impl<
     'succ,
     L: Lender + for<'next> NodeLabelsLender<'next, Label = usize>,

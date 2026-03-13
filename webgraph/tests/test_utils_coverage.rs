@@ -230,7 +230,7 @@ fn test_arc_list_graph_unlabeled() -> Result<()> {
 fn test_arc_list_graph_labeled() -> Result<()> {
     use webgraph::graphs::arc_list_graph::ArcListGraph;
     let arcs = vec![((0, 1), 10u32), ((0, 2), 20), ((1, 0), 30)];
-    let g = ArcListGraph::new_labeled(3, arcs.into_iter());
+    let g = ArcListGraph::new_labeled(3, arcs);
     assert_eq!(g.num_nodes(), 3);
     let mut iter = g.iter();
     let (node, succ) = iter.next().unwrap();

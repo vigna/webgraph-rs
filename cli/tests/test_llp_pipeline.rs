@@ -45,9 +45,10 @@ fn test_llp_pipeline() -> Result<()> {
     cli_main(vec![
         "webgraph",
         "transform",
-        "simplify",
+        "symmetrize",
         &basename,
         &format!("{}-simple", basename),
+        "--no-loops",
         "--permutation",
         &format!("{}.bfs", basename),
     ])?;
