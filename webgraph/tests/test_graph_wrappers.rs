@@ -6,6 +6,8 @@
 
 //! Tests for graph wrappers: UnionGraph, NoSelfLoopsGraph, PermutedGraph, ErdosRenyi.
 
+mod common;
+
 use anyhow::Result;
 use lender::*;
 use webgraph::{
@@ -98,10 +100,10 @@ fn test_union_graph_num_arcs_hint() {
 fn test_union_graph_eq_original() -> Result<()> {
     use webgraph::traits::graph;
 
-    let basename = std::path::Path::new("../data/cnr-2000");
-    let g1 = BvGraph::with_basename(basename).load()?;
-    let g2 = BvGraph::with_basename(basename).load()?;
-    let g_ref = BvGraph::with_basename(basename).load()?;
+    let basename = common::cnr_2000_basename();
+    let g1 = BvGraph::with_basename(&basename).load()?;
+    let g2 = BvGraph::with_basename(&basename).load()?;
+    let g_ref = BvGraph::with_basename(&basename).load()?;
     let union = UnionGraph(g1, g2);
 
     // The union of a graph with itself should be equal to the original graph

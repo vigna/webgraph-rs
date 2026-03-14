@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod common;
+
 use anyhow::{Result, bail};
 use dsi_bitstream::prelude::BE;
 use lender::*;
@@ -13,7 +15,7 @@ use webgraph::{graphs::arc_list_graph::ArcListGraph, prelude::*};
 
 #[test]
 fn test_iter_nodes() -> Result<()> {
-    let bvgraph = BvGraph::with_basename("../data/cnr-2000")
+    let bvgraph = BvGraph::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -34,7 +36,7 @@ fn test_iter_nodes() -> Result<()> {
 
 #[test]
 fn test_iter_nodes_from() -> Result<()> {
-    let bvgraph = BvGraph::with_basename("../data/cnr-2000")
+    let bvgraph = BvGraph::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -70,7 +72,7 @@ fn test_split_iter_bv() -> Result<()> {
 
 #[test]
 fn test_split_iter_bvrnd() -> Result<()> {
-    let bvgraph = BvGraph::with_basename("../data/cnr-2000")
+    let bvgraph = BvGraph::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 
@@ -135,7 +137,7 @@ where
 /// node/successor pairs.
 #[test]
 fn test_split_iter_at_bvrnd() -> Result<()> {
-    let g = BvGraph::with_basename("../data/cnr-2000")
+    let g = BvGraph::with_basename(common::cnr_2000_basename())
         .endianness::<BE>()
         .load()?;
 

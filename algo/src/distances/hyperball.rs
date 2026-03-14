@@ -267,12 +267,8 @@ impl<
         G1,
         G2,
         D,
-        HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, u64>,
-        SliceEstimatorArray<
-            HyperLogLog<G1::Label, BuildHasherDefault<DefaultHasher>, u64>,
-            u64,
-            Box<[u64]>,
-        >,
+        HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>,
+        SliceEstimatorArray<HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>>,
     >
 {
     /// A builder for [`HyperBall`] using a specified [`EstimationLogic`].
@@ -1432,16 +1428,13 @@ mod test {
         traits::SequentialLabeling,
     };
 
-    type HyperBallArray<G> = SliceEstimatorArray<
-        HyperLogLog<<G as SequentialLabeling>::Label, BuildHasherDefault<DefaultHasher>, u64>,
-        u64,
-        Box<[u64]>,
-    >;
+    type HyperBallArray =
+        SliceEstimatorArray<HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>>;
 
     struct SeqHyperBall<'a, G: RandomAccessGraph> {
         graph: &'a G,
-        curr_state: HyperBallArray<G>,
-        next_state: HyperBallArray<G>,
+        curr_state: HyperBallArray,
+        next_state: HyperBallArray,
     }
 
     impl<G: RandomAccessGraph> SeqHyperBall<'_, G> {

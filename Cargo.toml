@@ -10,11 +10,12 @@ webgraph = { path = "./webgraph", version = "0.6.1" }
 webgraph-algo = { path = "./algo", version = "0.6.1" }
 webgraph-cli = { path = "./cli" }
 
-card-est-array = "0.3.0"
+#card-est-array = "0.3.0"
+card-est-array = { path = "../card-est-array-rs" }
 epserde = "0.12.0"
 dsi-bitstream = "0.9.0"
 dsi-progress-logger = "=0.8.2" # For Rust 1.85
-sux = { git = "https://github.com/vigna/sux-rs", rev = "de70173", features = ["epserde", "rayon", "mmap"] }
+sux = { path = "../sux-rs", features = ["epserde", "rayon", "mmap"] }
 num-traits = { version = "0.2", default-features = false }
 lender = "0.6.0"
 log = "0.4.22"

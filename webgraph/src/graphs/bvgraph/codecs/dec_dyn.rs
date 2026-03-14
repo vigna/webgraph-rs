@@ -236,7 +236,7 @@ where
     #[inline(always)]
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(node) } as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(node) })?;
 
         Ok(DynCodesDecoder {
             code_reader,

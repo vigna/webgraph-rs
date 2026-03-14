@@ -183,7 +183,10 @@ test_scc_algo!(sccs::kosaraju, kosaraju);
 
 #[test]
 fn test_large() -> Result<()> {
+    #[cfg(target_pointer_width = "64")]
     let basename = "../data/cnr-2000";
+    #[cfg(not(target_pointer_width = "64"))]
+    let basename = "../data/cnr-2000_32/cnr-2000";
 
     let graph = BvGraph::with_basename(basename).load()?;
     let transpose = BvGraph::with_basename(basename.to_string() + "-t").load()?;

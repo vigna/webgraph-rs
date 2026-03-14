@@ -478,8 +478,8 @@ fn test_check_offsets_with_static_dispatch() -> Result<()> {
 fn test_split_labeling_bvgraph() -> Result<()> {
     use webgraph::traits::SplitLabeling;
 
-    let basename = std::path::Path::new("../data/cnr-2000");
-    let graph = BvGraph::with_basename(basename).load()?;
+    let basename = common::cnr_2000_basename();
+    let graph = BvGraph::with_basename(&basename).load()?;
 
     // Test that split labeling works
     let how_many = 4;

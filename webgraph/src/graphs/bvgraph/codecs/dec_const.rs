@@ -267,7 +267,7 @@ where
 
     fn new_decoder(&self, offset: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(offset) } as u64)?;
+        code_reader.set_bit_pos(unsafe { self.offsets.uncase().get_unchecked(offset) })?;
 
         Ok(ConstCodesDecoder {
             code_reader,

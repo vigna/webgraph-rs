@@ -6,6 +6,8 @@
 
 //! Tests for graph equality functions, eq_sorted, eq_succs, check_impl, and Zip verify.
 
+mod common;
+
 use anyhow::Result;
 use webgraph::graphs::vec_graph::{LabeledVecGraph, VecGraph};
 use webgraph::labels::Zip;
@@ -226,8 +228,8 @@ fn test_check_impl_larger_graph() -> Result<()> {
 
 #[test]
 fn test_check_impl_bvgraph() -> Result<()> {
-    let basename = std::path::Path::new("../data/cnr-2000");
-    let graph = BvGraph::with_basename(basename).load()?;
+    let basename = common::cnr_2000_basename();
+    let graph = BvGraph::with_basename(&basename).load()?;
     labels::check_impl(&graph)?;
     Ok(())
 }

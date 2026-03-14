@@ -103,14 +103,14 @@ impl<E: Endianness, BR: BitRead<E> + BitSeek, D: BitDeserializer<E, BR>, O: Offs
             return None;
         }
         self.reader
-            .set_bit_pos(self.offsets.uncase().get(self.next_node) as u64)
+            .set_bit_pos(self.offsets.uncase().get(self.next_node))
             .unwrap();
         let res = (
             self.next_node,
             SeqLabels {
                 reader: &mut self.reader,
                 bit_deser: self.bit_deser,
-                end_pos: self.offsets.uncase().get(self.next_node + 1) as u64,
+                end_pos: self.offsets.uncase().get(self.next_node + 1),
                 _marker: std::marker::PhantomData,
             },
         );
@@ -220,12 +220,12 @@ where
     fn labels(&self, node_id: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
         let mut reader = self.reader_supplier.request();
         reader
-            .set_bit_pos(self.offsets.uncase().get(node_id) as u64)
+            .set_bit_pos(self.offsets.uncase().get(node_id))
             .unwrap();
         Labels {
             reader,
             deserializer: &self.bit_deser,
-            end_pos: self.offsets.uncase().get(node_id + 1) as u64,
+            end_pos: self.offsets.uncase().get(node_id + 1),
             _marker: std::marker::PhantomData,
         }
     }

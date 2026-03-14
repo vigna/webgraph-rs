@@ -44,7 +44,9 @@ pub use ragged_array::RaggedArray;
 mod mmap_helper;
 pub use mmap_helper::*;
 
+#[cfg(target_pointer_width = "64")]
 mod java_perm;
+#[cfg(target_pointer_width = "64")]
 pub use java_perm::*;
 
 mod granularity;
@@ -201,9 +203,12 @@ impl MemoryUsage {
             sysinfo::RefreshKind::nothing()
                 .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
         );
+        // On 32-bit platforms, sysinfo may report the host's memory which
+        // far exceeds the addressable space. We cap at isize::MAX, which is
+        // the largest allocation Rust's allocator supports.
+        let cap = isize::MAX as u64;
         MemoryUsage::MemorySize(
-            usize::try_from((system.total_memory() as f64 * perc / 100.0) as u64)
-                .expect("System memory overflows usize"),
+            ((system.total_memory() as f64 * perc / 100.0) as u64).min(cap) as usize,
         )
     }
 

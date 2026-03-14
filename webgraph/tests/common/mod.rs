@@ -8,7 +8,7 @@
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::EF;
 
@@ -81,4 +81,23 @@ pub fn build_ef(basename: &Path) -> Result<()> {
     let mut ef_file = BufWriter::new(std::fs::File::create(&ef_path)?);
     unsafe { ef.serialize(&mut ef_file)? };
     Ok(())
+}
+
+/// Returns the basename for the cnr-2000 test graph, selecting the
+/// platform-appropriate data directory.
+///
+/// On 64-bit platforms this returns `../data/cnr-2000`; on 32-bit platforms
+/// it returns `../data/cnr-2000_32/cnr-2000`, whose `.ef` file is built
+/// with 32-bit `PlatformWord`. If the `.ef` file does not exist, it is
+/// built automatically.
+pub fn cnr_2000_basename() -> PathBuf {
+    #[cfg(target_pointer_width = "64")]
+    let basename = PathBuf::from("../data/cnr-2000");
+    #[cfg(not(target_pointer_width = "64"))]
+    let basename = PathBuf::from("../data/cnr-2000_32/cnr-2000");
+
+    if !basename.with_extension("ef").exists() {
+        build_ef(&basename).expect("Could not build EF for cnr-2000");
+    }
+    basename
 }

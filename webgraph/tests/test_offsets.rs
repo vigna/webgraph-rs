@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod common;
+
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
@@ -15,12 +17,13 @@ use webgraph::prelude::*;
 
 #[test]
 fn test_offsets() -> Result<()> {
+    let basename = common::cnr_2000_basename();
     // load the graph
-    let graph = BvGraph::with_basename("../data/cnr-2000")
+    let graph = BvGraph::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
     // Read the offsets gammas
-    let mut offsets_file = std::fs::File::open("../data/cnr-2000.offsets")?;
+    let mut offsets_file = std::fs::File::open(basename.with_extension("offsets"))?;
     let mut offsets_data = vec![0; offsets_file.metadata()?.len() as usize];
     offsets_file.read_exact(&mut offsets_data)?;
 
@@ -34,7 +37,7 @@ fn test_offsets() -> Result<()> {
     // Load Elias-fano
     let ef_offsets = unsafe {
         <webgraph::graphs::bvgraph::EF>::mmap(
-            "../data/cnr-2000.ef",
+            basename.with_extension("ef"),
             deser::Flags::TRANSPARENT_HUGE_PAGES,
         )
     }?;
@@ -42,7 +45,7 @@ fn test_offsets() -> Result<()> {
     let ef_offsets = ef_offsets.uncase();
 
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(*offset, ef_offsets.get(i) as u64);
+        assert_eq!(*offset, ef_offsets.get(i));
     }
 
     // Check that they read the same
@@ -53,13 +56,13 @@ fn test_offsets() -> Result<()> {
     }
 
     for (i, (offset, outdegree)) in graph.offset_deg_iter().enumerate() {
-        assert_eq!(offset, ef_offsets.get(i) as u64);
+        assert_eq!(offset, ef_offsets.get(i));
         assert_eq!(outdegree, graph.outdegree(i));
     }
 
     for start_node in 0..100 {
         for (i, (offset, outdegree)) in graph.offset_deg_iter_from(start_node).enumerate() {
-            assert_eq!(offset, ef_offsets.get(start_node + i) as u64);
+            assert_eq!(offset, ef_offsets.get(start_node + i));
             assert_eq!(outdegree, graph.outdegree(start_node + i));
         }
     }
@@ -69,11 +72,12 @@ fn test_offsets() -> Result<()> {
 
 #[test]
 fn test_offsets_as_slice() -> Result<()> {
+    let basename = common::cnr_2000_basename();
     // load the graph
-    let graph0 = BvGraph::with_basename("../data/cnr-2000")
+    let graph0 = BvGraph::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
-    let graph1 = BvGraph::with_basename("../data/cnr-2000")
+    let graph1 = BvGraph::with_basename(&basename)
         .endianness::<BE>()
         .load()?
         .offsets_to_slice();

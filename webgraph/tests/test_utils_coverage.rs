@@ -246,90 +246,95 @@ fn test_arc_list_graph_labeled() -> Result<()> {
 }
 
 // ── JavaPermutation ──
+//
+#[cfg(target_pointer_width = "64")]
+mod java_permutation {
+    use super::*;
 
-#[test]
-fn test_java_permutation_round_trip() -> Result<()> {
-    use mmap_rs::MmapFlags;
-    use std::io::Write;
-    use value_traits::slices::SliceByValue;
-    use webgraph::utils::JavaPermutation;
-
-    let dir = tempfile::tempdir()?;
-    let path = dir.path().join("perm.bin");
-    let perm_data: Vec<usize> = vec![3, 1, 4, 0, 2];
-
-    // Write as big-endian u64
-    {
-        let mut file = std::fs::File::create(&path)?;
-        for &v in &perm_data {
-            file.write_all(&(v as u64).to_be_bytes())?;
-        }
-    }
-
-    // Read back via mmap
-    let jp = JavaPermutation::mmap(&path, MmapFlags::empty())?;
-    assert_eq!(jp.perm.as_ref().len(), perm_data.len());
-    for (i, &expected) in perm_data.iter().enumerate() {
-        assert_eq!(jp.index_value(i), expected);
-    }
-    Ok(())
-}
-
-#[test]
-fn test_java_permutation_mmap_mut() -> Result<()> {
-    use mmap_rs::MmapFlags;
-    use value_traits::slices::{SliceByValue, SliceByValueMut};
-    use webgraph::utils::JavaPermutation;
-    let dir = tempfile::tempdir()?;
-    let path = dir.path().join("perm_mm.bin");
-
-    {
+    #[test]
+    fn test_java_permutation_round_trip() -> Result<()> {
+        use mmap_rs::MmapFlags;
         use std::io::Write;
-        let mut f = std::fs::File::create(&path)?;
-        for v in [0u64, 0, 0] {
-            f.write_all(&v.to_be_bytes())?;
+        use value_traits::slices::SliceByValue;
+        use webgraph::utils::JavaPermutation;
+
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("perm.bin");
+        let perm_data: Vec<usize> = vec![3, 1, 4, 0, 2];
+
+        // Write as big-endian u64
+        {
+            let mut file = std::fs::File::create(&path)?;
+            for &v in &perm_data {
+                file.write_all(&(v as u64).to_be_bytes())?;
+            }
         }
-    }
 
-    let mut perm = JavaPermutation::mmap_mut(&path, MmapFlags::empty())?;
-    assert_eq!(perm.len(), 3);
-    unsafe {
-        perm.set_value_unchecked(0, 10);
-        perm.set_value_unchecked(1, 20);
-        perm.set_value_unchecked(2, 30);
-    }
-    assert_eq!(unsafe { perm.get_value_unchecked(0) }, 10);
-    assert_eq!(unsafe { perm.get_value_unchecked(2) }, 30);
-    assert_eq!(perm.as_ref().len(), 3);
-
-    Ok(())
-}
-
-#[test]
-fn test_java_permutation_bit_width() -> Result<()> {
-    use mmap_rs::MmapFlags;
-    use sux::traits::BitWidth;
-    use webgraph::utils::JavaPermutation;
-    let dir = tempfile::tempdir()?;
-    let path = dir.path().join("perm_bw.bin");
-
-    {
-        use std::io::Write;
-        let mut f = std::fs::File::create(&path)?;
-        for v in [0u64, 0] {
-            f.write_all(&v.to_be_bytes())?;
+        // Read back via mmap
+        let jp = JavaPermutation::mmap(&path, MmapFlags::empty())?;
+        assert_eq!(jp.perm.as_ref().len(), perm_data.len());
+        for (i, &expected) in perm_data.iter().enumerate() {
+            assert_eq!(jp.index_value(i), expected);
         }
+        Ok(())
     }
 
-    let perm_ro = JavaPermutation::mmap(&path, MmapFlags::empty())?;
-    assert_eq!(BitWidth::bit_width(&perm_ro), 64);
-    assert_eq!(perm_ro.as_ref().len(), 2);
+    #[test]
+    fn test_java_permutation_mmap_mut() -> Result<()> {
+        use mmap_rs::MmapFlags;
+        use value_traits::slices::{SliceByValue, SliceByValueMut};
+        use webgraph::utils::JavaPermutation;
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("perm_mm.bin");
 
-    let perm_rw = JavaPermutation::mmap_mut(&path, MmapFlags::empty())?;
-    assert_eq!(BitWidth::bit_width(&perm_rw), 64);
-    assert_eq!(perm_rw.as_ref().len(), 2);
+        {
+            use std::io::Write;
+            let mut f = std::fs::File::create(&path)?;
+            for v in [0u64, 0, 0] {
+                f.write_all(&v.to_be_bytes())?;
+            }
+        }
 
-    Ok(())
+        let mut perm = JavaPermutation::mmap_mut(&path, MmapFlags::empty())?;
+        assert_eq!(perm.len(), 3);
+        unsafe {
+            perm.set_value_unchecked(0, 10);
+            perm.set_value_unchecked(1, 20);
+            perm.set_value_unchecked(2, 30);
+        }
+        assert_eq!(unsafe { perm.get_value_unchecked(0) }, 10);
+        assert_eq!(unsafe { perm.get_value_unchecked(2) }, 30);
+        assert_eq!(perm.as_ref().len(), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_java_permutation_bit_width() -> Result<()> {
+        use mmap_rs::MmapFlags;
+        use sux::traits::BitWidth;
+        use webgraph::utils::JavaPermutation;
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("perm_bw.bin");
+
+        {
+            use std::io::Write;
+            let mut f = std::fs::File::create(&path)?;
+            for v in [0u64, 0] {
+                f.write_all(&v.to_be_bytes())?;
+            }
+        }
+
+        let perm_ro = JavaPermutation::mmap(&path, MmapFlags::empty())?;
+        assert_eq!(BitWidth::bit_width(&perm_ro), 64);
+        assert_eq!(perm_ro.as_ref().len(), 2);
+
+        let perm_rw = JavaPermutation::mmap_mut(&path, MmapFlags::empty())?;
+        assert_eq!(BitWidth::bit_width(&perm_rw), 64);
+        assert_eq!(perm_rw.as_ref().len(), 2);
+
+        Ok(())
+    }
 }
 
 // ── MaskedIter ──

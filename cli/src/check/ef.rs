@@ -85,7 +85,7 @@ where
             offset += reader.read_gamma()?;
             // read ef
             let ef_res = ef.get(node_id as _);
-            assert_eq!(offset, ef_res as u64, "node_id: {}", node_id);
+            assert_eq!(offset, ef_res, "node_id: {}", node_id);
             // decode the next nodes so we know where the next node_id starts
             pl.light_update();
         }
@@ -114,7 +114,7 @@ where
         // decode the next nodes so we know where the next node_id starts
         // read ef
         let ef_res = ef.get(node as _);
-        assert_eq!(new_offset, ef_res as u64, "node_id: {}", node);
+        assert_eq!(new_offset, ef_res, "node_id: {}", node);
         pl.light_update();
     }
     pl.done();

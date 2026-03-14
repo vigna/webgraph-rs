@@ -9,6 +9,7 @@ fn assert_int_slice_eq(loaded: &IntSlice, expected: &[usize]) {
     }
 }
 
+#[allow(unused_mut)]
 #[test]
 fn test_int_roundtrip_all_formats() {
     let dir = tempfile::tempdir().unwrap();
@@ -38,6 +39,7 @@ fn test_int_roundtrip_bitfieldvec() {
     assert_int_slice_eq(&IntSliceFormat::BitFieldVec.load(&path).unwrap(), &data);
 }
 
+#[allow(unused_mut)]
 #[test]
 fn test_int_roundtrip_empty() {
     let dir = tempfile::tempdir().unwrap();

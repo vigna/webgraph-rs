@@ -132,14 +132,16 @@ impl<L> Triple<L> {
     }
 }
 
+const USIZE_BYTES: usize = usize::BITS as usize / 8;
+
 impl<L> RadixKey for Triple<L> {
-    const LEVELS: usize = 16;
+    const LEVELS: usize = USIZE_BYTES * 2;
 
     fn get_level(&self, level: usize) -> u8 {
-        (if level < 8 {
-            self.0.0.1 >> ((level % 8) * 8)
+        (if level < USIZE_BYTES {
+            self.0.0.1 >> ((level % USIZE_BYTES) * 8)
         } else {
-            self.0.0.0 >> ((level % 8) * 8)
+            self.0.0.0 >> ((level % USIZE_BYTES) * 8)
         }) as u8
     }
 }

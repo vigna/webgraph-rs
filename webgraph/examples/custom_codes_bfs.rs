@@ -67,7 +67,7 @@ where
         Self: 'a;
     fn new_decoder(&self, node: usize) -> anyhow::Result<Self::Decoder<'_>> {
         let mut code_reader = self.factory.new_reader();
-        code_reader.set_bit_pos(self.offsets.uncase().get(node) as u64)?;
+        code_reader.set_bit_pos(self.offsets.uncase().get(node))?;
         Ok(CustomDecoder::new(code_reader))
     }
 }

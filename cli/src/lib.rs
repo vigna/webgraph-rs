@@ -23,7 +23,6 @@ use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use dsi_bitstream::dispatch::Codes;
 use epserde::deser::{Deserialize, Flags, MemCase};
 use epserde::ser::Serialize;
-use mmap_rs::MmapFlags;
 use num_traits::{FromBytes, ToBytes};
 use std::fmt::Display;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -34,7 +33,9 @@ use std::time::SystemTime;
 use sux::bits::BitFieldVec;
 use sux::utils::PrimitiveUnsignedExt;
 use value_traits::slices::SliceByValue;
-use webgraph::prelude::{CompFlags, JavaPermutation};
+use webgraph::prelude::CompFlags;
+#[cfg(target_pointer_width = "64")]
+use webgraph::prelude::JavaPermutation;
 use webgraph::utils::{Granularity, MemoryUsage};
 
 macro_rules! SEQ_PROC_WARN {
@@ -627,7 +628,7 @@ impl IntSliceFormat {
             #[cfg(target_pointer_width = "64")]
             IntSliceFormat::Java => {
                 log::info!("Loading Java format from {}", path_display);
-                let perm = JavaPermutation::mmap(path, MmapFlags::RANDOM_ACCESS)
+                let perm = JavaPermutation::mmap(path, mmap_rs::MmapFlags::RANDOM_ACCESS)
                     .with_context(|| format!("Could not load slice from {}", path_display))?;
                 Ok(IntSlice::Java(perm))
             }

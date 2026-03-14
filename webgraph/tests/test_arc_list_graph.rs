@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod common;
+
 use dsi_bitstream::traits::BE;
 use lender::prelude::*;
 
@@ -74,7 +76,8 @@ where
 
 #[test]
 fn test_arc_list_graph_cnr2000() {
-    let graph = BvGraph::with_basename("../data/cnr-2000")
+    let basename = common::cnr_2000_basename();
+    let graph = BvGraph::with_basename(&basename)
         .endianness::<BE>()
         .load()
         .unwrap();

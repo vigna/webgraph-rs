@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod common;
+
 use anyhow::Result;
 use no_break::NoBreak;
 use std::ops::ControlFlow::Continue;
@@ -131,7 +133,7 @@ macro_rules! test_bfv_algo_seq {
 
             #[test]
             fn test_cnr_2000() -> Result<()> {
-                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
                 let distances: Vec<AtomicUsize> = (0..graph.num_nodes())
                     .map(|_| AtomicUsize::new(0))
@@ -159,7 +161,7 @@ macro_rules! test_bfv_algo_seq {
 
             #[test]
             fn test_distance_event_cnr_2000_single_root() -> Result<()> {
-                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
                 let mut distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
                 let mut expected_distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
@@ -183,7 +185,7 @@ macro_rules! test_bfv_algo_seq {
 
             #[test]
             fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
-                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
                 let mut distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
                 let mut expected_distance_to_quantity: BTreeMap<usize, usize> = BTreeMap::new();
@@ -278,7 +280,7 @@ macro_rules! test_bfv_algo_par {
 
             #[test]
             fn test_cnr_2000() -> Result<()> {
-                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
                 let distances: Vec<AtomicUsize> = (0..graph.num_nodes())
                     .map(|_| AtomicUsize::new(0))
@@ -306,7 +308,7 @@ macro_rules! test_bfv_algo_par {
 
             #[test]
             fn test_distance_event_cnr_2000_single_root() -> Result<()> {
-                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
 
                 let distance_to_quantity: Mutex<BTreeMap<usize, usize>> =
@@ -344,7 +346,7 @@ macro_rules! test_bfv_algo_par {
 
             #[test]
             fn test_distance_event_cnr_2000_multi_root() -> Result<()> {
-                let graph = BvGraph::with_basename("../data/cnr-2000").load()?;
+                let graph = BvGraph::with_basename(common::cnr_2000_basename()).load()?;
                 let mut visit = $bfv(&graph);
 
                 let distance_to_quantity: Mutex<BTreeMap<usize, usize>> =

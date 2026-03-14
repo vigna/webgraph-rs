@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod common;
+
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -20,13 +22,13 @@ fn test_par_bvcomp() -> Result<()> {
         .filter_level(log::LevelFilter::Debug)
         .try_init()?;
 
-    _test_par_bvcomp("../data/cnr-2000")?;
+    _test_par_bvcomp(&common::cnr_2000_basename())?;
     Ok(())
 }
 
-fn _test_par_bvcomp(basename: &str) -> Result<()> {
+fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
     let comp_flags = CompFlags::default();
-    let tmp_basename = PathBuf::from(String::from(basename) + "-par");
+    let tmp_basename: PathBuf = format!("{}-par", basename.display()).into();
 
     // load the graph
     let graph = webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(basename)

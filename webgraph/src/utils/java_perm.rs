@@ -20,16 +20,12 @@ use value_traits::slices::{SliceByValue, SliceByValueMut};
 /// version of the Java implementation of WebGraph easier. It is a thin wrapper
 /// around [`MmapHelper`], and its methods are named accordingly.
 ///
-/// Note that this class is only available on 64-bit platforms.
-///
 /// By default it uses an `Arc<Mmap>` so that it can be cloned.
-#[cfg(target_pointer_width = "64")]
 #[derive(Clone)]
 pub struct JavaPermutation<M = ArcMmapHelper<u64>> {
     pub perm: M,
 }
 
-#[cfg(target_pointer_width = "64")]
 impl JavaPermutation<MmapHelper<u64, MmapMut>> {
     /// Creates and map a permutation into memory (read/write), overwriting it if it exists.
     ///

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+mod common;
+
 use anyhow::Result;
 use dsi_bitstream::prelude::BE;
 use lender::*;
@@ -14,7 +16,7 @@ use webgraph::{graphs::vec_graph::VecGraph, prelude::*, transform};
 #[test]
 fn test_transpose() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let t = transform::transpose(&g, MemoryUsage::default())?;
+    let t = transform::transpose(&g, MemoryUsage::from_perc(10.0))?;
     let t = VecGraph::from_lender(&t);
     assert_eq!(t.num_nodes(), 3);
 
@@ -70,7 +72,7 @@ fn test_transpose_split() -> Result<()> {
 #[test]
 fn test_transpose_split_bvgraph() -> Result<()> {
     use webgraph::traits::SequentialLabeling;
-    let basename = std::path::Path::new("../data/cnr-2000");
+    let basename = common::cnr_2000_basename();
     let graph = BvGraph::with_basename(basename).load()?;
     let num_nodes = graph.num_nodes();
 
@@ -131,7 +133,7 @@ fn test_transpose_labeled() -> Result<()> {
 fn test_permute() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
     let perm = [2, 0, 1]; // 0->2, 1->0, 2->1
-    let p = transform::permute(&g, &perm, MemoryUsage::default())?;
+    let p = transform::permute(&g, &perm, MemoryUsage::from_perc(10.0))?;
     let p = VecGraph::from_lender(&p);
     assert_eq!(p.num_nodes(), 3);
 
@@ -209,7 +211,7 @@ fn test_permute_split() -> Result<()> {
 #[test]
 fn test_symmetrize_no_loops() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::symmetrize::<true>(&g, MemoryUsage::default())?;
+    let s = transform::symmetrize::<true>(&g, MemoryUsage::from_perc(10.0))?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 3);
 
@@ -229,7 +231,7 @@ fn test_symmetrize_no_loops() -> Result<()> {
 #[test]
 fn test_symmetrize_keep_loops() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (0, 0)]); // includes self-loop
-    let s = transform::symmetrize::<false>(&g, MemoryUsage::default())?;
+    let s = transform::symmetrize::<false>(&g, MemoryUsage::from_perc(10.0))?;
     let s = VecGraph::from_lender(&s);
     assert_eq!(s.num_nodes(), 3);
 
@@ -362,7 +364,7 @@ fn test_map() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2), (2, 3)]);
     // Map: 0->0, 1->0, 2->1, 3->1 (merges 0,1 into 0 and 2,3 into 1)
     let m = [0, 0, 1, 1];
-    let mapped = transform::map(&g, &m, 2, MemoryUsage::default())?;
+    let mapped = transform::map(&g, &m, 2, MemoryUsage::from_perc(10.0))?;
     let mapped = VecGraph::from_lender(&mapped);
     assert_eq!(mapped.num_nodes(), 2);
     // Arcs: (0,0),(0,1),(0,1),(1,1) → deduped: (0,0),(0,1),(1,1)
@@ -386,7 +388,7 @@ fn test_map_enlarges() -> Result<()> {
     // Map to a larger node space
     let g = VecGraph::from_arcs([(0, 1), (1, 0)]);
     let m = [5, 10];
-    let mapped = transform::map(&g, &m, 11, MemoryUsage::default())?;
+    let mapped = transform::map(&g, &m, 11, MemoryUsage::from_perc(10.0))?;
     let mapped = VecGraph::from_lender(&mapped);
     assert_eq!(mapped.num_nodes(), 11);
     assert_eq!(mapped.successors(5).collect::<Vec<_>>(), vec![10]);
@@ -398,7 +400,7 @@ fn test_map_enlarges() -> Result<()> {
 fn test_map_size_mismatch() {
     let g = VecGraph::from_arcs([(0, 1), (1, 2)]);
     let m = vec![0, 1]; // 2 elements but graph has 3 nodes
-    let result = transform::map(&g, &m, 3, MemoryUsage::default());
+    let result = transform::map(&g, &m, 3, MemoryUsage::from_perc(10.0));
     assert!(result.is_err());
 }
 
