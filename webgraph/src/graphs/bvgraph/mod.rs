@@ -177,8 +177,8 @@ use sux::traits::IndexedSeq;
 
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
-    sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
-    sux::bits::BitFieldVec<usize, Box<[usize]>>,
+    sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[u64]>>, Box<[u64]>, 12, 4>,
+    sux::bits::BitFieldVec<u64, Box<[u64]>>,
 >;
 
 /// Compound trait expressing the trait bounds for offsets.
@@ -187,10 +187,10 @@ pub type EF = sux::dict::EliasFano<
 /// explanation as to why we bound first with [`DeserInner`] and then require
 /// the bound we are interested in on the associated deserialization type.
 pub trait Offsets:
-    for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>
+    for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u64>>
 {
 }
-impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> = usize>>> Offsets
+impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u64>>> Offsets
     for T
 {
 }
@@ -203,12 +203,12 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = usize, Output<'a> =
 /// This is the type returned by [`crate::traits::labels::SequentialLabeling::build_dcf`].
 pub type DCF = sux::dict::EliasFano<
     sux::rank_sel::SelectZeroAdaptConst<
-        sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
-        Box<[usize]>,
+        sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[u64]>>, Box<[u64]>, 12, 4>,
+        Box<[u64]>,
         12,
         4,
     >,
-    sux::bits::BitFieldVec<usize, Box<[usize]>>,
+    sux::bits::BitFieldVec<u64, Box<[u64]>>,
 >;
 
 /// Checks that the offsets stored in the offsets file with given

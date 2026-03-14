@@ -21,7 +21,7 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
     pl.start("Computing strongly connected components...");
 
     let mut visit = SeqPred::new(&graph);
-    let mut lead = BitVec::with_capacity(128);
+    let mut lead = BitVec::<Vec<u64>>::with_capacity(128);
     // Sentinel value guaranteeing that this stack is never empty
     lead.push(true);
     let mut component_stack = Vec::with_capacity(16);

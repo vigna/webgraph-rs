@@ -113,17 +113,15 @@ pub trait SequentialLabeling {
     /// `None`.
     fn build_dcf(&self) -> DCF {
         let n = self.num_nodes();
-        let num_arcs: usize = self
+        let num_arcs = self
             .num_arcs_hint()
-            .expect("build_dcf requires num_arcs_hint()")
-            .try_into()
-            .expect("num_arcs exceeds usize::MAX");
+            .expect("build_dcf requires num_arcs_hint()");
         let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
         efb.push(0);
-        let mut cumul = 0usize;
+        let mut cumul = 0u64;
         let mut lender = self.iter();
         while let Some((_node, succs)) = lender.next() {
-            cumul += succs.into_iter().count();
+            cumul += succs.into_iter().count() as u64;
             efb.push(cumul);
         }
         // SAFETY: the values are pushed in non-decreasing order.
@@ -204,7 +202,7 @@ pub trait SequentialLabeling {
         F: Fn(Range<usize>) -> A + Sync,
         A: Default + Send,
         R: Fn(A, A) -> A + Sync,
-        D: for<'a> Succ<Input = usize, Output<'a> = usize>,
+        D: for<'a> Succ<Input = u64, Output<'a> = u64>,
     >(
         &self,
         func: F,
@@ -216,13 +214,13 @@ pub trait SequentialLabeling {
         FairChunks::new(
             granularity.arc_granularity(
                 self.num_nodes(),
-                Some(deg_cumul.get(deg_cumul.len() - 1) as u64),
-            ),
+                Some(deg_cumul.get(deg_cumul.len() - 1)),
+            ) as u64,
             deg_cumul,
         )
         .par_map_fold_with(
             pl.clone(),
-            |pl, range| {
+            |pl, range: Range<usize>| {
                 let len = range.len();
                 let res = func(range);
                 pl.update_with_count(len);

@@ -59,15 +59,15 @@ impl BvGraph<()> {
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<DynCodesDecoderFactory<E, F, OFF>>
 where
-    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
+    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = u64>,
 {
-    /// Remaps the offsets in a slice of `usize`.
+    /// Remaps the offsets in a slice of `u64`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
     /// representing the offsets as a slice increases significantly the
     /// memory footprint. It just replaces the current decoder factory with
     /// the result of [`DynCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(self) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
+    pub fn offsets_to_slice(self) -> BvGraph<DynCodesDecoderFactory<E, F, Owned<Box<[u64]>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,
@@ -81,13 +81,13 @@ where
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets>
     BvGraph<ConstCodesDecoderFactory<E, F, OFF>>
 {
-    /// Remaps the offsets in a slice of `usize`.
+    /// Remaps the offsets in a slice of `u64`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
     /// representing the offsets as a slice increases significantly the
     /// memory footprint. It just replaces the current decoder factory with
     /// the result of [`ConstCodesDecoderFactory::offsets_to_slice`].
-    pub fn offsets_to_slice(self) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<Box<[usize]>>>> {
+    pub fn offsets_to_slice(self) -> BvGraph<ConstCodesDecoderFactory<E, F, Owned<Box<[u64]>>>> {
         BvGraph {
             factory: self.factory.offsets_to_slice(),
             number_of_nodes: self.number_of_nodes,

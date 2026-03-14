@@ -867,10 +867,7 @@ pub fn cutpoints(
             num_nodes + 1
         );
         ensure!(dcf.get(0) == 0, "DCF does not start with 0");
-        let num_arcs: usize = num_arcs
-            .expect("num_arcs_hint required for --dcf")
-            .try_into()
-            .expect("num_arcs exceeds usize::MAX");
+        let num_arcs: u64 = num_arcs.expect("num_arcs_hint required for --dcf");
         ensure!(
             dcf.get(num_nodes) == num_arcs,
             "DCF ends with {}, expected {} (num_arcs)",
@@ -878,7 +875,7 @@ pub fn cutpoints(
             num_arcs
         );
         let num_threads = rayon::current_num_threads();
-        let target_weight = num_arcs.div_ceil(num_threads);
+        let target_weight = num_arcs.div_ceil(num_threads as u64);
         let cutpoints: Vec<usize> = std::iter::once(0)
             .chain(FairChunks::new(target_weight, &dcf).map(|r| r.end))
             .collect();

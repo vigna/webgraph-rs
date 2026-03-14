@@ -100,7 +100,7 @@ pub fn harness(data: FuzzCase) {
     // test sequential graphs and build the offsets
     let mut efb = EliasFanoBuilder::new(
         graph.num_nodes() + 1,
-        (data_be.len() + 1) * 8 * core::mem::size_of::<u32>(),
+        ((data_be.len() + 1) * 8 * core::mem::size_of::<u32>()) as u64,
     );
     let mut offsets = Vec::with_capacity(graph.num_nodes() + 1);
     offsets.push(0);
@@ -162,7 +162,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(cumulative_offset_le as usize, iter_offset_le as usize);
 
         offsets.push(seq_iter_be.bit_pos().unwrap());
-        efb.push(seq_iter_be.bit_pos().unwrap() as usize);
+        efb.push(seq_iter_be.bit_pos().unwrap() as u64);
     }
 
     let mut seq_iter_be = seq_graph_be.offset_deg_iter();

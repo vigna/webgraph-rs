@@ -178,7 +178,7 @@ impl<
     const RESIDUALS: usize,
 > ConstCodesDecoderFactory<E, F, OFF, OUTDEGREES, REFERENCES, BLOCKS, INTERVALS, RESIDUALS>
 {
-    /// Remaps the offsets in a slice of `usize`.
+    /// Remaps the offsets in a slice of `u64`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
     /// representing the offsets as a slice increases significantly the
@@ -190,7 +190,7 @@ impl<
     ) -> ConstCodesDecoderFactory<
         E,
         F,
-        Owned<Box<[usize]>>,
+        Owned<Box<[u64]>>,
         OUTDEGREES,
         REFERENCES,
         BLOCKS,

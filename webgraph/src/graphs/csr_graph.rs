@@ -9,6 +9,7 @@ use super::bvgraph::EF;
 use crate::traits::*;
 use epserde::Epserde;
 use lender::{IntoLender, Lend, Lender, Lending, check_covariance, for_};
+use num_primitive::{PrimitiveNumber, PrimitiveNumberAs};
 use sux::{
     bits::BitFieldVec,
     dict::EliasFanoBuilder,
@@ -20,13 +21,14 @@ use value_traits::{
     slices::SliceByValue,
 };
 
+
 /// A [`CsrGraph`] with Elias–Fano-encoded degree cumulative function and
 /// [`BitFieldVec`]-encoded successors.
-pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
+pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec<usize>>;
 
 /// A [`CsrSortedGraph`] with Elias–Fano-encoded degree cumulative function and
 /// [`BitFieldVec`]-encoded successors.
-pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
+pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec<usize>>;
 
 /// A compressed sparse-row graph.
 ///
@@ -223,20 +225,22 @@ impl CompressedCsrGraph {
         let u = g.num_arcs_hint().ok_or(anyhow::Error::msg(
             "This sequential graph does not provide the number of arcs",
         ))?;
-        let mut efb = EliasFanoBuilder::new(n + 1, u as usize + 1);
+        let mut efb = EliasFanoBuilder::new(n + 1, u + 1);
         efb.push(0);
-        let mut successors =
-            BitFieldVec::with_capacity(if n == 0 { 0 } else { n.bit_len() as usize }, u as usize);
+        let mut successors = BitFieldVec::<usize>::with_capacity(
+            if n == 0 { 0 } else { n.bit_len() as usize },
+            u as usize,
+        );
         let mut last_src = 0;
         for_!((src, succ) in g.iter() {
             while last_src < src {
-                efb.push(successors.len());
+                efb.push(successors.len() as u64);
                 last_src += 1;
             }
             successors.extend(succ);
         });
         for _ in last_src..g.num_nodes() {
-            efb.push(successors.len());
+            efb.push(successors.len() as u64);
         }
         let ef = efb.build();
         // SAFETY: the Elias–Fano structure and successors are built consistently from the graph.
@@ -265,7 +269,8 @@ impl CompressedCsrSortedGraph {
 /// (see the [crate documentation](crate)).
 impl<'a, DCF, S> IntoLender for &'a CsrGraph<DCF, S>
 where
-    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
     type Lender = NodeLabels<IterFrom<'a, DCF>, IterFrom<'a, S>>;
@@ -281,7 +286,8 @@ where
 /// (see the [crate documentation](crate)).
 impl<'a, DCF, S> IntoLender for &'a CsrSortedGraph<DCF, S>
 where
-    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
     type Lender = <Self as SequentialLabeling>::Lender<'a>;
@@ -294,7 +300,8 @@ where
 
 impl<DCF, S> SequentialLabeling for CsrGraph<DCF, S>
 where
-    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
     type Label = usize;
@@ -318,7 +325,10 @@ where
         let mut offsets_iter = self.dcf.iter_value_from(from);
         // skip the first offset, we don't start from `from + 1`
         // because it might not exist
-        let offset = offsets_iter.next().unwrap_or(0);
+        let offset = offsets_iter
+            .next()
+            .map(PrimitiveNumber::as_to::<usize>)
+            .unwrap_or(0);
 
         NodeLabels {
             node: from,
@@ -331,14 +341,10 @@ where
 
     fn build_dcf(&self) -> crate::graphs::bvgraph::DCF {
         let n = self.num_nodes();
-        let num_arcs: usize = self
-            .num_arcs_hint()
-            .unwrap()
-            .try_into()
-            .expect("num_arcs exceeds usize::MAX");
+        let num_arcs = self.num_arcs_hint().unwrap();
         let mut efb = EliasFanoBuilder::new(n + 1, num_arcs);
         for val in self.dcf.iter_value_from(0).take(n + 1) {
-            efb.push(val);
+            efb.push(val.as_to::<u64>());
         }
         unsafe {
             efb.build().map_high_bits(|high_bits| {
@@ -352,7 +358,8 @@ where
 
 impl<DCF, S> SequentialLabeling for CsrSortedGraph<DCF, S>
 where
-    DCF: SliceByValue + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
     type Label = usize;
@@ -383,21 +390,24 @@ where
 
 impl<D, S> SequentialGraph for CsrGraph<D, S>
 where
-    D: SliceByValue + IterateByValueFrom<Item = usize>,
+    D: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
 }
 
 impl<D, S> SequentialGraph for CsrSortedGraph<D, S>
 where
-    D: SliceByValue + IterateByValueFrom<Item = usize>,
+    D: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue + IterateByValueFrom<Item = usize>,
 {
 }
 
 impl<DCF, S> RandomAccessLabeling for CsrGraph<DCF, S>
 where
-    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
     type Labels<'succ>
@@ -412,20 +422,22 @@ where
 
     #[inline(always)]
     fn outdegree(&self, node: usize) -> usize {
-        self.dcf.index_value(node + 1) - self.dcf.index_value(node)
+        self.dcf.index_value(node + 1).as_to::<usize>()
+            - self.dcf.index_value(node).as_to::<usize>()
     }
 
     #[inline(always)]
     fn labels(&self, node: usize) -> <Self as RandomAccessLabeling>::Labels<'_> {
-        let start = self.dcf.index_value(node);
-        let end = self.dcf.index_value(node + 1);
+        let start = self.dcf.index_value(node).as_to::<usize>();
+        let end = self.dcf.index_value(node + 1).as_to::<usize>();
         self.successors.iter_value_from(start).take(end - start)
     }
 }
 
 impl<DCF, S> RandomAccessLabeling for CsrSortedGraph<DCF, S>
 where
-    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
     type Labels<'succ>
@@ -453,21 +465,23 @@ where
 
 impl<DCF, S> RandomAccessGraph for CsrGraph<DCF, S>
 where
-    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
 }
 
 impl<DCF, S> RandomAccessGraph for CsrSortedGraph<DCF, S>
 where
-    DCF: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
 }
 
 /// Sequential Lender for the CSR graph.
 #[derive(Debug, Clone)]
-pub struct NodeLabels<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
+pub struct NodeLabels<O: Iterator, S: Iterator<Item = usize>> {
     /// The next node to lend labels for.
     node: usize,
     /// This is the offset of the last successor of the previous node.
@@ -482,14 +496,16 @@ pub struct NodeLabels<O: Iterator<Item = usize>, S: Iterator<Item = usize>> {
 }
 
 // SAFETY: CSR successors are stored in sorted order.
-unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
-    for NodeLabels<O, S>
+unsafe impl<
+    O: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
+    S: Iterator<Item = usize>,
+> SortedLender for NodeLabels<O, S>
 {
 }
 
 impl<'succ, I, D> NodeLabelsLender<'succ> for NodeLabels<I, D>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     D: Iterator<Item = usize>,
 {
     type Label = usize;
@@ -498,7 +514,7 @@ where
 
 impl<'succ, I, D> Lending<'succ> for NodeLabels<I, D>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     D: Iterator<Item = usize>,
 {
     type Lend = (usize, SeqSucc<'succ, D>);
@@ -506,7 +522,7 @@ where
 
 impl<I, D> Lender for NodeLabels<I, D>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     D: Iterator<Item = usize>,
 {
     check_covariance!();
@@ -521,7 +537,7 @@ where
         }
 
         // implicitly exit if the offsets iterator is empty
-        let offset = self.offsets_iter.next()?;
+        let offset = self.offsets_iter.next()?.as_to::<usize>();
         self.last_offset = offset;
 
         let node = self.node;
@@ -541,17 +557,19 @@ where
 /// Sequential Lender for the CSR graph.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct SortedNodeLabels<O: Iterator<Item = usize>, S: Iterator<Item = usize>>(NodeLabels<O, S>);
+pub struct SortedNodeLabels<O: Iterator, S: Iterator<Item = usize>>(NodeLabels<O, S>);
 
 // SAFETY: CSR successors are stored in sorted order.
-unsafe impl<O: Iterator<Item = usize>, S: Iterator<Item = usize>> SortedLender
-    for SortedNodeLabels<O, S>
+unsafe impl<
+    O: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
+    S: Iterator<Item = usize>,
+> SortedLender for SortedNodeLabels<O, S>
 {
 }
 
 impl<'succ, I, D> NodeLabelsLender<'succ> for SortedNodeLabels<I, D>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     D: Iterator<Item = usize>,
 {
     type Label = usize;
@@ -560,7 +578,7 @@ where
 
 impl<'succ, I, D> Lending<'succ> for SortedNodeLabels<I, D>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     D: Iterator<Item = usize>,
 {
     type Lend = (usize, AssumeSortedIterator<SeqSucc<'succ, D>>);
@@ -568,7 +586,7 @@ where
 
 impl<I, D> Lender for SortedNodeLabels<I, D>
 where
-    I: Iterator<Item = usize>,
+    I: Iterator<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>,
     D: Iterator<Item = usize>,
 {
     check_covariance!();

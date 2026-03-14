@@ -246,12 +246,12 @@ pub struct EmptyDict<I, O> {
 }
 
 impl<I, O> Types for EmptyDict<I, O> {
-    type Input = usize;
-    type Output<'a> = usize;
+    type Input = u64;
+    type Output<'a> = u64;
 }
 
 impl<I, O> IndexedSeq for EmptyDict<I, O> {
-    fn get(&self, _key: Self::Input) -> Self::Output<'_> {
+    fn get(&self, _index: usize) -> Self::Output<'_> {
         panic!();
     }
 

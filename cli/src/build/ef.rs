@@ -37,13 +37,13 @@ pub struct CliArgs {
 }
 
 /// Returns the length in bits of the given file.
-fn file_len_bits(path: &Path) -> Result<usize> {
+fn file_len_bits(path: &Path) -> Result<u64> {
     let mut file =
         File::open(path).with_context(|| format!("Could not open {}", path.display()))?;
     let len = 8 * file
         .seek(std::io::SeekFrom::End(0))
         .with_context(|| format!("Could not seek to end of {}", path.display()))?;
-    Ok(len as usize)
+    Ok(len)
 }
 
 pub fn main(args: CliArgs) -> Result<()> {

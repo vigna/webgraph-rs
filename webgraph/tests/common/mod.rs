@@ -49,7 +49,7 @@ pub fn build_ef(basename: &Path) -> Result<()> {
 
     let graph_path = basename.with_extension("graph");
     let mut f = std::fs::File::open(&graph_path)?;
-    let file_len = 8 * f.seek(std::io::SeekFrom::End(0))? as usize;
+    let file_len = 8 * f.seek(std::io::SeekFrom::End(0))?;
 
     let properties_path = basename.with_extension("properties");
     let props = std::fs::read_to_string(&properties_path)?;

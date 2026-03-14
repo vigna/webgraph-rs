@@ -32,6 +32,7 @@ dsi-progress-logger.workspace = true
 log.workspace = true
 sux.workspace = true
 lender.workspace = true
+num-primitive.workspace = true
 value-traits.workspace = true
 rand.workspace = true
 tempfile.workspace = true

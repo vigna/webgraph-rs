@@ -228,7 +228,7 @@ pub struct HyperBallBuilder<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label>,
     A: EstimatorArrayMut<L>,
 > {
@@ -260,7 +260,7 @@ impl<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
 >
     HyperBallBuilder<
         'a,
@@ -328,7 +328,7 @@ impl<
 
 impl<
     'a,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     G: RandomAccessGraph + Sync,
     L: MergeEstimationLogic<Item = G::Label> + PartialEq,
     A: EstimatorArrayMut<L>,
@@ -378,7 +378,7 @@ impl<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label>,
     A: EstimatorArrayMut<L>,
 > HyperBallBuilder<'a, G1, G2, D, L, A>
@@ -496,7 +496,7 @@ impl<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label> + Sync + std::fmt::Display,
     A: EstimatorArrayMut<L>,
 > HyperBallBuilder<'a, G1, G2, D, L, A>
@@ -604,7 +604,7 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     node_cursor: CachePadded<AtomicUsize>,
     /// A cursor scanning the nodes and arcs to process during non-local
     /// computations.
-    arc_cursor: Mutex<(usize, usize)>,
+    arc_cursor: Mutex<(usize, u64)>,
     /// The number of arcs visited during the current iteration.
     visited_arcs: CachePadded<AtomicU64>,
     /// The number of estimators modified during the current iteration.
@@ -652,7 +652,7 @@ pub struct HyperBall<
     'a,
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize>,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
     L: MergeEstimationLogic<Item = G1::Label> + Sync,
     A: EstimatorArrayMut<L>,
 > {
@@ -691,7 +691,7 @@ pub struct HyperBall<
 impl<
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64> + Sync,
     L: MergeEstimationLogic<Item = usize> + Sync,
     A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
 > HyperBall<'_, G1, G2, D, L, A>
@@ -937,7 +937,7 @@ where
 impl<
     G1: RandomAccessGraph + Sync,
     G2: RandomAccessGraph + Sync,
-    D: for<'b> Succ<Input = usize, Output<'b> = usize> + Sync,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64> + Sync,
     L: EstimationLogic<Item = usize> + MergeEstimationLogic + Sync,
     A: EstimatorArrayMut<L> + Sync + AsSyncArray<L>,
 > HyperBall<'_, G1, G2, D, L, A>
@@ -1154,7 +1154,7 @@ where
         let node_granularity = ic.node_granularity;
         let target_arcs = ((graph.num_arcs() as f64 * node_granularity as f64)
             / graph.num_nodes() as f64)
-            .ceil() as usize;
+            .ceil() as u64;
         let do_centrality = sum_of_dists.is_some()
             || sum_of_inv_dists.is_some()
             || !ic.discount_functions.is_empty();
@@ -1192,7 +1192,7 @@ where
                 } else {
                     let start = next_node;
                     let target = next_arc + target_arcs;
-                    if target as u64 >= arc_upper_limit {
+                    if target >= arc_upper_limit {
                         next_node = node_upper_limit;
                     } else {
                         (next_node, next_arc) = ic.cumul_outdeg.succ(target).unwrap();

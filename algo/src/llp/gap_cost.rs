@@ -18,7 +18,7 @@ use webgraph::{traits::*, utils::Granularity};
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
     graph: &G,
     granularity: Granularity,
-    deg_cumul: &(impl for<'a> Succ<Input = usize, Output<'a> = usize> + Send + Sync),
+    deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + Send + Sync),
     pr: &mut impl ConcurrentProgressLog,
 ) -> f64 {
     graph.par_apply(

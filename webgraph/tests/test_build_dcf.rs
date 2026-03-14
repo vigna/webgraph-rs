@@ -20,10 +20,10 @@ use webgraph::prelude::*;
 /// DCF for the canonical test graph (8 nodes, 11 arcs).
 ///
 /// Outdegrees: 2, 3, 1, 1, 1, 2, 1, 0.
-const EXPECTED_DCF: [usize; 9] = [0, 2, 5, 6, 7, 8, 10, 11, 11];
+const EXPECTED_DCF: [u64; 9] = [0, 2, 5, 6, 7, 8, 10, 11, 11];
 
 /// Checks that the given DCF matches the expected cumulative degree sequence.
-fn verify_dcf(dcf: &DCF, expected: &[usize]) {
+fn verify_dcf(dcf: &DCF, expected: &[u64]) {
     assert_eq!(dcf.len(), expected.len());
     for (i, &expected_val) in expected.iter().enumerate() {
         assert_eq!(
@@ -124,15 +124,15 @@ fn test_build_dcf_cnr_2000() -> Result<()> {
     assert_eq!(dcf.get(0), 0);
 
     // Verify against sequential iteration
-    let mut cumul = 0usize;
+    let mut cumul = 0u64;
     let mut node_idx = 0usize;
     let mut lender = seq.iter();
     while let Some((_node, succs)) = lender.next() {
-        cumul += succs.into_iter().count();
+        cumul += succs.into_iter().count() as u64;
         node_idx += 1;
         assert_eq!(dcf.get(node_idx), cumul, "DCF mismatch at node {node_idx}");
     }
     assert_eq!(node_idx, n);
-    assert_eq!(cumul, seq.num_arcs_hint().unwrap() as usize);
+    assert_eq!(cumul, seq.num_arcs_hint().unwrap());
     Ok(())
 }

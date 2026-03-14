@@ -160,16 +160,16 @@ pub struct DynCodesDecoderFactory<E: Endianness, F: CodesReaderFactoryHelper<E>,
 
 impl<E: Endianness, F: CodesReaderFactoryHelper<E>, OFF: Offsets> DynCodesDecoderFactory<E, F, OFF>
 where
-    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = usize>,
+    for<'a> &'a OFF::DeserType<'a>: IntoIterator<Item = u64>,
 {
-    /// Remaps the offsets in a slice of `usize`.
+    /// Remaps the offsets in a slice of `u64`.
     ///
     /// This method is mainly useful for benchmarking and testing purposes, as
     /// representing the offsets as a slice increases significantly the
     /// memory footprint.
     ///
     /// This method is used by [`BvGraph::offsets_to_slice`].
-    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, Owned<Box<[usize]>>> {
+    pub fn offsets_to_slice(self) -> DynCodesDecoderFactory<E, F, Owned<Box<[u64]>>> {
         DynCodesDecoderFactory {
             factory: self.factory,
             offsets: self

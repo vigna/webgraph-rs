@@ -111,14 +111,12 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
 
     fn build_dcf(&self) -> DCF {
         let n = self.num_nodes();
-        let num_arcs: usize = self
+        let num_arcs = self
             .num_arcs_hint()
-            .expect("build_dcf requires num_arcs_hint()")
-            .try_into()
-            .expect("num_arcs exceeds usize::MAX");
+            .expect("build_dcf requires num_arcs_hint()");
         let mut efb = sux::dict::EliasFanoBuilder::new(n + 1, num_arcs);
         efb.push(0);
-        let mut cumul_deg = 0usize;
+        let mut cumul_deg = 0u64;
         let mut iter = OffsetDegIter::new(
             self.factory.new_decoder().unwrap(),
             n,
@@ -126,7 +124,7 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
             self.min_interval_length,
         );
         for _ in 0..n {
-            cumul_deg += iter.next_degree().unwrap();
+            cumul_deg += iter.next_degree().unwrap() as u64;
             efb.push(cumul_deg);
         }
         // SAFETY: the cumulative degrees are pushed in non-decreasing order.
