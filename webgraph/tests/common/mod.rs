@@ -92,12 +92,18 @@ pub fn build_ef(basename: &Path) -> Result<()> {
 /// built automatically.
 pub fn cnr_2000_basename() -> PathBuf {
     #[cfg(target_pointer_width = "64")]
-    let basename = PathBuf::from("../data/cnr-2000");
+    return PathBuf::from("../data/cnr-2000");
     #[cfg(not(target_pointer_width = "64"))]
-    let basename = PathBuf::from("../data/cnr-2000_32/cnr-2000");
+    return PathBuf::from("../data/cnr-2000_32/cnr-2000");
+}
 
-    if !basename.with_extension("ef").exists() {
-        build_ef(&basename).expect("Could not build EF for cnr-2000");
-    }
-    basename
+/// Returns the basename for the cnr-2000-t (transpose) test graph,
+/// selecting the platform-appropriate data directory.
+///
+/// See [`cnr_2000_basename`] for details on the 32-bit strategy.
+pub fn cnr_2000_t_basename() -> PathBuf {
+    #[cfg(target_pointer_width = "64")]
+    return PathBuf::from("../data/cnr-2000-t");
+    #[cfg(not(target_pointer_width = "64"))]
+    return PathBuf::from("../data/cnr-2000_32/cnr-2000-t");
 }

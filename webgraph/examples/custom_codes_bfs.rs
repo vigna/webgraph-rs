@@ -194,7 +194,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn visit(graph: impl RandomAccessGraph) -> Result<()> {
     let num_nodes = graph.num_nodes();
-    let mut seen = BitVec::new(num_nodes);
+    let mut seen: BitVec = BitVec::new(num_nodes);
     let mut queue = VecDeque::new();
 
     let mut pl = ProgressLogger::default();
