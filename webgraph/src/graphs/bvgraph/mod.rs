@@ -177,6 +177,7 @@ use sux::traits::{IndexedSeq, PlatformWord};
 
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
+    u64,
     sux::rank_sel::SelectAdaptConst<
         sux::bits::BitVec<Box<[PlatformWord]>>,
         Box<[PlatformWord]>,
@@ -207,6 +208,7 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u
 ///
 /// This is the type returned by [`crate::traits::labels::SequentialLabeling::build_dcf`].
 pub type DCF = sux::dict::EliasFano<
+    u64,
     sux::rank_sel::SelectZeroAdaptConst<
         sux::rank_sel::SelectAdaptConst<
             sux::bits::BitVec<Box<[PlatformWord]>>,

@@ -178,7 +178,7 @@ impl CompFlags {
             n * (n.ln() - 1.0) + 0.5 * (2.0 * std::f64::consts::PI * n).ln()
         }
 
-        let n_squared = (num_nodes * num_nodes) as u64;
+        let n_squared = num_nodes as u64 * num_nodes as u64;
         let theoretical_bound =
             (stirling(n_squared) - stirling(num_arcs) - stirling(n_squared - num_arcs))
                 / 2.0_f64.ln();
