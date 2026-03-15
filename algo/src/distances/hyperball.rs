@@ -1459,10 +1459,18 @@ mod test {
     #[cfg_attr(feature = "slow_tests", test)]
     #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
     fn test_cnr_2000() -> Result<()> {
+        #[cfg(target_pointer_width = "64")]
         let basename = "../data/cnr-2000";
+        #[cfg(not(target_pointer_width = "64"))]
+        let basename = "../data/cnr-2000_32/cnr-2000";
+
+        #[cfg(target_pointer_width = "64")]
+        let basename_t = "../data/cnr-2000-t";
+        #[cfg(not(target_pointer_width = "64"))]
+        let basename_t = "../data/cnr-2000_32/cnr-2000-t";
 
         let graph = BvGraph::with_basename(basename).load()?;
-        let transpose = BvGraph::with_basename(basename.to_owned() + "-t").load()?;
+        let transpose = BvGraph::with_basename(basename_t).load()?;
         let cumulative = unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
 
         let num_nodes = graph.num_nodes();

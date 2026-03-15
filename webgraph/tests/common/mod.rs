@@ -87,9 +87,8 @@ pub fn build_ef(basename: &Path) -> Result<()> {
 /// platform-appropriate data directory.
 ///
 /// On 64-bit platforms this returns `../data/cnr-2000`; on 32-bit platforms
-/// it returns `../data/cnr-2000_32/cnr-2000`, whose `.ef` file is built
-/// with 32-bit `PlatformWord`. If the `.ef` file does not exist, it is
-/// built automatically.
+/// it returns `../data/cnr-2000_32/cnr-2000`, whose `.ef` and `.dcf` files
+/// are built with 32-bit `PlatformWord`.
 pub fn cnr_2000_basename() -> PathBuf {
     #[cfg(target_pointer_width = "64")]
     return PathBuf::from("../data/cnr-2000");

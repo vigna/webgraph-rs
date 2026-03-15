@@ -86,13 +86,13 @@ pub fn harness(data: FuzzCase) {
     // create code reader builders
     let codes_reader_be = <DynCodesDecoderFactory<BE, _, _>>::new(
         MemoryFactory::from_data(data_be),
-        <EmptyDict<usize, usize>>::default().into(),
+        <EmptyDict<u64, u64>>::default().into(),
         comp_flags,
     )
     .unwrap();
     let codes_reader_le = <DynCodesDecoderFactory<LE, _, _>>::new(
         MemoryFactory::from_data(data_le),
-        <EmptyDict<usize, usize>>::default().into(),
+        <EmptyDict<u64, u64>>::default().into(),
         comp_flags,
     )
     .unwrap();
@@ -183,7 +183,7 @@ pub fn harness(data: FuzzCase) {
     // verify that elias-fano has the right values
     assert_eq!(ef.len(), offsets.len());
     for (i, offset) in offsets.iter().enumerate() {
-        assert_eq!(ef.get(i) as u64, *offset);
+        assert_eq!(ef.get(i), *offset);
     }
 
     // create code reader builders

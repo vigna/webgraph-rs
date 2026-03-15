@@ -245,12 +245,14 @@ pub struct EmptyDict<I, O> {
     _marker: core::marker::PhantomData<(I, O)>,
 }
 
-impl<I, O> Types for EmptyDict<I, O> {
-    type Input = u64;
-    type Output<'a> = u64;
+impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> Types for EmptyDict<I, O> {
+    type Input = I;
+    type Output<'a> = O;
 }
 
-impl<I, O> IndexedSeq for EmptyDict<I, O> {
+impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> IndexedSeq
+    for EmptyDict<I, O>
+{
     fn get(&self, _index: usize) -> Self::Output<'_> {
         panic!();
     }
@@ -264,7 +266,7 @@ impl<I, O> IndexedSeq for EmptyDict<I, O> {
     }
 }
 
-impl<I, O> Default for EmptyDict<I, O> {
+impl<I: for<'a> PartialEq<O> + PartialEq, O: PartialEq<I> + PartialEq> Default for EmptyDict<I, O> {
     fn default() -> Self {
         Self {
             _marker: PhantomData,

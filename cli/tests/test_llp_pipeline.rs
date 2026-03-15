@@ -10,7 +10,10 @@ use webgraph_cli::IntSliceFormat;
 use webgraph_cli::cli_main;
 use webgraph_cli::init_env_logger;
 
+#[cfg(target_pointer_width = "64")]
 const TEST_GRAPH: &str = "../data/cnr-2000";
+#[cfg(not(target_pointer_width = "64"))]
+const TEST_GRAPH: &str = "../data/cnr-2000_32/cnr-2000";
 const EXPECTED_BITS_PER_ARC: f64 = 2.897;
 
 #[test]

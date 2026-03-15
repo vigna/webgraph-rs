@@ -552,7 +552,7 @@ impl<E: Endianness, GLM: LoadMode, OLM: LoadMode> LoadConfig<E, Sequential, Dyna
     pub fn load(
         mut self,
     ) -> anyhow::Result<
-        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, Owned<EmptyDict<usize, usize>>>>,
+        BvGraphSeq<DynCodesDecoderFactory<E, GLM::Factory<E>, Owned<EmptyDict<u64, u64>>>>,
     >
     where
         <GLM as LoadMode>::Factory<E>: CodesReaderFactoryHelper<E>,
@@ -649,7 +649,7 @@ impl<
             ConstCodesDecoderFactory<
                 E,
                 GLM::Factory<E>,
-                Owned<EmptyDict<usize, usize>>,
+                Owned<EmptyDict<u64, u64>>,
                 OUTDEGREES,
                 REFERENCES,
                 BLOCKS,
