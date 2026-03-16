@@ -25,14 +25,24 @@ jobs:
           components: rustfmt, clippy
       - name: Check formatting
         run: cargo fmt -- --check
-      - name: Run clippy
-        run: cargo clippy #-- -Dclippy::all -Dclippy::cargo
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+      - name: Clippy (no default features)
+        run: cargo clippy --no-default-features -- -D warnings
+      - name: Clippy webgraph (all features except slow_tests)
+        run: cargo clippy -p webgraph --features fuzz,serde -- -D warnings
       - name: Test webgraph
         run: RUST_BACKTRACE=full cargo test -p webgraph --verbose
       - name: Test webgraph-algo
         run: RUST_BACKTRACE=full cargo test -p webgraph-algo --verbose
       - name: Test webgraph-cli
         run: RUST_BACKTRACE=full cargo test -p webgraph-cli --verbose
+      - name: Test webgraph (no default features)
+        run: RUST_BACKTRACE=full cargo test -p webgraph --no-default-features --verbose
+      - name: Test webgraph (features fuzz,serde)
+        run: RUST_BACKTRACE=full cargo test -p webgraph --features fuzz,serde --verbose
+      - name: Test webgraph-cli (no default features)
+        run: RUST_BACKTRACE=full cargo test -p webgraph-cli --no-default-features --verbose
 
   coverage:
     needs: build
@@ -54,3 +64,18 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: "lcov.info"
+
+  build-i686:
+    runs-on: ubuntu-latest
+    env:
+      RUST_MIN_STACK: 67108864 # 64MiB
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install 32-bit support
+        run: sudo apt-get update && sudo apt-get install -y gcc-multilib
+      - name: Add i686 target
+        run: rustup target add i686-unknown-linux-gnu
+      - name: Build (32-bit)
+        run: cargo build --target i686-unknown-linux-gnu
+      - name: Test (32-bit)
+        run: cargo test --target i686-unknown-linux-gnu
