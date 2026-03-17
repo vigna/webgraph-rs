@@ -21,7 +21,6 @@ use value_traits::{
     slices::SliceByValue,
 };
 
-
 /// A [`CsrGraph`] with Elias–Fano-encoded degree cumulative function and
 /// [`BitFieldVec`]-encoded successors.
 pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec<usize>>;

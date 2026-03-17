@@ -173,17 +173,12 @@ pub use comp::*;
 
 mod load;
 pub use load::*;
-use sux::traits::{IndexedSeq, PlatformWord};
+use sux::traits::IndexedSeq;
 
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
     u64,
-    sux::rank_sel::SelectAdaptConst<
-        sux::bits::BitVec<Box<[PlatformWord]>>,
-        Box<[PlatformWord]>,
-        12,
-        4,
-    >,
+    sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
     sux::bits::BitFieldVec<u64, Box<[u64]>>,
 >;
 
@@ -210,13 +205,8 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u
 pub type DCF = sux::dict::EliasFano<
     u64,
     sux::rank_sel::SelectZeroAdaptConst<
-        sux::rank_sel::SelectAdaptConst<
-            sux::bits::BitVec<Box<[PlatformWord]>>,
-            Box<[PlatformWord]>,
-            12,
-            4,
-        >,
-        Box<[PlatformWord]>,
+        sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
+        Box<[usize]>,
         12,
         4,
     >,

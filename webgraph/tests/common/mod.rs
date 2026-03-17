@@ -88,7 +88,7 @@ pub fn build_ef(basename: &Path) -> Result<()> {
 ///
 /// On 64-bit platforms this returns `../data/cnr-2000`; on 32-bit platforms
 /// it returns `../data/cnr-2000_32/cnr-2000`, whose `.ef` and `.dcf` files
-/// are built with 32-bit `PlatformWord`.
+/// are built with 32-bit `usize`.
 pub fn cnr_2000_basename() -> PathBuf {
     #[cfg(target_pointer_width = "64")]
     return PathBuf::from("../data/cnr-2000");
