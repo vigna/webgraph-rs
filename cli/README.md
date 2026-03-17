@@ -1,11 +1,11 @@
 # CLI for WebGraph
 
-[![downloads](https://img.shields.io/crates/d/webgraph-cli)](https://crates.io/crates/webgraph-cli)
-[![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph-cli)](https://crates.io/crates/webgraph-cli/reverse_dependencies)
-![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
+[![crates.io](https://img.shields.io/crates/v/webgraph-cli.svg)](https://crates.io/crates/webgraph-cli)
+[![docs.rs](https://docs.rs/webgraph-cli/badge.svg)](https://docs.rs/webgraph-cli)
+[![rustc](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vigna/webgraph-rs/actions)
 ![license](https://img.shields.io/crates/l/webgraph-cli)
-[![Latest version](https://img.shields.io/crates/v/webgraph-cli.svg)](https://crates.io/crates/webgraph-cli)
-[![Documentation](https://docs.rs/webgraph-cli/badge.svg)](https://docs.rs/webgraph-cli)
+[![downloads](https://img.shields.io/crates/d/webgraph-cli)](https://crates.io/crates/webgraph-cli)
 
 Command-line interface for the Rust implementation of the [WebGraph framework]
 for graph compression.

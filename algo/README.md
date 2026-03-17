@@ -1,11 +1,11 @@
 # Algorithms for WebGraph
 
-[![downloads](https://img.shields.io/crates/d/webgraph-algo)](https://crates.io/crates/webgraph-algo)
-[![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph-algo)](https://crates.io/crates/webgraph-algo/reverse_dependencies)
-![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
+[![crates.io](https://img.shields.io/crates/v/webgraph-algo.svg)](https://crates.io/crates/webgraph-algo)
+[![docs.rs](https://docs.rs/webgraph-algo/badge.svg)](https://docs.rs/webgraph-algo)
+[![rustc](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vigna/webgraph-rs/actions)
 ![license](https://img.shields.io/crates/l/webgraph-algo)
-[![Latest version](https://img.shields.io/crates/v/webgraph-algo.svg)](https://crates.io/crates/webgraph-algo)
-[![Documentation](https://docs.rs/webgraph-algo/badge.svg)](https://docs.rs/webgraph-algo)
+[![downloads](https://img.shields.io/crates/d/webgraph-algo)](https://crates.io/crates/webgraph-algo)
 
 Algorithms for the Rust implementation of the [WebGraph framework] for graph
 compression.

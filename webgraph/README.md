@@ -1,12 +1,12 @@
 # WebGraph
 
-[![downloads](https://img.shields.io/crates/d/webgraph)](https://crates.io/crates/webgraph)
-[![dependents](https://img.shields.io/librariesio/dependents/cargo/webgraph)](https://crates.io/crates/webgraph/reverse_dependencies)
-![GitHub CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)
+[![crates.io](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
+[![docs.rs](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
+[![rustc](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vigna/webgraph-rs/actions)
 ![license](https://img.shields.io/crates/l/webgraph)
-[![Latest version](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
-[![Documentation](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
-[![Coverage Status](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
+[![downloads](https://img.shields.io/crates/d/webgraph)](https://crates.io/crates/webgraph)
+[![coveralls](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
 
 A Rust implementation of the [WebGraph framework] for graph compression.
 
