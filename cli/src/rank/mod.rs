@@ -7,11 +7,14 @@ use crate::{build_info, pretty_print_elapsed};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+pub mod birank;
 pub mod pagerank;
 
 #[derive(Subcommand, Debug)]
 #[command(name = "rank")]
 pub enum SubCommands {
+    #[clap(name = "birank", visible_alias = "br")]
+    BiRank(birank::CliArgs),
     #[clap(name = "pagerank", visible_alias = "pr")]
     PageRank(pagerank::CliArgs),
 }
@@ -34,6 +37,9 @@ where
     let start = std::time::Instant::now();
     let cli = Cli::parse_from(args);
     match cli.command {
+        SubCommands::BiRank(args) => {
+            birank::main(args)?;
+        }
         SubCommands::PageRank(args) => {
             pagerank::main(args)?;
         }

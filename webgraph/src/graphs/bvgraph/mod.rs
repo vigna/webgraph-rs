@@ -173,13 +173,17 @@ pub use comp::*;
 
 mod load;
 pub use load::*;
-use sux::traits::IndexedSeq;
+use sux::{
+    bits::BitVec,
+    prelude::{SelectAdaptConst, SelectZeroAdaptConst},
+    traits::IndexedSeq,
+};
 
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
     u64,
-    sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
-    sux::bits::BitFieldVec<u64, Box<[u64]>>,
+    SelectAdaptConst<BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
+    sux::bits::BitFieldVec<Box<[u64]>>,
 >;
 
 /// Compound trait expressing the trait bounds for offsets.
@@ -204,13 +208,13 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u
 /// This is the type returned by [`crate::traits::labels::SequentialLabeling::build_dcf`].
 pub type DCF = sux::dict::EliasFano<
     u64,
-    sux::rank_sel::SelectZeroAdaptConst<
-        sux::rank_sel::SelectAdaptConst<sux::bits::BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
+    SelectZeroAdaptConst<
+        SelectAdaptConst<BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
         Box<[usize]>,
         12,
         4,
     >,
-    sux::bits::BitFieldVec<u64, Box<[u64]>>,
+    sux::bits::BitFieldVec<Box<[u64]>>,
 >;
 
 /// Checks that the offsets stored in the offsets file with given

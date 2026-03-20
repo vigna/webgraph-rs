@@ -536,6 +536,43 @@ pub trait RandomAccessLabeling: SequentialLabeling {
     fn outdegree(&self, node_id: usize) -> usize;
 }
 
+/// A [`SequentialLabeling`] providing, additionally, parallel
+/// iteration over intervals of nodes.
+///
+/// The purpose of this trait is to make available internal parallelism of a
+/// graph representation. While a [`SplitLabeling`] makes it possible to split a
+/// graph at will, but it does not provide guarantees on the efficiency of the
+/// process, a [`ParallelLabeling`] provides in constant time a sequence of
+/// lenders that can be used in parallel computations, and that are expected to
+/// be efficient when used in parallel.
+///
+/// [Random-access labelings] can usually implement this trait easily, and
+/// [split labelings] can just delegate to their splitting methods. However,
+/// there are cases, such as graphs resulting from [sorting](SortedGraph), in
+/// which the parallelism is inherent and not under control of the caller, albeit
+/// in general there is a way to control such parallelism at construction time.
+///
+/// Compressor should provide methods that accept a [`ParallelLabeling`] and use
+/// the lenders returned by [`par_iters`] to process the graph in parallel.
+///
+/// [`par_iters`]: ParallelLabeling::par_iters
+/// [`SplitLabeling`]: crate::traits::SplitLabeling
+/// [`Random-access labelings`]: RandomAccessLabeling
+/// [split labelings]: crate::traits::SplitLabeling
+pub trait ParallelLabeling: SequentialLabeling {
+    /// The type of [`Lender`] over the successors of a node
+    /// returned by [`par_iters`](Self::par_iters).
+    type ParLender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label> + Send + Sync
+    where
+        Self: 'node;
+
+    /// Returns in constant time a sequence of lenders that can be used in
+    /// parallel computations.
+    ///
+    ///
+    fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>);
+}
+
 /// Error types that can occur during checking the implementation of a random
 /// access labeling.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]

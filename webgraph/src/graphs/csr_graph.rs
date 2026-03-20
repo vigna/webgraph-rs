@@ -23,11 +23,11 @@ use value_traits::{
 
 /// A [`CsrGraph`] with Elias–Fano-encoded degree cumulative function and
 /// [`BitFieldVec`]-encoded successors.
-pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec<usize>>;
+pub type CompressedCsrGraph = CsrGraph<EF, BitFieldVec>;
 
 /// A [`CsrSortedGraph`] with Elias–Fano-encoded degree cumulative function and
 /// [`BitFieldVec`]-encoded successors.
-pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec<usize>>;
+pub type CompressedCsrSortedGraph = CsrSortedGraph<EF, BitFieldVec>;
 
 /// A compressed sparse-row graph.
 ///
@@ -226,7 +226,7 @@ impl CompressedCsrGraph {
         ))?;
         let mut efb = EliasFanoBuilder::new(n + 1, u + 1);
         efb.push(0);
-        let mut successors = BitFieldVec::<usize>::with_capacity(
+        let mut successors = BitFieldVec::with_capacity(
             if n == 0 { 0 } else { n.bit_len() as usize },
             u as usize,
         );

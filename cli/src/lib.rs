@@ -460,7 +460,7 @@ pub enum IntSlice {
     /// Memory-mapped ε-serde serialized slice.
     Epserde(MemCase<Box<[usize]>>),
     /// Memory-mapped ε-serde serialized [`BitFieldVec`].
-    BitFieldVec(MemCase<sux::bits::BitFieldVec<usize>>),
+    BitFieldVec(MemCase<sux::bits::BitFieldVec>),
 }
 
 impl SliceByValue for IntSlice {
@@ -491,7 +491,7 @@ impl SliceByValue for IntSlice {
 /// [`SliceByValue`] type to `$var` and evaluating `$body` for each variant.
 ///
 /// The bound types are `&Box<[usize]>` (Owned and Epserde),
-/// `&JavaPermutation` (Java, 64-bit only), and `&BitFieldVec<usize>`
+/// `&JavaPermutation` (Java, 64-bit only), and `&BitFieldVec`
 /// (BitFieldVec). All bound types are `Sized`.
 #[macro_export]
 macro_rules! dispatch_int_slice {
@@ -562,7 +562,7 @@ impl IntSliceFormat {
                 let bit_width = max.bit_len() as usize;
                 log::info!("Using {} bits per element", bit_width);
                 let mut bit_field_vec =
-                    <BitFieldVec<usize, _>>::with_capacity(bit_width, data.len());
+                    BitFieldVec::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
                 // SAFETY: the type is ε-serde serializable.
                 unsafe {
@@ -620,7 +620,7 @@ impl IntSliceFormat {
             IntSliceFormat::BitFieldVec => {
                 log::info!("Loading BitFieldVec format from {}", path_display);
                 let mem_case = unsafe {
-                    <BitFieldVec<usize>>::mmap(path, Flags::RANDOM_ACCESS)
+                    <BitFieldVec>::mmap(path, Flags::RANDOM_ACCESS)
                         .with_context(|| format!("Could not load slice from {}", path_display))?
                 };
                 Ok(IntSlice::BitFieldVec(mem_case))

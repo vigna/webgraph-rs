@@ -10,6 +10,10 @@
 
 - Upgraded to `card-est-array` 0.3.0.
 
+### New
+
+- New `BiRank` implementation.
+
 ### Fixed
 
 - Fixed problems with granularity interpretation in HyperBall.

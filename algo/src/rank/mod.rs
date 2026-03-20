@@ -6,5 +6,7 @@
 
 //! Ranking algorithms for graphs.
 
+pub mod birank;
 pub mod pagerank;
+pub use birank::BiRank;
 pub use pagerank::{Mode, PageRank};

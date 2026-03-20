@@ -64,13 +64,7 @@ impl JavaPermutation {
     }
 }
 
-impl BitWidth<usize> for JavaPermutation {
-    fn bit_width(&self) -> usize {
-        64
-    }
-}
-
-impl BitWidth<usize> for JavaPermutation<MmapHelper<u64, MmapMut>> {
+impl<M> BitWidth for JavaPermutation<M> {
     fn bit_width(&self) -> usize {
         64
     }
