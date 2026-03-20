@@ -76,7 +76,7 @@ fn test_transpose_split_bvgraph() -> Result<()> {
     let graph = BvGraph::with_basename(basename).load()?;
     let num_nodes = graph.num_nodes();
 
-    let split = transform::transpose_split(&graph, MemoryUsage::BatchSize(100_000), None)?;
+    let split = transform::transpose_split(&graph, MemoryUsage::from_perc(10.0), None)?;
 
     assert_eq!(*split.boundaries.first().unwrap(), 0);
     assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
