@@ -162,7 +162,7 @@ pub fn harness(data: FuzzCase) {
         assert_eq!(cumulative_offset_le as usize, iter_offset_le as usize);
 
         offsets.push(seq_iter_be.bit_pos().unwrap());
-        efb.push(seq_iter_be.bit_pos().unwrap() as u64);
+        efb.push(seq_iter_be.bit_pos().unwrap());
     }
 
     let mut seq_iter_be = seq_graph_be.offset_deg_iter();
