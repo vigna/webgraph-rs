@@ -45,7 +45,7 @@ jobs:
       - name: Test webgraph-cli
         run: RUST_BACKTRACE=full cargo test -p webgraph-cli --verbose
       - name: Test webgraph (no default features)
-        run: RUST_BACKTRACE=full cargo test -p webgraph --no-default-features --features le_bins,be_bins --verbose
+        run: RUST_BACKTRACE=full cargo test -p webgraph --no-default-features --verbose
       - name: Test webgraph (features fuzz,serde)
         run: RUST_BACKTRACE=full cargo test -p webgraph --features fuzz,serde --verbose
       - name: Test webgraph-cli (no default features)
