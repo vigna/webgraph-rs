@@ -14,10 +14,10 @@
 //!
 //! # Graph representation
 //!
-//! The bipartite graph *G* = (*U* ∪ *P*, *E*) is represented as a
-//! [`RandomAccessGraph`] in which vertices [0 . . `num_sources`) form
-//! the source set *U* and vertices [`num_sources` . . *n*) form the target set
-//! *P*, with all arcs directed from *U* to *P*. Both the graph and its
+//! The bipartite graph is represented as a [`RandomAccessGraph`] with *n* nodes
+//! and *s* sources (the parameter [`num_sources`](BiRank::new)) in which vertices [0 . . *s*)
+//! form the source set *U* and vertices [*s* . . *n*) form the target set *P*,
+//! with all arcs directed from *U* to *P*. Both the graph and its
 //! [transpose](BiRank::new) are required.
 //!
 //! # The formula
@@ -30,13 +30,17 @@
 //! The ranking scores are defined by an additive update rule with
 //! normalization:
 //!
-//! > *pⱼ* = ∑ᵢ *wᵢⱼ* · *uᵢ* ;  *uᵢ* = ∑ⱼ *wᵢⱼ* · *pⱼ* .
+//! > *pⱼ* = ∑ᵢ *wᵢⱼ* · *uᵢ*
+//! >
+//! > *uᵢ* = ∑ⱼ *wᵢⱼ* · *pⱼ*
 //!
 //! To ensure convergence and stability, BiRank adopts the _symmetric
-//! normalization_ scheme from Zhou _et al._, smoothing each edge weight by
-//! the degrees of _both_ its endpoints:
+//! normalization_ scheme, smoothing each edge weight by the degrees of _both_
+//! its endpoints:
 //!
-//! > *pⱼ* = ∑ᵢ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *uᵢ* ;  *uᵢ* = ∑ⱼ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *pⱼ* .
+//! > *pⱼ* = ∑ᵢ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *uᵢ*
+//! >
+//! > *uᵢ* = ∑ⱼ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *pⱼ*
 //!
 //! This can be expressed in matrix form as **p** = *S*ᵀ **u** and
 //! **u** = *S* **p**, where the symmetrically normalized matrix is
@@ -50,39 +54,20 @@
 //! called _preference vector_) directly into the update. The full iterative
 //! BiRank update is:
 //!
-//! > *pⱼ* ← α ∑ᵢ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *uᵢ*  +  (1 − α) *pⱼ*⁰ ;
+//! > *pⱼ* ← α ∑ᵢ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *uᵢ*  +  (1 − α) *pⱼ*⁰
 //! >
-//! > *uᵢ* ← β ∑ⱼ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *pⱼ*  +  (1 − β) *uᵢ*⁰ ;
+//! > *uᵢ* ← β ∑ⱼ (*wᵢⱼ* / √*dᵢ* √*dⱼ*) · *pⱼ*  +  (1 − β) *uᵢ*⁰
 //!
 //! or equivalently in matrix form:
 //!
-//! > **p** ← α *S*ᵀ **u**  +  (1 − α) **p**⁰ ;
+//! > **p** ← α *S*ᵀ **u**  +  (1 − α) **p**⁰
 //! >
-//! > **u** ← β *S* **p**  +  (1 − β) **u**⁰ ;
+//! > **u** ← β *S* **p**  +  (1 − β) **u**⁰
 //!
 //! where α, β ∈ [0 . . 1] are damping factors controlling the balance between
 //! graph structure and the query vectors **p**⁰, **u**⁰. When both are 1 the
 //! ranking is purely structural; when both are 0 the ranking is given entirely
 //! by the query vectors.
-//!
-//! ## Connection with other algorithms
-//!
-//! Several bipartite graph ranking algorithms share the same update form
-//! **p** = α *S*ᵀ **u** + (1 − α) **p**⁰, **u** = β *S* **p** + (1 − β) **u**⁰,
-//! but differ in how they construct *S* and *S*ᵀ:
-//!
-//! | Method    | *S*                             | *S*ᵀ                           |
-//! |-----------|---------------------------------|---------------------------------|
-//! | HITS      | *W*                             | *Wᵀ*                           |
-//! | Co‑HITS   | *W* *Dₚ*⁻¹                     | *Wᵀ* *Dᵤ*⁻¹                   |
-//! | BGER      | *Dᵤ*⁻¹ *W*                     | *Dₚ*⁻¹ *Wᵀ*                   |
-//! | BGRM      | *Dᵤ*⁻¹ *W* *Dₚ*⁻¹              | *Dₚ*⁻¹ *Wᵀ* *Dᵤ*⁻¹            |
-//! | **BiRank** | *Dᵤ*⁻½ *W* *Dₚ*⁻½              | *Dₚ*⁻½ *Wᵀ* *Dᵤ*⁻½            |
-//!
-//! BiRank's symmetric normalization makes *S*ᵀ*S* similar to a stochastic
-//! matrix, with eigenvalues in \[−αβ . . αβ\], guaranteeing convergence to a
-//! unique stationary point for α, β ∈ (0 . . 1). The convergence rate
-//! depends on the second largest eigenvalue of *S*ᵀ*S* in magnitude.
 //!
 //! # The algorithm
 //!
@@ -98,21 +83,6 @@
 //!
 //! Note that the target nodes are updated first (Phase 1), and then the
 //! source nodes are updated using the _new_ target scores (Phase 2).
-//!
-//! # Parallelism
-//!
-//! Unlike [Gauss–Seidel PageRank](super::pagerank), where reads and writes
-//! may overlap on the same array, BiRank's two-phase structure guarantees
-//! that the read and write sets are _completely disjoint_ within each phase:
-//!
-//! - **Phase 1** (target *P* nodes): reads from source indices
-//!   [0 . . `num_sources`), writes to target indices [`num_sources` . . *n*).
-//! - **Phase 2** (source *U* nodes): reads from target indices
-//!   [`num_sources` . . *n*), writes to source indices [0 . . `num_sources`).
-//!
-//! This means there are no data races at all—neither benign nor harmful—making
-//! the [`SyncCell`] usage sound by construction. Each thread grabs a chunk of
-//! nodes from an [`AtomicUsize`] cursor and processes them independently.
 //!
 //! # Stopping criteria
 //!
@@ -132,16 +102,48 @@
 //!
 //! Xiangnan He, Ming Gao, Min-Yen Kan, and Dingxian Wang. [BiRank: Towards
 //! Ranking on Bipartite
-//! Graphs](https://doi.org/10.1109/TKDE.2017.2750166). *IEEE
+//! Graphs](https://doi.org/10.1109/TKDE.2016.2611584). *IEEE
 //! Transactions on Knowledge and Data Engineering*, 29(1):57–71, 2017.
 //!
-//! [BiRank]: https://doi.org/10.1109/TKDE.2017.2750166
+//! [BiRank]: https://doi.org/10.1109/TKDE.2016.2611584
 //! [`Predicate`]: predicates::Predicate
-//! [`PredParams`]: preds::PredParams
+//! [`PredParams`]: PredParams
 //! [`SyncCell`]: sync_cell_slice::SyncCell
 //! [`AtomicUsize`]: std::sync::atomic::AtomicUsize
 
-pub use super::pagerank::preds;
+pub use super::preds;
+
+use preds::{HasIteration, HasL1NormDelta, HasLInfNormDelta};
+
+/// Carries the data passed to stopping predicates by [`BiRank`].
+///
+/// Implements [`HasIteration`], [`HasL1NormDelta`], and
+/// [`HasLInfNormDelta`].
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct PredParams {
+    pub iteration: usize,
+    pub l1_norm_delta: f64,
+    pub linf_norm_delta: f64,
+}
+
+impl HasIteration for PredParams {
+    fn iteration(&self) -> usize {
+        self.iteration
+    }
+}
+
+impl HasL1NormDelta for PredParams {
+    fn l1_norm_delta(&self) -> f64 {
+        self.l1_norm_delta
+    }
+}
+
+impl HasLInfNormDelta for PredParams {
+    fn linf_norm_delta(&self) -> f64 {
+        self.linf_norm_delta
+    }
+}
 
 use super::pagerank::UniformPreference;
 use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog, no_logging};
@@ -211,7 +213,8 @@ pub struct BiRank<
     preference: V,
     inv_sqrt_degrees: Option<Box<[f64]>>,
     granularity: Granularity,
-    norm_delta: f64,
+    l1_norm_delta: f64,
+    linf_norm_delta: f64,
 
     rank: Box<[f64]>,
     iteration: usize,
@@ -226,7 +229,8 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
             .field("alpha", &self.alpha)
             .field("beta", &self.beta)
             .field("granularity", &self.granularity)
-            .field("norm_delta", &self.norm_delta)
+            .field("l1_norm_delta", &self.l1_norm_delta)
+            .field("linf_norm_delta", &self.linf_norm_delta)
             .field("iteration", &self.iteration)
             .finish_non_exhaustive()
     }
@@ -267,7 +271,8 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync> BiRank<'a, G,
             preference: UniformPreference::new(n),
             inv_sqrt_degrees: None,
             granularity: Granularity::default(),
-            norm_delta: f64::INFINITY,
+            l1_norm_delta: f64::INFINITY,
+            linf_norm_delta: f64::INFINITY,
             rank: vec![0.0; n].into_boxed_slice(),
             iteration: 0,
         }
@@ -348,7 +353,8 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
             preference,
             inv_sqrt_degrees: self.inv_sqrt_degrees,
             granularity: self.granularity,
-            norm_delta: self.norm_delta,
+            l1_norm_delta: self.l1_norm_delta,
+            linf_norm_delta: self.linf_norm_delta,
             rank: self.rank,
             iteration: self.iteration,
         }
@@ -381,8 +387,14 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
 
     /// Returns the ℓ₁ norm of the rank-vector change after the last
     /// iteration, that is, ‖**x**⁽ᵗ⁾ − **x**⁽ᵗ⁻¹⁾‖₁.
-    pub const fn norm_delta(&self) -> f64 {
-        self.norm_delta
+    pub const fn l1_norm_delta(&self) -> f64 {
+        self.l1_norm_delta
+    }
+
+    /// Returns the ℓ_∞ norm of the rank-vector change after the last
+    /// iteration, that is, max_*i* |*xᵢ*⁽ᵗ⁾ − *xᵢ*⁽ᵗ⁻¹⁾|.
+    pub const fn linf_norm_delta(&self) -> f64 {
+        self.linf_norm_delta
     }
 }
 
@@ -390,7 +402,7 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
     BiRank<'_, G, H, V>
 {
     /// Runs the BiRank computation until the given predicate is satisfied.
-    pub fn run(&mut self, predicate: impl Predicate<preds::PredParams>) {
+    pub fn run(&mut self, predicate: impl Predicate<PredParams>) {
         self.run_with_logging(predicate, no_logging![], no_logging![]);
     }
 
@@ -402,7 +414,7 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
     /// node-level progress inside each iteration phase.
     pub fn run_with_logging(
         &mut self,
-        predicate: impl Predicate<preds::PredParams>,
+        predicate: impl Predicate<PredParams>,
         pl: &mut impl ProgressLog,
         cpl: &mut impl ConcurrentProgressLog,
     ) {
@@ -439,6 +451,12 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
             pl.start("Computing inverse square-root degrees...");
 
             for i in 0..num_u {
+                assert_eq!(
+                    self.transpose.outdegree(i),
+                    0,
+                    "Source node {i} has indegree {} (expected 0)",
+                    self.transpose.outdegree(i)
+                );
                 let d = self.graph.outdegree(i);
                 if d > 0 {
                     inv_sqrt_d[i] = 1.0 / (d as f64).sqrt();
@@ -446,6 +464,12 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                 pl.light_update();
             }
             for j in num_u..n {
+                assert_eq!(
+                    self.graph.outdegree(j),
+                    0,
+                    "Target node {j} has outdegree {} (expected 0)",
+                    self.graph.outdegree(j)
+                );
                 let d = self.transpose.outdegree(j);
                 if d > 0 {
                     inv_sqrt_d[j] = 1.0 / (d as f64).sqrt();
@@ -470,7 +494,8 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
         ));
 
         loop {
-            let norm_delta_accum = Mutex::new(0.0f64);
+            let l1_accum = Mutex::new(0.0f64);
+            let linf_accum = Mutex::new(0.0f64);
             let rank_sync = self.rank.as_sync_slice();
 
             // Phase 1: update target (P) nodes.
@@ -492,7 +517,8 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
 
                 rayon::broadcast(|_| {
                     let mut local_cpl = cpl.clone();
-                    let mut local_delta: KahanSum<f64> = KahanSum::new();
+                    let mut local_l1: KahanSum<f64> = KahanSum::new();
+                    let mut local_linf: f64 = 0.0;
 
                     loop {
                         let start = p_cursor.fetch_add(node_granularity, Ordering::Relaxed);
@@ -517,7 +543,9 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                                     * sigma.sum()
                                     + (1.0 - self.alpha) * v_j;
 
-                                local_delta += (new_rank - rank_sync[j].get()).abs();
+                                let abs_delta = (new_rank - rank_sync[j].get()).abs();
+                                local_l1 += abs_delta;
+                                local_linf = local_linf.max(abs_delta);
                                 rank_sync[j].set(new_rank);
                             }
                         }];
@@ -525,7 +553,9 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                         local_cpl.update_with_count(len);
                     }
 
-                    *norm_delta_accum.lock().unwrap() += local_delta.sum();
+                    *l1_accum.lock().unwrap() += local_l1.sum();
+                    let mut linf = linf_accum.lock().unwrap();
+                    *linf = linf.max(local_linf);
                 });
 
                 cpl.done();
@@ -550,7 +580,8 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
 
                 rayon::broadcast(|_| {
                     let mut local_cpl = cpl.clone();
-                    let mut local_delta: KahanSum<f64> = KahanSum::new();
+                    let mut local_l1: KahanSum<f64> = KahanSum::new();
+                    let mut local_linf: f64 = 0.0;
 
                     loop {
                         let start = u_cursor.fetch_add(node_granularity, Ordering::Relaxed);
@@ -575,7 +606,9 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                                     * sigma.sum()
                                     + (1.0 - self.beta) * v_i;
 
-                                local_delta += (new_rank - rank_sync[i].get()).abs();
+                                let abs_delta = (new_rank - rank_sync[i].get()).abs();
+                                local_l1 += abs_delta;
+                                local_linf = local_linf.max(abs_delta);
                                 rank_sync[i].set(new_rank);
                             }
                         }];
@@ -583,26 +616,31 @@ impl<G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByValue<V
                         local_cpl.update_with_count(len);
                     }
 
-                    *norm_delta_accum.lock().unwrap() += local_delta.sum();
+                    *l1_accum.lock().unwrap() += local_l1.sum();
+                    let mut linf = linf_accum.lock().unwrap();
+                    *linf = linf.max(local_linf);
                 });
 
                 cpl.done();
             }
 
-            self.norm_delta = *norm_delta_accum.lock().unwrap();
+            self.l1_norm_delta = *l1_accum.lock().unwrap();
+            self.linf_norm_delta = *linf_accum.lock().unwrap();
             self.iteration += 1;
 
             log::info!(
-                "Iteration {}: norm delta = {}",
+                "Iteration {}: L1 norm delta = {}, Linf norm delta = {}",
                 self.iteration,
-                self.norm_delta
+                self.l1_norm_delta,
+                self.linf_norm_delta
             );
 
             pl.update_and_display();
 
-            if predicate.eval(&preds::PredParams {
+            if predicate.eval(&PredParams {
                 iteration: self.iteration,
-                norm_delta: self.norm_delta,
+                l1_norm_delta: self.l1_norm_delta,
+                linf_norm_delta: self.linf_norm_delta,
             }) {
                 break;
             }

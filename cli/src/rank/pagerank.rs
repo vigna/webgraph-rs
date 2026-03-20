@@ -15,7 +15,8 @@ use value_traits::slices::SliceByValue;
 use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::BvGraph;
 use webgraph::traits::RandomAccessGraph;
-use webgraph_algo::rank::pagerank::preds::{L1Norm, MaxIter};
+use webgraph_algo::rank::pagerank::PredParams;
+use webgraph_algo::rank::preds::{L1Norm, MaxIter};
 use webgraph_algo::rank::{Mode, PageRank};
 
 /// The PageRank mode.​
@@ -115,7 +116,7 @@ pub fn main(args: CliArgs) -> Result<()> {
 
 fn run_and_store<G: RandomAccessGraph + Sync + Send, V: SliceByValue<Value = f64> + Sync + Send>(
     pr: &mut PageRank<G, V>,
-    predicate: impl predicates::Predicate<webgraph_algo::rank::pagerank::preds::PredParams> + Send,
+    predicate: impl predicates::Predicate<PredParams> + Send,
     pl: &mut (impl dsi_progress_logger::ProgressLog + Send),
     cpl: &mut impl dsi_progress_logger::ConcurrentProgressLog,
     thread_pool: &rayon::ThreadPool,
@@ -159,7 +160,8 @@ pub fn pagerank<E: Endianness>(args: CliArgs) -> Result<()> {
         .transpose()?;
 
     // Build stopping predicate
-    let mut predicate = L1Norm::try_from(args.threshold)?.boxed();
+    let mut predicate: predicates::BoxPredicate<PredParams> =
+        L1Norm::try_from(args.threshold)?.boxed();
     if let Some(max_iter) = args.max_iter {
         predicate = predicate.or(MaxIter::from(max_iter)).boxed();
     }

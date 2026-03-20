@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["algo", "cli", "webgraph"]
 # Exclude the fuzzing workspace from the main workspace, since it is not meant 
 # to be built by default, nor run with `cargo t --all-targets`.

@@ -16,7 +16,8 @@ use webgraph::graphs::bvgraph::get_endianness;
 use webgraph::prelude::BvGraph;
 use webgraph::traits::RandomAccessGraph;
 use webgraph_algo::rank::BiRank;
-use webgraph_algo::rank::birank::preds::{L1Norm, MaxIter};
+use webgraph_algo::rank::birank::PredParams;
+use webgraph_algo::rank::preds::{L1Norm, LInfNorm, MaxIter};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -50,9 +51,13 @@ pub struct CliArgs {
     /// Maximum number of iterations.​
     pub max_iter: Option<usize>,
 
-    #[arg(short, long, default_value_t = 1e-6)]
+    #[arg(short, long)]
     /// The ℓ₁ error threshold to stop.​
-    pub threshold: f64,
+    pub threshold: Option<f64>,
+
+    #[arg(long)]
+    /// The ℓ_∞ error threshold to stop.​
+    pub linf_threshold: Option<f64>,
 
     #[arg(short, long)]
     /// Path to a preference (query) vector.​
@@ -116,7 +121,7 @@ fn run_and_store<
     V: SliceByValue<Value = f64> + Sync + Send,
 >(
     br: &mut BiRank<G, H, V>,
-    predicate: impl predicates::Predicate<webgraph_algo::rank::birank::preds::PredParams> + Send,
+    predicate: impl predicates::Predicate<PredParams> + Send,
     pl: &mut (impl dsi_progress_logger::ProgressLog + Send),
     cpl: &mut impl dsi_progress_logger::ConcurrentProgressLog,
     thread_pool: &rayon::ThreadPool,
@@ -125,9 +130,10 @@ fn run_and_store<
     thread_pool.install(|| br.run_with_logging(predicate, pl, cpl));
 
     log::info!(
-        "Completed after {} iteration(s), norm delta = {}",
+        "Completed after {} iteration(s), L1 norm delta = {}, Linf norm delta = {}",
         br.iterations(),
-        br.norm_delta()
+        br.l1_norm_delta(),
+        br.linf_norm_delta()
     );
 
     args.fmt.store(&args.output, br.rank(), args.precision)?;
@@ -160,7 +166,19 @@ pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
         .transpose()?;
 
     // Build stopping predicate
-    let mut predicate = L1Norm::try_from(args.threshold)?.boxed();
+    ensure!(
+        args.threshold.is_some() || args.linf_threshold.is_some() || args.max_iter.is_some(),
+        "At least one stopping criterion must be specified \
+         (--threshold, --linf-threshold, or --max-iter)"
+    );
+    let mut predicate: predicates::BoxPredicate<PredParams> =
+        predicates::constant::never().boxed();
+    if let Some(threshold) = args.threshold {
+        predicate = predicate.or(L1Norm::try_from(threshold)?).boxed();
+    }
+    if let Some(linf_threshold) = args.linf_threshold {
+        predicate = predicate.or(LInfNorm::try_from(linf_threshold)?).boxed();
+    }
     if let Some(max_iter) = args.max_iter {
         predicate = predicate.or(MaxIter::from(max_iter)).boxed();
     }

@@ -134,132 +134,32 @@
 //! [`SyncCell`]: sync_cell_slice::SyncCell
 //! [`AtomicUsize`]: std::sync::atomic::AtomicUsize
 
-pub mod preds {
-    //! Predicates implementing stopping conditions.
-    //!
-    //! The implementation of [PageRank](super::PageRank) requires a
-    //! [predicate](Predicate) to stop the algorithm. This module provides a few
-    //! such predicates: they evaluate to true if the computation should be
-    //! stopped.
-    //!
-    //! You can combine the predicates using the `and` and `or` methods provided
-    //! by the [`Predicate`] trait.
-    //!
-    //! # Examples
-    //! ```
-    //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //! use predicates::prelude::*;
-    //! use webgraph_algo::rank::pagerank::preds::{L1Norm, MaxIter};
-    //!
-    //! let mut predicate = L1Norm::try_from(1E-6)?.boxed();
-    //! predicate = predicate.or(MaxIter::from(100)).boxed();
-    //! #     Ok(())
-    //! # }
-    //! ```
+pub use super::preds;
 
-    use anyhow::ensure;
-    use predicates::{Predicate, reflection::PredicateReflection};
-    use std::fmt::Display;
+use preds::{HasIteration, HasL1NormDelta};
 
-    #[doc(hidden)]
-    /// This structure is passed to stopping predicates to provide the
-    /// information that is needed to evaluate them.
-    #[derive(Debug)]
-    pub struct PredParams {
-        pub iteration: usize,
-        pub norm_delta: f64,
+/// Carries the data passed to stopping predicates by [`PageRank`].
+///
+/// Implements [`HasIteration`] and [`HasL1NormDelta`]. The ℓ₁ norm delta
+/// is an upper bound on the ℓ₁ error, computed as
+/// α / (1 − α) · ‖**x**⁽ᵗ⁾ − **x**⁽ᵗ⁻¹⁾‖₁ (see the [module-level
+/// documentation](self)).
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct PredParams {
+    pub iteration: usize,
+    pub l1_norm_delta: f64,
+}
+
+impl HasIteration for PredParams {
+    fn iteration(&self) -> usize {
+        self.iteration
     }
+}
 
-    /// Stops after at most the provided number of iterations.
-    #[derive(Debug, Clone)]
-    pub struct MaxIter {
-        max_iter: usize,
-    }
-
-    impl MaxIter {
-        pub const DEFAULT_MAX_ITER: usize = usize::MAX;
-    }
-
-    impl From<usize> for MaxIter {
-        fn from(max_iter: usize) -> Self {
-            MaxIter { max_iter }
-        }
-    }
-
-    impl Default for MaxIter {
-        fn default() -> Self {
-            Self::from(Self::DEFAULT_MAX_ITER)
-        }
-    }
-
-    impl Display for MaxIter {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_fmt(format_args!("(max iter: {})", self.max_iter))
-        }
-    }
-
-    impl PredicateReflection for MaxIter {}
-
-    impl Predicate<PredParams> for MaxIter {
-        fn eval(&self, pred_params: &PredParams) -> bool {
-            pred_params.iteration >= self.max_iter
-        }
-    }
-
-    /// Stops when the norm of the difference between successive approximations
-    /// falls below a given threshold.
-    ///
-    /// The threshold represents an upper bound on the 𝓁₁ error, approximated
-    /// by α / (1 − α) · ‖*x*(*t*) − *x*(*t* − 1)‖₁ where *x*(*t*) is
-    /// the rank vector at iteration *t*. This idea arose in discussions with
-    /// David Gleich.
-    #[derive(Debug, Clone)]
-    pub struct L1Norm {
-        threshold: f64,
-    }
-
-    impl L1Norm {
-        pub const DEFAULT_THRESHOLD: f64 = 1E-6;
-    }
-
-    impl TryFrom<Option<f64>> for L1Norm {
-        type Error = anyhow::Error;
-        fn try_from(threshold: Option<f64>) -> anyhow::Result<Self> {
-            Ok(match threshold {
-                Some(threshold) => {
-                    ensure!(!threshold.is_nan());
-                    ensure!(threshold > 0.0, "The threshold must be positive");
-                    L1Norm { threshold }
-                }
-                None => Self::default(),
-            })
-        }
-    }
-
-    impl TryFrom<f64> for L1Norm {
-        type Error = anyhow::Error;
-        fn try_from(threshold: f64) -> anyhow::Result<Self> {
-            Some(threshold).try_into()
-        }
-    }
-
-    impl Default for L1Norm {
-        fn default() -> Self {
-            Self::try_from(Self::DEFAULT_THRESHOLD).unwrap()
-        }
-    }
-
-    impl Display for L1Norm {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_fmt(format_args!("(norm: {})", self.threshold))
-        }
-    }
-
-    impl PredicateReflection for L1Norm {}
-    impl Predicate<PredParams> for L1Norm {
-        fn eval(&self, pred_params: &PredParams) -> bool {
-            pred_params.norm_delta <= self.threshold
-        }
+impl HasL1NormDelta for PredParams {
+    fn l1_norm_delta(&self) -> f64 {
+        self.l1_norm_delta
     }
 }
 
@@ -568,7 +468,7 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
 
 impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageRank<'a, G, V> {
     /// Runs the PageRank computation until the given predicate is satisfied.
-    pub fn run(&mut self, predicate: impl Predicate<preds::PredParams>) {
+    pub fn run(&mut self, predicate: impl Predicate<PredParams>) {
         self.run_with_logging(predicate, no_logging![], no_logging![]);
     }
 
@@ -586,7 +486,7 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
     /// and not the first one will lead to confusing logs.
     pub fn run_with_logging(
         &mut self,
-        predicate: impl Predicate<preds::PredParams>,
+        predicate: impl Predicate<PredParams>,
         pl: &mut impl ProgressLog,
         cpl: &mut impl ConcurrentProgressLog,
     ) {
@@ -791,9 +691,9 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
 
             pl.update_and_display();
 
-            if predicate.eval(&preds::PredParams {
+            if predicate.eval(&PredParams {
                 iteration: self.iteration,
-                norm_delta: self.norm_delta,
+                l1_norm_delta: self.norm_delta,
             }) {
                 break;
             }
