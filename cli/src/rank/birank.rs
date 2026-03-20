@@ -52,11 +52,11 @@ pub struct CliArgs {
     pub max_iter: Option<usize>,
 
     #[arg(short, long)]
-    /// The ℓ₁ error threshold to stop.​
-    pub threshold: Option<f64>,
+    /// The ℓ₁ norm threshold to stop.​
+    pub l1_threshold: Option<f64>,
 
     #[arg(long)]
-    /// The ℓ_∞ error threshold to stop.​
+    /// The ℓ_∞ norm threshold to stop.​
     pub linf_threshold: Option<f64>,
 
     #[arg(short, long)]
@@ -167,12 +167,12 @@ pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
 
     // Build stopping predicate
     ensure!(
-        args.threshold.is_some() || args.linf_threshold.is_some() || args.max_iter.is_some(),
+        args.l1_threshold.is_some() || args.linf_threshold.is_some() || args.max_iter.is_some(),
         "At least one stopping criterion must be specified \
          (--threshold, --linf-threshold, or --max-iter)"
     );
     let mut predicate: predicates::BoxPredicate<PredParams> = predicates::constant::never().boxed();
-    if let Some(threshold) = args.threshold {
+    if let Some(threshold) = args.l1_threshold {
         predicate = predicate.or(L1Norm::try_from(threshold)?).boxed();
     }
     if let Some(linf_threshold) = args.linf_threshold {

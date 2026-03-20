@@ -136,11 +136,11 @@
 
 pub use super::preds;
 
-use preds::{HasIteration, HasL1NormDelta};
+use preds::{HasIteration, HasL1Norm};
 
 /// Carries the data passed to stopping predicates by [`PageRank`].
 ///
-/// Implements [`HasIteration`] and [`HasL1NormDelta`]. The ℓ₁ norm delta
+/// Implements [`HasIteration`] and [`HasL1Norm`]. The ℓ₁ norm delta
 /// is an upper bound on the ℓ₁ error, computed as
 /// α / (1 − α) · ‖**x**⁽ᵗ⁾ − **x**⁽ᵗ⁻¹⁾‖₁ (see the [module-level
 /// documentation](self)).
@@ -157,8 +157,8 @@ impl HasIteration for PredParams {
     }
 }
 
-impl HasL1NormDelta for PredParams {
-    fn l1_norm_delta(&self) -> f64 {
+impl HasL1Norm for PredParams {
+    fn l1_norm(&self) -> f64 {
         self.l1_norm_delta
     }
 }

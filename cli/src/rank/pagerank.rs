@@ -64,7 +64,7 @@ pub struct CliArgs {
     pub max_iter: Option<usize>,
 
     #[arg(short, long, default_value_t = 1e-6)]
-    /// The ℓ₁ error threshold to stop.​
+    /// The ℓ₁ norm threshold to stop.​
     pub threshold: f64,
 
     #[arg(short, long)]

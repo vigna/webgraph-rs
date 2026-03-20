@@ -12,7 +12,7 @@ pub mod preds {
     //!
     //! Each predicate is generic over any type that implements the
     //! corresponding extraction trait ([`HasIteration`] for [`MaxIter`],
-    //! [`HasL1NormDelta`] for [`L1Norm`]). The convenience struct
+    //! [`HasL1Norm`] for [`L1Norm`]). The convenience struct
     //! [`PredParams`] implements both traits and is used by the built-in
     //! algorithms.
     //!
@@ -23,7 +23,7 @@ pub mod preds {
     //! Each algorithm defines its own `PredParams` type implementing only the
     //! traits it supports. For example, [`BiRank`](super::BiRank) computes
     //! both ℓ₁ and ℓ_∞ norms, so its [`PredParams`](super::birank::PredParams)
-    //! implements [`HasL1NormDelta`] and [`HasLInfNormDelta`], whereas
+    //! implements [`HasL1Norm`] and [`HasLInfNorm`], whereas
     //! [`PageRank`](super::PageRank) only provides an ℓ₁ bound. Attempting
     //! to use [`LInfNorm`] with PageRank is a compile-time error.
     //!
@@ -55,18 +55,26 @@ pub mod preds {
         fn iteration(&self) -> usize;
     }
 
-    /// Provides the ℓ₁ norm delta to a stopping predicate.
-    pub trait HasL1NormDelta {
+    /// Provides the ℓ₁-norm to a stopping predicate.
+    ///
+    /// The norm might be an estimate of the ℓ₁∞ norm of difference with the target
+    /// value, or the ℓ₁∞ norm of the difference between successive approximations,
+    /// depending on the algorithm.
+    pub trait HasL1Norm {
         /// Returns the ℓ₁ norm of the rank-vector change after the last
         /// iteration.
-        fn l1_norm_delta(&self) -> f64;
+        fn l1_norm(&self) -> f64;
     }
 
-    /// Provides the ℓ_∞ norm delta to a stopping predicate.
-    pub trait HasLInfNormDelta {
+    /// Provides the ℓ_∞-norm to a stopping predicate.
+    ///
+    /// The norm might be an estimate of the ℓ_∞ norm of difference with the target
+    /// value, or the ℓ_∞ norm of the difference between successive approximations,
+    /// depending on the algorithm.
+    pub trait HasLInfNorm {
         /// Returns the ℓ_∞ norm of the rank-vector change after the last
         /// iteration.
-        fn linf_norm_delta(&self) -> f64;
+        fn linf_norm(&self) -> f64;
     }
 
     /// Stops after at most the provided number of iterations.
@@ -151,9 +159,9 @@ pub mod preds {
 
     impl PredicateReflection for L1Norm {}
 
-    impl<T: HasL1NormDelta> Predicate<T> for L1Norm {
+    impl<T: HasL1Norm> Predicate<T> for L1Norm {
         fn eval(&self, params: &T) -> bool {
-            params.l1_norm_delta() <= self.threshold
+            params.l1_norm() <= self.threshold
         }
     }
 
@@ -203,9 +211,9 @@ pub mod preds {
 
     impl PredicateReflection for LInfNorm {}
 
-    impl<T: HasLInfNormDelta> Predicate<T> for LInfNorm {
+    impl<T: HasLInfNorm> Predicate<T> for LInfNorm {
         fn eval(&self, params: &T) -> bool {
-            params.linf_norm_delta() <= self.threshold
+            params.linf_norm() <= self.threshold
         }
     }
 }

@@ -113,12 +113,12 @@
 
 pub use super::preds;
 
-use preds::{HasIteration, HasL1NormDelta, HasLInfNormDelta};
+use preds::{HasIteration, HasL1Norm, HasLInfNorm};
 
 /// Carries the data passed to stopping predicates by [`BiRank`].
 ///
-/// Implements [`HasIteration`], [`HasL1NormDelta`], and
-/// [`HasLInfNormDelta`].
+/// Implements [`HasIteration`], [`HasL1Norm`], and
+/// [`HasLInfNorm`].
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct PredParams {
@@ -133,14 +133,14 @@ impl HasIteration for PredParams {
     }
 }
 
-impl HasL1NormDelta for PredParams {
-    fn l1_norm_delta(&self) -> f64 {
+impl HasL1Norm for PredParams {
+    fn l1_norm(&self) -> f64 {
         self.l1_norm_delta
     }
 }
 
-impl HasLInfNormDelta for PredParams {
-    fn linf_norm_delta(&self) -> f64 {
+impl HasLInfNorm for PredParams {
+    fn linf_norm(&self) -> f64 {
         self.linf_norm_delta
     }
 }
