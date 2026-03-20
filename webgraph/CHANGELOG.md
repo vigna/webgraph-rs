@@ -18,6 +18,10 @@
 
 ### Changed
 
+- Upgraded to `sux` 0.14.0. This is a major release in which the structure
+  of types has changed significantly, so the `EF` abd `DCF` types are no
+  longer compatible (in particular, their serializations).
+
 - Upgraded to `dsi-bitstream` 0.9.0.
 
 - Reallocation strategies in `BvComp` and `BvCompZ` do not shrink below capacity 1024.
