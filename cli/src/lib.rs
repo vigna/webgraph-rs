@@ -561,8 +561,7 @@ impl IntSliceFormat {
                 });
                 let bit_width = max.bit_len() as usize;
                 log::info!("Using {} bits per element", bit_width);
-                let mut bit_field_vec =
-                    BitFieldVec::with_capacity(bit_width, data.len());
+                let mut bit_field_vec = BitFieldVec::with_capacity(bit_width, data.len());
                 bit_field_vec.extend(data.iter().copied());
                 // SAFETY: the type is ε-serde serializable.
                 unsafe {

@@ -171,8 +171,7 @@ pub fn birank<E: Endianness>(args: CliArgs) -> Result<()> {
         "At least one stopping criterion must be specified \
          (--threshold, --linf-threshold, or --max-iter)"
     );
-    let mut predicate: predicates::BoxPredicate<PredParams> =
-        predicates::constant::never().boxed();
+    let mut predicate: predicates::BoxPredicate<PredParams> = predicates::constant::never().boxed();
     if let Some(threshold) = args.threshold {
         predicate = predicate.or(L1Norm::try_from(threshold)?).boxed();
     }
