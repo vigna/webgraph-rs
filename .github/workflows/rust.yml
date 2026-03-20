@@ -11,17 +11,24 @@ env:
   RUST_MIN_STACK: 67108864 # 64MiB
 
 jobs:
-  build:
+  msrv:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [stable, 1.85]
     steps:
       - uses: actions/checkout@v6
-      - name: Install Rust ${{ matrix.rust }}
+      - name: Install Rust 1.85
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: '1.85'
+      - name: Build
+        run: cargo build
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
           components: rustfmt, clippy
       - name: Check formatting
         run: cargo fmt -- --check
