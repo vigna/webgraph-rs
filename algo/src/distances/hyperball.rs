@@ -122,7 +122,9 @@
 //! [HyperLogLog counters]: <https://docs.rs/card-est-array/latest/card_est_array/impls/struct.HyperLogLog.html>
 
 use anyhow::{Context, Result, bail, ensure};
-use card_est_array::impls::{HyperLogLog, HyperLogLogBuilder, SliceEstimatorArray};
+use card_est_array::impls::{
+    HyperLogLog, HyperLogLog8, HyperLogLog8Builder, HyperLogLogBuilder, SliceEstimatorArray,
+};
 use card_est_array::traits::{
     AsSyncArray, EstimationLogic, EstimatorArray, EstimatorArrayMut, EstimatorMut,
     MergeEstimationLogic, SyncEstimatorArray,
@@ -302,6 +304,74 @@ impl<
         let logic = HyperLogLogBuilder::new(num_elements)
             .log2_num_regs(log2m)
             .build()?;
+
+        let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
+        let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
+
+        Ok(Self {
+            graph,
+            transpose: transposed,
+            cumul_outdegree: cumul_outdeg,
+            do_sum_of_dists: false,
+            do_sum_of_inv_dists: false,
+            discount_functions: Vec::new(),
+            granularity: Self::DEFAULT_GRANULARITY,
+            weights,
+            array_0,
+            array_1,
+            _marker: std::marker::PhantomData,
+        })
+    }
+}
+
+impl<
+    'a,
+    G1: RandomAccessGraph + Sync,
+    G2: RandomAccessGraph + Sync,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64>,
+>
+    HyperBallBuilder<
+        'a,
+        G1,
+        G2,
+        D,
+        HyperLogLog8<usize, BuildHasherDefault<DefaultHasher>>,
+        SliceEstimatorArray<HyperLogLog8<usize, BuildHasherDefault<DefaultHasher>>, u8>,
+    >
+{
+    /// Creates a builder for [`HyperBall`] using [`HyperLogLog8`] counters
+    /// (byte-sized registers with SIMD-accelerated merges).
+    ///
+    /// This is an alternative to
+    /// [`with_hyper_log_log`](HyperBallBuilder::with_hyper_log_log) that
+    /// trades ~33% extra space for significantly faster merge operations.
+    ///
+    /// # Arguments
+    /// * `graph`: the graph to analyze.
+    /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
+    ///   systolic iterations will be performed by the resulting [`HyperBall`].
+    /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
+    /// * `log2m`: the base-2 logarithm of the number *m* of registers per
+    ///   HyperLogLog counter.
+    /// * `weights`: the weights to use. If [`None`] every node is assumed to be
+    ///   of weight equal to 1.
+    pub fn with_hyper_log_log8(
+        graph: &'a G1,
+        transposed: Option<&'a G2>,
+        cumul_outdeg: &'a D,
+        log2m: u32,
+        weights: Option<&'a [usize]>,
+    ) -> Result<Self> {
+        if let Some(w) = weights {
+            ensure!(
+                w.len() == graph.num_nodes(),
+                "weights should have length equal to the graph's number of nodes"
+            );
+        }
+
+        let logic = HyperLogLog8Builder::new()
+            .log2_num_regs(log2m)
+            .build::<usize>();
 
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());

@@ -85,6 +85,11 @@ pub struct CliArgs {
     /// cardinality estimators.​
     pub log2m: u32,
 
+    #[clap(short = '8', long)]
+    /// Use HyperLogLog8 (byte-sized registers with SIMD-accelerated merges);
+    /// trades ~33% extra space for significantly faster merge operations.​
+    pub hll8: bool,
+
     #[clap(long, default_value_t = usize::MAX)]
     /// Maximum number of iterations to run.​
     pub upper_bound: usize,
@@ -157,47 +162,70 @@ pub fn hyperball<E: Endianness>(args: CliArgs) -> Result<()> {
         transposed_ref = Some(&graph);
     }
 
-    let mut hb = HyperBallBuilder::with_hyper_log_log(
-        &graph,
-        transposed_ref,
-        deg_cumul.uncase(),
-        args.log2m,
-        None,
-    )?
-    .granularity(args.granularity.into_granularity())
-    .sum_of_distances(args.centralities.should_compute_sum_of_distances())
-    .sum_of_inverse_distances(args.centralities.should_compute_sum_of_inverse_distances())
-    .build(&mut pl);
+    /// Runs HyperBall and stores results. We use a macro because different
+    /// estimation logics produce different `HyperBall` types.
+    macro_rules! run_and_store {
+        ($hb:expr) => {{
+            let mut hb = $hb;
+            log::info!("Starting HyperBall...");
+            let rng = rand::rngs::SmallRng::seed_from_u64(args.seed);
+            thread_pool.install(|| hb.run(args.upper_bound, args.threshold, rng, &mut pl))?;
 
-    log::info!("Starting Hyperball...");
-    let rng = rand::rngs::SmallRng::seed_from_u64(args.seed);
-    thread_pool.install(|| hb.run(args.upper_bound, args.threshold, rng, &mut pl))?;
+            log::info!("Storing the results...");
 
-    log::info!("Storing the results...");
-
-    /// here we use a macro to avoid duplicating the code, it can't be a function
-    /// because different centralities have different return types
-    macro_rules! store_centrality {
-        ($flag:ident, $method:ident, $description:expr) => {{
-            if let Some(path) = args.centralities.$flag {
-                log::info!("Saving {} to {}", $description, path.display());
-                let value = hb.$method()?;
-                args.centralities
-                    .fmt
-                    .store(path, &value, args.centralities.precision)?;
+            macro_rules! store_centrality {
+                ($flag:ident, $method:ident, $description:expr) => {{
+                    if let Some(path) = args.centralities.$flag {
+                        log::info!("Saving {} to {}", $description, path.display());
+                        let value = hb.$method()?;
+                        args.centralities
+                            .fmt
+                            .store(path, &value, args.centralities.precision)?;
+                    }
+                }};
             }
+
+            store_centrality!(sum_of_distances, sum_of_distances, "sum of distances");
+            store_centrality!(harmonic, harmonic_centralities, "harmonic centralities");
+            store_centrality!(closeness, closeness_centrality, "closeness centralities");
+            store_centrality!(reachable_nodes, reachable_nodes, "reachable nodes");
+            store_centrality!(
+                neighborhood_function,
+                neighborhood_function,
+                "neighborhood function"
+            );
         }};
     }
 
-    store_centrality!(sum_of_distances, sum_of_distances, "sum of distances");
-    store_centrality!(harmonic, harmonic_centralities, "harmonic centralities");
-    store_centrality!(closeness, closeness_centrality, "closeness centralities");
-    store_centrality!(reachable_nodes, reachable_nodes, "reachable nodes");
-    store_centrality!(
-        neighborhood_function,
-        neighborhood_function,
-        "neighborhood function"
-    );
+    if args.hll8 {
+        log::info!("Using HyperLogLog8 (byte-sized registers)");
+        let hb = HyperBallBuilder::with_hyper_log_log8(
+            &graph,
+            transposed_ref,
+            deg_cumul.uncase(),
+            args.log2m,
+            None,
+        )?
+        .granularity(args.granularity.into_granularity())
+        .sum_of_distances(args.centralities.should_compute_sum_of_distances())
+        .sum_of_inverse_distances(args.centralities.should_compute_sum_of_inverse_distances())
+        .build(&mut pl);
+        run_and_store!(hb);
+    } else {
+        log::info!("Using HyperLogLog (packed registers)");
+        let hb = HyperBallBuilder::with_hyper_log_log(
+            &graph,
+            transposed_ref,
+            deg_cumul.uncase(),
+            args.log2m,
+            None,
+        )?
+        .granularity(args.granularity.into_granularity())
+        .sum_of_distances(args.centralities.should_compute_sum_of_distances())
+        .sum_of_inverse_distances(args.centralities.should_compute_sum_of_inverse_distances())
+        .build(&mut pl);
+        run_and_store!(hb);
+    }
 
     Ok(())
 }
