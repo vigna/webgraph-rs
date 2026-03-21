@@ -84,7 +84,7 @@ where
         if label_offsets_path.exists() {
             let file_len = file_len_bits(&basename.with_extension(LABELS_EXTENSION))?;
             pl.expected_updates(Some(num_nodes));
-            let mut efb = EliasFanoBuilder::new(num_nodes + 1, file_len);
+            let mut efb = EliasFanoBuilder::<u64>::new(num_nodes + 1, file_len);
             info!("The label offsets file exists, reading it to build Elias–Fano");
             let of = <MmapHelper<u32>>::mmap(label_offsets_path, MmapFlags::SEQUENTIAL)?;
             build_elias_fano_from_offsets(num_nodes, of.new_reader(), &mut pl, &mut efb)?;
@@ -142,7 +142,7 @@ where
 pub fn build_elias_fano_from_graph(
     args: &CliArgs,
     pl: &mut impl ProgressLog,
-    efb: &mut EliasFanoBuilder,
+    efb: &mut EliasFanoBuilder<u64>,
 ) -> Result<()> {
     info!("The offsets file does not exist, reading the graph to build Elias–Fano");
     match get_endianness(&args.basename)?.as_str() {
@@ -158,7 +158,7 @@ pub fn build_elias_fano_from_offsets<E: Endianness>(
     num_nodes: usize,
     mut reader: impl GammaRead<E>,
     pl: &mut impl ProgressLog,
-    efb: &mut EliasFanoBuilder,
+    efb: &mut EliasFanoBuilder<u64>,
 ) -> Result<()> {
     info!("Building Elias–Fano from offsets...");
 
@@ -180,7 +180,7 @@ pub fn build_elias_fano_from_offsets<E: Endianness>(
 pub fn build_elias_fano_from_graph_with_endianness<E: Endianness>(
     args: &CliArgs,
     pl: &mut impl ProgressLog,
-    efb: &mut EliasFanoBuilder,
+    efb: &mut EliasFanoBuilder<u64>,
 ) -> Result<()>
 where
     MmapHelper<u32>: CodesReaderFactoryHelper<E>,
@@ -208,7 +208,7 @@ where
 
 pub fn serialize_elias_fano(
     args: &CliArgs,
-    efb: EliasFanoBuilder,
+    efb: EliasFanoBuilder<u64>,
     pl: &mut impl ProgressLog,
 ) -> Result<()> {
     let ef = efb.build();

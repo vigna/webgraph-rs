@@ -286,7 +286,7 @@ impl<
         graph: &'a G1,
         transposed: Option<&'a G2>,
         cumul_outdeg: &'a D,
-        log2m: usize,
+        log2m: u32,
         weights: Option<&'a [usize]>,
     ) -> Result<Self> {
         let num_elements = if let Some(w) = weights {
@@ -300,8 +300,8 @@ impl<
         };
 
         let logic = HyperLogLogBuilder::new(num_elements)
-            .log_2_num_reg(log2m)
-            .build();
+            .log2_num_regs(log2m)
+            .build()?;
 
         let array_0 = SliceEstimatorArray::new(logic.clone(), graph.num_nodes());
         let array_1 = SliceEstimatorArray::new(logic, graph.num_nodes());
@@ -1475,7 +1475,9 @@ mod test {
 
         let num_nodes = graph.num_nodes();
 
-        let hyper_log_log = HyperLogLogBuilder::new(num_nodes).log_2_num_reg(6).build();
+        let hyper_log_log = HyperLogLogBuilder::new(num_nodes)
+            .log2_num_regs(6)
+            .build()?;
 
         let seq_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
         let seq_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
