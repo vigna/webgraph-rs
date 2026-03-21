@@ -20,7 +20,7 @@ jobs:
         with:
           toolchain: '1.85'
       - name: Check
-        run: cargo check --workspace
+        run: cargo check --workspace --all-targets
 
   build:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
   build-i686:
     runs-on: ubuntu-latest
     env:
-      RUST_MIN_STACK: 67108864 # 64MiB
+      RUST_MIN_STACK: 8388608 # 8MiB (64MiB is too large for 32-bit address space)
     steps:
       - uses: actions/checkout@v6
       - name: Install 32-bit support
