@@ -85,4 +85,4 @@ jobs:
       - name: Build (32-bit)
         run: cargo build --target i686-unknown-linux-gnu
       - name: Test (32-bit)
-        run: cargo test --target i686-unknown-linux-gnu
+        run: RUST_BACKTRACE=1 cargo test --target i686-unknown-linux-gnu

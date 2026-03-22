@@ -1600,8 +1600,6 @@ mod test {
         .build());
 
     cnr_2000_test!(test_cnr_2000_hll8, |_| Ok::<_, anyhow::Error>(
-        HyperLogLog8Builder::new()
-            .log2_num_regs(6)
-            .build::<usize>()
+        HyperLogLog8Builder::new().log2_num_regs(6).build::<usize>()
     ));
 }
