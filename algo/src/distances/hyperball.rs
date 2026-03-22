@@ -606,7 +606,7 @@ impl<
         let next_must_be_checked = AtomicBitVec::new(num_nodes);
 
         pl.info(format_args!(
-            "Using estimation logic: {}",
+            "Using estimation logic {}",
             self.array_0.logic()
         ));
 
@@ -1486,8 +1486,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::hash::{BuildHasherDefault, DefaultHasher};
-
     use super::*;
     use card_est_array::traits::{EstimatorArray, MergeEstimator};
     use dsi_progress_logger::no_logging;
@@ -1498,100 +1496,112 @@ mod test {
         traits::SequentialLabeling,
     };
 
-    type HyperBallArray =
-        SliceEstimatorArray<HyperLogLog<usize, BuildHasherDefault<DefaultHasher>>>;
+    /// Generates a parallel-vs-sequential HyperBall comparison test for a
+    /// given estimation logic. The macro is needed because the backend word
+    /// type (`usize` vs `u8`) differs between `HyperLogLog` and
+    /// `HyperLogLog8`, preventing a single generic function. The
+    macro_rules! cnr_2000_test {
+        ($name:ident, $make_logic:expr) => {
+            #[cfg_attr(feature = "slow_tests", test)]
+            #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
+            fn $name() -> Result<()> {
+                #[cfg(target_pointer_width = "64")]
+                let basename = "../data/cnr-2000";
+                #[cfg(not(target_pointer_width = "64"))]
+                let basename = "../data/cnr-2000_32/cnr-2000";
 
-    struct SeqHyperBall<'a, G: RandomAccessGraph> {
-        graph: &'a G,
-        curr_state: HyperBallArray,
-        next_state: HyperBallArray,
-    }
+                #[cfg(target_pointer_width = "64")]
+                let basename_t = "../data/cnr-2000-t";
+                #[cfg(not(target_pointer_width = "64"))]
+                let basename_t = "../data/cnr-2000_32/cnr-2000-t";
 
-    impl<G: RandomAccessGraph> SeqHyperBall<'_, G> {
-        fn init(&mut self) {
-            for i in 0..self.graph.num_nodes() {
-                self.curr_state.get_estimator_mut(i).add(i);
-            }
-        }
+                let graph = BvGraph::with_basename(basename).load()?;
+                let transpose = BvGraph::with_basename(basename_t).load()?;
+                let cumulative =
+                    unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
+                let num_nodes = graph.num_nodes();
 
-        fn iterate(&mut self) {
-            for i in 0..self.graph.num_nodes() {
-                let mut estimator = self.next_state.get_estimator_mut(i);
-                estimator.set(self.curr_state.get_backend(i));
-                for succ in self.graph.successors(i) {
-                    estimator.merge(self.curr_state.get_backend(succ));
+                let logic = ($make_logic)(num_nodes)?;
+
+                let seq_bits = SliceEstimatorArray::new(logic.clone(), num_nodes);
+                let seq_result_bits = SliceEstimatorArray::new(logic.clone(), num_nodes);
+                let par_bits = SliceEstimatorArray::new(logic.clone(), num_nodes);
+                let par_result_bits = SliceEstimatorArray::new(logic, num_nodes);
+
+                let mut hyperball = HyperBallBuilder::with_transpose(
+                    &graph,
+                    &transpose,
+                    cumulative.uncase(),
+                    par_bits,
+                    par_result_bits,
+                )
+                .build(no_logging![]);
+
+                // Sequential reference implementation
+                struct SeqState<A> {
+                    curr: A,
+                    next: A,
                 }
+
+                let mut seq = SeqState {
+                    curr: seq_bits,
+                    next: seq_result_bits,
+                };
+
+                // Init
+                for i in 0..num_nodes {
+                    seq.curr.get_estimator_mut(i).add(&i);
+                }
+
+                let mut modified_estimators = num_nodes as u64;
+                let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
+                hyperball.init(&mut rng, no_logging![])?;
+
+                while modified_estimators != 0 {
+                    hyperball.iterate(no_logging![])?;
+
+                    // Sequential iterate
+                    for i in 0..num_nodes {
+                        let mut estimator = seq.next.get_estimator_mut(i);
+                        estimator.set(seq.curr.get_backend(i));
+                        for succ in graph.successors(i) {
+                            estimator.merge(seq.curr.get_backend(succ));
+                        }
+                    }
+                    std::mem::swap(&mut seq.curr, &mut seq.next);
+
+                    modified_estimators = hyperball
+                        .iteration_context
+                        .modified_estimators
+                        .load(Ordering::Relaxed);
+
+                    // Compare per-node backends
+                    for i in 0..num_nodes {
+                        assert_eq!(
+                            hyperball.next_state.get_backend(i),
+                            seq.next.get_backend(i),
+                            "next_state mismatch at node {i}"
+                        );
+                        assert_eq!(
+                            hyperball.curr_state.get_backend(i),
+                            seq.curr.get_backend(i),
+                            "curr_state mismatch at node {i}"
+                        );
+                    }
+                }
+
+                Ok(())
             }
-            std::mem::swap(&mut self.curr_state, &mut self.next_state);
-        }
-    }
-
-    #[cfg_attr(feature = "slow_tests", test)]
-    #[cfg_attr(not(feature = "slow_tests"), allow(dead_code))]
-    fn test_cnr_2000() -> Result<()> {
-        #[cfg(target_pointer_width = "64")]
-        let basename = "../data/cnr-2000";
-        #[cfg(not(target_pointer_width = "64"))]
-        let basename = "../data/cnr-2000_32/cnr-2000";
-
-        #[cfg(target_pointer_width = "64")]
-        let basename_t = "../data/cnr-2000-t";
-        #[cfg(not(target_pointer_width = "64"))]
-        let basename_t = "../data/cnr-2000_32/cnr-2000-t";
-
-        let graph = BvGraph::with_basename(basename).load()?;
-        let transpose = BvGraph::with_basename(basename_t).load()?;
-        let cumulative = unsafe { DCF::load_mmap(basename.to_owned() + ".dcf", Flags::empty()) }?;
-
-        let num_nodes = graph.num_nodes();
-
-        let hyper_log_log = HyperLogLogBuilder::new(num_nodes)
-            .log2_num_regs(6)
-            .build()?;
-
-        let seq_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
-        let seq_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
-        let par_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
-        let par_result_bits = SliceEstimatorArray::new(hyper_log_log.clone(), num_nodes);
-
-        let mut hyperball = HyperBallBuilder::with_transpose(
-            &graph,
-            &transpose,
-            cumulative.uncase(),
-            par_bits,
-            par_result_bits,
-        )
-        .build(no_logging![]);
-        let mut seq_hyperball = SeqHyperBall {
-            curr_state: seq_bits,
-            next_state: seq_result_bits,
-            graph: &graph,
         };
-
-        let mut modified_estimators = num_nodes as u64;
-        let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
-        hyperball.init(&mut rng, no_logging![])?;
-        seq_hyperball.init();
-
-        while modified_estimators != 0 {
-            hyperball.iterate(no_logging![])?;
-            seq_hyperball.iterate();
-
-            modified_estimators = hyperball
-                .iteration_context
-                .modified_estimators
-                .load(Ordering::Relaxed);
-
-            assert_eq!(
-                hyperball.next_state.as_ref(),
-                seq_hyperball.next_state.as_ref()
-            );
-            assert_eq!(
-                hyperball.curr_state.as_ref(),
-                seq_hyperball.curr_state.as_ref()
-            );
-        }
-
-        Ok(())
     }
+
+    cnr_2000_test!(test_cnr_2000, |n| HyperLogLogBuilder::new(n)
+        .log2_num_regs(6)
+        .build());
+
+    cnr_2000_test!(test_cnr_2000_hll8, |_| Ok::<_, anyhow::Error>(
+        HyperLogLog8Builder::new()
+            .log2_num_regs(6)
+            .build::<usize>()
+    ));
 }

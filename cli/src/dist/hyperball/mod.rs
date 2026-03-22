@@ -80,7 +80,7 @@ pub struct CliArgs {
     #[clap(flatten)]
     pub centralities: Centralities,
 
-    #[clap(short = 'm', long, default_value_t = 14)]
+    #[clap(short = 'm', long, default_value_t = 8)]
     /// The base-2 logarithm of the number of registers for the HyperLogLog
     /// cardinality estimators.​
     pub log2m: u32,
