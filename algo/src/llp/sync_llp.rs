@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, mem::size_of, path::Path};
+use std::{collections::{HashMap, VecDeque}, fs::File, mem::size_of, path::Path};
 
 use anyhow::{Context, Result};
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logger};
@@ -10,7 +10,6 @@ use predicates::Predicate;
 use rand::{SeedableRng, rngs::SmallRng, seq::IndexedRandom};
 use rayon::prelude::*;
 use sux::traits::Succ;
-use sync_cell_slice::SyncSlice;
 use webgraph::{
     prelude::PermutedGraph,
     traits::RandomAccessGraph,
@@ -36,6 +35,37 @@ unsafe fn madvise_slice(slice: &[usize], advice: libc::c_int) {
     }
 }
 
+/// Write a chunk of labels to the backing file using positional I/O
+/// (`pwrite`). Positional writes are thread-safe: each call specifies its
+/// own offset, so multiple threads can write disjoint regions concurrently
+/// without locking.
+fn write_label_chunk(file: &File, labels: &[usize], node_offset: usize) -> std::io::Result<()> {
+    use std::os::unix::fs::FileExt;
+    let bytes = unsafe {
+        std::slice::from_raw_parts(
+            labels.as_ptr() as *const u8,
+            labels.len() * size_of::<usize>(),
+        )
+    };
+    file.write_all_at(bytes, (node_offset * size_of::<usize>()) as u64)
+}
+
+/// Flush file data to disk and advise the kernel to drop cached pages.
+///
+/// `sync_data` ensures all dirty pages are written back; the subsequent
+/// `posix_fadvise(DONTNEED)` tells the kernel those pages are no longer
+/// needed, so it may free them immediately rather than keeping them in the
+/// page cache.
+fn flush_and_evict(file: &File) -> std::io::Result<()> {
+    file.sync_data()?;
+    #[cfg(unix)]
+    unsafe {
+        use std::os::unix::io::AsRawFd;
+        libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED);
+    }
+    Ok(())
+}
+
 /// This struct is how the labels and their metadata are stored on disk.
 #[derive(Epserde, Debug, Clone)]
 pub struct LabelsStore<A> {
@@ -47,11 +77,14 @@ pub struct LabelsStore<A> {
 /// A synchronous version of layered label propagation.
 ///
 /// "Synchronous" means all updates in an iteration are computed from the same
-/// snapshot of labels, then applied at once (double-buffering). The three large
-/// arrays (`prev_labels`, `next_labels`, `prev_volumes`) are backed by
-/// memory-mapped files in `work_dir`, so the OS can page them to disk when
-/// physical RAM is scarce. This allows processing graphs whose node-level
-/// metadata exceeds available memory.
+/// snapshot of labels, then applied at once (double-buffering). The read-only
+/// arrays (`prev_labels`, `prev_volumes`) are backed by memory-mapped files so
+/// the OS can page them to disk when physical RAM is scarce. The write-only
+/// array (`next_labels`) is written via positional file I/O (`pwrite`), with an
+/// explicit flush-and-evict after each iteration so the kernel does not keep
+/// written pages in the page cache. This allows processing graphs whose
+/// node-level metadata exceeds available memory without polluting the cache with
+/// write-only data.
 pub fn sync_layered_label_propagation(
     sym_graph: impl RandomAccessGraph + Sync,
     deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + Send + Sync),
@@ -81,14 +114,15 @@ pub fn sync_layered_label_propagation(
     let hash_map_init = Ord::max(sym_graph.num_arcs() / sym_graph.num_nodes() as u64, 16) as usize;
     let mut update_pl = concurrent_progress_logger![item_name = "node", local_speed = true];
 
-    // Allocate the three large arrays as mmap-backed files so the OS can
-    // page them out under memory pressure.
+    // Allocate the backing files. prev_labels and prev_volumes are mmap-ed
+    // (read randomly during iteration); next_labels is written via pwrite and
+    // flushed+evicted so the kernel can free those pages immediately.
     let labels_a_path = work_path.join("_labels_a.tmp");
     let labels_b_path = work_path.join("_labels_b.tmp");
     let volumes_path = work_path.join("_volumes.tmp");
+    let byte_len = num_nodes * size_of::<usize>();
 
-    let create_mmap = |path: &Path| -> Result<MmapHelper<usize, MmapMut>> {
-        let byte_len = num_nodes * size_of::<usize>();
+    let create_sized_file = |path: &Path| -> Result<()> {
         std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -98,13 +132,34 @@ pub fn sync_layered_label_propagation(
             .with_context(|| format!("Could not create {}", path.display()))?
             .set_len(byte_len as u64)
             .with_context(|| format!("Could not extend {}", path.display()))?;
+        Ok(())
+    };
+
+    let mmap_file = |path: &Path| -> Result<MmapHelper<usize, MmapMut>> {
         MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::empty())
             .with_context(|| format!("Could not mmap {}", path.display()))
     };
 
-    let mut prev_labels = create_mmap(&labels_a_path)?;
-    let mut next_labels = create_mmap(&labels_b_path)?;
-    let mut prev_volumes = create_mmap(&volumes_path)?;
+    let open_rw = |path: &Path| -> Result<File> {
+        File::options()
+            .read(true)
+            .write(true)
+            .open(path)
+            .with_context(|| format!("Could not open {}", path.display()))
+    };
+
+    // Create all three backing files.
+    create_sized_file(&labels_a_path)?;
+    create_sized_file(&labels_b_path)?;
+    create_sized_file(&volumes_path)?;
+
+    // prev_labels: mmap (random reads during iteration)
+    // next_file:   File  (pwrite during iteration, flushed+evicted after)
+    let mut prev_labels = mmap_file(&labels_a_path)?;
+    let mut next_file = open_rw(&labels_b_path)?;
+    let mut prev_path = labels_a_path.clone();
+    let mut next_path = labels_b_path.clone();
+    let mut prev_volumes = mmap_file(&volumes_path)?;
 
     let mut costs = Vec::with_capacity(gammas.len());
 
@@ -146,24 +201,16 @@ pub fn sync_layered_label_propagation(
                 gammas.len()
             ));
 
-            // Hint the kernel about access patterns for this iteration:
-            //  - prev_labels/prev_volumes: random reads (indexed by successor
-            //    node ids and label values respectively)
-            //  - next_labels: sequential writes in chunks (one per node, in
-            //    order within each par_apply range)
+            // Hint the kernel about access patterns for the mmap-backed
+            // arrays. next_labels is file-backed (not mmap), so no hint.
             #[cfg(unix)]
             unsafe {
                 madvise_slice(prev_labels.as_ref(), libc::MADV_RANDOM);
                 madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
-                madvise_slice(next_labels.as_ref(), libc::MADV_SEQUENTIAL);
             }
 
-            // Obtain slice references for the parallel closure. prev_* are
-            // read-only; next_labels is written via SyncSlice interior
-            // mutability.
             let prev_labels_ref = prev_labels.as_ref();
             let prev_volumes_ref = prev_volumes.as_ref();
-            let next_labels_sync = next_labels.as_mut().as_sync_slice();
 
             let (delta_obj_func, modified) = sym_graph.par_apply(
                 |range| {
@@ -174,6 +221,7 @@ pub fn sync_layered_label_propagation(
                     let mut map =
                         HashMap::with_capacity_and_hasher(hash_map_init, mix64::Mix64Builder);
                     let mut majorities = vec![];
+                    let mut label_buf: Vec<usize> = Vec::with_capacity(range.len());
 
                     for_![(node, successors) in sym_graph.iter_from(range.start).take(range.len() as usize) {
                         let curr_label = prev_labels_ref[node];
@@ -205,9 +253,7 @@ pub fn sync_layered_label_propagation(
                         }
 
                         let next_label = *majorities.choose(&mut rand).unwrap();
-                        // SAFETY: each node is processed by exactly one thread,
-                        // so disjoint indices guarantee no data races.
-                        unsafe { next_labels_sync[node].set(next_label) };
+                        label_buf.push(next_label);
                         if next_label != curr_label {
                             modified += 1;
                         }
@@ -216,6 +262,10 @@ pub fn sync_layered_label_propagation(
                         majorities.clear();
                     }];
 
+                    // Flush the chunk to disk via a single pwrite (thread-safe).
+                    write_label_chunk(&next_file, &label_buf, range.start)
+                        .expect("Could not write labels chunk");
+
                     (local_obj_func, modified)
                 },
                 |a, b| (a.0 + b.0, a.1 + b.1),
@@ -223,6 +273,10 @@ pub fn sync_layered_label_propagation(
                 deg_cumul,
                 &mut update_pl,
             );
+
+            // Flush written pages to disk and evict them from the page cache
+            // so they do not consume RAM between iterations.
+            flush_and_evict(&next_file).context("Could not flush next_labels")?;
 
             update_pl.done_with_count(num_nodes);
             iter_pl.update_and_display();
@@ -252,10 +306,17 @@ pub fn sync_layered_label_propagation(
                 break;
             }
 
-            // Apply: swap label buffers and recompute volumes from the new
-            // labels. The swap exchanges the MmapHelper structs (pointer +
-            // metadata), not the underlying data — O(1).
-            std::mem::swap(&mut prev_labels, &mut next_labels);
+            // Swap: the file that was next_labels becomes prev_labels (mmap it
+            // for random reads) and the old prev_labels file becomes the new
+            // next_labels (open it for pwrite).
+            drop(prev_labels);
+            drop(next_file);
+            prev_labels = mmap_file(&next_path)
+                .context("Could not mmap labels for swap")?;
+            next_file = open_rw(&prev_path)
+                .context("Could not re-open labels file for swap")?;
+            std::mem::swap(&mut prev_path, &mut next_path);
+
             let vols = prev_volumes.as_mut();
             vols.fill(0);
             for &label in prev_labels.as_ref().iter() {
@@ -265,6 +326,16 @@ pub fn sync_layered_label_propagation(
 
         iter_pl.done();
 
+        // --- Post-convergence: mmap next_labels for read access ---
+        //
+        // The iteration loop wrote next_labels via pwrite and evicted it.
+        // Now we need random reads (sort) and sequential reads (serialize),
+        // so mmap the file.
+        flush_and_evict(&next_file).context("Could not flush next_labels for post-convergence")?;
+        drop(next_file);
+        let next_labels_mmap = mmap_file(&next_path)
+            .context("Could not mmap next_labels for post-convergence")?;
+
         // Compute the sorting permutation of the labels. We repurpose the
         // volumes array as scratch space for the permutation.
         //   prev_volumes (perm): sequential init then random r/w during sort
@@ -272,10 +343,10 @@ pub fn sync_layered_label_propagation(
         #[cfg(unix)]
         unsafe {
             madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
-            madvise_slice(next_labels.as_ref(), libc::MADV_RANDOM);
+            madvise_slice(next_labels_mmap.as_ref(), libc::MADV_RANDOM);
         }
         {
-            let next_labels_ref = next_labels.as_ref();
+            let next_labels_ref = next_labels_mmap.as_ref();
             let perm = prev_volumes.as_mut();
             thread_pool.install(|| {
                 perm.par_iter_mut()
@@ -331,10 +402,10 @@ pub fn sync_layered_label_propagation(
         // Serialize next_labels — sequential read.
         #[cfg(unix)]
         unsafe {
-            madvise_slice(next_labels.as_ref(), libc::MADV_SEQUENTIAL);
+            madvise_slice(next_labels_mmap.as_ref(), libc::MADV_SEQUENTIAL);
         }
         let labels_store = LabelsStore {
-            labels: next_labels.as_ref(),
+            labels: next_labels_mmap.as_ref(),
             gamma: *gamma,
             gap_cost,
         };
@@ -345,14 +416,20 @@ pub fn sync_layered_label_propagation(
                 .context("Could not serialize labels")
         }?;
 
+        // Done with post-convergence reads. Re-open the file for the next
+        // gamma's pwrite iterations.
+        drop(next_labels_mmap);
+        next_file = open_rw(&next_path)
+            .context("Could not re-open next_labels for next gamma")?;
+
         gamma_pl.update_and_display();
     }
 
     gamma_pl.done();
 
-    // Drop the mmaps before removing their backing files.
+    // Clean up backing files.
     drop(prev_labels);
-    drop(next_labels);
+    drop(next_file);
     drop(prev_volumes);
     let _ = std::fs::remove_file(labels_a_path);
     let _ = std::fs::remove_file(labels_b_path);
