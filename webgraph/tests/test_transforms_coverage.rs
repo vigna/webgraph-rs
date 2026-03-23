@@ -16,7 +16,7 @@ use webgraph::{graphs::vec_graph::VecGraph, prelude::*, transform};
 #[test]
 fn test_transpose() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (0, 2), (1, 2)]);
-    let t = transform::transpose(&g, MemoryUsage::from_perc(10.0))?;
+    let t = transform::transpose(&g, MemoryUsage::BatchSize(2))?;
     let t = VecGraph::from_lender(&t);
     assert_eq!(t.num_nodes(), 3);
 

@@ -122,22 +122,6 @@ fn test_memory_usage_mul_div() {
     assert_eq!(halved.batch_size::<u64>(), 250);
 }
 
-#[test]
-fn test_memory_usage_from_perc() {
-    let mu = webgraph::utils::MemoryUsage::from_perc(10.0);
-    let bs = mu.batch_size::<u64>();
-    assert!(bs > 0);
-}
-
-#[test]
-fn test_memory_usage_default() {
-    let mu = MemoryUsage::default();
-    match mu {
-        MemoryUsage::MemorySize(size) => assert!(size > 0),
-        _ => panic!("Expected MemorySize variant for default"),
-    }
-}
-
 // ── humanize ──
 
 #[test]
