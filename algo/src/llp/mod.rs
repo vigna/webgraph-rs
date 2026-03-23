@@ -79,7 +79,7 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
-use sux::traits::Succ;
+use sux::traits::{IndexedSeq, Succ};
 use sync_cell_slice::SyncSlice;
 use webgraph::prelude::PermutedGraph;
 use webgraph::traits::RandomAccessGraph;
@@ -131,7 +131,7 @@ pub struct LabelsStore<A> {
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,
-    deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + Send + Sync),
+    deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq + Send + Sync),
     gammas: Vec<f64>,
     chunk_size: Option<usize>,
     granularity: Granularity,
@@ -160,7 +160,7 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     sym_graph: R,
-    deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + Send + Sync),
+    deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq + Send + Sync),
     gammas: Vec<f64>,
     chunk_size: Option<usize>,
     granularity: Granularity,

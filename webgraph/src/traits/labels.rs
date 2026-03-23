@@ -41,7 +41,7 @@ use std::rc::Rc;
 use sux::{
     dict::EliasFanoBuilder,
     rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::Succ,
+    traits::{IndexedSeq, Succ},
     utils::FairChunks,
 };
 use thiserror::Error;
@@ -212,7 +212,7 @@ pub trait SequentialLabeling {
         F: Fn(Range<usize>) -> A + Sync,
         A: Default + Send,
         R: Fn(A, A) -> A + Sync,
-        D: for<'a> Succ<Input = u64, Output<'a> = u64>,
+        D: for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq,
     >(
         &self,
         func: F,
