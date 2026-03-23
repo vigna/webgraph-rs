@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, fs::File, mem::size_of, path::Path};
+use std::{collections::VecDeque, fs::File, mem::size_of, path::Path};
 
 use anyhow::{Context, Result};
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logger};
@@ -7,7 +7,7 @@ use lender::for_;
 use log::info;
 use mmap_rs::{MmapFlags, MmapMut};
 use predicates::Predicate;
-use rand::{SeedableRng, rngs::SmallRng, seq::IndexedRandom};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rayon::prelude::*;
 use sux::traits::Succ;
 use webgraph::{
@@ -16,7 +16,7 @@ use webgraph::{
     utils::{Granularity, MmapHelper},
 };
 
-use crate::{gap_cost, invert_permutation, llp::mix64, preds::{self, PredParams}};
+use crate::{gap_cost, invert_permutation, preds::{self, PredParams}};
 
 const RAYON_MIN_LEN: usize = 100000;
 
@@ -221,7 +221,6 @@ pub fn sync_layered_label_propagation(
     ];
     let mut iter_pl = progress_logger![item_name = "update"];
     iter_pl.display_memory(true);
-    let hash_map_init = Ord::max(sym_graph.num_arcs() / sym_graph.num_nodes() as u64, 16) as usize;
     let mut update_pl = concurrent_progress_logger![item_name = "node", local_speed = true];
     update_pl.display_memory(true);
 
@@ -331,53 +330,125 @@ pub fn sync_layered_label_propagation(
             let prev_labels_ref = prev_labels.as_ref();
             let prev_volumes_ref = prev_volumes.as_ref();
 
+            let is_first_update = update == 0;
             let (delta_obj_func, modified) = sym_graph.par_apply(
                 |range| {
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
                     let mut modified = 0_usize;
 
-                    let mut map =
-                        HashMap::with_capacity_and_hasher(hash_map_init, mix64::Mix64Builder);
-                    let mut majorities = vec![];
-
                     // Small fixed-size buffer for batching pwrite calls.
-                    // Avoids O(chunk_size) heap allocation that becomes
-                    // problematic with coarse granularity on large graphs.
                     const WRITE_BUF_CAP: usize = 8192;
                     let mut write_buf: Vec<usize> = Vec::with_capacity(WRITE_BUF_CAP);
                     let mut write_offset = range.start;
 
+                    // label_buf is only needed for updates > 0 where
+                    // labels have clustered.  On update 0 (identity
+                    // labels, volumes all 1) every neighbor scores
+                    // identically so we reservoir-sample with O(1) memory.
+                    let mut label_buf: Vec<usize> = Vec::new();
+
                     for_![(node, successors) in sym_graph.iter_from(range.start).take(range.len() as usize) {
                         let curr_label = prev_labels_ref[node];
-                        for succ in successors {
-                            map.entry(prev_labels_ref[succ])
-                                .and_modify(|counter| *counter += 1)
-                                .or_insert(1_usize);
-                        }
-                        map.entry(curr_label).or_insert(0_usize);
 
-                        let mut max = f64::NEG_INFINITY;
-                        let mut old = 0.0;
-                        for (&label, &count) in map.iter() {
-                            let volume = prev_volumes_ref[label];
-                            let val =
-                                (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
+                        let (next_label, delta) = if is_first_update {
+                            // All labels are identity, all volumes are 1.
+                            // Every neighbor's score = (1+γ)·1 − γ·(1+1) = 1−γ.
+                            // Current label (not a neighbor in loopless
+                            // graphs) scores (1+γ)·0 − γ·2 = −2γ, or (1−γ)
+                            // if it is a neighbor (self-loop).
+                            //
+                            // Reservoir-sample a random successor.  O(1)
+                            // memory — no label_buf, no sorting.
+                            let mut best = curr_label;
+                            let mut n_seen: u32 = 0;
+                            let mut curr_is_neighbor = false;
+                            for succ in successors {
+                                n_seen += 1;
+                                if succ == node { curr_is_neighbor = true; }
+                                if rand.random_range(0..n_seen) == 0 {
+                                    best = prev_labels_ref[succ];
+                                }
+                            }
+                            if n_seen == 0 {
+                                // Isolated node — keep current label.
+                                (curr_label, 0.0)
+                            } else {
+                                // old = score of current label
+                                let old = if curr_is_neighbor {
+                                    1.0 - gamma  // count=1, volume=1
+                                } else {
+                                    -2.0 * gamma  // count=0, volume=1
+                                };
+                                (best, (1.0 - gamma) - old)
+                            }
+                        } else {
+                            // Labels have clustered — use sorted Vec to
+                            // count distinct labels.  Vec uses 8 bytes/entry
+                            // vs HashMap's ~50.
+                            label_buf.clear();
+                            for succ in successors {
+                                label_buf.push(prev_labels_ref[succ]);
+                            }
+                            label_buf.sort_unstable();
 
-                            if max == val {
-                                majorities.push(label);
+                            let mut max = f64::NEG_INFINITY;
+                            let mut old = 0.0;
+                            let mut best_label: usize = curr_label;
+                            let mut tie_count: u32 = 0;
+                            let mut curr_seen = false;
+
+                            let mut i = 0;
+                            while i < label_buf.len() {
+                                let label = label_buf[i];
+                                let mut count: usize = 0;
+                                while i < label_buf.len() && label_buf[i] == label {
+                                    count += 1;
+                                    i += 1;
+                                }
+                                if label == curr_label { curr_seen = true; }
+                                let volume = prev_volumes_ref[label];
+                                let val =
+                                    (1.0 + gamma) * count as f64 - gamma * (volume + 1) as f64;
+                                if val > max {
+                                    max = val;
+                                    best_label = label;
+                                    tie_count = 1;
+                                } else if val == max {
+                                    tie_count += 1;
+                                    if rand.random_range(0..tie_count) == 0 {
+                                        best_label = label;
+                                    }
+                                }
+                                if label == curr_label { old = val; }
                             }
-                            if val > max {
-                                majorities.clear();
-                                max = val;
-                                majorities.push(label);
-                            }
-                            if label == curr_label {
+
+                            // Ensure the current label is considered even when
+                            // no neighbor carries it (count = 0).
+                            if !curr_seen {
+                                let volume = prev_volumes_ref[curr_label];
+                                let val = -gamma * (volume + 1) as f64;
+                                if val > max {
+                                    max = val;
+                                    best_label = curr_label;
+                                } else if val == max {
+                                    tie_count += 1;
+                                    if rand.random_range(0..tie_count) == 0 {
+                                        best_label = curr_label;
+                                    }
+                                }
                                 old = val;
                             }
-                        }
 
-                        let next_label = *majorities.choose(&mut rand).unwrap();
+                            // Release inflated buffers from hub nodes.
+                            const LABEL_BUF_SHRINK: usize = 1 << 20;
+                            if label_buf.capacity() > LABEL_BUF_SHRINK {
+                                label_buf = Vec::new();
+                            }
+
+                            (best_label, max - old)
+                        };
+
                         write_buf.push(next_label);
                         if write_buf.len() == WRITE_BUF_CAP {
                             write_label_chunk(&next_file, &write_buf, write_offset)
@@ -388,9 +459,7 @@ pub fn sync_layered_label_propagation(
                         if next_label != curr_label {
                             modified += 1;
                         }
-                        local_obj_func += max - old;
-                        map.clear();
-                        majorities.clear();
+                        local_obj_func += delta;
                     }];
 
                     // Flush remaining labels.

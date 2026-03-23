@@ -268,6 +268,17 @@ impl<D: Decode> NodeLabels<D> {
         }
 
         results.clear();
+        // Vec::clear() retains capacity.  When a high-degree hub node
+        // inflates this buffer to millions of entries (hundreds of MB),
+        // the capacity persists across the circular-buffer rotation.
+        // With 32 threads × 8 slots this accumulates to tens of GB.
+        // Unconditionally release when oversized — one allocation per
+        // reuse of an inflated slot is negligible vs iterating millions
+        // of successors.
+        const BUF_SHRINK: usize = 1 << 18; // 256K entries = 2 MB
+        if results.capacity() > BUF_SHRINK {
+            *results = Vec::with_capacity(degree);
+        }
         // ensure that we have enough capacity in the vector for not reallocating
         results.reserve(degree);
         // read the reference offset
