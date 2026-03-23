@@ -24,7 +24,12 @@ and nodes identifier are in the interval [0 . . *n*).
 
 */
 
-use crate::{graphs::bvgraph::DCF, traits::LenderIntoIter, utils::Granularity};
+use crate::{
+    graphs::bvgraph::DCF,
+    prelude::{LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY},
+    traits::LenderIntoIter,
+    utils::Granularity,
+};
 
 use super::{LenderLabel, NodeLabelsLender, ParMapFold};
 
@@ -127,8 +132,13 @@ pub trait SequentialLabeling {
         // SAFETY: the values are pushed in non-decreasing order.
         unsafe {
             efb.build().map_high_bits(|high_bits| {
-                SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(
-                    high_bits,
+                SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(SelectAdaptConst::<
+                    _,
+                    _,
+                    LOG2_ONES_PER_INVENTORY,
+                    LOG2_WORDS_PER_SUBINVENTORY,
+                >::new(
+                    high_bits
                 ))
             })
         }

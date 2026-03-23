@@ -130,9 +130,17 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
         // SAFETY: the cumulative degrees are pushed in non-decreasing order.
         unsafe {
             efb.build().map_high_bits(|high_bits| {
-                sux::rank_sel::SelectZeroAdaptConst::<_, _, 12, 4>::new(
-                    sux::rank_sel::SelectAdaptConst::<_, _, 12, 4>::new(high_bits),
-                )
+                sux::rank_sel::SelectZeroAdaptConst::<
+                    _,
+                    _,
+                    LOG2_ONES_PER_INVENTORY,
+                    LOG2_WORDS_PER_SUBINVENTORY,
+                >::new(sux::rank_sel::SelectAdaptConst::<
+                    _,
+                    _,
+                    LOG2_ONES_PER_INVENTORY,
+                    LOG2_WORDS_PER_SUBINVENTORY,
+                >::new(high_bits))
             })
         }
     }

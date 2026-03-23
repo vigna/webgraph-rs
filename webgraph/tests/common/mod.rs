@@ -10,7 +10,7 @@ use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use std::path::{Path, PathBuf};
 use webgraph::graphs::vec_graph::VecGraph;
-use webgraph::prelude::EF;
+use webgraph::prelude::{EF, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY};
 
 /// Canonical test graph (8 nodes, 11 arcs).
 ///
@@ -75,7 +75,11 @@ pub fn build_ef(basename: &Path) -> Result<()> {
     }
 
     let ef = efb.build();
-    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
+    let ef: EF = unsafe {
+        ef.map_high_bits(
+            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+        )
+    };
 
     let ef_path = basename.with_extension("ef");
     let mut ef_file = BufWriter::new(std::fs::File::create(&ef_path)?);

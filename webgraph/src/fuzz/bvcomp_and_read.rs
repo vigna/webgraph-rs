@@ -178,7 +178,11 @@ pub fn harness(data: FuzzCase) {
     }
     // build elias-fano
     let ef = efb.build();
-    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
+    let ef: EF = unsafe {
+        ef.map_high_bits(
+            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+        )
+    };
 
     // verify that elias-fano has the right values
     assert_eq!(ef.len(), offsets.len());

@@ -66,7 +66,11 @@ fn build_and_serialize(efb: EliasFanoBuilder<u64>, ef_path: &std::path::Path) ->
     let ef = efb.build();
     let ef: DCF = unsafe {
         ef.map_high_bits(|bits| {
-            SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(bits))
+            SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
+                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
+                    bits,
+                ),
+            )
         })
     };
 

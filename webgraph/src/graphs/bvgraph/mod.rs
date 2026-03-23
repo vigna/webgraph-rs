@@ -174,16 +174,26 @@ pub use comp::*;
 mod load;
 pub use load::*;
 use sux::{
-    bits::BitVec,
+    bits::{BitFieldVec, BitVec},
     prelude::{SelectAdaptConst, SelectZeroAdaptConst},
     traits::IndexedSeq,
 };
 
+/// First parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
+pub const LOG2_ONES_PER_INVENTORY: usize = 11;
+/// Second parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
+pub const LOG2_WORDS_PER_SUBINVENTORY: usize = 3;
+
 /// The default version of EliasFano we use for the CLI.
 pub type EF = sux::dict::EliasFano<
     u64,
-    SelectAdaptConst<BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
-    sux::bits::BitFieldVec<Box<[u64]>>,
+    SelectAdaptConst<
+        BitVec<Box<[usize]>>,
+        Box<[usize]>,
+        LOG2_ONES_PER_INVENTORY,
+        LOG2_WORDS_PER_SUBINVENTORY,
+    >,
+    BitFieldVec<Box<[u64]>>,
 >;
 
 /// Compound trait expressing the trait bounds for offsets.
@@ -209,12 +219,17 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u
 pub type DCF = sux::dict::EliasFano<
     u64,
     SelectZeroAdaptConst<
-        SelectAdaptConst<BitVec<Box<[usize]>>, Box<[usize]>, 12, 4>,
+        SelectAdaptConst<
+            BitVec<Box<[usize]>>,
+            Box<[usize]>,
+            LOG2_ONES_PER_INVENTORY,
+            LOG2_WORDS_PER_SUBINVENTORY,
+        >,
         Box<[usize]>,
-        12,
-        4,
+        LOG2_ONES_PER_INVENTORY,
+        LOG2_WORDS_PER_SUBINVENTORY,
     >,
-    sux::bits::BitFieldVec<Box<[u64]>>,
+    BitFieldVec<Box<[u64]>>,
 >;
 
 /// Checks that the offsets stored in the offsets file with given

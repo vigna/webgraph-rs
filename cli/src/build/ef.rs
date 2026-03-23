@@ -219,7 +219,11 @@ pub fn serialize_elias_fano(
         pl.log_interval(duration);
     }
     pl.start("Building the Index over the ones in the high-bits...");
-    let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
+    let ef: EF = unsafe {
+        ef.map_high_bits(
+            SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+        )
+    };
     pl.done();
 
     let mut pl = progress_logger![display_memory = true];

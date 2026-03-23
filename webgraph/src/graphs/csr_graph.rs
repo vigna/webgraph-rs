@@ -6,7 +6,10 @@
  */
 
 use super::bvgraph::EF;
-use crate::traits::*;
+use crate::{
+    prelude::{LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY},
+    traits::*,
+};
 use epserde::Epserde;
 use lender::{IntoLender, Lend, Lender, Lending, check_covariance, for_};
 use num_primitive::{PrimitiveNumber, PrimitiveNumberAs};
@@ -241,7 +244,11 @@ impl CompressedCsrGraph {
         }
         let ef = efb.build();
         // SAFETY: the Elias–Fano structure and successors are built consistently from the graph.
-        let ef: EF = unsafe { ef.map_high_bits(SelectAdaptConst::<_, _, 12, 4>::new) };
+        let ef: EF = unsafe {
+            ef.map_high_bits(
+                SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
+            )
+        };
         unsafe { Ok(Self::from_parts(ef, successors)) }
     }
 }
@@ -345,9 +352,9 @@ where
         }
         unsafe {
             efb.build().map_high_bits(|high_bits| {
-                SelectZeroAdaptConst::<_, _, 12, 4>::new(SelectAdaptConst::<_, _, 12, 4>::new(
-                    high_bits,
-                ))
+                SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
+                    SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(high_bits),
+                )
             })
         }
     }
