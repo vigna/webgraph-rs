@@ -50,20 +50,67 @@ fn write_label_chunk(file: &File, labels: &[usize], node_offset: usize) -> std::
     file.write_all_at(bytes, (node_offset * size_of::<usize>()) as u64)
 }
 
-/// Flush file data to disk and advise the kernel to drop cached pages.
+/// Kick off asynchronous writeback of dirty pages. Returns immediately.
 ///
-/// `sync_data` ensures all dirty pages are written back; the subsequent
-/// `posix_fadvise(DONTNEED)` tells the kernel those pages are no longer
-/// needed, so it may free them immediately rather than keeping them in the
-/// page cache.
-fn flush_and_evict(file: &File) -> std::io::Result<()> {
-    file.sync_data()?;
-    #[cfg(unix)]
-    unsafe {
+/// On Linux this uses `sync_file_range(SYNC_FILE_RANGE_WRITE)` to start
+/// background writeback without blocking. On other systems this is a no-op;
+/// [`await_writeback_and_evict`] will fall back to a synchronous flush.
+fn initiate_writeback(file: &File) {
+    #[cfg(target_os = "linux")]
+    {
         use std::os::unix::io::AsRawFd;
-        libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED);
+        unsafe {
+            libc::sync_file_range(
+                file.as_raw_fd(),
+                0,
+                0,
+                libc::SYNC_FILE_RANGE_WRITE,
+            );
+        }
     }
-    Ok(())
+}
+
+/// Wait for all writeback to complete and evict pages from the page cache.
+///
+/// On Linux this waits for the async writeback kicked off by
+/// [`initiate_writeback`], then calls `posix_fadvise(DONTNEED)` to evict
+/// the now-clean pages. On other Unix systems it falls back to a
+/// synchronous `sync_data()` + `posix_fadvise(DONTNEED)`.
+fn await_writeback_and_evict(file: &File) -> std::io::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::io::AsRawFd;
+        let fd = file.as_raw_fd();
+        let ret = unsafe {
+            libc::sync_file_range(
+                fd,
+                0,
+                0,
+                libc::SYNC_FILE_RANGE_WAIT_BEFORE
+                    | libc::SYNC_FILE_RANGE_WRITE
+                    | libc::SYNC_FILE_RANGE_WAIT_AFTER,
+            )
+        };
+        if ret != 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        unsafe {
+            libc::posix_fadvise(fd, 0, 0, libc::POSIX_FADV_DONTNEED);
+        }
+        return Ok(());
+    }
+
+    // Fallback for non-Linux: synchronous flush + evict.
+    #[allow(unreachable_code)]
+    {
+        file.sync_data()?;
+        #[cfg(unix)]
+        unsafe {
+            use std::os::unix::io::AsRawFd;
+            libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED);
+        }
+        Ok(())
+    }
 }
 
 /// This struct is how the labels and their metadata are stored on disk.
@@ -274,9 +321,9 @@ pub fn sync_layered_label_propagation(
                 &mut update_pl,
             );
 
-            // Flush written pages to disk and evict them from the page cache
-            // so they do not consume RAM between iterations.
-            flush_and_evict(&next_file).context("Could not flush next_labels")?;
+            // Kick off async writeback so pages start flushing to disk
+            // while we compute convergence statistics below.
+            initiate_writeback(&next_file);
 
             update_pl.done_with_count(num_nodes);
             iter_pl.update_and_display();
@@ -306,6 +353,11 @@ pub fn sync_layered_label_propagation(
                 break;
             }
 
+            // Barrier: wait for async writeback to complete and evict
+            // pages before we drop the file handle and mmap it.
+            await_writeback_and_evict(&next_file)
+                .context("Could not flush next_labels for swap")?;
+
             // Swap: the file that was next_labels becomes prev_labels (mmap it
             // for random reads) and the old prev_labels file becomes the new
             // next_labels (open it for pwrite).
@@ -331,7 +383,7 @@ pub fn sync_layered_label_propagation(
         // The iteration loop wrote next_labels via pwrite and evicted it.
         // Now we need random reads (sort) and sequential reads (serialize),
         // so mmap the file.
-        flush_and_evict(&next_file).context("Could not flush next_labels for post-convergence")?;
+        await_writeback_and_evict(&next_file).context("Could not flush next_labels for post-convergence")?;
         drop(next_file);
         let next_labels_mmap = mmap_file(&next_path)
             .context("Could not mmap next_labels for post-convergence")?;
