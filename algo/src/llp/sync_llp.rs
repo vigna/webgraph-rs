@@ -220,8 +220,10 @@ pub fn sync_layered_label_propagation(
         expected_updates = Some(gammas.len()),
     ];
     let mut iter_pl = progress_logger![item_name = "update"];
+    iter_pl.display_memory(true);
     let hash_map_init = Ord::max(sym_graph.num_arcs() / sym_graph.num_nodes() as u64, 16) as usize;
     let mut update_pl = concurrent_progress_logger![item_name = "node", local_speed = true];
+    update_pl.display_memory(true);
 
     // Allocate the backing files. prev_labels and prev_volumes are mmap-ed
     // (read randomly during iteration); next_labels is written via pwrite and

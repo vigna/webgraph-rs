@@ -121,9 +121,14 @@ impl<W> MmapHelper<W> {
 
         let mmap = unsafe {
             // Length must be > 0, or we get a panic.
+            // Always use MAP_SHARED for read-only file mappings.
+            // MAP_PRIVATE pages are accounted as anonymous RSS even
+            // when never written (PROT_READ), which prevents the kernel
+            // from reclaiming them under memory pressure.  MAP_SHARED
+            // pages are accounted as file RSS and trivially evictable.
             mmap_rs::MmapOptions::new(mmap_len.max(size_of::<W>()))
                 .with_context(|| format!("Cannot initialize mmap of size {mmap_len}"))?
-                .with_flags(flags)
+                .with_flags(flags | MmapFlags::SHARED)
                 .with_file(&file, 0)
                 .map()
                 .with_context(|| {
