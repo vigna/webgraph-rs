@@ -35,6 +35,27 @@ unsafe fn madvise_slice(slice: &[usize], advice: libc::c_int) {
     }
 }
 
+/// Flush all dirty pages in a MAP_SHARED mmap to their backing file, then
+/// drop them from the process's page tables.
+///
+/// After this call the pages are clean on disk.  Future reads trigger a
+/// page fault that loads the data from the file on demand.  This is
+/// essential on memory-constrained systems: without it, the kernel's
+/// `MemAvailable` metric drops (dirty+mapped pages are discounted), which
+/// can trip earlyoom or the kernel OOM killer even though the pages are
+/// theoretically reclaimable.
+#[cfg(unix)]
+unsafe fn flush_and_evict_mmap(slice: &[usize]) {
+    let ptr = slice.as_ptr() as *mut libc::c_void;
+    let len = slice.len() * size_of::<usize>();
+    unsafe {
+        // Block until every dirty page is written to disk.
+        libc::msync(ptr, len, libc::MS_SYNC);
+        // Drop the now-clean pages from the page tables.
+        libc::madvise(ptr, len, libc::MADV_DONTNEED);
+    }
+}
+
 const FORCE_EVICT: bool = false;
 
 /// Write a chunk of labels to the backing file using positional I/O
@@ -267,6 +288,9 @@ pub fn sync_layered_label_propagation(
         let mut improv_window: VecDeque<_> = vec![1.0; IMPROV_WINDOW].into();
 
         // Reset labels to identity and volumes to 1 for each new gamma.
+        // Flush and evict the dirty pages afterwards so the kernel sees
+        // them as reclaimable — without this, 64 GB of dirty+mapped shared
+        // pages drain MemAvailable and trip earlyoom/OOM.
         prev_labels
             .as_mut()
             .par_iter_mut()
@@ -278,6 +302,11 @@ pub fn sync_layered_label_propagation(
             .par_iter_mut()
             .with_min_len(RAYON_MIN_LEN)
             .for_each(|x| *x = 1);
+        #[cfg(unix)]
+        unsafe {
+            flush_and_evict_mmap(prev_labels.as_ref());
+            flush_and_evict_mmap(prev_volumes.as_ref());
+        }
 
         for update in 0.. {
             update_pl.expected_updates(Some(num_nodes));
@@ -422,6 +451,11 @@ pub fn sync_layered_label_propagation(
             vols.fill(0);
             for &label in prev_labels.as_ref().iter() {
                 vols[label] += 1;
+            }
+            // Flush dirty volume pages so MemAvailable stays healthy.
+            #[cfg(unix)]
+            unsafe {
+                flush_and_evict_mmap(prev_volumes.as_ref());
             }
         }
 
