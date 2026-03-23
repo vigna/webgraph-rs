@@ -338,7 +338,13 @@ pub fn sync_layered_label_propagation(
                     let mut map =
                         HashMap::with_capacity_and_hasher(hash_map_init, mix64::Mix64Builder);
                     let mut majorities = vec![];
-                    let mut label_buf: Vec<usize> = Vec::with_capacity(range.len());
+
+                    // Small fixed-size buffer for batching pwrite calls.
+                    // Avoids O(chunk_size) heap allocation that becomes
+                    // problematic with coarse granularity on large graphs.
+                    const WRITE_BUF_CAP: usize = 8192;
+                    let mut write_buf: Vec<usize> = Vec::with_capacity(WRITE_BUF_CAP);
+                    let mut write_offset = range.start;
 
                     for_![(node, successors) in sym_graph.iter_from(range.start).take(range.len() as usize) {
                         let curr_label = prev_labels_ref[node];
@@ -370,7 +376,13 @@ pub fn sync_layered_label_propagation(
                         }
 
                         let next_label = *majorities.choose(&mut rand).unwrap();
-                        label_buf.push(next_label);
+                        write_buf.push(next_label);
+                        if write_buf.len() == WRITE_BUF_CAP {
+                            write_label_chunk(&next_file, &write_buf, write_offset)
+                                .expect("Could not write labels chunk");
+                            write_offset += WRITE_BUF_CAP;
+                            write_buf.clear();
+                        }
                         if next_label != curr_label {
                             modified += 1;
                         }
@@ -379,9 +391,11 @@ pub fn sync_layered_label_propagation(
                         majorities.clear();
                     }];
 
-                    // Flush the chunk to disk via a single pwrite (thread-safe).
-                    write_label_chunk(&next_file, &label_buf, range.start)
-                        .expect("Could not write labels chunk");
+                    // Flush remaining labels.
+                    if !write_buf.is_empty() {
+                        write_label_chunk(&next_file, &write_buf, write_offset)
+                            .expect("Could not write labels chunk");
+                    }
 
                     (local_obj_func, modified)
                 },
