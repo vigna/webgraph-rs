@@ -561,7 +561,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
 }
 
 /// Combines the labels from two permutations into a single one.
-fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> Result<usize> {
+pub fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> Result<usize> {
     // re-init the permutation
     temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
     // permute by the devilish function

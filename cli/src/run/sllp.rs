@@ -14,15 +14,198 @@ use clap::Parser;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
+use log::info;
+use mmap_rs::{MmapFlags, MmapMut};
+use rayon::prelude::*;
+use std::mem::size_of;
+use std::path::{Path, PathBuf};
+use tempfile::tempdir;
 use webgraph::prelude::*;
+use webgraph::utils::MmapHelper;
 use webgraph_algo::llp::preds::{MaxUpdates, MinAvgImprov, MinGain, MinModified, PercModified};
-use webgraph_algo::{combine_labels, labels_to_ranks};
+use webgraph_algo::llp::{LabelsStore, combine, invert_permutation};
 
 use predicates::prelude::*;
-use std::path::PathBuf;
-use tempfile::tempdir;
 
 use super::llp::store_perm;
+
+/// Create a file of the given byte length and return a mutable mmap over it.
+fn create_mmap(path: &Path, byte_len: usize) -> Result<MmapHelper<usize, MmapMut>> {
+    std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)
+        .with_context(|| format!("Could not create {}", path.display()))?
+        .set_len(byte_len as u64)
+        .with_context(|| format!("Could not extend {}", path.display()))?;
+    MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::empty())
+        .with_context(|| format!("Could not mmap {}", path.display()))
+}
+
+/// Mmap-backed version of [`webgraph_algo::combine_labels`].
+///
+/// All large arrays (`result_labels`, `temp_perm`) are backed by memory-mapped
+/// files in `work_dir` so the operation does not require O(n) heap memory.
+/// Returns an mmap over the combined labels.
+fn combine_labels_mmap(
+    work_dir: &Path,
+    num_nodes: usize,
+) -> Result<MmapHelper<usize, MmapMut>> {
+    let byte_len = num_nodes * size_of::<usize>();
+    let result_path = work_dir.join("_combine_result.tmp");
+    let perm_path = work_dir.join("_combine_perm.tmp");
+
+    let mut result_labels = create_mmap(&result_path, byte_len)
+        .context("Could not create result_labels mmap")?;
+    let mut temp_perm = create_mmap(&perm_path, byte_len)
+        .context("Could not create temp_perm mmap")?;
+
+    // Scan work directory for label files.
+    let mut gammas = vec![];
+    let iter = std::fs::read_dir(work_dir)?
+        .filter_map(Result::ok)
+        .filter(|path| {
+            let name = path.file_name();
+            let s = name.to_string_lossy();
+            s.starts_with("labels_")
+                && s.ends_with(".bin")
+                && path.file_type().is_ok_and(|ft| ft.is_file())
+        });
+
+    let mmap_flags = Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS;
+    for entry in iter {
+        let path = work_dir.join(entry.file_name());
+        let res = unsafe {
+            <LabelsStore<Vec<usize>>>::mmap(&path, Flags::default())
+                .with_context(|| format!("Could not load labels from {}", path.display()))?
+        };
+        let res = res.uncase();
+        info!(
+            "Found labels from {:?} with gamma {} and cost {} and num_nodes {}",
+            path.display(),
+            res.gamma,
+            res.gap_cost,
+            res.labels.len(),
+        );
+        anyhow::ensure!(
+            res.labels.len() == num_nodes,
+            "Labels '{}' have length {} but expected {}",
+            path.display(),
+            res.labels.len(),
+            num_nodes,
+        );
+        gammas.push((res.gap_cost, res.gamma, path));
+    }
+
+    if gammas.is_empty() {
+        bail!("No labels were found in {}", work_dir.display());
+    }
+
+    // Sort by cost descending — best (lowest cost) is last.
+    gammas.sort_by(|(a, _, _), (b, _, _)| b.total_cmp(a));
+
+    let (best_cost, best_gamma, best_path) = gammas.last().unwrap();
+    let (worst_cost, worst_gamma, _) = &gammas[0];
+    info!("Best gamma: {}\twith log-gap cost {}", best_gamma, best_cost);
+    info!(
+        "Worst gamma: {}\twith log-gap cost {}",
+        worst_gamma, worst_cost
+    );
+
+    // Initialize result_labels from the best gamma's labels.
+    {
+        let best = unsafe {
+            <LabelsStore<Vec<usize>>>::load_mmap(best_path, mmap_flags)
+                .context("Could not mmap best gamma labels")?
+        };
+        let src = best.uncase().labels;
+        let dst = result_labels.as_mut();
+        dst.par_iter_mut()
+            .zip(src.par_iter())
+            .for_each(|(d, s)| *d = *s);
+    }
+
+    // Combine each gamma's labels into result.
+    for (i, (cost, gamma, gamma_path)) in gammas.iter().enumerate() {
+        info!(
+            "Starting step {} with gamma {} cost {} and labels {:?}...",
+            i, gamma, cost, gamma_path
+        );
+        let labels = unsafe {
+            <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
+                .context("Could not load labels")?
+        };
+
+        combine(
+            result_labels.as_mut(),
+            labels.uncase().labels,
+            temp_perm.as_mut(),
+        )
+        .context("Could not combine labels")?;
+        drop(labels);
+
+        // Recombination with best labels (Marco Rosa heuristic from Java LAW).
+        info!(
+            "Recombining with gamma {} cost {} and labels {:?}...",
+            best_gamma, best_cost, best_path
+        );
+        let best_labels = unsafe {
+            <LabelsStore<Vec<usize>>>::load_mmap(best_path, mmap_flags)
+                .context("Could not load labels from best gamma")?
+        };
+        let n = combine(
+            result_labels.as_mut(),
+            best_labels.uncase().labels,
+            temp_perm.as_mut(),
+        )?;
+        info!("Number of labels: {}", n);
+    }
+
+    // Clean up scratch file; result_labels stays alive.
+    drop(temp_perm);
+    let _ = std::fs::remove_file(perm_path);
+
+    Ok(result_labels)
+}
+
+/// Mmap-backed version of [`webgraph_algo::labels_to_ranks`].
+///
+/// All large arrays (`perm`, `inv_perm`) are backed by memory-mapped files.
+/// Returns `(inv_perm_mmap, result_path)` — the caller owns the mmap and is
+/// responsible for removing `result_path` and `perm_path` after use.
+fn labels_to_ranks_mmap(
+    labels: &[usize],
+    work_dir: &Path,
+) -> Result<MmapHelper<usize, MmapMut>> {
+    let num_nodes = labels.len();
+    let byte_len = num_nodes * size_of::<usize>();
+    let perm_path = work_dir.join("_rank_perm.tmp");
+    let inv_path = work_dir.join("_rank_inv.tmp");
+
+    let mut perm = create_mmap(&perm_path, byte_len)
+        .context("Could not create rank perm mmap")?;
+    let mut inv = create_mmap(&inv_path, byte_len)
+        .context("Could not create rank inv mmap")?;
+
+    // Initialize perm to identity and sort by labels.
+    let perm_slice = perm.as_mut();
+    perm_slice
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(i, x)| *x = i);
+    perm_slice.par_sort_by(|&a, &b| labels[a].cmp(&labels[b]));
+
+    // Invert into inv.
+    invert_permutation(perm.as_ref(), inv.as_mut());
+
+    // Clean up perm scratch.
+    drop(perm);
+    let _ = std::fs::remove_file(perm_path);
+
+    Ok(inv)
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -133,6 +316,8 @@ where
         .endianness::<E>()
         .load()?;
 
+    let num_nodes = graph.num_nodes();
+
     log::info!("Memory-mapping DCF...");
     let deg_cumul = unsafe {
         DCF::mmap(
@@ -196,11 +381,25 @@ where
         log::info!("Elapsed: {}", start.elapsed().as_secs_f64());
 
         if let Some(perm_path) = args.perm {
-            let labels = combine_labels(work_dir)?;
+            // Combine labels and compute the ranking permutation using
+            // mmap-backed scratch files — no O(n) heap allocations.
+            let combined = combine_labels_mmap(work_dir, num_nodes)
+                .context("Could not combine labels")?;
             log::info!("Combined labels...");
-            let rank_perm = labels_to_ranks(&labels);
+
+            let rank_perm = labels_to_ranks_mmap(combined.as_ref(), work_dir)
+                .context("Could not compute ranks")?;
             log::info!("Saving permutation...");
-            store_perm(&rank_perm, perm_path, args.fmt)?;
+
+            store_perm(rank_perm.as_ref(), &perm_path, args.fmt)?;
+
+            // Clean up mmap temp files.
+            let result_path = work_dir.join("_combine_result.tmp");
+            let inv_path = work_dir.join("_rank_inv.tmp");
+            drop(combined);
+            drop(rank_perm);
+            let _ = std::fs::remove_file(result_path);
+            let _ = std::fs::remove_file(inv_path);
         }
 
         Ok(())
