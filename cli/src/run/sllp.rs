@@ -40,7 +40,7 @@ fn create_mmap(path: &Path, byte_len: usize) -> Result<MmapHelper<usize, MmapMut
         .with_context(|| format!("Could not create {}", path.display()))?
         .set_len(byte_len as u64)
         .with_context(|| format!("Could not extend {}", path.display()))?;
-    MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::empty())
+    MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::SHARED)
         .with_context(|| format!("Could not mmap {}", path.display()))
 }
 

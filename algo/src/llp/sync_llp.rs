@@ -35,19 +35,60 @@ unsafe fn madvise_slice(slice: &[usize], advice: libc::c_int) {
     }
 }
 
+const FORCE_EVICT: bool = false;
+
 /// Write a chunk of labels to the backing file using positional I/O
-/// (`pwrite`). Positional writes are thread-safe: each call specifies its
-/// own offset, so multiple threads can write disjoint regions concurrently
-/// without locking.
+/// (`pwrite`), then immediately kick off background writeback and mark the
+/// pages for eviction so they don't accumulate in the page cache.
+///
+/// Positional writes are thread-safe: each call specifies its own offset,
+/// so multiple threads can write disjoint regions concurrently without
+/// locking.
 fn write_label_chunk(file: &File, labels: &[usize], node_offset: usize) -> std::io::Result<()> {
     use std::os::unix::fs::FileExt;
+    let byte_offset = (node_offset * size_of::<usize>()) as u64;
+    let byte_len = (labels.len() * size_of::<usize>()) as u64;
     let bytes = unsafe {
         std::slice::from_raw_parts(
             labels.as_ptr() as *const u8,
-            labels.len() * size_of::<usize>(),
+            byte_len as usize,
         )
     };
-    file.write_all_at(bytes, (node_offset * size_of::<usize>()) as u64)
+    file.write_all_at(bytes, byte_offset)?;
+
+    // Evict the just-written pages from the page cache immediately.
+    // On Linux: start async writeback for this byte range, then tell the
+    // kernel to drop the pages once they're clean.  On other Unix:
+    // fadvise alone (the kernel will write back dirty pages before
+    // evicting).  Without per-chunk eviction a 32 GB write-only array
+    // accumulates entirely in the page cache and causes OOM on machines
+    // with less RAM than the working set.
+    #[cfg(unix)]
+    {
+        if FORCE_EVICT {
+            use std::os::unix::io::AsRawFd;
+            let fd = file.as_raw_fd();
+            #[cfg(target_os = "linux")]
+            unsafe {
+                libc::sync_file_range(
+                    fd,
+                    byte_offset as libc::off_t,
+                    byte_len as libc::off_t,
+                    libc::SYNC_FILE_RANGE_WRITE,
+                );
+            }
+            unsafe {
+                libc::posix_fadvise(
+                    fd,
+                    byte_offset as libc::off_t,
+                    byte_len as libc::off_t,
+                    libc::POSIX_FADV_DONTNEED,
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Kick off asynchronous writeback of dirty pages. Returns immediately.
@@ -183,7 +224,7 @@ pub fn sync_layered_label_propagation(
     };
 
     let mmap_file = |path: &Path| -> Result<MmapHelper<usize, MmapMut>> {
-        MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::empty())
+        MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::SHARED)
             .with_context(|| format!("Could not mmap {}", path.display()))
     };
 
@@ -369,6 +410,14 @@ pub fn sync_layered_label_propagation(
                 .context("Could not re-open labels file for swap")?;
             std::mem::swap(&mut prev_path, &mut next_path);
 
+            // Recompute volumes: sequential scan of prev_labels, random
+            // writes to prev_volumes.  Hints help the kernel readahead
+            // prev_labels and avoid useless readahead on prev_volumes.
+            #[cfg(unix)]
+            unsafe {
+                madvise_slice(prev_labels.as_ref(), libc::MADV_SEQUENTIAL);
+                madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
+            }
             let vols = prev_volumes.as_mut();
             vols.fill(0);
             for &label in prev_labels.as_ref().iter() {
