@@ -115,8 +115,8 @@ pub fn main(args: CliArgs) -> Result<()> {
 
 pub fn sllp<E: Endianness + 'static + Send + Sync>(args: CliArgs) -> Result<()>
 where
-    MemoryFactory<E, MmapHelper<u32>>: CodesReaderFactoryHelper<E>,
-    for<'a> LoadModeCodesReader<'a, E, LoadMmap>: BitSeek,
+    MmapHelper<u32>: CodesReaderFactoryHelper<E>,
+    for<'a> LoadModeCodesReader<'a, E, Mmap>: BitSeek,
 {
     let start = std::time::Instant::now();
     let temp_dir = tempdir()?;
@@ -124,24 +124,24 @@ where
     log::info!("Using workdir: {}", work_dir.display());
 
     log::info!(
-        "Loading graph {} in THP memory...",
+        "Memory-mapping graph {}...",
         args.basename.to_string_lossy()
     );
     let graph = BvGraph::with_basename(&args.basename)
-        .mode::<LoadMmap>()
+        .mode::<Mmap>()
         .flags(MemoryFlags::TRANSPARENT_HUGE_PAGES | MemoryFlags::RANDOM_ACCESS)
         .endianness::<E>()
         .load()?;
 
-    log::info!("Loading DCF in THP memory...");
+    log::info!("Memory-mapping DCF...");
     let deg_cumul = unsafe {
-        DCF::load_mmap(
+        DCF::mmap(
             args.basename.with_extension(DEG_CUMUL_EXTENSION),
             Flags::TRANSPARENT_HUGE_PAGES | Flags::RANDOM_ACCESS,
         )
         .with_context(|| {
             format!(
-                "Could not load degree cumulative function for basename {}",
+                "Could not mmap degree cumulative function for basename {}",
                 args.basename.display()
             )
         })
