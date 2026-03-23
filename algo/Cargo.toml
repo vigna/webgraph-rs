@@ -30,6 +30,7 @@ rand.workspace = true
 log.workspace = true
 rayon.workspace = true
 mmap-rs.workspace = true
+libc.workspace = true
 sync-cell-slice.workspace = true
 no-break.workspace = true
 nonmax.workspace = true

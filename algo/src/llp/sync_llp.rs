@@ -21,6 +21,21 @@ use crate::{gap_cost, invert_permutation, llp::mix64, preds::{self, PredParams}}
 
 const RAYON_MIN_LEN: usize = 100000;
 
+/// Apply `madvise` to the memory region backing an mmap-ed `usize` slice.
+///
+/// Failure is silently ignored — `madvise` is advisory and the kernel may
+/// disregard the hint.
+#[cfg(unix)]
+unsafe fn madvise_slice(slice: &[usize], advice: libc::c_int) {
+    unsafe {
+        libc::madvise(
+            slice.as_ptr() as *mut libc::c_void,
+            slice.len() * size_of::<usize>(),
+            advice,
+        );
+    }
+}
+
 /// This struct is how the labels and their metadata are stored on disk.
 #[derive(Epserde, Debug, Clone)]
 pub struct LabelsStore<A> {
@@ -130,6 +145,18 @@ pub fn sync_layered_label_propagation(
                 gamma_index + 1,
                 gammas.len()
             ));
+
+            // Hint the kernel about access patterns for this iteration:
+            //  - prev_labels/prev_volumes: random reads (indexed by successor
+            //    node ids and label values respectively)
+            //  - next_labels: sequential writes in chunks (one per node, in
+            //    order within each par_apply range)
+            #[cfg(unix)]
+            unsafe {
+                madvise_slice(prev_labels.as_ref(), libc::MADV_RANDOM);
+                madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
+                madvise_slice(next_labels.as_ref(), libc::MADV_SEQUENTIAL);
+            }
 
             // Obtain slice references for the parallel closure. prev_* are
             // read-only; next_labels is written via SyncSlice interior
