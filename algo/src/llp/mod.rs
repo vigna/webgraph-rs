@@ -85,6 +85,8 @@ use webgraph::prelude::PermutedGraph;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::utils::Granularity;
 
+pub mod sync_llp;
+
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
 mod mix64;

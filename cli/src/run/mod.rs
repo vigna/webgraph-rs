@@ -11,6 +11,7 @@ use clap::Subcommand;
 pub mod llp;
 pub mod llp_combine;
 pub mod pad;
+pub mod sllp;
 
 /// Runs algorithms on graphs.​
 #[derive(Subcommand, Debug)]
@@ -19,6 +20,7 @@ pub enum SubCommands {
     Llp(llp::CliArgs),
     LlpCombine(llp_combine::CliArgs),
     Pad(pad::CliArgs),
+    Sllp(sllp::CliArgs),
 }
 
 pub fn main(subcommand: SubCommands) -> Result<()> {
@@ -26,5 +28,6 @@ pub fn main(subcommand: SubCommands) -> Result<()> {
         SubCommands::Llp(args) => llp::main(args),
         SubCommands::LlpCombine(args) => llp_combine::main(args),
         SubCommands::Pad(args) => pad::main(args),
+        SubCommands::Sllp(args) => sllp::main(args),
     }
 }
