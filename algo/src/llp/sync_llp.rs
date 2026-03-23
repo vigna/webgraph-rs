@@ -267,6 +267,13 @@ pub fn sync_layered_label_propagation(
 
         // Compute the sorting permutation of the labels. We repurpose the
         // volumes array as scratch space for the permutation.
+        //   prev_volumes (perm): sequential init then random r/w during sort
+        //   next_labels: random reads (indexed by arbitrary perm values)
+        #[cfg(unix)]
+        unsafe {
+            madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
+            madvise_slice(next_labels.as_ref(), libc::MADV_RANDOM);
+        }
         {
             let next_labels_ref = next_labels.as_ref();
             let perm = prev_volumes.as_mut();
@@ -285,6 +292,13 @@ pub fn sync_layered_label_propagation(
 
         // Compute the inverse permutation into prev_labels (which will be
         // reinitialized at the start of the next gamma anyway).
+        //   prev_volumes (perm): sequential read
+        //   prev_labels (inv): random writes at arbitrary indices
+        #[cfg(unix)]
+        unsafe {
+            madvise_slice(prev_volumes.as_ref(), libc::MADV_SEQUENTIAL);
+            madvise_slice(prev_labels.as_ref(), libc::MADV_RANDOM);
+        }
         thread_pool.install(|| {
             invert_permutation(prev_volumes.as_ref(), prev_labels.as_mut());
         });
@@ -292,6 +306,12 @@ pub fn sync_layered_label_propagation(
         update_pl.expected_updates(Some(num_nodes));
         update_pl.start("Computing log-gap cost...");
 
+        // prev_labels is now the inverse permutation — read randomly
+        // during the permuted graph traversal.
+        #[cfg(unix)]
+        unsafe {
+            madvise_slice(prev_labels.as_ref(), libc::MADV_RANDOM);
+        }
         let perm_slice = prev_labels.as_ref();
         let gap_cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
@@ -308,7 +328,11 @@ pub fn sync_layered_label_propagation(
         info!("Log-gap cost: {}", gap_cost);
         costs.push(gap_cost);
 
-        // Store the labels on disk with their cost and gamma.
+        // Serialize next_labels — sequential read.
+        #[cfg(unix)]
+        unsafe {
+            madvise_slice(next_labels.as_ref(), libc::MADV_SEQUENTIAL);
+        }
         let labels_store = LabelsStore {
             labels: next_labels.as_ref(),
             gamma: *gamma,
