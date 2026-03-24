@@ -119,6 +119,29 @@ fn write_label_chunk(file: &File, labels: &[usize], node_offset: usize) -> std::
         )
     };
     file.write_all_at(bytes, byte_offset)?;
+    // Kick off async writeback and hint the kernel to evict these pages
+    // once clean.  Without this, 30 GB of dirty pages accumulate during
+    // an iteration, competing with the graph mmap for physical memory
+    // and triggering OOM on memory-constrained machines.
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::io::AsRawFd;
+        let fd = file.as_raw_fd();
+        unsafe {
+            libc::sync_file_range(
+                fd,
+                byte_offset as libc::off_t,
+                byte_len as libc::off_t,
+                libc::SYNC_FILE_RANGE_WRITE,
+            );
+            libc::posix_fadvise(
+                fd,
+                byte_offset as libc::off_t,
+                byte_len as libc::off_t,
+                libc::POSIX_FADV_DONTNEED,
+            );
+        }
+    }
     Ok(())
 }
 
@@ -551,6 +574,12 @@ pub fn sync_layered_label_propagation(
             // avoids btrfs page_mkwrite overhead from mmap writes.
             info!("Recomputing volumes...");
             let t_vol = std::time::Instant::now();
+            // Free volumes pages before 32 GB heap allocation to reduce RSS.
+            #[cfg(unix)]
+            unsafe {
+                madvise_slice(prev_volumes.as_ref(), libc::MADV_DONTNEED);
+            }
+            drop(prev_volumes);
             #[cfg(unix)]
             unsafe {
                 madvise_slice(prev_labels.as_ref(), libc::MADV_SEQUENTIAL);
@@ -559,7 +588,6 @@ pub fn sync_layered_label_propagation(
             for &label in prev_labels.as_ref().iter() {
                 vol_buf[label] += 1;
             }
-            drop(prev_volumes);
             {
                 let f = open_rw(&volumes_path)?;
                 write_slice_to_file(&f, &vol_buf)
@@ -587,6 +615,18 @@ pub fn sync_layered_label_propagation(
         // Compute a permutation that sorts nodes by their label.  This is
         // done in a heap Vec to avoid writing through the mmap.  The result
         // is written to the volumes file (repurposed as scratch) via pwrite.
+        //
+        // Free prev_volumes and prev_labels before the 32 GB heap alloc —
+        // neither is needed for the sort (only next_labels_mmap is read).
+        // prev_labels will be re-mmaped after the inverse permutation.
+        #[cfg(unix)]
+        unsafe {
+            madvise_slice(prev_volumes.as_ref(), libc::MADV_DONTNEED);
+            madvise_slice(prev_labels.as_ref(), libc::MADV_DONTNEED);
+        }
+        drop(prev_volumes);
+        drop(prev_labels);
+
         info!("Computing sort permutation...");
         let t_sort = std::time::Instant::now();
         #[cfg(unix)]
@@ -611,7 +651,6 @@ pub fn sync_layered_label_propagation(
         // Persist the permutation to the volumes file.
         info!("Writing permutation to disk...");
         let t_write = std::time::Instant::now();
-        drop(prev_volumes);
         {
             let f = open_rw(&volumes_path)?;
             write_slice_to_file(&f, &perm)
@@ -638,7 +677,6 @@ pub fn sync_layered_label_propagation(
         });
         // Write inverse perm to prev_labels file (will be reinitialized
         // at the start of the next gamma anyway).
-        drop(prev_labels);
         {
             let f = open_rw(&prev_path)?;
             write_slice_to_file(&f, &inv)
