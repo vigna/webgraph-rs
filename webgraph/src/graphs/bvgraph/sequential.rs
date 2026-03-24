@@ -277,9 +277,8 @@ impl<D: Decode> NodeLabels<D> {
         // of successors.
         const BUF_SHRINK: usize = 1 << 18; // 256K entries = 2 MB
         if results.capacity() > BUF_SHRINK {
-            *results = Vec::with_capacity(degree);
+            results.shrink_to(degree);
         }
-        // ensure that we have enough capacity in the vector for not reallocating
         results.reserve(degree);
         // read the reference offset
         let ref_delta = if self.compression_window != 0 {

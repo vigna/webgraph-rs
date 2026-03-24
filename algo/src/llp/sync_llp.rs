@@ -443,7 +443,7 @@ pub fn sync_layered_label_propagation(
                             // Release inflated buffers from hub nodes.
                             const LABEL_BUF_SHRINK: usize = 1 << 20;
                             if label_buf.capacity() > LABEL_BUF_SHRINK {
-                                label_buf = Vec::new();
+                                label_buf.shrink_to(0);
                             }
 
                             (best_label, max - old)
