@@ -3,7 +3,6 @@ use std::{collections::VecDeque, fs::File, mem::size_of, path::Path};
 use anyhow::{Context, Result};
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logger};
 use epserde::{Epserde, ser::Serialize};
-use lender::for_;
 use log::info;
 use mmap_rs::{MmapFlags, MmapMut};
 use predicates::Predicate;
@@ -348,7 +347,8 @@ pub fn sync_layered_label_propagation(
                     // identically so we reservoir-sample with O(1) memory.
                     let mut label_buf: Vec<usize> = Vec::new();
 
-                    for_![(node, successors) in sym_graph.iter_from(range.start).take(range.len() as usize) {
+                    for node in range.clone() {
+                        let successors = sym_graph.successors(node);
                         let curr_label = prev_labels_ref[node];
 
                         let (next_label, delta) = if is_first_update {
@@ -460,7 +460,7 @@ pub fn sync_layered_label_propagation(
                             modified += 1;
                         }
                         local_obj_func += delta;
-                    }];
+                    }
 
                     // Flush remaining labels.
                     if !write_buf.is_empty() {
