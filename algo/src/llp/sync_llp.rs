@@ -5,7 +5,7 @@ use dsi_progress_logger::{ProgressLog, concurrent_progress_logger, progress_logg
 use epserde::{Epserde, ser::Serialize};
 use lender::for_;
 use log::info;
-use mmap_rs::MmapFlags;
+use mmap_rs::{MmapFlags, MmapMut};
 use predicates::Predicate;
 use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rayon::prelude::*;
@@ -35,71 +35,28 @@ unsafe fn madvise_slice(slice: &[usize], advice: libc::c_int) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Bulk pwrite helpers — bypass btrfs page_mkwrite entirely
-// ---------------------------------------------------------------------------
-
-/// Chunk size for parallel pwrite operations (1M elements = 8 MB per chunk).
-const PWRITE_CHUNK: usize = 1 << 20;
-
-/// Write a contiguous `&[usize]` slice to `file` at the given element offset
-/// using positional I/O (`pwrite`).  Thread-safe: each call specifies its own
-/// file offset, so callers may invoke this concurrently on disjoint regions.
-fn pwrite_chunk(file: &File, data: &[usize], element_offset: usize) -> Result<()> {
-    use std::os::unix::fs::FileExt;
-    let byte_offset = (element_offset * size_of::<usize>()) as u64;
-    let bytes = unsafe {
-        std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<usize>())
-    };
-    file.write_all_at(bytes, byte_offset)
-        .context("pwrite_chunk failed")?;
-    Ok(())
+/// Flush all dirty pages in a MAP_SHARED mmap to their backing file, then
+/// drop them from the process's page tables.
+///
+/// After this call the pages are clean on disk.  Future reads trigger a
+/// page fault that loads the data from the file on demand.  This is
+/// essential on memory-constrained systems: without it, the kernel's
+/// `MemAvailable` metric drops (dirty+mapped pages are discounted), which
+/// can trip earlyoom or the kernel OOM killer even though the pages are
+/// theoretically reclaimable.
+#[cfg(unix)]
+unsafe fn flush_and_evict_mmap(slice: &[usize]) {
+    let ptr = slice.as_ptr() as *mut libc::c_void;
+    let len = slice.len() * size_of::<usize>();
+    unsafe {
+        // Block until every dirty page is written to disk.
+        libc::msync(ptr, len, libc::MS_SYNC);
+        // Drop the now-clean pages from the page tables.
+        libc::madvise(ptr, len, libc::MADV_DONTNEED);
+    }
 }
 
-/// Write the identity sequence `0..num_nodes` to `file` in parallel chunks,
-/// then flush and evict all written pages.
-fn write_identity_to_file(file: &File, num_nodes: usize) -> Result<()> {
-    let n_chunks = num_nodes.div_ceil(PWRITE_CHUNK);
-    (0..n_chunks).into_par_iter().try_for_each(|ci| {
-        let start = ci * PWRITE_CHUNK;
-        let end = (start + PWRITE_CHUNK).min(num_nodes);
-        let buf: Vec<usize> = (start..end).collect();
-        pwrite_chunk(file, &buf, start)
-    })?;
-    await_writeback_and_evict(file).context("flush after identity write")?;
-    Ok(())
-}
-
-/// Fill `file` with `num_nodes` copies of `value` in parallel chunks,
-/// then flush and evict all written pages.
-fn write_fill_to_file(file: &File, num_nodes: usize, value: usize) -> Result<()> {
-    let n_chunks = num_nodes.div_ceil(PWRITE_CHUNK);
-    (0..n_chunks).into_par_iter().try_for_each(|ci| {
-        let start = ci * PWRITE_CHUNK;
-        let end = (start + PWRITE_CHUNK).min(num_nodes);
-        let buf = vec![value; end - start];
-        pwrite_chunk(file, &buf, start)
-    })?;
-    await_writeback_and_evict(file).context("flush after fill write")?;
-    Ok(())
-}
-
-/// Write an existing `&[usize]` slice to `file` in parallel chunks,
-/// then flush and evict all written pages.
-fn write_slice_to_file(file: &File, data: &[usize]) -> Result<()> {
-    let n_chunks = data.len().div_ceil(PWRITE_CHUNK);
-    (0..n_chunks).into_par_iter().try_for_each(|ci| {
-        let start = ci * PWRITE_CHUNK;
-        let end = (start + PWRITE_CHUNK).min(data.len());
-        pwrite_chunk(file, &data[start..end], start)
-    })?;
-    await_writeback_and_evict(file).context("flush after slice write")?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Per-chunk label writer used inside the iteration inner loop
-// ---------------------------------------------------------------------------
+const FORCE_EVICT: bool = false;
 
 /// Write a chunk of labels to the backing file using positional I/O
 /// (`pwrite`), then immediately kick off background writeback and mark the
@@ -119,35 +76,41 @@ fn write_label_chunk(file: &File, labels: &[usize], node_offset: usize) -> std::
         )
     };
     file.write_all_at(bytes, byte_offset)?;
-    // Kick off async writeback and hint the kernel to evict these pages
-    // once clean.  Without this, 30 GB of dirty pages accumulate during
-    // an iteration, competing with the graph mmap for physical memory
-    // and triggering OOM on memory-constrained machines.
-    #[cfg(target_os = "linux")]
+
+    // Evict the just-written pages from the page cache immediately.
+    // On Linux: start async writeback for this byte range, then tell the
+    // kernel to drop the pages once they're clean.  On other Unix:
+    // fadvise alone (the kernel will write back dirty pages before
+    // evicting).  Without per-chunk eviction a 32 GB write-only array
+    // accumulates entirely in the page cache and causes OOM on machines
+    // with less RAM than the working set.
+    #[cfg(unix)]
     {
-        use std::os::unix::io::AsRawFd;
-        let fd = file.as_raw_fd();
-        unsafe {
-            libc::sync_file_range(
-                fd,
-                byte_offset as libc::off_t,
-                byte_len as libc::off_t,
-                libc::SYNC_FILE_RANGE_WRITE,
-            );
-            libc::posix_fadvise(
-                fd,
-                byte_offset as libc::off_t,
-                byte_len as libc::off_t,
-                libc::POSIX_FADV_DONTNEED,
-            );
+        if FORCE_EVICT {
+            use std::os::unix::io::AsRawFd;
+            let fd = file.as_raw_fd();
+            #[cfg(target_os = "linux")]
+            unsafe {
+                libc::sync_file_range(
+                    fd,
+                    byte_offset as libc::off_t,
+                    byte_len as libc::off_t,
+                    libc::SYNC_FILE_RANGE_WRITE,
+                );
+            }
+            unsafe {
+                libc::posix_fadvise(
+                    fd,
+                    byte_offset as libc::off_t,
+                    byte_len as libc::off_t,
+                    libc::POSIX_FADV_DONTNEED,
+                );
+            }
         }
     }
+
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Writeback helpers
-// ---------------------------------------------------------------------------
 
 /// Kick off asynchronous writeback of dirty pages. Returns immediately.
 ///
@@ -224,15 +187,13 @@ pub struct LabelsStore<A> {
 ///
 /// "Synchronous" means all updates in an iteration are computed from the same
 /// snapshot of labels, then applied at once (double-buffering). The read-only
-/// arrays (`prev_labels`, `prev_volumes`) are backed by read-only memory-mapped
-/// files so the OS can page them to disk when physical RAM is scarce.  The
-/// write-only array (`next_labels`) is written via positional file I/O
-/// (`pwrite`), with an explicit flush-and-evict after each iteration so the
-/// kernel does not keep written pages in the page cache.
-///
-/// All mutations to the label/volume backing files go through `pwrite`,
-/// never through the mmap.  This avoids filesystem `page_mkwrite` overhead
-/// (a severe bottleneck on btrfs) and keeps dirty-page accounting clean.
+/// arrays (`prev_labels`, `prev_volumes`) are backed by memory-mapped files so
+/// the OS can page them to disk when physical RAM is scarce. The write-only
+/// array (`next_labels`) is written via positional file I/O (`pwrite`), with an
+/// explicit flush-and-evict after each iteration so the kernel does not keep
+/// written pages in the page cache. This allows processing graphs whose
+/// node-level metadata exceeds available memory without polluting the cache with
+/// write-only data.
 pub fn sync_layered_label_propagation(
     sym_graph: impl RandomAccessGraph + Sync,
     deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + Send + Sync),
@@ -263,8 +224,9 @@ pub fn sync_layered_label_propagation(
     let mut update_pl = concurrent_progress_logger![item_name = "node", local_speed = true];
     update_pl.display_memory(true);
 
-    // Allocate the backing files.  Both label files and the volumes file are
-    // accessed through read-only mmaps; all writes go through pwrite.
+    // Allocate the backing files. prev_labels and prev_volumes are mmap-ed
+    // (read randomly during iteration); next_labels is written via pwrite and
+    // flushed+evicted so the kernel can free those pages immediately.
     let labels_a_path = work_path.join("_labels_a.tmp");
     let labels_b_path = work_path.join("_labels_b.tmp");
     let volumes_path = work_path.join("_volumes.tmp");
@@ -283,9 +245,8 @@ pub fn sync_layered_label_propagation(
         Ok(())
     };
 
-    // Read-only mmap — no PROT_WRITE, no btrfs page_mkwrite overhead.
-    let mmap_ro = |path: &Path| -> Result<MmapHelper<usize>> {
-        MmapHelper::<usize>::mmap(path, MmapFlags::empty())
+    let mmap_file = |path: &Path| -> Result<MmapHelper<usize, MmapMut>> {
+        MmapHelper::<usize, MmapMut>::mmap_mut(path, MmapFlags::SHARED)
             .with_context(|| format!("Could not mmap {}", path.display()))
     };
 
@@ -302,13 +263,13 @@ pub fn sync_layered_label_propagation(
     create_sized_file(&labels_b_path)?;
     create_sized_file(&volumes_path)?;
 
-    // prev_labels / prev_volumes: read-only mmap (random reads during iteration)
-    // next_file: File handle (pwrite during iteration, flushed+evicted after)
-    let mut prev_labels = mmap_ro(&labels_a_path)?;
+    // prev_labels: mmap (random reads during iteration)
+    // next_file:   File  (pwrite during iteration, flushed+evicted after)
+    let mut prev_labels = mmap_file(&labels_a_path)?;
     let mut next_file = open_rw(&labels_b_path)?;
     let mut prev_path = labels_a_path.clone();
     let mut next_path = labels_b_path.clone();
-    let mut prev_volumes = mmap_ro(&volumes_path)?;
+    let mut prev_volumes = mmap_file(&volumes_path)?;
 
     let mut costs = Vec::with_capacity(gammas.len());
 
@@ -328,28 +289,25 @@ pub fn sync_layered_label_propagation(
         let mut improv_window: VecDeque<_> = vec![1.0; IMPROV_WINDOW].into();
 
         // Reset labels to identity and volumes to 1 for each new gamma.
-        // All writes go through pwrite to avoid btrfs page_mkwrite overhead.
-        info!("Resetting labels to identity...");
-        let t_reset = std::time::Instant::now();
-        drop(prev_labels);
-        {
-            let f = open_rw(&prev_path)?;
-            write_identity_to_file(&f, num_nodes)
-                .context("Could not write identity labels")?;
+        // Flush and evict the dirty pages afterwards so the kernel sees
+        // them as reclaimable — without this, 64 GB of dirty+mapped shared
+        // pages drain MemAvailable and trip earlyoom/OOM.
+        prev_labels
+            .as_mut()
+            .par_iter_mut()
+            .with_min_len(RAYON_MIN_LEN)
+            .enumerate()
+            .for_each(|(i, x)| *x = i);
+        prev_volumes
+            .as_mut()
+            .par_iter_mut()
+            .with_min_len(RAYON_MIN_LEN)
+            .for_each(|x| *x = 1);
+        #[cfg(unix)]
+        unsafe {
+            flush_and_evict_mmap(prev_labels.as_ref());
+            flush_and_evict_mmap(prev_volumes.as_ref());
         }
-        prev_labels = mmap_ro(&prev_path)?;
-        info!("Reset labels in {:.1}s", t_reset.elapsed().as_secs_f64());
-
-        info!("Resetting volumes to 1...");
-        let t_reset = std::time::Instant::now();
-        drop(prev_volumes);
-        {
-            let f = open_rw(&volumes_path)?;
-            write_fill_to_file(&f, num_nodes, 1)
-                .context("Could not write unit volumes")?;
-        }
-        prev_volumes = mmap_ro(&volumes_path)?;
-        info!("Reset volumes in {:.1}s", t_reset.elapsed().as_secs_f64());
 
         for update in 0.. {
             update_pl.expected_updates(Some(num_nodes));
@@ -552,143 +510,90 @@ pub fn sync_layered_label_propagation(
 
             // Barrier: wait for async writeback to complete and evict
             // pages before we drop the file handle and mmap it.
-            info!("Flushing next_labels to disk...");
-            let t_flush = std::time::Instant::now();
             await_writeback_and_evict(&next_file)
                 .context("Could not flush next_labels for swap")?;
-            info!("Flushed next_labels in {:.1}s", t_flush.elapsed().as_secs_f64());
 
             // Swap: the file that was next_labels becomes prev_labels (mmap it
             // for random reads) and the old prev_labels file becomes the new
             // next_labels (open it for pwrite).
             drop(prev_labels);
             drop(next_file);
-            prev_labels = mmap_ro(&next_path)
+            prev_labels = mmap_file(&next_path)
                 .context("Could not mmap labels for swap")?;
             next_file = open_rw(&prev_path)
                 .context("Could not re-open labels file for swap")?;
             std::mem::swap(&mut prev_path, &mut next_path);
 
-            // Recompute volumes: sequential scan of prev_labels into a heap
-            // buffer, then pwrite the result to the volumes file.  This
-            // avoids btrfs page_mkwrite overhead from mmap writes.
-            info!("Recomputing volumes...");
-            let t_vol = std::time::Instant::now();
-            // Free volumes pages before 32 GB heap allocation to reduce RSS.
-            #[cfg(unix)]
-            unsafe {
-                madvise_slice(prev_volumes.as_ref(), libc::MADV_DONTNEED);
-            }
-            drop(prev_volumes);
+            // Recompute volumes: sequential scan of prev_labels, random
+            // writes to prev_volumes.  Hints help the kernel readahead
+            // prev_labels and avoid useless readahead on prev_volumes.
             #[cfg(unix)]
             unsafe {
                 madvise_slice(prev_labels.as_ref(), libc::MADV_SEQUENTIAL);
+                madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
             }
-            let mut vol_buf = vec![0usize; num_nodes];
+            let vols = prev_volumes.as_mut();
+            vols.fill(0);
             for &label in prev_labels.as_ref().iter() {
-                vol_buf[label] += 1;
+                vols[label] += 1;
             }
-            {
-                let f = open_rw(&volumes_path)?;
-                write_slice_to_file(&f, &vol_buf)
-                    .context("Could not write recomputed volumes")?;
+            // Flush dirty volume pages so MemAvailable stays healthy.
+            #[cfg(unix)]
+            unsafe {
+                flush_and_evict_mmap(prev_volumes.as_ref());
             }
-            drop(vol_buf);
-            prev_volumes = mmap_ro(&volumes_path)?;
-            info!("Recomputed volumes in {:.1}s", t_vol.elapsed().as_secs_f64());
         }
 
         iter_pl.done();
 
-        // --- Post-convergence: flush and mmap next_labels for read access ---
-        info!("Flushing next_labels for post-convergence...");
-        let t_flush = std::time::Instant::now();
-        await_writeback_and_evict(&next_file)
-            .context("Could not flush next_labels for post-convergence")?;
+        // --- Post-convergence: mmap next_labels for read access ---
+        //
+        // The iteration loop wrote next_labels via pwrite and evicted it.
+        // Now we need random reads (sort) and sequential reads (serialize),
+        // so mmap the file.
+        await_writeback_and_evict(&next_file).context("Could not flush next_labels for post-convergence")?;
         drop(next_file);
-        let next_labels_mmap = mmap_ro(&next_path)
+        let next_labels_mmap = mmap_file(&next_path)
             .context("Could not mmap next_labels for post-convergence")?;
-        info!("Flushed in {:.1}s", t_flush.elapsed().as_secs_f64());
 
-        // --- Sort permutation ---
-        //
-        // Compute a permutation that sorts nodes by their label.  This is
-        // done in a heap Vec to avoid writing through the mmap.  The result
-        // is written to the volumes file (repurposed as scratch) via pwrite.
-        //
-        // Free prev_volumes and prev_labels before the 32 GB heap alloc —
-        // neither is needed for the sort (only next_labels_mmap is read).
-        // prev_labels will be re-mmaped after the inverse permutation.
+        // Compute the sorting permutation of the labels. We repurpose the
+        // volumes array as scratch space for the permutation.
+        //   prev_volumes (perm): sequential init then random r/w during sort
+        //   next_labels: random reads (indexed by arbitrary perm values)
         #[cfg(unix)]
         unsafe {
-            madvise_slice(prev_volumes.as_ref(), libc::MADV_DONTNEED);
-            madvise_slice(prev_labels.as_ref(), libc::MADV_DONTNEED);
-        }
-        drop(prev_volumes);
-        drop(prev_labels);
-
-        info!("Computing sort permutation...");
-        let t_sort = std::time::Instant::now();
-        #[cfg(unix)]
-        unsafe {
+            madvise_slice(prev_volumes.as_ref(), libc::MADV_RANDOM);
             madvise_slice(next_labels_mmap.as_ref(), libc::MADV_RANDOM);
         }
-        let mut perm = vec![0usize; num_nodes];
-        let next_labels_ref = next_labels_mmap.as_ref();
-        thread_pool.install(|| {
-            perm.par_iter_mut()
-                .with_min_len(RAYON_MIN_LEN)
-                .enumerate()
-                .for_each(|(i, x)| *x = i);
-            perm.par_sort_unstable_by(|&a, &b| {
-                next_labels_ref[a]
-                    .cmp(&next_labels_ref[b])
-                    .then_with(|| a.cmp(&b))
-            });
-        });
-        info!("Sorted permutation in {:.1}s", t_sort.elapsed().as_secs_f64());
-
-        // Persist the permutation to the volumes file.
-        info!("Writing permutation to disk...");
-        let t_write = std::time::Instant::now();
         {
-            let f = open_rw(&volumes_path)?;
-            write_slice_to_file(&f, &perm)
-                .context("Could not write sort permutation")?;
+            let next_labels_ref = next_labels_mmap.as_ref();
+            let perm = prev_volumes.as_mut();
+            thread_pool.install(|| {
+                perm.par_iter_mut()
+                    .with_min_len(RAYON_MIN_LEN)
+                    .enumerate()
+                    .for_each(|(i, x)| *x = i);
+                perm.par_sort_unstable_by(|&a, &b| {
+                    next_labels_ref[a]
+                        .cmp(&next_labels_ref[b])
+                        .then_with(|| a.cmp(&b))
+                });
+            });
         }
-        drop(perm);
-        prev_volumes = mmap_ro(&volumes_path)?;
-        info!("Wrote permutation in {:.1}s", t_write.elapsed().as_secs_f64());
 
-        // --- Inverse permutation ---
-        //
-        // Compute the inverse of the sorting permutation into a heap Vec,
-        // then write it to the prev_labels file via pwrite.
-        info!("Computing inverse permutation...");
-        let t_inv = std::time::Instant::now();
+        // Compute the inverse permutation into prev_labels (which will be
+        // reinitialized at the start of the next gamma anyway).
+        //   prev_volumes (perm): sequential read
+        //   prev_labels (inv): random writes at arbitrary indices
         #[cfg(unix)]
         unsafe {
             madvise_slice(prev_volumes.as_ref(), libc::MADV_SEQUENTIAL);
+            madvise_slice(prev_labels.as_ref(), libc::MADV_RANDOM);
         }
-        let perm_ref = prev_volumes.as_ref();
-        let mut inv = vec![0usize; num_nodes];
         thread_pool.install(|| {
-            invert_permutation(perm_ref, &mut inv);
+            invert_permutation(prev_volumes.as_ref(), prev_labels.as_mut());
         });
-        // Write inverse perm to prev_labels file (will be reinitialized
-        // at the start of the next gamma anyway).
-        {
-            let f = open_rw(&prev_path)?;
-            write_slice_to_file(&f, &inv)
-                .context("Could not write inverse permutation")?;
-        }
-        drop(inv);
-        prev_labels = mmap_ro(&prev_path)?;
-        info!("Computed inverse permutation in {:.1}s", t_inv.elapsed().as_secs_f64());
 
-        // --- Log-gap cost ---
-        info!("Computing log-gap cost...");
-        let t_gap = std::time::Instant::now();
         update_pl.expected_updates(Some(num_nodes));
         update_pl.start("Computing log-gap cost...");
 
@@ -710,12 +615,11 @@ pub fn sync_layered_label_propagation(
         );
 
         update_pl.done();
-        info!("Log-gap cost: {} ({:.1}s)", gap_cost, t_gap.elapsed().as_secs_f64());
+
+        info!("Log-gap cost: {}", gap_cost);
         costs.push(gap_cost);
 
-        // --- Serialize labels ---
-        info!("Serializing labels for gamma {}...", gamma);
-        let t_ser = std::time::Instant::now();
+        // Serialize next_labels — sequential read.
         #[cfg(unix)]
         unsafe {
             madvise_slice(next_labels_mmap.as_ref(), libc::MADV_SEQUENTIAL);
@@ -731,7 +635,6 @@ pub fn sync_layered_label_propagation(
                 .store(&labels_path(gamma_index))
                 .context("Could not serialize labels")
         }?;
-        info!("Serialized labels in {:.1}s", t_ser.elapsed().as_secs_f64());
 
         // Done with post-convergence reads. Re-open the file for the next
         // gamma's pwrite iterations.
