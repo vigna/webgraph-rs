@@ -199,6 +199,7 @@ pub fn sync_layered_label_propagation(
     gammas: Vec<f64>,
     granularity: Granularity,
     predicate: impl Predicate<preds::PredParams>,
+    successor_cap: usize,
     work_dir: impl AsRef<Path>,
 ) -> Result<()> {
     const IMPROV_WINDOW: usize = 10;
@@ -363,7 +364,7 @@ pub fn sync_layered_label_propagation(
                             let mut best = curr_label;
                             let mut n_seen: u32 = 0;
                             let mut curr_is_neighbor = false;
-                            for succ in successors {
+                            for succ in successors.into_iter().take(successor_cap) {
                                 n_seen += 1;
                                 if succ == node { curr_is_neighbor = true; }
                                 if rand.random_range(0..n_seen) == 0 {
@@ -387,7 +388,7 @@ pub fn sync_layered_label_propagation(
                             // count distinct labels.  Vec uses 8 bytes/entry
                             // vs HashMap's ~50.
                             label_buf.clear();
-                            for succ in successors {
+                            for succ in successors.into_iter().take(successor_cap) {
                                 label_buf.push(prev_labels_ref[succ]);
                             }
                             label_buf.sort_unstable();

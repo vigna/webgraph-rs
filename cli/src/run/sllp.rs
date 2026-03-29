@@ -266,6 +266,11 @@ pub struct CliArgs {
     /// improvement used to stop the computation (-Inf to disable).
     pub improv_threshold: f64,
 
+    #[arg(short = 'k', long, default_value_t = usize::MAX)]
+    /// Only consider the first K successors per node. Limits per-thread memory
+    /// to O(K) and speeds up high-degree nodes at the cost of label quality.
+    pub successor_cap: usize,
+
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
@@ -374,6 +379,7 @@ where
             gammas,
             granularity,
             predicate,
+            args.successor_cap,
             work_dir,
         )
         .context("Could not compute SLLP")?;
