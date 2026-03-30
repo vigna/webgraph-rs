@@ -215,14 +215,14 @@ where
         .rposition(|&x| x != 0)
         .unwrap_or(0);
 
-    let mut tot_log_delta = 0.0f64;
+    let mut tot_log_delta = 0u128;
     let mut num_delta = 0u64;
     let delta_str: String = (0..=l)
         .map(|i| {
             let count = successor_delta_stats[i];
             num_delta += count;
             let g: u64 = 1 << i; // 2^i
-            tot_log_delta += ((g as f64 * 3.0 + 1.0).log2() - 1.0) * count as f64;
+            tot_log_delta += (((g * 3 + 1).ilog2() - 1) as u64 * count) as u128;
             count.to_string()
         })
         .collect::<Vec<_>>()
