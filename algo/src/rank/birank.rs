@@ -101,9 +101,8 @@
 //! # References
 //!
 //! Xiangnan He, Ming Gao, Min-Yen Kan, and Dingxian Wang. [BiRank: Towards
-//! Ranking on Bipartite
-//! Graphs](https://doi.org/10.1109/TKDE.2016.2611584). *IEEE
-//! Transactions on Knowledge and Data Engineering*, 29(1):57–71, 2017.
+//! Ranking on Bipartite Graphs](https://doi.org/10.1109/TKDE.2016.2611584).
+//! *IEEE Transactions on Knowledge and Data Engineering*, 29(1):57–71, 2017.
 //!
 //! [BiRank]: https://doi.org/10.1109/TKDE.2016.2611584
 //! [`Predicate`]: predicates::Predicate
