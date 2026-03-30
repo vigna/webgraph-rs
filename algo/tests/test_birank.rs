@@ -141,16 +141,16 @@ fn test_against_naive() -> anyhow::Result<()> {
 
     // Compute inverse square-root degrees
     let mut inv_sqrt_d = vec![0.0; n];
-    for i in 0..num_u {
+    for (i, elem) in inv_sqrt_d.iter_mut().enumerate().take(num_u) {
         let d = graph.outdegree(i);
         if d > 0 {
-            inv_sqrt_d[i] = 1.0 / (d as f64).sqrt();
+            *elem = 1.0 / (d as f64).sqrt();
         }
     }
-    for j in num_u..n {
+    for (j, elem) in inv_sqrt_d.iter_mut().enumerate().take(n).skip(num_u) {
         let d = transpose.outdegree(j);
         if d > 0 {
-            inv_sqrt_d[j] = 1.0 / (d as f64).sqrt();
+            *elem = 1.0 / (d as f64).sqrt();
         }
     }
 

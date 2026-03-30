@@ -235,7 +235,7 @@ where
         if num_delta == 0 {
             "0".to_string()
         } else {
-            format!("{:.3}", tot_log_delta / (num_delta * 2) as f64)
+            format!("{:.3}", tot_log_delta as f64 / (num_delta * 2) as f64)
         }
     )?;
 
