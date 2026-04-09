@@ -15,6 +15,10 @@ use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 
 /// Computes strongly connected components using Tarjan's algorithm.
 ///
+/// Component numbers are generated starting from zero in order of emission:
+/// thus, the component number provides a reverse topological order of the
+/// components in the DAG of components.
+///
 /// # Implementation details
 ///
 /// This implementation is iterative (it uses an explicit visit stack) and is
