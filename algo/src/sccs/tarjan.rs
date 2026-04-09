@@ -14,6 +14,41 @@ use webgraph::traits::RandomAccessGraph;
 use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 
 /// Computes strongly connected components using Tarjan's algorithm.
+///
+/// # Implementation details
+///
+/// This implementation is iterative (it uses an explicit visit stack) and is
+/// based on the recent survey by Tarjan and Zwick referenced below. It
+/// implements all improvements described by the authors; in particular, the
+/// early exit when a single remaining component is detected.
+///
+/// The visit stack in the case of a compressed graph is a much heavier object
+/// than in the case of an explicit representation, where a pointer in the
+/// adjacency list is sufficient, as we have to store one iterator per node
+/// on the stack. While the allocation performed, say, by
+/// [`BvGraph`](webgraph::compressed::bvgraph::BvGraph) is essentially
+/// constant-size, it is definitely larger than a pointer. It remains true that
+/// the sum of the lengths of the visit stack and of the component stack cannot
+/// exceed the number of nodes, but this property does not translate immediately
+/// into a simple space bound.
+///
+/// # Further improvements
+///
+/// This implementation contains two simple original improvements: first, the
+/// lead bits are not stored in a vector, as in previous implementations, but in
+/// a bit stack. Thus, the space occupancy by the lead bits is bounded by the
+/// maximum visit depth. Moreover, access to the stack happens only at the top,
+/// whereas access to the bit vector is non-local and can cause cache misses.
+///
+/// Second, we use reverse timestamps in the range [1 . . *n*], where *n* is the
+/// number of nodes. This allows us to assign component indices starting from
+/// zero, which means that no renumbering is necessary at the end of the visit.
+///
+/// # References
+///
+/// Robert E. Tarjan and Uri Zwick. [Finding strong components using depth-first
+/// search](https://doi.org/10.1016/j.ejc.2023.103815). *European Journal of
+/// Combinatorics*, Volume 119, 2024.
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {
     let num_nodes = graph.num_nodes();
     pl.item_name("node");
