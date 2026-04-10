@@ -14,11 +14,14 @@ use std::{collections::BTreeMap, iter::FusedIterator};
 /// [`BTreeMap`].
 ///
 /// This implementation is slower and uses more resources than a
-/// [`LabeledVecGraph`](crate::graphs::vec_graph::LabeledVecGraph),
-/// but it is more flexible as arcs can be added in any order.
+/// [`LabeledVecGraph`], but it is more flexible as arcs can be added in any
+/// order.
 ///
 /// By setting the feature `serde`, this struct can be serialized and
-/// deserialized using [serde](https://crates.io/crates/serde).
+/// deserialized using [serde].
+///
+/// [`LabeledVecGraph`]: crate::graphs::vec_graph::LabeledVecGraph
+/// [serde]: https://crates.io/crates/serde
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LabeledBTreeGraph<L: Clone + 'static = ()> {
@@ -178,7 +181,9 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledBTreeGraph<L> {
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [crate documentation]: crate
 impl<'a, L: Clone + 'static> IntoLender for &'a LabeledBTreeGraph<L> {
     type Lender = <LabeledBTreeGraph<L> as SequentialLabeling>::Lender<'a>;
 
@@ -236,13 +241,15 @@ impl<L: Clone + Sync> SplitLabeling for LabeledBTreeGraph<L> {
 /// but it is more flexible as arcs can be added in any order.
 ///
 /// By setting the feature `serde`, this struct can be serialized and
-/// deserialized using [serde](https://crates.io/crates/serde).
+/// deserialized using [serde].
 ///
 /// # Implementation Notes
 ///
-/// This is just a newtype for a [`LabeledBTreeGraph`] with
-/// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
-/// mutation methods are delegated.
+/// This is just a newtype for a [`LabeledBTreeGraph`] with [`()`] labels.
+/// All mutation methods are delegated.
+///
+/// [serde]: https://crates.io/crates/serde
+/// [`()`]: https://doc.rust-lang.org/std/primitive.unit.html
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BTreeGraph(LabeledBTreeGraph<()>);
@@ -319,7 +326,9 @@ impl BTreeGraph {
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [crate documentation]: crate
 impl<'a> IntoLender for &'a BTreeGraph {
     type Lender = <BTreeGraph as SequentialLabeling>::Lender<'a>;
 

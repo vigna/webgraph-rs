@@ -71,12 +71,16 @@
 //! # Usage
 //!
 //! Depending on what you intend to compute, you have to choose the right
-//! [_level_](Level) between [`All`], [`AllForward`], [`RadiusDiameter`],
-//! [`Diameter`], and [`Radius`]. Then you have to invoke [`run`](Level::run) or
-//! [`run_symm`](Level::run_symm). In the first case, you have to provide a
-//! graph and its transpose; in the second case, you have to provide a symmetric
-//! graph. The methods return a suitable structure containing the result of the
+//! [_level_] between [`All`], [`AllForward`], [`RadiusDiameter`],
+//! [`Diameter`], and [`Radius`]. Then you have to invoke [`run`] or
+//! [`run_symm`]. In the first case, you have to provide a graph and its
+//! transpose; in the second case, you have to provide a symmetric graph. The
+//! methods return a suitable structure containing the result of the
 //! computation.
+//!
+//! [_level_]: Level
+//! [`run`]: Level::run
+//! [`run_symm`]: Level::run_symm
 //!
 //! [ExactSumSweep paper]: <https://doi.org/10.1016/j.tcs.2015.02.033>
 //! [Facebook]: <https://doi.org/10.1145/2380718.2380723>
@@ -140,8 +144,9 @@
 //! assert_eq!(result.backward_eccentricities.as_ref(), &vec![3, 3, 3, 3, 4]);
 //! ```
 //!
-//! If the graph is symmetric (i.e., undirected), you may use
-//! [run_symm](Level::run_symm).
+//! If the graph is symmetric (i.e., undirected), you may use [`run_symm`].
+//!
+//! [`run_symm`]: Level::run_symm
 //! ```
 //! use webgraph_algo::distances::exact_sum_sweep::{self, *};
 //! use dsi_progress_logger::no_logging;

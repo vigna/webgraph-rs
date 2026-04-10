@@ -158,7 +158,9 @@ impl LoadMode for File {
 
 /// The graph and offsets are memory mapped.
 ///
-/// This is the default mode. You can [set memory-mapping flags](LoadConfig::flags).
+/// This is the default mode. You can [set memory-mapping flags].
+///
+/// [set memory-mapping flags]: LoadConfig::flags
 #[derive(Debug, Clone)]
 pub struct Mmap {}
 #[sealed]
@@ -216,7 +218,9 @@ impl LoadMode for LoadMem {
 
 /// The graph and offsets are loaded into memory obtained via `mmap()`.
 ///
-/// You can [set memory-mapping flags](LoadConfig::flags).
+/// You can [set memory-mapping flags].
+///
+/// [set memory-mapping flags]: LoadConfig::flags
 #[derive(Debug, Clone)]
 pub struct LoadMmap {}
 #[sealed]
@@ -249,14 +253,14 @@ impl LoadMode for LoadMmap {
 /// A basic configuration is returned by
 /// [`BvGraph::with_basename`]/[`BvGraphSeq::with_basename`]. The configuration
 /// can then be customized using the setter methods of this struct, chained in
-/// builder style, and finalized by calling [`load`](LoadConfig::load).
+/// builder style, and finalized by calling [`load`].
 ///
 /// # Defaults
 ///
 /// The default configuration returned by `with_basename` uses:
 /// - big endianness ([`BE`]);
-/// - [dynamic dispatch](`Dynamic`);
-/// - [memory mapping](`Mmap`) for both the graph and the offsets.
+/// - [dynamic dispatch];
+/// - [memory mapping] for both the graph and the offsets.
 ///
 /// # Configuration Axes
 ///
@@ -271,13 +275,13 @@ impl LoadMode for LoadMmap {
 ///
 /// ## Endianness
 ///
-/// - [`endianness`](LoadConfig::endianness): sets the endianness of the graph
-///   file. Use `endianness::<BE>()` for big-endian (the default and the Java
-///   convention) or `endianness::<LE>()` for little-endian.
+/// - [`endianness`]: sets the endianness of the graph file. Use
+///   `endianness::<BE>()` for big-endian (the default and the Java convention)
+///   or `endianness::<LE>()` for little-endian.
 ///
 /// ## Code Dispatch
 ///
-/// - [`dispatch`](LoadConfig::dispatch): chooses between:
+/// - [`dispatch`]: chooses between:
 ///   - [`Dynamic`] (default): reads the codes from the properties file;
 ///     slightly slower due to indirect dispatch, but works with any graph.
 ///   - [`Static`]: the codes are fixed at compile time via const generics,
@@ -290,12 +294,11 @@ impl LoadMode for LoadMmap {
 ///
 /// Controls how the graph bitstream and the offsets are accessed.
 ///
-/// - [`mode`](LoadConfig::mode): sets the load mode for **both** the graph
-///   and the offsets. You can also set them independently:
-///   - [`graph_mode`](LoadConfig::graph_mode): sets the mode for the graph
-///     only;
-///   - [`offsets_mode`](LoadConfig::offsets_mode): sets the mode for the
-///     offsets only (random access only).
+/// - [`mode`]: sets the load mode for **both** the graph and the offsets. You
+///   can also set them independently:
+///   - [`graph_mode`]: sets the mode for the graph only;
+///   - [`offsets_mode`]: sets the mode for the offsets only (random access
+///     only).
 ///
 /// The available modes are:
 ///
@@ -306,8 +309,7 @@ impl LoadMode for LoadMmap {
 /// - [`LoadMmap`]: reads the file into memory obtained via `mmap`, rather than
 ///   the standard allocator.
 /// - [`File`]: reads the graph from a file stream. The offsets are fully
-///   deserialized in memory using [ε-serde]'s
-///   [`load_full`](epserde::deser::Deserialize::load_full). Note that the
+///   deserialized in memory using [ε-serde]'s [`load_full`]. Note that the
 ///   graph file must be padded correctly for this mode.
 ///
 /// ## Memory flags
@@ -315,10 +317,9 @@ impl LoadMode for LoadMmap {
 /// When using [`Mmap`] or [`LoadMmap`], you can set [`MemoryFlags`] to
 /// request transparent huge pages, etc.:
 ///
-/// - [`flags`](LoadConfig::flags): sets flags for both the graph and offsets.
-/// - [`graph_flags`](LoadConfig::graph_flags): sets flags for the graph only.
-/// - [`offsets_flags`](LoadConfig::offsets_flags): sets flags for the offsets
-///   only (random access only).
+/// - [`flags`]: sets flags for both the graph and offsets.
+/// - [`graph_flags`]: sets flags for the graph only.
+/// - [`offsets_flags`]: sets flags for the offsets only (random access only).
 ///
 /// # Examples
 ///
@@ -362,6 +363,18 @@ impl LoadMode for LoadMmap {
 ///     .load()?;
 /// ```
 ///
+/// [`load`]: LoadConfig::load
+/// [dynamic dispatch]: `Dynamic`
+/// [memory mapping]: `Mmap`
+/// [`endianness`]: LoadConfig::endianness
+/// [`dispatch`]: LoadConfig::dispatch
+/// [`mode`]: LoadConfig::mode
+/// [`graph_mode`]: LoadConfig::graph_mode
+/// [`offsets_mode`]: LoadConfig::offsets_mode
+/// [`load_full`]: epserde::deser::Deserialize::load_full
+/// [`flags`]: LoadConfig::flags
+/// [`graph_flags`]: LoadConfig::graph_flags
+/// [`offsets_flags`]: LoadConfig::offsets_flags
 /// [ε-serde]: <https://docs.rs/epserde/latest/epserde/>
 #[derive(Debug, Clone)]
 pub struct LoadConfig<E: Endianness, A: Access, D: Dispatch, GLM: LoadMode, OLM: LoadMode> {

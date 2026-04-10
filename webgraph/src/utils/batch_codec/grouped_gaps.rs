@@ -31,9 +31,11 @@ use rdst::*;
 ///
 /// - `S`: Serializer for the labels, implementing [`BitSerializer`] for the label type.
 /// - `D`: Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
-/// - `OUTDEGREE_CODE`: Code used for encoding outdegrees (default: [ɣ](dsi_bitstream::codes::gamma)).
-/// - `SRC_CODE`: Code used for encoding source gaps (default: [ɣ](dsi_bitstream::codes::gamma)).
-/// - `DST_CODE`: Code used for encoding destination gaps (default: [ɣ](dsi_bitstream::codes::gamma)).
+/// - `OUTDEGREE_CODE`: Code used for encoding outdegrees (default: [ɣ]).
+/// - `SRC_CODE`: Code used for encoding source gaps (default: [ɣ]).
+/// - `DST_CODE`: Code used for encoding destination gaps (default: [ɣ]).
+///
+/// [ɣ]: dsi_bitstream::codes::gamma
 ///
 /// # Encoding Format
 ///

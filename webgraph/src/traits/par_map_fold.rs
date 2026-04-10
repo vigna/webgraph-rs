@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 /// Parallel mapping and folding for iterators.
 ///
 /// This trait extends the [`Iterator`] trait with methods that map values and
-/// fold them. Differently from the [Rayon](rayon) approach, elements of the iterator
+/// fold them. Differently from the [Rayon] approach, elements of the iterator
 /// are submitted for processing to a thread pool in the order in which they are
 /// emitted. Each thread performs internal folding of the results: at the end,
 /// all results provided by the threads are folded together.
@@ -19,22 +19,24 @@ use std::collections::VecDeque;
 /// Inputs and outputs of the threads are managed through buffered channels,
 /// which helps when the original iterator is somewhat CPU bound.
 ///
-/// The more generic method is
-/// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with), which makes it
-/// possible to specify a different function for the inner and outer fold, and
-/// to pass an
-/// initial value to the map function. The other methods are convenience
-/// methods delegating to this one.
+/// The more generic method is [`par_map_fold2_with`], which makes it
+/// possible to specify a different function for the inner and outer fold,
+/// and to pass an initial value to the map function. The other methods are
+/// convenience methods delegating to this one.
 ///
-/// The `_ord` variants ([`par_map_fold_ord`](ParMapFold::par_map_fold_ord),
-/// [`par_map_fold_ord_with`](ParMapFold::par_map_fold_ord_with)) guarantee
-/// that the fold function receives results in the same order as the input
-/// iterator emitted them. This is useful when the fold operation is not
-/// commutative or associative (e.g., building an Elias–Fano representation
-/// that requires monotonically non-decreasing pushes). The implementation
-/// uses a [`VecDeque`]-based reorder buffer that starts empty and grows on
-/// demand; in the common case (results arrive roughly in order) it stays
-/// small.
+/// The `_ord` variants ([`par_map_fold_ord`], [`par_map_fold_ord_with`])
+/// guarantee that the fold function receives results in the same order as
+/// the input iterator emitted them. This is useful when the fold operation
+/// is not commutative or associative (e.g., building an Elias–Fano
+/// representation that requires monotonically non-decreasing pushes). The
+/// implementation uses a [`VecDeque`]-based reorder buffer that starts
+/// empty and grows on demand; in the common case (results arrive roughly
+/// in order) it stays small.
+///
+/// [Rayon]: rayon
+/// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
+/// [`par_map_fold_ord`]: ParMapFold::par_map_fold_ord
+/// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
 pub trait ParMapFold: Iterator
 where
     Self::Item: Send,
@@ -42,12 +44,12 @@ where
     /// Map and fold in parallel the items returned by an iterator.
     ///
     /// This method is a simplified convenience version of
-    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that uses the
+    /// [`par_map_fold2_with`] that uses the
     /// same fold function for the inner and outer fold and does not provide an
     /// init value for the map function.
     ///
     /// If you need to process items in the order in which they are emitted,
-    /// consider using [`par_map_fold_ord`](ParMapFold::par_map_fold_ord)
+    /// consider using [`par_map_fold_ord`]
     /// instead.
     ///
     /// # Arguments
@@ -55,6 +57,9 @@ where
     /// * `map`: a function that maps an item to a result.
     ///
     /// * `fold`: a function that folds the results of the map function.
+    ///
+    /// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
+    /// [`par_map_fold_ord`]: ParMapFold::par_map_fold_ord
     #[inline(always)]
     fn par_map_fold<
         R: Send + Default,
@@ -71,11 +76,11 @@ where
     /// Map and fold in parallel the items returned by an iterator.
     ///
     /// This method is a simplified convenience version of
-    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that uses the
+    /// [`par_map_fold2_with`] that uses the
     /// same fold function for the inner and outer fold.
     ///
     /// If you need to process items in the order in which they are emitted,
-    /// consider using [`par_map_fold_ord_with`](ParMapFold::par_map_fold_ord_with)
+    /// consider using [`par_map_fold_ord_with`]
     /// instead.
     ///
     /// # Arguments
@@ -86,6 +91,9 @@ where
     /// * `map`: a function that maps an item to a result.
     ///
     /// * `fold`: a function that folds the results of the map function.
+    ///
+    /// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
+    /// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
     #[inline(always)]
     fn par_map_fold_with<
         T: Clone + Send,
@@ -104,11 +112,11 @@ where
     /// Map and fold in parallel the items returned by an iterator.
     ///
     /// This method is a simplified convenience version of
-    /// [`par_map_fold2_with`](ParMapFold::par_map_fold2_with) that does not
+    /// [`par_map_fold2_with`] that does not
     /// provide an init value for the map function.
     ///
     /// If you need to process items in the order in which they are emitted,
-    /// consider using [`par_map_fold_ord`](ParMapFold::par_map_fold_ord)
+    /// consider using [`par_map_fold_ord`]
     /// instead.
     ///
     /// # Arguments
@@ -118,6 +126,9 @@ where
     /// * `inner_fold`: a function that folds the results of the map function.
     ///
     /// * `outer_fold`: a function that folds the results of the inner fold.
+    ///
+    /// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
+    /// [`par_map_fold_ord`]: ParMapFold::par_map_fold_ord
     #[inline(always)]
     fn par_map_fold2<
         R,
@@ -142,7 +153,7 @@ where
     /// accumulator.
     ///
     /// If you need to process items in the order in which they are emitted,
-    /// consider using [`par_map_fold_ord_with`](ParMapFold::par_map_fold_ord_with)
+    /// consider using [`par_map_fold_ord_with`]
     /// instead.
     ///
     /// Moreover, you can pass an init value for the map function that will
@@ -158,6 +169,8 @@ where
     /// * `inner_fold`: a function that folds the results of the map function.
     ///
     /// * `outer_fold`: a function that folds the results of the inner fold.
+    ///
+    /// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
     fn par_map_fold2_with<
         T: Clone + Send,
         R,
@@ -224,11 +237,11 @@ where
     /// Maps in parallel and folds in order the items returned by an iterator.
     ///
     /// This method is a simplified convenience version of
-    /// [`par_map_fold_ord_with`](ParMapFold::par_map_fold_ord_with) that does
+    /// [`par_map_fold_ord_with`] that does
     /// not provide an init value for the map function.
     ///
     /// If you don't need the order guarantee, consider using
-    /// [`par_map_fold`](ParMapFold::par_map_fold) instead.
+    /// [`par_map_fold`] instead.
     ///
     /// # Arguments
     ///
@@ -238,6 +251,9 @@ where
     ///
     /// * `fold`: a function that folds the results of the map function,
     ///   called in the original iterator order.
+    ///
+    /// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
+    /// [`par_map_fold`]: ParMapFold::par_map_fold
     #[inline(always)]
     fn par_map_fold_ord<R: Send, A, M: Fn(Self::Item) -> R + Send + Sync, F: FnMut(A, R) -> A>(
         &mut self,
@@ -272,7 +288,7 @@ where
     /// run the drain loop concurrently with the Rayon workers.
     ///
     /// If you don't need the order guarantee, consider using
-    /// [`par_map_fold_with`](ParMapFold::par_map_fold_with) instead.
+    /// [`par_map_fold_with`] instead.
     ///
     /// # Arguments
     ///
@@ -285,6 +301,8 @@ where
     ///
     /// * `fold`: a function that folds the results of the map function,
     ///   called in the original iterator order.
+    ///
+    /// [`par_map_fold_with`]: ParMapFold::par_map_fold_with
     fn par_map_fold_ord_with<
         T: Clone + Send + Sync,
         R: Send,

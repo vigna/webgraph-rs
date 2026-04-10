@@ -6,8 +6,9 @@
  */
 
 //! Traits and basic implementations to support parallel completion by splitting
-//! the [iterator](SequentialLabeling::Lender) of a labeling into multiple
-//! iterators.
+//! the [iterator] of a labeling into multiple iterators.
+//!
+//! [iterator]: SequentialLabeling::Lender
 
 use std::rc::Rc;
 
@@ -15,29 +16,33 @@ use impl_tools::autoimpl;
 
 use super::{labels::SequentialLabeling, lenders::NodeLabelsLender};
 
-/// A trait providing methods to split the labeling
-/// [iterator](SequentialLabeling::Lender) into multiple thread-safe parts.
+/// A trait providing methods to split the labeling [iterator] into multiple
+/// thread-safe parts.
 ///
-/// The main method is [`split_iter_at`](SplitLabeling::split_iter_at), which
-/// takes a sequence of cutpoints and splits the iteration at those points.
-/// Each cutpoint is a node id; the sequence must be non-decreasing and contain
-/// at least two elements.
+/// The main method is [`split_iter_at`], which takes a sequence of cutpoints
+/// and splits the iteration at those points. Each cutpoint is a node id; the
+/// sequence must be non-decreasing and contain at least two elements.
 ///
-/// The convenience method [`split_iter`](SplitLabeling::split_iter) provides a
-/// default implementation that splits the iteration into `n` approximately
-/// equal parts. It is implemented in terms of
-/// [`split_iter_at`](SplitLabeling::split_iter_at), so implementors only need
-/// to provide the latter.
+/// The convenience method [`split_iter`] provides a default implementation
+/// that splits the iteration into `n` approximately equal parts. It is
+/// implemented in terms of [`split_iter_at`], so implementors only need to
+/// provide the latter.
 ///
 /// Note that the parts are required to be [`Send`] and [`Sync`], so that they
 /// can be safely shared among threads.
 ///
 /// Due to some limitations of the current Rust type system, we cannot provide
 /// blanket implementations for this trait. However, we provide ready-made
-/// implementations for the [sequential](seq) and [random-access](ra) cases. To
-/// use them, you must implement the trait by specifying the associated types
+/// implementations for the [sequential] and [random-access] cases. To use
+/// them, you must implement the trait by specifying the associated types
 /// `SplitLender` and `IntoIterator`, and then just return a [`seq::Iter`] or
-/// [`ra::Iter`] structure from [`split_iter_at`](SplitLabeling::split_iter_at).
+/// [`ra::Iter`] structure from [`split_iter_at`].
+///
+/// [iterator]: SequentialLabeling::Lender
+/// [`split_iter_at`]: SplitLabeling::split_iter_at
+/// [`split_iter`]: SplitLabeling::split_iter
+/// [sequential]: seq
+/// [random-access]: ra
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SplitLabeling: SequentialLabeling {
     type SplitLender<'a>: for<'next> NodeLabelsLender<'next, Label = <Self as SequentialLabeling>::Label>
@@ -60,7 +65,9 @@ pub trait SplitLabeling: SequentialLabeling {
     /// Splits the labeling iterator into `n` approximately equal parts.
     ///
     /// This is a convenience method implemented in terms of
-    /// [`split_iter_at`](SplitLabeling::split_iter_at).
+    /// [`split_iter_at`].
+    ///
+    /// [`split_iter_at`]: SplitLabeling::split_iter_at
     fn split_iter(&self, n: usize) -> Self::IntoIterator<'_> {
         let step = self.num_nodes().div_ceil(n);
         let num_nodes = self.num_nodes();
@@ -70,11 +77,9 @@ pub trait SplitLabeling: SequentialLabeling {
 
 /// Ready-made implementation for the sequential case.
 ///
-/// This implementation walks through the iterator of a labeling and
-/// clones it at the cutpoints, using
-/// [`advance_by`](lender::Lender::advance_by) to skip nodes between
-/// cutpoints. It is designed for labelings whose
-/// [`iter_from`](SequentialLabeling::iter_from) is not more efficient than
+/// This implementation walks through the iterator of a labeling and clones it
+/// at the cutpoints, using [`advance_by`] to skip nodes between cutpoints. It
+/// is designed for labelings whose [`iter_from`] is not more efficient than
 /// sequential iteration (e.g., compressed graphs without an index); if
 /// `iter_from` can seek efficiently, use [`ra::Iter`] instead.
 ///
@@ -85,7 +90,7 @@ pub trait SplitLabeling: SequentialLabeling {
 ///
 /// # Examples
 ///
-/// The code for [`BvGraphSeq`](crate::graphs::bvgraph::sequential::BvGraphSeq) is:
+/// The code for [`BvGraphSeq`] is:
 /// ```ignore
 /// impl<F: SequentialDecoderFactory> SplitLabeling for BvGraphSeq<F>
 /// where
@@ -99,6 +104,10 @@ pub trait SplitLabeling: SequentialLabeling {
 ///     }
 /// }
 /// ```
+///
+/// [`advance_by`]: lender::Lender::advance_by
+/// [`iter_from`]: SequentialLabeling::iter_from
+/// [`BvGraphSeq`]: crate::graphs::bvgraph::sequential::BvGraphSeq
 pub mod seq {
     use crate::prelude::SequentialLabeling;
 
@@ -168,18 +177,15 @@ pub mod seq {
 
 /// Ready-made implementation for the random-access case.
 ///
-/// This implementation calls [`iter_from`](SequentialLabeling::iter_from)
-/// at each cutpoint, seeking directly to the desired position. It is
-/// designed for labelings with an efficient `iter_from` (e.g., compressed
-/// graphs with an index such as an `.ef` file). If `iter_from` is no
-/// faster than sequential iteration (e.g.,
-/// [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph)), use
-/// [`seq::Iter`] instead.
+/// This implementation calls [`iter_from`] at each cutpoint, seeking directly
+/// to the desired position. It is designed for labelings with an efficient
+/// `iter_from` (e.g., compressed graphs with an index such as an `.ef` file).
+/// If `iter_from` is no faster than sequential iteration (e.g.,
+/// [`ArcListGraph`]), use [`seq::Iter`] instead.
 ///
-/// The bound is [`RandomAccessLabeling`](crate::traits::RandomAccessLabeling)
-/// rather than [`SequentialLabeling`] even though only `iter_from` is used: the
-/// stronger bound ensures that `iter_from` is efficient, preventing silent
-/// quadratic slowdowns.
+/// The bound is [`RandomAccessLabeling`] rather than [`SequentialLabeling`]
+/// even though only `iter_from` is used: the stronger bound ensures that
+/// `iter_from` is efficient, preventing silent quadratic slowdowns.
 ///
 /// To use it, you have to implement the trait by specifying the associated
 /// types `SplitLender` and `IntoIterator` using the [`ra::Lender`] and
@@ -188,7 +194,7 @@ pub mod seq {
 ///
 /// # Examples
 ///
-/// The code for [`BvGraph`](crate::graphs::bvgraph::random_access::BvGraph) is
+/// The code for [`BvGraph`] is
 /// ```ignore
 /// impl<F: RandomAccessDecoderFactory> SplitLabeling for BvGraph<F>
 /// where
@@ -202,6 +208,11 @@ pub mod seq {
 ///     }
 /// }
 /// ```
+///
+/// [`iter_from`]: SequentialLabeling::iter_from
+/// [`ArcListGraph`]: crate::graphs::arc_list_graph::ArcListGraph
+/// [`RandomAccessLabeling`]: crate::traits::RandomAccessLabeling
+/// [`BvGraph`]: crate::graphs::bvgraph::random_access::BvGraph
 pub mod ra {
     use crate::prelude::{RandomAccessLabeling, SequentialLabeling};
 
@@ -217,8 +228,9 @@ pub mod ra {
         /// Creates a new iterator from a labeling and a sequence of cutpoints.
         ///
         /// The cutpoints must be a non-decreasing sequence with at least 2
-        /// elements, and the last cutpoint must be at most
-        /// [`num_nodes()`](SequentialLabeling::num_nodes).
+        /// elements, and the last cutpoint must be at most [`num_nodes()`].
+        ///
+        /// [`num_nodes()`]: SequentialLabeling::num_nodes
         pub fn new(
             labeling: &'a R,
             cutpoints: impl core::iter::IntoIterator<Item = usize>,

@@ -11,35 +11,39 @@
 //! (labeled) pairs of nodes](SplitIters).
 //!
 //! The algorithm implemented in this module is a derivation of
-//! [`ParSortPairs`](super::par_sort_pairs). It circumvents the bottleneck of
-//! merging sorted batches and then partitioning them for parallel compression
-//! by building an already partitioned result. Each thread sorts one of the
-//! input iterators but partitions the inputs it is sorting in a [settable number
-//! of partitions](ParSortIters::num_partitions). Then, we build the result
-//! iterators by merging the first partition from each thread, then the second
-//! partition from each thread, and so on. At that point the iterators can be
-//! used directly for parallel compression, without ever building a globally
-//! merged list of pairs. Merging happens in parallel in each returned iterator.
+//! [`ParSortPairs`]. It circumvents the bottleneck of merging sorted batches
+//! and then partitioning them for parallel compression by building an already
+//! partitioned result. Each thread sorts one of the input iterators but
+//! partitions the inputs it is sorting in a [settable number of
+//! partitions]. Then, we build the result iterators by merging the first
+//! partition from each thread, then the second partition from each thread, and
+//! so on. At that point the iterators can be used directly for parallel
+//! compression, without ever building a globally merged list of pairs. Merging
+//! happens in parallel in each returned iterator.
 //!
 //! Parallelism is controlled via the current Rayon thread pool. Please
-//! [install](rayon::ThreadPool::install) a custom pool if you want to customize
-//! the parallelism. By default the number of partitions is equal to the number
-//! of threads, as one expects to use the same level of parallelism for sorting
-//! and for compression, but there might be situations in which it might be
-//! beneficial to have a different number of partitions and threads.
+//! [install] a custom pool if you want to customize the parallelism. By
+//! default the number of partitions is equal to the number of threads, as one
+//! expects to use the same level of parallelism for sorting and for
+//! compression, but there might be situations in which it might be beneficial
+//! to have a different number of partitions and threads.
 //!
 //! The typical use of [`ParSortIters`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for
-//! example,
-//! [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+//! example, [`BvCompConfig::par_comp_lenders`].
 //!
-//! For example, when transposing or permuting a
-//! [splittable](crate::traits::SplitLabeling) graph one obtains such a sequence
-//! of iterators.
+//! For example, when transposing or permuting a [splittable] graph one obtains
+//! such a sequence of iterators.
 //!
 //! If your pairs are emitted by a single parallel iterator, consider using
-//! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs) instead.
+//! [`ParSortPairs`] instead.
+//!
+//! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
+//! [settable number of partitions]: ParSortIters::num_partitions
+//! [install]: rayon::ThreadPool::install
+//! [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+//! [splittable]: crate::traits::SplitLabeling
 
 use core::num::NonZeroUsize;
 
@@ -54,21 +58,24 @@ use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a sequence of iterators of (labeled) pairs as input, and turns them
 /// into a [`SplitIters`] structure which is suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`BvCompConfig::par_comp_lenders`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
 /// the limitations of your OS regarding memory-mapping (e.g.,
 /// `/proc/sys/vm/max_map_count` under Linux).
 ///
-/// See the [module documentation](self) for more details.
+/// See the [module documentation] for more details.
 ///
 /// # Examples
 ///
 /// In this example we transpose a graph in parallel by splitting it, exchanging
 /// the source and destination of each arc, sorting the resulting pairs in
 /// parallel using [`ParSortIters`], and then compressing the result using
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders):
+/// [`BvCompConfig::par_comp_lenders`]:
+///
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [module documentation]: self
 ///
 /// ```
 /// use std::num::NonZeroUsize;
@@ -126,7 +133,9 @@ pub struct ParSortIters<const DEDUP: bool = false> {
 
 impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// This is a convenience method for iterators that cannot fail.
-    /// See [`try_sort`](ParSortIters::try_sort).
+    /// See [`try_sort`].
+    ///
+    /// [`try_sort`]: ParSortIters::try_sort
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
@@ -188,14 +197,16 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
 impl ParSortIters {
     /// Creates a new [`ParSortIters`] instance.
     ///
-    /// The methods [`num_partitions`](ParSortIters::num_partitions) (which sets
-    /// the number of iterators in the resulting [`SplitIters`]),
-    /// [`memory_usage`](ParSortIters::memory_usage), and
-    /// [`expected_num_pairs`](ParSortIters::expected_num_pairs) can be used to
-    /// customize the instance.
+    /// The methods [`num_partitions`] (which sets the number of iterators in
+    /// the resulting [`SplitIters`]), [`memory_usage`], and
+    /// [`expected_num_pairs`] can be used to customize the instance.
     ///
     /// This method will return an error if [`rayon::current_num_threads`]
     /// returns zero.
+    ///
+    /// [`num_partitions`]: ParSortIters::num_partitions
+    /// [`memory_usage`]: ParSortIters::memory_usage
+    /// [`expected_num_pairs`]: ParSortIters::expected_num_pairs
     pub fn new(num_nodes: usize) -> Result<Self> {
         Self::create(num_nodes)
     }
@@ -206,7 +217,9 @@ impl ParSortIters {
     /// will skip consecutive elements sharing the same pair of nodes, keeping
     /// only the first occurrence.
     ///
-    /// See [`new`](ParSortIters::new) for details.
+    /// See [`new`] for details.
+    ///
+    /// [`new`]: ParSortIters::new
     pub fn new_dedup(num_nodes: usize) -> Result<ParSortIters<true>> {
         ParSortIters::create(num_nodes)
     }
@@ -248,9 +261,11 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         }
     }
 
-    /// See [`try_sort_labeled`](ParSortIters::try_sort_labeled).
+    /// See [`try_sort_labeled`].
     ///
     /// This is a convenience method for iterators that cannot fail.
+    ///
+    /// [`try_sort_labeled`]: ParSortIters::try_sort_labeled
     pub fn sort_labeled<
         C: BatchCodec,
         P: IntoIterator<
@@ -268,10 +283,12 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// Sorts the output of the provided sequence of iterators of (labeled)
     /// pairs, returning a [`SplitIters`] structure.
     ///
-    /// This method accepts as type parameter a
-    /// [`BitSerializer`](crate::traits::BitSerializer) and a
-    /// [`BitDeserializer`](crate::traits::BitDeserializer) that are
-    /// used to serialize and deserialize the labels.
+    /// This method accepts as type parameter a [`BitSerializer`] and a
+    /// [`BitDeserializer`] that are used to serialize and deserialize the
+    /// labels.
+    ///
+    /// [`BitSerializer`]: crate::traits::BitSerializer
+    /// [`BitDeserializer`]: crate::traits::BitDeserializer
     ///
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// `BatchIterator`, and there are possible scenarios in which the

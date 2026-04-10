@@ -7,14 +7,18 @@
 
 //! Algorithms used to compute and work with strongly connected components.
 //!
-//! There are two implementations for directed graphs: [Tarjan's
-//! algorithm](tarjan()) and [Kosaraju's algorithm](kosaraju()). The former is to be
-//! preferred in almost all cases: Kosaraju's algorithm is slower and requires
-//! the transpose of the graph—it is mainly useful for testing and debugging.
+//! There are two implementations for directed graphs: [Tarjan's algorithm] and
+//! [Kosaraju's algorithm]. The former is to be preferred in almost all cases:
+//! Kosaraju's algorithm is slower and requires the transpose of the graph—it
+//! is mainly useful for testing and debugging.
 //!
-//! For symmetric (i.e., undirected) graphs there is a [sequential](symm_seq())
-//! and a [parallel](symm_par()) implementation that computes connected
-//! components.
+//! For symmetric (i.e., undirected) graphs there is a [sequential] and a
+//! [parallel] implementation that computes connected components.
+//!
+//! [Tarjan's algorithm]: tarjan()
+//! [Kosaraju's algorithm]: kosaraju()
+//! [sequential]: symm_seq()
+//! [parallel]: symm_par()
 //!
 //! # Examples
 //! ```
@@ -56,11 +60,14 @@ pub use symm_par::*;
 ///
 /// An instance of this structure stores the [index of the
 /// component](Sccs::components) of each node. Components are numbered from 0 to
-/// [`num_components`](Sccs::num_components).
+/// [`num_components`].
 ///
 /// Moreover, this structure makes it possible to [sort the components by
-/// size](Sccs::sort_by_size), possibly using [parallel
-/// methods](Sccs::par_sort_by_size).
+/// size], possibly using [parallel methods].
+///
+/// [`num_components`]: Sccs::num_components
+/// [sort the components by size]: Sccs::sort_by_size
+/// [parallel methods]: Sccs::par_sort_by_size
 #[derive(Epserde, Clone, Copy, Debug)]
 pub struct Sccs<C: AsRef<[usize]> = Box<[usize]>> {
     num_components: usize,

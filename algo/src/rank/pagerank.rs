@@ -12,7 +12,7 @@
 //! scales linearly with the number of cores.
 //!
 //! **Warning**: since we need to enumerate the _predecessors_ of a node, you
-//! must pass to the [constructor](PageRank::new) the **transpose** of the
+//! must pass to the [constructor] the **transpose** of the
 //! graph.
 //!
 //! # The formula
@@ -37,15 +37,15 @@
 //!
 //! to which we can apply the Gauss–Seidel method.
 //!
-//! The [`mode`](PageRank::mode) setter selects among three variants:
+//! The [`mode`] setter selects among three variants:
 //!
-//! - [`StronglyPreferential`](Mode::StronglyPreferential) (the default):
+//! - [`StronglyPreferential`] (the default):
 //!   **u** = **v**, so the preference vector doubles as the dangling-node
 //!   distribution.
-//! - [`WeaklyPreferential`](Mode::WeaklyPreferential): **u** = **1**/*n*, so
+//! - [`WeaklyPreferential`]: **u** = **1**/*n*, so
 //!   dangling nodes distribute their rank uniformly regardless of the
 //!   preference vector.
-//! - [`PseudoRank`](Mode::PseudoRank): **u** = **0**, zeroing out the
+//! - [`PseudoRank`]: **u** = **0**, zeroing out the
 //!   dangling-node contribution entirely and yielding a non-stochastic vector
 //!   sometimes called _pseudorank_.
 //!
@@ -120,7 +120,7 @@
 //!
 //! # Stopping Criteria
 //!
-//! The [`run`](PageRank::run) method accepts a composable
+//! The [`run`] method accepts a composable
 //! [`Predicate`] that is evaluated after each iteration.
 //! The predicate receives the current iteration number and a _norm delta_—an
 //! upper bound on the ℓ₁ error between the current approximation and the true
@@ -130,6 +130,12 @@
 //!
 //! This idea arose in discussions with David Gleich.
 //!
+//! [constructor]: PageRank::new
+//! [`mode`]: PageRank::mode
+//! [`StronglyPreferential`]: Mode::StronglyPreferential
+//! [`WeaklyPreferential`]: Mode::WeaklyPreferential
+//! [`PseudoRank`]: Mode::PseudoRank
+//! [`run`]: PageRank::run
 //! [Gauss–Seidel method]: https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method
 //! [`SyncCell`]: sync_cell_slice::SyncCell
 //! [`AtomicUsize`]: std::sync::atomic::AtomicUsize
@@ -143,7 +149,9 @@ use preds::{HasIteration, HasL1Norm};
 /// Implements [`HasIteration`] and [`HasL1Norm`]. The ℓ₁ norm delta
 /// is an upper bound on the ℓ₁ error, computed as
 /// α / (1 − α) · ‖**x**⁽ᵗ⁾ − **x**⁽ᵗ⁻¹⁾‖₁ (see the [module-level
-/// documentation](self)).
+/// documentation]).
+///
+/// [module-level documentation]: self
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct PredParams {
@@ -165,7 +173,9 @@ impl HasL1Norm for PredParams {
 
 /// Selects the PageRank variant to compute.
 ///
-/// See the [module-level documentation](self) for the mathematical details.
+/// See the [module-level documentation] for the mathematical details.
+///
+/// [module-level documentation]: self
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mode {
     /// Uses the preference vector **v** as the dangling-node distribution
@@ -177,8 +187,10 @@ pub enum Mode {
     WeaklyPreferential,
     /// Zeroes out the dangling-node contribution (**u** = **0**), yielding in
     /// the case there are dangling nodes a non-stochastic vector which however
-    /// is identical to the [strongly preferential](Mode::StronglyPreferential)
+    /// is identical to the [strongly preferential]
     /// variant modulo normalization.
+    ///
+    /// [strongly preferential]: Mode::StronglyPreferential
     PseudoRank,
 }
 
@@ -241,13 +253,13 @@ impl SliceByValue for UniformPreference {
 /// Computes PageRank using a parallel Gauss-Seidel iteration.
 ///
 /// For details about the algorithm used, see the [module-level
-/// documentation](self).
+/// documentation].
 ///
 /// The struct is configured via setters and then executed via
-/// [`run`](Self::run). After completion the rank vector is available via the
-/// [`rank`](Self::rank) method.
+/// [`run`]. After completion the rank vector is available via the
+/// [`rank`] method.
 ///
-/// Note that the [`preference`](Self::preference) setter consumes `self`
+/// Note that the [`preference`] setter consumes `self`
 /// because the preference type may differ from the current one; all internal
 /// state (including cached inverse outdegrees) is preserved.
 ///
@@ -256,6 +268,11 @@ impl SliceByValue for UniformPreference {
 ///
 /// If you compute multiple variants of PageRank on the same graph, please reuse
 /// this structure, as it caches the inverse outdegrees of the graph.
+///
+/// [module-level documentation]: self
+/// [`run`]: Self::run
+/// [`rank`]: Self::rank
+/// [`preference`]: Self::preference
 ///
 /// # Examples
 ///
@@ -373,8 +390,9 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
     /// functional/implicit implementation such as [`UniformPreference`].
     ///
     /// When set, the preference vector is also used as the dangling-node
-    /// distribution in [`StronglyPreferential`](Mode::StronglyPreferential)
-    /// mode.
+    /// distribution in [`StronglyPreferential`] mode.
+    ///
+    /// [`StronglyPreferential`]: Mode::StronglyPreferential
     ///
     /// This method consumes `self` because the preference type may differ
     /// from the current one; all internal state (including cached inverse
@@ -408,7 +426,9 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
         }
     }
 
-    /// Sets the PageRank [mode](Mode).
+    /// Sets the PageRank [mode].
+    ///
+    /// [mode]: Mode
     pub fn mode(&mut self, mode: Mode) -> &mut Self {
         self.mode = mode;
         self
@@ -416,9 +436,10 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
 
     /// Sets the parallel task granularity.
     ///
-    /// The granularity expresses how many
-    /// [nodes](Granularity::node_granularity) will be passed to a Rayon task at
-    /// a time.
+    /// The granularity expresses how many [nodes] will be passed to a Rayon
+    /// task at a time.
+    ///
+    /// [nodes]: Granularity::node_granularity
     pub fn granularity(&mut self, granularity: Granularity) -> &mut Self {
         self.granularity = granularity;
         self
@@ -426,14 +447,18 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64>> PageRank<'a,
 
     /// Returns the rank vector.
     ///
-    /// After calling [`run`](Self::run), this contains the computed PageRank
+    /// After calling [`run`], this contains the computed PageRank
     /// values.
+    ///
+    /// [`run`]: Self::run
     pub fn rank(&self) -> &[f64] {
         &self.rank
     }
 
     /// Returns the number of iterations performed by the last call to
-    /// [`run`](Self::run).
+    /// [`run`].
+    ///
+    /// [`run`]: Self::run
     pub const fn iterations(&self) -> usize {
         self.iteration
     }
@@ -481,9 +506,11 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
     /// making thus possible to customize the logs.
     ///
     /// It is possible to specify either `pl` or `cpl` as
-    /// [`no_logging![]`](dsi_progress_logger::no_logging) if you don't want to log
+    /// [`no_logging![]`] if you don't want to log
     /// the corresponding part of the computation, albeit having the latter one
     /// and not the first one will lead to confusing logs.
+    ///
+    /// [`no_logging![]`]: dsi_progress_logger::no_logging
     pub fn run_with_logging(
         &mut self,
         predicate: impl Predicate<PredParams>,

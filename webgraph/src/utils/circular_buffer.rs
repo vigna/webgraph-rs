@@ -11,11 +11,14 @@
 /// For efficiency reasons, we reuse the allocated buffers to avoid pressure
 /// over the allocator.
 ///
-/// This structure implements [`Index`](std::ops::Index) and
-/// [`IndexMut`](std::ops::IndexMut) with both positive and negative indices,
-/// which are resolved with modular arithmetic. It is also possible to
-/// [take](CircularBuffer::take) and [replace](CircularBuffer::replace) the
-/// value at a given index.
+/// This structure implements [`Index`] and [`IndexMut`] with both positive and
+/// negative indices, which are resolved with modular arithmetic. It is also
+/// possible to [take] and [replace] the value at a given index.
+///
+/// [`Index`]: std::ops::Index
+/// [`IndexMut`]: std::ops::IndexMut
+/// [take]: CircularBuffer::take
+/// [replace]: CircularBuffer::replace
 #[derive(Debug, Clone)]
 pub(crate) struct CircularBuffer<T: Default> {
     data: Vec<T>,

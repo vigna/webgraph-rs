@@ -25,7 +25,7 @@ struct ReferenceTableEntry {
     chosen: bool,
 }
 
-/// Compresses a graph into the [BV graph format](super::super) using the
+/// Compresses a graph into the [BV graph format] using the
 /// reference-selection algorithm inspired by "[Zuckerli: A New Compressed
 /// Representation for Graphs][Zuckerli paper]", by Daniel Marzocchi, Luca
 /// Versari, Robert Obryk, and Jyrki Alakuijala, _Proc. 2020 Data
@@ -43,14 +43,17 @@ struct ReferenceTableEntry {
 ///
 /// Because the algorithm needs global information about costs within each
 /// chunk, successor lists are buffered and written to the encoder only when
-/// the chunk is full or when [`flush`](Self::flush) is called.
+/// [`flush`] is called.
 ///
 /// In most cases you do not need to instantiate this struct directly: use
 /// [`BvCompZ::with_basename`] to obtain a [`BvCompConfig`] with suitable
 /// defaults (including a larger compression window of 16), then call
-/// [`comp_graph`](BvCompConfig::comp_graph) or
-/// [`par_comp_graph`](BvCompConfig::par_comp_graph) on it.
+/// [`comp_graph`] or [`par_comp_graph`] on it.
 ///
+/// [BV graph format]: super::super
+/// [`flush`]: Self::flush
+/// [`comp_graph`]: BvCompConfig::comp_graph
+/// [`par_comp_graph`]: BvCompConfig::par_comp_graph
 /// [Zuckerli paper]: <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613>
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write> {

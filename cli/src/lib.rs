@@ -45,15 +45,11 @@ macro_rules! SEQ_PROC_WARN {
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
 
-/// Calls
-/// [`par_comp_lenders`](webgraph::prelude::BvCompConfig::par_comp_lenders)
-/// dispatching on a runtime endianness string.
+/// Calls [`par_comp_lenders`] dispatching on a runtime endianness string.
 ///
-/// * `config` is the [`BvCompConfig`](webgraph::prelude::BvCompConfig) to call
-///   [`par_comp_lenders`](webgraph::prelude::BvCompConfig::par_comp_lenders) on;
+/// * `config` is the [`BvCompConfig`] to call [`par_comp_lenders`] on;
 ///
-/// * `lenders` and `num_nodes` are the arguments to
-///   [`par_comp_lenders`](webgraph::prelude::BvCompConfig::par_comp_lenders);
+/// * `lenders` and `num_nodes` are the arguments to [`par_comp_lenders`];
 ///
 /// * `endianness` is a string specifying the endianness type to use for the
 ///   call; it must implement `AsRef<str>`, and must be equal to the name of one
@@ -61,6 +57,9 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///
 /// The macro returns a [`Result`] with the output of the call if the endianness
 /// is recognized, and an error otherwise.
+///
+/// [`par_comp_lenders`]: webgraph::prelude::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
 #[macro_export]
 macro_rules! par_comp_lenders {
     ($config:expr, $lenders:expr, $num_nodes:expr, $endianness:expr) => {
@@ -258,8 +257,9 @@ impl FloatSliceFormat {
     ///
     /// If the result is a textual format, that is, ASCII or JSON, `precision`
     /// will be used to round the float values to the specified number of
-    /// decimal digits. If `None`, [zmij](https://crates.io/crates/zmij)
-    /// formatting will be used.
+    /// decimal digits. If `None`, [zmij] formatting will be used.
+    ///
+    /// [zmij]: https://crates.io/crates/zmij
     pub fn store<F>(
         &self,
         path: impl AsRef<Path>,
@@ -796,7 +796,9 @@ impl From<CompressArgs> for CompFlags {
     }
 }
 
-/// Creates a [`ThreadPool`](rayon::ThreadPool) with the given number of threads.
+/// Creates a [`ThreadPool`] with the given number of threads.
+///
+/// [`ThreadPool`]: rayon::ThreadPool
 pub fn get_thread_pool(num_threads: usize) -> rayon::ThreadPool {
     let thread_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)

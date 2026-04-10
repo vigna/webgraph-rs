@@ -150,7 +150,10 @@ impl<F: SequentialDecoderFactory> SequentialGraph for BvGraphSeq<F> {}
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [`for_`]: lender::for_
+/// [crate documentation]: crate
 impl<'a, F: SequentialDecoderFactory> IntoLender for &'a BvGraphSeq<F> {
     type Lender = <BvGraphSeq<F> as SequentialLabeling>::Lender<'a>;
 
@@ -206,8 +209,10 @@ impl<F: SequentialDecoderFactory> BvGraphSeq<F> {
     /// degrees of the nodes.
     ///
     /// This iterator is slightly faster than the lender returned by
-    /// [`iter`](Self::iter) because it does not require to rebuild the
-    /// successors of each node.
+    /// [`iter`] because it does not require to rebuild the successors of each
+    /// node.
+    ///
+    /// [`iter`]: Self::iter
     #[inline(always)]
     pub fn offset_deg_iter(&self) -> OffsetDegIter<F::Decoder<'_>> {
         OffsetDegIter::new(

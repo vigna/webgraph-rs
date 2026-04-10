@@ -13,8 +13,8 @@
 //!
 //! - [`transpose`]: returns the transpose of a graph;
 //! - [`transpose_labeled`]: returns the transpose of a labeled graph;
-//! - [`transpose_split`]: returns the transpose of a
-//!   [splittable](crate::traits::SplitLabeling) graph, sorting in parallel;
+//! - [`transpose_split`]: returns the transpose of a [splittable] graph,
+//!   sorting in parallel;
 //! - [`transpose_labeled_split`]: same, for labeled graphs.
 //!
 //! # Symmetrize
@@ -45,12 +45,15 @@
 //! # Memory Usage
 //!
 //! The transpose, symmetrize, permute, and map functions internally use
-//! [`SortPairs`](crate::utils::SortPairs), which sorts arcs by batching them to
-//! temporary files and then merging. The amount of memory used for batching is
-//! controlled by the [`MemoryUsage`](crate::utils::MemoryUsage) parameter. The
-//! `_split` variants sort in parallel using
-//! [`ParSortIters`](crate::utils::ParSortIters) and are significantly faster on
-//! [splittable](crate::traits::SplitLabeling) graphs.
+//! [`SortPairs`], which sorts arcs by batching them to temporary files and then
+//! merging. The amount of memory used for batching is controlled by the
+//! [`MemoryUsage`] parameter. The `_split` variants sort in parallel using
+//! [`ParSortIters`] and are significantly faster on [splittable] graphs.
+//!
+//! [splittable]: crate::traits::SplitLabeling
+//! [`SortPairs`]: crate::utils::SortPairs
+//! [`MemoryUsage`]: crate::utils::MemoryUsage
+//! [`ParSortIters`]: crate::utils::ParSortIters
 
 mod symmetrize;
 pub use symmetrize::*;

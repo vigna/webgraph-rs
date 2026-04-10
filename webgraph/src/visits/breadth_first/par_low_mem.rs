@@ -30,14 +30,16 @@ use sux::{bits::AtomicBitVec, traits::AtomicBitVecOps};
 /// differ significantly between chunks.
 ///
 /// If the cost of the callbacks is significant, you can use a [fair parallel
-/// visit](crate::visits::breadth_first::ParFairNoPred) to distribute the
-/// visiting cost evenly among the threads.
+/// visit] to distribute the visiting cost evenly among the threads.
 ///
 /// # Examples
 ///
 /// Let's compute the breadth-first tree starting from 0. We will be using a
-/// [`SyncSlice`](sync_cell_slice::SyncSlice) from the [`sync_cell_slice`] crate
-/// to store the parent of each node.
+/// [`SyncSlice`] from the [`sync_cell_slice`] crate to store the parent of
+/// each node.
+///
+/// [fair parallel visit]: crate::visits::breadth_first::ParFairNoPred
+/// [`SyncSlice`]: sync_cell_slice::SyncSlice
 ///
 /// ```
 /// use webgraph::visits::Parallel;
@@ -82,8 +84,9 @@ impl<G: RandomAccessGraph> ParLowMem<G> {
     /// Creates a low-memory parallel breadth-first visit.
     ///
     /// This constructor uses a default granularity of 128 nodes. Use
-    /// [`with_granularity`](Self::with_granularity) to set a different
-    ///  granularity.
+    /// [`with_granularity`] to set a different granularity.
+    ///
+    /// [`with_granularity`]: Self::with_granularity
     ///
     /// # Arguments
     ///

@@ -8,20 +8,19 @@
 /// Granularity of parallel tasks, specified transparently by nodes or arcs.
 ///
 /// This enum provides a way to specify the granularity of parallel tasks on
-/// graphs. It is used by
-/// [`par_apply`](crate::traits::SequentialLabeling::par_apply) and
-/// [`par_node_apply`](crate::traits::SequentialLabeling::par_node_apply).
+/// graphs. It is used by [`par_apply`] and [`par_node_apply`].
 ///
-/// Some parallel implementations (e.g.,
-/// [`par_node_apply`](crate::traits::SequentialLabeling::par_node_apply))
-/// express naturally the granularity of their tasks via a number of nodes,
-/// whereas others (e.g.,
-/// [`par_apply`](crate::traits::SequentialLabeling::par_apply)) via a
-/// number of arcs. This enum makes it possible to specify the granularity of parallel
-/// tasks in a transparent way, by nodes or arcs. Conversion between the two
-/// specifications is done by the methods
-/// [`arc_granularity`](Self::arc_granularity) and
-/// [`node_granularity`](Self::node_granularity).
+/// Some parallel implementations (e.g., [`par_node_apply`]) express naturally
+/// the granularity of their tasks via a number of nodes, whereas others (e.g.,
+/// [`par_apply`]) via a number of arcs. This enum makes it possible to specify
+/// the granularity of parallel tasks in a transparent way, by nodes or arcs.
+/// Conversion between the two specifications is done by the methods
+/// [`arc_granularity`] and [`node_granularity`].
+///
+/// [`par_apply`]: crate::traits::SequentialLabeling::par_apply
+/// [`par_node_apply`]: crate::traits::SequentialLabeling::par_node_apply
+/// [`arc_granularity`]: Self::arc_granularity
+/// [`node_granularity`]: Self::node_granularity
 #[derive(Debug, Clone, Copy)]
 pub enum Granularity {
     /// Node granularity.
@@ -51,10 +50,12 @@ impl core::default::Default for Granularity {
 impl Granularity {
     /// Returns a node granularity for a given number of elements and threads.
     ///
-    /// For the variant [`Nodes`](Self::Nodes), the specified number of nodes is
-    /// returned. For the variant [`Arcs`](Self::Arcs), the number of nodes is
-    /// computed as the specified number of arcs divided by the average
-    /// outdegree.
+    /// For the variant [`Nodes`], the specified number of nodes is returned.
+    /// For the variant [`Arcs`], the number of nodes is computed as the
+    /// specified number of arcs divided by the average outdegree.
+    ///
+    /// [`Nodes`]: Self::Nodes
+    /// [`Arcs`]: Self::Arcs
     ///
     /// # Panics
     ///
@@ -75,9 +76,12 @@ impl Granularity {
 
     /// Returns an arc granularity for a given number of nodes and arcs.
     ///
-    /// For the [`Arcs`](Self::Arcs) variant, the specified number of arcs is
-    /// returned. For the [`Nodes`](Self::Nodes) variant, the number of arcs is
-    /// computed as the specified number of nodes divided by the average degree.
+    /// For the [`Arcs`] variant, the specified number of arcs is returned. For
+    /// the [`Nodes`] variant, the number of arcs is computed as the specified
+    /// number of nodes divided by the average degree.
+    ///
+    /// [`Arcs`]: Self::Arcs
+    /// [`Nodes`]: Self::Nodes
     ///
     /// # Panics
     ///

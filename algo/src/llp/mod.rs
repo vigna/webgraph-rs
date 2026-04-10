@@ -16,8 +16,9 @@
 //! # Requirements
 //!
 //! The graph provided should be _symmetric_ and _loopless_. If this is not the
-//! case, please use [`symmetrize`](webgraph::transform::symmetrize) to generate a
-//! suitable graph.
+//! case, please use [`symmetrize`] to generate a suitable graph.
+//!
+//! [`symmetrize`]: webgraph::transform::symmetrize
 //!
 //! # Memory Requirements
 //!
@@ -35,9 +36,10 @@
 //! into a single one that captures community structure at multiple resolutions.
 //!
 //! Nodes of the resulting labeling that share the same label are likely
-//! co-located in the graph, so [permuting the
-//! graph](webgraph::transform::permute) in label order will increase locality,
-//! yielding better compression.
+//! co-located in the graph, so [permuting the graph] in label order will
+//! increase locality, yielding better compression.
+//!
+//! [permuting the graph]: webgraph::transform::permute
 //!
 //! # Functions
 //!
@@ -49,8 +51,9 @@
 //! - [`combine_labels`]: combines the per-ɣ labels stored on disk by a
 //!   previous call to [`layered_label_propagation_labels_only`];
 //! - [`labels_to_ranks`]: converts labels to ranks by their natural order,
-//!   yielding a permutation that can be passed to
-//!   [`permute`](webgraph::transform::permute).
+//!   yielding a permutation that can be passed to [`permute`].
+//!
+//! [`permute`]: webgraph::transform::permute
 //!
 //! # Choosing ɣ Values
 //!
@@ -111,23 +114,25 @@ pub struct LabelsStore<A> {
 /// * `sym_graph` - The symmetric graph to run LLP on.
 ///
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
-///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///   [par_apply].
 ///
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
 ///
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
 ///   an advanced option: see
-///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///   [par_apply].
 ///
 /// * `granularity` - The granularity of the parallel processing.
 ///   This is an advanced option: see
-///   [par_apply](webgraph::traits::SequentialLabeling::par_apply).
+///   [par_apply].
 ///
 /// * `seed` - The seed to use for pseudorandom number generation.
 ///
 /// * `predicate` - The stopping criterion for the iterations of the algorithm.
 ///
 /// * `work_dir` - The directory where the labels will be stored.
+///
+/// [par_apply]: webgraph::traits::SequentialLabeling::par_apply
 #[allow(clippy::too_many_arguments)]
 pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
     sym_graph: R,

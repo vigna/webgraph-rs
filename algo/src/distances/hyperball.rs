@@ -113,7 +113,9 @@
 //! independent, this behavior ensures a very high degree of parallelism. Be
 //! careful, however, because this feature requires a graph with a reasonably
 //! fast random access (e.g., in the case of short reference chains in a
-//! [`BvGraph`](webgraph::prelude::BvGraph) and a good choice of the granularity.
+//! [`BvGraph`]) and a good choice of the granularity.
+//!
+//! [`BvGraph`]: webgraph::prelude::BvGraph
 //!
 //! [Axioms for Centrality]: <http://vigna.di.unimi.it/papers.php#BoVAC>
 //! [HyperBall paper]: <http://vigna.di.unimi.it/papers.php#BoVHB>
@@ -148,14 +150,14 @@ use webgraph::utils::Granularity;
 /// There are three constructors, depending on the type of graph and
 /// cardinality estimator:
 ///
-/// - [`with_hyper_log_log`](Self::with_hyper_log_log): the most common entry
+/// - [`with_hyper_log_log`]: the most common entry
 ///   point—it creates a builder using [`HyperLogLog`] counters, requiring
 ///   only the base-2 logarithm of the number of registers per counter
 ///   (`log2m`). Higher values of `log2m` give more precise estimates at the
 ///   cost of more memory;
-/// - [`new`](Self::new): creates a builder from two pre-built estimator
+/// - [`new`]: creates a builder from two pre-built estimator
 ///   arrays and a graph (without its transpose);
-/// - [`with_transpose`](Self::with_transpose): same, but also accepts the
+/// - [`with_transpose`]: same, but also accepts the
 ///   transpose of the graph, enabling [systolic
 ///   computation](super::hyperball#systolic-computation).
 ///
@@ -164,22 +166,28 @@ use webgraph::utils::Granularity;
 /// After creation, the builder can be configured using the following
 /// methods:
 ///
-/// - [`sum_of_distances`](Self::sum_of_distances): enables the computation
-///   of the sum of distances from each node (needed for closeness, Lin, and
-///   Nieminen centrality);
-/// - [`sum_of_inverse_distances`](Self::sum_of_inverse_distances): enables
-///   the computation of harmonic centrality;
-/// - [`discount_function`](Self::discount_function): adds a custom discount
-///   function;
-/// - [`granularity`](Self::granularity): sets the granularity for the parallel
-///   iterations;
-/// - [`weights`](Self::weights): sets optional nonnegative integer node
-///   weights.
+/// - [`sum_of_distances`] — enables the computation of the sum of distances
+///   from each node (needed for closeness, Lin, and Nieminen centrality);
+/// - [`sum_of_inverse_distances`] — enables the computation of harmonic
+///   centrality;
+/// - [`discount_function`] — adds a custom discount function;
+/// - [`granularity`] — sets the granularity for the parallel iterations;
+/// - [`weights`] — sets optional nonnegative integer node weights.
 ///
-/// Finally, call [`build`](Self::build) to obtain a [`HyperBall`] instance,
-/// and then [`run`](HyperBall::run) or
-/// [`run_until_done`](HyperBall::run_until_done) to perform the actual
-/// computation.
+/// Finally, call [`build`] to obtain a [`HyperBall`] instance, and then
+/// [`run`] or [`run_until_done`] to perform the actual computation.
+///
+/// [`with_hyper_log_log`]: Self::with_hyper_log_log
+/// [`new`]: Self::new
+/// [`with_transpose`]: Self::with_transpose
+/// [`sum_of_distances`]: Self::sum_of_distances
+/// [`sum_of_inverse_distances`]: Self::sum_of_inverse_distances
+/// [`discount_function`]: Self::discount_function
+/// [`granularity`]: Self::granularity
+/// [`weights`]: Self::weights
+/// [`build`]: Self::build
+/// [`run`]: HyperBall::run
+/// [`run_until_done`]: HyperBall::run_until_done
 ///
 /// # Examples
 ///
@@ -342,9 +350,10 @@ impl<
     /// Creates a builder for [`HyperBall`] using [`HyperLogLog8`] counters
     /// (byte-sized registers with SIMD-accelerated merges).
     ///
-    /// This is an alternative to
-    /// [`with_hyper_log_log`](HyperBallBuilder::with_hyper_log_log) that
-    /// trades ~33% extra space for significantly faster merge operations.
+    /// This is an alternative to [`with_hyper_log_log`] that trades ~33%
+    /// extra space for significantly faster merge operations.
+    ///
+    /// [`with_hyper_log_log`]: HyperBallBuilder::with_hyper_log_log
     ///
     /// # Arguments
     /// * `graph`: the graph to analyze.
@@ -649,13 +658,14 @@ impl<
     }
 }
 
-/// Data used by [`parallel_task`](HyperBall::parallel_task).
+/// Data used by [`parallel_task`].
 ///
-/// These variables are used by the threads running
-/// [`parallel_task`](HyperBall::parallel_task). They must be isolated in a
-/// field because we need to be able to borrow exclusively
-/// [`HyperBall::next_state`], while sharing references to the data contained
-/// here and to the [`HyperBall::curr_state`].
+/// These variables are used by the threads running [`parallel_task`]. They
+/// must be isolated in a field because we need to be able to borrow
+/// exclusively [`HyperBall::next_state`], while sharing references to the
+/// data contained here and to the [`HyperBall::curr_state`].
+///
+/// [`parallel_task`]: HyperBall::parallel_task
 struct IterationContext<'a, G1: SequentialLabeling, D> {
     /// The cumulative list of outdegrees.
     cumul_outdeg: &'a D,
@@ -681,11 +691,15 @@ struct IterationContext<'a, G1: SequentialLabeling, D> {
     local: bool,
     /// `true` if we are preparing a local computation (systolic is `true` and less than 1% nodes were modified).
     pre_local: bool,
-    /// If [`local`](Self::local) is `true`, the sorted list of nodes that
+    /// If [`local`] is `true`, the sorted list of nodes that
     /// should be scanned.
+    ///
+    /// [`local`]: Self::local
     local_checklist: Vec<G1::Label>,
-    /// If [`pre_local`](Self::pre_local) is `true`, the set of nodes that
+    /// If [`pre_local`] is `true`, the set of nodes that
     /// should be scanned on the next iteration.
+    ///
+    /// [`pre_local`]: Self::pre_local
     local_next_must_be_checked: Mutex<Vec<G1::Label>>,
     /// Used in systolic iterations to keep track of nodes to check.
     must_be_checked: AtomicBitVec,

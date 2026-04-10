@@ -30,7 +30,7 @@ use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 /// than in the case of an explicit representation, where a pointer in the
 /// adjacency list is sufficient, as we have to store one iterator per node
 /// on the stack. While the allocation performed, say, by
-/// [`BvGraph`](webgraph::compressed::bvgraph::BvGraph) is essentially
+/// [`BvGraph`] is essentially
 /// constant-size, it is definitely larger than a pointer. It remains true that
 /// the sum of the lengths of the visit stack and of the component stack cannot
 /// exceed the number of nodes, but this property does not translate immediately
@@ -50,9 +50,13 @@ use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 ///
 /// # References
 ///
-/// Robert E. Tarjan and Uri Zwick. [Finding strong components using depth-first
-/// search](https://doi.org/10.1016/j.ejc.2023.103815). *European Journal of
-/// Combinatorics*, Volume 119, 2024.
+/// Robert E. Tarjan and Uri Zwick. [Finding strong components using
+/// depth-first search]. *European Journal of Combinatorics*, Volume 119,
+/// 2024.
+///
+/// [Finding strong components using depth-first search]: https://doi.org/10.1016/j.ejc.2023.103815
+///
+/// [`BvGraph`]: webgraph::compressed::bvgraph::BvGraph
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {
     let num_nodes = graph.num_nodes();
     pl.item_name("node");

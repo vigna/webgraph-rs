@@ -7,28 +7,27 @@
 
 //! Visits on graphs.
 //!
-//! Implementation of [sequential](Sequential) and [parallel][Parallel] visits
-//! depend on a type parameter `A` implementing the trait [`Event`]; they
-//! provide visit methods accepting a callback function with argument `A` and
-//! returning a `ControlFlow<E, ()>`, where `E` is a type parameter of the visit
-//! method: for example, `E` might be [`StoppedWhenDone`] when completing early,
-//! [`Interrupted`] when interrupted or [`Infallible`](std::convert::Infallible)
-//! if the visit cannot be interrupted.
+//! Implementation of [sequential] and [parallel] visits depend on a type
+//! parameter `A` implementing the trait [`Event`]; they provide visit methods
+//! accepting a callback function with argument `A` and returning a
+//! `ControlFlow<E, ()>`, where `E` is a type parameter of the visit method:
+//! for example, `E` might be [`StoppedWhenDone`] when completing early,
+//! [`Interrupted`] when interrupted or [`Infallible`] if the visit cannot be
+//! interrupted.
 //!
-//! If a callback returns a [`Break`](ControlFlow::Break), the visit will be
-//! interrupted, and the [`Break`](ControlFlow::Break) value will be the return
-//! value of the visit method; for uninterruptible visits we suggest to use the
-//! [`no-break`](https://crates.io/crates/no-break) crate and its
-//! [`continue_value_no_break`](no_break::NoBreak::continue_value_no_break)
-//! method on the result to let type inference run smoothly.
+//! If a callback returns a [`Break`], the visit will be interrupted, and the
+//! [`Break`] value will be the return value of the visit method; for
+//! uninterruptible visits we suggest to use the [`no-break`] crate and its
+//! [`continue_value_no_break`] method on the result to let type inference run
+//! smoothly.
 //!
 //! Note that an interruption does not necessarily denote an error condition
 //! (see, e.g., [`StoppedWhenDone`]).
 //!
-//! [Sequential visits](Sequential) are visits that are executed in a single
-//! thread, whereas [parallel visits](Parallel) use multiple threads. The
-//! signature of callbacks reflects this difference ([`FnMut`] for the
-//! sequential case vs. [`Fn`] + [`Sync`] for the parallel case).
+//! [Sequential visits] are visits that are executed in a single thread,
+//! whereas [parallel visits] use multiple threads. The signature of callbacks
+//! reflects this difference ([`FnMut`] for the sequential case vs. [`Fn`] +
+//! [`Sync`] for the parallel case).
 //!
 //! In case of interruption sequential visits usually return immediately to the
 //! caller, whereas in general parallel visits might need to complete part of
@@ -42,8 +41,7 @@
 //! available) due to race conditions.
 //!
 //! All visits have also methods accepting an `init` item similarly to the
-//! [Rayon](rayon) [`map_with`](rayon::iter::ParallelIterator::map_with) method.
-//! For parallel visits, the item will be cloned.
+//! [Rayon] [`map_with`] method. For parallel visits, the item will be cloned.
 //!
 //! There is a blanket implementation of the [`Parallel`] trait for all types
 //! implementing the [`Sequential`] trait. This approach makes it possible to
@@ -54,10 +52,21 @@
 //!
 //! # Examples
 //!
-//! There are examples of visits in
-//! [`SeqIter`](crate::visits::depth_first::SeqIter),
-//! [`ParFair`](crate::visits::breadth_first::ParFair) and
-//! [`ParLowMem`](crate::visits::breadth_first::ParLowMem).
+//! There are examples of visits in [`SeqIter`], [`ParFair`] and [`ParLowMem`].
+//!
+//! [sequential]: Sequential
+//! [parallel]: Parallel
+//! [`Infallible`]: std::convert::Infallible
+//! [`Break`]: ControlFlow::Break
+//! [`no-break`]: https://crates.io/crates/no-break
+//! [`continue_value_no_break`]: no_break::NoBreak::continue_value_no_break
+//! [Sequential visits]: Sequential
+//! [parallel visits]: Parallel
+//! [Rayon]: rayon
+//! [`map_with`]: rayon::iter::ParallelIterator::map_with
+//! [`SeqIter`]: crate::visits::depth_first::SeqIter
+//! [`ParFair`]: crate::visits::breadth_first::ParFair
+//! [`ParLowMem`]: crate::visits::breadth_first::ParLowMem
 
 pub mod breadth_first;
 pub mod depth_first;
@@ -98,19 +107,21 @@ pub type FilterArgs<A> = <A as Event>::FilterArgs;
 
 /// A sequential visit.
 ///
-/// Implementation of this trait must provide the
-/// [`visit_filtered_with`](Sequential::visit_filtered_with) method, which
-/// should perform a visit of a graph starting from a given set of nodes. Note
-/// that different visits types might interpret the set of nodes differently:
-/// for example, a [breadth-first visit](breadth_first) will interpret the set
-/// of nodes as the initial queue, whereas a [depth-first visit](depth_first)
-/// will interpret the set of nodes as a list of nodes from which to start
-/// visits.
+/// Implementation of this trait must provide the [`visit_filtered_with`]
+/// method, which should perform a visit of a graph starting from a given set
+/// of nodes. Note that different visits types might interpret the set of nodes
+/// differently: for example, a [breadth-first visit] will interpret the set of
+/// nodes as the initial queue, whereas a [depth-first visit] will interpret
+/// the set of nodes as a list of nodes from which to start visits.
+///
+/// [`visit_filtered_with`]: Sequential::visit_filtered_with
+/// [breadth-first visit]: breadth_first
+/// [depth-first visit]: depth_first
 pub trait Sequential<A: Event> {
     /// Visits the graph from the specified nodes with an initialization value
     /// and a filter function.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -122,6 +133,8 @@ pub trait Sequential<A: Event> {
     /// * `callback`: The callback function.
     ///
     /// * `filter`: The filter function.
+    ///
+    /// [module documentation]: crate::visits
     fn visit_filtered_with<
         R: IntoIterator<Item = usize>,
         T,
@@ -138,7 +151,7 @@ pub trait Sequential<A: Event> {
 
     /// Visits the graph from the specified nodes with a filter function.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -148,6 +161,8 @@ pub trait Sequential<A: Event> {
     /// * `callback`: The callback function.
     ///
     /// * `filter`: The filter function.
+    ///
+    /// [module documentation]: crate::visits
     fn visit_filtered<
         R: IntoIterator<Item = usize>,
         E,
@@ -164,7 +179,7 @@ pub trait Sequential<A: Event> {
 
     /// Visits the graph from the specified nodes with an initialization value.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -174,6 +189,8 @@ pub trait Sequential<A: Event> {
     /// * `init`: a value the will be passed to the callback function.
     ///
     /// * `callback`: The callback function.
+    ///
+    /// [module documentation]: crate::visits
     fn visit_with<
         R: IntoIterator<Item = usize>,
         T,
@@ -190,7 +207,7 @@ pub trait Sequential<A: Event> {
 
     /// Visits the graph from the specified nodes.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -198,6 +215,8 @@ pub trait Sequential<A: Event> {
     /// * `roots`: The nodes to start the visit from.
     ///
     /// * `callback`: The callback function.
+    ///
+    /// [module documentation]: crate::visits
     fn visit<R: IntoIterator<Item = usize>, E, C: FnMut(A) -> ControlFlow<E, ()>>(
         &mut self,
         roots: R,
@@ -213,18 +232,21 @@ pub trait Sequential<A: Event> {
 /// A parallel visit.
 ///
 /// Implementation of this trait must provide the
-/// [`par_visit_filtered_with`](Parallel::par_visit_filtered_with) method, which
-/// should perform a parallel visit of a graph starting from a given set of
-/// nodes. Note that different visits types might interpret the set of nodes
-/// differently: for example, a [breadth-first visit](breadth_first) will
-/// interpret the set of nodes as the initial queue, whereas a [depth-first
-/// visit](depth_first) will interpret the set of nodes as a list of nodes from
-/// which to start visits.
+/// [`par_visit_filtered_with`] method, which should perform a parallel visit
+/// of a graph starting from a given set of nodes. Note that different visits
+/// types might interpret the set of nodes differently: for example, a
+/// [breadth-first visit] will interpret the set of nodes as the initial queue,
+/// whereas a [depth-first visit] will interpret the set of nodes as a list of
+/// nodes from which to start visits.
+///
+/// [`par_visit_filtered_with`]: Parallel::par_visit_filtered_with
+/// [breadth-first visit]: breadth_first
+/// [depth-first visit]: depth_first
 pub trait Parallel<A: Event> {
     /// Visits the graph from the specified nodes with an initialization value
     /// and a filter function.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -237,6 +259,8 @@ pub trait Parallel<A: Event> {
     /// * `callback`: The callback function.
     ///
     /// * `filter`: The filter function.
+    ///
+    /// [module documentation]: crate::visits
     fn par_visit_filtered_with<
         R: IntoIterator<Item = usize>,
         T: Clone + Send + Sync,
@@ -253,7 +277,7 @@ pub trait Parallel<A: Event> {
 
     /// Visits the graph from the specified nodes with a filter function.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -263,6 +287,8 @@ pub trait Parallel<A: Event> {
     /// * `callback`: The callback function.
     ///
     /// * `filter`: The filter function.
+    ///
+    /// [module documentation]: crate::visits
     fn par_visit_filtered<
         R: IntoIterator<Item = usize>,
         E: Send,
@@ -279,7 +305,7 @@ pub trait Parallel<A: Event> {
 
     /// Visits the graph from the specified nodes with an initialization value.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -290,6 +316,8 @@ pub trait Parallel<A: Event> {
     ///   function.
     ///
     /// * `callback`: The callback function.
+    ///
+    /// [module documentation]: crate::visits
     fn par_visit_with<
         R: IntoIterator<Item = usize>,
         T: Clone + Send + Sync,
@@ -306,7 +334,7 @@ pub trait Parallel<A: Event> {
 
     /// Visits the graph from the specified nodes.
     ///
-    /// See the [module documentation](crate::visits) for more information on
+    /// See the [module documentation] for more information on
     /// the return value.
     ///
     /// # Arguments
@@ -314,6 +342,8 @@ pub trait Parallel<A: Event> {
     /// * `roots`: The nodes to start the visit from.
     ///
     /// * `callback`: The callback function.
+    ///
+    /// [module documentation]: crate::visits
     fn par_visit<R: IntoIterator<Item = usize>, E: Send, C: Fn(A) -> ControlFlow<E, ()> + Sync>(
         &mut self,
         roots: R,

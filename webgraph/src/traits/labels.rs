@@ -12,16 +12,21 @@ Traits for accessing labelings, both sequentially and
 in random-access fashion.
 
 A *labeling* is the basic storage unit for graph data. It associates to
-each node of a graph a list of labels. In the [sequential case](SequentialLabeling),
-one can obtain a [lender](SequentialLabeling::iter) that lends pairs given by a node
-and an iterator on the associated labels. In the [random-access case](RandomAccessLabeling),
-instead, one can get [an iterator on the labels associated with a node](RandomAccessLabeling::labels).
-Labelings can be [zipped together](crate::labels::Zip), obtaining a
-new labeling whose labels are pairs.
+each node of a graph a list of labels. In the [sequential case], one can
+obtain a [lender] that lends pairs given by a node and an iterator on the
+associated labels. In the [random-access case], instead, one can get
+[an iterator on the labels associated with a node]. Labelings can be
+[zipped together], obtaining a new labeling whose labels are pairs.
 
 The number of nodes *n* of the graph is returned by [`SequentialLabeling::num_nodes`],
 and nodes identifier are in the interval [0 . . *n*).
 
+
+[sequential case]: SequentialLabeling
+[lender]: SequentialLabeling::iter
+[random-access case]: RandomAccessLabeling
+[an iterator on the labels associated with a node]: RandomAccessLabeling::labels
+[zipped together]: crate::labels::Zip
 */
 
 use crate::{
@@ -48,16 +53,15 @@ use thiserror::Error;
 
 /// A labeling that can be accessed sequentially.
 ///
-/// The iterator returned by [iter](SequentialLabeling::iter) is a
-/// [lender](NodeLabelsLender): to access the next pair, you must have finished
-/// to use the previous one. You can invoke [`Lender::copied`] to get a standard
-/// iterator, at the cost of some allocation and copying.
+/// The iterator returned by [`iter`] is a [lender]: to access the next
+/// pair, you must have finished to use the previous one. You can invoke
+/// [`Lender::copied`] to get a standard iterator, at the cost of some
+/// allocation and copying.
 ///
 /// It is suggested that all implementors of this trait also implement
-/// [`IntoLender`] on a reference, returning the same lender as
-/// [`iter`](SequentialLabeling::iter). This makes it possible to use the
-/// [`for_!`](lender::for_) macro to iterate over the labeling (see the [module
-/// documentation](crate) for an example).
+/// [`IntoLender`] on a reference, returning the same lender as [`iter`].
+/// This makes it possible to use the [`for_!`] macro to iterate over the
+/// labeling (see the [module documentation] for an example).
 ///
 /// Note that there is no guarantee that the lender will return nodes in
 /// ascending order, or that the iterators on labels will return them in any
@@ -67,18 +71,26 @@ use thiserror::Error;
 /// force these properties. Note that [`SortedIterator`] implies that successors
 /// are returned in ascending order, and labels are returned in the same order.
 ///
-/// This trait provides two default methods,
-/// [`par_apply`](SequentialLabeling::par_apply) and
-/// [`par_node_apply`](SequentialLabeling::par_node_apply), that make it easy to
-/// process in parallel the nodes of the labeling.
+/// This trait provides two default methods, [`par_apply`] and
+/// [`par_node_apply`], that make it easy to process in parallel the nodes
+/// of the labeling.
 ///
 /// The function [`eq_sorted`] can be used to check whether two
 /// sorted labelings are equal.
+///
+/// [`iter`]: SequentialLabeling::iter
+/// [lender]: NodeLabelsLender
+/// [`for_!`]: lender::for_
+/// [module documentation]: crate
+/// [`par_apply`]: SequentialLabeling::par_apply
+/// [`par_node_apply`]: SequentialLabeling::par_node_apply
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait SequentialLabeling {
     type Label;
-    /// The type of [`Lender`] over the successors of a node
-    /// returned by [`iter`](SequentialLabeling::iter).
+    /// The type of [`Lender`] over the successors of a node returned by
+    /// [`iter`].
+    ///
+    /// [`iter`]: SequentialLabeling::iter
     type Lender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label>
     where
         Self: 'node;
@@ -101,9 +113,11 @@ pub trait SequentialLabeling {
 
     /// Returns an iterator over the labeling starting at `from` (included).
     ///
-    /// Note that if the iterator [is not sorted](SortedIterator), `from` is not
-    /// the node id of the first node returned by the iterator, but just the
-    /// starting point of the iteration
+    /// Note that if the iterator [is not sorted], `from` is not the node id
+    /// of the first node returned by the iterator, but just the starting
+    /// point of the iteration
+    ///
+    /// [is not sorted]: SortedIterator
     fn iter_from(&self, from: usize) -> Self::Lender<'_>;
 
     /// Builds the degree cumulative function for this labeling.
@@ -114,8 +128,9 @@ pub trait SequentialLabeling {
     ///
     /// # Panics
     ///
-    /// Panics if [`num_arcs_hint`](SequentialLabeling::num_arcs_hint) returns
-    /// `None`.
+    /// Panics if [`num_arcs_hint`] returns `None`.
+    ///
+    /// [`num_arcs_hint`]: SequentialLabeling::num_arcs_hint
     fn build_dcf(&self) -> DCF {
         let n = self.num_nodes();
         let num_arcs = self
@@ -355,7 +370,9 @@ where
 }
 
 /// Convenience type alias for the iterator over the labels of a node
-/// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
+/// returned by the [`iter_from`] method.
+///
+/// [`iter_from`]: SequentialLabeling::iter_from
 pub type Labels<'succ, 'node, S> =
     <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
@@ -368,7 +385,9 @@ pub type Labels<'succ, 'node, S> =
 /// # Safety
 ///
 /// The first element of the pairs returned by the iterator must go from zero to
-/// the [number of nodes](SequentialLabeling::num_nodes) of the graph, excluded.
+/// the [number of nodes] of the graph, excluded.
+///
+/// [number of nodes]: SequentialLabeling::num_nodes
 ///
 /// # Examples
 ///
@@ -530,8 +549,10 @@ impl<I: Iterator + core::iter::FusedIterator> core::iter::FusedIterator
 /// sequential and random-access implementations of a labeling are consistent.
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait RandomAccessLabeling: SequentialLabeling {
-    /// The type of the iterator over the labels of a node
-    /// returned by [`labels`](RandomAccessLabeling::labels).
+    /// The type of the iterator over the labels of a node returned by
+    /// [`labels`].
+    ///
+    /// [`labels`]: RandomAccessLabeling::labels
     type Labels<'succ>: IntoIterator<Item = <Self as SequentialLabeling>::Label>
     where
         Self: 'succ;
@@ -558,7 +579,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 ///
 /// [Random-access labelings] can usually implement this trait easily, and
 /// [split labelings] can just delegate to their splitting methods. However,
-/// there are cases, such as graphs resulting from [sorting](SortedGraph), in
+/// there are cases, such as graphs resulting from [sorting], in
 /// which the parallelism is inherent and not under control of the caller, albeit
 /// in general there is a way to control such parallelism at construction time.
 ///
@@ -569,9 +590,12 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
+/// [sorting]: SortedGraph
 pub trait ParallelLabeling: SequentialLabeling {
-    /// The type of [`Lender`] over the successors of a node
-    /// returned by [`par_iters`](Self::par_iters).
+    /// The type of [`Lender`] over the successors of a node returned by
+    /// [`par_iters`].
+    ///
+    /// [`par_iters`]: Self::par_iters
     type ParLender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label> + Send + Sync
     where
         Self: 'node;
@@ -587,15 +611,19 @@ pub trait ParallelLabeling: SequentialLabeling {
 /// access labeling.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum CheckImplError {
-    /// The number of nodes returned by [`iter`](SequentialLabeling::iter)
-    /// is different from the number returned by
-    /// [`num_nodes`](SequentialLabeling::num_nodes).
+    /// The number of nodes returned by [`iter`] is different from the
+    /// number returned by [`num_nodes`].
+    ///
+    /// [`iter`]: SequentialLabeling::iter
+    /// [`num_nodes`]: SequentialLabeling::num_nodes
     #[error("Different number of nodes: {iter} (iter) != {method} (num_nodes)")]
     NumNodes { iter: usize, method: usize },
 
-    /// The number of successors returned by [`iter`](SequentialLabeling::iter)
-    /// is different from the number returned by
-    /// [`num_arcs`](RandomAccessLabeling::num_arcs).
+    /// The number of successors returned by [`iter`] is different from the
+    /// number returned by [`num_arcs`].
+    ///
+    /// [`iter`]: SequentialLabeling::iter
+    /// [`num_arcs`]: RandomAccessLabeling::num_arcs
     #[error("Different number of arcs: {iter} (iter) != {method} (num_arcs)")]
     NumArcs { iter: u64, method: u64 },
 
@@ -627,7 +655,9 @@ pub enum CheckImplError {
 /// Note that this method will check that the sequential and random-access
 /// iterators on labels of each node are identical, and that the number of
 /// nodes returned by the sequential iterator is the same as the number of
-/// nodes returned by [`num_nodes`](SequentialLabeling::num_nodes).
+/// nodes returned by [`num_nodes`].
+///
+/// [`num_nodes`]: SequentialLabeling::num_nodes
 pub fn check_impl<L: RandomAccessLabeling>(l: L) -> Result<(), CheckImplError>
 where
     L::Label: PartialEq + std::fmt::Debug,
@@ -691,9 +721,10 @@ where
 /// starting from random access.
 ///
 /// Users can implement just random-access primitives and then use this
-/// structure to implement the lender returned by
-/// [`iter_from`](SequentialLabeling::iter_from) by just returning an instance
-/// of this struct.
+/// structure to implement the lender returned by [`iter_from`] by just
+/// returning an instance of this struct.
+///
+/// [`iter_from`]: SequentialLabeling::iter_from
 pub struct LenderImpl<'node, G: RandomAccessLabeling> {
     /// The underlying random-access labeling.
     pub labeling: &'node G,

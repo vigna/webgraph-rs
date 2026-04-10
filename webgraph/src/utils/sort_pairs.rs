@@ -21,9 +21,9 @@ use std::path::{Path, PathBuf};
 ///
 /// An instance of this structure ingests pairs of nodes with an associated
 /// label, sort them in chunks of `batch_size` pairs, and dumps them to disk.
-/// Then, a call to [`iter`](SortPairs::iter) returns an iterator that merges
-/// the batches on disk on the fly, returning the pairs sorted by
-/// lexicographical order of the pairs of nodes.
+/// Then, a call to [`iter`] returns an iterator that merges the batches on
+/// disk on the fly, returning the pairs sorted by lexicographical order of the
+/// pairs of nodes.
 ///
 /// A batch should be as large as possible, given the available memory.
 /// Small batches are inefficient because they require significantly
@@ -38,27 +38,34 @@ use std::path::{Path, PathBuf};
 /// serialize and deserialize the labels.
 ///
 /// You can use this structure in two ways: either create an instance with
-/// [`new_labeled`](SortPairs::new_labeled) and add labeled pairs using
-/// [`push_labeled`](SortPairs::push_labeled), and then iterate over the sorted
-/// pairs using [`iter`](SortPairs::iter), or create a new instance and
-/// immediately sort an iterator of pairs using
-/// [`sort_labeled`](SortPairs::sort_labeled) or
-/// [`try_sort_labeled`](SortPairs::try_sort_labeled).
+/// [`new_labeled`] and add labeled pairs using [`push_labeled`], and then
+/// iterate over the sorted pairs using [`iter`], or create a new instance and
+/// immediately sort an iterator of pairs using [`sort_labeled`] or
+/// [`try_sort_labeled`].
 ///
-/// `SortPairs<(), ()>` has convenience [`new`](SortPairs::new),
-/// [`push`](SortPairs::push), [`sort`](SortPairs::sort), and
-/// [`try_sort`](SortPairs::try_sort) methods without labels. Note however that
-/// the [resulting iterator](SortPairs::iter) is labeled, and returns pairs
-/// labeled with `()`. Use [`Left`](crate::prelude::proj::Left) to project away
-/// the labels if needed.
+/// `SortPairs<(), ()>` has convenience [`new`], [`push`], [`sort`], and
+/// [`try_sort`] methods without labels. Note however that the
+/// [resulting iterator] is labeled, and returns pairs labeled with `()`. Use
+/// [`Left`] to project away the labels if needed.
 ///
-/// If `DEDUP` is `true`, the iterators returned by [`iter`](SortPairs::iter),
-/// [`sort`](SortPairs::sort), [`sort_labeled`](SortPairs::sort_labeled),
-/// and their fallible variants will skip consecutive elements sharing
-/// the same pair of nodes, keeping only the first occurrence. Use
-/// [`new_dedup`](SortPairs::new_dedup) or
-/// [`new_labeled_dedup`](SortPairs::new_labeled_dedup) to enable
-/// deduplication.
+/// If `DEDUP` is `true`, the iterators returned by [`iter`], [`sort`],
+/// [`sort_labeled`], and their fallible variants will skip consecutive
+/// elements sharing the same pair of nodes, keeping only the first occurrence.
+/// Use [`new_dedup`] or [`new_labeled_dedup`] to enable deduplication.
+///
+/// [`iter`]: SortPairs::iter
+/// [`new_labeled`]: SortPairs::new_labeled
+/// [`push_labeled`]: SortPairs::push_labeled
+/// [`sort_labeled`]: SortPairs::sort_labeled
+/// [`try_sort_labeled`]: SortPairs::try_sort_labeled
+/// [`new`]: SortPairs::new
+/// [`push`]: SortPairs::push
+/// [`sort`]: SortPairs::sort
+/// [`try_sort`]: SortPairs::try_sort
+/// [resulting iterator]: SortPairs::iter
+/// [`Left`]: crate::prelude::proj::Left
+/// [`new_dedup`]: SortPairs::new_dedup
+/// [`new_labeled_dedup`]: SortPairs::new_labeled_dedup
 pub struct SortPairs<C: BatchCodec = DefaultBatchCodec, const DEDUP: bool = false> {
     /// The batch size.
     batch_size: usize,
@@ -107,22 +114,26 @@ impl SortPairs {
     /// The `tmp_dir` must be empty, and in particular it must not be shared
     /// with other `SortPairs` instances.
     ///
-    /// We suggest to use the [`tempfile`](https://crates.io/crates/tempfile)
-    /// crate to obtain a suitable temporary directory, as it will be
-    /// automatically deleted when no longer needed, but be careful to not pass
-    /// the directory obtained directly, but rather its path (i.e., use
-    /// `dir.path()`) because otherwise [the directory will be deleted too
-    /// soon](https://github.com/Stebalien/tempfile/issues/115).
+    /// We suggest to use the [`tempfile`] crate to obtain a suitable temporary
+    /// directory, as it will be automatically deleted when no longer needed, but
+    /// be careful to not pass the directory obtained directly, but rather its
+    /// path (i.e., use `dir.path()`) because otherwise [the directory will be
+    /// deleted too soon].
+    ///
+    /// [`tempfile`]: https://crates.io/crates/tempfile
+    /// [the directory will be deleted too soon]: https://github.com/Stebalien/tempfile/issues/115
     pub fn new<P: AsRef<Path>>(memory_usage: MemoryUsage, tmp_dir: P) -> anyhow::Result<Self> {
         Self::create(memory_usage, tmp_dir, DefaultBatchCodec::default())
     }
 
     /// Creates a new `SortPairs` without labels that deduplicates the result.
     ///
-    /// See [`new`](SortPairs::new) for details. When deduplication is enabled,
-    /// the returned iterators will skip consecutive elements sharing the same
-    /// pair of nodes, keeping only the first occurrence. Duplicates are also
-    /// eliminated during batch serialization, reducing I/O and disk usage.
+    /// See [`new`] for details. When deduplication is enabled, the returned
+    /// iterators will skip consecutive elements sharing the same pair of nodes,
+    /// keeping only the first occurrence. Duplicates are also eliminated during
+    /// batch serialization, reducing I/O and disk usage.
+    ///
+    /// [`new`]: SortPairs::new
     pub fn new_dedup<P: AsRef<Path>>(
         memory_usage: MemoryUsage,
         tmp_dir: P,
@@ -135,9 +146,10 @@ impl<C: BatchCodec> SortPairs<C> {
     /// Creates a new `SortPairs` with labels.
     ///
     /// The `dir` must be empty, and in particular it must not be shared
-    /// with other `SortPairs` instances. Please use the
-    /// [`tempfile`](https://crates.io/crates/tempfile) crate to obtain
-    /// a suitable directory.
+    /// with other `SortPairs` instances. Please use the [`tempfile`] crate to
+    /// obtain a suitable directory.
+    ///
+    /// [`tempfile`]: https://crates.io/crates/tempfile
     pub fn new_labeled<P: AsRef<Path>>(
         memory_usage: MemoryUsage,
         dir: P,
@@ -148,10 +160,11 @@ impl<C: BatchCodec> SortPairs<C> {
 
     /// Creates a new `SortPairs` with labels that deduplicates the result.
     ///
-    /// See [`new_labeled`](SortPairs::new_labeled) for details. When
-    /// deduplication is enabled, the returned iterators will skip consecutive
-    /// elements sharing the same pair of nodes, keeping only the first
-    /// occurrence.
+    /// See [`new_labeled`] for details. When deduplication is enabled, the
+    /// returned iterators will skip consecutive elements sharing the same pair
+    /// of nodes, keeping only the first occurrence.
+    ///
+    /// [`new_labeled`]: SortPairs::new_labeled
     pub fn new_labeled_dedup<P: AsRef<Path>>(
         memory_usage: MemoryUsage,
         dir: P,
@@ -170,8 +183,11 @@ impl<C: BatchCodec<Label = ()>, const DEDUP: bool> SortPairs<C, DEDUP> {
     /// Takes an iterator of pairs, pushes all elements, and returns an iterator
     /// over the sorted pairs.
     ///
-    /// This is a convenience method that combines multiple
-    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
+    /// This is a convenience method that combines multiple [`push`] calls
+    /// with [`iter`].
+    ///
+    /// [`push`]: SortPairs::push
+    /// [`iter`]: SortPairs::iter
     pub fn sort(
         &mut self,
         pairs: impl IntoIterator<Item = (usize, usize)>,
@@ -182,8 +198,11 @@ impl<C: BatchCodec<Label = ()>, const DEDUP: bool> SortPairs<C, DEDUP> {
     /// Takes an iterator of fallible pairs, pushes all elements, and returns an
     /// iterator over the sorted pairs.
     ///
-    /// This is a convenience method that combines multiple
-    /// [`push`](SortPairs::push) calls with [`iter`](SortPairs::iter).
+    /// This is a convenience method that combines multiple [`push`] calls
+    /// with [`iter`].
+    ///
+    /// [`push`]: SortPairs::push
+    /// [`iter`]: SortPairs::iter
     pub fn try_sort<E: Into<anyhow::Error>>(
         &mut self,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
@@ -246,9 +265,11 @@ impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
     /// Takes an iterator of labeled pairs, pushes all elements, and returns an
     /// iterator over the sorted pairs.
     ///
-    /// This is a convenience method that combines multiple
-    /// [`push_labeled`](SortPairs::push_labeled) calls with
-    /// [`iter`](SortPairs::iter).
+    /// This is a convenience method that combines multiple [`push_labeled`]
+    /// calls with [`iter`].
+    ///
+    /// [`push_labeled`]: SortPairs::push_labeled
+    /// [`iter`]: SortPairs::iter
     pub fn sort_labeled(
         &mut self,
         pairs: impl IntoIterator<Item = ((usize, usize), C::Label)>,
@@ -259,9 +280,11 @@ impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
     /// Takes an iterator of fallible labeled pairs, pushes all elements, and
     /// returns an iterator over the sorted pairs.
     ///
-    /// This is a convenience method that combines multiple
-    /// [`push_labeled`](SortPairs::push_labeled) calls with
-    /// [`iter`](SortPairs::iter).
+    /// This is a convenience method that combines multiple [`push_labeled`]
+    /// calls with [`iter`].
+    ///
+    /// [`push_labeled`]: SortPairs::push_labeled
+    /// [`iter`]: SortPairs::iter
     pub fn try_sort_labeled<E: Into<anyhow::Error>>(
         &mut self,
         pairs: impl IntoIterator<Item = Result<((usize, usize), C::Label), E>>,
@@ -276,10 +299,13 @@ impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
 
 /// Private struct that keeps the head of an iterator and its tail.
 ///
-/// Note that we cannot use [`Peekable`](std::iter::Peekable) for the same
-/// purpose because [`Peekable::peek`](std::iter::Peekable::peek) needs a
-/// mutable reference, but we would be calling it inside
-/// [`Ord::cmp`](std::cmp::Ord::cmp), which only has an immutable reference.
+/// Note that we cannot use [`Peekable`] for the same purpose because
+/// [`Peekable::peek`] needs a mutable reference, but we would be calling it
+/// inside [`Ord::cmp`], which only has an immutable reference.
+///
+/// [`Peekable`]: std::iter::Peekable
+/// [`Peekable::peek`]: std::iter::Peekable::peek
+/// [`Ord::cmp`]: std::cmp::Ord::cmp
 ///
 /// Comparison is implemented only on the pair of nodes and ignoring the label.
 #[derive(Clone, Debug)]
@@ -329,7 +355,9 @@ fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
     heap
 }
 
-/// A structure using a [quaternary heap](dary_heap::QuaternaryHeap) to merge sorted iterators.
+/// A structure using a [quaternary heap] to merge sorted iterators.
+///
+/// [quaternary heap]: dary_heap::QuaternaryHeap
 ///
 /// The iterators must be sorted by the pair of nodes, and the structure will return the labeled pairs
 /// sorted by lexicographical order of the pairs of nodes.
@@ -338,7 +366,9 @@ fn build_kmerge_heap<T, I: Iterator<Item = ((usize, usize), T)>>(
 ///
 /// If `DEDUP` is `true`, the iterator will skip consecutive elements sharing
 /// the same pair of nodes, keeping only the first occurrence. Use
-/// [`new_dedup`](KMergeIters::new_dedup) to enable deduplication.
+/// [`new_dedup`] to enable deduplication.
+///
+/// [`new_dedup`]: KMergeIters::new_dedup
 ///
 /// The structure implements [`Default`], [`core::iter::Sum`],
 /// [`core::ops::AddAssign`], [`Extend`], and [`core::iter::FromIterator`]

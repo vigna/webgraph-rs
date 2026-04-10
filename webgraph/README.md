@@ -1,12 +1,12 @@
 # WebGraph
 
-[![crates.io](https://img.shields.io/crates/v/webgraph.svg)](https://crates.io/crates/webgraph)
-[![docs.rs](https://docs.rs/webgraph/badge.svg)](https://docs.rs/webgraph)
-[![rustc](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
-[![CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vigna/webgraph-rs/actions)
-![license](https://img.shields.io/crates/l/webgraph)
-[![downloads](https://img.shields.io/crates/d/webgraph)](https://crates.io/crates/webgraph)
-[![coveralls](https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/webgraph-rs?branch=main)
+[![crates.io badge]][crates.io]
+[![docs.rs badge]][docs.rs]
+[![rustc badge]][min rustc version]
+[![CI badge]][CI]
+![license badge]
+[![downloads badge]][crates.io]
+[![coveralls badge]][coveralls]
 
 A Rust implementation of the [WebGraph framework] for graph compression.
 
@@ -16,50 +16,41 @@ provides simple ways to manage very large graphs, exploiting modern compression
 techniques. More precisely, it is currently made of:
 
 - Algorithms for compressing web graphs that exploit gap compression and
-  differential compression (à la
-  [LINK](https://ieeexplore.ieee.org/document/999950)),
-  intervalization, and ζ codes to provide a high compression ratio (see [our
-  datasets](http://law.di.unimi.it/datasets.php)). The algorithms are controlled
-  by several parameters, which provide different tradeoffs between access speed
-  and compression ratio.
+  differential compression (à la [LINK]), intervalization, and ζ codes to
+  provide a high compression ratio (see [our datasets]). The algorithms are
+  controlled by several parameters, which provide different tradeoffs between
+  access speed and compression ratio.
 
 - Algorithms for accessing a compressed graph without actually decompressing
   it, using lazy techniques that delay the decompression until it is actually
   necessary.
 
-- Algorithms for analyzing very large graphs, such as
-  [HyperBall](https://dl.acm.org/doi/10.5555/2606262.2606545), which has been
-  used to show that Facebook has just [four degrees of
-  separation](http://vigna.di.unimi.it/papers.php#BBRFDS).
+- Algorithms for analyzing very large graphs, such as [HyperBall], which has
+  been used to show that Facebook has just [four degrees of separation].
 
-- A [Java implementation](http://webgraph.di.unimi.it/) of the algorithms above,
-  now in maintenance mode.
+- A [Java implementation] of the algorithms above, now in maintenance mode.
 
 - This crate, providing a complete, documented implementation of the algorithms
-  above in Rust. It is free software distributed under either the [GNU Lesser
-  General Public License
-  2.1+](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) or the [Apache
-  Software License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+  above in Rust. It is free software distributed under either the
+  [GNU Lesser General Public License 2.1+] or the
+  [Apache Software License 2.0].
 
-- [Data sets](http://law.di.unimi.it/datasets.php) for large graphs (e.g.,
-  billions of links).
+- [Data sets] for large graphs (e.g., billions of links).
 
 ## Citation
 
 You are welcome to use and improve WebGraph for your research work! If you find
 our software useful for research, please cite the following papers in your own:
 
-- “[WebGraph: The Next Generation (Is in
-  Rust)](http://vigna.di.unimi.it/papers.php#FVZWNG)”, by Tommaso Fontana,
+- “[WebGraph: The Next Generation (Is in Rust)]”, by Tommaso Fontana,
   Sebastiano Vigna, and Stefano Zacchiroli, in _WWW '24: Companion Proceedings
-  of the ACM on Web Conference 2024_, pages 686–689. [DOI
-  10.1145/3589335.3651581](https://dl.acm.org/doi/10.1145/3589335.3651581).
+  of the ACM on Web Conference 2024_, pages 686–689.
+  [DOI 10.1145/3589335.3651581].
 
-- “[The WebGraph Framework I: Compression
-  Techniques](http://vigna.di.unimi.it/papers.php#BoVWFI)”, by Paolo Boldi and
-  Sebastiano Vigna, in _Proc. of the 13th international conference on World
-  Wide Web_, WWW 2004, pages 595–602, ACM. [DOI
-  10.1145/988672.988752](https://dl.acm.org/doi/10.1145/988672.988752).
+- “[The WebGraph Framework I: Compression Techniques]”, by Paolo Boldi
+  and Sebastiano Vigna, in _Proc. of the 13th international conference on
+  World Wide Web_, WWW 2004, pages 595–602, ACM.
+  [DOI 10.1145/988672.988752].
 
 ## Quick Setup
 
@@ -113,9 +104,9 @@ for_![(src, succ) in graph {
 A number of structures make it possible to create dynamically growing graphs:
 [`BTreeGraph`], [`VecGraph`] and their labeled counterparts
 [`LabeledBTreeGraph`] and [`LabeledVecGraph`]. These structures can also
-be serialized with [serde](https://crates.io/crates/serde) using the feature
+be serialized with [serde] using the feature
 gate `serde`; [`VecGraph`]/[`LabeledVecGraph`] can also be serialized with
-[ε-serde](https://crates.io/crates/epserde).
+[ε-serde].
 
 ## Command–Line Interface
 
@@ -217,3 +208,28 @@ Union nor the Italian MUR can be held responsible for them.
 [Common Crawl web site]: https://commoncrawl.org/
 [command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
 [`CsrGraph`]: https://docs.rs/webgraph/latest/webgraph/graphs/csr_graph/struct.CsrGraph.html
+[LINK]: https://ieeexplore.ieee.org/document/999950
+[our datasets]: http://law.di.unimi.it/datasets.php
+[HyperBall]: https://dl.acm.org/doi/10.5555/2606262.2606545
+[four degrees of separation]: http://vigna.di.unimi.it/papers.php#BBRFDS
+[Java implementation]: http://webgraph.di.unimi.it/
+[GNU Lesser General Public License 2.1+]: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+[Apache Software License 2.0]: https://www.apache.org/licenses/LICENSE-2.0
+[Data sets]: http://law.di.unimi.it/datasets.php
+[WebGraph: The Next Generation (Is in Rust)]: http://vigna.di.unimi.it/papers.php#FVZWNG
+[DOI 10.1145/3589335.3651581]: https://dl.acm.org/doi/10.1145/3589335.3651581
+[The WebGraph Framework I: Compression Techniques]: http://vigna.di.unimi.it/papers.php#BoVWFI
+[DOI 10.1145/988672.988752]: https://dl.acm.org/doi/10.1145/988672.988752
+[serde]: https://crates.io/crates/serde
+[crates.io badge]: https://img.shields.io/crates/v/webgraph.svg
+[crates.io]: https://crates.io/crates/webgraph
+[docs.rs badge]: https://docs.rs/webgraph/badge.svg
+[docs.rs]: https://docs.rs/webgraph
+[rustc badge]: https://img.shields.io/badge/rustc-1.85+-red.svg
+[min rustc version]: https://rust-lang.github.io/rfcs/2495-min-rust-version.html
+[CI badge]: https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg
+[CI]: https://github.com/vigna/webgraph-rs/actions
+[license badge]: https://img.shields.io/crates/l/webgraph
+[downloads badge]: https://img.shields.io/crates/d/webgraph
+[coveralls badge]: https://coveralls.io/repos/github/vigna/webgraph-rs/badge.svg?branch=main
+[coveralls]: https://coveralls.io/github/vigna/webgraph-rs?branch=main

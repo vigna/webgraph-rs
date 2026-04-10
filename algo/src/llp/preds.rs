@@ -7,9 +7,12 @@
 
 //! Predicates implementing stopping conditions.
 //!
-//! The implementation of [layered label propagation](super) requires a
-//! [predicate](Predicate) to stop the algorithm. This module provides a few
-//! such predicates: they evaluate to true if the updates should be stopped.
+//! The implementation of [layered label propagation] requires a [predicate] to
+//! stop the algorithm. This module provides a few such predicates: they
+//! evaluate to true if the updates should be stopped.
+//!
+//! [layered label propagation]: super
+//! [predicate]: Predicate
 //!
 //! You can combine the predicates using the `and` and `or` methods provided by
 //! the [`Predicate`] trait.
@@ -89,8 +92,9 @@ impl Predicate<PredParams> for MaxUpdates {
 
 /// Stop if the gain of the objective function is below the given threshold.
 ///
-/// The [default threshold](Self::DEFAULT_THRESHOLD) is the same as that
-/// of the Java implementation.
+/// The [default threshold] is the same as that of the Java implementation.
+///
+/// [default threshold]: Self::DEFAULT_THRESHOLD
 #[derive(Debug, Clone)]
 pub struct MinGain {
     threshold: f64,

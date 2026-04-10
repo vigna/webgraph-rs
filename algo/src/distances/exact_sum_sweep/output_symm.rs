@@ -5,9 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// The result returned by
-/// [`run_symm`](super::Level::run_symm) on [`All`](super::All) or
-/// [`AllForward`](super::AllForward).
+/// The result returned by [`run_symm`] on [`All`] or [`AllForward`].
+///
+/// [`run_symm`]: super::Level::run_symm
+/// [`All`]: super::All
+/// [`AllForward`]: super::AllForward
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct All {
     /// The eccentricities
@@ -28,9 +30,10 @@ pub struct All {
     pub iterations: usize,
 }
 
-/// The result returned by
-/// [`run_symm`](super::Level::run_symm) on
-/// [`RadiusDiameter`](super::RadiusDiameter).
+/// The result returned by [`run_symm`] on [`RadiusDiameter`].
+///
+/// [`run_symm`]: super::Level::run_symm
+/// [`RadiusDiameter`]: super::RadiusDiameter
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct RadiusDiameter {
     /// The diameter.
@@ -47,9 +50,10 @@ pub struct RadiusDiameter {
     pub diameter_iterations: usize,
 }
 
-/// The result returned by
-/// [`run_symm`](super::Level::run_symm) on
-/// [`Diameter`](super::Diameter).
+/// The result returned by [`run_symm`] on [`Diameter`].
+///
+/// [`run_symm`]: super::Level::run_symm
+/// [`Diameter`]: super::Diameter
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Diameter {
     /// The diameter.
@@ -60,8 +64,10 @@ pub struct Diameter {
     pub diameter_iterations: usize,
 }
 
-/// The result returned by
-/// [`run_symm`](super::Level::run_symm) on [`Radius`](super::Radius).
+/// The result returned by [`run_symm`] on [`Radius`].
+///
+/// [`run_symm`]: super::Level::run_symm
+/// [`Radius`]: super::Radius
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Radius {
     /// The radius.

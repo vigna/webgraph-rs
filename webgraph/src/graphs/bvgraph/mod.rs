@@ -24,9 +24,8 @@
 //! (`BASENAME.ef`), necessary for random access, can be built using the
 //! `webgraph build ef` command.
 //!
-//! The implementation is compatible with the [Java
-//! implementation](http://webgraph.di.unimi.it/), but it provides also a
-//! little-endian version.
+//! The implementation is compatible with the [Java implementation], but it
+//! provides also a little-endian version.
 //!
 //! The main access points to the implementation are [`BvGraph::with_basename`]
 //! and [`BvGraphSeq::with_basename`], which provide a [`LoadConfig`] that can
@@ -134,6 +133,7 @@
 //! [BvGraph paper]: <http://vigna.di.unimi.it/papers.php#BoVWFI>
 //! [Elias–Fano]: <https://docs.rs/sux/latest/sux/dict/elias_fano/struct.EliasFano.html>
 //! [ε-serde]: <https://docs.rs/epserde/latest/epserde/>
+//! [Java implementation]: <http://webgraph.di.unimi.it/>
 
 use std::path::Path;
 
@@ -198,9 +198,11 @@ pub type EF = sux::dict::EliasFano<
 
 /// Compound trait expressing the trait bounds for offsets.
 ///
-/// See the [`MemCase`](epserde::deser::MemCase) documentation for an
-/// explanation as to why we bound first with [`DeserInner`] and then require
-/// the bound we are interested in on the associated deserialization type.
+/// See the [`MemCase`] documentation for an explanation as to why we bound
+/// first with [`DeserInner`] and then require the bound we are interested in on
+/// the associated deserialization type.
+///
+/// [`MemCase`]: epserde::deser::MemCase
 pub trait Offsets:
     for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u64>>
 {
@@ -212,10 +214,15 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u
 
 /// The default type we use for the cumulative function of degrees.
 ///
-/// It provides an [indexed dictionary](sux::traits::indexed_dict::IndexedDict) with
-/// [successor](sux::traits::indexed_dict::Succ) and [predecessor](sux::traits::indexed_dict::Pred) support.
+/// It provides an [indexed dictionary] with [successor] and [predecessor]
+/// support.
 ///
-/// This is the type returned by [`crate::traits::labels::SequentialLabeling::build_dcf`].
+/// This is the type returned by
+/// [`crate::traits::labels::SequentialLabeling::build_dcf`].
+///
+/// [indexed dictionary]: sux::traits::indexed_dict::IndexedDict
+/// [successor]: sux::traits::indexed_dict::Succ
+/// [predecessor]: sux::traits::indexed_dict::Pred
 pub type DCF = sux::dict::EliasFano<
     u64,
     SelectZeroAdaptConst<

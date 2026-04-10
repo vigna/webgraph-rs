@@ -14,7 +14,9 @@ use sux::traits::*;
 use value_traits::slices::{SliceByValue, SliceByValueMut};
 
 /// Maps into memory a file of big-endian 64-bit values, making it accessible as
-/// a [`BitFieldSlice<usize>`](sux::traits::BitFieldSlice).
+/// a [`BitFieldSlice<usize>`].
+///
+/// [`BitFieldSlice<usize>`]: sux::traits::BitFieldSlice
 ///
 /// The purpose of this helper class is to make interoperability with the big
 /// version of the Java implementation of WebGraph easier. It is a thin wrapper

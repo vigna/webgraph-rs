@@ -9,19 +9,23 @@ use crate::{labels::Left, traits::*};
 use anyhow::{Result, ensure};
 use lender::*;
 
-/// An adapter exhibiting a list of labeled arcs sorted by source as a [labeled
-/// sequential graph](LabeledSequentialGraph).
+/// An adapter exhibiting a list of labeled arcs sorted by source as a
+/// [labeled sequential graph].
 ///
 /// If for every source the arcs are sorted by destination, the successors of
 /// the graph will be sorted.
 ///
 /// The structure [`NodeLabels`] implementing the [`Lender`] returned by the
-/// [`iter`](SequentialLabeling::iter) method of this graph can be [built
-/// independently](NodeLabels::new). This is useful in circumstances in which one has
-/// a list of arcs sorted by source that represent only part of a graph, but
-/// need to exhibit them as a [`NodeLabelsLender`], for example, for feeding
-/// such lenders to
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`iter`] method of this graph can be [built independently]. This is
+/// useful in circumstances in which one has a list of arcs sorted by source
+/// that represent only part of a graph, but need to exhibit them as a
+/// [`NodeLabelsLender`], for example, for feeding such lenders to
+/// [`BvCompConfig::par_comp_lenders`].
+///
+/// [labeled sequential graph]: LabeledSequentialGraph
+/// [`iter`]: SequentialLabeling::iter
+/// [built independently]: NodeLabels::new
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
 #[derive(Clone)]
 pub struct ArcListGraph<I> {
     num_nodes: usize,

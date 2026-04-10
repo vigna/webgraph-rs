@@ -23,8 +23,10 @@ use crate::{
 ///
 /// Note that the time required to iterate over the graph is quadratic in `n`,
 /// so if you plan to reuse it you should store the result in a more efficient
-/// structure, such as a [`VecGraph`](crate::graphs::prelude::VecGraph). The
-/// same applies if you need random access.
+/// structure, such as a [`VecGraph`]. The same applies if you need random
+/// access.
+///
+/// [`VecGraph`]: crate::graphs::prelude::VecGraph
 #[derive(Debug, Clone)]
 pub struct ErdosRenyi {
     n: usize,
@@ -35,7 +37,9 @@ pub struct ErdosRenyi {
 impl ErdosRenyi {
     /// Creates a new Erdös-Rényi random graph, given the number of
     /// nodes, the probability of an edge between any two nodes, and a
-    /// seed for the [pseudorandom number generator](SmallRng).
+    /// seed for the [pseudorandom number generator].
+    ///
+    /// [pseudorandom number generator]: SmallRng
     pub fn new(n: usize, p: f64, seed: u64) -> Self {
         // Note that 0.0..=1.0 is [0.0..1.0] in mathematical notation
         assert!((0.0..=1.0).contains(&p), "p must be in [0 . . 1]");

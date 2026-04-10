@@ -15,10 +15,10 @@
 //! # Graph representation
 //!
 //! The bipartite graph is represented as a [`RandomAccessGraph`] with *n* nodes
-//! and *s* sources (the parameter [`num_sources`](BiRank::new)) in which vertices [0 . . *s*)
+//! and *s* sources (the parameter [`num_sources`]) in which vertices [0 . . *s*)
 //! form the source set *U* and vertices [*s* . . *n*) form the target set *P*,
 //! with all arcs directed from *U* to *P*. Both the graph and its
-//! [transpose](BiRank::new) are required.
+//! [transpose] are required.
 //!
 //! # The formula
 //!
@@ -86,7 +86,7 @@
 //!
 //! # Stopping criteria
 //!
-//! The [`run`](BiRank::run) method accepts a composable [`Predicate`] that is
+//! The [`run`] method accepts a composable [`Predicate`] that is
 //! evaluated after each iteration. The predicate receives the current
 //! iteration number and the ℓ₁ norm of the rank-vector change:
 //!
@@ -94,16 +94,23 @@
 //!
 //! where **x** = (**u**, **p**) is the concatenated rank vector.
 //!
-//! This module re-exports the [predicates](preds) from the
-//! [`pagerank`](super::pagerank) module, as they share the same
+//! This module re-exports the [predicates] from the [`pagerank`] module,
+//! as they share the same
 //! [`PredParams`] structure.
 //!
 //! # References
 //!
 //! Xiangnan He, Ming Gao, Min-Yen Kan, and Dingxian Wang. [BiRank: Towards
-//! Ranking on Bipartite Graphs](https://doi.org/10.1109/TKDE.2016.2611584).
-//! *IEEE Transactions on Knowledge and Data Engineering*, 29(1):57–71, 2017.
+//! Ranking on Bipartite Graphs]. *IEEE Transactions on Knowledge and Data
+//! Engineering*, 29(1):57–71, 2017.
 //!
+//! [BiRank: Towards Ranking on Bipartite Graphs]: https://doi.org/10.1109/TKDE.2016.2611584
+//!
+//! [`num_sources`]: BiRank::new
+//! [transpose]: BiRank::new
+//! [`run`]: BiRank::run
+//! [predicates]: preds
+//! [`pagerank`]: super::pagerank
 //! [BiRank]: https://doi.org/10.1109/TKDE.2016.2611584
 //! [`Predicate`]: predicates::Predicate
 //! [`PredParams`]: PredParams
@@ -161,21 +168,26 @@ use webgraph::utils::Granularity;
 /// Computes BiRank scores for a bipartite graph using parallel power
 /// iteration.
 ///
-/// For details about the algorithm, see the [module-level
-/// documentation](self).
+/// For details about the algorithm, see the [module-level documentation].
+///
+/// [module-level documentation]: self
 ///
 /// The struct is configured via setters and then executed via
-/// [`run`](Self::run). After completion the rank vector is available via the
-/// [`rank`](Self::rank) method, where `rank[i]` for *i* < `num_sources` is
+/// [`run`]. After completion the rank vector is available via the
+/// [`rank`] method, where `rank[i]` for *i* < `num_sources` is
 /// the score of source node *i* (*uᵢ*), and `rank[j]` for
 /// *j* ≥ `num_sources` is the score of target node *j* (*pⱼ*).
 ///
-/// Note that the [`preference`](Self::preference) setter consumes `self`
+/// Note that the [`preference`] setter consumes `self`
 /// because the preference type may differ from the current one; all internal
 /// state (including cached 1/√*d* values) is preserved.
 ///
 /// If you compute multiple variants of BiRank on the same graph, please reuse
 /// this structure, as it caches the inverse square-root degrees of nodes.
+///
+/// [`run`]: Self::run
+/// [`rank`]: Self::rank
+/// [`preference`]: Self::preference
 ///
 /// # Examples
 ///
@@ -361,9 +373,10 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
 
     /// Sets the parallel task granularity.
     ///
-    /// The granularity expresses how many
-    /// [nodes](Granularity::node_granularity) will be passed to a Rayon task
-    /// at a time.
+    /// The granularity expresses how many [nodes] will be passed to a Rayon
+    /// task at a time.
+    ///
+    /// [nodes]: Granularity::node_granularity
     pub fn granularity(&mut self, granularity: Granularity) -> &mut Self {
         self.granularity = granularity;
         self
@@ -371,7 +384,7 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
 
     /// Returns the rank vector.
     ///
-    /// After calling [`run`](Self::run), entries [0 . . `num_sources`) contain
+    /// After calling [`run`], entries [0 . . `num_sources`) contain
     /// the scores *uᵢ* of source (*U*) nodes and entries
     /// [`num_sources` . . *n*) the scores *pⱼ* of target (*P*) nodes.
     pub fn rank(&self) -> &[f64] {
@@ -379,7 +392,9 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
     }
 
     /// Returns the number of iterations performed by the last call to
-    /// [`run`](Self::run).
+    /// [`run`].
+    ///
+    /// [`run`]: Self::run
     pub const fn iterations(&self) -> usize {
         self.iteration
     }

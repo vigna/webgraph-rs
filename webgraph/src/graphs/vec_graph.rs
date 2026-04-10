@@ -31,13 +31,15 @@ impl<L> From<LabeledArc<L>> for (usize, L) {
 /// vectors.
 ///
 /// This implementation is faster and uses less resources than a
-/// [`LabeledBTreeGraph`](crate::graphs::btree_graph::LabeledBTreeGraph), but it
-/// is less flexible as arcs can be added only in increasing successor order.
+/// [`LabeledBTreeGraph`], but it is less flexible as arcs can be added only
+/// in increasing successor order.
 ///
-/// This struct can be serialized with
-/// [ε-serde](https://crates.io/crates/epserde). By setting the feature `serde`,
-/// this struct can be serialized using [serde](https://crates.io/crates/serde),
-/// too.
+/// This struct can be serialized with [ε-serde]. By setting the feature
+/// `serde`, this struct can be serialized using [serde], too.
+///
+/// [`LabeledBTreeGraph`]: crate::graphs::btree_graph::LabeledBTreeGraph
+/// [ε-serde]: https://crates.io/crates/epserde
+/// [serde]: https://crates.io/crates/serde
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Clone, Debug, PartialEq, Eq)]
 pub struct LabeledVecGraph<L: Clone + 'static> {
@@ -121,9 +123,10 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Adds nodes and successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
-    /// If the lender is sorted, consider using
-    /// [`add_sorted_lender`](Self::add_sorted_lender), as it does not need to
-    /// sort the output of the lender.
+    /// If the lender is sorted, consider using [`add_sorted_lender`], as it
+    /// does not need to sort the output of the lender.
+    ///
+    /// [`add_sorted_lender`]: Self::add_sorted_lender
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -146,9 +149,10 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Creates a new graph from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
-    /// If the lender is sorted, consider using
-    /// [`from_sorted_lender`](Self::from_sorted_lender), as it does not need to
-    /// sort the output of the lender.
+    /// If the lender is sorted, consider using [`from_sorted_lender`], as it
+    /// does not need to sort the output of the lender.
+    ///
+    /// [`from_sorted_lender`]: Self::from_sorted_lender
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -161,8 +165,10 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`].
     ///
-    /// This method is faster than [`add_lender`](Self::add_lender) as
-    /// it does not need to sort the output of the lender.
+    /// This method is faster than [`add_lender`] as it does not need to sort
+    /// the output of the lender.
+    ///
+    /// [`add_lender`]: Self::add_lender
     pub fn add_sorted_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -182,8 +188,10 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Creates a new graph from a sorted [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
-    /// This method is faster than [`from_lender`](Self::from_lender) as
-    /// it does not need to sort the output of the lender.
+    /// This method is faster than [`from_lender`] as it does not need to
+    /// sort the output of the lender.
+    ///
+    /// [`from_lender`]: Self::from_lender
     pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -198,9 +206,10 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
     ///
-    /// This method has a better memory behavior than
-    /// [`add_sorted_lender`](Self::add_sorted_lender) as it can allocate
-    /// the right amount of memory for each node at once.
+    /// This method has a better memory behavior than [`add_sorted_lender`]
+    /// as it can allocate the right amount of memory for each node at once.
+    ///
+    /// [`add_sorted_lender`]: Self::add_sorted_lender
     pub fn add_exact_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -221,9 +230,10 @@ impl<L: Clone + 'static> LabeledVecGraph<L> {
     /// Creates a new graph from a sorted [`IntoLender`] yielding a
     /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
     ///
-    /// This method has a better memory behavior than
-    /// [`from_sorted_lender`](Self::from_sorted_lender) as it can allocate
-    /// the right amount of memory for each node at once.
+    /// This method has a better memory behavior than [`from_sorted_lender`]
+    /// as it can allocate the right amount of memory for each node at once.
+    ///
+    /// [`from_sorted_lender`]: Self::from_sorted_lender
     pub fn from_exact_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = (usize, L)>,
@@ -296,7 +306,9 @@ impl<L: Clone + 'static> SequentialLabeling for LabeledVecGraph<L> {
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [crate documentation]: crate
 impl<'a, L: Clone + 'static> IntoLender for &'a LabeledVecGraph<L> {
     type Lender = <LabeledVecGraph<L> as SequentialLabeling>::Lender<'a>;
 
@@ -357,16 +369,17 @@ impl<L: Clone + Sync> SplitLabeling for LabeledVecGraph<L> {
 /// but it is less flexible as arcs can be added only in increasing successor
 /// order.
 ///
-/// This struct can be serialized with
-/// [ε-serde](https://crates.io/crates/epserde). By setting the feature `serde`,
-/// this struct can be serialized using [serde](https://crates.io/crates/serde),
-/// too.
+/// This struct can be serialized with [ε-serde]. By setting the feature
+/// `serde`, this struct can be serialized using [serde], too.
 ///
 /// # Implementation Notes
 ///
-/// This is just a newtype for a [`LabeledVecGraph`] with
-/// [`()`](https://doc.rust-lang.org/std/primitive.unit.html) labels. All
-/// mutation methods are delegated.
+/// This is just a newtype for a [`LabeledVecGraph`] with [`()`] labels.
+/// All mutation methods are delegated.
+///
+/// [ε-serde]: https://crates.io/crates/epserde
+/// [serde]: https://crates.io/crates/serde
+/// [`()`]: https://doc.rust-lang.org/std/primitive.unit.html
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Epserde, Clone, Debug, Default, PartialEq, Eq)]
 pub struct VecGraph(LabeledVecGraph<()>);
@@ -406,9 +419,10 @@ impl VecGraph {
     /// Adds nodes and successors from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
-    /// If the lender is sorted, consider using
-    /// [`add_sorted_lender`](Self::add_sorted_lender), as it does not need to
-    /// sort the output of the lender.
+    /// If the lender is sorted, consider using [`add_sorted_lender`], as it
+    /// does not need to sort the output of the lender.
+    ///
+    /// [`add_sorted_lender`]: Self::add_sorted_lender
     pub fn add_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -420,9 +434,10 @@ impl VecGraph {
     /// Creates a new graph from an [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
-    /// If the lender is sorted, consider using
-    /// [`from_sorted_lender`](Self::from_sorted_lender), as it does not need to
-    /// sort the output of the lender.
+    /// If the lender is sorted, consider using [`from_sorted_lender`], as it
+    /// does not need to sort the output of the lender.
+    ///
+    /// [`from_sorted_lender`]: Self::from_sorted_lender
     pub fn from_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -435,8 +450,10 @@ impl VecGraph {
     /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`].
     ///
-    /// This method is faster than [`add_lender`](Self::add_lender) as
-    /// it does not need to sort the output of the lender.
+    /// This method is faster than [`add_lender`] as it does not need to sort
+    /// the output of the lender.
+    ///
+    /// [`add_lender`]: Self::add_lender
     pub fn add_sorted_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -451,8 +468,10 @@ impl VecGraph {
     /// Creates a new graph from a sorted [`IntoLender`] yielding a
     /// [`NodeLabelsLender`].
     ///
-    /// This method is faster than [`from_lender`](Self::from_lender) as
-    /// it does not need to sort the output of the lender.
+    /// This method is faster than [`from_lender`] as it does not need to
+    /// sort the output of the lender.
+    ///
+    /// [`from_lender`]: Self::from_lender
     pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -467,9 +486,10 @@ impl VecGraph {
     /// Adds nodes and successors from an [`IntoLender`] yielding a sorted
     /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
     ///
-    /// This method has a better memory behavior than
-    /// [`add_sorted_lender`](Self::add_sorted_lender) as it can allocate
-    /// the right amount of memory for each node at once.
+    /// This method has a better memory behavior than [`add_sorted_lender`]
+    /// as it can allocate the right amount of memory for each node at once.
+    ///
+    /// [`add_sorted_lender`]: Self::add_sorted_lender
     pub fn add_exact_lender<I: IntoLender>(&mut self, iter_nodes: I) -> &mut Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -490,9 +510,10 @@ impl VecGraph {
     /// Creates a new graph from a sorted [`IntoLender`] yielding a
     /// [`NodeLabelsLender`] whose successors implement [`ExactSizeIterator`].
     ///
-    /// This method has a better memory behavior than
-    /// [`from_sorted_lender`](Self::from_sorted_lender) as it can allocate
-    /// the right amount of memory for each node at once.
+    /// This method has a better memory behavior than [`from_sorted_lender`]
+    /// as it can allocate the right amount of memory for each node at once.
+    ///
+    /// [`from_sorted_lender`]: Self::from_sorted_lender
     pub fn from_exact_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize>,
@@ -528,7 +549,9 @@ impl VecGraph {
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [crate documentation]: crate
 impl<'a> IntoLender for &'a VecGraph {
     type Lender = <VecGraph as SequentialLabeling>::Lender<'a>;
 

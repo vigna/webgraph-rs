@@ -25,31 +25,39 @@ pub struct CompStats {
     pub offsets_written_bits: u64,
 }
 
-/// Compresses a graph into the [BV graph format](super::super).
+/// Compresses a graph into the [BV graph format].
 ///
 /// This is the standard compressor: for each node, it considers the
 /// preceding nodes in a window of configurable size and greedily selects the
 /// reference that minimizes the bitstream length, subject to a maximum
 /// reference-chain depth (`max_ref_count`). It then splits the "extra" nodes
 /// (those that cannot be copied from the reference list) into intervals and
-/// residuals, as documented in the [module-level documentation](super::super).
+/// residuals, as documented in the [module-level documentation].
 ///
 /// The compressor writes two bitstreams:
 ///
 /// - the _graph_ bitstream, through the encoder `E`;
 /// - the _offsets_ bitstream, through the [`OffsetsWriter`].
 ///
-/// Nodes must be pushed in order via [`push`](Self::push) (or
-/// [`extend`](Self::extend)) and the compressor must be finalized with
-/// [`flush`](Self::flush), which returns the [`CompStats`].
+/// Nodes must be pushed in order via [`push`] (or [`extend`]) and the
+/// compressor must be finalized with [`flush`], which returns the
+/// [`CompStats`].
 ///
 /// In most cases you do not need to instantiate this struct directly: use
 /// [`BvComp::with_basename`] to obtain a [`BvCompConfig`] with suitable
-/// defaults, then call [`comp_graph`](BvCompConfig::comp_graph) or
-/// [`par_comp_graph`](BvCompConfig::par_comp_graph) on it.
+/// defaults, then call [`comp_graph`] or [`par_comp_graph`] on it.
 ///
 /// For a compressor that uses an alternative reference-selection strategy
-/// based on dynamic programming, see [`BvCompZ`](super::BvCompZ).
+/// based on dynamic programming, see [`BvCompZ`].
+///
+/// [BV graph format]: super::super
+/// [module-level documentation]: super::super
+/// [`push`]: Self::push
+/// [`extend`]: Self::extend
+/// [`flush`]: Self::flush
+/// [`comp_graph`]: BvCompConfig::comp_graph
+/// [`par_comp_graph`]: BvCompConfig::par_comp_graph
+/// [`BvCompZ`]: super::BvCompZ
 #[derive(Debug)]
 pub struct BvComp<E, W: Write> {
     /// The ring-buffer that stores the neighbors of the last

@@ -10,29 +10,37 @@
 Basic traits to access graphs, both sequentially and
 in random-access fashion.
 
-A [sequential graph](SequentialGraph) is simply a
-[`SequentialLabeling`] whose associated type [`Label`](SequentialLabeling::Label) is `usize`: labels are interpreted
-as successors. Analogously, a [random-access graph](RandomAccessGraph) is simply a
-[`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `usize`.
-To access the successors of a node, however, you must use
-[`RandomAccessGraph::successors`], which delegates to [`labels`](RandomAccessLabeling::labels):
-the latter method is overridden on purpose to make its usage on graphs impossible.
+A [sequential graph] is simply a [`SequentialLabeling`] whose associated type
+[`Label`] is `usize`: labels are interpreted as successors. Analogously, a
+[random-access graph] is simply a [`RandomAccessLabeling`] extending a
+[`SequentialLabeling`] whose [`Label`] is `usize`. To access the successors
+of a node, however, you must use [`RandomAccessGraph::successors`], which
+delegates to [`labels`]: the latter method is overridden on purpose to make
+its usage on graphs impossible.
 
-In the same vein, a [sequential graph with labels](LabeledSequentialGraph) of type `L` is a
-[`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`
-and a [random-access graph with labels](LabeledRandomAccessGraph) is a
-[`RandomAccessLabeling`] extending a [`SequentialLabeling`] whose [`Label`](SequentialLabeling::Label) is `(usize, L)`.
-Also in this case, to access the successors of a node and their labels, you must use
+In the same vein, a [sequential graph with labels] of type `L` is a
+[`SequentialLabeling`] whose [`Label`] is `(usize, L)` and a
+[random-access graph with labels] is a [`RandomAccessLabeling`] extending a
+[`SequentialLabeling`] whose [`Label`] is `(usize, L)`. Also in this case,
+to access the successors of a node and their labels, you must use
 [`LabeledRandomAccessGraph::successors`].
 
-Finally, the [zipping of a graph and a labeling](Zip) implements the
-labeled graph traits (sequential or random-access, depending on the labelings).
+Finally, the [zipping of a graph and a labeling] implements the labeled
+graph traits (sequential or random-access, depending on the labelings).
 
 Note that most utilities to manipulate graphs manipulate in fact
 labeled graphs. To use the same utilities on an unlabeled graph
 you just have to wrap it in a [UnitLabelGraph], which
 is a zero-cost abstraction assigning to each successor the label `()`.
 Usually there is a convenience method doing the wrapping for you.
+
+[sequential graph]: SequentialGraph
+[random-access graph]: RandomAccessGraph
+[`Label`]: SequentialLabeling::Label
+[`labels`]: RandomAccessLabeling::labels
+[sequential graph with labels]: LabeledSequentialGraph
+[random-access graph with labels]: LabeledRandomAccessGraph
+[zipping of a graph and a labeling]: Zip
 
 */
 
@@ -66,14 +74,16 @@ pub trait SequentialGraph: SequentialLabeling<Label = usize> {}
 
 /// Checks if the two provided graphs with sorted lenders are equal.
 ///
-/// This function can be used to compare graphs with [sorted
-/// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
-/// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
-/// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
-/// instead.
+/// This function can be used to compare graphs with [sorted lenders], but
+/// whose iterators [are not sorted]. If the graphs are sorted,
+/// [`labels::eq_sorted`] should be used instead.
 ///
 /// If the two graphs are different, an [`EqError`] is returned describing the
 /// first difference found.
+///
+/// [sorted lenders]: crate::traits::labels::SortedLender
+/// [are not sorted]: crate::traits::labels::SortedIterator
+/// [`labels::eq_sorted`]: crate::traits::labels::eq_sorted
 pub fn eq<G0: SequentialGraph, G1: SequentialGraph>(g0: &G0, g1: &G1) -> Result<(), EqError>
 where
     for<'a> G0::Lender<'a>: SortedLender,
@@ -106,16 +116,21 @@ where
 }
 
 /// Convenience type alias for the iterator over the successors of a node
-/// returned by the [`iter_from`](SequentialLabeling::iter_from) method.
+/// returned by the [`iter_from`] method.
+///
+/// [`iter_from`]: SequentialLabeling::iter_from
 pub type Succ<'succ, 'node, S> =
     <<S as SequentialLabeling>::Lender<'node> as NodeLabelsLender<'succ>>::IntoIterator;
 
-/// A [sequential graph](SequentialGraph) providing, additionally, random access
-/// to successor lists.
+/// A [sequential graph] providing, additionally, random access to successor
+/// lists.
 ///
-/// On such a graph, successors are returned by the
-/// [`successors`](RandomAccessGraph::successors) method rather than by the
-/// [`labels`](RandomAccessLabeling::labels) method.
+/// On such a graph, successors are returned by the [`successors`] method
+/// rather than by the [`labels`] method.
+///
+/// [sequential graph]: SequentialGraph
+/// [`successors`]: RandomAccessGraph::successors
+/// [`labels`]: RandomAccessLabeling::labels
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait RandomAccessGraph: RandomAccessLabeling<Label = usize> + SequentialGraph {
     /// Returns the successors of a node.
@@ -170,14 +185,16 @@ pub trait LabeledSequentialGraph<L>: SequentialLabeling<Label = (usize, L)> {}
 
 /// Checks if the two provided labeled graphs with sorted lenders are equal.
 ///
-/// This function can be used to compare graphs with [sorted
-/// lenders](crate::traits::labels::SortedLender), but whose iterators [are not
-/// sorted](crate::traits::labels::SortedIterator). If the graphs are sorted,
-/// [`labels::eq_sorted`](crate::traits::labels::eq_sorted) should be used
-/// instead.
+/// This function can be used to compare graphs with [sorted lenders], but
+/// whose iterators [are not sorted]. If the graphs are sorted,
+/// [`labels::eq_sorted`] should be used instead.
 ///
 /// If the two graphs are different, an [`EqError`] is returned describing the
 /// first difference found.
+///
+/// [sorted lenders]: crate::traits::labels::SortedLender
+/// [are not sorted]: crate::traits::labels::SortedIterator
+/// [`labels::eq_sorted`]: crate::traits::labels::eq_sorted
 pub fn eq_labeled<M, G0: LabeledSequentialGraph<M>, G1: LabeledSequentialGraph<M>>(
     g0: &G0,
     g1: &G1,
@@ -206,7 +223,9 @@ where
 /// graph is actually unlabeled. It is (usually) a zero-cost abstraction.
 ///
 /// If the method returns some graphs derived from the input, it will usually be
-/// necessary to [project the labels away](crate::labels::Left).
+/// necessary to [project the labels away].
+///
+/// [project the labels away]: crate::labels::Left
 #[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct UnitLabelGraph<G: SequentialGraph>(pub G);
@@ -318,9 +337,11 @@ where
 /// pairs `(usize, L)`. The first coordinate is the successor, the second is the
 /// label.
 ///
-/// On such a graph, successors are returned by the
-/// [`successors`](LabeledRandomAccessGraph::successors) method rather than by
-/// the [`labels`](RandomAccessLabeling::labels) method.
+/// On such a graph, successors are returned by the [`successors`] method
+/// rather than by the [`labels`] method.
+///
+/// [`successors`]: LabeledRandomAccessGraph::successors
+/// [`labels`]: RandomAccessLabeling::labels
 #[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait LabeledRandomAccessGraph<L>: RandomAccessLabeling<Label = (usize, L)> {
     /// Returns pairs given by successors of a node and their labels.

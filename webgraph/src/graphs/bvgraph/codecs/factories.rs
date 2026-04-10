@@ -14,13 +14,17 @@ Implementations of the [`CodesReaderFactory`] trait can be used to create
 bit readers accessing a graph data using different techniques.
 - [`FileFactory`] uses a [std::fs::File] to create a bit reader.
 - [`MemoryFactory`] creates bit readers from a slice of memory,
-  either [allocated](MemoryFactory::new_mem) or [mapped](MemoryFactory::new_mmap).
+  either [allocated] or [mapped].
 - [`MmapHelper`] can be used to create a bit reader from a memory-mapped file.
 
-Any factory can be plugged either into a
-[`SequentialDecoderFactory`](super::SequentialDecoderFactory)
-or a [`RandomAccessDecoderFactory`](`super::RandomAccessDecoderFactory`),
-decoupling the choice of encoder from the underlying support.
+Any factory can be plugged either into a [`SequentialDecoderFactory`] or a
+[`RandomAccessDecoderFactory`], decoupling the choice of encoder from the
+underlying support.
+
+[allocated]: MemoryFactory::new_mem
+[mapped]: MemoryFactory::new_mmap
+[`SequentialDecoderFactory`]: super::SequentialDecoderFactory
+[`RandomAccessDecoderFactory`]: super::RandomAccessDecoderFactory
 
 */
 use crate::{

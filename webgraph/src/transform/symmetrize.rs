@@ -87,7 +87,7 @@ where
 }
 
 /// Returns a symmetrized version of the provided sorted (both on nodes and
-/// successors) graph as a [sequential graph](crate::traits::SequentialGraph).
+/// successors) graph as a [sequential graph].
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
@@ -97,6 +97,8 @@ where
 /// forward arcs are iterated directly from the graph without any I/O.
 ///
 /// For a parallel version using splitting, see [`symmetrize_sorted_split`].
+///
+/// [sequential graph]: crate::traits::SequentialGraph
 pub fn symmetrize_sorted<'g, const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &'g G,
     memory_usage: MemoryUsage,
@@ -144,8 +146,8 @@ where
 }
 
 /// Returns a [`SplitIters`] structure representing a symmetrized version of
-/// the provided sorted (both on nodes and successors)
-/// [splittable](crate::traits::SplitLabeling) graph, computed in parallel.
+/// the provided sorted (both on nodes and successors) [splittable] graph,
+/// computed in parallel.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
@@ -162,13 +164,16 @@ where
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`BvCompConfig::par_comp_lenders`].
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
-/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
-/// the parallelism.
+/// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
+///
+/// [splittable]: crate::traits::SplitLabeling
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [install]: rayon::ThreadPool::install
 pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
@@ -265,13 +270,15 @@ pub fn symmetrize<const NO_LOOPS: bool>(
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`BvCompConfig::par_comp_lenders`].
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
-/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
-/// the parallelism.
+/// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
+///
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [install]: rayon::ThreadPool::install
 pub fn symmetrize_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,

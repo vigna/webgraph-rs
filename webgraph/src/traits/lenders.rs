@@ -6,14 +6,17 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! The [main iteration trait](NodeLabelsLender), convenience types and
+//! The [main iteration trait], convenience types and
 //! associated implementations.
 //!
 //! The implementations in this module have the effect that most of the methods
 //! of a [`Lender`] (e.g., [`lender::Map`]) will return a [`NodeLabelsLender`]
 //! when applied to a [`NodeLabelsLender`]. Without the implementations, one
 //! would obtain a normal [`Lender`], which would not be usable as an argument,
-//! say, of [`BvComp::extend`](crate::graphs::bvgraph::BvComp::extend).
+//! say, of [`BvComp::extend`].
+//!
+//! [main iteration trait]: NodeLabelsLender
+//! [`BvComp::extend`]: crate::graphs::bvgraph::BvComp::extend
 
 use std::marker::PhantomData;
 
@@ -34,19 +37,23 @@ use crate::traits::Pair;
 ///
 /// # Flattening Facilities
 ///
-/// The methods [`into_pairs`](NodeLabelsLender::into_pairs) and
-/// [`into_labeled_pairs`](NodeLabelsLender::into_labeled_pairs) convert a
+/// The methods [`into_pairs`] and [`into_labeled_pairs`] convert a
 /// [`NodeLabelsLender`] into an iterator of pairs `(usize, usize)` or labeled
 /// pairs `((usize, usize), Label)`, respectively. These are convenience
 /// methods that delegate to [`From`] trait implementations for [`IntoPairs`]
 /// and [`IntoLabeledPairs`].
 ///
+/// [`into_pairs`]: NodeLabelsLender::into_pairs
+/// [`into_labeled_pairs`]: NodeLabelsLender::into_labeled_pairs
+///
 /// # Extension of [`Lender`] Methods
 ///
 /// Methods defined on [`Lender`], such as [`Lender::zip`], normally would
 /// return a [`Lender`], but not a [`NodeLabelsLender`]. However, the module
-/// [`lenders`](super::lenders) contains implementations that automatically turn
+/// [`lenders`] contains implementations that automatically turn
 /// such as a [`Lender`] into a [`NodeLabelsLender`] whenever it makes sense.
+///
+/// [`lenders`]: super::lenders
 ///
 /// Thus, for example, one can take two graphs and merge easily the first half
 /// of the first one and the second half of the second one:
@@ -75,10 +82,12 @@ use crate::traits::Pair;
 ///     itertools::assert_equal(v.successors(i), iter.next().unwrap().1);
 /// }
 /// ```
-/// [`VecGraph::add_lender`](crate::graphs::vec_graph::VecGraph::add_lender)
-/// takes a [`NodeLabelsLender`] as an argument, but the implementations in the
-/// module [`lenders`](super::lenders) makes the result of [`Lender::take`] and
-/// [`Lender::skip`] a [`NodeLabelsLender`].
+/// [`VecGraph::add_lender`] takes a [`NodeLabelsLender`] as an argument, but
+/// the implementations in the module [`lenders`] makes the result of
+/// [`Lender::take`] and [`Lender::skip`] a [`NodeLabelsLender`].
+///
+/// [`VecGraph::add_lender`]: crate::graphs::vec_graph::VecGraph::add_lender
+/// [`lenders`]: super::lenders
 ///
 /// # Propagation of implicit bounds
 ///
@@ -91,8 +100,9 @@ use crate::traits::Pair;
 /// possible to return iterators whose state depends on the state of the lender,
 /// but not on the state of the labeling.
 ///
-/// [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph) is the main
-/// motivation for this trait.
+/// [`ArcListGraph`] is the main motivation for this trait.
+///
+/// [`ArcListGraph`]: crate::graphs::arc_list_graph::ArcListGraph
 pub trait NodeLabelsLender<'lend, __ImplBound: lender::ImplBound = lender::Ref<'lend, Self>>:
     Lender + Lending<'lend, __ImplBound, Lend = (usize, Self::IntoIterator)>
 {

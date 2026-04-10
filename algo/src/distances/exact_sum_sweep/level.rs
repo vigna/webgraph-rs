@@ -37,7 +37,10 @@ impl core::ops::Add for Missing {
 /// Trait used to run the ExactSumSweep algorithm.
 ///
 /// This trait can be used to run the algorithm either [providing a graph and
-/// its transpose](Self::run) or [using a symmetric graph](Self::run_symm).
+/// its transpose] or [using a symmetric graph].
+///
+/// [providing a graph and its transpose]: Self::run
+/// [using a symmetric graph]: Self::run_symm
 ///
 /// It is implemented by the following structs: [`All`], [`AllForward`],
 /// [`RadiusDiameter`], [`Diameter`], and [`Radius`], which correspond to
@@ -46,11 +49,17 @@ impl core::ops::Add for Missing {
 ///
 /// # Examples
 ///
-/// See the [module documentation](crate::distances::exact_sum_sweep).
+/// See the [module documentation].
+///
+/// [module documentation]: crate::distances::exact_sum_sweep
 pub trait Level: Sync {
-    /// The type of the result of [`run`](Self::run).
+    /// The type of the result of [`run`].
+    ///
+    /// [`run`]: Self::run
     type Output: Send;
-    /// The type of the result of [`run_symm`](Self::run_symm).
+    /// The type of the result of [`run_symm`].
+    ///
+    /// [`run_symm`]: Self::run_symm
     type OutputSymm: Send;
 
     /// Runs the ExactSumSweep algorithm on the specified graph.

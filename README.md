@@ -1,18 +1,15 @@
 # WebGraph
 
-A Rust implementation of the [WebGraph
-framework](https://webgraph.di.unimi.it/) for graph compression.
+A Rust implementation of the [WebGraph framework] for graph compression.
 
 ## At a Glance
 
 - Compressed graph representation (start from here):
-  [`webgraph`](https://crates.io/crates/webgraph) ([repo](/webgraph))
+  [`webgraph`] ([repo][webgraph repo])
 
-- Algorithms: [`webgraph-algo`](https://crates.io/crates/webgraph-algo)
-  ([repo](/algo))
+- Algorithms: [`webgraph-algo`] ([repo][algo repo])
 
-- CLI commands: [`webgraph-cli`](https://crates.io/crates/webgraph-cli)
-  ([repo](/cli))
+- CLI commands: [`webgraph-cli`] ([repo][cli repo])
 
 ## Acknowledgments
 
@@ -22,3 +19,11 @@ grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche. Views and
 opinions expressed are however those of the authors only and do not necessarily
 reflect those of the European Union or the Italian MUR. Neither the European
 Union nor the Italian MUR can be held responsible for them.
+
+[WebGraph framework]: https://webgraph.di.unimi.it/
+[`webgraph`]: https://crates.io/crates/webgraph
+[webgraph repo]: /webgraph
+[`webgraph-algo`]: https://crates.io/crates/webgraph-algo
+[algo repo]: /algo
+[`webgraph-cli`]: https://crates.io/crates/webgraph-cli
+[cli repo]: /cli

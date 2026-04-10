@@ -37,11 +37,14 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// * [`SeqNoPred`] does not keep track of predecessors, nor of nodes on the
 ///   stack; it can be used, for example, to compute reachability information.
 /// * [`SeqPred`] keeps track of predecessors, but not of nodes on the stack; it
-///   can be used, for example, to compute a [topological
-///   sort](https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html).
+///   can be used, for example, to compute a [topological sort].
+///
+/// [topological sort]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
 /// * [`SeqPath`] keeps track of predecessors and nodes on the stack; it can be
 ///   used, for example, to establish
-///   [acyclicity](https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html).
+///   [acyclicity].
+///
+/// [acyclicity]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html
 ///
 /// Each type of visit uses incrementally more space:
 /// * [`SeqNoPred`] uses one bit per node to remember known nodes and a stack of
@@ -57,15 +60,21 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// * [`SeqNoPred`] generates events of type [`EventNoPred`].
 /// * [`SeqPred`] generates events of type [`EventPred`], with the proviso that
 ///   the Boolean associated with events of type
-///   [`Revisit`](`EventPred::Revisit`) is always false.
+///   [`Revisit`] is always false.
+///
+/// [`Revisit`]: EventPred::Revisit
 /// * [`SeqPath`] generates events of type [`EventPred`].
 ///
 /// With respect to [`EventNoPred`], [`EventPred`] provides the predecessor of
-/// the current node and a [postvisit event](EventPred::Postvisit).
+/// the current node and a [postvisit event].
+///
+/// [postvisit event]: EventPred::Postvisit
 ///
 /// If the visit was interrupted, the nodes still on the visit path can be
-/// retrieved using the [`stack`](SeqPred::stack) method (only for [`SeqPred`]
+/// retrieved using the [`stack`] method (only for [`SeqPred`]
 /// and [`SeqPath`]).
+///
+/// [`stack`]: SeqPred::stack
 ///
 /// # Examples
 ///
@@ -156,7 +165,9 @@ pub struct SeqIter<'a, S, G: RandomAccessGraph, P, const PRED: bool> {
     // * `true`, `ThreeStates` and `usize` (predecessors, stack tracking)
 }
 
-/// The iterator returned by [`stack`](SeqPred::stack).
+/// The iterator returned by [`stack`].
+///
+/// [`stack`]: SeqPred::stack
 pub struct StackIter<'a, 'b, S, G: RandomAccessGraph> {
     visit: &'b mut SeqIter<'a, S, G, usize, true>,
 }
@@ -219,11 +230,13 @@ pub trait NodeStates {
 }
 
 #[doc(hidden)]
-/// A two-state selector type for [sequential depth-first visits](Seq).
+/// A two-state selector type for [sequential depth-first visits].
 ///
 /// This implementation does not keep track of nodes on the stack, so events of
-/// type [`Revisit`](`EventPred::Revisit`) will always have the associated
-/// Boolean equal to false.
+/// type [`Revisit`] will always have the associated Boolean equal to false.
+///
+/// [sequential depth-first visits]: Seq
+/// [`Revisit`]: EventPred::Revisit
 pub struct TwoStates(BitVec);
 
 #[sealed]
@@ -254,11 +267,14 @@ impl NodeStates for TwoStates {
 }
 
 #[doc(hidden)]
-/// A three-state selector type for [sequential depth-first visits](Seq).
+/// A three-state selector type for [sequential depth-first visits].
 ///
 /// This implementation does keep track of nodes on the stack, so events of type
-/// [`Revisit`](`EventPred::Revisit`) will provide information about whether the
-/// node associated with event is currently on the visit path.
+/// [`Revisit`] will provide information about whether the node associated
+/// with event is currently on the visit path.
+///
+/// [sequential depth-first visits]: Seq
+/// [`Revisit`]: EventPred::Revisit
 pub struct ThreeStates(BitVec);
 
 #[sealed]

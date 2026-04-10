@@ -21,11 +21,14 @@ pub mod preds {
     //! type to implement all the traits needed by the individual predicates.
     //!
     //! Each algorithm defines its own `PredParams` type implementing only the
-    //! traits it supports. For example, [`BiRank`](super::BiRank) computes
-    //! both ℓ₁ and ℓ_∞ norms, so its [`PredParams`](super::birank::PredParams)
-    //! implements [`HasL1Norm`] and [`HasLInfNorm`], whereas
-    //! [`PageRank`](super::PageRank) only provides an ℓ₁ bound. Attempting
-    //! to use [`LInfNorm`] with PageRank is a compile-time error.
+    //! traits it supports. For example, [`BiRank`] computes both ℓ₁ and ℓ_∞
+    //! norms, so its [`PredParams`] implements [`HasL1Norm`] and
+    //! [`HasLInfNorm`], whereas [`PageRank`] only provides an ℓ₁ bound.
+    //! Attempting to use [`LInfNorm`] with PageRank is a compile-time error.
+    //!
+    //! [`BiRank`]: super::BiRank
+    //! [`PredParams`]: super::birank::PredParams
+    //! [`PageRank`]: super::PageRank
     //!
     //! # Examples
     //!

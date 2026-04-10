@@ -493,8 +493,10 @@ impl<D: Decode> Iterator for Succ<D> {
 }
 
 /// Convenience implementation that makes it possible to iterate over a
-/// [`BvGraph`] using the [`for_`](lender::for_) macro (see the
-/// [crate documentation](crate)).
+/// [`BvGraph`] using the [`for_`] macro (see the [crate documentation]).
+///
+/// [`for_`]: lender::for_
+/// [crate documentation]: crate
 impl<'a, F: RandomAccessDecoderFactory> IntoLender for &'a BvGraph<F> {
     type Lender = <BvGraph<F> as SequentialLabeling>::Lender<'a>;
 

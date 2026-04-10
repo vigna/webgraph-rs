@@ -1,11 +1,11 @@
 # Algorithms for WebGraph
 
-[![crates.io](https://img.shields.io/crates/v/webgraph-algo.svg)](https://crates.io/crates/webgraph-algo)
-[![docs.rs](https://docs.rs/webgraph-algo/badge.svg)](https://docs.rs/webgraph-algo)
-[![rustc](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
-[![CI](https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vigna/webgraph-rs/actions)
-![license](https://img.shields.io/crates/l/webgraph-algo)
-[![downloads](https://img.shields.io/crates/d/webgraph-algo)](https://crates.io/crates/webgraph-algo)
+[![crates.io badge]][crates.io]
+[![docs.rs badge]][docs.rs]
+[![rustc badge]][min rustc version]
+[![CI badge]][CI]
+![license badge]
+[![downloads badge]][crates.io]
 
 Algorithms for the Rust implementation of the [WebGraph framework] for graph
 compression.
@@ -63,3 +63,13 @@ Union nor the Italian MUR can be held responsible for them.
 [command-line interface]: https://docs.rs/webgraph-cli/latest/index.html
 [WebGraph framework]: https://webgraph.di.unimi.it/
 [PageRank]: https://docs.rs/webgraph-algo/latest/webgraph_algo/rank/pagerank/index.html
+[crates.io badge]: https://img.shields.io/crates/v/webgraph-algo.svg
+[crates.io]: https://crates.io/crates/webgraph-algo
+[docs.rs badge]: https://docs.rs/webgraph-algo/badge.svg
+[docs.rs]: https://docs.rs/webgraph-algo
+[rustc badge]: https://img.shields.io/badge/rustc-1.85+-red.svg
+[min rustc version]: https://rust-lang.github.io/rfcs/2495-min-rust-version.html
+[CI badge]: https://github.com/vigna/webgraph-rs/actions/workflows/rust.yml/badge.svg
+[CI]: https://github.com/vigna/webgraph-rs/actions
+[license badge]: https://img.shields.io/crates/l/webgraph-algo
+[downloads badge]: https://img.shields.io/crates/d/webgraph-algo

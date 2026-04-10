@@ -40,8 +40,9 @@ use sux::traits::AtomicBitVecOps;
 ///   of pairs of `usize` representing nodes and their parents.
 ///
 /// If you need predecessors but the cost of the callbacks is not significant
-/// you can use a [low-memory parallel
-/// visit](crate::visits::breadth_first::ParLowMem) instead.
+/// you can use a [low-memory parallel visit] instead.
+///
+/// [low-memory parallel visit]: crate::visits::breadth_first::ParLowMem
 ///
 /// The visits differ also in the type of events they generate:
 /// * [`ParFairNoPred`] generates events of type [`EventNoPred`].
@@ -52,9 +53,10 @@ use sux::traits::AtomicBitVecOps;
 ///
 /// # Examples
 ///
-/// Let's compute the distances from 0. We will be using a
-/// [`SyncSlice`](sync_cell_slice::SyncSlice) from the [`sync_cell_slice`] crate
-/// to store the parent of each node.
+/// Let's compute the distances from 0. We will be using a [`SyncSlice`] from
+/// the [`sync_cell_slice`] crate to store the parent of each node.
+///
+/// [`SyncSlice`]: sync_cell_slice::SyncSlice
 ///
 /// ```
 /// use webgraph::visits::Parallel;
@@ -94,20 +96,25 @@ pub struct ParFair<G: RandomAccessGraph, const PRED: bool = false> {
     visited: AtomicBitVec,
 }
 
-/// A [fair parallel breadth-first visit](ParFair) that keeps track of
+/// A [fair parallel breadth-first visit] that keeps track of
 /// predecessors.
+///
+/// [fair parallel breadth-first visit]: ParFair
 pub type ParFairPred<G> = ParFair<G, true>;
 
-/// A [fair parallel breadth-first visit](ParFair) that does not keep track of
+/// A [fair parallel breadth-first visit] that does not keep track of
 /// predecessors.
+///
+/// [fair parallel breadth-first visit]: ParFair
 pub type ParFairNoPred<G> = ParFair<G, false>;
 
 impl<G: RandomAccessGraph, const P: bool> ParFair<G, P> {
     /// Creates a fair parallel breadth-first visit.
     ///
     /// This constructor uses a default granularity of 128 nodes. Use
-    /// [`with_granularity`](Self::with_granularity) to set a different
-    ///  granularity.
+    /// [`with_granularity`] to set a different granularity.
+    ///
+    /// [`with_granularity`]: Self::with_granularity
     ///
     /// # Arguments
     ///

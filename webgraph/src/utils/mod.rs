@@ -140,15 +140,19 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
 /// An enum expressing the memory requirements for batched algorithms
 /// such as [`SortPairs`], [`ParSortPairs`], and [`ParSortIters`].
 ///
-/// This type implements [`Mul`](core::ops::Mul) and [`Div`](core::ops::Div) to
-/// scale the memory usage requirements by a given factor, independently of the
-/// variant.
+/// This type implements [`Mul`] and [`Div`] to scale the memory usage
+/// requirements by a given factor, independently of the variant.
+///
+/// [`Mul`]: core::ops::Mul
+/// [`Div`]: core::ops::Div
 #[derive(Clone, Copy, Debug)]
 pub enum MemoryUsage {
     /// The target overall memory usage in bytes.
     ///
     /// This is the more user-friendly option. The actual number of elements
-    /// can be computed using [`batch_size`](MemoryUsage::batch_size).
+    /// can be computed using [`batch_size`].
+    ///
+    /// [`batch_size`]: MemoryUsage::batch_size
     MemorySize(usize),
     /// The number of elements used in all batches.
     ///
@@ -255,8 +259,10 @@ pub fn humanize(value: f64) -> String {
 ///
 /// This structure is returned by [`ParSortPairs`] and [`ParSortIters`] and can
 /// easily be converted into lenders for use with
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
-/// using a convenient implementation of the [`From`] trait.
+/// [`BvCompConfig::par_comp_lenders`] using a convenient implementation of the
+/// [`From`] trait.
+///
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
 ///
 /// Note that it is sufficient to write `let lenders: Vec<_> =
 /// split_iters.into()` to perform the conversion, albeit in the unlabeled case
@@ -281,12 +287,15 @@ impl<I> SplitIters<I> {
 ///
 /// This is the concrete iterator type inside
 /// [`SplitIters`]`<SortedPairIter>`, as returned by methods that sort
-/// unlabeled pairs, such as
-/// [`ParSortIters::sort`](par_sort_iters::ParSortIters::sort),
-/// [`ParSortPairs::sort`](par_sort_pairs::ParSortPairs::sort), and the
-/// transform functions [`permute_split`](crate::transform::permute_split),
-/// [`transpose_split`](crate::transform::transpose_split), and
-/// [`symmetrize_split`](crate::transform::symmetrize_split).
+/// unlabeled pairs, such as [`ParSortIters::sort`], [`ParSortPairs::sort`],
+/// and the transform functions [`permute_split`], [`transpose_split`], and
+/// [`symmetrize_split`].
+///
+/// [`ParSortIters::sort`]: par_sort_iters::ParSortIters::sort
+/// [`ParSortPairs::sort`]: par_sort_pairs::ParSortPairs::sort
+/// [`permute_split`]: crate::transform::permute_split
+/// [`transpose_split`]: crate::transform::transpose_split
+/// [`symmetrize_split`]: crate::transform::symmetrize_split
 pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<
     sort_pairs::KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP>,
     fn(((usize, usize), ())) -> (usize, usize),
@@ -303,13 +312,14 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders)
-/// when working with unlabeled graphs.
+/// [`BvCompConfig::par_comp_lenders`] when working with unlabeled graphs.
 ///
 /// The pairs `(src, dst)` are automatically converted to labeled form with unit
-/// labels, and the resulting lenders are wrapped with
-/// [`LeftIterator`](crate::labels::proj::LeftIterator) to project out just the
-/// successor nodes.
+/// labels, and the resulting lenders are wrapped with [`LeftIterator`] to
+/// project out just the successor nodes.
+///
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`LeftIterator`]: crate::labels::proj::LeftIterator
 ///
 /// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion, albeit before Rust 1.92 you might need to use
@@ -355,7 +365,9 @@ impl<
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`BvCompConfig::par_comp_lenders`].
+///
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
 ///
 /// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion. Type inference might not work properly if the

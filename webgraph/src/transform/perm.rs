@@ -16,13 +16,16 @@ use lender::*;
 use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 
-/// Returns a [sequential](crate::traits::SequentialGraph) permuted graph.
+/// Returns a [sequential] permuted graph.
 ///
-/// Note that if the graph is [splittable](SplitLabeling),
-/// [`permute_split`] will be much faster.
+/// Note that if the graph is [splittable], [`permute_split`] will be much
+/// faster.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see [`SortPairs`].
+///
+/// [sequential]: crate::traits::SequentialGraph
+/// [splittable]: SplitLabeling
 pub fn permute(
     graph: &impl SequentialGraph,
     perm: &impl SliceByValue<Value = usize>,
@@ -69,21 +72,24 @@ pub fn permute(
 }
 
 /// Returns a [`SplitIters`] structure representing the permuted graph
-/// starting from a [splittable](SplitLabeling) graph, computed in parallel.
+/// starting from a [splittable] graph, computed in parallel.
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`BvCompConfig::par_comp_lenders`].
 ///
-/// Note that if the graph is not [splittable](SplitLabeling) you must use
-/// [`permute`], albeit it will be slower.
+/// Note that if the graph is not [splittable] you must use [`permute`],
+/// albeit it will be slower.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
-/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
-/// the parallelism.
+/// [install] a custom pool if you want to customize the parallelism.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see [`ParSortIters`].
+///
+/// [splittable]: SplitLabeling
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [install]: rayon::ThreadPool::install
 pub fn permute_split<'g, S, P>(
     graph: &'g S,
     perm: &P,

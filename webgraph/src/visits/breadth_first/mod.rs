@@ -14,7 +14,9 @@
 //!
 //! Note that since [`EventPred`] contains the predecessor of the visited node,
 //! all post-initialization visit events can be interpreted as arc events. The
-//! only exception is the [`Visit`](EventPred::Visit) event at the root.
+//! only exception is the [`Visit`] event at the root.
+//!
+//! [`Visit`]: EventPred::Visit
 
 mod seq;
 pub use seq::*;
@@ -39,9 +41,10 @@ pub enum EventPred {
     Visit {
         /// The current node.
         node: usize,
-        /// The parent of [node](`EventPred::Visit::node`) in the visit tree,
-        /// or [`node`](`EventPred::Visit::node`) if
-        /// [`node`](`EventPred::Visit::node`) is one of the roots.
+        /// The parent of [node] in the visit tree, or [`node`] if
+        /// [`node`] is one of the roots.
+        ///
+        /// [node]: EventPred::Visit::node
         pred: usize,
         /// The distance of the current node from the roots.
         distance: usize,
@@ -50,31 +53,37 @@ pub enum EventPred {
     /// forward arc, or a cross arc.
     ///
     /// Note however that in parallel contexts it might happen that callback
-    /// with event [`Visit`](`EventPred::Visit`) has not been called yet by
-    /// the thread who discovered the node.
+    /// with event [`Visit`] has not been called yet by the thread who
+    /// discovered the node.
+    ///
+    /// [`Visit`]: EventPred::Visit
     Revisit {
         /// The current node.
         node: usize,
-        /// The predecessor of [node](`EventPred::Revisit::node`).
+        /// The predecessor of [node].
+        ///
+        /// [node]: EventPred::Revisit::node
         pred: usize,
     },
     /// The size of the frontier at a given distance.
     ///
     /// This event will happen with increasing value of
-    /// [`distance`](`EventPred::FrontierSize::distance`), starting at 0.
+    /// [`distance`], starting at 0.
     ///
     /// If the root is formed by a single node, this is the size of the sphere
-    /// with center at the root and radius
-    /// [`distance`](`EventPred::FrontierSize::distance`).
+    /// with center at the root and radius [`distance`].
     ///
     /// This event will happen just before starting to visit nodes at a given
     /// distance or when all nodes at that distance have been visited, depending
     /// on the implementation.
+    ///
+    /// [`distance`]: EventPred::FrontierSize::distance
     FrontierSize {
         /// A distance.
         distance: usize,
-        /// The number of nodes at
-        /// [`distance`](`EventPred::FrontierSize::distance`) from the roots.
+        /// The number of nodes at [`distance`] from the roots.
+        ///
+        /// [`distance`]: EventPred::FrontierSize::distance
         size: usize,
     },
     /// The visit has been completed.
@@ -90,7 +99,9 @@ pub enum EventPred {
 pub struct FilterArgsPred {
     /// The current node.
     pub node: usize,
-    /// The predecessor of [node](`Self::node`).
+    /// The predecessor of [node].
+    ///
+    /// [node]: Self::node
     pub pred: usize,
     /// The distance of the current node from the roots.
     pub distance: usize,
@@ -121,8 +132,10 @@ pub enum EventNoPred {
     /// forward arc, or a cross arc.
     ///
     /// Note however that in parallel contexts it might happen that the callback
-    /// with event [`Visit`](`EventNoPred::Visit`) has not been called yet
-    /// by the thread who discovered the node.
+    /// with event [`Visit`] has not been called yet by the thread who
+    /// discovered the node.
+    ///
+    /// [`Visit`]: EventNoPred::Visit
     Revisit {
         /// The current node.
         node: usize,
@@ -130,20 +143,22 @@ pub enum EventNoPred {
     /// The size of the frontier at a given distance.
     ///
     /// This event will happen with increasing value of
-    /// [`distance`](`EventNoPred::FrontierSize::distance`), starting at 0.
+    /// [`distance`], starting at 0.
     ///
     /// If the root is formed by a single node, this is the size of the sphere
-    /// with center at the root and radius
-    /// [`distance`](`EventNoPred::FrontierSize::distance`).
+    /// with center at the root and radius [`distance`].
     ///
     /// This event will happen just before starting to visit nodes at a given
     /// distance or when all nodes at that distance have been visited, depending
     /// on the implementation.
+    ///
+    /// [`distance`]: EventNoPred::FrontierSize::distance
     FrontierSize {
         /// A distance.
         distance: usize,
-        /// The number of nodes at
-        /// [`distance`](`EventNoPred::FrontierSize::distance`) from the roots.
+        /// The number of nodes at [`distance`] from the roots.
+        ///
+        /// [`distance`]: EventNoPred::FrontierSize::distance
         size: usize,
     },
     /// The visit has been completed.

@@ -10,9 +10,10 @@
 //!
 //! The traits and implementations in this module are used to customize the
 //! encoding of batches of sorted triples to/from disk. They are used by
-//! [`SortPairs`](crate::utils::sort_pairs::SortPairs) and other utilities built
-//! on that (e.g.,
-//! [`ParSortPairs`](crate::utils::par_sort_pairs::ParSortPairs)).
+//! [`SortPairs`] and other utilities built on that (e.g., [`ParSortPairs`]).
+//!
+//! [`SortPairs`]: crate::utils::sort_pairs::SortPairs
+//! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
 //!
 //! They usually do not need to be accessed or modified by the end users, albeit
 //! in some specific cases where performance or on-disk occupation is critical
@@ -58,9 +59,11 @@ pub trait BatchCodec: Send + Sync {
     /// decoded triples in sorted order.
     ///
     /// The type `IntoIter` has to be `Send + Sync + Clone` because most often we want
-    /// to use them in [`SortPairs`](crate::utils::sort_pairs::SortPairs) and
-    /// then in [`ArcListGraph`](crate::graphs::arc_list_graph::ArcListGraph)
-    /// which require them.
+    /// to use them in [`SortPairs`] and then in [`ArcListGraph`] which require
+    /// them.
+    ///
+    /// [`SortPairs`]: crate::utils::sort_pairs::SortPairs
+    /// [`ArcListGraph`]: crate::graphs::arc_list_graph::ArcListGraph
     type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::Label), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.
@@ -71,7 +74,9 @@ pub trait BatchCodec: Send + Sync {
     /// number of bits written.
     ///
     /// Note that the input batch must be already sorted. Use
-    /// [`encode_batch`](Self::encode_batch) otherwise.
+    /// [`encode_batch`] otherwise.
+    ///
+    /// [`encode_batch`]: Self::encode_batch
     fn encode_sorted_batch(
         &self,
         path: impl AsRef<Path>,
@@ -106,7 +111,9 @@ pub type CodecIter<C> = <<C as BatchCodec>::DecodedBatch as IntoIterator>::IntoI
 /// `repr(transparent)` of the same tuple type.
 ///
 /// We use this to implement `RadixKey` for sorting batches of triples
-/// using the [`rdst`](https://crates.io/crates/rdst) crate.
+/// using the [`rdst`] crate.
+///
+/// [`rdst`]: https://crates.io/crates/rdst
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Triple<L>(((usize, usize), L));

@@ -15,8 +15,8 @@ use lender::*;
 use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 
-/// Returns a [sequential](crate::traits::SequentialGraph) graph obtained by
-/// mapping the nodes of the provided graph through the given map.
+/// Returns a [sequential] graph obtained by mapping the nodes of the provided
+/// graph through the given map.
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
 /// same destination node. Duplicate arcs are removed.
@@ -24,10 +24,12 @@ use value_traits::slices::SliceByValue;
 /// The `num_nodes` parameter specifies the number of nodes of the resulting
 /// graph: it must be strictly greater than every value in the map.
 ///
-/// Note that if the graph is [splittable](SplitLabeling),
-/// [`map_split`] will be much faster.
+/// Note that if the graph is [splittable], [`map_split`] will be much faster.
 ///
 /// For the meaning of the additional parameter, see [`SortPairs`].
+///
+/// [sequential]: crate::traits::SequentialGraph
+/// [splittable]: SplitLabeling
 pub fn map(
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
@@ -72,11 +74,11 @@ pub fn map(
 }
 
 /// Returns a [`SplitIters`] structure representing the mapped graph
-/// starting from a [splittable](SplitLabeling) graph, computed in parallel.
+/// starting from a [splittable] graph, computed in parallel.
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`](crate::graphs::bvgraph::BvCompConfig::par_comp_lenders).
+/// [`BvCompConfig::par_comp_lenders`].
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
 /// same destination node. Duplicate arcs are removed.
@@ -84,14 +86,17 @@ pub fn map(
 /// The `num_nodes` parameter specifies the number of nodes of the resulting
 /// graph: it must be strictly greater than every value in the map.
 ///
-/// Note that if the graph is not [splittable](SplitLabeling) you must use
-/// [`map`], albeit it will be slower.
+/// Note that if the graph is not [splittable] you must use [`map`], albeit it
+/// will be slower.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
-/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
-/// the parallelism.
+/// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
+///
+/// [splittable]: SplitLabeling
+/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [install]: rayon::ThreadPool::install
 pub fn map_split<'g, S, M>(
     graph: &'g S,
     map: &M,

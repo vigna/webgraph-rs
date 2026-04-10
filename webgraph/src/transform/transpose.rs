@@ -79,10 +79,11 @@ pub fn transpose(
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+Iter<L,+I>)>).
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
-/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
-/// the parallelism.
+/// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameters, see [`SortPairs`].
+///
+/// [install]: rayon::ThreadPool::install
 pub fn transpose_labeled_split<
     G: LabeledSequentialGraph<C::Label>
         + for<'a> SplitLabeling<
@@ -127,14 +128,15 @@ where
 /// transpose of the provided splittable graph, computed in parallel.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
-/// [install](rayon::ThreadPool::install) a custom pool if you want to customize
-/// the parallelism.
+/// [install] a custom pool if you want to customize the parallelism.
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of `(node,
 /// lender)` pairs using [this `From`
 /// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+LeftIterator<Iter<(),+Map<I,+fn((usize,+usize))+->+(usize,+usize,+())>)>).
 ///
 /// For the meaning of the additional parameters, see [`SortPairs`].
+///
+/// [install]: rayon::ThreadPool::install
 pub fn transpose_split<
     'g,
     G: SequentialGraph

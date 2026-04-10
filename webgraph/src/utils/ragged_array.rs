@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// A [ragged array](https://en.wikipedia.org/wiki/Ragged_array) that can be
-/// only appended to.
+/// A [ragged array] that can be only appended to.
+///
+/// [ragged array]: https://en.wikipedia.org/wiki/Ragged_array
 ///
 /// This structure keeps track of a list of vectors of different lengths in a
 /// compact form: a vector of values contains all the values concatenated, and
@@ -89,9 +90,11 @@ impl<T> RaggedArray<T> {
     }
 
     /// Shrinks the capacity of the vector of values to `min_capacity`, or to
-    /// the [overall number of values](Self::num_values) if it is greater.
+    /// the [overall number of values] if it is greater.
     ///
     /// Note that this method does not affect the offsets capacity.
+    ///
+    /// [overall number of values]: Self::num_values
     pub fn shrink_values_to(&mut self, min_capacity: usize) {
         self.values.shrink_to(min_capacity);
     }

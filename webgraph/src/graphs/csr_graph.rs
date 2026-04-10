@@ -166,8 +166,10 @@ impl CsrGraph {
     /// Creates a new CSR graph from a sorted [`IntoLender`] yielding a
     /// sorted [`NodeLabelsLender`].
     ///
-    /// This method is an alias for [`from_lender`](Self::from_lender), as both
-    /// sorted and unsorted lenders are handled identically in the unsorted case.
+    /// This method is an alias for [`from_lender`], as both sorted and
+    /// unsorted lenders are handled identically in the unsorted case.
+    ///
+    /// [`from_lender`]: Self::from_lender
     pub fn from_sorted_lender<I: IntoLender>(iter_nodes: I) -> Self
     where
         I::Lender: for<'next> NodeLabelsLender<'next, Label = usize> + SortedLender,
@@ -270,7 +272,9 @@ impl CompressedCsrSortedGraph {
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [crate documentation]: crate
 impl<'a, DCF, S> IntoLender for &'a CsrGraph<DCF, S>
 where
     DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
@@ -287,7 +291,9 @@ where
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
-/// (see the [crate documentation](crate)).
+/// (see the [crate documentation]).
+///
+/// [crate documentation]: crate
 impl<'a, DCF, S> IntoLender for &'a CsrSortedGraph<DCF, S>
 where
     DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
