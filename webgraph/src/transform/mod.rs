@@ -11,7 +11,7 @@
 //!
 //! # Transpose
 //!
-//! - [`transpose`]: returns the transpose of a graph;
+//! - [`transpose()`]: returns the transpose of a graph;
 //! - [`transpose_labeled`]: returns the transpose of a labeled graph;
 //! - [`transpose_split`]: returns the transpose of a [splittable] graph,
 //!   sorting in parallel;
@@ -19,7 +19,7 @@
 //!
 //! # Symmetrize
 //!
-//! - [`symmetrize`]: returns a symmetrized version of a graph, optionally
+//! - [`symmetrize()`]: returns a symmetrized version of a graph, optionally
 //!   removing self-loops;
 //! - [`symmetrize_sorted`]: same, but exploits the fact that the input is
 //!   already sorted, halving the number of arcs to sort;
@@ -38,7 +38,7 @@
 //!
 //! # Map
 //!
-//! - [`map`]: returns the graph with nodes mapped through an arbitrary (not
+//! - [`map()`]: returns the graph with nodes mapped through an arbitrary (not
 //!   necessarily bijective) function, deduplicating arcs;
 //! - [`map_split`]: same, using splitting to sort in parallel.
 //!

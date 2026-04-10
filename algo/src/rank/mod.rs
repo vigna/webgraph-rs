@@ -60,8 +60,9 @@ pub mod preds {
 
     /// Provides the ℓ₁-norm to a stopping predicate.
     ///
-    /// The norm might be an estimate of the ℓ₁∞ norm of difference with the target
-    /// value, or the ℓ₁∞ norm of the difference between successive approximations,
+    /// The norm might be an estimate of the ℓ₁ norm of the difference with the
+    /// target value, or the ℓ₁ norm of the difference between successive
+    /// approximations,
     /// depending on the algorithm.
     pub trait HasL1Norm {
         /// Returns the ℓ₁ norm of the rank-vector change after the last
@@ -87,6 +88,7 @@ pub mod preds {
     }
 
     impl MaxIter {
+        /// The default maximum number of iterations.
         pub const DEFAULT_MAX_ITER: usize = usize::MAX;
     }
 
@@ -124,6 +126,7 @@ pub mod preds {
     }
 
     impl L1Norm {
+        /// The default threshold.
         pub const DEFAULT_THRESHOLD: f64 = 1E-6;
     }
 
@@ -176,6 +179,7 @@ pub mod preds {
     }
 
     impl LInfNorm {
+        /// The default threshold.
         pub const DEFAULT_THRESHOLD: f64 = 1E-6;
     }
 
@@ -221,7 +225,9 @@ pub mod preds {
     }
 }
 
+/// BiRank algorithm implementation.
 pub mod birank;
+/// PageRank algorithm implementation.
 pub mod pagerank;
 pub use birank::BiRank;
 pub use pagerank::{Mode, PageRank};

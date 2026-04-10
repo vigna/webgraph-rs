@@ -590,7 +590,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
-/// [sorting]: SortedGraph
+/// [sorting]: crate::graphs::csr_graph::CsrSortedGraph
 pub trait ParallelLabeling: SequentialLabeling {
     /// The type of [`Lender`] over the successors of a node returned by
     /// [`par_iters`].

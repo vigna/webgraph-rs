@@ -83,7 +83,7 @@ pub trait BatchCodec: Send + Sync {
         batch: &[((usize, usize), Self::Label)],
     ) -> Result<(usize, Self::EncodedBatchStats)>;
 
-    /// Given a batch of triples, sort them, encodes them to disk, and returns
+    /// Given a batch of triples, sorts them, encodes them to disk, and returns
     /// the number of bits written.
     fn encode_batch(
         &self,

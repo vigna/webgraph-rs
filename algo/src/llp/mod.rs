@@ -91,6 +91,7 @@ use webgraph::utils::Granularity;
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
 mod mix64;
+/// Stopping predicates for LLP.
 pub mod preds;
 
 const RAYON_MIN_LEN: usize = 100000;

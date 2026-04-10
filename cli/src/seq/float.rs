@@ -31,7 +31,7 @@ pub struct CliArgs {
     pub precision: Option<usize>,
 
     #[clap(long)]
-    /// Treat the data as 32-bit floats instead of 64-bit.​
+    /// Treats the data as 32-bit floats instead of 64-bit.​
     pub f32: bool,
 }
 

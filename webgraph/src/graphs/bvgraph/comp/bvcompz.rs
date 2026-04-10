@@ -262,9 +262,9 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
         Ok(self.stats)
     }
 
-    /// Given an iterator over the nodes successors iterators, push them all.
+    /// Given an iterator over the nodes' successors iterators, pushes them all.
     /// The iterator must yield the successors of the node and the nodes HAVE
-    /// TO BE CONTIGUOUS (i.e. if a node has no neighbors you have to pass an
+    /// TO BE CONTIGUOUS (i.e., if a node has no neighbors you have to pass an
     /// empty iterator).
     ///
     /// This most commonly is called with a reference to a graph.

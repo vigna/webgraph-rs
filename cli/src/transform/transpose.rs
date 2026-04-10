@@ -22,7 +22,7 @@ pub struct CliArgs {
     pub dst: PathBuf,
 
     #[arg(short, long)]
-    /// Use the sequential algorithm (does not need offsets).​
+    /// Uses the sequential algorithm (does not need offsets).​
     pub sequential: bool,
 
     #[clap(flatten)]
@@ -32,7 +32,7 @@ pub struct CliArgs {
     pub memory_usage: MemoryUsageArg,
 
     #[arg(long, conflicts_with = "sequential")]
-    /// Use the degree cumulative function to balance work by arcs rather than
+    /// Uses the degree cumulative function to balance work by arcs rather than
     /// by nodes; the DCF must have been pre-built with `webgraph build dcf`.​
     pub dcf: bool,
 

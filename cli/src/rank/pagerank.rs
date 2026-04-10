@@ -22,10 +22,10 @@ use webgraph_algo::rank::{Mode, PageRank};
 /// The PageRank mode.​
 #[derive(clap::ValueEnum, Debug, Clone, Copy, Default)]
 pub enum CliMode {
-    /// Use the preference vector as dangling-node distribution.​
+    /// Uses the preference vector as dangling-node distribution.​
     #[default]
     StronglyPreferential,
-    /// Use a uniform dangling-node distribution regardless of the preference
+    /// Uses a uniform dangling-node distribution regardless of the preference
     /// vector.​
     WeaklyPreferential,
     /// Zero out the dangling-node contribution (pseudorank).​

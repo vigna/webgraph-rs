@@ -32,7 +32,7 @@ pub struct ConstCodesDecoder<
 > {
     /// The inner codes reader we will dispatch to
     pub(crate) code_reader: CR,
-    /// Make the compiler happy with the generics we don't use in the struct
+    /// Makes the compiler happy with the generics we don't use in the struct
     /// (but we need them to be able to use the trait)
     pub(crate) _marker: core::marker::PhantomData<E>,
 }

@@ -46,13 +46,14 @@ pub struct PredParams {
     pub update: usize,
 }
 
-/// Stop after at most the provided number of updates for a given ɣ.
+/// Stops after at most the provided number of updates for a given ɣ.
 #[derive(Debug, Clone)]
 pub struct MaxUpdates {
     max_updates: usize,
 }
 
 impl MaxUpdates {
+    /// The default maximum number of updates.
     pub const DEFAULT_MAX_UPDATES: usize = usize::MAX;
 }
 
@@ -90,7 +91,7 @@ impl Predicate<PredParams> for MaxUpdates {
     }
 }
 
-/// Stop if the gain of the objective function is below the given threshold.
+/// Stops if the gain of the objective function is below the given threshold.
 ///
 /// The [default threshold] is the same as that of the Java implementation.
 ///
@@ -101,6 +102,7 @@ pub struct MinGain {
 }
 
 impl MinGain {
+    /// The default threshold.
     pub const DEFAULT_THRESHOLD: f64 = 0.001;
 }
 
@@ -144,18 +146,19 @@ impl Predicate<PredParams> for MinGain {
     }
 }
 
-/// Stop if the average improvement of the gain of the objective function on
+/// Stops if the average improvement of the gain of the objective function on
 /// a window of ten updates is below the given threshold.
-#[derive(Debug, Clone)]
 ///
 /// This criterion is a second-order version of [`MinGain`]. It is very useful
 /// to avoid a large number of iterations which do not improve the objective
 /// function significantly.
+#[derive(Debug, Clone)]
 pub struct MinAvgImprov {
     threshold: f64,
 }
 
 impl MinAvgImprov {
+    /// The default threshold.
     pub const DEFAULT_THRESHOLD: f64 = 0.1;
 }
 
@@ -201,7 +204,7 @@ impl Predicate<PredParams> for MinAvgImprov {
     }
 }
 
-/// Stop after the number of modified nodes falls below the square root of the
+/// Stops after the number of modified nodes falls below the square root of the
 /// number of nodes.
 #[derive(Debug, Clone, Default)]
 pub struct MinModified {}
@@ -219,7 +222,7 @@ impl Predicate<PredParams> for MinModified {
     }
 }
 
-/// Stop after the number of modified nodes falls below
+/// Stops after the number of modified nodes falls below
 /// a specified percentage of the number of nodes.
 #[derive(Debug, Clone, Default)]
 pub struct PercModified {

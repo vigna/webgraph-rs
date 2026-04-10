@@ -33,12 +33,12 @@ pub struct CliArgs {
     pub sccs: PathBuf,
 
     #[arg(short = 's', long)]
-    /// Compute the sizes of the strongly connected components and store them
+    /// Computes the sizes of the strongly connected components and stores them
     /// at the given path.​
     pub sizes: Option<PathBuf>,
 
     #[arg(short, long)]
-    /// Renumber components in decreasing-size order (implicitly, compute sizes).​
+    /// Renumbers components in decreasing-size order (implicitly, computes sizes).​
     pub renumber: bool,
 
     #[arg(short = 'j', long, default_value_t = rayon::current_num_threads().max(1), value_parser = num_threads_parser)]

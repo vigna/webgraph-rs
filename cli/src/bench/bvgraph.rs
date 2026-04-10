@@ -25,7 +25,7 @@ pub struct CliArgs {
     /// The basename of the graph.​
     pub basename: PathBuf,
 
-    /// Perform a random-access test on this number of randomly selected nodes.​
+    /// Performs a random-access test on this number of randomly selected nodes.​
     #[arg(short, long)]
     pub random: Option<usize>,
 

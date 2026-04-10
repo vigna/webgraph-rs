@@ -108,7 +108,7 @@ impl<D: Decode> OffsetDegIter<D> {
         &self.decoder
     }
 
-    /// Convert the decoder to another one.
+    /// Converts the decoder to another one.
     pub fn map_decoder<D2: Decode, F: FnOnce(D) -> D2>(self, f: F) -> OffsetDegIter<D2> {
         OffsetDegIter {
             decoder: f(self.decoder),

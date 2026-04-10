@@ -27,7 +27,7 @@ pub struct CliArgs {
     pub basename: PathBuf,
 
     #[arg(short, long)]
-    /// Use the sequential algorithm (does not need the .ef file).​
+    /// Uses the sequential algorithm (does not need the .ef file).​
     pub sequential: bool,
 
     #[clap(flatten)]

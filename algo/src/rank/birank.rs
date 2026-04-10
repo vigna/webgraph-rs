@@ -94,10 +94,6 @@
 //!
 //! where **x** = (**u**, **p**) is the concatenated rank vector.
 //!
-//! This module re-exports the [predicates] from the [`pagerank`] module,
-//! as they share the same
-//! [`PredParams`] structure.
-//!
 //! # References
 //!
 //! Xiangnan He, Ming Gao, Min-Yen Kan, and Dingxian Wang. [BiRank: Towards
@@ -110,16 +106,16 @@
 //! [transpose]: BiRank::new
 //! [`run`]: BiRank::run
 //! [predicates]: preds
-//! [`pagerank`]: super::pagerank
+//! [`pagerank`]: crate::rank::pagerank
 //! [BiRank]: https://doi.org/10.1109/TKDE.2016.2611584
 //! [`Predicate`]: predicates::Predicate
-//! [`PredParams`]: PredParams
+//! [`RandomAccessGraph`]: webgraph::prelude::RandomAccessGraph
 //! [`SyncCell`]: sync_cell_slice::SyncCell
 //! [`AtomicUsize`]: std::sync::atomic::AtomicUsize
 
-pub use super::preds;
+use crate::rank::preds::{HasIteration, HasL1Norm, HasLInfNorm};
 
-use preds::{HasIteration, HasL1Norm, HasLInfNorm};
+pub use super::preds;
 
 /// Carries the data passed to stopping predicates by [`BiRank`].
 ///

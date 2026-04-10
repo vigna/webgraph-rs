@@ -136,6 +136,7 @@
 //! [`WeaklyPreferential`]: Mode::WeaklyPreferential
 //! [`PseudoRank`]: Mode::PseudoRank
 //! [`run`]: PageRank::run
+//! [`Predicate`]: predicates::Predicate
 //! [Gauss–Seidel method]: https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method
 //! [`SyncCell`]: sync_cell_slice::SyncCell
 //! [`AtomicUsize`]: std::sync::atomic::AtomicUsize
