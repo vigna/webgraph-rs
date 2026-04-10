@@ -387,6 +387,8 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync, V: SliceByVal
     /// After calling [`run`], entries [0 . . `num_sources`) contain
     /// the scores *uᵢ* of source (*U*) nodes and entries
     /// [`num_sources` . . *n*) the scores *pⱼ* of target (*P*) nodes.
+    ///
+    /// [`run`]: Self::run
     pub fn rank(&self) -> &[f64] {
         &self.rank
     }

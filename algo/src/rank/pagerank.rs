@@ -506,11 +506,9 @@ impl<'a, G: RandomAccessGraph + Sync, V: SliceByValue<Value = f64> + Sync> PageR
     /// making thus possible to customize the logs.
     ///
     /// It is possible to specify either `pl` or `cpl` as
-    /// [`no_logging![]`] if you don't want to log
-    /// the corresponding part of the computation, albeit having the latter one
-    /// and not the first one will lead to confusing logs.
-    ///
-    /// [`no_logging![]`]: dsi_progress_logger::no_logging
+    /// [`no_logging![]`](dsi_progress_logger::no_logging) if you don't want to
+    /// log the corresponding part of the computation, albeit having the latter
+    /// one and not the first one will lead to confusing logs.
     pub fn run_with_logging(
         &mut self,
         predicate: impl Predicate<PredParams>,

@@ -41,10 +41,10 @@ pub enum EventPred {
     Visit {
         /// The current node.
         node: usize,
-        /// The parent of [node] in the visit tree, or [`node`] if
+        /// The parent of [`node`] in the visit tree, or [`node`] if
         /// [`node`] is one of the roots.
         ///
-        /// [node]: EventPred::Visit::node
+        /// [`node`]: EventPred::Visit::node
         pred: usize,
         /// The distance of the current node from the roots.
         distance: usize,

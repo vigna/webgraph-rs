@@ -113,7 +113,7 @@
 //! independent, this behavior ensures a very high degree of parallelism. Be
 //! careful, however, because this feature requires a graph with a reasonably
 //! fast random access (e.g., in the case of short reference chains in a
-//! [`BvGraph`]) and a good choice of the granularity.
+//! [`BvGraph`] and a good choice of the granularity.
 //!
 //! [`BvGraph`]: webgraph::prelude::BvGraph
 //!
