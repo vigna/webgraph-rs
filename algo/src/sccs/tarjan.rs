@@ -76,14 +76,14 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
     // increasing timestamps results in components not being labeled
     // starting from zero, which is the case here instead.
     let mut index = num_nodes;
-    let mut root_low_link = 0;
+    let mut root_high_link = 0;
     let mut number_of_components = 0;
 
     if visit
         .visit(0..num_nodes, |event| {
             match event {
                 EventPred::Init { .. } => {
-                    root_low_link = index;
+                    root_high_link = index;
                 }
                 EventPred::Previsit { node: curr, .. } => {
                     pl.light_update();
@@ -97,7 +97,7 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
                         // Safe as the stack is never empty
                         lead.set(lead.len() - 1, false);
                         high_link[pred] = high_link[node];
-                        if high_link[pred] == root_low_link && index == 0 {
+                        if high_link[pred] == root_high_link && index == 0 {
                             // All nodes have been discovered, and we
                             // found a high link identical to that of the
                             // root: thus, all nodes on the visit path
