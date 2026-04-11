@@ -17,6 +17,7 @@ use sux::{
     bits::BitFieldVec,
     dict::EliasFanoBuilder,
     rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
+    traits::TryIntoUnaligned,
     utils::PrimitiveUnsignedExt,
 };
 use value_traits::{
@@ -250,6 +251,8 @@ impl CompressedCsrGraph {
             ef.map_high_bits(
                 SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
             )
+            .try_into_unaligned()
+            .unwrap()
         };
         unsafe { Ok(Self::from_parts(ef, successors)) }
     }
@@ -361,7 +364,7 @@ where
                 SelectZeroAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(
                     SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new(high_bits),
                 )
-            })
+            }).try_into_unaligned().unwrap()
         }
     }
 }

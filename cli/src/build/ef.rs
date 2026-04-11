@@ -19,6 +19,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Seek};
 use std::path::{Path, PathBuf};
 use sux::prelude::*;
+use sux::traits::TryIntoUnaligned;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug, Clone)]
@@ -223,6 +224,7 @@ pub fn serialize_elias_fano(
         ef.map_high_bits(
             SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
         )
+        .try_into_unaligned()?
     };
     pl.done();
 

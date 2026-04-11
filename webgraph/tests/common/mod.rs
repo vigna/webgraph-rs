@@ -9,6 +9,7 @@
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use std::path::{Path, PathBuf};
+use sux::traits::TryIntoUnaligned;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::{EF, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY};
 
@@ -79,6 +80,7 @@ pub fn build_ef(basename: &Path) -> Result<()> {
         ef.map_high_bits(
             SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
         )
+        .try_into_unaligned()?
     };
 
     let ef_path = basename.with_extension("ef");

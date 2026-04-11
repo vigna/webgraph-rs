@@ -175,29 +175,32 @@ mod load;
 pub use load::*;
 use sux::{
     bits::{BitFieldVec, BitVec},
-    prelude::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::IndexedSeq,
+    prelude::{SelectAdaptConst, SelectZeroAdaptConst, select_adapt},
+    traits::{IndexedSeq, Unaligned},
 };
 
 /// First parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
 ///
 /// [`EliasFano`]: sux::dict::EliasFano
-pub const LOG2_ONES_PER_INVENTORY: usize = 11;
+pub const LOG2_ONES_PER_INVENTORY: usize = 12;
+
 /// Second parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
 ///
 /// [`EliasFano`]: sux::dict::EliasFano
 pub const LOG2_WORDS_PER_SUBINVENTORY: usize = 3;
 
 /// The default version of EliasFano we use for the CLI.
-pub type EF = sux::dict::EliasFano<
-    u64,
-    SelectAdaptConst<
-        BitVec<Box<[usize]>>,
-        Box<[usize]>,
-        LOG2_ONES_PER_INVENTORY,
-        LOG2_WORDS_PER_SUBINVENTORY,
+pub type EF = Unaligned<
+    sux::dict::EliasFano<
+        u64,
+        SelectAdaptConst<
+            BitVec<Box<[usize]>>,
+            Box<[usize]>,
+            LOG2_ONES_PER_INVENTORY,
+            LOG2_WORDS_PER_SUBINVENTORY,
+        >,
+        BitFieldVec<Box<[u64]>>,
     >,
-    BitFieldVec<Box<[u64]>>,
 >;
 
 /// Compound trait expressing the trait bounds for offsets.
@@ -227,20 +230,22 @@ impl<T: for<'a> DeserInner<DeserType<'a>: IndexedSeq<Input = u64, Output<'a> = u
 /// [indexed dictionary]: sux::traits::indexed_dict::IndexedDict
 /// [successor]: sux::traits::indexed_dict::Succ
 /// [predecessor]: sux::traits::indexed_dict::Pred
-pub type DCF = sux::dict::EliasFano<
-    u64,
-    SelectZeroAdaptConst<
-        SelectAdaptConst<
-            BitVec<Box<[usize]>>,
+pub type DCF = Unaligned<
+    sux::dict::EliasFano<
+        u64,
+        SelectZeroAdaptConst<
+            SelectAdaptConst<
+                BitVec<Box<[usize]>>,
+                Box<[usize]>,
+                LOG2_ONES_PER_INVENTORY,
+                LOG2_WORDS_PER_SUBINVENTORY,
+            >,
             Box<[usize]>,
             LOG2_ONES_PER_INVENTORY,
             LOG2_WORDS_PER_SUBINVENTORY,
         >,
-        Box<[usize]>,
-        LOG2_ONES_PER_INVENTORY,
-        LOG2_WORDS_PER_SUBINVENTORY,
+        BitFieldVec<Box<[u64]>>,
     >,
-    BitFieldVec<Box<[u64]>>,
 >;
 
 /// Checks that the offsets stored in the offsets file with given

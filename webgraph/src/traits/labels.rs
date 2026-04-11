@@ -46,7 +46,7 @@ use std::rc::Rc;
 use sux::{
     dict::EliasFanoBuilder,
     rank_sel::{SelectAdaptConst, SelectZeroAdaptConst},
-    traits::{IndexedSeq, Succ},
+    traits::{IndexedSeq, Succ, TryIntoUnaligned},
     utils::FairChunks,
 };
 use thiserror::Error;
@@ -155,7 +155,7 @@ pub trait SequentialLabeling {
                 >::new(
                     high_bits
                 ))
-            })
+            }).try_into_unaligned().unwrap()
         }
     }
 

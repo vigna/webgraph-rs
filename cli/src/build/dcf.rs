@@ -18,6 +18,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use sux::prelude::*;
+use sux::traits::TryIntoUnaligned;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -72,6 +73,7 @@ fn build_and_serialize(efb: EliasFanoBuilder<u64>, ef_path: &std::path::Path) ->
                 ),
             )
         })
+        .try_into_unaligned()?
     };
 
     info!("Writing to disk...");

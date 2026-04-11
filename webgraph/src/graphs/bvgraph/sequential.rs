@@ -15,6 +15,7 @@ use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::traits::BE;
 use dsi_bitstream::traits::BitSeek;
 use lender::*;
+use sux::traits::TryIntoUnaligned;
 
 /// A sequential graph in the BV format.
 ///
@@ -129,19 +130,22 @@ impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
         }
         // SAFETY: the cumulative degrees are pushed in non-decreasing order.
         unsafe {
-            efb.build().map_high_bits(|high_bits| {
-                sux::rank_sel::SelectZeroAdaptConst::<
-                    _,
-                    _,
-                    LOG2_ONES_PER_INVENTORY,
-                    LOG2_WORDS_PER_SUBINVENTORY,
-                >::new(sux::rank_sel::SelectAdaptConst::<
-                    _,
-                    _,
-                    LOG2_ONES_PER_INVENTORY,
-                    LOG2_WORDS_PER_SUBINVENTORY,
-                >::new(high_bits))
-            })
+            efb.build()
+                .map_high_bits(|high_bits| {
+                    sux::rank_sel::SelectZeroAdaptConst::<
+                        _,
+                        _,
+                        LOG2_ONES_PER_INVENTORY,
+                        LOG2_WORDS_PER_SUBINVENTORY,
+                    >::new(sux::rank_sel::SelectAdaptConst::<
+                        _,
+                        _,
+                        LOG2_ONES_PER_INVENTORY,
+                        LOG2_WORDS_PER_SUBINVENTORY,
+                    >::new(high_bits))
+                })
+                .try_into_unaligned()
+                .unwrap()
         }
     }
 }
