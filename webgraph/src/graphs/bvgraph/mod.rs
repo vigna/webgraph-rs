@@ -175,7 +175,7 @@ mod load;
 pub use load::*;
 use sux::{
     bits::{BitFieldVec, BitVec},
-    prelude::{SelectAdaptConst, SelectZeroAdaptConst, select_adapt},
+    prelude::{SelectAdaptConst, SelectZeroAdaptConst},
     traits::{IndexedSeq, Unaligned},
 };
 

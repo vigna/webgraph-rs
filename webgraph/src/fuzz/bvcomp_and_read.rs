@@ -14,7 +14,7 @@ use arbitrary::Arbitrary;
 use dsi_bitstream::prelude::*;
 use lender::prelude::*;
 use sux::prelude::*;
-use sux::traits::IndexedSeq;
+use sux::traits::{IndexedSeq, TryIntoUnaligned};
 
 #[derive(Arbitrary, Debug)]
 pub struct FuzzCase {
@@ -182,6 +182,8 @@ pub fn harness(data: FuzzCase) {
         ef.map_high_bits(
             SelectAdaptConst::<_, _, LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY>::new,
         )
+        .try_into_unaligned()
+        .unwrap()
     };
 
     // verify that elias-fano has the right values
