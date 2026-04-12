@@ -279,7 +279,8 @@ fn test_er() -> Result<()> {
     for d in 2..=4 {
         let graph = VecGraph::from_lender(ErdosRenyi::new(100, (d as f64) / 100.0, 0).iter());
 
-        let transpose = VecGraph::from_lender(transpose(&graph, MemoryUsage::default())?.iter());
+        let transpose =
+            VecGraph::from_lender(transpose(&graph, MemoryUsage::BatchSize(1000))?.iter());
 
         let ess = All::run(&graph, transpose, None, no_logging![]);
 
