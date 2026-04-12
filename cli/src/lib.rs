@@ -222,18 +222,21 @@ impl GranularityArgs {
 
 /// Shared CLI arguments for commands that specify a memory usage.
 ///
-/// Accepts a plain number, a number with a suffix, or a percentage. If the
-/// value ends with `b` or `B` it is interpreted as a number of bytes;
-/// otherwise, it is interpreted as a number of elements. The available SI
-/// and NIST multipliers are k, M, G, T, P, ki, Mi, Gi, Ti, and Pi. A
-/// trailing `%` interprets the value as a percentage of the available
-/// memory. The default is `50%`.​
+/// Accepts a plain number, a number with a suffix, a percentage, or the
+/// special value `auto`. If the value ends with `b` or `B` it is interpreted
+/// as a number of bytes; otherwise, it is interpreted as a number of
+/// elements. The available SI and NIST multipliers are k, M, G, T, P, ki,
+/// Mi, Gi, Ti, and Pi. A trailing `%` interprets the value as a percentage of
+/// the available memory. The value `auto` uses a non-linear formula that
+/// behaves like 50% of RAM on small machines but grows sub-linearly on large
+/// ones, capped at 1 TiB (256 MiB on 32-bit platforms); see
+/// [`MemoryUsage::default`] for details. The default is `auto`.​
 #[derive(Args, Debug)]
 pub struct MemoryUsageArg {
-    #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "50%")]
+    #[clap(short = 'm', long = "memory-usage", value_parser = memory_usage_parser, default_value = "auto")]
     /// The memory usage for batches (a number of elements with an optional
     /// SI/NIST suffix; append "b"/"B" for bytes, "%" for a percentage of
-    /// available memory).​
+    /// available memory, or "auto" for a non-linear default).​
     pub memory_usage: MemoryUsage,
 }
 
@@ -666,10 +669,11 @@ impl IntSliceFormat {
 
 /// Parses a batch size.
 ///
-/// This function accepts either a number (possibly followed by a
-/// SI or NIST multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
-/// (followed by a `%`) that is interpreted as a percentage of the core
-/// memory. If the value ends with a `b` or `B` it is interpreted as a number of
+/// This function accepts `auto` (which uses the non-linear default from
+/// [`MemoryUsage::default`]), a number (possibly followed by a SI or NIST
+/// multiplier k, M, G, T, P, ki, Mi, Gi, Ti, or Pi), or a percentage
+/// (followed by a `%`) that is interpreted as a percentage of the physical
+/// RAM. If the value ends with a `b` or `B` it is interpreted as a number of
 /// bytes, otherwise as a number of elements.
 pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     const PREF_SYMS: [(&str, u64); 10] = [
@@ -686,6 +690,10 @@ pub fn memory_usage_parser(arg: &str) -> anyhow::Result<MemoryUsage> {
     ];
     let arg = arg.trim().to_ascii_lowercase();
     ensure!(!arg.is_empty(), "empty string");
+
+    if arg == "auto" {
+        return Ok(MemoryUsage::default());
+    }
 
     if arg.ends_with('%') {
         let perc = arg[..arg.len() - 1].parse::<f64>()?;

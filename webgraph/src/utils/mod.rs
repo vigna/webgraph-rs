@@ -140,6 +140,11 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
 /// An enum expressing the memory requirements for batched algorithms
 /// such as [`SortPairs`], [`ParSortPairs`], and [`ParSortIters`].
 ///
+/// The [`Default`] implementation uses a non-linear formula: roughly 50% of
+/// RAM on machines with up to 64 GiB, then sub-linear (square-root) growth,
+/// capped at 1 TiB on 64-bit platforms and 256 MiB on 32-bit platforms.
+/// See the [`Default`] impl for the full table.
+///
 /// This type implements [`Mul`] and [`Div`] to scale the memory usage
 /// requirements by a given factor, independently of the variant.
 ///
@@ -161,10 +166,51 @@ pub enum MemoryUsage {
     BatchSize(usize),
 }
 
-/// Default implementation, returning half of the physical RAM.
+/// Default implementation using a non-linear formula that behaves like 50% of
+/// RAM on small machines but grows sub-linearly on large ones, capped at 1 TiB.
+///
+/// Concretely, the default is `min(total / 2, C · √total, cap)` where
+/// `C = 4 √GiB` (so the crossover from `total / 2` to the square-root regime
+/// happens at 64 GiB) and the cap is 1 TiB on 64-bit platforms and 256 MiB on
+/// 32-bit platforms.
+///
+/// | Total RAM | Default usage | Fraction |
+/// |-----------|---------------|----------|
+/// | 8 GiB     | 4 GiB         | 50%      |
+/// | 16 GiB    | 8 GiB         | 50%      |
+/// | 64 GiB    | 32 GiB        | 50%      |
+/// | 128 GiB   | 45 GiB        | 35%      |
+/// | 256 GiB   | 64 GiB        | 25%      |
+/// | 1 TiB     | 128 GiB       | 12.5%    |
+/// | 4 TiB     | 256 GiB       | 6.25%    |
+///
+/// The rationale is that for batch/external-sort workloads the marginal
+/// benefit of more memory is logarithmic (one fewer merge pass), while on
+/// large machines the OS page cache and co-resident processes benefit from
+/// the headroom.  On 32-bit platforms the cap is much tighter because the
+/// address space is scarce and CI runners are typically memory-constrained.
 impl Default for MemoryUsage {
     fn default() -> Self {
-        Self::from_perc(50.0)
+        let system = sysinfo::System::new_with_specifics(
+            sysinfo::RefreshKind::nothing()
+                .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
+        );
+        let total = system.total_memory(); // bytes
+
+        // C = 4 · √(1 GiB) = 4 · 2¹⁵ = 131072.  In bytes:
+        //   usage = C · √total = 131072 · √total
+        const C: f64 = 131_072.0; // 4 * (1 GiB as f64).sqrt()
+        let sqrt_usage = (C * (total as f64).sqrt()) as u64;
+
+        let half = total / 2;
+
+        #[cfg(target_pointer_width = "64")]
+        const CAP: u64 = 1u64 << 40; // 1 TiB
+        #[cfg(not(target_pointer_width = "64"))]
+        const CAP: u64 = 256 * 1024 * 1024; // 256 MiB
+
+        let usage = half.min(sqrt_usage).min(CAP);
+        MemoryUsage::MemorySize(usage as usize)
     }
 }
 
