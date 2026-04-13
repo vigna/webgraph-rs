@@ -8,6 +8,7 @@ use anyhow::Result;
 use predicates::prelude::PredicateBooleanExt;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::traits::SequentialLabeling;
+use webgraph::utils::Granularity;
 use webgraph_algo::llp;
 use webgraph_algo::llp::preds::*;
 
@@ -43,10 +44,10 @@ fn test_llp_small_symmetric_graph() -> Result<()> {
         &graph,
         &deg_cumul,
         gammas,
-        Some(100),
         Granularity::Nodes(100),
         42,
         predicate,
+        |_: usize, _: u64, _: u64| |x: u64| x, // Identity func_perm
         dir.path(),
     )?;
 
@@ -59,8 +60,6 @@ fn test_llp_small_symmetric_graph() -> Result<()> {
 
 #[test]
 fn test_llp_labels_only_and_combine() -> Result<()> {
-    use webgraph::utils::Granularity;
-
     // Small path graph: 0 — 1 — 2 — 3 — 4
     let graph = VecGraph::from_arcs([
         (0, 1),
@@ -81,10 +80,10 @@ fn test_llp_labels_only_and_combine() -> Result<()> {
         &graph,
         &deg_cumul,
         vec![0.0],
-        None,
         Granularity::Nodes(100),
         123,
         MaxUpdates::from(1_usize),
+        |_: usize, _: u64, _: u64| |x: u64| x, // Identity func_perm
         dir.path(),
     )?;
 
@@ -117,10 +116,10 @@ fn test_llp_multiple_gammas() -> Result<()> {
         &graph,
         &deg_cumul,
         gammas,
-        Some(100),
         Granularity::Nodes(100),
         7,
         MaxUpdates::from(2_usize),
+        |_: usize, _: u64, _: u64| |x: u64| x, // Identity func_perm
         dir.path(),
     )?;
 
@@ -157,10 +156,14 @@ fn test_llp_complete_graph() -> Result<()> {
         &graph,
         &deg_cumul,
         vec![0.0],
-        Some(10),
         Granularity::Arcs(100),
         0,
         predicate,
+        |n: usize, s0: u64, s1: u64| {
+            // Functional permutation
+            let funcperm = funcperm::murmur(n as u64, s0, s1);
+            move |x| funcperm.get(x)
+        },
         dir.path(),
     )?;
 

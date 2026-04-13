@@ -10,6 +10,11 @@
 
 - Upgraded to `card-est-array` 0.3.0.
 
+- The LLP computation now uses a functional permutation from the `funcperm` crate
+  instead of a permutation array. As a result, LLP computation now requires two
+  `usize` per node instead of three. It is also possible to pass the identity
+  permutation to exploit locality in the graph, if present.
+
 ### New
 
 - New `BiRank` implementation.

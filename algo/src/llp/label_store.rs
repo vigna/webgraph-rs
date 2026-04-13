@@ -13,6 +13,8 @@ use std::{
 
 use super::RAYON_MIN_LEN;
 
+/// A store for labels and volumes of nodes during the computation a round of
+/// layered label propagation.
 pub(crate) struct LabelStore {
     labels: Box<[Cell<usize>]>,
     volumes: Box<[AtomicUsize]>,
@@ -61,6 +63,12 @@ impl LabelStore {
         self.volumes[new_label].fetch_add(1, Ordering::Relaxed);
     }
 
+    /// Returns a pair of references to slices of `usize` for labels and volumes.
+    ///
+    /// This methods transmutes safely the internal
+    /// [`Cell<usize>`](core::cell::Cell) and [`AtomicUsize`] to [`usize`]. Its
+    /// main usage is temporary reuse as support arrays of the space used by the
+    /// label store.
     pub(crate) fn labels_and_volumes(&mut self) -> (&mut [usize], &mut [usize]) {
         // SAFETY: Cell<usize> and usize have the same layout, so the transmutes are valid.
         unsafe {

@@ -35,6 +35,7 @@ nonmax.workspace = true
 crossbeam-utils.workspace = true
 thiserror.workspace = true
 kahan = "0.1.4"
+funcperm.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

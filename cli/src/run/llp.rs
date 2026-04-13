@@ -208,10 +208,13 @@ where
             graph,
             deg_cumul.uncase(),
             gammas,
-            args.chunk_size,
             granularity,
             args.seed,
             predicate,
+            |n: usize, s0: u64, s1: u64| {
+                let funcperm = funcperm::murmur(n as u64, s0, s1);
+                move |x| funcperm.get(x)
+            },
             work_dir,
         )
         .context("Could not compute LLP")?;

@@ -22,8 +22,10 @@
 //!
 //! # Memory Requirements
 //!
-//! LLP requires three `usize` and a boolean per node, plus the memory that is
-//! necessary to load the graph.
+//! LLP requires two `usize` and a boolean per node, plus the memory that is
+//! necessary to load the graph. There is also some local memory per thread
+//! (hash maps for counting neighbor labels), but it is usually negligible
+//! compared to the memory for labels and volumes.
 //!
 //! # Algorithm
 //!
@@ -72,16 +74,16 @@ use predicates::Predicate;
 use preds::PredParams;
 
 use log::info;
+use rand::RngExt;
 use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
-use rand::seq::SliceRandom;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use sux::traits::{IndexedSeq, Succ};
 use sync_cell_slice::SyncSlice;
 use webgraph::prelude::PermutedGraph;
@@ -95,11 +97,18 @@ mod mix64;
 pub mod preds;
 
 const RAYON_MIN_LEN: usize = 100000;
+// This is a bit ugly but prevents from mistakenly interpreting the gap cost
+// files as labels files.
+const GAP_COST_EXTENSION: &'static str = "gap";
 
-/// This struct is how the labels and their metadata are stored on disk.
+/// A structure combining labels and the associated ɣ for serialization.
+///
+/// This structure is used by [`layered_label_propagation_labels_only`] to store
+/// the labels for each ɣ on disk using [ε-serde].
+///
+/// [ε-serde]: epserde
 #[derive(Epserde, Debug, Clone)]
-pub struct LabelsStore<A> {
-    pub gap_cost: f64,
+pub struct LabelsAndGamma<A> {
     pub gamma: f64,
     pub labels: A,
 }
@@ -115,34 +124,57 @@ pub struct LabelsStore<A> {
 /// * `sym_graph` - The symmetric graph to run LLP on.
 ///
 /// * `deg_cumul` - The degree cumulative distribution of the graph, as in
-///   [par_apply].
+///   [`par_apply`].
 ///
 /// * `gammas` - The ɣ values to use in the LLP algorithm.
 ///
 /// * `chunk_size` - The chunk size used to randomize the permutation. This is
 ///   an advanced option: see
-///   [par_apply].
+///   [`par_apply`].
 ///
 /// * `granularity` - The granularity of the parallel processing.
 ///   This is an advanced option: see
-///   [par_apply].
+///   [`par_apply`].
 ///
 /// * `seed` - The seed to use for pseudorandom number generation.
 ///
 /// * `predicate` - The stopping criterion for the iterations of the algorithm.
 ///
+/// * `func_perm_gen` - A generator for the functional permutation
+///   used in each iteration of the algorithm, given the number of
+///   nodes and two random seeds. The typical intended usage is
+///
+///   ```
+///   |n: usize, s0: u64, s1: u64| {
+///       let funcperm = funcperm::murmur(n as u64, s0, s1);
+///       move |x| funcperm.get(x)
+///   }
+///   ```
+///
+///   which will use a MurmurHash-based functional permutation
+///   from the [`funcperm`] crate, but you can use other techniques
+///   as long as two `u64`s are sufficient for initialization.
+///   You can pass
+///
+///   ```
+///   |_: usize, _: u64, _: u64| |x: u64| x
+///   ```
+///
+///   to get the identity permutation (i.e., no permutation at all).
+///
 /// * `work_dir` - The directory where the labels will be stored.
 ///
-/// [par_apply]: webgraph::traits::SequentialLabeling::par_apply
+/// [`par_apply`]: webgraph::traits::SequentialLabeling::par_apply
+/// [`funcperm`]: funcperm
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
+pub fn layered_label_propagation<R: RandomAccessGraph + Sync, F: Fn(u64) -> u64 + Send + Sync>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq + Send + Sync),
     gammas: Vec<f64>,
-    chunk_size: Option<usize>,
     granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
+    func_perm_gen: impl Fn(usize, u64, u64) -> F,
     work_dir: impl AsRef<Path>,
 ) -> Result<Box<[usize]>> {
     // compute the labels
@@ -150,10 +182,10 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
         sym_graph,
         deg_cumul,
         gammas,
-        chunk_size,
         granularity,
         seed,
         predicate,
+        func_perm_gen,
         &work_dir,
     )?;
     // merge them
@@ -163,15 +195,33 @@ pub fn layered_label_propagation<R: RandomAccessGraph + Sync>(
 /// Computes and stores on disk the labels for the given gammas, but
 /// does not combine them. For the arguments look at
 /// [`layered_label_propagation`].
+///
+/// Labels are stored with [ε-serde] as a [`LabelsAndGamma`] struct, which contains
+/// the gamma and the labels array, with name `labels_{gamma_index}.bin`, where
+/// `gamma_index` is the index of the gamma in the `gammas` vector. The log-gap
+/// cost of the resulting labels is also computed and stored with [ε-serde] as
+/// an `f64` with name `labels_{gamma_index}.gap`.
+///
+/// # Implementation notes
+///
+/// The labels and gap costs are stored separately because we reuse the labels
+/// as a support to compute the inverse permutation that is necessary to compute
+/// the gap cost. This approach saves a large-array allocation but requires to
+/// dump the labels before computing the gap cost.
+///
+/// [ε-serde]: epserde
 #[allow(clippy::too_many_arguments)]
-pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
+pub fn layered_label_propagation_labels_only<
+    R: RandomAccessGraph + Sync,
+    F: Fn(u64) -> u64 + Send + Sync,
+>(
     sym_graph: R,
     deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq + Send + Sync),
     gammas: Vec<f64>,
-    chunk_size: Option<usize>,
     granularity: Granularity,
     seed: u64,
     predicate: impl Predicate<preds::PredParams>,
+    func_perm_gen: impl Fn(usize, u64, u64) -> F,
     work_dir: impl AsRef<Path>,
 ) -> Result<()> {
     // work-around to make TempDir Live as much as needed but only create it if
@@ -180,11 +230,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     let labels_path = |gamma_index| work_path.join(format!("labels_{gamma_index}.bin"));
     const IMPROV_WINDOW: usize = 10;
     let num_nodes = sym_graph.num_nodes();
-    let chunk_size = chunk_size.unwrap_or(1_000_000);
     let num_threads = rayon::current_num_threads();
-
-    // init the permutation with the indices
-    let mut update_perm = (0..num_nodes).collect::<Vec<_>>();
 
     let mut can_change = Vec::with_capacity(num_nodes as _);
     can_change.extend((0..num_nodes).map(|_| AtomicBool::new(true)));
@@ -210,7 +256,6 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
     // init the update progress logger
     let mut update_pl = concurrent_progress_logger![item_name = "node", local_speed = true];
 
-    let seed = CachePadded::new(AtomicU64::new(seed));
     let mut costs = Vec::with_capacity(gammas.len());
 
     gamma_pl.start(format!("Running {} threads", num_threads));
@@ -236,6 +281,8 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         let mut prev_gain = f64::MAX;
         let mut improv_window: VecDeque<_> = vec![1.0; IMPROV_WINDOW].into();
 
+        let mut rand = SmallRng::seed_from_u64(seed);
+
         for update in 0.. {
             update_pl.expected_updates(Some(num_nodes));
             update_pl.start(format!(
@@ -246,15 +293,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 gammas.len()
             ));
 
-            update_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
-            thread_pool.install(|| {
-                // parallel shuffle
-                update_perm.par_chunks_mut(chunk_size).for_each(|chunk| {
-                    let seed = seed.fetch_add(1, Ordering::Relaxed);
-                    let mut rand = SmallRng::seed_from_u64(seed);
-                    chunk.shuffle(&mut rand);
-                });
-            });
+            let func_perm = func_perm_gen(num_nodes, rand.random(), rand.random());
 
             // If this iteration modified anything (early stop)
             let modified = CachePadded::new(AtomicUsize::new(0));
@@ -263,7 +302,8 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
                 |range| {
                     let mut rand = SmallRng::seed_from_u64(range.start as u64);
                     let mut local_obj_func = 0.0;
-                    for &node in &update_perm[range] {
+                    for node in range {
+                        let node = func_perm(node as u64) as usize;
                         // Note that here we are using a heuristic optimization:
                         // if no neighbor has changed, the label of a node
                         // cannot change. If gamma != 0, this is not necessarily
@@ -378,31 +418,43 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
 
         iter_pl.done();
 
-        // We temporarily use the update permutation to compute the sorting
-        // permutation of the labels.
-        let perm = &mut update_perm;
+        // Save labels
+        let (labels, volumes) = label_store.labels_and_volumes();
+        // We use the volume array to compute the sorting permutation of the
+        // labels.
+        let perm = volumes;
+
         thread_pool.install(|| {
             perm.par_iter_mut()
                 .with_min_len(RAYON_MIN_LEN)
                 .enumerate()
                 .for_each(|(i, x)| *x = i);
             // Sort by label
-            perm.par_sort_unstable_by(|&a, &b| {
-                label_store
-                    .label(a as _)
-                    .cmp(&label_store.label(b as _))
-                    .then_with(|| a.cmp(&b))
-            });
+            perm.par_sort_unstable_by(|&a, &b| labels[a].cmp(&labels[b]).then_with(|| a.cmp(&b)));
         });
 
-        // Save labels
-        let (labels, volumes) = label_store.labels_and_volumes();
+        // store the labels on disk with their cost and gamma
+        let labels_store = LabelsAndGamma {
+            gamma: *gamma,
+            labels: &*labels,
+        };
+
+        let labels_path = labels_path(gamma_index);
+
+        // SAFETY: any value is valid
+        unsafe {
+            labels_store
+                .store(&labels_path)
+                .context("Could not serialize labels")
+        }?;
+
+        let inv_perm = labels;
 
         // We temporarily use the label array from the label store to compute
         // the inverse permutation. It will be reinitialized at the next
         // iteration anyway.
         thread_pool.install(|| {
-            invert_permutation(perm, volumes);
+            invert_permutation(perm, inv_perm);
         });
 
         update_pl.expected_updates(Some(num_nodes));
@@ -411,7 +463,7 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         let gap_cost = gap_cost::compute_log_gap_cost(
             &PermutedGraph {
                 graph: &sym_graph,
-                perm: &volumes,
+                perm: &inv_perm,
             },
             granularity,
             deg_cumul,
@@ -423,17 +475,11 @@ pub fn layered_label_propagation_labels_only<R: RandomAccessGraph + Sync>(
         info!("Log-gap cost: {}", gap_cost);
         costs.push(gap_cost);
 
-        // store the labels on disk with their cost and gamma
-        let labels_store = LabelsStore {
-            labels: &*labels,
-            gap_cost,
-            gamma: *gamma,
-        };
-        // SAFETY: the type is ε-serde serializable and the path is valid.
+        // SAFETY: any value is valid
         unsafe {
-            labels_store
-                .store(labels_path(gamma_index))
-                .context("Could not serialize labels")
+            gap_cost
+                .store(labels_path.with_extension(GAP_COST_EXTENSION))
+                .context("Could not serialize gap cost")
         }?;
 
         gamma_pl.update_and_display();
@@ -465,18 +511,30 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         // we only need the cost and gamma here, so we mmap it to ignore the
         // actual labels which will be needed only later
         let res = unsafe {
-            <LabelsStore<Vec<usize>>>::mmap(&path, Flags::default())
+            <LabelsAndGamma<Vec<usize>>>::mmap(&path, Flags::default())
                 .with_context(|| format!("Could not load labels from {}", path.to_string_lossy(),))
+        }?;
+
+        let gap_cost_path = path.with_extension(GAP_COST_EXTENSION);
+
+        let gap_cost = unsafe {
+            f64::load_full(&gap_cost_path).with_context(|| {
+                format!(
+                    "Could not load gap_cost from {}",
+                    gap_cost_path.to_string_lossy(),
+                )
+            })
         }?;
 
         let res = res.uncase();
 
         info!(
-            "Found labels from {:?} with gamma {} and cost {} and num_nodes {}",
+            "Found labels from {:?} with gamma {} and num_nodes {}, and cost {} from {:?}",
             path.to_string_lossy(),
             res.gamma,
-            res.gap_cost,
-            res.labels.len()
+            res.labels.len(),
+            gap_cost,
+            gap_cost_path.to_string_lossy(),
         );
 
         match &mut num_nodes {
@@ -494,7 +552,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
                 }
             }
         }
-        gammas.push((res.gap_cost, res.gamma, path));
+        gammas.push((gap_cost, res.gamma, path));
     }
 
     if gammas.is_empty() {
@@ -519,7 +577,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
     );
 
     let mut result_labels = unsafe {
-        <LabelsStore<Vec<usize>>>::load_mem(best_gamma_path)
+        <LabelsAndGamma<Vec<usize>>>::load_mem(best_gamma_path)
             .context("Could not load labels from best gamma")
     }?
     .uncase()
@@ -533,7 +591,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
             i, gamma, cost, gamma_path
         );
         let labels = unsafe {
-            <LabelsStore<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
+            <LabelsAndGamma<Vec<usize>>>::load_mmap(gamma_path, mmap_flags)
                 .context("Could not load labels")
         }?;
 
@@ -550,7 +608,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
             best_gamma, best_gamma_cost, best_gamma_path
         );
         let best_labels = unsafe {
-            <LabelsStore<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
+            <LabelsAndGamma<Vec<usize>>>::load_mmap(best_gamma_path, mmap_flags)
                 .context("Could not load labels from best gamma")
         }?;
         let number_of_labels = combine(
