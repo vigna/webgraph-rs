@@ -93,6 +93,8 @@ fn test_llp_pipeline() -> Result<()> {
         "webgraph",
         "run",
         "llp",
+        "--seed",
+        "0",
         &format!("{}-simple", basename),
         &format!("{}.llp", basename),
     ])?;
