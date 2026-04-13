@@ -99,7 +99,7 @@ pub mod preds;
 const RAYON_MIN_LEN: usize = 100000;
 // This is a bit ugly but prevents from mistakenly interpreting the gap cost
 // files as labels files.
-const GAP_COST_EXTENSION: &'static str = "gap";
+const GAP_COST_EXTENSION: &str = "gap";
 
 /// A structure combining labels and the associated ɣ for serialization.
 ///
