@@ -217,24 +217,21 @@ impl<W> MmapHelper<W, MmapMut> {
             .truncate(true)
             .open(path.as_ref())
             .with_context(|| format!("Cannot create {} new MmapHelper", path.as_ref().display()))?;
-        let file_len = len * size_of::<W>();
-        #[cfg(windows)]
-        {
-            // Zero fill the file as CreateFileMappingW does not initialize everything to 0
-            file.set_len(
+        let file_len = len as u64 * size_of::<W>() as u64;
+        // Set fhe file length
+        file.set_len(file_len)
+            .with_context(|| "Cannot modify file size")?;
+        let mmap = unsafe {
+            mmap_rs::MmapOptions::new(
                 file_len
                     .try_into()
-                    .with_context(|| "Cannot convert usize to u64")?,
+                    .with_context(|| "Cannot convert file length {file_len} to usize")?,
             )
-            .with_context(|| "Cannot modify file size")?;
-        }
-        let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)
-                .with_context(|| format!("Cannot initialize mmap of size {file_len}"))?
-                .with_flags(flags)
-                .with_file(&file, 0)
-                .map_mut()
-                .with_context(|| format!("Cannot mutably mmap {}", path.as_ref().display()))?
+            .with_context(|| format!("Cannot initialize mmap of size {file_len}"))?
+            .with_flags(flags)
+            .with_file(&file, 0)
+            .map_mut()
+            .with_context(|| format!("Cannot mutably mmap {}", path.as_ref().display()))?
         };
 
         Ok(Self {

@@ -39,11 +39,11 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 /// * [`SeqPred`] keeps track of predecessors, but not of nodes on the stack; it
 ///   can be used, for example, to compute a [topological sort].
 ///
-/// [topological sort]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
 /// * [`SeqPath`] keeps track of predecessors and nodes on the stack; it can be
 ///   used, for example, to establish
 ///   [acyclicity].
 ///
+/// [topological sort]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.top_sort.html
 /// [acyclicity]: https://docs.rs/webgraph-algo/latest/webgraph_algo/fn.is_acyclic.html
 ///
 /// Each type of visit uses incrementally more space:
@@ -62,13 +62,13 @@ pub type SeqPath<'a, G> = SeqIter<'a, ThreeStates, G, usize, true>;
 ///   the Boolean associated with events of type
 ///   [`Revisit`] is always false.
 ///
-/// [`Revisit`]: EventPred::Revisit
 /// * [`SeqPath`] generates events of type [`EventPred`].
 ///
 /// With respect to [`EventNoPred`], [`EventPred`] provides the predecessor of
 /// the current node and a [postvisit event].
 ///
 /// [postvisit event]: EventPred::Postvisit
+/// [`Revisit`]: EventPred::Revisit
 ///
 /// If the visit was interrupted, the nodes still on the visit path can be
 /// retrieved using the [`stack`] method (only for [`SeqPred`]

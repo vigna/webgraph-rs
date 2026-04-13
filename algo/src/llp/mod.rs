@@ -70,6 +70,7 @@ use anyhow::{Context, Result};
 use crossbeam_utils::CachePadded;
 use dsi_progress_logger::prelude::*;
 use epserde::prelude::*;
+use mmap_rs::MmapFlags;
 use predicates::Predicate;
 use preds::PredParams;
 
@@ -86,9 +87,11 @@ use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use sux::traits::{IndexedSeq, Succ};
 use sync_cell_slice::SyncSlice;
+use tempfile::NamedTempFile;
 use webgraph::prelude::PermutedGraph;
 use webgraph::traits::RandomAccessGraph;
 use webgraph::utils::Granularity;
+use webgraph::utils::MmapHelper;
 
 pub(crate) mod gap_cost;
 pub(crate) mod label_store;
@@ -558,7 +561,12 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
     if gammas.is_empty() {
         anyhow::bail!("No labels were found in {}", work_dir.as_ref().display());
     }
-    let mut temp_perm = vec![0; num_nodes.unwrap()];
+
+    // temp_perm is only sorted unstably or scanned. It should work reasonably
+    // even if it doesn't fit in memory.
+    let temp_file =
+        NamedTempFile::new().context("Could not create temporary file for combination")?;
+    let mut temp_perm = MmapHelper::new(&temp_file, MmapFlags::SEQUENTIAL, num_nodes.unwrap())?;
 
     // compute the indices that sorts the gammas by cost
     // sort in descending order
@@ -595,8 +603,12 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
                 .context("Could not load labels")
         }?;
 
-        combine(&mut result_labels, labels.uncase().labels, &mut temp_perm)
-            .context("Could not combine labels")?;
+        combine(
+            &mut result_labels,
+            labels.uncase().labels,
+            temp_perm.as_mut(),
+        )
+        .context("Could not combine labels")?;
         drop(labels); // explicit drop so we free labels before loading best_labels
 
         // This recombination with the best labels does not appear in the paper, but
@@ -614,7 +626,7 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
         let number_of_labels = combine(
             &mut result_labels,
             best_labels.uncase().labels,
-            &mut temp_perm,
+            temp_perm.as_mut(),
         )?;
         info!("Number of labels: {}", number_of_labels);
     }
@@ -625,7 +637,11 @@ pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
 /// Combines the labels from two permutations into a single one.
 fn combine(result: &mut [usize], labels: &[usize], temp_perm: &mut [usize]) -> Result<usize> {
     // re-init the permutation
-    temp_perm.iter_mut().enumerate().for_each(|(i, x)| *x = i);
+    temp_perm
+        .par_iter_mut()
+        .with_min_len(RAYON_MIN_LEN)
+        .enumerate()
+        .for_each(|(i, x)| *x = i);
     // permute by the devilish function
     temp_perm.par_sort_unstable_by(|&a, &b| {
         (result[labels[a]].cmp(&result[labels[b]]))

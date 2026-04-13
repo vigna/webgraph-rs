@@ -55,7 +55,6 @@ use webgraph::visits::{Sequential, StoppedWhenDone, depth_first::*};
 /// 2024.
 ///
 /// [Finding strong components using depth-first search]: https://doi.org/10.1016/j.ejc.2023.103815
-///
 /// [`BvGraph`]: webgraph::prelude::BvGraph
 pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs {
     let num_nodes = graph.num_nodes();
