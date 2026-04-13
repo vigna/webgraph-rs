@@ -16,4 +16,4 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Run LLP test on CNR2000
-        run: cargo test test_llp_pipeline --all-features
+        run: cargo test --test test_llp_pipeline --all-features
