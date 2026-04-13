@@ -144,7 +144,7 @@ pub struct LabelsAndGamma<A> {
 ///   used in each iteration of the algorithm, given the number of
 ///   nodes and two random seeds. The typical intended usage is
 ///
-///   ```
+///   ```ignore
 ///   |n: usize, s0: u64, s1: u64| {
 ///       let funcperm = funcperm::murmur(n as u64, s0, s1);
 ///       move |x| funcperm.get(x)
@@ -156,7 +156,7 @@ pub struct LabelsAndGamma<A> {
 ///   as long as two `u64`s are sufficient for initialization.
 ///   You can pass
 ///
-///   ```
+///   ```ignore
 ///   |_: usize, _: u64, _: u64| |x: u64| x
 ///   ```
 ///
