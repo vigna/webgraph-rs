@@ -31,7 +31,7 @@
 //! The typical use of [`ParSortIters`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
 //! be then used to build a compressed representation of the graph using, for
-//! example, [`BvCompConfig::par_comp_lenders`].
+//! example, [`BvCompConfig::par_comp`].
 //!
 //! For example, when transposing or permuting a [splittable] graph one obtains
 //! such a sequence of iterators.
@@ -42,7 +42,7 @@
 //! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
 //! [settable number of partitions]: ParSortIters::num_partitions
 //! [install]: rayon::ThreadPool::install
-//! [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+//! [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 //! [splittable]: crate::traits::SplitLabeling
 
 use core::num::NonZeroUsize;
@@ -58,7 +58,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a sequence of iterators of (labeled) pairs as input, and turns them
 /// into a [`SplitIters`] structure which is suitable for
-/// [`BvCompConfig::par_comp_lenders`].
+/// [`BvCompConfig::par_comp`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
 /// using this class (e.g., `ENOMEM: Out of memory` under Linux), please review
@@ -72,9 +72,9 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// In this example we transpose a graph in parallel by splitting it, exchanging
 /// the source and destination of each arc, sorting the resulting pairs in
 /// parallel using [`ParSortIters`], and then compressing the result using
-/// [`BvCompConfig::par_comp_lenders`]:
+/// [`BvCompConfig::par_comp`]:
 ///
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [module documentation]: self
 ///
 /// ```
@@ -86,6 +86,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
 /// use webgraph::traits::{SequentialLabeling, SplitLabeling};
 /// use webgraph::utils::par_sort_iters::ParSortIters;
+/// use webgraph::graphs::sorted_graph::SortedGraph;
 ///
 /// // Build a small VecGraph
 /// let g = VecGraph::from_arcs([
@@ -112,16 +113,12 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// let sorted = pair_sorter.sort(pairs)?;
 ///
-/// // Convert to (node, lender) pairs using From trait
-/// let pairs: Vec<_> = sorted.into();
-///
-/// // Compress in parallel using par_comp_lenders
-/// let bvcomp_tmp_dir = tempfile::tempdir()?;
+/// // Wrap in SortedGraph and compress in parallel
+/// let sorted_graph = SortedGraph::from_parts(sorted.boundaries, sorted.iters);
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
-/// // Use with par_comp_lenders
 /// BvComp::with_basename(bvcomp_out_dir.path().join("graph")).
-///     par_comp_lenders::<BE, _>(pairs, num_nodes)?;
+///     par_comp::<BE, _>(&sorted_graph)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct ParSortIters<const DEDUP: bool = false> {

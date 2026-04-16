@@ -78,7 +78,7 @@ pub fn map(
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`].
+/// [`BvCompConfig::par_comp`].
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
 /// same destination node. Duplicate arcs are removed.
@@ -95,7 +95,7 @@ pub fn map(
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
 /// [splittable]: SplitLabeling
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn map_split<'g, S, M>(
     graph: &'g S,

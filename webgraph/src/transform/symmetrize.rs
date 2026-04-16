@@ -164,7 +164,7 @@ where
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`].
+/// [`BvCompConfig::par_comp`].
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
@@ -172,7 +172,7 @@ where
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
 /// [splittable]: crate::traits::SplitLabeling
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
@@ -270,14 +270,14 @@ pub fn symmetrize<const NO_LOOPS: bool>(
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`].
+/// [`BvCompConfig::par_comp`].
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn symmetrize_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,

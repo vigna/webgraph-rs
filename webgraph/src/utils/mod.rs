@@ -305,10 +305,10 @@ pub fn humanize(value: f64) -> String {
 ///
 /// This structure is returned by [`ParSortPairs`] and [`ParSortIters`] and can
 /// easily be converted into lenders for use with
-/// [`BvCompConfig::par_comp_lenders`] using a convenient implementation of the
+/// [`BvCompConfig::par_comp`] using a convenient implementation of the
 /// [`From`] trait.
 ///
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 ///
 /// Note that it is sufficient to write `let lenders: Vec<_> =
 /// split_iters.into()` to perform the conversion, albeit in the unlabeled case
@@ -358,13 +358,13 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvCompConfig::par_comp_lenders`] when working with unlabeled graphs.
+/// [`BvCompConfig::par_comp`] when working with unlabeled graphs.
 ///
 /// The pairs `(src, dst)` are automatically converted to labeled form with unit
 /// labels, and the resulting lenders are wrapped with [`LeftIterator`] to
 /// project out just the successor nodes.
 ///
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [`LeftIterator`]: crate::labels::proj::LeftIterator
 ///
 /// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
@@ -411,9 +411,9 @@ impl<
 ///
 /// This is useful for converting the output of sorting utilities like
 /// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvCompConfig::par_comp_lenders`].
+/// [`BvCompConfig::par_comp`].
 ///
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 ///
 /// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
 /// to perform the conversion. Type inference might not work properly if the

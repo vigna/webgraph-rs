@@ -76,7 +76,7 @@ pub fn permute(
 ///
 /// The [`SplitIters`] structure can be easily converted into a vector of
 /// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp_lenders`].
+/// [`BvCompConfig::par_comp`].
 ///
 /// Note that if the graph is not [splittable] you must use [`permute`],
 /// albeit it will be slower.
@@ -88,7 +88,7 @@ pub fn permute(
 /// additional parameter, see [`ParSortIters`].
 ///
 /// [splittable]: SplitLabeling
-/// [`BvCompConfig::par_comp_lenders`]: crate::graphs::bvgraph::BvCompConfig::par_comp_lenders
+/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn permute_split<'g, S, P>(
     graph: &'g S,
