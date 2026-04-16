@@ -43,7 +43,7 @@ fn test_graph() -> VecGraph {
 #[test]
 fn test_sorted_graph_preserves_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::par_new(g.clone())?;
+    let sorted = SortedGraph::par_from(g.clone())?;
     graph::eq(&g, &sorted)?;
     Ok(())
 }
@@ -74,7 +74,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 #[test]
 fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::par_new(g.clone())?;
+    let sorted = SortedGraph::par_from(g.clone())?;
     let (_lenders, boundaries) = sorted.into_par_iters();
     // Boundaries must start at 0 and end at num_nodes
     assert_eq!(*boundaries.first().unwrap(), 0);
@@ -161,7 +161,7 @@ fn test_parallel_graph_graph_equality() -> Result<()> {
 #[test]
 fn test_par_comp_with_sorted_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::par_new(g.clone())?;
+    let sorted = SortedGraph::par_from(g.clone())?;
 
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("sorted");

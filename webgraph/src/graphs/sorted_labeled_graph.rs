@@ -9,6 +9,7 @@
 use crate::graphs::arc_list_graph;
 use crate::prelude::*;
 use crate::utils::par_sort_iters::ParSortIters;
+use crate::utils::par_sort_pairs::ParSortPairs;
 use crate::utils::sort_pairs::KMergeIters;
 use crate::utils::{BatchCodec, CodecIter, MemoryUsage};
 use anyhow::Result;
@@ -101,6 +102,57 @@ impl SortedLabeledGraphConfig {
         })
     }
 
+    /// Sorts labeled pairs from a sequential iterator, producing a
+    /// partitioned [`SortedLabeledGraph`].
+    ///
+    /// The pairs are iterated once; they are partitioned and sorted in a
+    /// single pass using [`ParSortIters`] with one input iterator.
+    pub fn sort_pairs<C>(
+        self,
+        num_nodes: usize,
+        batch_codec: C,
+        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
+            + Send
+            + Sync,
+    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+    {
+        let par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        let split = par_sort.sort_labeled(batch_codec, [pairs])?;
+        Ok(SortedLabeledGraph {
+            boundaries: split.boundaries,
+            iters: split.iters,
+            _phantom: PhantomData,
+        })
+    }
+
+    /// Sorts labeled pairs from a parallel iterator, producing a
+    /// partitioned [`SortedLabeledGraph`].
+    ///
+    /// Uses [`ParSortPairs`] to sort in parallel.
+    pub fn par_sort_pairs<C>(
+        self,
+        num_nodes: usize,
+        batch_codec: &C,
+        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), C::Label)>,
+    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+    {
+        let par_sort = ParSortPairs::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        let split = par_sort.sort_labeled(batch_codec, pairs)?;
+        Ok(SortedLabeledGraph {
+            boundaries: split.boundaries,
+            iters: split.iters,
+            _phantom: PhantomData,
+        })
+    }
+
     /// Sorts labeled arcs from a splittable [`SequentialLabeling`] in
     /// parallel, producing a partitioned [`SortedLabeledGraph`].
     ///
@@ -183,7 +235,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
     ///
     /// Equivalent to
     /// `SortedLabeledGraph::config().sort(graph, batch_codec)`.
-    pub fn new<C, G>(graph: G, batch_codec: C) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    pub fn from<C, G>(graph: G, batch_codec: C) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
     where
         C: BatchCodec,
         G: LabeledSequentialGraph<C::Label>,
@@ -199,7 +251,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
     ///
     /// Equivalent to
     /// `SortedLabeledGraph::config().par_sort(graph, batch_codec)`.
-    pub fn par_new<C, G>(graph: G, batch_codec: C) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    pub fn par_from<C, G>(graph: G, batch_codec: C) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
     where
         C: BatchCodec,
         G: LabeledSequentialGraph<C::Label>
@@ -214,6 +266,40 @@ impl<L, I> SortedLabeledGraph<L, I> {
         CodecIter<C>: Clone + Send + Sync,
     {
         Self::config().par_sort(graph, batch_codec)
+    }
+
+    /// Sorts labeled pairs from a sequential iterator with default
+    /// settings, producing a partitioned [`SortedLabeledGraph`].
+    ///
+    /// Equivalent to
+    /// `SortedLabeledGraph::config().sort_pairs(num_nodes, batch_codec, pairs)`.
+    pub fn from_pairs<C>(
+        num_nodes: usize,
+        batch_codec: C,
+        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
+            + Send
+            + Sync,
+    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+    {
+        Self::config().sort_pairs(num_nodes, batch_codec, pairs)
+    }
+
+    /// Sorts labeled pairs from a parallel iterator with default
+    /// settings, producing a partitioned [`SortedLabeledGraph`].
+    ///
+    /// Equivalent to
+    /// `SortedLabeledGraph::config().par_sort_pairs(num_nodes, batch_codec, pairs)`.
+    pub fn par_from_pairs<C>(
+        num_nodes: usize,
+        batch_codec: &C,
+        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), C::Label)>,
+    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+    {
+        Self::config().par_sort_pairs(num_nodes, batch_codec, pairs)
     }
 }
 

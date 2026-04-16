@@ -23,8 +23,8 @@ use std::num::NonZeroUsize;
 /// The number of nodes is derived from the last boundary value.
 ///
 /// A `SortedGraph` can be built from any [`SequentialGraph`] using
-/// [`new`](SortedGraph::new) (sequential sort) or
-/// [`par_new`](SortedGraph::par_new) (parallel sort from a
+/// [`from`](SortedGraph::from) (sequential sort) or
+/// [`par_from`](SortedGraph::par_from) (parallel sort from a
 /// [`SplitLabeling`]). In both cases, the result implements
 /// [`IntoParIters`], making it suitable for parallel compression via
 /// [`BvCompConfig::par_comp`](crate::graphs::bvgraph::BvCompConfig::par_comp).
@@ -33,7 +33,7 @@ use std::num::NonZeroUsize;
 ///
 /// ```ignore
 /// // Sequential sort with defaults
-/// let sorted = SortedGraph::new(PermutedGraph::new(&graph, &perm))?;
+/// let sorted = SortedGraph::from(PermutedGraph::new(&graph, &perm))?;
 /// BvComp::with_basename("out").par_comp::<BE, _>(&sorted)?;
 ///
 /// // Parallel sort with custom config
@@ -192,12 +192,29 @@ impl SortedGraph<SortedPairIter> {
     /// settings, producing a partitioned [`SortedGraph`].
     ///
     /// Equivalent to `SortedGraph::config().sort(graph)`.
-    pub fn new<G: SequentialGraph>(graph: G) -> Result<Self>
+    pub fn from<G: SequentialGraph>(graph: G) -> Result<Self>
     where
         for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
         for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
         Self::config().sort(graph)
+    }
+
+    /// Sorts arcs from a splittable [`SequentialGraph`] in parallel with
+    /// default settings, producing a partitioned [`SortedGraph`].
+    ///
+    /// Equivalent to `SortedGraph::config().par_sort(graph)`.
+    pub fn par_from<G>(graph: G) -> Result<Self>
+    where
+        G: SequentialGraph
+            + for<'g, 'a> SplitLabeling<
+                SplitLender<'g>: NodeLabelsLender<
+                    'a,
+                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                >,
+            >,
+    {
+        Self::config().par_sort(graph)
     }
 
     /// Sorts pairs from a sequential iterator with default settings,
@@ -220,23 +237,6 @@ impl SortedGraph<SortedPairIter> {
         pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
     ) -> Result<Self> {
         Self::config().par_sort_pairs(num_nodes, pairs)
-    }
-
-    /// Sorts arcs from a splittable [`SequentialGraph`] in parallel with
-    /// default settings, producing a partitioned [`SortedGraph`].
-    ///
-    /// Equivalent to `SortedGraph::config().par_sort(graph)`.
-    pub fn par_new<G>(graph: G) -> Result<Self>
-    where
-        G: SequentialGraph
-            + for<'g, 'a> SplitLabeling<
-                SplitLender<'g>: NodeLabelsLender<
-                    'a,
-                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-                >,
-            >,
-    {
-        Self::config().par_sort(graph)
     }
 
     /// Returns a [`SortedGraphConfig`] with default settings for
