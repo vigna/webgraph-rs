@@ -10,6 +10,7 @@ use crate::graphs::arc_list_graph;
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
 use crate::utils::par_sort_iters::ParSortIters;
+use crate::utils::par_sort_pairs::ParSortPairs;
 use crate::utils::{MemoryUsage, SortedPairIter};
 use anyhow::Result;
 use lender::*;
@@ -107,6 +108,45 @@ impl SortedGraphConfig {
         })
     }
 
+    /// Sorts pairs from a sequential iterator, producing a partitioned
+    /// [`SortedGraph`].
+    ///
+    /// The pairs are iterated once; they are partitioned and sorted in a
+    /// single pass using [`ParSortIters`] with one input iterator.
+    pub fn sort_pairs(
+        self,
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+    ) -> Result<SortedGraph<SortedPairIter>> {
+        let par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        let split = par_sort.sort([pairs])?;
+        Ok(SortedGraph {
+            boundaries: split.boundaries,
+            iters: split.iters,
+        })
+    }
+
+    /// Sorts pairs from a parallel iterator, producing a partitioned
+    /// [`SortedGraph`].
+    ///
+    /// Uses [`ParSortPairs`] to sort in parallel.
+    pub fn par_sort_pairs(
+        self,
+        num_nodes: usize,
+        pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
+    ) -> Result<SortedGraph<SortedPairIter>> {
+        let par_sort = ParSortPairs::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        let split = par_sort.sort(pairs)?;
+        Ok(SortedGraph {
+            boundaries: split.boundaries,
+            iters: split.iters,
+        })
+    }
+
     /// Sorts arcs from a splittable [`SequentialGraph`] in parallel,
     /// producing a partitioned [`SortedGraph`].
     ///
@@ -158,6 +198,28 @@ impl SortedGraph<SortedPairIter> {
         for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
         Self::config().sort(graph)
+    }
+
+    /// Sorts pairs from a sequential iterator with default settings,
+    /// producing a partitioned [`SortedGraph`].
+    ///
+    /// Equivalent to `SortedGraph::config().sort_pairs(num_nodes, pairs)`.
+    pub fn from_pairs(
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+    ) -> Result<Self> {
+        Self::config().sort_pairs(num_nodes, pairs)
+    }
+
+    /// Sorts pairs from a parallel iterator with default settings,
+    /// producing a partitioned [`SortedGraph`].
+    ///
+    /// Equivalent to `SortedGraph::config().par_sort_pairs(num_nodes, pairs)`.
+    pub fn par_from_pairs(
+        num_nodes: usize,
+        pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
+    ) -> Result<Self> {
+        Self::config().par_sort_pairs(num_nodes, pairs)
     }
 
     /// Sorts arcs from a splittable [`SequentialGraph`] in parallel with
