@@ -49,6 +49,18 @@ pub type DefaultBatchCodec<const DEDUP: bool = false> = grouped_gaps::GroupedGap
 pub type BitWriter<E> = BufBitWriter<E, WordAdapter<usize, BufWriter<File>>>;
 pub type BitReader<E> = BufBitReader<E, MemWordReader<u32, ArcMmapHelper<u32>>>;
 
+/// Statistics about a batch encoded by a [`BatchCodec`].
+///
+/// Implementations also implement [`Display`] so they can be logged.
+pub trait BatchStats: Display {
+    /// The number of triples actually written to disk.
+    ///
+    /// When the codec is deduplicating, this is the number of unique triples
+    /// that were encoded; it may be smaller than the number of arcs originally
+    /// pushed into the batch.
+    fn total_triples(&self) -> usize;
+}
+
 /// A trait for encoding and decoding batches of sorted triples.
 pub trait BatchCodec: Send + Sync {
     /// The label type of the triples to encode and decode.
@@ -67,8 +79,12 @@ pub trait BatchCodec: Send + Sync {
     type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::Label), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.
-    /// This type has to implement `Display` so that we can log it.
-    type EncodedBatchStats: Display;
+    ///
+    /// It has to implement [`Display`] so that we can log it, and
+    /// [`BatchStats`] so that we can query the number of triples actually
+    /// encoded (which may differ from the number of arcs pushed when
+    /// deduplication is enabled).
+    type EncodedBatchStats: BatchStats;
 
     /// Given a batch of sorted triples, encodes them to disk and returns the
     /// number of bits written.

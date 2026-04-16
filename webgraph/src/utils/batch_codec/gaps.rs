@@ -115,7 +115,7 @@ impl core::fmt::Display for GapsStats {
         let total_bits = self.src_bits + self.dst_bits + self.labels_bits;
         write!(
             f,
-            "src: {}B ({:.3} bits / arc), dst: {}B ({:.3} bits / arc), labels: {}B ({:.3} bits / arc), total: {}B ({:.3} bits / arc)",
+            "src: {}B ({:.3} bits / triple), dst: {}B ({:.3} bits / triple), labels: {}B ({:.3} bits / triple), total: {}B ({:.3} bits / triple)",
             humanize(self.src_bits as f64 / 8.0),
             self.src_bits as f64 / self.total_triples as f64,
             humanize(self.dst_bits as f64 / 8.0),
@@ -125,6 +125,13 @@ impl core::fmt::Display for GapsStats {
             humanize(total_bits as f64 / 8.0),
             total_bits as f64 / self.total_triples as f64,
         )
+    }
+}
+
+impl crate::utils::BatchStats for GapsStats {
+    #[inline]
+    fn total_triples(&self) -> usize {
+        self.total_triples
     }
 }
 

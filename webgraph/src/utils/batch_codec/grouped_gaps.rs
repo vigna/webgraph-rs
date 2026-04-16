@@ -138,7 +138,7 @@ impl core::fmt::Display for GroupedGapsStats {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "outdegree: {}B ({:.3} bits / arc), src: {}B ({:.3} bits / arc), dst: {}B ({:.3} bits / arc), labels: {}B ({:.3} bits / arc)",
+            "outdegree: {}B ({:.3} bits / triple), src: {}B ({:.3} bits / triple), dst: {}B ({:.3} bits / triple), labels: {}B ({:.3} bits / triple)",
             humanize(self.outdegree_bits as f64 / 8.0),
             self.outdegree_bits as f64 / self.total_triples as f64,
             humanize(self.src_bits as f64 / 8.0),
@@ -148,6 +148,13 @@ impl core::fmt::Display for GroupedGapsStats {
             humanize(self.labels_bits as f64 / 8.0),
             self.labels_bits as f64 / self.total_triples as f64,
         )
+    }
+}
+
+impl crate::utils::BatchStats for GroupedGapsStats {
+    #[inline]
+    fn total_triples(&self) -> usize {
+        self.total_triples
     }
 }
 

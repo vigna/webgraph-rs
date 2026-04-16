@@ -10,7 +10,7 @@
 
 use crate::{
     traits::SortedIterator,
-    utils::{BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage},
+    utils::{BatchCodec, BatchStats, CodecIter, DefaultBatchCodec, MemoryUsage},
 };
 use anyhow::{Context, anyhow};
 use dary_heap::PeekMut;
@@ -235,15 +235,33 @@ impl<C: BatchCodec, const DEDUP: bool> SortPairs<C, DEDUP> {
         let batch_path = self.tmp_dir.join(format!("{:06x}", self.num_batches));
         let start = std::time::Instant::now();
         let (bit_size, stats) = self.batch_codec.encode_batch(batch_path, &mut self.batch)?;
-        log::info!(
-            "Dumped batch {} with {} arcs ({} bits, {:.2} bits / arc) in {:.3} seconds, stats: {}",
-            self.num_batches,
-            self.batch.len(),
-            bit_size,
-            bit_size as f64 / self.batch.len() as f64,
-            start.elapsed().as_secs_f64(),
-            stats
-        );
+        let batch_len = self.batch.len();
+        let triples = stats.total_triples();
+        let elapsed = start.elapsed().as_secs_f64();
+        if DEDUP {
+            log::info!(
+                "Dumped batch {} with {} arcs ({} triples encoded, {:.2}% unique, {} bits, {:.2} bits / triple) in {:.3} seconds, stats: {}",
+                self.num_batches,
+                batch_len,
+                triples,
+                100.0 * triples as f64 / batch_len as f64,
+                bit_size,
+                bit_size as f64 / triples as f64,
+                elapsed,
+                stats,
+            );
+        } else {
+            log::info!(
+                "Dumped batch {} with {} arcs ({} bits, {:.2} bits / arc) in {:.3} seconds, stats: {}",
+                self.num_batches,
+                batch_len,
+                bit_size,
+                bit_size as f64 / batch_len as f64,
+                elapsed,
+                stats,
+            );
+        }
+        // TODO: check if correct or needs stats.total_triples instead of self.batch.len()
         self.last_batch_len = self.batch.len();
         self.batch.clear();
         self.num_batches += 1;
