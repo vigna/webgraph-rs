@@ -48,12 +48,12 @@ struct ReferenceTableEntry {
 /// In most cases you do not need to instantiate this struct directly: use
 /// [`BvCompZ::with_basename`] to obtain a [`BvCompConfig`] with suitable
 /// defaults (including a larger compression window of 16), then call
-/// [`comp_graph`] or [`par_comp_graph`] on it.
+/// [`comp_graph`] or [`par_comp`] on it.
 ///
 /// [BV graph format]: super::super
 /// [`flush`]: Self::flush
 /// [`comp_graph`]: BvCompConfig::comp_graph
-/// [`par_comp_graph`]: BvCompConfig::par_comp_graph
+/// [`par_comp`]: BvCompConfig::par_comp
 /// [Zuckerli paper]: <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9272613>
 #[derive(Debug)]
 pub struct BvCompZ<E, W: Write> {

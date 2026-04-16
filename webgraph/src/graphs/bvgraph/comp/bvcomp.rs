@@ -45,7 +45,7 @@ pub struct CompStats {
 ///
 /// In most cases you do not need to instantiate this struct directly: use
 /// [`BvComp::with_basename`] to obtain a [`BvCompConfig`] with suitable
-/// defaults, then call [`comp_graph`] or [`par_comp_graph`] on it.
+/// defaults, then call [`comp_graph`] or [`par_comp`] on it.
 ///
 /// For a compressor that uses an alternative reference-selection strategy
 /// based on dynamic programming, see [`BvCompZ`].
@@ -56,7 +56,7 @@ pub struct CompStats {
 /// [`extend`]: Self::extend
 /// [`flush`]: Self::flush
 /// [`comp_graph`]: BvCompConfig::comp_graph
-/// [`par_comp_graph`]: BvCompConfig::par_comp_graph
+/// [`par_comp`]: BvCompConfig::par_comp
 /// [`BvCompZ`]: super::BvCompZ
 #[derive(Debug)]
 pub struct BvComp<E, W: Write> {

@@ -156,8 +156,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// - [`comp_graph`]: compresses a [`SequentialGraph`] sequentially;
 /// - [`comp_lender`]: compresses a [`NodeLabelsLender`] sequentially;
-/// - [`par_comp_graph`]: compresses a [splittable] graph in parallel;
-/// - [`par_comp_lenders`]: compresses multiple lenders in parallel.
+/// - [`par_comp`]: compresses a [`ParallelLabeling`] in parallel.
 ///
 /// All methods produce the `.graph`, `.offsets`, and `.properties` files
 /// and return the total number of bits written to the graph bitstream.
@@ -178,7 +177,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///     .comp_graph::<BE>(&graph)?;
 ///
 /// // Parallel compression
-/// BvComp::with_basename("output").par_comp_graph::<BE>(&graph)?;
+/// BvComp::with_basename("output").par_comp::<BE>(&graph)?;
 ///
 /// // Zuckerli-based compression
 /// BvCompZ::with_basename("output").comp_graph::<BE>(&graph)?;
@@ -192,9 +191,7 @@ impl<W: Write> OffsetsWriter<W> {
 /// [`comp_graph`]: Self::comp_graph
 /// [`comp_lender`]: Self::comp_lender
 /// [`NodeLabelsLender`]: crate::traits::NodeLabelsLender
-/// [`par_comp_graph`]: Self::par_comp_graph
-/// [splittable]: SplitLabeling
-/// [`par_comp_lenders`]: Self::par_comp_lenders
+/// [`par_comp`]: Self::par_comp
 #[derive(Debug)]
 pub struct BvCompConfig {
     /// The basename of the output files.
@@ -243,11 +240,11 @@ impl BvCompConfig {
         self
     }
 
-    /// Sets the temporary directory used by [`par_comp_lenders`] to store
+    /// Sets the temporary directory used by [`par_comp`] to store
     /// partial bitstreams. If not set, a system temporary directory is created
     /// automatically.
     ///
-    /// [`par_comp_lenders`]: Self::par_comp_lenders
+    /// [`par_comp`]: Self::par_comp
     pub fn with_tmp_dir(mut self, tmp_dir: impl AsRef<Path>) -> Self {
         self.tmp_dir = Some(tmp_dir.as_ref().into());
         self
@@ -391,54 +388,30 @@ impl BvCompConfig {
         Ok(comp_stats.written_bits)
     }
 
-    /// Compresses a splittable sequential graph in parallel and returns the
-    /// length in bits of the graph bitstream.
+    /// Compresses a [`ParallelLabeling`] in parallel and returns the length
+    /// in bits of the graph bitstream.
     ///
-    /// Note that the number of parallel compression threads will be
-    /// [`current_num_threads`]. The graph will be split into as many
-    /// lenders as there are threads.
-    pub fn par_comp_graph<E: Endianness>(
-        &mut self,
-        graph: &(impl SequentialGraph + for<'a> SplitLabeling<SplitLender<'a>: ExactSizeLender>),
-    ) -> Result<u64>
-    where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
-        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
-    {
-        let num_threads = current_num_threads();
-        self.par_comp_lenders(graph.split_iter(num_threads), graph.num_nodes())
-    }
-
-    /// Compresses multiple [`NodeLabelsLender`] in parallel and returns
-    /// the length in bits of the graph bitstream.
-    ///
-    /// The first lender must start from node 0, and each lender must
-    /// continue from where the previous lender stopped. All in all,
-    /// they must return a total of `num_nodes` nodes.
+    /// The method calls [`par_iters`] to obtain lenders and boundaries,
+    /// then compresses each lender in a separate thread and concatenates
+    /// the resulting bitstreams.
     ///
     /// Note that the number of parallel compression threads will be
     /// [`current_num_threads`]. It is your responsibility to ensure that the
-    /// number of threads is appropriate for the number of lenders you pass,
-    /// possibly using [`install`].
+    /// number of threads is appropriate for the number of lenders returned
+    /// by [`par_iters`], possibly using [`install`].
     ///
+    /// [`par_iters`]: ParallelLabeling::par_iters
     /// [`install`]: rayon::ThreadPool::install
-    ///
-    /// This method is useful to compress graphs that can be iterated upon using
-    /// multiple lenders, but such lenders do not derive from splitting. For
-    /// example, this happens when using
-    /// [`ParSortIters`].
-    pub fn par_comp_lenders<
-        E: Endianness,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + Send,
-    >(
+    pub fn par_comp<E: Endianness>(
         &mut self,
-        iter: impl IntoIterator<Item = L>,
-        num_nodes: usize,
+        graph: &impl ParallelLabeling<Label = usize>,
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
+        let (lenders, boundaries) = graph.par_iters();
+        let num_nodes = *boundaries.last().unwrap_or(&0);
         let tmp_dir = self.tmp_dir()?;
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);
@@ -449,7 +422,7 @@ impl BvCompConfig {
         let thread_path = |thread_id: usize| tmp_dir.join(format!("{thread_id:016x}.bitstream"));
 
         let mut comp_pl = concurrent_progress_logger![
-            log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp_lenders::comp",
+            log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp::comp",
             display_memory = true,
             item_name = "node",
             local_speed = true,
@@ -459,19 +432,17 @@ impl BvCompConfig {
             "Compressing successors in parallel using {} threads...",
             current_num_threads()
         ));
-        let mut expected_first_node = 0;
         let cp_flags = &self.comp_flags;
         let bvgraphz = self.bvgraphz;
         let chunk_size = self.chunk_size;
 
         in_place_scope(|s| {
-            for (thread_id, mut thread_lender) in iter.into_iter().enumerate() {
+            for (thread_id, mut thread_lender) in Vec::from(lenders).into_iter().enumerate() {
                 let tmp_path = thread_path(thread_id);
                 let chunk_graph_path = tmp_path.with_extension(GRAPH_EXTENSION);
                 let chunk_offsets_path = tmp_path.with_extension(OFFSETS_EXTENSION);
                 let tx = tx.clone();
                 let mut comp_pl = comp_pl.clone();
-                let lender_len = thread_lender.len();
                 // Spawn the thread
                 s.spawn(move |_| {
                     log::debug!("Thread {thread_id} started");
@@ -481,15 +452,6 @@ impl BvCompConfig {
                     };
 
                     let first_node = node_id;
-                    if first_node != expected_first_node {
-                        panic!(
-                            "Lender {} expected to start from node {} but started from {}",
-                            thread_id,
-                            expected_first_node,
-                            first_node
-                        );
-                    }
-
                     let writer = buf_bit_writer::from_path::<E, usize>(&chunk_graph_path).unwrap();
                     let codes_encoder = <DynCodesEncoder<E, _>>::new(writer, cp_flags).unwrap();
 
@@ -548,21 +510,12 @@ impl BvCompConfig {
                     })
                     .ok(); // If channel is closed, main thread already has an error
                 });
-
-                expected_first_node += lender_len;
-            }
-
-            if num_nodes != expected_first_node {
-                panic!(
-                    "The lenders were supposed to return {} nodes but returned {} instead",
-                    num_nodes, expected_first_node
-                );
             }
 
             drop(tx);
 
             let mut copy_pl = progress_logger![
-                log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp_lenders::copy",
+                log_target = "webgraph::graphs::bvgraph::comp::impls::par_comp::copy",
                 display_memory = true,
                 item_name = "node",
                 local_speed = true,
