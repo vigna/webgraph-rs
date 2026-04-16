@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{impl_parallel_from_split, prelude::*};
 use bitflags::Flags;
 use dsi_bitstream::codes::ToInt;
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
@@ -115,6 +115,12 @@ where
         split::ra::Iter::new(self, cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    [F: RandomAccessDecoderFactory]
+    BvGraph<F>
+    [for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync]
+);
 
 impl<F> BvGraph<F>
 where

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{impl_parallel_from_split, prelude::*};
 use lender::*;
 use value_traits::slices::SliceByValue;
 
@@ -69,6 +69,12 @@ where
         split::seq::Iter::new(self.iter(), cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    ['b, G: SequentialGraph + SplitLabeling, P: SliceByValue<Value = usize> + Send + Sync + Clone]
+    PermutedGraph<'b, G, P>
+    [for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + lender::FusedLender + Send + Sync]
+);
 
 impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialGraph
     for PermutedGraph<'_, G, P>
@@ -148,6 +154,13 @@ impl<
     fn len(&self) -> usize {
         self.iter.len()
     }
+}
+
+impl<
+    L: lender::FusedLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    P: SliceByValue<Value = usize>,
+> lender::FusedLender for NodeLabels<'_, L, P>
+{
 }
 
 #[derive(Debug, Clone)]

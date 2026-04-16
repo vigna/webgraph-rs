@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{impl_parallel_from_split, prelude::*};
 use epserde::Epserde;
 use lender::prelude::*;
 
@@ -362,6 +362,12 @@ impl<L: Clone + Sync> SplitLabeling for LabeledVecGraph<L> {
     }
 }
 
+impl_parallel_from_split!(
+    [L: Clone + Sync]
+    LabeledVecGraph<L>
+    []
+);
+
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// vectors.
 ///
@@ -638,6 +644,12 @@ impl SplitLabeling for VecGraph {
         split::ra::Iter::new(self, cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    []
+    VecGraph
+    []
+);
 
 #[cfg(test)]
 mod test {

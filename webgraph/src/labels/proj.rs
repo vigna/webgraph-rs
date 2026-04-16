@@ -14,6 +14,7 @@ projection of a labeling whose labels are pairs. In particular,
 `Right(Zip(g,h))` is the same labeling as `h`.
 
 */
+use crate::impl_parallel_from_split;
 use crate::prelude::{
     LenderIntoIterator, LenderLabel, NodeLabelsLender, Pair, RandomAccessGraph,
     RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
@@ -202,6 +203,15 @@ where
     }
 }
 
+impl_parallel_from_split!(
+    [G: SequentialLabeling + SplitLabeling]
+    Left<G>
+    [
+        G::Label: Pair,
+        for<'a> G::SplitLender<'a>: ExactSizeLender + FusedLender
+    ]
+);
+
 impl<S: SequentialLabeling> SequentialLabeling for Left<S>
 where
     S::Label: Pair,
@@ -309,6 +319,13 @@ where
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+}
+
+impl<L: FusedLender> FusedLender for RightIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -440,6 +457,15 @@ where
             .map(RightIterator)
     }
 }
+
+impl_parallel_from_split!(
+    [G: SequentialLabeling + SplitLabeling]
+    Right<G>
+    [
+        G::Label: Pair,
+        for<'a> G::SplitLender<'a>: ExactSizeLender + FusedLender
+    ]
+);
 
 impl<S: SequentialLabeling> SequentialLabeling for Right<S>
 where

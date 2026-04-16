@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{labels::Left, traits::*};
+use crate::{impl_parallel_from_split, labels::Left, traits::*};
 use anyhow::{Result, ensure};
 use lender::*;
 
@@ -80,6 +80,12 @@ where
         split::seq::Iter::new(self.iter(), cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    [L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync]
+    ArcListGraph<I>
+    [L: Send + Sync]
+);
 
 #[derive(Clone)]
 pub struct NodeLabels<L, I: Iterator<Item = ((usize, usize), L)>> {

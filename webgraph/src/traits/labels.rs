@@ -456,6 +456,8 @@ impl<L: ExactSizeLender> ExactSizeLender for AssumeSortedLender<L> {
     }
 }
 
+impl<L: FusedLender> FusedLender for AssumeSortedLender<L> {}
+
 impl<'lend, L> NodeLabelsLender<'lend> for AssumeSortedLender<L>
 where
     L: Lender + for<'next> NodeLabelsLender<'next>,
@@ -608,6 +610,55 @@ pub trait ParallelLabeling: SequentialLabeling {
     /// Returns in constant time a sequence of lenders that can be used in
     /// parallel computations.
     fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>);
+}
+
+/// Implements [`ParallelLabeling`] for a type that already implements
+/// [`SplitLabeling`], using the split lender as the parallel lender.
+///
+/// The macro requires that the split lender satisfies the additional bounds
+/// `ExactSizeLender + FusedLender`.
+///
+/// # Usage
+///
+/// ```ignore
+/// impl_parallel_from_split!(
+///     [F: RandomAccessDecoderFactory]
+///     BvGraph<F>
+///     [for<'a> <F as RandomAccessDecoderFactory>::Decoder<'a>: Send + Sync]
+/// );
+/// ```
+///
+/// The three arguments are:
+/// 1. Generics (in brackets), or `[]` for none.
+/// 2. The type to implement `ParallelLabeling` for.
+/// 3. Where clauses (in brackets), or `[]` for none.
+#[macro_export]
+macro_rules! impl_parallel_from_split {
+    (
+        [$($gen:tt)*]
+        $ty:ty
+        [$($where_clause:tt)*]
+    ) => {
+        impl<$($gen)*> $crate::traits::ParallelLabeling for $ty
+        where $($where_clause)*
+        {
+            type ParLender<'__node>
+                = <Self as $crate::traits::SplitLabeling>::SplitLender<'__node>
+            where
+                Self: '__node;
+
+            fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>) {
+                use $crate::traits::{SequentialLabeling, SplitLabeling};
+                let n = rayon::current_num_threads();
+                let step = self.num_nodes().div_ceil(n);
+                let num_nodes = self.num_nodes();
+                let boundaries: Box<[usize]> =
+                    (0..=n).map(|i| (i * step).min(num_nodes)).collect();
+                let lenders: Box<[_]> = self.split_iter(n).into_iter().collect();
+                (lenders, boundaries)
+            }
+        }
+    };
 }
 
 /// Error types that can occur during checking the implementation of a random
@@ -771,3 +822,5 @@ impl<G: RandomAccessLabeling> ExactSizeLender for LenderImpl<'_, G> {
         self.nodes.len()
     }
 }
+
+impl<G: RandomAccessLabeling> FusedLender for LenderImpl<'_, G> {}

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{impl_parallel_from_split, prelude::*};
 
 use lender::prelude::*;
 use std::{collections::BTreeMap, iter::FusedIterator};
@@ -233,6 +233,12 @@ impl<L: Clone + Sync> SplitLabeling for LabeledBTreeGraph<L> {
         split::ra::Iter::new(self, cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    [L: Clone + Sync]
+    LabeledBTreeGraph<L>
+    []
+);
 
 /// A mutable [`RandomAccessGraph`] implementation based on a vector of
 /// [`BTreeMap`].
@@ -466,6 +472,12 @@ impl SplitLabeling for BTreeGraph {
         split::ra::Iter::new(self, cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    []
+    BTreeGraph
+    []
+);
 
 #[cfg(test)]
 mod test {

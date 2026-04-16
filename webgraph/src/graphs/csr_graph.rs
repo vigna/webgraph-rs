@@ -7,6 +7,7 @@
 
 use super::bvgraph::EF;
 use crate::{
+    impl_parallel_from_split,
     prelude::{LOG2_ONES_PER_INVENTORY, LOG2_WORDS_PER_SUBINVENTORY},
     traits::*,
 };
@@ -491,6 +492,142 @@ where
     S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize>,
 {
 }
+
+impl<DCF: 'static, S: 'static> SplitLabeling for CsrGraph<DCF, S>
+where
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + Sync,
+    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync,
+{
+    type SplitLender<'a>
+        = lender::Take<LenderImpl<'a, Self>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = CsrSplitIter<'a, Self>
+    where
+        Self: 'a;
+
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        CsrSplitIter::new(self, cutpoints)
+    }
+}
+
+impl<DCF: 'static, S: 'static> SplitLabeling for CsrSortedGraph<DCF, S>
+where
+    DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
+        + Sync,
+    S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync,
+{
+    type SplitLender<'a>
+        = lender::Take<LenderImpl<'a, Self>>
+    where
+        Self: 'a;
+
+    type IntoIterator<'a>
+        = CsrSplitIter<'a, Self>
+    where
+        Self: 'a;
+
+    fn split_iter_at(&self, cutpoints: impl IntoIterator<Item = usize>) -> Self::IntoIterator<'_> {
+        CsrSplitIter::new(self, cutpoints)
+    }
+}
+
+impl_parallel_from_split!(
+    [DCF: 'static, S: 'static]
+    CsrGraph<DCF, S>
+    [
+        DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+            + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
+            + Sync,
+        S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync
+    ]
+);
+
+impl_parallel_from_split!(
+    [DCF: 'static, S: 'static]
+    CsrSortedGraph<DCF, S>
+    [
+        DCF: SliceByValue<Value: PrimitiveNumber + PrimitiveNumberAs<usize>>
+            + IterateByValueFrom<Item: PrimitiveNumber + PrimitiveNumberAs<usize>>
+            + Sync,
+        S: SliceByValue<Value = usize> + IterateByValueFrom<Item = usize> + Sync
+    ]
+);
+
+/// An iterator over segments of a CSR labeling defined by cutpoints.
+pub struct CsrSplitIter<'a, R: RandomAccessLabeling> {
+    labeling: &'a R,
+    cutpoints: Vec<usize>,
+    i: usize,
+}
+
+impl<'a, R: RandomAccessLabeling> CsrSplitIter<'a, R> {
+    /// Creates a new iterator from a labeling and a sequence of cutpoints.
+    pub fn new(
+        labeling: &'a R,
+        cutpoints: impl core::iter::IntoIterator<Item = usize>,
+    ) -> Self {
+        let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
+        assert!(
+            cutpoints.len() >= 2,
+            "cutpoints must have at least 2 elements"
+        );
+        assert!(
+            cutpoints.windows(2).all(|w| w[0] <= w[1]),
+            "cutpoints must be non-decreasing"
+        );
+        assert!(
+            *cutpoints.last().unwrap() <= labeling.num_nodes(),
+            "last cutpoint ({}) must be <= num_nodes ({})",
+            cutpoints.last().unwrap(),
+            labeling.num_nodes()
+        );
+        Self {
+            labeling,
+            cutpoints,
+            i: 0,
+        }
+    }
+}
+
+impl<'a, R: RandomAccessLabeling> Iterator for CsrSplitIter<'a, R> {
+    type Item = lender::Take<LenderImpl<'a, R>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use lender::Lender;
+
+        if self.i + 1 >= self.cutpoints.len() {
+            return None;
+        }
+        let start = self.cutpoints[self.i];
+        let end = self.cutpoints[self.i + 1];
+        self.i += 1;
+        Some(
+            LenderImpl {
+                labeling: self.labeling,
+                nodes: start..self.labeling.num_nodes(),
+            }
+            .take(end - start),
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.cutpoints.len() - 1 - self.i;
+        (remaining, Some(remaining))
+    }
+
+    fn count(self) -> usize {
+        self.cutpoints.len() - 1 - self.i
+    }
+}
+
+impl<R: RandomAccessLabeling> ExactSizeIterator for CsrSplitIter<'_, R> {}
+impl<R: RandomAccessLabeling> core::iter::FusedIterator for CsrSplitIter<'_, R> {}
 
 /// Sequential Lender for the CSR graph.
 #[derive(Debug, Clone)]

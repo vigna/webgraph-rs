@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{impl_parallel_from_split, prelude::*};
 use lender::*;
 
 /// A wrapper that removes self-loops from a graph. Since we don't
@@ -58,6 +58,12 @@ where
         split::seq::Iter::new(self.iter(), cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    [G: SequentialGraph + SplitLabeling]
+    NoSelfLoopsGraph<G>
+    [for<'a> <G as SequentialLabeling>::Lender<'a>: Clone + ExactSizeLender + lender::FusedLender + Send + Sync]
+);
 
 impl<G: SequentialGraph> SequentialGraph for NoSelfLoopsGraph<G> {}
 
@@ -133,6 +139,11 @@ impl<L: ExactSizeLender + for<'next> NodeLabelsLender<'next, Label = usize>> Exa
     fn len(&self) -> usize {
         self.iter.len()
     }
+}
+
+impl<L: lender::FusedLender + for<'next> NodeLabelsLender<'next, Label = usize>> lender::FusedLender
+    for NodeLabels<L>
+{
 }
 
 #[derive(Debug, Clone)]

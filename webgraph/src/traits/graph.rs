@@ -46,6 +46,7 @@ Usually there is a convenience method doing the wrapping for you.
 
 use std::rc::Rc;
 
+use crate::impl_parallel_from_split;
 use crate::prelude::{Pair, RandomAccessLabeling, SequentialLabeling};
 use impl_tools::autoimpl;
 use lender::*;
@@ -266,8 +267,23 @@ where
     }
 }
 
+impl<L: ExactSizeLender> ExactSizeLender for UnitLender<L>
+where
+    L: for<'next> NodeLabelsLender<'next, Label = usize>,
+{
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
 // SAFETY: the underlying lender is sorted.
 unsafe impl<L: SortedLender> SortedLender for UnitLender<L> where
+    L: for<'next> NodeLabelsLender<'next, Label = usize>
+{
+}
+
+impl<L: lender::FusedLender> lender::FusedLender for UnitLender<L> where
     L: for<'next> NodeLabelsLender<'next, Label = usize>
 {
 }
@@ -330,6 +346,15 @@ where
         self.0.split_iter_at(cutpoints).into_iter().map(UnitLender)
     }
 }
+
+impl_parallel_from_split!(
+    [G: SequentialGraph + SplitLabeling]
+    UnitLabelGraph<G>
+    [
+        for<'a> <G::IntoIterator<'a> as IntoIterator>::IntoIter: Send + Sync,
+        for<'a> G::SplitLender<'a>: ExactSizeLender + lender::FusedLender
+    ]
+);
 
 /// A labeled random-access graph.
 ///

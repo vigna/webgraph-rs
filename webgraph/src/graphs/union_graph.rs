@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::*;
+use crate::{impl_parallel_from_split, prelude::*};
 use lender::*;
 
 /// A wrapper exhibiting the union of two graphs.
@@ -63,6 +63,17 @@ where
         split::seq::Iter::new(self.iter(), cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    [G: SequentialGraph, H: SequentialGraph]
+    UnionGraph<G, H>
+    [
+        for<'a> G::Lender<'a>: SortedLender + Clone + ExactSizeLender + lender::FusedLender + Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
+        for<'a> H::Lender<'a>: SortedLender + Clone + ExactSizeLender + lender::FusedLender + Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, H::Lender<'a>>: SortedIterator
+    ]
+);
 
 impl<G: SequentialGraph, H: SequentialGraph> SequentialGraph for UnionGraph<G, H>
 where
@@ -170,6 +181,13 @@ impl<
     fn len(&self) -> usize {
         self.0.len().max(self.1.len())
     }
+}
+
+impl<
+    L: lender::FusedLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+    M: lender::FusedLender + for<'next> NodeLabelsLender<'next, Label = usize>,
+> lender::FusedLender for NodeLabels<L, M>
+{
 }
 
 // SAFETY: the merge of two sorted lenders produces a sorted lender.

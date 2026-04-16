@@ -8,6 +8,7 @@
 use std::path::PathBuf;
 
 use super::*;
+use crate::impl_parallel_from_split;
 use crate::utils::CircularBuffer;
 use anyhow::Result;
 use bitflags::Flags;
@@ -70,6 +71,12 @@ where
         split::seq::Iter::new(self.iter(), cutpoints)
     }
 }
+
+impl_parallel_from_split!(
+    [F: SequentialDecoderFactory]
+    BvGraphSeq<F>
+    [for<'a> <F as SequentialDecoderFactory>::Decoder<'a>: Clone + Send + Sync]
+);
 
 impl<F: SequentialDecoderFactory> SequentialLabeling for BvGraphSeq<F> {
     type Label = usize;
@@ -417,3 +424,5 @@ impl<D: Decode> ExactSizeLender for NodeLabels<D> {
         self.number_of_nodes - self.current_node
     }
 }
+
+impl<D: Decode> lender::FusedLender for NodeLabels<D> {}
