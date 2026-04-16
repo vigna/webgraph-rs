@@ -108,7 +108,7 @@ where
     labels::eq_sorted(seq_graph, &new_graph)?;
     bvgraph::check_offsets(&new_graph, tmp_path)?;
 
-    bvcomp.par_comp::<E>(seq_graph)?;
+    bvcomp.par_comp::<E, _>(seq_graph)?;
     let new_graph = BvGraphSeq::with_basename(tmp_path)
         .endianness::<E>()
         .load()?;
@@ -126,7 +126,7 @@ where
         labels::eq_sorted(seq_graph, &new_graph)?;
         bvgraph::check_offsets(&new_graph, tmp_path)?;
 
-        bvcompz.par_comp::<E>(seq_graph)?;
+        bvcompz.par_comp::<E, _>(seq_graph)?;
         let new_graph = BvGraphSeq::with_basename(tmp_path)
             .endianness::<E>()
             .load()?;

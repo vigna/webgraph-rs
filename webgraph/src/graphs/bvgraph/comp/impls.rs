@@ -177,7 +177,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///     .comp_graph::<BE>(&graph)?;
 ///
 /// // Parallel compression
-/// BvComp::with_basename("output").par_comp::<BE>(&graph)?;
+/// BvComp::with_basename("output").par_comp::<BE, _>(&graph)?;
 ///
 /// // Zuckerli-based compression
 /// BvCompZ::with_basename("output").comp_graph::<BE>(&graph)?;
@@ -402,40 +402,16 @@ impl BvCompConfig {
     ///
     /// [`par_iters`]: ParallelLabeling::par_iters
     /// [`install`]: rayon::ThreadPool::install
-    pub fn par_comp<E: Endianness>(
+    pub fn par_comp<E: Endianness, G: ParallelLabeling<Label = usize>>(
         &mut self,
-        graph: &impl ParallelLabeling<Label = usize>,
+        graph: &G,
     ) -> Result<u64>
     where
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         let (lenders, boundaries) = graph.par_iters();
-        self.par_comp_lenders::<E, _>(lenders, *boundaries.last().unwrap_or(&0))
-    }
-
-    /// Compresses a sequence of lenders in parallel and returns the length
-    /// in bits of the graph bitstream.
-    ///
-    /// This is a lower-level alternative to [`par_comp`] for cases
-    /// where the lenders and number of nodes are available directly
-    /// (e.g., from [`SplitIters`]).
-    ///
-    /// [`par_comp`]: Self::par_comp
-    /// [`SplitIters`]: crate::utils::SplitIters
-    pub fn par_comp_lenders<
-        E: Endianness,
-        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + FusedLender + Send,
-    >(
-        &mut self,
-        lenders: impl IntoIterator<Item = L>,
-        num_nodes: usize,
-    ) -> Result<u64>
-    where
-        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
-        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
-    {
-        let lenders: Box<[L]> = lenders.into_iter().collect();
+        let num_nodes = *boundaries.last().unwrap_or(&0);
         let tmp_dir = self.tmp_dir()?;
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);

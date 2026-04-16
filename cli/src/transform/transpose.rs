@@ -92,15 +92,7 @@ where
 
     // Use uniform cutpoints for compression of the transposed graph
     // (the source DCF does not match the transpose's degree distribution)
-    let num_nodes = sorted.num_nodes();
-    thread_pool.install(|| {
-        par_comp_lenders!(
-            builder,
-            sorted.split_iter(rayon::current_num_threads()),
-            num_nodes,
-            target_endianness
-        )
-    })?;
+    thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))?;
 
     Ok(())
 }
@@ -126,9 +118,7 @@ where
     // transpose the graph
     let split =
         webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, Some(cp))?;
-
-    // Convert to (node, lender) pairs
-    let pairs: Vec<_> = split.into();
+    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
@@ -142,8 +132,6 @@ where
         builder = builder.with_chunk_size(chunk_size);
     }
 
-    let num_nodes = graph.num_nodes();
-    thread_pool
-        .install(|| par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness))?;
+    thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))?;
     Ok(())
 }

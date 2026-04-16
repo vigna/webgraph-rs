@@ -136,17 +136,16 @@ where
     let te = target_endianness.unwrap_or_else(|| E::NAME.into());
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
-    let num_nodes = graph.num_nodes();
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, None)?;
+        let split = webgraph::transform::permute_split(&graph, perm, memory_usage, None)?;
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
         );
-        let pairs: Vec<_> = sorted.into();
-        par_comp_lenders!(builder, pairs.into_iter(), num_nodes, te)
+        let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+        par_comp!(builder, &sorted, te)
     })?;
     Ok(())
 }
@@ -193,16 +192,15 @@ where
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
     if use_dcf {
-        let num_nodes = graph.num_nodes();
-        let cp = crate::cutpoints(src, num_nodes, graph.num_arcs_hint(), true)?;
-        thread_pool.install(|| {
-            par_comp_lenders!(
-                builder,
-                graph.split_iter_at(cp),
-                num_nodes,
-                target_endianness
-            )
-        })?;
+        use epserde::prelude::*;
+        let dcf_path = src.with_extension(DEG_CUMUL_EXTENSION);
+        let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
+        let dcf_graph = ParallelDcfGraph::new(
+            graph,
+            dcf.uncase(),
+            std::num::NonZeroUsize::new(rayon::current_num_threads()).unwrap(),
+        );
+        thread_pool.install(|| par_comp!(builder, &dcf_graph, target_endianness))?;
     } else {
         thread_pool.install(|| par_comp!(builder, &graph, target_endianness))?;
     }

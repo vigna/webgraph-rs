@@ -178,13 +178,13 @@ pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<impl Iterator<Item = (usize, usize)> + Send + Sync + 'g>>
+) -> Result<SplitIters<impl Iterator<Item = (usize, usize)> + Clone + Send + Sync + 'g>>
 where
     S: SequentialGraph + SplitLabeling,
     for<'a> S::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'a, S::Lender<'b>>: SortedIterator,
     for<'a> S::SplitLender<'g>:
-        NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Send + Sync>>,
+        NodeLabelsLender<'a, IntoIterator: IntoIterator<IntoIter: Clone + Send + Sync>> + Clone,
 {
     // Sort only the reverse arcs in parallel
     let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);

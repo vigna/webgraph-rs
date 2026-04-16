@@ -126,34 +126,12 @@ where
                 );
             }
 
-            // Splits both graphs independently at the same cutpoints
-            // so that each partition uses split::ra::Iter (direct
-            // seeking), then merges successor lists at the lender level.
-            let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
             if no_loops {
-                thread_pool.install(|| {
-                    let lenders: Vec<_> = graph
-                        .split_iter_at(cp.clone())
-                        .zip(graph_t.split_iter_at(cp))
-                        .map(|(g, gt)| {
-                            webgraph::graphs::no_selfloops_graph::NodeLabels::new(
-                                webgraph::graphs::union_graph::NodeLabels::new(g, gt),
-                            )
-                        })
-                        .collect();
-
-                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
-                })?;
+                let union = NoSelfLoopsGraph(UnionGraph(graph, graph_t));
+                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
             } else {
-                thread_pool.install(|| {
-                    let lenders: Vec<_> = graph
-                        .split_iter_at(cp.clone())
-                        .zip(graph_t.split_iter_at(cp))
-                        .map(|(g, gt)| webgraph::graphs::union_graph::NodeLabels::new(g, gt))
-                        .collect();
-
-                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
-                })?;
+                let union = UnionGraph(graph, graph_t);
+                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
             }
         }
         // apply the permutation, don't care if the transposed graph is already computed
@@ -202,9 +180,9 @@ where
                         })
                         .collect();
 
-                    let sorted = par_sort_iters.sort(pairs)?;
-                    let pairs: Vec<_> = sorted.into();
-                    par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness)
+                    let split = par_sort_iters.sort(pairs)?;
+                    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+                    par_comp!(builder, &sorted, target_endianness)
                 })
             })?;
         }
@@ -223,13 +201,13 @@ where
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {
                     thread_pool.install(|| {
-                        let sorted = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
+                        let split = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
                             &graph,
                             args.memory_usage.memory_usage,
                             Some(cp),
                         )?;
-                        let pairs: Vec<_> = sorted.into();
-                        par_comp_lenders!(builder, pairs.into_iter(), num_nodes, target_endianness)
+                        let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+                        par_comp!(builder, &sorted, target_endianness)
                     })?
                 };
             }
@@ -288,29 +266,13 @@ where
             }
 
             if no_loops {
-                let lenders: Vec<_> = seq_graph
-                    .split_iter(rayon::current_num_threads())
-                    .zip(seq_graph_t.split_iter(rayon::current_num_threads()))
-                    .map(|(g, gt)| {
-                        webgraph::graphs::no_selfloops_graph::NodeLabels::new(
-                            webgraph::graphs::union_graph::NodeLabels::new(g, gt),
-                        )
-                    })
-                    .collect();
-
-                thread_pool.install(|| {
-                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
-                })?;
+                let union = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
+                thread_pool
+                    .install(|| par_comp!(builder, &union, target_endianness))?;
             } else {
-                let lenders: Vec<_> = seq_graph
-                    .split_iter(rayon::current_num_threads())
-                    .zip(seq_graph_t.split_iter(rayon::current_num_threads()))
-                    .map(|(g, gt)| webgraph::graphs::union_graph::NodeLabels::new(g, gt))
-                    .collect();
-
-                thread_pool.install(|| {
-                    par_comp_lenders!(builder, lenders.into_iter(), num_nodes, target_endianness)
-                })?;
+                let union = UnionGraph(seq_graph, seq_graph_t);
+                thread_pool
+                    .install(|| par_comp!(builder, &union, target_endianness))?;
             }
         }
         (Some(perm_path), None | Some(_)) => {
@@ -334,15 +296,7 @@ where
                             &perm_graph,
                             memory_usage,
                         )?;
-                        let num_nodes = sorted.num_nodes();
-                        thread_pool.install(|| {
-                            par_comp_lenders!(
-                                builder,
-                                sorted.split_iter(rayon::current_num_threads()),
-                                num_nodes,
-                                target_endianness
-                            )
-                        })
+                        thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))
                     }};
                 }
                 if no_loops {
@@ -364,18 +318,12 @@ where
 
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {{
-                    let symmetrized = webgraph::transform::symmetrize_sorted::<$no_loops, _>(
+                    let symmetrized = webgraph::transform::symmetrize::<$no_loops>(
                         &seq_graph,
                         args.memory_usage.memory_usage,
                     )?;
-                    let num_nodes = symmetrized.num_nodes();
                     thread_pool.install(|| {
-                        par_comp_lenders!(
-                            builder,
-                            symmetrized.split_iter(rayon::current_num_threads()),
-                            num_nodes,
-                            target_endianness
-                        )
+                        par_comp!(builder, &symmetrized, target_endianness)
                     })?
                 }};
             }

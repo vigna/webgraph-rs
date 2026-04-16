@@ -193,7 +193,7 @@ fn test_bvcomp_par_comp() -> Result<()> {
         webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
-    BvComp::with_basename(path).par_comp::<BE>(&graph)?;
+    BvComp::with_basename(path).par_comp::<BE, _>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
@@ -277,7 +277,7 @@ fn test_bvcomp_par_comp_lenders() -> Result<()> {
         .load()?;
     // Now use par_comp which calls par_comp_lenders internally
     let basename2 = tmp.path().join("test_par2");
-    BvComp::with_basename(&basename2).par_comp::<BE>(&seq)?;
+    BvComp::with_basename(&basename2).par_comp::<BE, _>(&seq)?;
     let seq2 = BvGraphSeq::with_basename(&basename2)
         .endianness::<BE>()
         .load()?;
@@ -610,7 +610,7 @@ fn test_par_comp() -> Result<()> {
     let graph =
         webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3), (3, 4)]);
 
-    let bits_written = BvCompConfig::new(&basename).par_comp::<BE>(&graph)?;
+    let bits_written = BvCompConfig::new(&basename).par_comp::<BE, _>(&graph)?;
     assert!(bits_written > 0);
 
     // Build EF for loaded graph
@@ -645,7 +645,7 @@ fn test_par_comp_from_parts() -> Result<()> {
     let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("par_lenders");
-    let bits = BvCompConfig::new(&basename).par_comp::<BE>(&sorted)?;
+    let bits = BvCompConfig::new(&basename).par_comp::<BE, _>(&sorted)?;
     assert!(bits > 0);
 
     // Build EF and load

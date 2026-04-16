@@ -75,49 +75,21 @@ macro_rules! par_comp {
 
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
 /// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
-pub fn __par_comp_dispatch(
+pub fn __par_comp_dispatch<G: webgraph::prelude::ParallelLabeling<Label = usize>>(
     config: &mut webgraph::prelude::BvCompConfig,
-    graph: &impl webgraph::prelude::ParallelLabeling<Label = usize>,
+    graph: &G,
     endianness: &str,
 ) -> anyhow::Result<u64> {
     use dsi_bitstream::prelude::Endianness;
     #[cfg(feature = "be_bins")]
     if endianness == dsi_bitstream::prelude::BE::NAME {
-        return config.par_comp::<dsi_bitstream::prelude::BE>(graph);
+        return config.par_comp::<dsi_bitstream::prelude::BE, G>(graph);
     }
     #[cfg(feature = "le_bins")]
     if endianness == dsi_bitstream::prelude::LE::NAME {
-        return config.par_comp::<dsi_bitstream::prelude::LE>(graph);
+        return config.par_comp::<dsi_bitstream::prelude::LE, G>(graph);
     }
     anyhow::bail!("Unknown endianness: {}", endianness)
-}
-
-/// Calls [`par_comp_lenders`] dispatching on a runtime endianness string.
-///
-/// * `config` is the [`BvCompConfig`] to call [`par_comp_lenders`] on;
-///
-/// * `lenders` and `num_nodes` are the arguments to [`par_comp_lenders`];
-///
-/// * `endianness` is a string specifying the endianness type to use for the
-///   call; it must implement `AsRef<str>`, and must be equal to the name of one
-///   of the endianness types supported by the binary (e.g., "BE" or "LE").
-///
-/// The macro returns a [`Result`] with the output of the call if the endianness
-/// is recognized, and an error otherwise.
-///
-/// [`par_comp_lenders`]: webgraph::prelude::BvCompConfig::par_comp_lenders
-/// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
-#[macro_export]
-macro_rules! par_comp_lenders {
-    ($config:expr, $lenders:expr, $num_nodes:expr, $endianness:expr) => {
-        match $endianness.as_str() {
-            #[cfg(feature = "be_bins")]
-            BE::NAME => $config.par_comp_lenders::<BE, _>($lenders, $num_nodes),
-            #[cfg(feature = "le_bins")]
-            LE::NAME => $config.par_comp_lenders::<LE, _>($lenders, $num_nodes),
-            _e => anyhow::bail!("Unknown endianness: {}", _e),
-        }
-    };
 }
 
 pub mod build_info {
