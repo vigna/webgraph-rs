@@ -411,7 +411,31 @@ impl BvCompConfig {
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
         let (lenders, boundaries) = graph.par_iters();
-        let num_nodes = *boundaries.last().unwrap_or(&0);
+        self.par_comp_lenders::<E, _>(lenders, *boundaries.last().unwrap_or(&0))
+    }
+
+    /// Compresses a sequence of lenders in parallel and returns the length
+    /// in bits of the graph bitstream.
+    ///
+    /// This is a lower-level alternative to [`par_comp`] for cases
+    /// where the lenders and number of nodes are available directly
+    /// (e.g., from [`SplitIters`]).
+    ///
+    /// [`par_comp`]: Self::par_comp
+    /// [`SplitIters`]: crate::utils::SplitIters
+    pub fn par_comp_lenders<
+        E: Endianness,
+        L: Lender + for<'next> NodeLabelsLender<'next, Label = usize> + ExactSizeLender + FusedLender + Send,
+    >(
+        &mut self,
+        lenders: impl IntoIterator<Item = L>,
+        num_nodes: usize,
+    ) -> Result<u64>
+    where
+        BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
+        BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
+    {
+        let lenders: Box<[L]> = lenders.into_iter().collect();
         let tmp_dir = self.tmp_dir()?;
 
         let graph_path = self.basename.with_extension(GRAPH_EXTENSION);

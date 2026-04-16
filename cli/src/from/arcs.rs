@@ -10,7 +10,7 @@ use crate::create_parent_dir;
 use crate::*;
 use anyhow::{Context, Result};
 use clap::Parser;
-use dsi_bitstream::prelude::{BE, Endianness, LE};
+use dsi_bitstream::prelude::{BE, Endianness};
 use dsi_progress_logger::prelude::*;
 use rayon::prelude::ParallelSliceMut;
 use std::collections::HashMap;
@@ -211,15 +211,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         builder = builder.with_chunk_size(chunk_size);
     }
 
-    let num_nodes = g.num_nodes();
-    thread_pool.install(|| {
-        par_comp_lenders!(
-            builder,
-            g.split_iter(rayon::current_num_threads()),
-            num_nodes,
-            target_endianness
-        )
-    })?;
+    thread_pool.install(|| par_comp!(builder, &g, target_endianness))?;
 
     // save the nodes
     if args.arcs_args.labels {

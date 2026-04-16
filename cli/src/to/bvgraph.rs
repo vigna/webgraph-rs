@@ -16,7 +16,6 @@ use value_traits::slices::SliceByValue;
 use std::path::PathBuf;
 use tempfile::Builder;
 use webgraph::prelude::*;
-use webgraph::traits::SequentialLabeling;
 
 #[derive(Parser, Debug)]
 #[command(name = "bvgraph", about = "Writes a graph in the BV format, possibly applying a permutation to its node identifiers.", long_about = None, next_line_help = true)]
@@ -127,7 +126,7 @@ pub fn par_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Se
     src: &std::path::Path,
     target_endianness: Option<String>,
     memory_usage: webgraph::utils::MemoryUsage,
-    use_dcf: bool,
+    _use_dcf: bool,
     perm: &P,
 ) -> Result<()>
 where
@@ -138,11 +137,10 @@ where
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
     let num_nodes = graph.num_nodes();
-    let cp = crate::cutpoints(src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, Some(cp))?;
+        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, None)?;
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
@@ -176,15 +174,7 @@ where
         start.elapsed().as_secs_f64()
     );
 
-    let num_nodes = permuted.num_nodes();
-    thread_pool.install(|| {
-        par_comp_lenders!(
-            builder,
-            permuted.split_iter(rayon::current_num_threads()),
-            num_nodes,
-            te
-        )
-    })?;
+    thread_pool.install(|| par_comp!(builder, &permuted, te))?;
     Ok(())
 }
 
@@ -202,16 +192,20 @@ where
     let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
 
     let graph = BvGraph::with_basename(src).endianness::<E>().load()?;
-    let num_nodes = graph.num_nodes();
-    thread_pool.install(|| {
-        let cp = crate::cutpoints(src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
-        par_comp_lenders!(
-            builder,
-            graph.split_iter_at(cp),
-            num_nodes,
-            target_endianness
-        )
-    })?;
+    if use_dcf {
+        let num_nodes = graph.num_nodes();
+        let cp = crate::cutpoints(src, num_nodes, graph.num_arcs_hint(), true)?;
+        thread_pool.install(|| {
+            par_comp_lenders!(
+                builder,
+                graph.split_iter_at(cp),
+                num_nodes,
+                target_endianness
+            )
+        })?;
+    } else {
+        thread_pool.install(|| par_comp!(builder, &graph, target_endianness))?;
+    }
     Ok(())
 }
 
@@ -228,14 +222,6 @@ where
     let target_endianness = target_endianness.unwrap_or_else(|| E::NAME.into());
 
     let seq_graph = BvGraphSeq::with_basename(src).endianness::<E>().load()?;
-    let num_nodes = seq_graph.num_nodes();
-    thread_pool.install(|| {
-        par_comp_lenders!(
-            builder,
-            seq_graph.split_iter(rayon::current_num_threads()),
-            num_nodes,
-            target_endianness
-        )
-    })?;
+    thread_pool.install(|| par_comp!(builder, &seq_graph, target_endianness))?;
     Ok(())
 }

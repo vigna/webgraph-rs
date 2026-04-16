@@ -45,6 +45,53 @@ macro_rules! SEQ_PROC_WARN {
 #[cfg(not(any(feature = "le_bins", feature = "be_bins")))]
 compile_error!("At least one of the features `le_bins` or `be_bins` must be enabled.");
 
+/// Calls [`par_comp`] dispatching on a runtime endianness string.
+///
+/// * `config` is the [`BvCompConfig`] to call [`par_comp`] on;
+///
+/// * `graph` is a reference to an implementor of [`ParallelLabeling`] with
+///   `Label = usize`;
+///
+/// * `endianness` is a string specifying the endianness type to use for the
+///   call; it must implement `AsRef<str>`, and must be equal to the name of one
+///   of the endianness types supported by the binary (e.g., "BE" or "LE").
+///
+/// The macro returns a [`Result`] with the output of the call if the endianness
+/// is recognized, and an error otherwise.
+///
+/// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
+/// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
+/// [`ParallelLabeling`]: webgraph::prelude::ParallelLabeling
+#[macro_export]
+macro_rules! par_comp {
+    ($config:expr, $graph:expr, $endianness:expr) => {
+        // Dispatch to a helper function so that each endianness gets its
+        // own monomorphization without the `impl Trait` reference appearing
+        // in multiple arms of a single `match` (which would cause the
+        // borrow checker to require `'static`).
+        $crate::__par_comp_dispatch(&mut $config, $graph, $endianness.as_str())
+    };
+}
+
+/// Implementation detail of [`par_comp!`]. Dispatches to the correct
+/// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
+pub fn __par_comp_dispatch(
+    config: &mut webgraph::prelude::BvCompConfig,
+    graph: &impl webgraph::prelude::ParallelLabeling<Label = usize>,
+    endianness: &str,
+) -> anyhow::Result<u64> {
+    use dsi_bitstream::prelude::Endianness;
+    #[cfg(feature = "be_bins")]
+    if endianness == dsi_bitstream::prelude::BE::NAME {
+        return config.par_comp::<dsi_bitstream::prelude::BE>(graph);
+    }
+    #[cfg(feature = "le_bins")]
+    if endianness == dsi_bitstream::prelude::LE::NAME {
+        return config.par_comp::<dsi_bitstream::prelude::LE>(graph);
+    }
+    anyhow::bail!("Unknown endianness: {}", endianness)
+}
+
 /// Calls [`par_comp_lenders`] dispatching on a runtime endianness string.
 ///
 /// * `config` is the [`BvCompConfig`] to call [`par_comp_lenders`] on;
