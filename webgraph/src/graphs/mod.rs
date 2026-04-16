@@ -18,6 +18,7 @@ pub mod parallel_graph;
 pub mod permuted_graph;
 pub mod random;
 pub mod sorted_graph;
+pub mod sorted_labeled_graph;
 pub mod union_graph;
 pub mod vec_graph;
 
@@ -30,6 +31,7 @@ pub mod prelude {
     pub use super::parallel_graph::ParallelGraph;
     pub use super::permuted_graph::PermutedGraph;
     pub use super::sorted_graph::SortedGraph;
+    pub use super::sorted_labeled_graph::SortedLabeledGraph;
     pub use super::union_graph::UnionGraph;
     pub use super::vec_graph::VecGraph;
 }

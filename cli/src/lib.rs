@@ -36,6 +36,7 @@ use value_traits::slices::SliceByValue;
 use webgraph::prelude::CompFlags;
 #[cfg(target_pointer_width = "64")]
 use webgraph::prelude::JavaPermutation;
+use webgraph::traits::IntoParIters;
 use webgraph::utils::{Granularity, MemoryUsage};
 
 macro_rules! SEQ_PROC_WARN {
@@ -49,7 +50,7 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///
 /// * `config` is the [`BvCompConfig`] to call [`par_comp`] on;
 ///
-/// * `graph` is a reference to an implementor of [`ParallelLabeling`] with
+/// * `graph` is a reference to an implementor of [`IntoParIters`] with
 ///   `Label = usize`;
 ///
 /// * `endianness` is a string specifying the endianness type to use for the
@@ -61,7 +62,7 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///
 /// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
 /// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
-/// [`ParallelLabeling`]: webgraph::prelude::ParallelLabeling
+/// [`IntoParIters`]: webgraph::prelude::IntoParIters
 #[macro_export]
 macro_rules! par_comp {
     ($config:expr, $graph:expr, $endianness:expr) => {
@@ -75,19 +76,22 @@ macro_rules! par_comp {
 
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
 /// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
-pub fn __par_comp_dispatch<G: webgraph::prelude::ParallelLabeling<Label = usize>>(
+pub fn __par_comp_dispatch<'graph, G>(
     config: &mut webgraph::prelude::BvCompConfig,
-    graph: &G,
+    graph: &'graph G,
     endianness: &str,
-) -> anyhow::Result<u64> {
+) -> anyhow::Result<u64>
+where
+    &'graph G: IntoParIters<Label = usize>,
+{
     use dsi_bitstream::prelude::Endianness;
     #[cfg(feature = "be_bins")]
     if endianness == dsi_bitstream::prelude::BE::NAME {
-        return config.par_comp::<dsi_bitstream::prelude::BE, G>(graph);
+        return config.par_comp::<dsi_bitstream::prelude::BE, _>(graph);
     }
     #[cfg(feature = "le_bins")]
     if endianness == dsi_bitstream::prelude::LE::NAME {
-        return config.par_comp::<dsi_bitstream::prelude::LE, G>(graph);
+        return config.par_comp::<dsi_bitstream::prelude::LE, _>(graph);
     }
     anyhow::bail!("Unknown endianness: {}", endianness)
 }

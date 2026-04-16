@@ -23,8 +23,8 @@ use std::num::NonZeroUsize;
 /// The number of nodes is derived from the last boundary value.
 ///
 /// A `SortedLabeledGraph` can be built from any labeled
-/// [`SequentialLabeling`] using [`new`](SortedLabeledGraphConfig::new)
-/// (sequential sort) or [`par_new`](SortedLabeledGraphConfig::par_new)
+/// [`SequentialLabeling`] using [`sort`](SortedLabeledGraphConfig::sort)
+/// (sequential sort) or [`par_sort`](SortedLabeledGraphConfig::par_sort)
 /// (parallel sort from a [`SplitLabeling`]). In both cases, the result
 /// implements [`IntoParIters`].
 ///
@@ -42,7 +42,7 @@ type SeqIter<'a, I> = Flatten<std::iter::Cloned<std::slice::Iter<'a, I>>>;
 ///
 /// Obtained via [`SortedLabeledGraph::config()`]. Use the setter methods
 /// to customize partitioning and memory, then call
-/// [`new`](Self::new) or [`par_new`](Self::par_new) to perform the sort.
+/// [`sort`](Self::sort) or [`par_sort`](Self::par_sort) to perform the sort.
 pub struct SortedLabeledGraphConfig {
     num_partitions: NonZeroUsize,
     memory_usage: MemoryUsage,
@@ -70,7 +70,7 @@ impl SortedLabeledGraphConfig {
     ///
     /// The graph is iterated once; pairs are partitioned and sorted in a
     /// single pass using [`ParSortIters`] with one input iterator.
-    pub fn new<C, G>(
+    pub fn sort<C, G>(
         self,
         graph: G,
         batch_codec: C,
@@ -106,7 +106,7 @@ impl SortedLabeledGraphConfig {
     ///
     /// The graph is split via [`SplitLabeling`] and each split is sorted
     /// concurrently using [`ParSortIters`].
-    pub fn par_new<C, G>(
+    pub fn par_sort<C, G>(
         self,
         graph: G,
         batch_codec: C,
@@ -176,6 +176,45 @@ impl<L, I> SortedLabeledGraph<L, I> {
             memory_usage: MemoryUsage::default(),
         }
     }
+
+    /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially
+    /// with default settings, producing a partitioned
+    /// [`SortedLabeledGraph`].
+    ///
+    /// Equivalent to
+    /// `SortedLabeledGraph::config().sort(graph, batch_codec)`.
+    pub fn new<C, G>(graph: G, batch_codec: C) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+        G: LabeledSequentialGraph<C::Label>,
+        for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
+    {
+        Self::config().sort(graph, batch_codec)
+    }
+
+    /// Sorts labeled arcs from a splittable [`LabeledSequentialGraph`] in
+    /// parallel with default settings, producing a partitioned
+    /// [`SortedLabeledGraph`].
+    ///
+    /// Equivalent to
+    /// `SortedLabeledGraph::config().par_sort(graph, batch_codec)`.
+    pub fn par_new<C, G>(graph: G, batch_codec: C) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+        G: LabeledSequentialGraph<C::Label>
+            + for<'a> SplitLabeling<
+                SplitLender<'a>: for<'b> NodeLabelsLender<
+                    'b,
+                    Label: Pair<Left = usize, Right = C::Label> + Copy,
+                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                > + Send
+                    + Sync,
+            >,
+        CodecIter<C>: Clone + Send + Sync,
+    {
+        Self::config().par_sort(graph, batch_codec)
+    }
 }
 
 // === SequentialLabeling ===
@@ -233,10 +272,9 @@ impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize)
 // === IntoParIters (reference — clones iterators) ===
 
 impl<
-    'a,
     L: Clone + Copy + Send + Sync + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> IntoParIters for &'a SortedLabeledGraph<L, I>
+> IntoParIters for &SortedLabeledGraph<L, I>
 {
     type Label = (usize, L);
     type ParLender = arc_list_graph::NodeLabels<L, I>;

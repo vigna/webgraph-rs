@@ -91,7 +91,7 @@ fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
     let sorted = SortedGraph::config()
         .num_partitions(NonZeroUsize::new(2).unwrap())
-        .par_new(g.clone())?;
+        .par_sort(g.clone())?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
     let (_lenders, boundaries) = sorted.into_par_iters();

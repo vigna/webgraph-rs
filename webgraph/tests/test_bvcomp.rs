@@ -85,12 +85,13 @@ where
     Ok(())
 }
 
-fn _test_body<E: Endianness, G: SequentialGraph + SplitLabeling + ParallelLabeling<Label = usize>, P: AsRef<Path>>(
+fn _test_body<'g, E: Endianness, G: SequentialGraph + SplitLabeling, P: AsRef<Path>>(
     tmp_path: P,
-    seq_graph: &G,
+    seq_graph: &'g G,
     comp_flags: CompFlags,
 ) -> Result<()>
 where
+    &'g G: IntoParIters<Label = usize>,
     for<'a> G::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender,

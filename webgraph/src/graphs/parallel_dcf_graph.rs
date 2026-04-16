@@ -16,7 +16,7 @@ use sux::{
 /// a degree cumulative function.
 ///
 /// Delegates all graph and labeling traits to the inner graph, but provides
-/// its own [`ParallelLabeling`] implementation using
+/// its own [`IntoParIters`] implementation using
 /// [`SplitLabeling::split_iter_at`] with arc-balanced cutpoints computed
 /// from the DCF via [`FairChunks`].
 #[derive(Debug, Clone)]
@@ -79,18 +79,16 @@ impl<G: RandomAccessLabeling, D> RandomAccessLabeling for ParallelDcfGraph<G, D>
 
 impl<G: RandomAccessGraph, D> RandomAccessGraph for ParallelDcfGraph<G, D> {}
 
-impl<G, D> ParallelLabeling for ParallelDcfGraph<G, D>
+impl<'a, G, D> IntoParIters for &'a ParallelDcfGraph<G, D>
 where
     G: SequentialLabeling + SplitLabeling,
-    D: for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq,
-    for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + FusedLender,
+    D: for<'b> Succ<Input = u64, Output<'b> = u64> + IndexedSeq,
+    for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
-    type ParLender<'node>
-        = <G as SplitLabeling>::SplitLender<'node>
-    where
-        Self: 'node;
+    type Label = G::Label;
+    type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
-    fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>) {
+    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let n = self.2.get();
         let num_nodes = self.0.num_nodes();
         let total_arcs = self.1.get(num_nodes);

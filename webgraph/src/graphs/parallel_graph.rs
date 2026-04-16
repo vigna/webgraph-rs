@@ -9,10 +9,10 @@ use lender::*;
 use std::num::NonZeroUsize;
 
 /// A wrapper that overrides the number of partitions for
-/// [`ParallelLabeling`].
+/// [`IntoParIters`].
 ///
 /// Delegates all graph and labeling traits to the inner graph, but provides
-/// its own [`ParallelLabeling`] implementation using
+/// its own [`IntoParIters`] implementation using
 /// [`SplitLabeling::split_iter`] with the partition count stored in the
 /// wrapper.
 #[derive(Debug, Clone)]
@@ -75,16 +75,14 @@ impl<G: RandomAccessLabeling> RandomAccessLabeling for ParallelGraph<G> {
 
 impl<G: RandomAccessGraph> RandomAccessGraph for ParallelGraph<G> {}
 
-impl<G: SequentialLabeling + SplitLabeling> ParallelLabeling for ParallelGraph<G>
+impl<'a, G: SequentialLabeling + SplitLabeling> IntoParIters for &'a ParallelGraph<G>
 where
-    for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender + FusedLender,
+    for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
-    type ParLender<'node>
-        = <G as SplitLabeling>::SplitLender<'node>
-    where
-        Self: 'node;
+    type Label = G::Label;
+    type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
-    fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>) {
+    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let n = self.1.get();
         let step = self.0.num_nodes().div_ceil(n);
         let num_nodes = self.0.num_nodes();

@@ -156,7 +156,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// - [`comp_graph`]: compresses a [`SequentialGraph`] sequentially;
 /// - [`comp_lender`]: compresses a [`NodeLabelsLender`] sequentially;
-/// - [`par_comp`]: compresses a [`ParallelLabeling`] in parallel.
+/// - [`par_comp`]: compresses an [`IntoParIters`] in parallel.
 ///
 /// All methods produce the `.graph`, `.offsets`, and `.properties` files
 /// and return the total number of bits written to the graph bitstream.
@@ -388,29 +388,27 @@ impl BvCompConfig {
         Ok(comp_stats.written_bits)
     }
 
-    /// Compresses a [`ParallelLabeling`] in parallel and returns the length
+    /// Compresses an [`IntoParIters`] in parallel and returns the length
     /// in bits of the graph bitstream.
     ///
-    /// The method calls [`par_iters`] to obtain lenders and boundaries,
+    /// The method calls [`into_par_iters`] to obtain lenders and boundaries,
     /// then compresses each lender in a separate thread and concatenates
     /// the resulting bitstreams.
     ///
     /// Note that the number of parallel compression threads will be
     /// [`current_num_threads`]. It is your responsibility to ensure that the
     /// number of threads is appropriate for the number of lenders returned
-    /// by [`par_iters`], possibly using [`install`].
+    /// by [`into_par_iters`], possibly using [`install`].
     ///
-    /// [`par_iters`]: ParallelLabeling::par_iters
+    /// [`into_par_iters`]: IntoParIters::into_par_iters
     /// [`install`]: rayon::ThreadPool::install
-    pub fn par_comp<E: Endianness, G: ParallelLabeling<Label = usize>>(
-        &mut self,
-        graph: &G,
-    ) -> Result<u64>
+    pub fn par_comp<E: Endianness, G>(&mut self, graph: G) -> Result<u64>
     where
+        G: IntoParIters<Label = usize>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        let (lenders, boundaries) = graph.par_iters();
+        let (lenders, boundaries) = graph.into_par_iters();
         let num_nodes = *boundaries.last().unwrap_or(&0);
         let tmp_dir = self.tmp_dir()?;
 
