@@ -13,6 +13,7 @@ pub mod btree_graph;
 pub mod bvgraph;
 pub mod csr_graph;
 pub mod no_selfloops_graph;
+pub mod parallel_dcf_graph;
 pub mod parallel_graph;
 pub mod permuted_graph;
 pub mod random;
@@ -25,6 +26,7 @@ pub mod prelude {
     pub use super::bvgraph::*;
     pub use super::csr_graph::{CsrGraph, CsrSortedGraph};
     pub use super::no_selfloops_graph::NoSelfLoopsGraph;
+    pub use super::parallel_dcf_graph::ParallelDcfGraph;
     pub use super::parallel_graph::ParallelGraph;
     pub use super::permuted_graph::PermutedGraph;
     pub use super::sorted_graph::SortedGraph;
