@@ -35,15 +35,7 @@ use webgraph::utils::par_sort_iters::ParSortIters;
 /// 2 (node 4), 3 (node 0); indegree 0 (node 4), 1 (nodes 1, 3),
 /// 2 (node 2), 3 (node 0).
 fn test_graph() -> VecGraph {
-    VecGraph::from_arcs([
-        (0, 1),
-        (0, 2),
-        (0, 3),
-        (1, 2),
-        (2, 0),
-        (4, 0),
-        (4, 2),
-    ])
+    VecGraph::from_arcs([(0, 1), (0, 2), (0, 3), (1, 2), (2, 0), (4, 0), (4, 2)])
 }
 
 // ── SortedGraph ──
@@ -51,7 +43,7 @@ fn test_graph() -> VecGraph {
 #[test]
 fn test_sorted_graph_preserves_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::new(g.clone())?;
+    let sorted = SortedGraph::par_new(g.clone())?;
     graph::eq(&g, &sorted)?;
     Ok(())
 }
@@ -71,8 +63,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
     let num_nodes = pg.num_nodes();
     let pairs: Vec<(usize, usize)> = pg.iter().into_pairs().collect();
 
-    let par_sort =
-        ParSortIters::new(num_nodes)?.num_partitions(NonZeroUsize::new(2).unwrap());
+    let par_sort = ParSortIters::new(num_nodes)?.num_partitions(NonZeroUsize::new(2).unwrap());
     let split = par_sort.sort(vec![pairs])?;
     let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
 
@@ -83,8 +74,8 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 #[test]
 fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::new(g.clone())?;
-    let (_lenders, boundaries) = sorted.par_iters();
+    let sorted = SortedGraph::par_new(g.clone())?;
+    let (_lenders, boundaries) = sorted.into_par_iters();
     // Boundaries must start at 0 and end at num_nodes
     assert_eq!(*boundaries.first().unwrap(), 0);
     assert_eq!(*boundaries.last().unwrap(), g.num_nodes());
@@ -98,10 +89,12 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
 #[test]
 fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::with_part(g.clone(), NonZeroUsize::new(2).unwrap())?;
+    let sorted = SortedGraph::config()
+        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .par_new(g.clone())?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
-    let (_lenders, boundaries) = sorted.par_iters();
+    let (_lenders, boundaries) = sorted.into_par_iters();
     assert_eq!(boundaries.len(), 3);
     assert_eq!(boundaries[0], 0);
     assert_eq!(*boundaries.last().unwrap(), g.num_nodes());
@@ -119,8 +112,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
         .map(|lender| lender.into_pairs())
         .collect();
 
-    let par_sort =
-        ParSortIters::new(num_nodes)?.num_partitions(NonZeroUsize::new(2).unwrap());
+    let par_sort = ParSortIters::new(num_nodes)?.num_partitions(NonZeroUsize::new(2).unwrap());
     let split = par_sort.sort(pairs)?;
 
     let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
@@ -135,7 +127,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
 fn test_parallel_graph_custom_partitions() -> Result<()> {
     let g = test_graph();
     let pg = ParallelGraph::new(g, NonZeroUsize::new(3).unwrap());
-    let (lenders, boundaries) = pg.par_iters();
+    let (lenders, boundaries) = pg.into_par_iters();
     assert_eq!(lenders.len(), 3);
     assert_eq!(boundaries.len(), 4);
     assert_eq!(boundaries[0], 0);
@@ -169,7 +161,7 @@ fn test_parallel_graph_graph_equality() -> Result<()> {
 #[test]
 fn test_par_comp_with_sorted_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::new(g.clone())?;
+    let sorted = SortedGraph::par_new(g.clone())?;
 
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("sorted");

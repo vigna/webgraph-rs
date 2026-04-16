@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! A graph built by sorting pairs of nodes in parallel.
+//! A graph built by sorting pairs of nodes.
 
 use crate::graphs::arc_list_graph;
 use crate::labels::proj::LeftIterator;
@@ -16,11 +16,32 @@ use lender::*;
 use std::iter::Flatten;
 use std::num::NonZeroUsize;
 
-/// A graph representation built by sorting arc pairs in parallel.
+/// A graph representation built by sorting arc pairs.
 ///
 /// Stores partition boundaries and sorted iterators for each partition.
 /// The number of nodes is derived from the last boundary value.
-pub struct SortedGraph<I: Clone> {
+///
+/// A `SortedGraph` can be built from any [`SequentialGraph`] using
+/// [`new`](SortedGraph::new) (sequential sort) or
+/// [`par_new`](SortedGraph::par_new) (parallel sort from a
+/// [`SplitLabeling`]). In both cases, the result implements
+/// [`IntoParIters`], making it suitable for parallel compression via
+/// [`BvCompConfig::par_comp`](crate::graphs::bvgraph::BvCompConfig::par_comp).
+///
+/// # Examples
+///
+/// ```ignore
+/// // Sequential sort with defaults
+/// let sorted = SortedGraph::new(PermutedGraph::new(&graph, &perm))?;
+/// BvComp::with_basename("out").par_comp::<BE, _>(&sorted)?;
+///
+/// // Parallel sort with custom config
+/// let sorted = SortedGraph::config()
+///     .num_partitions(NonZeroUsize::new(8).unwrap())
+///     .memory_usage(MemoryUsage::Percentage(0.5))
+///     .par_new(graph)?;
+/// ```
+pub struct SortedGraph<I> {
     boundaries: Box<[usize]>,
     iters: Box<[I]>,
 }
@@ -30,113 +51,68 @@ type SeqIter<'a, I> = Flatten<std::iter::Cloned<std::slice::Iter<'a, I>>>;
 #[allow(clippy::type_complexity)]
 type MapFn = fn((usize, usize)) -> ((usize, usize), ());
 
-impl SortedGraph<SortedPairIter> {
-    /// Creates a new [`SortedGraph`] by sorting arcs from the given graph
-    /// using default partitioning and memory settings.
-    pub fn new<G>(graph: G) -> Result<Self>
+/// Configuration for building a [`SortedGraph`].
+///
+/// Obtained via [`SortedGraph::config()`]. Use the setter methods to
+/// customize partitioning and memory, then call [`new`](Self::new)
+/// or [`par_new`](Self::par_new) to perform the sort.
+pub struct SortedGraphConfig {
+    num_partitions: NonZeroUsize,
+    memory_usage: MemoryUsage,
+}
+
+impl SortedGraphConfig {
+    /// Sets the number of output partitions.
+    ///
+    /// Defaults to [`rayon::current_num_threads`].
+    pub const fn num_partitions(mut self, n: NonZeroUsize) -> Self {
+        self.num_partitions = n;
+        self
+    }
+
+    /// Sets the memory budget for in-memory sorting.
+    ///
+    /// Defaults to [`MemoryUsage::default`].
+    pub const fn memory_usage(mut self, m: MemoryUsage) -> Self {
+        self.memory_usage = m;
+        self
+    }
+
+    /// Sorts arcs from a [`SequentialGraph`] sequentially, producing a
+    /// partitioned [`SortedGraph`].
+    ///
+    /// The graph is iterated once; pairs are partitioned and sorted in a
+    /// single pass using [`ParSortIters`] with one input iterator.
+    pub fn new<G: SequentialGraph>(self, graph: G) -> Result<SortedGraph<SortedPairIter>>
     where
-        G: SequentialGraph
-            + for<'g, 'a> SplitLabeling<
-                SplitLender<'g>: NodeLabelsLender<
-                    'a,
-                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-                >,
-            >,
+        for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
 
-        let mut par_sort = ParSortIters::new(num_nodes)?;
+        let mut par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
 
-        let pairs: Vec<_> = graph
-            .split_iter(rayon::current_num_threads())
-            .into_iter()
-            .map(|iter| iter.into_pairs())
-            .collect();
-
-        let split = par_sort.sort(pairs)?;
+        // Single input iterator — sorting is sequential, output is partitioned
+        let split = par_sort.sort([graph.iter().into_pairs()])?;
         Ok(SortedGraph {
             boundaries: split.boundaries,
             iters: split.iters,
         })
     }
 
-    /// Creates a new [`SortedGraph`] by sorting arcs from the given graph
-    /// using default partitioning and custom memory settings.
-    pub fn with_mem<G>(graph: G, memory_usage: MemoryUsage) -> Result<Self>
-    where
-        G: SequentialGraph
-            + for<'g, 'a> SplitLabeling<
-                SplitLender<'g>: NodeLabelsLender<
-                    'a,
-                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-                >,
-            >,
-    {
-        let num_nodes = graph.num_nodes();
-        let num_arcs_hint = graph.num_arcs_hint();
-
-        let mut par_sort = ParSortIters::new(num_nodes)?.memory_usage(memory_usage);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
-        }
-
-        let pairs: Vec<_> = graph
-            .split_iter(rayon::current_num_threads())
-            .into_iter()
-            .map(|iter| iter.into_pairs())
-            .collect();
-
-        let split = par_sort.sort(pairs)?;
-        Ok(SortedGraph {
-            boundaries: split.boundaries,
-            iters: split.iters,
-        })
-    }
-
-    /// Creates a new [`SortedGraph`] by sorting arcs from the given graph
-    /// using custom partitioning and default memory settings.
-    pub fn with_part<G>(graph: G, num_partitions: NonZeroUsize) -> Result<Self>
-    where
-        G: SequentialGraph
-            + for<'g, 'a> SplitLabeling<
-                SplitLender<'g>: NodeLabelsLender<
-                    'a,
-                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-                >,
-            >,
-    {
-        let num_nodes = graph.num_nodes();
-        let num_arcs_hint = graph.num_arcs_hint();
-
-        let mut par_sort = ParSortIters::new(num_nodes)?.num_partitions(num_partitions);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
-        }
-
-        let pairs: Vec<_> = graph
-            .split_iter(rayon::current_num_threads())
-            .into_iter()
-            .map(|iter| iter.into_pairs())
-            .collect();
-
-        let split = par_sort.sort(pairs)?;
-        Ok(SortedGraph {
-            boundaries: split.boundaries,
-            iters: split.iters,
-        })
-    }
-
-    /// Creates a new [`SortedGraph`] by sorting arcs from the given graph
-    /// using custom partitioning and memory settings.
-    pub fn with_part_and_mem<G>(
-        graph: G,
-        num_partitions: NonZeroUsize,
-        memory_usage: MemoryUsage,
-    ) -> Result<Self>
+    /// Sorts arcs from a splittable [`SequentialGraph`] in parallel,
+    /// producing a partitioned [`SortedGraph`].
+    ///
+    /// The graph is split via [`SplitLabeling`] and each split is
+    /// sorted concurrently using [`ParSortIters`].
+    pub fn par_new<G>(self, graph: G) -> Result<SortedGraph<SortedPairIter>>
     where
         G: SequentialGraph
             + for<'g, 'a> SplitLabeling<
@@ -150,8 +126,9 @@ impl SortedGraph<SortedPairIter> {
         let num_arcs_hint = graph.num_arcs_hint();
 
         let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(num_partitions)
-            .memory_usage(memory_usage);
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
@@ -170,13 +147,62 @@ impl SortedGraph<SortedPairIter> {
     }
 }
 
-impl<I: Clone> SortedGraph<I> {
+impl SortedGraph<SortedPairIter> {
+    /// Sorts arcs from a [`SequentialGraph`] sequentially with default
+    /// settings, producing a partitioned [`SortedGraph`].
+    ///
+    /// Equivalent to `SortedGraph::config().new(graph)`.
+    pub fn new<G: SequentialGraph>(graph: G) -> Result<Self>
+    where
+        for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
+    {
+        Self::config().new(graph)
+    }
+
+    /// Sorts arcs from a splittable [`SequentialGraph`] in parallel with
+    /// default settings, producing a partitioned [`SortedGraph`].
+    ///
+    /// Equivalent to `SortedGraph::config().par_new(graph)`.
+    pub fn par_new<G>(graph: G) -> Result<Self>
+    where
+        G: SequentialGraph
+            + for<'g, 'a> SplitLabeling<
+                SplitLender<'g>: NodeLabelsLender<
+                    'a,
+                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                >,
+            >,
+    {
+        Self::config().par_new(graph)
+    }
+
+    /// Returns a [`SortedGraphConfig`] with default settings for
+    /// customization via chained setters.
+    pub fn config() -> SortedGraphConfig {
+        SortedGraphConfig {
+            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
+                .expect("Number of Rayon threads should be non-zero"),
+            memory_usage: MemoryUsage::default(),
+        }
+    }
+}
+
+impl<I> SortedGraph<I> {
     /// Creates a [`SortedGraph`] from pre-sorted partition boundaries and
     /// iterators.
     pub fn from_parts(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
         SortedGraph { boundaries, iters }
     }
+
+    /// Decomposes the [`SortedGraph`] into its partition boundaries and
+    /// iterators.
+    pub fn into_parts(self) -> (Box<[usize]>, Box<[I]>) {
+        (self.boundaries, self.iters)
+    }
 }
+
+// === SequentialLabeling ===
 
 impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> SequentialLabeling
     for SortedGraph<I>
@@ -187,7 +213,7 @@ impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> SequentialLabelin
     where
         Self: 'node;
 
-    #[inline(always)]
+    #[inline]
     fn num_nodes(&self) -> usize {
         *self.boundaries.last().unwrap_or(&0)
     }
@@ -204,13 +230,47 @@ impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> SequentialLabelin
 
 impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> SequentialGraph for SortedGraph<I> {}
 
-impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> ParallelLabeling for SortedGraph<I> {
-    type ParLender<'node>
-        = LeftIterator<arc_list_graph::NodeLabels<(), std::iter::Map<I, MapFn>>>
-    where
-        Self: 'node;
+// === IntoParIters (owned — consumes iterators, no Clone needed) ===
 
-    fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>) {
+impl<I: Iterator<Item = (usize, usize)> + Send + Sync> IntoParIters for SortedGraph<I> {
+    type Label = usize;
+    type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), std::iter::Map<I, MapFn>>>;
+
+    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+        let map_fn: MapFn = |pair| (pair, ());
+        let boundaries = self.boundaries;
+        let lenders: Box<[_]> = self
+            .iters
+            .into_vec()
+            .into_iter()
+            .enumerate()
+            .map(|(i, iter)| {
+                let start = boundaries[i];
+                let end = boundaries[i + 1];
+                let num_partition_nodes = end - start;
+                let labeled_iter = iter.map(map_fn);
+                let node_labels = arc_list_graph::NodeLabels::try_new_from(
+                    num_partition_nodes,
+                    labeled_iter,
+                    start,
+                )
+                .expect("Iterator should start from the expected first node");
+                LeftIterator(node_labels)
+            })
+            .collect();
+        (lenders, boundaries)
+    }
+}
+
+// === IntoParIters (reference — clones iterators) ===
+
+impl<'a, I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> IntoParIters
+    for &'a SortedGraph<I>
+{
+    type Label = usize;
+    type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), std::iter::Map<I, MapFn>>>;
+
+    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let map_fn: MapFn = |pair| (pair, ());
         let lenders: Box<[_]> = self
             .iters
@@ -233,6 +293,8 @@ impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> ParallelLabeling 
         (lenders, self.boundaries.clone())
     }
 }
+
+// === IntoLender / Lending ===
 
 impl<'a, I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> IntoLender
     for &'a SortedGraph<I>
