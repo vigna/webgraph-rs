@@ -242,6 +242,29 @@ impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone 
     }
 }
 
+/// Creates labeled lenders from an iterator of labeled-pair-iterators and
+/// their boundaries.
+fn make_labeled_lenders<
+    L: Clone + Copy + 'static,
+    I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
+>(
+    iters: impl IntoIterator<Item = I>,
+    boundaries: &[usize],
+) -> Box<[arc_list_graph::NodeLabels<L, I>]> {
+    iters
+        .into_iter()
+        .enumerate()
+        .map(|(i, iter)| {
+            arc_list_graph::NodeLabels::try_new_from(
+                boundaries[i + 1] - boundaries[i],
+                iter,
+                boundaries[i],
+            )
+            .expect("Iterator should start from the expected first node")
+        })
+        .collect()
+}
+
 // === IntoParIters (owned — consumes iterators, no Clone needed) ===
 
 impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
@@ -251,21 +274,8 @@ impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize)
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let boundaries = self.boundaries;
-        let lenders: Box<[_]> = self
-            .iters
-            .into_vec()
-            .into_iter()
-            .enumerate()
-            .map(|(i, iter)| {
-                let start = boundaries[i];
-                let end = boundaries[i + 1];
-                let num_partition_nodes = end - start;
-                arc_list_graph::NodeLabels::try_new_from(num_partition_nodes, iter, start)
-                    .expect("Iterator should start from the expected first node")
-            })
-            .collect();
-        (lenders, boundaries)
+        let lenders = make_labeled_lenders(self.iters.into_vec(), &self.boundaries);
+        (lenders, self.boundaries)
     }
 }
 
@@ -280,22 +290,7 @@ impl<
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let lenders: Box<[_]> = self
-            .iters
-            .iter()
-            .enumerate()
-            .map(|(i, iter)| {
-                let start = self.boundaries[i];
-                let end = self.boundaries[i + 1];
-                let num_partition_nodes = end - start;
-                arc_list_graph::NodeLabels::try_new_from(
-                    num_partition_nodes,
-                    iter.clone(),
-                    start,
-                )
-                .expect("Iterator should start from the expected first node")
-            })
-            .collect();
+        let lenders = make_labeled_lenders(self.iters.iter().cloned(), &self.boundaries);
         (lenders, self.boundaries.clone())
     }
 }

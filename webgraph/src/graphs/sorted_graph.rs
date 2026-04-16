@@ -230,6 +230,28 @@ impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> SequentialLabelin
 
 impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> SequentialGraph for SortedGraph<I> {}
 
+/// Creates lenders from an iterator of pair-iterators and their boundaries.
+fn make_lenders<I: Iterator<Item = (usize, usize)> + Send + Sync>(
+    iters: impl IntoIterator<Item = I>,
+    boundaries: &[usize],
+) -> Box<[LeftIterator<arc_list_graph::NodeLabels<(), std::iter::Map<I, MapFn>>>]> {
+    let map_fn: MapFn = |pair| (pair, ());
+    iters
+        .into_iter()
+        .enumerate()
+        .map(|(i, iter)| {
+            LeftIterator(
+                arc_list_graph::NodeLabels::try_new_from(
+                    boundaries[i + 1] - boundaries[i],
+                    iter.map(map_fn),
+                    boundaries[i],
+                )
+                .expect("Iterator should start from the expected first node"),
+            )
+        })
+        .collect()
+}
+
 // === IntoParIters (owned — consumes iterators, no Clone needed) ===
 
 impl<I: Iterator<Item = (usize, usize)> + Send + Sync> IntoParIters for SortedGraph<I> {
@@ -237,28 +259,8 @@ impl<I: Iterator<Item = (usize, usize)> + Send + Sync> IntoParIters for SortedGr
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), std::iter::Map<I, MapFn>>>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let map_fn: MapFn = |pair| (pair, ());
-        let boundaries = self.boundaries;
-        let lenders: Box<[_]> = self
-            .iters
-            .into_vec()
-            .into_iter()
-            .enumerate()
-            .map(|(i, iter)| {
-                let start = boundaries[i];
-                let end = boundaries[i + 1];
-                let num_partition_nodes = end - start;
-                let labeled_iter = iter.map(map_fn);
-                let node_labels = arc_list_graph::NodeLabels::try_new_from(
-                    num_partition_nodes,
-                    labeled_iter,
-                    start,
-                )
-                .expect("Iterator should start from the expected first node");
-                LeftIterator(node_labels)
-            })
-            .collect();
-        (lenders, boundaries)
+        let lenders = make_lenders(self.iters.into_vec(), &self.boundaries);
+        (lenders, self.boundaries)
     }
 }
 
@@ -269,25 +271,7 @@ impl<I: Iterator<Item = (usize, usize)> + Clone + Send + Sync> IntoParIters for 
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), std::iter::Map<I, MapFn>>>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let map_fn: MapFn = |pair| (pair, ());
-        let lenders: Box<[_]> = self
-            .iters
-            .iter()
-            .enumerate()
-            .map(|(i, iter)| {
-                let start = self.boundaries[i];
-                let end = self.boundaries[i + 1];
-                let num_partition_nodes = end - start;
-                let labeled_iter = iter.clone().map(map_fn);
-                let node_labels = arc_list_graph::NodeLabels::try_new_from(
-                    num_partition_nodes,
-                    labeled_iter,
-                    start,
-                )
-                .expect("Iterator should start from the expected first node");
-                LeftIterator(node_labels)
-            })
-            .collect();
+        let lenders = make_lenders(self.iters.iter().cloned(), &self.boundaries);
         (lenders, self.boundaries.clone())
     }
 }
