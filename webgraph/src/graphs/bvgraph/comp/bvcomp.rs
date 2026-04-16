@@ -648,7 +648,7 @@ mod test {
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;
 
-        BvComp::with_basename(&basename).par_comp_graph::<BE>(&cnr_2000)?;
+        BvComp::with_basename(&basename).par_comp::<BE>(&cnr_2000)?;
 
         let seq_graph = BvGraphSeq::with_basename(&basename).load()?;
         labels::eq_sorted(&cnr_2000, &seq_graph)?;

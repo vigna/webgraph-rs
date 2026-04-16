@@ -193,7 +193,7 @@ fn test_bvcomp_par_comp() -> Result<()> {
         webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (0, 2), (1, 3), (2, 3), (3, 0)]);
     let tmp = tempfile::NamedTempFile::new()?;
     let path = tmp.path();
-    BvComp::with_basename(path).par_comp_graph::<BE>(&graph)?;
+    BvComp::with_basename(path).par_comp::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     assert_eq!(seq.num_nodes(), 4);
     assert_eq!(seq.num_arcs_hint(), Some(5));
@@ -275,9 +275,9 @@ fn test_bvcomp_par_comp_lenders() -> Result<()> {
     let seq = BvGraphSeq::with_basename(&basename)
         .endianness::<BE>()
         .load()?;
-    // Now use par_comp_graph which calls par_comp_lenders internally
+    // Now use par_comp which calls par_comp_lenders internally
     let basename2 = tmp.path().join("test_par2");
-    BvComp::with_basename(&basename2).par_comp_graph::<BE>(&seq)?;
+    BvComp::with_basename(&basename2).par_comp::<BE>(&seq)?;
     let seq2 = BvGraphSeq::with_basename(&basename2)
         .endianness::<BE>()
         .load()?;
@@ -604,13 +604,13 @@ fn test_bvcomp_config_with_explicit_tmp_dir() -> Result<()> {
 }
 
 #[test]
-fn test_par_comp_graph() -> Result<()> {
+fn test_par_comp() -> Result<()> {
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("test_par");
     let graph =
         webgraph::graphs::vec_graph::VecGraph::from_arcs([(0, 1), (1, 2), (2, 0), (1, 3), (3, 4)]);
 
-    let bits_written = BvCompConfig::new(&basename).par_comp_graph::<BE>(&graph)?;
+    let bits_written = BvCompConfig::new(&basename).par_comp::<BE>(&graph)?;
     assert!(bits_written > 0);
 
     // Build EF for loaded graph
@@ -623,8 +623,9 @@ fn test_par_comp_graph() -> Result<()> {
 }
 
 #[test]
-fn test_par_comp_lenders() -> Result<()> {
+fn test_par_comp_from_parts() -> Result<()> {
     use std::num::NonZeroUsize;
+    use webgraph::graphs::sorted_graph::SortedGraph;
     use webgraph::traits::SequentialLabeling;
     use webgraph::utils::{MemoryUsage, ParSortPairs};
 
@@ -640,13 +641,11 @@ fn test_par_comp_lenders() -> Result<()> {
     use rayon::prelude::*;
     let split = sorter.sort(pairs.into_par_iter())?;
 
-    // Convert to lenders
-    let lenders: Vec<LeftIterator<_>> = split.into();
-
-    // Compress with par_comp_lenders
+    // Wrap in SortedGraph and compress with par_comp
+    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("par_lenders");
-    let bits = BvCompConfig::new(&basename).par_comp_lenders::<BE, _>(lenders, num_nodes)?;
+    let bits = BvCompConfig::new(&basename).par_comp::<BE>(&sorted)?;
     assert!(bits > 0);
 
     // Build EF and load

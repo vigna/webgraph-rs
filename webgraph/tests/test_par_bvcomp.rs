@@ -47,7 +47,7 @@ fn _test_par_bvcomp(basename: &std::path::Path) -> Result<()> {
         // recompress the graph in parallel
         BvCompConfig::new(&tmp_basename)
             .with_comp_flags(comp_flags)
-            .par_comp_graph::<BE>(&graph)?;
+            .par_comp::<BE>(&graph)?;
 
         log::info!("The compression took: {}s", start.elapsed().as_secs_f64());
 

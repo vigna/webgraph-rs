@@ -55,7 +55,7 @@ pub fn harness(data: FuzzCase) {
     let mut bvcompz = BvCompZ::with_basename(&tmp_path_bvcompz)
         .with_comp_flags(comp_flags)
         .with_chunk_size(chunk_size);
-    bvcompz.par_comp_graph::<BE>(&graph).unwrap();
+    bvcompz.par_comp::<BE>(&graph).unwrap();
     let new_graph = BvGraphSeq::with_basename(&tmp_path_bvcompz)
         .endianness::<BE>()
         .load()
