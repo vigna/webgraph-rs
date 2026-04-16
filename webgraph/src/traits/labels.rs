@@ -583,27 +583,30 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// which the parallelism is inherent and not under control of the caller, albeit
 /// in general there is a way to control such parallelism at construction time.
 ///
-/// Compressor should provide methods that accept a [`ParallelLabeling`] and use
+/// Compressors should provide methods that accept a [`ParallelLabeling`] and use
 /// the lenders returned by [`par_iters`] to process the graph in parallel.
 ///
 /// [`par_iters`]: ParallelLabeling::par_iters
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
-/// [sorting]: crate::graphs::csr_graph::CsrSortedGraph
+/// [sorting]: crate::graphs::SortedGraph
+#[autoimpl(for<S: trait + ?Sized> &S, &mut S, Rc<S>)]
 pub trait ParallelLabeling: SequentialLabeling {
     /// The type of [`Lender`] over the successors of a node returned by
     /// [`par_iters`].
     ///
     /// [`par_iters`]: Self::par_iters
-    type ParLender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label> + Send + Sync
+    type ParLender<'node>: for<'next> NodeLabelsLender<'next, Label = Self::Label>
+        + ExactSizeLender
+        + FusedLender
+        + Send
+        + Sync
     where
         Self: 'node;
 
     /// Returns in constant time a sequence of lenders that can be used in
     /// parallel computations.
-    ///
-    ///
     fn par_iters(&self) -> (Box<[Self::ParLender<'_>]>, Box<[usize]>);
 }
 

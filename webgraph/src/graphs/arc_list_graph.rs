@@ -177,6 +177,11 @@ impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> ExactSizeLende
     }
 }
 
+impl<L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)>> lender::FusedLender
+    for NodeLabels<L, I>
+{
+}
+
 impl<'lend, L: Clone + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone> Lending<'lend>
     for &ArcListGraph<I>
 {
