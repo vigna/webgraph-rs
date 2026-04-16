@@ -19,7 +19,9 @@ use crate::prelude::{
     RandomAccessLabeling, SequentialGraph, SequentialLabeling, SortedIterator, SortedLender,
 };
 use crate::traits::SplitLabeling;
-use lender::{ExactSizeLender, IntoLender, Lend, Lender, Lending, unsafe_assume_covariance};
+use lender::{
+    ExactSizeLender, FusedLender, IntoLender, Lend, Lender, Lending, unsafe_assume_covariance,
+};
 
 /// The projection onto the first component of a pair.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -61,6 +63,13 @@ where
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+}
+
+impl<L: FusedLender> FusedLender for LeftIterator<L>
+where
+    L: Lender + for<'next> NodeLabelsLender<'next>,
+    for<'next> LenderLabel<'next, L>: Pair,
+{
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
