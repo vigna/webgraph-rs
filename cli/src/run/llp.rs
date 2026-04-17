@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023-2026 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
@@ -12,7 +12,7 @@ use crate::NumThreadsArg;
 use crate::create_parent_dir;
 use crate::get_thread_pool;
 use anyhow::{Context, Result, bail};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use dsi_bitstream::dispatch::factory::CodesReaderFactoryHelper;
 use dsi_bitstream::prelude::*;
 use epserde::prelude::*;
@@ -23,6 +23,35 @@ use webgraph_algo::{combine_labels, labels_to_ranks};
 use predicates::prelude::*;
 use std::path::PathBuf;
 use tempfile::tempdir;
+
+#[derive(ValueEnum, Debug, Clone, Default)]
+pub enum FuncPerm {
+    Identity,
+    #[default]
+    Random,
+}
+
+impl std::fmt::Display for FuncPerm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identity => write!(f, "identity"),
+            Self::Random => write!(f, "random"),
+        }
+    }
+}
+
+impl FuncPerm {
+    pub fn build(&self, n: usize, s0: u64, s1: u64) -> impl Fn(u64) -> u64 + Send + Sync {
+        let funcperm = match self {
+            Self::Identity => None,
+            Self::Random => Some(funcperm::murmur(n as u64, s0, s1)),
+        };
+        move |x| match funcperm {
+            None => x,
+            Some(funcperm) => funcperm.get(x),
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "llp", about = "Computes a permutation of a graph using Layered Label Propagation.", long_about = None, next_line_help = true)]
@@ -95,6 +124,10 @@ pub struct CliArgs {
     /// The chunk size used to localize the random permutation
     /// (advanced option).​
     pub chunk_size: Option<usize>,
+
+    #[arg(long, default_value_t = FuncPerm::default() )]
+    /// The functional permutation used in each iteration of the algorithm
+    pub func_perm: FuncPerm,
 }
 
 /// Stores a permutation using the given format.
@@ -211,10 +244,7 @@ where
             granularity,
             args.seed,
             predicate,
-            |n: usize, s0: u64, s1: u64| {
-                let funcperm = funcperm::murmur(n as u64, s0, s1);
-                move |x| funcperm.get(x)
-            },
+            |n: usize, s0: u64, s1: u64| args.func_perm.build(n, s0, s1),
             work_dir,
         )
         .context("Could not compute LLP")?;
