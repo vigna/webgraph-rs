@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023-2026 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
  *
@@ -95,6 +95,10 @@ pub struct CliArgs {
     /// The chunk size used to localize the random permutation
     /// (advanced option).​
     pub chunk_size: Option<usize>,
+
+    #[arg(long)]
+    /// Whether to use the identity instead of a random permutation
+    pub no_perm: bool,
 }
 
 /// Stores a permutation using the given format.
@@ -201,6 +205,18 @@ where
 
     let granularity = args.granularity.into_granularity();
 
+    let func_perm_gen = |n: usize, s0: u64, s1: u64| {
+        let funcperm = if args.no_perm {
+            None
+        } else {
+            Some(funcperm::murmur(n as u64, s0, s1))
+        };
+        move |x| match funcperm {
+            None => x,
+            Some(funcperm) => funcperm.get(x),
+        }
+    };
+
     let thread_pool = get_thread_pool(args.num_threads.num_threads);
     thread_pool.install(|| -> Result<()> {
         // compute the LLP
@@ -211,10 +227,7 @@ where
             granularity,
             args.seed,
             predicate,
-            |n: usize, s0: u64, s1: u64| {
-                let funcperm = funcperm::murmur(n as u64, s0, s1);
-                move |x| funcperm.get(x)
-            },
+            func_perm_gen,
             work_dir,
         )
         .context("Could not compute LLP")?;
