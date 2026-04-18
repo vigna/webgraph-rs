@@ -572,7 +572,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// The purpose of this trait is to make available internal parallelism of a
 /// graph representation. While a [`SplitLabeling`] makes it possible to split a
 /// graph at will, but it does not provide guarantees on the efficiency of the
-/// process, an [`IntoParIters`] provides in constant time a sequence of
+/// process, an [`IntoParLenders`] provides in constant time a sequence of
 /// lenders that can be used in parallel computations, and that are expected to
 /// be efficient when used in parallel.
 ///
@@ -582,15 +582,15 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// which the parallelism is inherent and not under control of the caller, albeit
 /// in general there is a way to control such parallelism at construction time.
 ///
-/// Compressors should provide methods that accept an [`IntoParIters`] and use
+/// Compressors should provide methods that accept an [`IntoParLenders`] and use
 /// the lenders returned by [`into_par_iters`] to process the graph in parallel.
 ///
-/// [`into_par_iters`]: IntoParIters::into_par_iters
+/// [`into_par_iters`]: IntoParLenders::into_par_iters
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
 /// [sorting]: crate::graphs::sorted_graph::SortedGraph
-pub trait IntoParIters {
+pub trait IntoParLenders {
     /// The type of [`Lender`] over the successors of a node returned by
     /// [`into_par_iters`].
     ///
@@ -599,10 +599,10 @@ pub trait IntoParIters {
 
     /// Returns in constant time a sequence of lenders that can be used in
     /// parallel computations.
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>);
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>);
 }
 
-/// Implements [`IntoParIters`] for a type that already implements
+/// Implements [`IntoParLenders`] for a type that already implements
 /// [`SplitLabeling`](crate::traits::SplitLabeling), using the split lender as the parallel lender.
 ///
 /// The macro requires that the split lender satisfies the additional bounds
@@ -620,7 +620,7 @@ pub trait IntoParIters {
 ///
 /// The three arguments are:
 /// 1. Generics (in brackets), or `[]` for none.
-/// 2. The type to implement `IntoParIters` for.
+/// 2. The type to implement `IntoParLenders` for.
 /// 3. Where clauses (in brackets), or `[]` for none.
 #[macro_export]
 macro_rules! impl_parallel_from_split {
@@ -629,13 +629,13 @@ macro_rules! impl_parallel_from_split {
         $ty:ty
         [$($where_clause:tt)*]
     ) => {
-        impl<'__graph, $($gen)*> $crate::traits::IntoParIters for &'__graph $ty
+        impl<'__graph, $($gen)*> $crate::traits::IntoParLenders for &'__graph $ty
         where $($where_clause)*
         {
             type ParLender
                 = <Self as $crate::traits::SplitLabeling>::SplitLender<'__graph>;
 
-            fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+            fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
                 use $crate::traits::{SequentialLabeling, SplitLabeling};
                 let n = rayon::current_num_threads();
                 let step = self.num_nodes().div_ceil(n);

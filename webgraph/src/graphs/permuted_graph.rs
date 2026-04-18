@@ -17,10 +17,37 @@ use value_traits::slices::SliceByValue;
 #[derive(Debug, Clone)]
 pub struct PermutedGraph<'a, G: SequentialGraph, P: SliceByValue<Value = usize> + ?Sized> {
     /// The underlying graph.
-    pub graph: &'a G,
+    graph: &'a G,
     /// The permutation to apply: node *i* of the permuted graph
     /// corresponds to node `perm[`*i*`]` of the underlying graph.
-    pub perm: &'a P,
+    perm: &'a P,
+}
+
+impl<'a, G: SequentialGraph, P: SliceByValue<Value = usize>> PermutedGraph<'a, G, P> {
+    /// Creates a new [`PermutedGraph`] with the given underlying graph and
+    /// permutation.
+    ///
+    /// Note that the permutation is not checked for validity: it is the
+    /// caller's responsibility to ensure that it is a valid permutation of the
+    /// nodes of the graph.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the permutation does not have the same length as the number of
+    /// nodes in the graph.
+    pub fn new(graph: &'a G, perm: &'a P) -> Self {
+        assert_eq!(
+            graph.num_nodes(),
+            perm.len(),
+            "the permutation must have the same length as the number of nodes in the graph"
+        );
+        Self { graph, perm }
+    }
+
+    /// Returns the underlying graph and the permutation.
+    pub fn into_parts(self) -> (&'a G, &'a P) {
+        (self.graph, self.perm)
+    }
 }
 
 impl<G: SequentialGraph, P: SliceByValue<Value = usize>> SequentialLabeling

@@ -16,7 +16,7 @@ use webgraph::{traits::*, utils::Granularity};
 /// Note that this implementation uses the _floor_ of the base-2 logarithm as a
 /// measure of cost, whereas the Java implementation uses the _ceiling_.
 pub(crate) fn compute_log_gap_cost<G: SequentialGraph + Sync>(
-    graph: &G,
+    graph: G,
     granularity: Granularity,
     deg_cumul: &(impl for<'a> Succ<Input = u64, Output<'a> = u64> + IndexedSeq + Send + Sync),
     pr: &mut impl ConcurrentProgressLog,

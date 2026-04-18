@@ -283,10 +283,7 @@ where
                     webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.src)
                         .endianness::<E>()
                         .load()?;
-                let perm_graph = PermutedGraph {
-                    graph: &seq_graph,
-                    perm,
-                };
+                let perm_graph = PermutedGraph::new(&seq_graph, perm);
                 macro_rules! symmetrize_and_compress {
                     ($no_loops:expr) => {{
                         let sorted = webgraph::transform::symmetrize::<$no_loops>(

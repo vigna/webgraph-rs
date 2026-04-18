@@ -12,18 +12,16 @@
   cumulative function to split the compression work in a more balanced way.
 
 - New declarative API for parallel compression and graph sorting in general.
-  The trait `IntoParIters` provides parallel lenders on consecutive chunks of
+  The trait `IntoParLenders` provides parallel lenders on consecutive chunks of
   nodes. The types `SortedGraph`/`SortedLabeledGraph` can be built from a graph or
-  an iterator on pairs and implements `IntoParIters`. Transparent wrappers such
-  as `ParGraph` and `ParDcfGraph` can alter the default `IntoParIters` splitting.
-  Parallel compression methods take a `IntoParIters` implementation.
+  an iterator on pairs and implements `IntoParLenders`. Transparent wrappers such
+  as `ParGraph` and `ParDcfGraph` can alter the default `IntoParLenders` splitting.
+  Parallel compression methods take a `IntoParLenders` implementation.
 
 ### Fixed
 
 - `NonZeroUsize` has been replaced everywhere by `usize`, as there were no niche
   optimizations involved.
-
-### Fixed
 
 - Replaced a number of wrong `num_cpus::get` calls with
   `rayon::current_num_threads`.
@@ -64,6 +62,9 @@
 - The methods `par_comp_endianness*` have been removed, and replaced
   by a `par_comp_lenders!` macro in the `webgraph-cli` crate. Consequently,
   the features `le_bins` and `be_bins` have been removed.
+
+- `PermutationGraph` has now a proper constructor that checks at least
+  for the length of the permutation, and has `into_parts`, too.
 
 ### Improved
 

@@ -31,7 +31,7 @@ use std::marker::PhantomData;
 /// [`SequentialLabeling`] using [`sort`](SortedGraphConfig::sort)
 /// (sequential sort) or [`par_sort`](SortedGraphConfig::par_sort)
 /// (parallel sort from a [`SplitLabeling`]). In both cases, the result
-/// implements [`IntoParIters`].
+/// implements [`IntoParLenders`].
 ///
 /// The label serialization format is controlled by the [`BatchCodec`]
 /// passed to the constructor.
@@ -170,7 +170,7 @@ impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone 
     }
 }
 
-// === IntoParIters for SortedLabeledGraph ===
+// === IntoParLenders for SortedLabeledGraph ===
 
 /// Creates labeled lenders from an iterator of labeled-pair-iterators and
 /// their boundaries.
@@ -196,11 +196,11 @@ fn make_labeled_lenders<
 }
 
 impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
-    IntoParIters for SortedLabeledGraph<L, I>
+    IntoParLenders for SortedLabeledGraph<L, I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let lenders = make_labeled_lenders(self.iters.into_vec(), &self.boundaries);
         (lenders, self.boundaries)
     }
@@ -209,11 +209,11 @@ impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize)
 impl<
     L: Clone + Copy + Send + Sync + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> IntoParIters for &SortedLabeledGraph<L, I>
+> IntoParLenders for &SortedLabeledGraph<L, I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let lenders = make_labeled_lenders(self.iters.iter().cloned(), &self.boundaries);
         (lenders, self.boundaries.clone())
     }
@@ -255,7 +255,7 @@ impl<
 /// [`from`](SortedGraph::from) (sequential sort) or
 /// [`par_from`](SortedGraph::par_from) (parallel sort from a
 /// [`SplitLabeling`]). In both cases, the result implements
-/// [`IntoParIters`], making it suitable for parallel compression via
+/// [`IntoParLenders`], making it suitable for parallel compression via
 /// [`BvCompConfig::par_comp`](crate::graphs::bvgraph::BvCompConfig::par_comp).
 ///
 /// # Examples
@@ -400,25 +400,25 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> SequentialG
 {
 }
 
-// === IntoParIters for SortedGraph (wraps labeled lenders in LeftIterator) ===
+// === IntoParLenders for SortedGraph (wraps labeled lenders in LeftIterator) ===
 
-impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParIters for SortedGraph<I> {
+impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParLenders for SortedGraph<I> {
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), I>>;
 
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let (lenders, boundaries) = self.0.into_par_iters();
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+        let (lenders, boundaries) = self.0.into_par_lenders();
         let projected: Box<[_]> = lenders.into_vec().into_iter().map(LeftIterator).collect();
         (projected, boundaries)
     }
 }
 
-impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoParIters
+impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoParLenders
     for &SortedGraph<I>
 {
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), I>>;
 
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let (lenders, boundaries) = (&self.0).into_par_iters();
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+        let (lenders, boundaries) = (&self.0).into_par_lenders();
         let projected: Box<[_]> = lenders.into_vec().into_iter().map(LeftIterator).collect();
         (projected, boundaries)
     }

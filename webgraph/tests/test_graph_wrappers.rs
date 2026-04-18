@@ -178,10 +178,7 @@ fn test_no_selfloops_graph_into_lender() -> Result<()> {
 fn test_permuted_graph() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let perm = [1, 2, 0]; // 0->1, 1->2, 2->0
-    let pg = PermutedGraph {
-        graph: &g,
-        perm: &perm,
-    };
+    let pg = PermutedGraph::new(&g, &perm);
     let mut iter = pg.iter();
     while let Some((node, succ)) = iter.next() {
         let s: Vec<_> = succ.collect();
@@ -199,10 +196,7 @@ fn test_permuted_graph() -> Result<()> {
 fn test_permuted_graph_iter_from() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let perm = vec![2, 0, 1];
-    let pg = PermutedGraph {
-        graph: &g,
-        perm: &perm,
-    };
+    let pg = PermutedGraph::new(&g, &perm);
     let mut iter = pg.iter_from(1);
     let (node, succ) = iter.next().unwrap();
     assert_eq!(node, 0);
@@ -218,10 +212,7 @@ fn test_permuted_graph_iter_from() -> Result<()> {
 fn test_permuted_graph_into_lender() -> Result<()> {
     let g = VecGraph::from_arcs([(0, 1), (1, 2), (2, 0)]);
     let perm = [2, 0, 1]; // node 0 -> 2, node 1 -> 0, node 2 -> 1
-    let pg = PermutedGraph {
-        graph: &g,
-        perm: &perm,
-    };
+    let pg = PermutedGraph::new(&g, &perm);
 
     assert_eq!(pg.num_nodes(), 3);
 

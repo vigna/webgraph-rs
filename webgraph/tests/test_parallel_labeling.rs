@@ -54,10 +54,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
     // permuted pairs via iteration and sort them with ParSortIters.
     let g = test_graph();
     let perm = [0, 1, 2, 3, 4]; // identity permutation
-    let pg = PermutedGraph {
-        graph: &g,
-        perm: &perm,
-    };
+    let pg = PermutedGraph::new(&g, &perm);
 
     let num_nodes = pg.num_nodes();
     let pairs: Vec<(usize, usize)> = pg.iter().into_pairs().collect();
@@ -74,7 +71,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
     let sorted = SortedGraph::par_from(g.clone())?;
-    let (_lenders, boundaries) = sorted.into_par_iters();
+    let (_lenders, boundaries) = sorted.into_par_lenders();
     // Boundaries must start at 0 and end at num_nodes
     assert_eq!(*boundaries.first().unwrap(), 0);
     assert_eq!(*boundaries.last().unwrap(), g.num_nodes());
@@ -93,7 +90,7 @@ fn test_sorted_graph_with_part() -> Result<()> {
         .par_sort_graph(g.clone())?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
-    let (_lenders, boundaries) = sorted.into_par_iters();
+    let (_lenders, boundaries) = sorted.into_par_lenders();
     assert_eq!(boundaries.len(), 3);
     assert_eq!(boundaries[0], 0);
     assert_eq!(*boundaries.last().unwrap(), g.num_nodes());
@@ -122,7 +119,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
 fn test_parallel_graph_custom_partitions() -> Result<()> {
     let g = test_graph();
     let pg = ParGraph::new(g, 3);
-    let (lenders, boundaries) = pg.into_par_iters();
+    let (lenders, boundaries) = pg.into_par_lenders();
     assert_eq!(lenders.len(), 3);
     assert_eq!(boundaries.len(), 4);
     assert_eq!(boundaries[0], 0);

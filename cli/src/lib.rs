@@ -36,7 +36,7 @@ use value_traits::slices::SliceByValue;
 use webgraph::prelude::CompFlags;
 #[cfg(target_pointer_width = "64")]
 use webgraph::prelude::JavaPermutation;
-use webgraph::traits::{IntoParIters, NodeLabelsLender};
+use webgraph::traits::{IntoParLenders, NodeLabelsLender};
 use webgraph::utils::{Granularity, MemoryUsage};
 
 macro_rules! SEQ_PROC_WARN {
@@ -50,7 +50,7 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///
 /// * `config` is the [`BvCompConfig`] to call [`par_comp`] on;
 ///
-/// * `graph` is a reference to an implementor of [`IntoParIters`] with
+/// * `graph` is a reference to an implementor of [`IntoParLenders`] with
 ///   `Label = usize`;
 ///
 /// * `endianness` is a string specifying the endianness type to use for the
@@ -62,7 +62,7 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 ///
 /// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
 /// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
-/// [`IntoParIters`]: webgraph::prelude::IntoParIters
+/// [`IntoParLenders`]: webgraph::prelude::IntoParLenders
 #[macro_export]
 macro_rules! par_comp {
     ($config:expr, $graph:expr, $endianness:expr) => {
@@ -77,7 +77,7 @@ macro_rules! par_comp {
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
 /// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
 pub fn __par_comp_dispatch<
-    G: for<'a> IntoParIters<ParLender: NodeLabelsLender<'a, Label = usize>>,
+    G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
 >(
     config: &mut webgraph::prelude::BvCompConfig,
     graph: G,

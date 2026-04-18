@@ -12,10 +12,10 @@ use sux::{
 };
 
 /// A wrapper that overrides the number of partitions for
-/// [`IntoParIters`].
+/// [`IntoParLenders`].
 ///
 /// Delegates all graph and labeling traits to the inner graph, but provides
-/// its own [`IntoParIters`] implementation using
+/// its own [`IntoParLenders`] implementation using
 /// [`SplitLabeling::split_iter`] with the partition count stored in the
 /// wrapper.
 #[derive(Debug, Clone)]
@@ -82,13 +82,13 @@ impl<G: RandomAccessLabeling> RandomAccessLabeling for ParGraph<G> {
 
 impl<G: RandomAccessGraph> RandomAccessGraph for ParGraph<G> {}
 
-impl<'a, G: SequentialLabeling + SplitLabeling> IntoParIters for &'a ParGraph<G>
+impl<'a, G: SequentialLabeling + SplitLabeling> IntoParLenders for &'a ParGraph<G>
 where
     for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
     type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let n = self.1;
         let step = self.0.num_nodes().div_ceil(n);
         let num_nodes = self.0.num_nodes();
@@ -116,7 +116,7 @@ impl<'b, G: SequentialLabeling> IntoLender for &'b ParGraph<G> {
 /// a degree cumulative function.
 ///
 /// Delegates all graph and labeling traits to the inner graph, but provides
-/// its own [`IntoParIters`] implementation using
+/// its own [`IntoParLenders`] implementation using
 /// [`SplitLabeling::split_iter_at`] with arc-balanced cutpoints computed
 /// from the DCF via [`FairChunks`].
 #[derive(Debug, Clone)]
@@ -183,7 +183,7 @@ impl<G: RandomAccessLabeling, D> RandomAccessLabeling for ParallelDcfGraph<G, D>
 
 impl<G: RandomAccessGraph, D> RandomAccessGraph for ParallelDcfGraph<G, D> {}
 
-impl<'a, G, D> IntoParIters for &'a ParallelDcfGraph<G, D>
+impl<'a, G, D> IntoParLenders for &'a ParallelDcfGraph<G, D>
 where
     G: SequentialLabeling + SplitLabeling,
     D: for<'b> Succ<Input = u64, Output<'b> = u64> + IndexedSeq,
@@ -191,7 +191,7 @@ where
 {
     type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
-    fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
+    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
         let n = self.2;
         let num_nodes = self.0.num_nodes();
         let total_arcs = self.1.get(num_nodes);

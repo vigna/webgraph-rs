@@ -464,10 +464,7 @@ pub fn layered_label_propagation_labels_only<
         update_pl.start("Computing log-gap cost...");
 
         let gap_cost = gap_cost::compute_log_gap_cost(
-            &PermutedGraph {
-                graph: &sym_graph,
-                perm: &inv_perm,
-            },
+            PermutedGraph::new(&sym_graph, &inv_perm),
             granularity,
             deg_cumul,
             &mut update_pl,

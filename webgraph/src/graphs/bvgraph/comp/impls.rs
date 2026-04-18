@@ -156,7 +156,7 @@ impl<W: Write> OffsetsWriter<W> {
 ///
 /// - [`comp_graph`]: compresses a [`SequentialGraph`] sequentially;
 /// - [`comp_lender`]: compresses a [`NodeLabelsLender`] sequentially;
-/// - [`par_comp`]: compresses an [`IntoParIters`] in parallel.
+/// - [`par_comp`]: compresses an [`IntoParLenders`] in parallel.
 ///
 /// All methods produce the `.graph`, `.offsets`, and `.properties` files
 /// and return the total number of bits written to the graph bitstream.
@@ -388,7 +388,7 @@ impl BvCompConfig {
         Ok(comp_stats.written_bits)
     }
 
-    /// Compresses an [`IntoParIters`] in parallel and returns the length
+    /// Compresses an [`IntoParLenders`] in parallel and returns the length
     /// in bits of the graph bitstream.
     ///
     /// The method calls [`into_par_iters`] to obtain lenders and boundaries,
@@ -400,15 +400,15 @@ impl BvCompConfig {
     /// number of threads is appropriate for the number of lenders returned
     /// by [`into_par_iters`], possibly using [`install`].
     ///
-    /// [`into_par_iters`]: IntoParIters::into_par_iters
+    /// [`into_par_iters`]: IntoParLenders::into_par_iters
     /// [`install`]: rayon::ThreadPool::install
     pub fn par_comp<E: Endianness, G>(&mut self, graph: G) -> Result<u64>
     where
-        G: for<'a> IntoParIters<ParLender: NodeLabelsLender<'a, Label = usize>>,
+        G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {
-        let (lenders, boundaries) = graph.into_par_iters();
+        let (lenders, boundaries) = graph.into_par_lenders();
         let num_nodes = *boundaries.last().unwrap_or(&0);
         let tmp_dir = self.tmp_dir()?;
 

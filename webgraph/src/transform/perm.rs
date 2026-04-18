@@ -46,7 +46,7 @@ pub fn permute(
     let mut sorted = SortPairs::new(memory_usage, dir.path())?;
 
     // get a permuted view
-    let pgraph = PermutedGraph { graph, perm };
+    let pgraph = PermutedGraph::new(graph, perm);
 
     let mut pl = progress_logger![
         item_name = "node",

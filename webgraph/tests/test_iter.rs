@@ -88,10 +88,7 @@ fn test_split_iter_perm() -> Result<()> {
     let mut perm = (0..bvgraph_seq.num_nodes()).collect::<Vec<_>>();
     perm.shuffle(&mut SmallRng::seed_from_u64(0));
 
-    let perm_graph = PermutedGraph {
-        graph: &bvgraph_seq,
-        perm: &perm,
-    };
+    let perm_graph = PermutedGraph::new(&bvgraph_seq, &perm);
 
     test_split_iter(&perm_graph)
 }
