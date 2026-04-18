@@ -44,14 +44,13 @@
 //!
 //! # Memory Usage
 //!
-//! The transpose, symmetrize, permute, and map functions internally use
-//! [`SortPairs`], which sorts arcs by batching them to temporary files and then
-//! merging. The amount of memory used for batching is controlled by the
-//! [`MemoryUsage`] parameter. The `_split` variants sort in parallel using
-//! [`ParSortIters`] and are significantly faster on [splittable] graphs.
+//! The transpose, symmetrize, permute, and map functions internally sort arcs
+//! by batching them to temporary files and then merging. The amount of memory
+//! used for batching is controlled by the [`MemoryUsage`] parameter. The
+//! `_split` variants sort in parallel using [`ParSortIters`] and are
+//! significantly faster on [splittable] graphs.
 //!
 //! [splittable]: crate::traits::SplitLabeling
-//! [`SortPairs`]: crate::utils::SortPairs
 //! [`MemoryUsage`]: crate::utils::MemoryUsage
 //! [`ParSortIters`]: crate::utils::ParSortIters
 

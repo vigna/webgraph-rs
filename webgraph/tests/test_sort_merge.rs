@@ -6,75 +6,11 @@
 
 #![allow(clippy::type_complexity)]
 
-//! Tests for SortPairs, KMergeIters, ParSortPairs, ParSortIters, and Matrix.
+//! Tests for KMergeIters, ParSortPairs, ParSortIters, and Matrix.
 
 use anyhow::Result;
 use dsi_bitstream::prelude::*;
 use webgraph::prelude::*;
-
-#[test]
-fn test_sort_pairs_basic() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    sp.push(2, 3)?;
-    sp.push(0, 1)?;
-    sp.push(1, 2)?;
-    sp.push(0, 0)?;
-    let result: Vec<_> = sp.iter()?.collect();
-    assert_eq!(
-        result,
-        vec![((0, 0), ()), ((0, 1), ()), ((1, 2), ()), ((2, 3), ())]
-    );
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_sort_method() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    let pairs = vec![(3, 0), (1, 2), (0, 1), (2, 3)];
-    let result: Vec<_> = sp.sort(pairs)?.collect();
-    assert_eq!(
-        result,
-        vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ()), ((3, 0), ())]
-    );
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_multiple_batches() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    // Tiny batch size to force multiple batches
-    let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(2), dir.path())?;
-    sp.push(5, 0)?;
-    sp.push(3, 1)?;
-    sp.push(1, 2)?;
-    sp.push(0, 3)?;
-    sp.push(4, 4)?;
-    sp.push(2, 5)?;
-    let result: Vec<((usize, usize), ())> = sp.iter()?.collect();
-    // Should be sorted by (src, dst) lexicographic order
-    assert_eq!(result[0].0, (0, 3));
-    assert_eq!(result[1].0, (1, 2));
-    assert_eq!(result[2].0, (2, 5));
-    assert_eq!(result[3].0, (3, 1));
-    assert_eq!(result[4].0, (4, 4));
-    assert_eq!(result[5].0, (5, 0));
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_non_empty_dir() {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir().unwrap();
-    // Create a file in the dir to make it non-empty
-    std::fs::write(dir.path().join("dummy"), b"x").unwrap();
-    let result = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path());
-    assert!(result.is_err());
-}
 
 #[test]
 fn test_kmerge_iters_sum() {
@@ -103,41 +39,6 @@ fn test_kmerge_iters_collect() {
         result,
         vec![((0, 0), ()), ((0, 1), ()), ((1, 1), ()), ((2, 0), ())]
     );
-}
-
-#[test]
-fn test_sort_pairs_sort_labeled() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    // Use SortPairs unlabeled (which uses DefaultBatchCodec internally)
-    let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    let pairs = vec![((2, 3), ()), ((0, 1), ()), ((1, 2), ())];
-    let result: Vec<_> = sp.sort_labeled(pairs)?.collect();
-    assert_eq!(result, vec![((0, 1), ()), ((1, 2), ()), ((2, 3), ())]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_try_sort_labeled() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    let pairs: Vec<Result<_, std::convert::Infallible>> =
-        vec![Ok(((2, 0), ())), Ok(((0, 1), ())), Ok(((1, 0), ()))];
-    let result: Vec<_> = sp.try_sort_labeled(pairs)?.collect();
-    assert_eq!(result, vec![((0, 1), ()), ((1, 0), ()), ((2, 0), ())]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_try_sort() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    let pairs: Vec<Result<_, std::convert::Infallible>> = vec![Ok((3, 1)), Ok((1, 2)), Ok((0, 0))];
-    let result: Vec<_> = sp.try_sort(pairs)?.collect();
-    assert_eq!(result, vec![((0, 0), ()), ((1, 2), ()), ((3, 1), ())]);
-    Ok(())
 }
 
 #[test]
@@ -257,27 +158,6 @@ fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
 }
 
 #[test]
-fn test_sort_pairs_labeled() -> Result<()> {
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::sort_pairs::SortPairs;
-
-    let tmp = tempfile::tempdir()?;
-    let mut sp = SortPairs::new_labeled(
-        MemoryUsage::BatchSize(100),
-        tmp.path(),
-        <webgraph::utils::DefaultBatchCodec>::default(),
-    )?;
-    sp.push_labeled(2, 3, ())?;
-    sp.push_labeled(0, 1, ())?;
-    sp.push_labeled(1, 2, ())?;
-
-    let iter = sp.iter()?;
-    let result: Vec<_> = iter.map(|((s, d), _)| (s, d)).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
-    Ok(())
-}
-
-#[test]
 fn test_par_sort_iters_basic() -> Result<()> {
     use webgraph::utils::par_sort_iters::ParSortIters;
 
@@ -318,29 +198,6 @@ fn test_par_sort_iters_single_partition() -> Result<()> {
     assert_eq!(split.boundaries.len(), 2);
     let result: Vec<_> = split.iters.into_vec().pop().unwrap().collect();
     assert_eq!(result, vec![(0, 1), (1, 2), (2, 0)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_labeled_with_values() -> Result<()> {
-    use webgraph::utils::MemoryUsage;
-    use webgraph::utils::sort_pairs::SortPairs;
-
-    let tmp = tempfile::tempdir()?;
-    let mut sp = SortPairs::new_labeled(
-        MemoryUsage::BatchSize(100),
-        tmp.path(),
-        <webgraph::utils::DefaultBatchCodec>::default(),
-    )?;
-    sp.push_labeled(2, 3, ())?;
-    sp.push_labeled(0, 1, ())?;
-    sp.push_labeled(2, 1, ())?;
-    sp.push_labeled(1, 2, ())?;
-    sp.push_labeled(0, 3, ())?;
-
-    let iter = sp.iter()?;
-    let result: Vec<_> = iter.map(|((s, d), _)| (s, d)).collect();
-    assert_eq!(result, vec![(0, 1), (0, 3), (1, 2), (2, 1), (2, 3)]);
     Ok(())
 }
 
@@ -454,29 +311,6 @@ fn test_kmerge_iters_exact_size_iterator() {
 }
 
 #[test]
-fn test_sort_pairs_labeled_with_gaps_codec() -> Result<()> {
-    use webgraph::utils::gaps::GapsCodec;
-    use webgraph::utils::{MemoryUsage, SortPairs};
-
-    let dir = tempfile::tempdir()?;
-    let codec = GapsCodec::<BE, (), ()>::default();
-    let mut sp = SortPairs::new_labeled(MemoryUsage::BatchSize(3), dir.path(), codec)?;
-
-    // Push more than batch_size items to trigger dump
-    sp.push_labeled(3, 4, ())?;
-    sp.push_labeled(1, 2, ())?;
-    sp.push_labeled(0, 1, ())?;
-    sp.push_labeled(2, 3, ())?;
-    sp.push_labeled(4, 5, ())?;
-
-    let iter = sp.iter()?;
-    let items: Vec<_> = iter.collect();
-    let keys: Vec<(usize, usize)> = items.into_iter().map(|(k, _)| k).collect();
-    assert_eq!(keys, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
-    Ok(())
-}
-
-#[test]
 fn test_par_sort_pairs_sort_labeled() -> Result<()> {
     use webgraph::utils::grouped_gaps::GroupedGapsCodec;
     use webgraph::utils::{MemoryUsage, ParSortPairs};
@@ -547,62 +381,6 @@ fn test_par_sort_iters() -> Result<()> {
     all_pairs.sort();
     // Original arcs: (0,4),(1,0),(1,3),(2,1),(3,2) transposed: (4,0),(0,1),(3,1),(1,2),(2,3)
     assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3), (3, 1), (4, 0)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_dedup() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new_dedup(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    sp.push(0, 1)?;
-    sp.push(0, 1)?;
-    sp.push(1, 2)?;
-    sp.push(1, 2)?;
-    sp.push(1, 2)?;
-    sp.push(2, 3)?;
-    let result: Vec<_> = sp.iter()?.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_dedup_across_batches() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    // Tiny batch size to force duplicates to span batches
-    let mut sp = SortPairs::new_dedup(webgraph::utils::MemoryUsage::BatchSize(2), dir.path())?;
-    // Push the same pair in every batch
-    for _ in 0..6 {
-        sp.push(0, 1)?;
-    }
-    sp.push(1, 2)?;
-    let result: Vec<_> = sp.iter()?.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_dedup_no_duplicates() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new_dedup(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    sp.push(0, 1)?;
-    sp.push(1, 2)?;
-    sp.push(2, 3)?;
-    let result: Vec<_> = sp.iter()?.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
-    Ok(())
-}
-
-#[test]
-fn test_sort_pairs_dedup_sort_method() -> Result<()> {
-    use webgraph::utils::SortPairs;
-    let dir = tempfile::tempdir()?;
-    let mut sp = SortPairs::new_dedup(webgraph::utils::MemoryUsage::BatchSize(100), dir.path())?;
-    let pairs = vec![(1, 2), (0, 1), (1, 2), (0, 1), (2, 3)];
-    let result: Vec<_> = sp.sort(pairs)?.map(|(k, _)| k).collect();
-    assert_eq!(result, vec![(0, 1), (1, 2), (2, 3)]);
     Ok(())
 }
 

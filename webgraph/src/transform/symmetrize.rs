@@ -5,19 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::arc_list_graph;
 use crate::graphs::sorted_graph::SortedGraph;
-use crate::labels::Left;
 use crate::traits::{
     LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator, SortedLender, SplitLabeling,
 };
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::sort_pairs::{KMergeIters, SortPairs};
+use crate::utils::sort_pairs::KMergeIters;
 use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage, SplitIters};
 use anyhow::Result;
-use dsi_progress_logger::prelude::*;
-use lender::*;
-use tempfile::Builder;
 
 /// Merges two sorted iterators of node pairs, deduplicating consecutive
 /// equal elements. When `NO_LOOPS` is true, self-loops (pairs where
@@ -87,63 +82,42 @@ where
     }
 }
 
-/// Returns a symmetrized version of the provided sorted (both on nodes and
-/// successors) graph as a [sequential graph].
+/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// provided sorted (both on nodes and successors) graph.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
-/// This method exploits the fact that the input graph is already sorted: it
-/// sorts only the reverse arcs (via [`SortPairs`]), then lazily merges them
-/// with the forward arcs using a two-way merge with deduplication. The
-/// forward arcs are iterated directly from the graph without any I/O.
-///
 /// For a parallel version using splitting, see [`symmetrize_sorted_split`].
 ///
-/// [sequential graph]: crate::traits::SequentialGraph
-pub fn symmetrize_sorted<'g, const NO_LOOPS: bool, G: SequentialGraph>(
-    graph: &'g G,
+/// For the meaning of the additional parameter, see [`ParSortIters`].
+pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
+    graph: &G,
     memory_usage: MemoryUsage,
-) -> Result<
-    Left<
-        arc_list_graph::ArcListGraph<
-            impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'g,
-        >,
-    >,
->
-where
-    for<'a> G::Lender<'a>: Clone + Send + Sync + SortedLender,
-    for<'a, 'b> LenderIntoIter<'a, G::Lender<'b>>: Clone + Send + Sync + SortedIterator,
-{
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
     let num_nodes = graph.num_nodes();
 
-    // Sort only reverse arcs
-    let dir = Builder::new().prefix("symmetrize_sorted_").tempdir()?;
-    let mut reverse = SortPairs::new(memory_usage, dir.path())?;
+    let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
+    if let Some(num_arcs) = graph.num_arcs_hint() {
+        par_sort_iters = par_sort_iters.expected_num_pairs(2 * num_arcs as usize);
+    }
 
-    let mut pl = ProgressLogger::default();
-    pl.item_name("node").expected_updates(Some(num_nodes));
-    pl.start("Sorting reverse arcs...");
-
-    for_![(src, succ) in graph.iter() {
-        for dst in succ {
-            reverse.push(dst, src)?;
+    let pairs = graph.iter().into_pairs().flat_map(|(src, dst)| {
+        if src != dst {
+            Some(((src, dst), ()))
+                .into_iter()
+                .chain(Some(((dst, src), ())))
+        } else if !NO_LOOPS {
+            Some(((src, dst), ())).into_iter().chain(None)
+        } else {
+            None.into_iter().chain(None)
         }
-        pl.light_update();
-    }];
+    });
 
-    pl.done();
-
-    // Forward arcs directly from the graph (sorted, no I/O)
-    let forward = graph.iter().into_pairs();
-    // Reverse arcs from SortPairs (sorted, backed by temp files)
-    let reverse = reverse.iter()?.map(|((s, d), ())| (s, d));
-    // Lazy merge with deduplication
-    let merged = MergeDedupPairs::<NO_LOOPS, _, _>::new(forward, reverse);
-
-    Ok(Left(arc_list_graph::ArcListGraph::new_labeled(
-        num_nodes,
-        merged.map(|p| (p, ())),
-    )))
+    Ok(SortedGraph(
+        par_sort_iters
+            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }
 
 /// Returns a [`SortedGraph`] representing a symmetrized version of the
@@ -217,49 +191,43 @@ where
     ))
 }
 
-/// Returns a symmetrized version of the provided graph as a [sequential
-/// graph](crate::traits::SequentialGraph).
+/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// provided graph.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
 /// Note that if the graph is sorted (both on nodes and successors), it is
 /// recommended to use [`symmetrize_sorted`].
 ///
-/// For the meaning of the additional parameter, see [`SortPairs`].
+/// For the meaning of the additional parameter, see [`ParSortIters`].
 pub fn symmetrize<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<
-    Left<
-        arc_list_graph::ArcListGraph<
-            impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'static,
-        >,
-    >,
-> {
-    let dir = Builder::new().prefix("symmetrize_").tempdir()?;
-    let mut sorted = SortPairs::new_dedup(memory_usage, dir.path())?;
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+    let num_nodes = graph.num_nodes();
 
-    let mut pl = ProgressLogger::default();
-    pl.item_name("node")
-        .expected_updates(Some(graph.num_nodes()));
-    pl.start("Creating batches...");
-    // create batches of sorted edges
-    for_![(src, succ) in graph.iter() {
-        for dst in succ {
-            if src != dst {
-                sorted.push(src, dst)?;
-                sorted.push(dst, src)?;
-            } else if !NO_LOOPS {
-                sorted.push(src, dst)?;
-            }
+    let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
+    if let Some(num_arcs) = graph.num_arcs_hint() {
+        par_sort_iters = par_sort_iters.expected_num_pairs(2 * num_arcs as usize);
+    }
+
+    let pairs = graph.iter().into_pairs().flat_map(|(src, dst)| {
+        if src != dst {
+            Some(((src, dst), ()))
+                .into_iter()
+                .chain(Some(((dst, src), ())))
+        } else if !NO_LOOPS {
+            Some(((src, dst), ())).into_iter().chain(None)
+        } else {
+            None.into_iter().chain(None)
         }
-        pl.light_update();
-    }];
-    // merge the batches
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), sorted.iter()?);
-    pl.done();
+    });
 
-    Ok(Left(sorted))
+    Ok(SortedGraph(
+        par_sort_iters
+            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }
 
 /// Returns a [`SortedGraph`] representing a symmetrized version of the

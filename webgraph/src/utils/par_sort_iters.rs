@@ -48,6 +48,7 @@
 //! [`SortedLabeledGraph`]: crate::graphs::sorted_graph::SortedLabeledGraph
 
 use anyhow::{Context, Result, ensure};
+use dsi_progress_logger::prelude::*;
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
 use rayon::prelude::*;
 
@@ -108,7 +109,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// // Sort the pairs using ParSortIters
 /// let pair_sorter = ParSortIters::new(num_nodes)?
-///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
+///     .num_partitions(num_partitions);
 ///
 /// let sorted = pair_sorter.sort(pairs)?;
 ///
@@ -160,6 +161,50 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             pairs
                 .into_iter()
                 .map(|iter| iter.into_iter().map(|pair| (pair, ()))),
+        )?;
+
+        let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
+        let iters_without_labels: Vec<_> = split
+            .iters
+            .into_vec()
+            .into_iter()
+            .map(|iter| iter.map(strip))
+            .collect();
+
+        Ok(SplitIters::new(
+            split.boundaries,
+            iters_without_labels.into_boxed_slice(),
+        ))
+    }
+
+    /// See [`try_sort_seq`].
+    ///
+    /// This is a convenience method for iterators that cannot fail.
+    ///
+    /// [`try_sort_seq`]: ParSortIters::try_sort_seq
+    pub fn sort_seq(
+        &self,
+        pairs: impl IntoIterator<Item = (usize, usize)>,
+    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
+        self.try_sort_seq::<std::convert::Infallible>(pairs.into_iter().map(Ok))
+    }
+
+    /// Sorts the output of the provided iterator sequentially, returning a
+    /// [`SplitIters`] structure.
+    ///
+    /// Unlike [`try_sort`], this method processes the input on the current
+    /// thread and does not require `Send` or `Sync` on the iterator.
+    /// The output is still partitioned for parallel compression.
+    ///
+    /// [`try_sort`]: ParSortIters::try_sort
+    pub fn try_sort_seq<E: Into<anyhow::Error>>(
+        &self,
+        pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
+    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
+        let split = <ParSortIters<DEDUP>>::try_sort_labeled_seq::<DefaultBatchCodec<DEDUP>, E, _>(
+            self,
+            <DefaultBatchCodec<DEDUP>>::default(),
+            pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
         )?;
 
         let strip: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
@@ -438,6 +483,135 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
                 KMergeIters::new(partition)
             })
             .collect();
+
+        Ok(SplitIters::new(
+            boundaries.into_boxed_slice(),
+            iters.into_boxed_slice(),
+        ))
+    }
+
+    /// See [`try_sort_labeled_seq`].
+    ///
+    /// This is a convenience method for iterators that cannot fail.
+    ///
+    /// [`try_sort_labeled_seq`]: ParSortIters::try_sort_labeled_seq
+    pub fn sort_labeled_seq<C: BatchCodec, P: IntoIterator<Item = ((usize, usize), C::Label)>>(
+        &self,
+        batch_codec: C,
+        pairs: P,
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
+        self.try_sort_labeled_seq::<C, std::convert::Infallible, _>(
+            batch_codec,
+            pairs.into_iter().map(Ok),
+        )
+    }
+
+    /// Sorts the output of the provided iterator of (labeled) pairs
+    /// sequentially, returning a [`SplitIters`] structure.
+    ///
+    /// Unlike [`try_sort_labeled`], this method processes the input on the
+    /// current thread and does not require `Send` or `Sync` on the iterator
+    /// or its items. The output is still partitioned, so the resulting
+    /// [`SplitIters`] can be wrapped in a [`SortedGraph`] and compressed
+    /// in parallel via
+    /// [`BvCompConfig::par_comp`](crate::graphs::bvgraph::BvCompConfig::par_comp).
+    ///
+    /// [`try_sort_labeled`]: ParSortIters::try_sort_labeled
+    /// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+    pub fn try_sort_labeled_seq<
+        C: BatchCodec,
+        E: Into<anyhow::Error>,
+        P: IntoIterator<Item = Result<((usize, usize), C::Label), E>>,
+    >(
+        &self,
+        batch_codec: C,
+        pairs: P,
+    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
+        let num_partitions = self.num_partitions;
+        let batch_size = self
+            .memory_usage
+            .batch_size::<((usize, usize), C::Label)>()
+            .div_ceil(num_partitions);
+        let num_nodes_per_partition = self.num_nodes.div_ceil(num_partitions);
+
+        let mut pl = progress_logger![
+            display_memory = true,
+            item_name = "pair",
+            expected_updates = self.expected_num_pairs,
+        ];
+        pl.start("Reading and sorting pairs (sequential)");
+        let total_memory =
+            batch_size * num_partitions * std::mem::size_of::<((usize, usize), C::Label)>();
+        pl.info(format_args!(
+            "Partitions: {}; batch size: {}; memory: {}B",
+            num_partitions,
+            batch_size,
+            super::humanize(total_memory as f64),
+        ));
+
+        let presort_tmp_dir =
+            tempfile::tempdir().context("Could not create temporary directory")?;
+
+        let mut unsorted_buffers: Vec<_> = (0..num_partitions)
+            .map(|_| Vec::with_capacity(batch_size))
+            .collect();
+        let mut sorted_pairs: Vec<Vec<CodecIter<C>>> =
+            (0..num_partitions).map(|_| Vec::new()).collect();
+
+        for pair in pairs {
+            let ((src, dst), label) = pair.map_err(Into::into)?;
+            ensure!(
+                src < self.num_nodes,
+                "Source node {src} is out of bounds (num_nodes = {})",
+                self.num_nodes
+            );
+            let partition_id = src / num_nodes_per_partition;
+
+            let buf = &mut unsorted_buffers[partition_id];
+            if buf.len() >= buf.capacity() {
+                let buf_len = buf.len();
+                super::par_sort_pairs::flush_buffer(
+                    presort_tmp_dir.path(),
+                    &batch_codec,
+                    0,
+                    partition_id,
+                    &mut sorted_pairs[partition_id],
+                    buf,
+                )
+                .context("Could not flush buffer")?;
+                assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
+                pl.update_with_count(buf_len);
+            }
+
+            buf.push(((src, dst), label));
+        }
+
+        // Flush remaining buffers
+        for (partition_id, mut buf) in unsorted_buffers.into_iter().enumerate() {
+            let buf_len = buf.len();
+            super::par_sort_pairs::flush_buffer(
+                presort_tmp_dir.path(),
+                &batch_codec,
+                0,
+                partition_id,
+                &mut sorted_pairs[partition_id],
+                &mut buf,
+            )
+            .context("Could not flush buffer at the end")?;
+            assert!(buf.is_empty(), "flush_buffer did not empty the buffer");
+            pl.update_with_count(buf_len);
+        }
+
+        pl.done();
+
+        // Build boundaries array
+        let boundaries: Vec<usize> = (0..=num_partitions)
+            .map(|i| (i * num_nodes_per_partition).min(self.num_nodes))
+            .collect();
+
+        // Build iterators array
+        let iters: Vec<KMergeIters<CodecIter<C>, C::Label, DEDUP>> =
+            sorted_pairs.into_iter().map(KMergeIters::new).collect();
 
         Ok(SplitIters::new(
             boundaries.into_boxed_slice(),

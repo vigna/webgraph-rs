@@ -331,17 +331,18 @@ impl SortedGraph<SortedPairIter> {
         SortedGraphConfig::new().sort_graph(graph)
     }
 
-    /// Sorts arcs from a splittable [`SequentialGraph`] in parallel with
-    /// default settings.
+    /// Sorts arcs from a graph implementing [`IntoParLenders`] in
+    /// parallel with default settings.
     ///
     /// Equivalent to `SortedGraph::config().par_sort_graph(graph)`.
     pub fn par_from<G>(graph: G) -> Result<Self>
     where
         G: SequentialGraph
-            + for<'g, 'a> SplitLabeling<
-                SplitLender<'g>: NodeLabelsLender<
+            + IntoParLenders<
+                ParLender: for<'a> NodeLabelsLender<
                     'a,
-                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                    Label = usize,
+                    IntoIterator: IntoIterator<IntoIter: Send>,
                 >,
             >,
     {
@@ -608,15 +609,16 @@ impl SortedGraphConfig {
         ))
     }
 
-    /// Sorts arcs from a splittable [`SequentialGraph`] in parallel,
-    /// producing a partitioned [`SortedGraph`].
+    /// Sorts arcs from a graph implementing [`IntoParLenders`] in
+    /// parallel, producing a partitioned [`SortedGraph`].
     pub fn par_sort_graph<G>(self, graph: G) -> Result<SortedGraph<SortedPairIter>>
     where
         G: SequentialGraph
-            + for<'g, 'a> SplitLabeling<
-                SplitLender<'g>: NodeLabelsLender<
+            + IntoParLenders<
+                ParLender: for<'a> NodeLabelsLender<
                     'a,
-                    IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                    Label = usize,
+                    IntoIterator: IntoIterator<IntoIter: Send>,
                 >,
             >,
     {
@@ -628,10 +630,11 @@ impl SortedGraphConfig {
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
-        let pairs: Vec<_> = graph
-            .split_iter(rayon::current_num_threads())
+        let (lenders, _boundaries) = graph.into_par_lenders();
+        let pairs: Vec<_> = lenders
+            .into_vec()
             .into_iter()
-            .map(|iter| iter.into_pairs().map(|pair| (pair, ())))
+            .map(|lender| lender.into_pairs().map(|pair| (pair, ())))
             .collect();
         Ok(SortedGraph(
             par_sort
@@ -668,5 +671,114 @@ impl SortedGraphConfig {
             &DefaultBatchCodec::default(),
             labeled,
         )?))
+    }
+
+    // ── Sequential terminal methods (no Send/Sync required) ───
+
+    /// Sorts arcs from a [`SequentialGraph`] sequentially, producing a
+    /// partitioned [`SortedGraph`].
+    ///
+    /// Unlike [`sort_graph`], this method does not require `Send` or
+    /// `Sync` on the graph's lenders or their items. The output is still
+    /// partitioned for parallel compression.
+    ///
+    /// [`sort_graph`]: SortedGraphConfig::sort_graph
+    pub fn sort_graph_seq<G: SequentialGraph>(
+        self,
+        graph: G,
+    ) -> Result<SortedGraph<SortedPairIter>> {
+        let num_nodes = graph.num_nodes();
+        let num_arcs_hint = graph.num_arcs_hint();
+        let mut par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        if let Some(num_arcs) = num_arcs_hint {
+            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        }
+        Ok(SortedGraph(
+            par_sort
+                .sort_labeled_seq::<DefaultBatchCodec, _>(
+                    DefaultBatchCodec::default(),
+                    graph.iter().into_pairs().map(|pair| (pair, ())),
+                )?
+                .into(),
+        ))
+    }
+
+    /// Sorts unlabeled pairs from a sequential iterator, producing a
+    /// partitioned [`SortedGraph`].
+    ///
+    /// Unlike [`sort_graph_pairs`], this method does not require `Send`
+    /// or `Sync` on the iterator. The output is still partitioned for
+    /// parallel compression.
+    ///
+    /// [`sort_graph_pairs`]: SortedGraphConfig::sort_graph_pairs
+    pub fn sort_graph_pairs_seq(
+        self,
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = (usize, usize)>,
+    ) -> Result<SortedGraph<SortedPairIter>> {
+        let labeled = pairs.into_iter().map(|pair| (pair, ()));
+        let par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        Ok(SortedGraph(
+            par_sort
+                .sort_labeled_seq::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), labeled)?
+                .into(),
+        ))
+    }
+
+    /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially,
+    /// producing a partitioned [`SortedLabeledGraph`].
+    ///
+    /// Unlike [`sort`], this method does not require `Send` or `Sync` on
+    /// the graph's lenders or their items. The output is still partitioned
+    /// for parallel compression.
+    ///
+    /// [`sort`]: SortedGraphConfig::sort
+    pub fn sort_seq<C, G>(
+        self,
+        graph: G,
+        batch_codec: C,
+    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+        G: LabeledSequentialGraph<C::Label>,
+    {
+        let num_nodes = graph.num_nodes();
+        let num_arcs_hint = graph.num_arcs_hint();
+        let mut par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        if let Some(num_arcs) = num_arcs_hint {
+            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        }
+        Ok(par_sort
+            .sort_labeled_seq(batch_codec, graph.iter().into_labeled_pairs())?
+            .into())
+    }
+
+    /// Sorts labeled pairs from a sequential iterator, producing a
+    /// partitioned [`SortedLabeledGraph`].
+    ///
+    /// Unlike [`sort_pairs`], this method does not require `Send` or
+    /// `Sync` on the iterator. The output is still partitioned for
+    /// parallel compression.
+    ///
+    /// [`sort_pairs`]: SortedGraphConfig::sort_pairs
+    pub fn sort_pairs_seq<C>(
+        self,
+        num_nodes: usize,
+        batch_codec: C,
+        pairs: impl IntoIterator<Item = ((usize, usize), C::Label)>,
+    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    where
+        C: BatchCodec,
+    {
+        let par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        Ok(par_sort.sort_labeled_seq(batch_codec, pairs)?.into())
     }
 }

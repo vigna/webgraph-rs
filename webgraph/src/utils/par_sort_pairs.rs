@@ -95,7 +95,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// let pair_sorter = ParSortPairs::new(num_nodes)?
 ///     .expected_num_pairs(unsorted_pairs.len())
-///     .num_partitions(NonZeroUsize::new(num_partitions).unwrap());
+///     .num_partitions(num_partitions);
 ///
 /// let split_iters = pair_sorter.sort(
 ///     unsorted_pairs.par_iter().copied()

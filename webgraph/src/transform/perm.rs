@@ -5,69 +5,38 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::arc_list_graph;
-use crate::prelude::sort_pairs::KMergeIters;
+use crate::graphs::sorted_graph::{SortedGraph, SortedPairIter};
 use crate::prelude::*;
-use crate::utils::par_sort_iters::ParSortIters;
-use anyhow::{Context, Result, ensure};
-use dsi_progress_logger::prelude::*;
+use anyhow::{Result, ensure};
 use lender::*;
-use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 
-/// Returns a [sequential] permuted graph.
+/// Returns a [`SortedGraph`] representing the permuted graph.
 ///
 /// Note that if the graph is [splittable], [`permute_split`] will be much
 /// faster.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
-/// additional parameter, see [`SortPairs`].
+/// additional parameter, see
+/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 ///
-/// [sequential]: crate::traits::SequentialGraph
 /// [splittable]: SplitLabeling
-pub fn permute(
-    graph: &impl SequentialGraph,
-    perm: &impl SliceByValue<Value = usize>,
+pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
+    graph: &G,
+    perm: &P,
     memory_usage: MemoryUsage,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>> {
+) -> Result<SortedGraph<SortedPairIter>> {
     ensure!(
         perm.len() == graph.num_nodes(),
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
         perm.len(),
         graph.num_nodes(),
     );
-    let dir = Builder::new().prefix("permute_").tempdir()?;
-    log::info!(
-        "Creating a temporary directory for the sorted pairs: {}",
-        dir.path().display()
-    );
-
-    // create a stream where to dump the sorted pairs
-    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
-
-    // get a permuted view
     let pgraph = PermutedGraph::new(graph, perm);
-
-    let mut pl = progress_logger![
-        item_name = "node",
-        expected_updates = Some(graph.num_nodes()),
-        display_memory = true
-    ];
-    pl.start("Creating batches...");
-    // create batches of sorted edges
-    for_!( (src, succ) in pgraph.iter() {
-        for dst in succ {
-            sorted.push(src, dst)?;
-        }
-        pl.light_update();
-    });
-
-    // get a graph on the sorted data
-    let edges = sorted.iter().context("Could not read arcs")?;
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), edges);
-    pl.done();
-
-    Ok(Left(sorted))
+    let num_nodes = pgraph.num_nodes();
+    SortedGraph::config()
+        .memory_usage(memory_usage)
+        .sort_graph_pairs_seq(num_nodes, pgraph.iter().into_pairs())
 }
 
 /// Returns a [`SortedGraph`] representing the permuted graph starting from a
@@ -80,25 +49,21 @@ pub fn permute(
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
-/// additional parameter, see [`ParSortIters`].
+/// additional parameter, see
+/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 ///
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn permute_split<'g, S, P>(
-    graph: &'g S,
+pub fn permute_split<S, P>(
+    graph: &S,
     perm: &P,
     memory_usage: MemoryUsage,
-    cutpoints: Option<Vec<usize>>,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec>>>>
+) -> Result<SortedGraph<SortedPairIter>>
 where
-    S: SequentialGraph
-        + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<
-                'a,
-                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-            >,
-        >,
-    P: SliceByValue<Value = usize> + Send + Sync,
+    S: SequentialGraph + SplitLabeling,
+    P: SliceByValue<Value = usize> + Send + Sync + Clone,
+    for<'a> S::Lender<'a>: Clone + ExactSizeLender + lender::FusedLender + Send + Sync,
+    for<'a, 'b> LenderIntoIter<'b, S::Lender<'a>>: Send + Sync,
 {
     ensure!(
         perm.len() == graph.num_nodes(),
@@ -106,29 +71,8 @@ where
         perm.len(),
         graph.num_nodes(),
     );
-
-    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
-    }
-
-    let pairs: Vec<_> = match cutpoints {
-        Some(cp) => graph.split_iter_at(cp),
-        None => {
-            let parts = rayon::current_num_threads();
-            graph.split_iter(parts)
-        }
-    }
-    .into_iter()
-    .map(|iter| {
-        iter.into_pairs()
-            .map(|(src, dst)| ((perm.index_value(src), perm.index_value(dst)), ()))
-    })
-    .collect();
-
-    Ok(SortedGraph(
-        par_sort_iters
-            .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    let pgraph = PermutedGraph::new(graph, perm);
+    SortedGraph::config()
+        .memory_usage(memory_usage)
+        .par_sort_graph(&pgraph)
 }

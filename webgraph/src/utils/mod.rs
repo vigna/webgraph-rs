@@ -56,7 +56,6 @@ pub mod matrix;
 pub use matrix::Matrix;
 
 pub mod sort_pairs;
-pub use sort_pairs::SortPairs;
 
 pub mod par_sort_pairs;
 pub use par_sort_pairs::ParSortPairs;
@@ -138,7 +137,7 @@ impl<D: Decode, E: Encode> Decode for Converter<D, E> {
 }
 
 /// An enum expressing the memory requirements for batched algorithms
-/// such as [`SortPairs`], [`ParSortPairs`], and [`ParSortIters`].
+/// such as [`ParSortPairs`] and [`ParSortIters`].
 ///
 /// The [`Default`] implementation uses a non-linear formula: roughly 50% of
 /// RAM on machines with up to 64 GiB, then sub-linear (square-root) growth,

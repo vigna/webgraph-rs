@@ -4,17 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::*;
 use crate::utils::par_sort_iters::ParSortIters;
 use anyhow::{Result, ensure};
-use dsi_progress_logger::prelude::*;
-use lender::*;
-use tempfile::Builder;
 use value_traits::slices::SliceByValue;
 
-/// Returns a [sequential] graph obtained by mapping the nodes of the provided
+/// Returns a [`SortedGraph`] obtained by mapping the nodes of the provided
 /// graph through the given map.
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
@@ -25,51 +21,34 @@ use value_traits::slices::SliceByValue;
 ///
 /// Note that if the graph is [splittable], [`map_split`] will be much faster.
 ///
-/// For the meaning of the additional parameter, see [`SortPairs`].
+/// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
-/// [sequential]: crate::traits::SequentialGraph
 /// [splittable]: SplitLabeling
 pub fn map(
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
     num_nodes: usize,
     memory_usage: MemoryUsage,
-) -> Result<
-    Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>,
-> {
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
     ensure!(
         map.len() == graph.num_nodes(),
         "The given map has {} values and thus it's incompatible with a graph with {} nodes.",
         map.len(),
         graph.num_nodes(),
     );
-    let dir = Builder::new().prefix("map_").tempdir()?;
-    log::info!(
-        "Creating a temporary directory for the sorted pairs: {}",
-        dir.path().display()
-    );
 
-    let mut sorted = SortPairs::new_dedup(memory_usage, dir.path())?;
+    let par_sort = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
 
-    let mut pl = progress_logger![
-        item_name = "node",
-        expected_updates = Some(graph.num_nodes()),
-        display_memory = true
-    ];
-    pl.start("Creating batches...");
-    for_!( (src, succ) in graph.iter() {
-        let mapped_src = map.index_value(src);
-        for dst in succ {
-            sorted.push(mapped_src, map.index_value(dst))?;
-        }
-        pl.light_update();
-    });
+    let pairs = graph
+        .iter()
+        .into_pairs()
+        .map(|(src, dst)| ((map.index_value(src), map.index_value(dst)), ()));
 
-    let edges = sorted.iter()?;
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(num_nodes, edges);
-    pl.done();
-
-    Ok(Left(sorted))
+    Ok(SortedGraph(
+        par_sort
+            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }
 
 /// Returns a [`SortedGraph`] representing the mapped graph starting from a

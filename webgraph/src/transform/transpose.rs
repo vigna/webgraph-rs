@@ -5,71 +5,56 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::arc_list_graph;
-use crate::graphs::sorted_graph::SortedGraph;
-use crate::prelude::proj::Left;
+use crate::graphs::sorted_graph::{SortedGraph, SortedLabeledGraph, SortedPairIter};
 use crate::prelude::sort_pairs::KMergeIters;
-use crate::prelude::{LabeledSequentialGraph, SequentialGraph, SortPairs};
-use crate::traits::graph::UnitLabelGraph;
+use crate::prelude::{LabeledSequentialGraph, SequentialGraph};
 use crate::traits::{NodeLabelsLender, SplitLabeling};
 use crate::utils::{
     BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
 };
 use anyhow::Result;
-use dsi_progress_logger::prelude::*;
-use lender::prelude::*;
-use tempfile::Builder;
 
-/// Returns the transpose of the provided labeled graph as a [sequential
-/// graph](crate::traits::SequentialGraph).
+/// Returns the transpose of the provided labeled graph as a
+/// [`SortedLabeledGraph`].
 ///
-/// For the meaning of the additional parameters, see [`SortPairs`].
+/// For the meaning of the additional parameters, see
+/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 #[allow(clippy::type_complexity)]
 pub fn transpose_labeled<C: BatchCodec>(
     graph: &impl LabeledSequentialGraph<C::Label>,
     memory_usage: MemoryUsage,
     batch_codec: C,
-) -> Result<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<C>, C::Label>>>
+) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
 where
     C::Label: Clone + 'static,
     CodecIter<C>: Clone + Send + Sync,
 {
-    let dir = Builder::new().prefix("transpose_").tempdir()?;
-    let mut sorted = SortPairs::new_labeled(memory_usage, dir.path(), batch_codec)?;
-
-    let mut pl = progress_logger![
-        item_name = "node",
-        expected_updates = Some(graph.num_nodes()),
-        display_memory = true
-    ];
-    pl.start("Creating batches...");
-    // create batches of sorted edges
-    for_!( (src, succ) in graph.iter() {
-        for (dst, l) in succ {
-            sorted.push_labeled(dst, src, l)?;
-        }
-        pl.light_update();
-    });
-    // merge the batches
-    let sorted = arc_list_graph::ArcListGraph::new_labeled(graph.num_nodes(), sorted.iter()?);
-    pl.done();
-
-    Ok(sorted)
+    SortedGraph::config()
+        .memory_usage(memory_usage)
+        .sort_pairs_seq(
+            graph.num_nodes(),
+            batch_codec,
+            graph
+                .iter()
+                .into_labeled_pairs()
+                .map(|((src, dst), l)| ((dst, src), l)),
+        )
 }
 
-/// Returns the transpose of the provided graph as a [sequential
-/// graph](crate::traits::SequentialGraph).
+/// Returns the transpose of the provided graph as a [`SortedGraph`].
 ///
-/// For the meaning of the additional parameter, see [`SortPairs`].
+/// For the meaning of the additional parameter, see
+/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<Left<arc_list_graph::ArcListGraph<KMergeIters<CodecIter<DefaultBatchCodec>, ()>>>> {
-    Ok(Left(transpose_labeled(
-        &UnitLabelGraph(graph),
-        memory_usage,
-        <DefaultBatchCodec>::default(),
-    )?))
+) -> Result<SortedGraph<SortedPairIter>> {
+    SortedGraph::config()
+        .memory_usage(memory_usage)
+        .sort_graph_pairs_seq(
+            graph.num_nodes(),
+            graph.iter().into_pairs().map(|(src, dst)| (dst, src)),
+        )
 }
 
 /// Returns a [`SplitIters`] structure representing the transpose of the
@@ -81,7 +66,8 @@ pub fn transpose(
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameters, see [`SortPairs`].
+/// For the meaning of the additional parameters, see
+/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 ///
 /// [install]: rayon::ThreadPool::install
 pub fn transpose_labeled_split<
@@ -130,7 +116,8 @@ where
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameters, see [`SortPairs`].
+/// For the meaning of the additional parameters, see
+/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 ///
 /// [install]: rayon::ThreadPool::install
 pub fn transpose_split<

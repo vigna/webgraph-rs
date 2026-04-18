@@ -37,6 +37,13 @@ techniques. More precisely, it is currently made of:
 
 - [Data sets] for large graphs (e.g., billions of links).
 
+## Users of WebGraph
+
+<a href="https://www.softwareheritage.org/"><img src="svg/SWH.svg" width="200"></a>
+
+        
+<a href="https://www.commoncrawl.org/"><img src="svg/CC.svg" width="200"></a>
+
 ## Citation
 
 You are welcome to use and improve WebGraph for your research work! If you find

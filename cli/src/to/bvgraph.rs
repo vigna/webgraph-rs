@@ -120,7 +120,7 @@ where
     }
 }
 
-pub fn par_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync>(
+pub fn par_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync + Clone>(
     thread_pool: rayon::ThreadPool,
     mut builder: BvCompConfig,
     src: &std::path::Path,
@@ -139,7 +139,7 @@ where
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let start = std::time::Instant::now();
-        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, None)?;
+        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage)?;
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
@@ -149,7 +149,7 @@ where
     Ok(())
 }
 
-pub fn seq_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize> + Send + Sync>(
+pub fn seq_compress_with_perm<E: Endianness, P: SliceByValue<Value = usize>>(
     thread_pool: rayon::ThreadPool,
     mut builder: BvCompConfig,
     src: &std::path::Path,

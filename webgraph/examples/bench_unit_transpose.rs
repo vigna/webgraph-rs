@@ -15,8 +15,6 @@ use dsi_bitstream::prelude::*;
 use dsi_progress_logger::prelude::*;
 use lender::prelude::*;
 use std::path::PathBuf;
-use tempfile::Builder;
-use webgraph::graphs::arc_list_graph::{self, ArcListGraph};
 use webgraph::{prelude::*, transform};
 
 #[derive(Parser, Debug)]
@@ -24,32 +22,6 @@ use webgraph::{prelude::*, transform};
 struct Args {
     /// The basename of the graph.
     basename: PathBuf,
-}
-
-pub fn transpose(
-    graph: &impl SequentialGraph,
-    memory_usage: MemoryUsage,
-) -> Result<Left<ArcListGraph<impl Iterator<Item = ((usize, usize), ())> + Clone>>> {
-    let dir = Builder::new().prefix("bench_unit_transpose").tempdir()?;
-    let mut sorted = SortPairs::new(memory_usage, dir.path())?;
-
-    let mut pl = ProgressLogger::default();
-    pl.item_name("node")
-        .expected_updates(Some(graph.num_nodes()));
-    pl.start("Creating batches...");
-    // create batches of sorted edges
-    for_! ( (src, succ) in graph.iter() {
-        for dst in succ {
-            sorted.push(dst, src)?;
-        }
-        pl.light_update();
-    });
-    // merge the batches
-    let map: fn(((usize, usize), ())) -> (usize, usize) = |(pair, _)| pair;
-    let sorted = arc_list_graph::ArcListGraph::new(graph.num_nodes(), sorted.iter()?.map(map));
-    pl.done();
-
-    Ok(sorted)
 }
 
 fn bench_impl<E: Endianness>(args: Args) -> Result<()>
@@ -66,7 +38,8 @@ where
         let mut pl = ProgressLogger::default();
         pl.start("Transposing standard graph...");
 
-        let mut iter = transpose(&graph, MemoryUsage::BatchSize(10_000_000))?.iter();
+        let transposed = transform::transpose(&graph, MemoryUsage::BatchSize(10_000_000))?;
+        let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
             for i in s {
@@ -76,15 +49,15 @@ where
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let mut iter = Left(transform::transpose_labeled(
+        let transposed = transform::transpose_labeled(
             &unit,
             MemoryUsage::BatchSize(10_000_000),
             <DefaultBatchCodec>::default(),
-        )?)
-        .iter();
+        )?;
+        let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
-            for i in s {
+            for (i, _label) in s {
                 black_box(i);
             }
         }

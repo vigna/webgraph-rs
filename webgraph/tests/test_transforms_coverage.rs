@@ -179,7 +179,7 @@ fn test_permute_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let perm = vec![2, 0, 1];
-    let sorted = permute_split(&seq, &perm, MemoryUsage::BatchSize(2), None)?;
+    let sorted = permute_split(&seq, &perm, MemoryUsage::BatchSize(2))?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {

@@ -11,6 +11,12 @@ A Rust implementation of the [WebGraph framework] for graph compression.
 
 - CLI commands: [`webgraph-cli`] ([repo][cli repo])
 
+## Users of WebGraph
+
+<a href="https://www.softwareheritage.org/"><img src="svg/SWH.svg" width="200"></a>
+        
+<a href="https://www.commoncrawl.org/"><img src="svg/CC.svg" width="200"></a>
+
 ## Acknowledgments
 
 This software has been partially supported by project SERICS (PE00000014) under

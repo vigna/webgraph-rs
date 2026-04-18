@@ -66,6 +66,11 @@
 - `PermutationGraph` has now a proper constructor that checks at least
   for the length of the permutation, and has `into_parts`, too.
 
+- `SortPairs` is gone, replaced by `*_seq` equivalent methods in `ParSortPairs`
+  which can additionally partition the output. Thus it is possible, say, to
+  transpose a graph that cannot be split sequentially but the compress it in
+  parallel.
+
 ### Improved
 
 - `SortPairs`, `ParSortPairs`, `ParSortIters`, and `KMergeIters` now have a

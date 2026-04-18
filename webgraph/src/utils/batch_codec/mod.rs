@@ -10,10 +10,10 @@
 //!
 //! The traits and implementations in this module are used to customize the
 //! encoding of batches of sorted triples to/from disk. They are used by
-//! [`SortPairs`] and other utilities built on that (e.g., [`ParSortPairs`]).
+//! [`ParSortPairs`], [`ParSortIters`], and the transform functions.
 //!
-//! [`SortPairs`]: crate::utils::sort_pairs::SortPairs
 //! [`ParSortPairs`]: crate::utils::par_sort_pairs::ParSortPairs
+//! [`ParSortIters`]: crate::utils::par_sort_iters::ParSortIters
 //!
 //! They usually do not need to be accessed or modified by the end users, albeit
 //! in some specific cases where performance or on-disk occupation is critical
@@ -70,12 +70,11 @@ pub trait BatchCodec: Send + Sync {
     /// The type returned by `decode_batch`, the iterator of which yields the
     /// decoded triples in sorted order.
     ///
-    /// The type `IntoIter` has to be `Send + Sync + Clone` because most often we want
-    /// to use them in [`SortPairs`] and then in [`ArcListGraph`] which require
-    /// them.
+    /// The type `IntoIter` has to be `Send + Sync + Clone` because they are
+    /// used in [`SortedGraph`]/[`SortedLabeledGraph`] which require them.
     ///
-    /// [`SortPairs`]: crate::utils::sort_pairs::SortPairs
-    /// [`ArcListGraph`]: crate::graphs::arc_list_graph::ArcListGraph
+    /// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+    /// [`SortedLabeledGraph`]: crate::graphs::sorted_graph::SortedLabeledGraph
     type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::Label), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.
