@@ -198,7 +198,6 @@ fn make_labeled_lenders<
 impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
     IntoParIters for SortedLabeledGraph<L, I>
 {
-    type Label = (usize, L);
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
@@ -212,7 +211,6 @@ impl<
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
 > IntoParIters for &SortedLabeledGraph<L, I>
 {
-    type Label = (usize, L);
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
@@ -405,7 +403,6 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> SequentialG
 // === IntoParIters for SortedGraph (wraps labeled lenders in LeftIterator) ===
 
 impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParIters for SortedGraph<I> {
-    type Label = usize;
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), I>>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
@@ -418,7 +415,6 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParIters for So
 impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoParIters
     for &SortedGraph<I>
 {
-    type Label = usize;
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), I>>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {

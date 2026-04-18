@@ -14,8 +14,14 @@
 - New declarative API for parallel compression and graph sorting in general.
   The trait `IntoParIters` provides parallel lenders on consecutive chunks of
   nodes. The types `SortedGraph`/`SortedLabeledGraph` can be built from a graph or
-  an iterator on pairs and implement `IntoParIter`. Transparent wrappers such
-  as `ParallelGraph`
+  an iterator on pairs and implements `IntoParIters`. Transparent wrappers such
+  as `ParGraph` and `ParDcfGraph` can alter the default `IntoParIters` splitting.
+  Parallel compression methods take a `IntoParIters` implementation.
+
+### Fixed
+
+- `NonZeroUsize` has been replaced everywhere by `usize`, as there were no niche
+  optimizations involved.
 
 ### Fixed
 

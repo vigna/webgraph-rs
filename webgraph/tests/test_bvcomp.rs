@@ -91,7 +91,7 @@ fn _test_body<'g, E: Endianness, G: SequentialGraph + SplitLabeling, P: AsRef<Pa
     comp_flags: CompFlags,
 ) -> Result<()>
 where
-    &'g G: IntoParIters<Label = usize>,
+    &'g G: for<'a> IntoParIters<ParLender: NodeLabelsLender<'a, Label = usize>>,
     for<'a> G::Lender<'a>: SortedLender,
     for<'a, 'b> LenderIntoIter<'b, G::Lender<'a>>: SortedIterator,
     for<'a> <G as SplitLabeling>::SplitLender<'a>: ExactSizeLender,

@@ -6,28 +6,25 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Traits for accessing labelings, both sequentially and
-in random-access fashion.
-
-A *labeling* is the basic storage unit for graph data. It associates to
-each node of a graph a list of labels. In the [sequential case], one can
-obtain a [lender] that lends pairs given by a node and an iterator on the
-associated labels. In the [random-access case], instead, one can get
-[an iterator on the labels associated with a node]. Labelings can be
-[zipped together], obtaining a new labeling whose labels are pairs.
-
-The number of nodes *n* of the graph is returned by [`SequentialLabeling::num_nodes`],
-and nodes identifier are in the interval [0 . . *n*).
-
-
-[sequential case]: SequentialLabeling
-[lender]: SequentialLabeling::iter
-[random-access case]: RandomAccessLabeling
-[an iterator on the labels associated with a node]: RandomAccessLabeling::labels
-[zipped together]: crate::labels::Zip
-*/
+//! Traits for accessing labelings, both sequentially and
+//! in random-access fashion.
+//!
+//! A *labeling* is the basic storage unit for graph data. It associates to
+//! each node of a graph a list of labels. In the [sequential case], one can
+//! obtain a [lender] that lends pairs given by a node and an iterator on the
+//! associated labels. In the [random-access case], instead, one can get
+//! [an iterator on the labels associated with a node]. Labelings can be
+//! [zipped together], obtaining a new labeling whose labels are pairs.
+//!
+//! The number of nodes *n* of the graph is returned by [`SequentialLabeling::num_nodes`],
+//! and nodes identifier are in the interval [0 . . *n*).
+//!
+//!
+//! [sequential case]: SequentialLabeling
+//! [lender]: SequentialLabeling::iter
+//! [random-access case]: RandomAccessLabeling
+//! [an iterator on the labels associated with a node]: RandomAccessLabeling::labels
+//! [zipped together]: crate::labels::Zip
 
 use crate::{
     graphs::bvgraph::DCF,
@@ -594,12 +591,11 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// [split labelings]: crate::traits::SplitLabeling
 /// [sorting]: crate::graphs::sorted_graph::SortedGraph
 pub trait IntoParIters {
-    type Label;
     /// The type of [`Lender`] over the successors of a node returned by
     /// [`into_par_iters`].
     ///
     /// [`into_par_iters`]: Self::into_par_iters
-    type ParLender: for<'next> NodeLabelsLender<'next, Label = Self::Label> + Send + Sync;
+    type ParLender: for<'next> NodeLabelsLender<'next> + Send + Sync;
 
     /// Returns in constant time a sequence of lenders that can be used in
     /// parallel computations.
@@ -636,7 +632,6 @@ macro_rules! impl_parallel_from_split {
         impl<'__graph, $($gen)*> $crate::traits::IntoParIters for &'__graph $ty
         where $($where_clause)*
         {
-            type Label = <Self as $crate::traits::SequentialLabeling>::Label;
             type ParLender
                 = <Self as $crate::traits::SplitLabeling>::SplitLender<'__graph>;
 

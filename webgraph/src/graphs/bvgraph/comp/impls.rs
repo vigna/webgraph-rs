@@ -404,7 +404,7 @@ impl BvCompConfig {
     /// [`install`]: rayon::ThreadPool::install
     pub fn par_comp<E: Endianness, G>(&mut self, graph: G) -> Result<u64>
     where
-        G: IntoParIters<Label = usize>,
+        G: for<'a> IntoParIters<ParLender: NodeLabelsLender<'a, Label = usize>>,
         BufBitWriter<E, WordAdapter<usize, BufWriter<std::fs::File>>>: CodesWrite<E>,
         BufBitReader<E, WordAdapter<u32, BufReader<std::fs::File>>>: BitRead<E>,
     {

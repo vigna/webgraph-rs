@@ -36,7 +36,7 @@ use value_traits::slices::SliceByValue;
 use webgraph::prelude::CompFlags;
 #[cfg(target_pointer_width = "64")]
 use webgraph::prelude::JavaPermutation;
-use webgraph::traits::IntoParIters;
+use webgraph::traits::{IntoParIters, NodeLabelsLender};
 use webgraph::utils::{Granularity, MemoryUsage};
 
 macro_rules! SEQ_PROC_WARN {
@@ -76,7 +76,9 @@ macro_rules! par_comp {
 
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
 /// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
-pub fn __par_comp_dispatch<G: IntoParIters<Label = usize>>(
+pub fn __par_comp_dispatch<
+    G: for<'a> IntoParIters<ParLender: NodeLabelsLender<'a, Label = usize>>,
+>(
     config: &mut webgraph::prelude::BvCompConfig,
     graph: G,
     endianness: &str,

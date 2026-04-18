@@ -105,10 +105,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
     let g = test_graph();
     let num_nodes = g.num_nodes();
 
-    let pairs: Vec<_> = g
-        .split_iter(2)
-        .map(|lender| lender.into_pairs())
-        .collect();
+    let pairs: Vec<_> = g.split_iter(2).map(|lender| lender.into_pairs()).collect();
 
     let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
     let split = par_sort.sort(pairs)?;

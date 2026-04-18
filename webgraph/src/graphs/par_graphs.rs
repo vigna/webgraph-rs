@@ -86,7 +86,6 @@ impl<'a, G: SequentialLabeling + SplitLabeling> IntoParIters for &'a ParGraph<G>
 where
     for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
-    type Label = G::Label;
     type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
@@ -190,7 +189,6 @@ where
     D: for<'b> Succ<Input = u64, Output<'b> = u64> + IndexedSeq,
     for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
-    type Label = G::Label;
     type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
     fn into_par_iters(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
