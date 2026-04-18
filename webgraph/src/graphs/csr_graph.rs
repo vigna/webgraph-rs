@@ -568,10 +568,7 @@ pub struct CsrSplitIter<'a, R: RandomAccessLabeling> {
 
 impl<'a, R: RandomAccessLabeling> CsrSplitIter<'a, R> {
     /// Creates a new iterator from a labeling and a sequence of cutpoints.
-    pub fn new(
-        labeling: &'a R,
-        cutpoints: impl core::iter::IntoIterator<Item = usize>,
-    ) -> Self {
+    pub fn new(labeling: &'a R, cutpoints: impl core::iter::IntoIterator<Item = usize>) -> Self {
         let cutpoints: Vec<usize> = cutpoints.into_iter().collect();
         assert!(
             cutpoints.len() >= 2,

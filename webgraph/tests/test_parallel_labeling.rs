@@ -11,9 +11,8 @@ mod common;
 use anyhow::Result;
 use common::build_ef;
 use dsi_bitstream::prelude::BE;
-use std::num::NonZeroUsize;
 use webgraph::graphs::bvgraph::{BvComp, BvGraphSeq};
-use webgraph::graphs::parallel_graph::ParallelGraph;
+use webgraph::graphs::par_graphs::ParGraph;
 use webgraph::graphs::permuted_graph::PermutedGraph;
 use webgraph::graphs::sorted_graph::SortedGraph;
 use webgraph::graphs::vec_graph::VecGraph;
@@ -63,7 +62,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
     let num_nodes = pg.num_nodes();
     let pairs: Vec<(usize, usize)> = pg.iter().into_pairs().collect();
 
-    let par_sort = ParSortIters::new(num_nodes)?.num_partitions(NonZeroUsize::new(2).unwrap());
+    let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
     let split = par_sort.sort(vec![pairs])?;
     let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
 
@@ -90,7 +89,7 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
 fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
     let sorted = SortedGraph::config()
-        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .num_partitions(2)
         .par_sort_graph(g.clone())?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
@@ -108,11 +107,10 @@ fn test_sorted_graph_from_parts() -> Result<()> {
 
     let pairs: Vec<_> = g
         .split_iter(2)
-        .into_iter()
         .map(|lender| lender.into_pairs())
         .collect();
 
-    let par_sort = ParSortIters::new(num_nodes)?.num_partitions(NonZeroUsize::new(2).unwrap());
+    let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
     let split = par_sort.sort(pairs)?;
 
     let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
@@ -126,7 +124,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
 #[test]
 fn test_parallel_graph_custom_partitions() -> Result<()> {
     let g = test_graph();
-    let pg = ParallelGraph::new(g, NonZeroUsize::new(3).unwrap());
+    let pg = ParGraph::new(g, 3);
     let (lenders, boundaries) = pg.into_par_iters();
     assert_eq!(lenders.len(), 3);
     assert_eq!(boundaries.len(), 4);
@@ -138,7 +136,7 @@ fn test_parallel_graph_custom_partitions() -> Result<()> {
 #[test]
 fn test_parallel_graph_delegates_random_access() -> Result<()> {
     let g = test_graph();
-    let pg = ParallelGraph::new(g, NonZeroUsize::new(2).unwrap());
+    let pg = ParGraph::new(g, 2);
     assert_eq!(pg.num_arcs(), 7);
     assert_eq!(pg.outdegree(0), 3);
     assert_eq!(pg.outdegree(1), 1);
@@ -151,7 +149,7 @@ fn test_parallel_graph_delegates_random_access() -> Result<()> {
 #[test]
 fn test_parallel_graph_graph_equality() -> Result<()> {
     let g = test_graph();
-    let pg = ParallelGraph::new(g.clone(), NonZeroUsize::new(2).unwrap());
+    let pg = ParGraph::new(g.clone(), 2);
     graph::eq(&g, &pg)?;
     Ok(())
 }
@@ -179,7 +177,7 @@ fn test_par_comp_with_sorted_graph() -> Result<()> {
 #[test]
 fn test_par_comp_with_parallel_graph() -> Result<()> {
     let g = test_graph();
-    let pg = ParallelGraph::new(g.clone(), NonZeroUsize::new(2).unwrap());
+    let pg = ParGraph::new(g.clone(), 2);
 
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("parallel");

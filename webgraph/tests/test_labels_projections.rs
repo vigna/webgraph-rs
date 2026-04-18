@@ -337,29 +337,25 @@ fn test_right_iterator_is_empty() {
 }
 
 #[test]
-fn test_split_iters_into_labeled_lenders() -> Result<()> {
+fn test_split_iters_into_sorted_labeled_graph() -> Result<()> {
+    use webgraph::graphs::sorted_graph::SortedLabeledGraph;
     use webgraph::utils::SplitIters;
 
     let boundaries: Box<[usize]> = vec![0, 2, 4].into_boxed_slice();
     let iter1 = vec![((0_usize, 1_usize), ()), ((1, 0), ())];
     let iter2 = vec![((2_usize, 3_usize), ()), ((3, 2), ())];
-    #[allow(clippy::type_complexity)]
-    let iters: Box<[Vec<((usize, usize), ())>]> = vec![iter1, iter2].into_boxed_slice();
+    let iters: Box<[_]> = vec![iter1.into_iter(), iter2.into_iter()].into_boxed_slice();
 
-    let split = SplitIters::new(boundaries, iters);
-    // Convert to NodeLabels lenders via From impl for labeled pairs
-    let lenders: Vec<webgraph::graphs::arc_list_graph::NodeLabels<(), _>> = split.into();
-    assert_eq!(lenders.len(), 2);
+    let sorted: SortedLabeledGraph<(), _> = SplitIters::new(boundaries, iters).into();
+    assert_eq!(sorted.num_nodes(), 4);
 
-    // Verify the lenders yield the correct data
+    // Verify the graph yields the correct data
     let mut all_arcs = Vec::new();
-    for mut lender in lenders {
-        while let Some((node, succ)) = lender.next() {
-            for (s, _label) in succ {
-                all_arcs.push((node, s));
-            }
+    for_!((node, succ) in sorted.iter() {
+        for (s, _label) in succ {
+            all_arcs.push((node, s));
         }
-    }
+    });
     all_arcs.sort();
     assert_eq!(all_arcs, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
     Ok(())

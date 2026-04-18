@@ -11,7 +11,6 @@ use dsi_bitstream::prelude::*;
 use lender::prelude::*;
 use std::path::PathBuf;
 use std::process::exit;
-use webgraph::graphs::arc_list_graph::ArcListGraph;
 use webgraph::prelude::*;
 
 #[derive(Parser, Debug)]
@@ -67,19 +66,13 @@ where
             webgraph::graphs::bvgraph::random_access::BvGraph::with_basename(&args.basename)
                 .endianness::<E>()
                 .load()?;
-        let num_nodes = graph.num_nodes();
 
-        // Sort reversed arcs in parallel using split iters + ParSortIters
-        let sorted = thread_pool.install(|| {
-            webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, None)
-        })?;
-
-        // Chain all sorted partitions into a single iterator of (src, dst)
-        // pairs and wrap them in an ArcListGraph for comparison
-        let all_pairs = sorted.iters.into_vec().into_iter().flatten();
-        let transposed = ArcListGraph::new(num_nodes, all_pairs);
-
-        compare(&graph, &transposed, check_simple)
+        // Transpose the graph in parallel and compare
+        thread_pool.install(|| {
+            let transposed =
+                webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, None)?;
+            compare(&graph, &transposed, check_simple)
+        })
     } else {
         let graph =
             webgraph::graphs::bvgraph::sequential::BvGraphSeq::with_basename(&args.basename)

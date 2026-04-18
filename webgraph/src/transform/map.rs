@@ -8,7 +8,6 @@ use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::*;
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::{SortedPairIter, SplitIters};
 use anyhow::{Result, ensure};
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -73,12 +72,8 @@ pub fn map(
     Ok(Left(sorted))
 }
 
-/// Returns a [`SplitIters`] structure representing the mapped graph
-/// starting from a [splittable] graph, computed in parallel.
-///
-/// The [`SplitIters`] structure can be easily converted into a vector of
-/// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp`].
+/// Returns a [`SortedGraph`] representing the mapped graph starting from a
+/// [splittable] graph, computed in parallel.
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
 /// same destination node. Duplicate arcs are removed.
@@ -95,7 +90,6 @@ pub fn map(
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
 /// [splittable]: SplitLabeling
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn map_split<'g, S, M>(
     graph: &'g S,
@@ -103,7 +97,7 @@ pub fn map_split<'g, S, M>(
     num_nodes: usize,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<SortedPairIter<true>>>
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
@@ -136,9 +130,13 @@ where
     .into_iter()
     .map(|iter| {
         iter.into_pairs()
-            .map(|(src, dst)| (map.index_value(src), map.index_value(dst)))
+            .map(|(src, dst)| ((map.index_value(src), map.index_value(dst)), ()))
     })
     .collect();
 
-    par_sort_iters.sort(pairs)
+    Ok(SortedGraph(
+        par_sort_iters
+            .sort_labeled::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }

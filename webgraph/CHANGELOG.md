@@ -11,6 +11,12 @@
   select arbitrary cut points. CLI support makes it possible to use the degree
   cumulative function to split the compression work in a more balanced way.
 
+- New declarative API for parallel compression and graph sorting in general.
+  The trait `IntoParIters` provides parallel lenders on consecutive chunks of
+  nodes. The types `SortedGraph`/`SortedLabeledGraph` can be built from a graph or
+  an iterator on pairs and implement `IntoParIter`. Transparent wrappers such
+  as `ParallelGraph`
+
 ### Fixed
 
 - Replaced a number of wrong `num_cpus::get` calls with

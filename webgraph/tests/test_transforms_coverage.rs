@@ -51,19 +51,15 @@ fn test_transpose_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let split = transpose_split(&seq, MemoryUsage::BatchSize(2), None)?;
-    assert_eq!(split.boundaries[0], 0);
-    assert_eq!(*split.boundaries.last().unwrap(), 3);
+    let sorted = transpose_split(&seq, MemoryUsage::BatchSize(2), None)?;
+    assert_eq!(sorted.num_nodes(), 3);
     // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
-    let lenders: Vec<_> = split.into();
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     assert_eq!(arcs, vec![(0, 2), (1, 0), (2, 1)]);
     Ok(())
@@ -76,22 +72,16 @@ fn test_transpose_split_bvgraph() -> Result<()> {
     let graph = BvGraph::with_basename(basename).load()?;
     let num_nodes = graph.num_nodes();
 
-    let split = transform::transpose_split(&graph, MemoryUsage::from_perc(1.0), None)?;
+    let sorted = transform::transpose_split(&graph, MemoryUsage::from_perc(1.0), None)?;
 
-    assert_eq!(*split.boundaries.first().unwrap(), 0);
-    assert_eq!(*split.boundaries.last().unwrap(), num_nodes);
-
-    let lenders: Vec<_> = split.into();
-    assert!(!lenders.is_empty());
+    assert_eq!(sorted.num_nodes(), num_nodes);
 
     let mut total_arcs = 0u64;
-    for lender in lenders {
-        for_!((_node, succs) in lender {
-            for _succ in succs {
-                total_arcs += 1;
-            }
-        });
-    }
+    for_!((_node, succs) in sorted.iter() {
+        for _succ in succs {
+            total_arcs += 1;
+        }
+    });
     // Transpose should have same number of arcs
     assert_eq!(total_arcs, graph.num_arcs());
     Ok(())
@@ -189,17 +179,13 @@ fn test_permute_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let perm = vec![2, 0, 1];
-    let p = permute_split(&seq, &perm, MemoryUsage::BatchSize(2), None)?;
-    // Collect all arcs via From conversion
-    let lenders: Vec<_> = p.into();
+    let sorted = permute_split(&seq, &perm, MemoryUsage::BatchSize(2), None)?;
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
     assert_eq!(arcs, vec![(0, 1), (2, 0), (2, 1)]);
@@ -289,16 +275,13 @@ fn test_symmetrize_sorted_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = symmetrize_sorted_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
-    let lenders: Vec<_> = s.into();
+    let sorted = symmetrize_sorted_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
     Ok(())
@@ -314,16 +297,13 @@ fn test_symmetrize_sorted_split_with_loops() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = symmetrize_sorted_split::<false, _>(&seq, MemoryUsage::BatchSize(2), None)?;
-    let lenders: Vec<_> = s.into();
+    let sorted = symmetrize_sorted_split::<false, _>(&seq, MemoryUsage::BatchSize(2), None)?;
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     // Self-loop preserved, all edges bidirectional
     assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 2), (2, 1), (2, 2)]);
@@ -339,17 +319,13 @@ fn test_symmetrize_split_no_loops() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let s = symmetrize_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
-    // Collect all arcs and verify symmetrization
-    let lenders: Vec<_> = s.into();
+    let sorted = symmetrize_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     // 3-cycle symmetrized: each node has exactly 2 neighbors, 6 arcs total
     assert_eq!(arcs, vec![(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]);
@@ -415,16 +391,13 @@ fn test_map_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![2, 0, 1];
-    let s = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2), None)?;
-    let lenders: Vec<_> = s.into();
+    let sorted = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2), None)?;
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     // Original (0,1) -> (2,0), (0,2) -> (2,1), (1,2) -> (0,1)
     assert_eq!(arcs, vec![(0, 1), (2, 0), (2, 1)]);
@@ -442,16 +415,13 @@ fn test_map_split_shrinks() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
-    let s = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2), None)?;
-    let lenders: Vec<_> = s.into();
+    let sorted = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2), None)?;
     let mut arcs = vec![];
-    for lender in lenders {
-        for_!((node, succs) in lender {
-            for succ in succs {
-                arcs.push((node, succ));
-            }
-        });
-    }
+    for_!((node, succs) in sorted.iter() {
+        for succ in succs {
+            arcs.push((node, succ));
+        }
+    });
     arcs.sort();
     // (0,1)->(0,1), (1,2)->(1,1), (2,0)->(1,0) → deduped: (0,1),(1,0),(1,1)
     assert_eq!(arcs, vec![(0, 1), (1, 0), (1, 1)]);

@@ -6,13 +6,14 @@
  */
 
 use crate::graphs::arc_list_graph;
+use crate::graphs::sorted_graph::SortedGraph;
 use crate::prelude::proj::Left;
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::{LabeledSequentialGraph, SequentialGraph, SortPairs};
 use crate::traits::graph::UnitLabelGraph;
 use crate::traits::{NodeLabelsLender, SplitLabeling};
 use crate::utils::{
-    BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SortedPairIter, SplitIters,
+    BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
 };
 use anyhow::Result;
 use dsi_progress_logger::prelude::*;
@@ -74,9 +75,8 @@ pub fn transpose(
 /// Returns a [`SplitIters`] structure representing the transpose of the
 /// provided labeled splittable graph, computed in parallel.
 ///
-/// The [`SplitIters`] structure can be easily converted into a vector of `(node,
-/// lender)` pairs using [this `From`
-/// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+Iter<L,+I>)>).
+/// For graph compression, the result can be converted into a
+/// [`SortedLabeledGraph`](crate::graphs::sorted_graph::SortedLabeledGraph) by calling [`.into()`](Into::into).
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
@@ -124,15 +124,11 @@ where
     par_sort_iters.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs)
 }
 
-/// Returns a [`SplitIters`] structure representing the
-/// transpose of the provided splittable graph, computed in parallel.
+/// Returns a [`SortedGraph`] representing the transpose of the provided
+/// splittable graph, computed in parallel.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
-///
-/// The [`SplitIters`] structure can be easily converted into a vector of `(node,
-/// lender)` pairs using [this `From`
-/// implementation](crate::prelude::SplitIters#impl-From<SplitIters<IT>-for-Vec<(usize,+LeftIterator<Iter<(),+Map<I,+fn((usize,+usize))+->+(usize,+usize,+())>)>).
 ///
 /// For the meaning of the additional parameters, see [`SortPairs`].
 ///
@@ -150,7 +146,7 @@ pub fn transpose_split<
     graph: &'g G,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<SortedPairIter>> {
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec>>>> {
     let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     if let Some(num_arcs) = graph.num_arcs_hint() {
         par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
@@ -164,8 +160,12 @@ pub fn transpose_split<
         }
     }
     .into_iter()
-    .map(|iter| iter.into_pairs().map(|(src, dst)| (dst, src)))
+    .map(|iter| iter.into_pairs().map(|(src, dst)| ((dst, src), ())))
     .collect();
 
-    par_sort_iters.sort(pairs)
+    Ok(SortedGraph(
+        par_sort_iters
+            .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }

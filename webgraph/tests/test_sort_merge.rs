@@ -181,13 +181,12 @@ fn test_matrix_basic() {
 #[test]
 fn test_par_sort_pairs_basic() -> Result<()> {
     use rayon::prelude::*;
-    use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
     let sorter = ParSortPairs::new(5)?
         .expected_num_pairs(pairs.len())
-        .num_partitions(NonZeroUsize::new(2).unwrap());
+        .num_partitions(2);
 
     let split = sorter.sort(pairs.par_iter().copied())?;
     assert_eq!(split.boundaries[0], 0);
@@ -211,11 +210,10 @@ fn test_par_sort_pairs_basic() -> Result<()> {
 #[test]
 fn test_par_sort_pairs_single_partition() -> Result<()> {
     use rayon::prelude::*;
-    use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs = vec![(2, 0), (0, 1), (1, 2)];
-    let sorter = ParSortPairs::new(3)?.num_partitions(NonZeroUsize::new(1).unwrap());
+    let sorter = ParSortPairs::new(3)?.num_partitions(1);
 
     let split = sorter.sort(pairs.par_iter().copied())?;
     assert_eq!(split.boundaries.len(), 2); // [0, 3]
@@ -228,7 +226,6 @@ fn test_par_sort_pairs_single_partition() -> Result<()> {
 #[test]
 fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     use rayon::prelude::*;
-    use std::num::NonZeroUsize;
     use webgraph::utils::MemoryUsage;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
@@ -238,7 +235,7 @@ fn test_par_sort_pairs_with_memory_usage() -> Result<()> {
     expected.dedup();
     let sorter = ParSortPairs::new(10)?
         .expected_num_pairs(pairs.len())
-        .num_partitions(NonZeroUsize::new(3).unwrap())
+        .num_partitions(3)
         .memory_usage(MemoryUsage::BatchSize(20));
 
     let split = sorter.sort(pairs.par_iter().copied())?;
@@ -282,14 +279,13 @@ fn test_sort_pairs_labeled() -> Result<()> {
 
 #[test]
 fn test_par_sort_iters_basic() -> Result<()> {
-    use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_iters::ParSortIters;
 
     let iter1 = vec![(1, 3), (0, 2)];
     let iter2 = vec![(2, 0), (3, 1)];
     let sorter = ParSortIters::new(4)?
         .expected_num_pairs(4)
-        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .num_partitions(2)
         .memory_usage(webgraph::utils::MemoryUsage::BatchSize(10));
 
     let split = sorter.sort(vec![iter1, iter2])?;
@@ -312,12 +308,11 @@ fn test_par_sort_iters_basic() -> Result<()> {
 
 #[test]
 fn test_par_sort_iters_single_partition() -> Result<()> {
-    use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_iters::ParSortIters;
 
     let iter1 = vec![(2, 0), (0, 1)];
     let iter2 = vec![(1, 2)];
-    let sorter = ParSortIters::new(3)?.num_partitions(NonZeroUsize::new(1).unwrap());
+    let sorter = ParSortIters::new(3)?.num_partitions(1);
 
     let split = sorter.sort(vec![iter1, iter2])?;
     assert_eq!(split.boundaries.len(), 2);
@@ -352,14 +347,13 @@ fn test_sort_pairs_labeled_with_values() -> Result<()> {
 #[test]
 fn test_par_sort_pairs_labeled() -> Result<()> {
     use rayon::prelude::*;
-    use std::num::NonZeroUsize;
     use webgraph::utils::MemoryUsage;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs = vec![((1, 3), ()), ((0, 2), ()), ((2, 1), ())];
     let sorter = ParSortPairs::new(4)?
         .expected_num_pairs(pairs.len())
-        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(20));
 
     let split = sorter.sort_labeled(
@@ -484,7 +478,6 @@ fn test_sort_pairs_labeled_with_gaps_codec() -> Result<()> {
 
 #[test]
 fn test_par_sort_pairs_sort_labeled() -> Result<()> {
-    use std::num::NonZeroUsize;
     use webgraph::utils::grouped_gaps::GroupedGapsCodec;
     use webgraph::utils::{MemoryUsage, ParSortPairs};
 
@@ -498,7 +491,7 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
     ];
 
     let sorter = ParSortPairs::new(num_nodes)?
-        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(100));
     let codec = GroupedGapsCodec::<BE, (), ()>::default();
     use rayon::prelude::*;
@@ -522,7 +515,6 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
 
 #[test]
 fn test_par_sort_iters() -> Result<()> {
-    use std::num::NonZeroUsize;
     use webgraph::traits::{SequentialLabeling, SplitLabeling};
     use webgraph::utils::{MemoryUsage, ParSortIters};
 
@@ -536,7 +528,7 @@ fn test_par_sort_iters() -> Result<()> {
         .collect();
 
     let sorter = ParSortIters::new(num_nodes)?
-        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(100));
     let split = sorter.sort(pairs)?;
 
@@ -651,11 +643,10 @@ fn test_kmerge_iters_dedup_sum() {
 #[test]
 fn test_par_sort_pairs_dedup() -> Result<()> {
     use rayon::prelude::*;
-    use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_pairs::ParSortPairs;
 
     let pairs = vec![(0, 1), (0, 1), (1, 2), (1, 2), (2, 3), (0, 1)];
-    let sorter = ParSortPairs::new_dedup(4)?.num_partitions(NonZeroUsize::new(2).unwrap());
+    let sorter = ParSortPairs::new_dedup(4)?.num_partitions(2);
 
     let split = sorter.sort(pairs.par_iter().copied())?;
 
@@ -670,13 +661,12 @@ fn test_par_sort_pairs_dedup() -> Result<()> {
 
 #[test]
 fn test_par_sort_iters_dedup() -> Result<()> {
-    use std::num::NonZeroUsize;
     use webgraph::utils::par_sort_iters::ParSortIters;
 
     // Two iterators with overlapping pairs
     let iter1 = vec![((0usize, 1usize), ()), ((1, 2), ()), ((0, 1), ())];
     let iter2 = vec![((1usize, 2usize), ()), ((2, 3), ()), ((2, 3), ())];
-    let sorter = ParSortIters::new_dedup(4)?.num_partitions(NonZeroUsize::new(2).unwrap());
+    let sorter = ParSortIters::new_dedup(4)?.num_partitions(2);
 
     let split = sorter.sort_labeled(
         <webgraph::utils::DefaultBatchCodec<true>>::default(),

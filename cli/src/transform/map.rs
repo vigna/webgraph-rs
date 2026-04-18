@@ -137,7 +137,7 @@ where
         thread_pool.install(|| {
             log::info!("Mapping graph with memory usage {}", memory_usage);
             let start = std::time::Instant::now();
-            let split = webgraph::transform::map_split(
+            let sorted = webgraph::transform::map_split(
                 &graph,
                 &node_map,
                 num_nodes,
@@ -149,8 +149,7 @@ where
                 start.elapsed().as_secs_f64()
             );
 
-            let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
-            par_comp!(builder, &sorted, target_endianness)
+            par_comp!(builder, sorted, target_endianness)
         })?;
 
         Ok(())

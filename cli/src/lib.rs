@@ -76,14 +76,11 @@ macro_rules! par_comp {
 
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
 /// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
-pub fn __par_comp_dispatch<'graph, G>(
+pub fn __par_comp_dispatch<G: IntoParIters<Label = usize>>(
     config: &mut webgraph::prelude::BvCompConfig,
-    graph: &'graph G,
+    graph: G,
     endianness: &str,
-) -> anyhow::Result<u64>
-where
-    &'graph G: IntoParIters<Label = usize>,
-{
+) -> anyhow::Result<u64> {
     use dsi_bitstream::prelude::Endianness;
     #[cfg(feature = "be_bins")]
     if endianness == dsi_bitstream::prelude::BE::NAME {

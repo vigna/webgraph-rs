@@ -116,9 +116,8 @@ where
     )?;
 
     // transpose the graph
-    let split =
+    let sorted =
         webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, Some(cp))?;
-    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
@@ -132,6 +131,6 @@ where
         builder = builder.with_chunk_size(chunk_size);
     }
 
-    thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))?;
+    thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
     Ok(())
 }

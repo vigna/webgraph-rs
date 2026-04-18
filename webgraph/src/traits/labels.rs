@@ -592,7 +592,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
-/// [sorting]: crate::graphs::SortedGraph
+/// [sorting]: crate::graphs::sorted_graph::SortedGraph
 pub trait IntoParIters {
     type Label;
     /// The type of [`Lender`] over the successors of a node returned by
@@ -607,7 +607,7 @@ pub trait IntoParIters {
 }
 
 /// Implements [`IntoParIters`] for a type that already implements
-/// [`SplitLabeling`], using the split lender as the parallel lender.
+/// [`SplitLabeling`](crate::traits::SplitLabeling), using the split lender as the parallel lender.
 ///
 /// The macro requires that the split lender satisfies the additional bounds
 /// `ExactSizeLender + FusedLender`.

@@ -175,26 +175,22 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
         partitioned_iters.push(partition_arcs);
     }
 
-    // Convert to lenders using the From trait via SplitIters
-    let split_iters = SplitIters::new(partition_boundaries, partitioned_iters.into_boxed_slice());
-    let lenders: Vec<_> = split_iters.into();
+    // Convert to a SortedLabeledGraph via SplitIters
+    let iters: Box<[_]> = partitioned_iters
+        .into_iter()
+        .map(|v| v.into_iter())
+        .collect();
+    let sorted: webgraph::graphs::sorted_graph::SortedLabeledGraph<(), _> =
+        SplitIters::new(partition_boundaries, iters).into();
 
-    // Verify we got the right number of lenders
-    assert_eq!(
-        lenders.len(),
-        num_partitions,
-        "Should have {} lenders",
-        num_partitions
-    );
+    assert_eq!(sorted.num_nodes(), num_nodes);
 
-    // Collect all nodes from all lenders
+    // Collect all nodes
     let mut all_nodes = Vec::new();
-    for mut lender in lenders {
-        while let Some((node_id, successors)) = lender.next() {
-            all_nodes.push(node_id);
-            let _succs: Vec<_> = successors.into_iter().collect();
-        }
-    }
+    for_!((node_id, successors) in sorted.iter() {
+        all_nodes.push(node_id);
+        let _succs: Vec<_> = successors.into_iter().collect();
+    });
 
     // Verify we enumerated ALL nodes 0..9, including the last two without arcs
     assert_eq!(

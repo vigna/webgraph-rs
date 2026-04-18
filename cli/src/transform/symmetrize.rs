@@ -182,7 +182,7 @@ where
 
                     let split = par_sort_iters.sort(pairs)?;
                     let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
-                    par_comp!(builder, &sorted, target_endianness)
+                    par_comp!(builder, sorted, target_endianness)
                 })
             })?;
         }
@@ -201,13 +201,12 @@ where
             macro_rules! symmetrize_and_compress {
                 ($no_loops:expr) => {
                     thread_pool.install(|| {
-                        let split = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
+                        let sorted = webgraph::transform::symmetrize_sorted_split::<$no_loops, _>(
                             &graph,
                             args.memory_usage.memory_usage,
                             Some(cp),
                         )?;
-                        let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
-                        par_comp!(builder, &sorted, target_endianness)
+                        par_comp!(builder, sorted, target_endianness)
                     })?
                 };
             }
@@ -267,12 +266,10 @@ where
 
             if no_loops {
                 let union = NoSelfLoopsGraph(UnionGraph(seq_graph, seq_graph_t));
-                thread_pool
-                    .install(|| par_comp!(builder, &union, target_endianness))?;
+                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
             } else {
                 let union = UnionGraph(seq_graph, seq_graph_t);
-                thread_pool
-                    .install(|| par_comp!(builder, &union, target_endianness))?;
+                thread_pool.install(|| par_comp!(builder, &union, target_endianness))?;
             }
         }
         (Some(perm_path), None | Some(_)) => {
@@ -322,9 +319,7 @@ where
                         &seq_graph,
                         args.memory_usage.memory_usage,
                     )?;
-                    thread_pool.install(|| {
-                        par_comp!(builder, &symmetrized, target_endianness)
-                    })?
+                    thread_pool.install(|| par_comp!(builder, &symmetrized, target_endianness))?
                 }};
             }
             if no_loops {

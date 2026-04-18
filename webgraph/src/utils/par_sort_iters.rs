@@ -30,8 +30,8 @@
 //!
 //! The typical use of [`ParSortIters`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
-//! be then used to build a compressed representation of the graph using, for
-//! example, [`BvCompConfig::par_comp`].
+//! be wrapped in a [`SortedGraph`] (or [`SortedLabeledGraph`]) and then
+//! compressed using, for example, [`BvCompConfig::par_comp`].
 //!
 //! For example, when transposing or permuting a [splittable] graph one obtains
 //! such a sequence of iterators.
@@ -44,8 +44,8 @@
 //! [install]: rayon::ThreadPool::install
 //! [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 //! [splittable]: crate::traits::SplitLabeling
-
-use core::num::NonZeroUsize;
+//! [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+//! [`SortedLabeledGraph`]: crate::graphs::sorted_graph::SortedLabeledGraph
 
 use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::{ProgressLog, concurrent_progress_logger};
@@ -57,7 +57,8 @@ use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec};
 use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a sequence of iterators of (labeled) pairs as input, and turns them
-/// into a [`SplitIters`] structure which is suitable for
+/// into a [`SplitIters`] structure which can be wrapped in a
+/// [`SortedGraph`] for compression with
 /// [`BvCompConfig::par_comp`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
@@ -71,23 +72,21 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// In this example we transpose a graph in parallel by splitting it, exchanging
 /// the source and destination of each arc, sorting the resulting pairs in
-/// parallel using [`ParSortIters`], and then compressing the result using
-/// [`BvCompConfig::par_comp`]:
+/// parallel using [`ParSortIters`], wrapping the result in a [`SortedGraph`],
+/// and then compressing it using [`BvCompConfig::par_comp`]:
 ///
 /// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
+/// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
 /// [module documentation]: self
 ///
 /// ```
-/// use std::num::NonZeroUsize;
-///
-/// use dsi_bitstream::traits::BE;
-/// use rayon::prelude::*;
-/// use webgraph::prelude::*;
-/// use webgraph::graphs::bvgraph::{BvComp, CompFlags};
-/// use webgraph::traits::{SequentialLabeling, SplitLabeling};
-/// use webgraph::utils::par_sort_iters::ParSortIters;
-/// use webgraph::graphs::sorted_graph::SortedGraph;
-///
+/// # use dsi_bitstream::traits::BE;
+/// # use rayon::prelude::*;
+/// # use webgraph::prelude::*;
+/// # use webgraph::graphs::bvgraph::{BvComp, CompFlags};
+/// # use webgraph::traits::{SequentialLabeling, SplitLabeling};
+/// # use webgraph::utils::par_sort_iters::ParSortIters;
+/// # use webgraph::graphs::sorted_graph::SortedGraph;
 /// // Build a small VecGraph
 /// let g = VecGraph::from_arcs([
 ///     (0, 4),
@@ -118,13 +117,13 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
 /// BvComp::with_basename(bvcomp_out_dir.path().join("graph")).
-///     par_comp::<BE, _>(&sorted_graph)?;
+///     par_comp::<BE, _>(sorted_graph)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub struct ParSortIters<const DEDUP: bool = false> {
     num_nodes: usize,
     expected_num_pairs: Option<usize>,
-    num_partitions: NonZeroUsize,
+    num_partitions: usize,
     memory_usage: MemoryUsage,
 }
 
@@ -184,8 +183,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         Ok(Self {
             num_nodes,
             expected_num_pairs: None,
-            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
-                .context("No Rayon threads")?,
+            num_partitions: rayon::current_num_threads(),
             memory_usage: MemoryUsage::default(),
         })
     }
@@ -238,7 +236,8 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// This is the number of iterators in the resulting [`SplitIters`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub const fn num_partitions(self, num_partitions: NonZeroUsize) -> Self {
+    pub const fn num_partitions(self, num_partitions: usize) -> Self {
+        assert!(num_partitions > 0, "num_partitions must be positive");
         Self {
             num_partitions,
             ..self
@@ -304,7 +303,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
         let unsorted_pairs = pairs;
 
-        let num_partitions = self.num_partitions.into();
+        let num_partitions = self.num_partitions;
         let num_buffers = rayon::current_num_threads() * num_partitions;
         let batch_size = self
             .memory_usage

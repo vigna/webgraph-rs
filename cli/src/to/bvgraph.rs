@@ -139,13 +139,12 @@ where
     thread_pool.install(|| {
         log::info!("Permuting graph with memory usage {}", memory_usage);
         let start = std::time::Instant::now();
-        let split = webgraph::transform::permute_split(&graph, perm, memory_usage, None)?;
+        let sorted = webgraph::transform::permute_split(&graph, perm, memory_usage, None)?;
         log::info!(
             "Permuted the graph. It took {:.3} seconds",
             start.elapsed().as_secs_f64()
         );
-        let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
-        par_comp!(builder, &sorted, te)
+        par_comp!(builder, sorted, te)
     })?;
     Ok(())
 }
@@ -195,11 +194,7 @@ where
         use epserde::prelude::*;
         let dcf_path = src.with_extension(DEG_CUMUL_EXTENSION);
         let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
-        let dcf_graph = ParallelDcfGraph::new(
-            graph,
-            dcf.uncase(),
-            std::num::NonZeroUsize::new(rayon::current_num_threads()).unwrap(),
-        );
+        let dcf_graph = ParallelDcfGraph::new(graph, dcf.uncase(), rayon::current_num_threads());
         thread_pool.install(|| par_comp!(builder, &dcf_graph, target_endianness))?;
     } else {
         thread_pool.install(|| par_comp!(builder, &graph, target_endianness))?;

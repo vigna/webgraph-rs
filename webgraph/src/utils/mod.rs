@@ -65,8 +65,8 @@ pub mod par_sort_iters;
 pub use par_sort_iters::ParSortIters;
 
 use crate::graphs::{
-    arc_list_graph::NodeLabels,
     bvgraph::{Decode, Encode},
+    sorted_graph::{SortedGraph, SortedLabeledGraph},
 };
 
 /// A decoder that encodes the read values using the given encoder.
@@ -303,21 +303,10 @@ pub fn humanize(value: f64) -> String {
 /// returns (labeled) pairs of nodes, and that the first element of
 /// each pair sits between the boundaries associated with the iterator.
 ///
-/// This structure is returned by [`ParSortPairs`] and [`ParSortIters`] and can
-/// easily be converted into lenders for use with
-/// [`BvCompConfig::par_comp`] using a convenient implementation of the
-/// [`From`] trait.
-///
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
-///
-/// Note that it is sufficient to write `let lenders: Vec<_> =
-/// split_iters.into()` to perform the conversion, albeit in the unlabeled case
-/// before Rust 1.92 you might need to use `let lenders: Vec<LeftIterator<_>> =
-/// split_iters.into()` to help type inference.
-///
-/// Type inference might also not work properly if the call is embedded in a
-/// larger expression, in which case an explicit type annotation might be
-/// necessary.
+/// This structure is returned by [`ParSortPairs`] and [`ParSortIters`].
+/// For graph compression, convert the result into a [`SortedGraph`] (or
+/// [`SortedLabeledGraph`]) using the [`From`] implementations provided
+/// below (i.e., by calling [`.into()`](Into::into)).
 pub struct SplitIters<I> {
     pub boundaries: Box<[usize]>,
     pub iters: Box<[I]>,
@@ -332,16 +321,18 @@ impl<I> SplitIters<I> {
 /// Iterator type obtained by merging sorted batches of unlabeled pairs.
 ///
 /// This is the concrete iterator type inside
-/// [`SplitIters`]`<SortedPairIter>`, as returned by methods that sort
-/// unlabeled pairs, such as [`ParSortIters::sort`], [`ParSortPairs::sort`],
-/// and the transform functions [`permute_split`], [`transpose_split`], and
-/// [`symmetrize_split`].
+/// [`SplitIters`]`<SortedPairIter>`, as returned by
+/// [`ParSortIters::sort`] and [`ParSortPairs::sort`].
+///
+/// Note that `SortedPairIter` strips the `()` label from the underlying
+/// [`KMergeIters`](sort_pairs::KMergeIters) via [`Map`](std::iter::Map);
+/// the transform functions (e.g., [`transpose_split`]) use
+/// [`KMergeIters`](sort_pairs::KMergeIters) directly and return a
+/// [`SortedGraph`] instead.
 ///
 /// [`ParSortIters::sort`]: par_sort_iters::ParSortIters::sort
 /// [`ParSortPairs::sort`]: par_sort_pairs::ParSortPairs::sort
-/// [`permute_split`]: crate::transform::permute_split
 /// [`transpose_split`]: crate::transform::transpose_split
-/// [`symmetrize_split`]: crate::transform::symmetrize_split
 pub type SortedPairIter<const DEDUP: bool = false> = std::iter::Map<
     sort_pairs::KMergeIters<CodecIter<DefaultBatchCodec<DEDUP>>, (), DEDUP>,
     fn(((usize, usize), ())) -> (usize, usize),
@@ -353,89 +344,20 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
     }
 }
 
-/// Conversion of a [`SplitIters`] of iterators on unlabeled pairs into a
-/// sequence of pairs of starting points and associated lenders.
-///
-/// This is useful for converting the output of sorting utilities like
-/// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvCompConfig::par_comp`] when working with unlabeled graphs.
-///
-/// The pairs `(src, dst)` are automatically converted to labeled form with unit
-/// labels, and the resulting lenders are wrapped with [`LeftIterator`] to
-/// project out just the successor nodes.
-///
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
-/// [`LeftIterator`]: crate::labels::proj::LeftIterator
-///
-/// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
-/// to perform the conversion, albeit before Rust 1.92 you might need to use
-/// `let lenders: Vec<LeftIterator<_>> = split_iters.into()` to help type inference
-/// by forcing the unlabeled case.
-///
-/// Type inference might also not work properly if the call is embedded in a
-/// larger expression, in which case an explicit type annotation might be
-/// necessary.
-impl<
-    I: Iterator<Item = (usize, usize)> + Send + Sync,
-    IT: IntoIterator<Item = (usize, usize), IntoIter = I>,
-> From<SplitIters<IT>>
-    for Vec<
-        crate::labels::proj::LeftIterator<
-            NodeLabels<(), std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>,
-        >,
-    >
+/// Converts a [`SplitIters`] of unlabeled pair iterators into a
+/// [`SortedGraph`].
+impl<I: Iterator<Item = (usize, usize)>> From<SplitIters<I>>
+    for SortedGraph<std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>
 {
-    fn from(split: SplitIters<IT>) -> Self {
-        Box::into_iter(split.iters)
-            .enumerate()
-            .map(|(i, iter)| {
-                let start_node = split.boundaries[i];
-                let end_node = split.boundaries[i + 1];
-                let num_partition_nodes = end_node - start_node;
-                // Map pairs to labeled pairs with unit labels
-                #[allow(clippy::type_complexity)]
-                let map_fn: fn((usize, usize)) -> ((usize, usize), ()) = |pair| (pair, ());
-                let labeled_iter = iter.into_iter().map(map_fn);
-                let lender =
-                    NodeLabels::try_new_from(num_partition_nodes, labeled_iter, start_node)
-                        .expect("Iterator should start from the expected first node");
-                // Wrap with LeftIterator to project out just the successor
-                crate::labels::proj::LeftIterator(lender)
-            })
-            .collect()
+    fn from(split: SplitIters<I>) -> Self {
+        SortedGraph::from_parts(split.boundaries, split.iters)
     }
 }
 
-/// Conversion of a [`SplitIters`] of iterators on labeled pairs into a
-/// sequences of pairs of starting points and associated lenders.
-///
-/// This is useful for converting the output of sorting utilities like
-/// [`ParSortPairs`] or [`ParSortIters`] into a form suitable for
-/// [`BvCompConfig::par_comp`].
-///
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
-///
-/// Note that it is sufficient to write `let lenders: Vec<_> = split_iters.into()`
-/// to perform the conversion. Type inference might not work properly if the
-/// call is embedded in a larger expression, in which case an explicit type
-/// annotation might be necessary.
-impl<
-    L: Clone + Copy + 'static,
-    I: Iterator<Item = ((usize, usize), L)> + Send + Sync,
-    IT: IntoIterator<Item = ((usize, usize), L), IntoIter = I>,
-> From<SplitIters<IT>> for Vec<NodeLabels<L, I>>
-{
-    fn from(split: SplitIters<IT>) -> Self {
-        Box::into_iter(split.iters)
-            .enumerate()
-            .map(|(i, iter)| {
-                let start_node = split.boundaries[i];
-                let end_node = split.boundaries[i + 1];
-                let num_partition_nodes = end_node - start_node;
-
-                NodeLabels::try_new_from(num_partition_nodes, iter.into_iter(), start_node)
-                    .expect("Iterator should start from the expected first node")
-            })
-            .collect()
+/// Converts a [`SplitIters`] of labeled pair iterators into a
+/// [`SortedLabeledGraph`].
+impl<L, I: Iterator<Item = ((usize, usize), L)>> From<SplitIters<I>> for SortedLabeledGraph<L, I> {
+    fn from(split: SplitIters<I>) -> Self {
+        SortedLabeledGraph::from_parts(split.boundaries, split.iters)
     }
 }

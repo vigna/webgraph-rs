@@ -9,7 +9,6 @@ use crate::graphs::arc_list_graph;
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::*;
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::{SortedPairIter, SplitIters};
 use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -71,12 +70,8 @@ pub fn permute(
     Ok(Left(sorted))
 }
 
-/// Returns a [`SplitIters`] structure representing the permuted graph
-/// starting from a [splittable] graph, computed in parallel.
-///
-/// The [`SplitIters`] structure can be easily converted into a vector of
-/// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp`].
+/// Returns a [`SortedGraph`] representing the permuted graph starting from a
+/// [splittable] graph, computed in parallel.
 ///
 /// Note that if the graph is not [splittable] you must use [`permute`],
 /// albeit it will be slower.
@@ -88,14 +83,13 @@ pub fn permute(
 /// additional parameter, see [`ParSortIters`].
 ///
 /// [splittable]: SplitLabeling
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn permute_split<'g, S, P>(
     graph: &'g S,
     perm: &P,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<SortedPairIter>>
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec>>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
@@ -128,9 +122,13 @@ where
     .into_iter()
     .map(|iter| {
         iter.into_pairs()
-            .map(|(src, dst)| (perm.index_value(src), perm.index_value(dst)))
+            .map(|(src, dst)| ((perm.index_value(src), perm.index_value(dst)), ()))
     })
     .collect();
 
-    par_sort_iters.sort(pairs)
+    Ok(SortedGraph(
+        par_sort_iters
+            .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }

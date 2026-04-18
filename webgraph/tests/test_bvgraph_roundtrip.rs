@@ -624,7 +624,6 @@ fn test_par_comp() -> Result<()> {
 
 #[test]
 fn test_par_comp_from_parts() -> Result<()> {
-    use std::num::NonZeroUsize;
     use webgraph::graphs::sorted_graph::SortedGraph;
     use webgraph::traits::SequentialLabeling;
     use webgraph::utils::{MemoryUsage, ParSortPairs};
@@ -636,7 +635,7 @@ fn test_par_comp_from_parts() -> Result<()> {
     // Sort pairs in parallel
     let pairs: Vec<(usize, usize)> = vec![(0, 1), (1, 2), (2, 3), (3, 0), (0, 3)];
     let sorter = ParSortPairs::new(num_nodes)?
-        .num_partitions(NonZeroUsize::new(2).unwrap())
+        .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(100));
     use rayon::prelude::*;
     let split = sorter.sort(pairs.into_par_iter())?;

@@ -17,7 +17,6 @@ use anyhow::Result;
 use lender::*;
 use std::iter::Flatten;
 use std::marker::PhantomData;
-use std::num::NonZeroUsize;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // SortedLabeledGraph
@@ -106,7 +105,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
                     Label: Pair<Left = usize, Right = C::Label> + Copy,
                     IntoIterator: IntoIterator<IntoIter: Send + Sync>,
                 > + Send
-                    + Sync,
+                                     + Sync,
             >,
         CodecIter<C>: Clone + Send + Sync,
     {
@@ -121,9 +120,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
     pub fn from_pairs<C>(
         num_nodes: usize,
         batch_codec: C,
-        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
-            + Send
-            + Sync,
+        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + Send + Sync,
     ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
     where
         C: BatchCodec,
@@ -268,11 +265,11 @@ impl<
 /// ```ignore
 /// // Sequential sort with defaults
 /// let sorted = SortedGraph::from(PermutedGraph::new(&graph, &perm))?;
-/// BvComp::with_basename("out").par_comp::<BE, _>(&sorted)?;
+/// BvComp::with_basename("out").par_comp::<BE, _>(sorted)?;
 ///
 /// // Parallel sort with custom config
 /// let sorted = SortedGraph::config()
-///     .num_partitions(NonZeroUsize::new(8).unwrap())
+///     .num_partitions(8)
 ///     .memory_usage(MemoryUsage::Percentage(0.5))
 ///     .par_sort_graph(graph)?;
 /// ```
@@ -461,15 +458,14 @@ impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lend
 /// partitioning and memory, then call one of the terminal methods to
 /// perform the sort.
 pub struct SortedGraphConfig {
-    num_partitions: NonZeroUsize,
+    num_partitions: usize,
     memory_usage: MemoryUsage,
 }
 
 impl SortedGraphConfig {
     fn new() -> Self {
         SortedGraphConfig {
-            num_partitions: NonZeroUsize::new(rayon::current_num_threads())
-                .expect("Number of Rayon threads should be non-zero"),
+            num_partitions: rayon::current_num_threads(),
             memory_usage: MemoryUsage::default(),
         }
     }
@@ -477,7 +473,8 @@ impl SortedGraphConfig {
     /// Sets the number of output partitions.
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub const fn num_partitions(mut self, n: NonZeroUsize) -> Self {
+    pub const fn num_partitions(mut self, n: usize) -> Self {
+        assert!(n > 0, "the number of partitions must be positive");
         self.num_partitions = n;
         self
     }
@@ -513,8 +510,9 @@ impl SortedGraphConfig {
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
-        let split = par_sort.sort_labeled(batch_codec, [graph.iter().into_labeled_pairs()])?;
-        Ok(SortedLabeledGraph::from_parts(split.boundaries, split.iters))
+        Ok(par_sort
+            .sort_labeled(batch_codec, [graph.iter().into_labeled_pairs()])?
+            .into())
     }
 
     /// Sorts labeled arcs from a splittable [`LabeledSequentialGraph`] in
@@ -533,7 +531,7 @@ impl SortedGraphConfig {
                     Label: Pair<Left = usize, Right = C::Label> + Copy,
                     IntoIterator: IntoIterator<IntoIter: Send + Sync>,
                 > + Send
-                    + Sync,
+                                     + Sync,
             >,
         CodecIter<C>: Clone + Send + Sync,
     {
@@ -550,8 +548,7 @@ impl SortedGraphConfig {
             .into_iter()
             .map(|iter| iter.into_labeled_pairs())
             .collect();
-        let split = par_sort.sort_labeled(batch_codec, pairs)?;
-        Ok(SortedLabeledGraph::from_parts(split.boundaries, split.iters))
+        Ok(par_sort.sort_labeled(batch_codec, pairs)?.into())
     }
 
     /// Sorts labeled pairs from a sequential iterator, producing a
@@ -560,9 +557,7 @@ impl SortedGraphConfig {
         self,
         num_nodes: usize,
         batch_codec: C,
-        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync>
-            + Send
-            + Sync,
+        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + Send + Sync,
     ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
     where
         C: BatchCodec,
@@ -570,8 +565,7 @@ impl SortedGraphConfig {
         let par_sort = ParSortIters::new(num_nodes)?
             .num_partitions(self.num_partitions)
             .memory_usage(self.memory_usage);
-        let split = par_sort.sort_labeled(batch_codec, [pairs])?;
-        Ok(SortedLabeledGraph::from_parts(split.boundaries, split.iters))
+        Ok(par_sort.sort_labeled(batch_codec, [pairs])?.into())
     }
 
     /// Sorts labeled pairs from a parallel iterator, producing a
@@ -588,8 +582,7 @@ impl SortedGraphConfig {
         let par_sort = ParSortPairs::new(num_nodes)?
             .num_partitions(self.num_partitions)
             .memory_usage(self.memory_usage);
-        let split = par_sort.sort_labeled(batch_codec, pairs)?;
-        Ok(SortedLabeledGraph::from_parts(split.boundaries, split.iters))
+        Ok(par_sort.sort_labeled(batch_codec, pairs)?.into())
     }
 
     // ── Unlabeled terminal methods ─────────────────────────────
@@ -609,14 +602,14 @@ impl SortedGraphConfig {
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
-        let split = par_sort.sort_labeled::<DefaultBatchCodec, _>(
-            DefaultBatchCodec::default(),
-            [graph.iter().into_pairs().map(|pair| (pair, ()))],
-        )?;
-        Ok(SortedGraph(SortedLabeledGraph::from_parts(
-            split.boundaries,
-            split.iters,
-        )))
+        Ok(SortedGraph(
+            par_sort
+                .sort_labeled::<DefaultBatchCodec, _>(
+                    DefaultBatchCodec::default(),
+                    [graph.iter().into_pairs().map(|pair| (pair, ()))],
+                )?
+                .into(),
+        ))
     }
 
     /// Sorts arcs from a splittable [`SequentialGraph`] in parallel,
@@ -644,11 +637,11 @@ impl SortedGraphConfig {
             .into_iter()
             .map(|iter| iter.into_pairs().map(|pair| (pair, ())))
             .collect();
-        let split = par_sort.sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?;
-        Ok(SortedGraph(SortedLabeledGraph::from_parts(
-            split.boundaries,
-            split.iters,
-        )))
+        Ok(SortedGraph(
+            par_sort
+                .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
+                .into(),
+        ))
     }
 
     /// Sorts unlabeled pairs from a sequential iterator, producing a

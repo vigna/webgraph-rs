@@ -6,13 +6,14 @@
  */
 
 use crate::graphs::arc_list_graph;
+use crate::graphs::sorted_graph::SortedGraph;
 use crate::labels::Left;
 use crate::traits::{
     LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator, SortedLender, SplitLabeling,
 };
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::sort_pairs::SortPairs;
-use crate::utils::{MemoryUsage, SortedPairIter, SplitIters};
+use crate::utils::sort_pairs::{KMergeIters, SortPairs};
+use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage, SplitIters};
 use anyhow::Result;
 use dsi_progress_logger::prelude::*;
 use lender::*;
@@ -145,8 +146,8 @@ where
     )))
 }
 
-/// Returns a [`SplitIters`] structure representing a symmetrized version of
-/// the provided sorted (both on nodes and successors) [splittable] graph,
+/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// provided sorted (both on nodes and successors) [splittable] graph,
 /// computed in parallel.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
@@ -162,23 +163,18 @@ where
 /// (evenly spaced by node count), arc-balanced cutpoints (e.g., from a DCF)
 /// cannot be used for the output partitions.
 ///
-/// The [`SplitIters`] structure can be easily converted into a vector of
-/// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp`].
-///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
 /// [splittable]: crate::traits::SplitLabeling
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<impl Iterator<Item = (usize, usize)> + Clone + Send + Sync + 'g>>
+) -> Result<SortedGraph<impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'g>>
 where
     S: SequentialGraph + SplitLabeling,
     for<'a> S::Lender<'a>: SortedLender,
@@ -215,7 +211,10 @@ where
         .map(|(fwd, rev)| MergeDedupPairs::<NO_LOOPS, _, _>::new(fwd.into_pairs(), rev))
         .collect();
 
-    Ok(SplitIters::new(boundaries, merged.into_boxed_slice()))
+    Ok(SortedGraph::from_parts(
+        boundaries,
+        merged.into_boxed_slice(),
+    ))
 }
 
 /// Returns a symmetrized version of the provided graph as a [sequential
@@ -263,27 +262,22 @@ pub fn symmetrize<const NO_LOOPS: bool>(
     Ok(Left(sorted))
 }
 
-/// Returns a [`SplitIters`] structure representing a symmetrized version of the
+/// Returns a [`SortedGraph`] representing a symmetrized version of the
 /// provided graph, computed in parallel.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
-///
-/// The [`SplitIters`] structure can be easily converted into a vector of
-/// lenders using the [`From`] trait, suitable for
-/// [`BvCompConfig::par_comp`].
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameter, see [`ParSortIters`].
 ///
-/// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 /// [install]: rayon::ThreadPool::install
 pub fn symmetrize_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<SortedPairIter<true>>>
+) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
@@ -311,9 +305,11 @@ where
             // The two-element iterator is fully inlined by LLVM,
             // generating the same code as a hand-written loop.
             if src != dst {
-                Some((src, dst)).into_iter().chain(Some((dst, src)))
+                Some(((src, dst), ()))
+                    .into_iter()
+                    .chain(Some(((dst, src), ())))
             } else if !NO_LOOPS {
-                Some((src, dst)).into_iter().chain(None)
+                Some(((src, dst), ())).into_iter().chain(None)
             } else {
                 None.into_iter().chain(None)
             }
@@ -321,5 +317,9 @@ where
     })
     .collect();
 
-    par_sort_iters.sort(pairs)
+    Ok(SortedGraph(
+        par_sort_iters
+            .sort_labeled::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
+            .into(),
+    ))
 }
