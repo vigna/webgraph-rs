@@ -168,14 +168,14 @@ impl<G1: RandomAccessGraph, G2: RandomAccessGraph> SccGraph<G1, G2> {
 
         for ((children, starts), ends) in scc_graph
             .into_iter()
-            .zip(start_bridges.into_iter())
-            .zip(end_bridges.into_iter())
+            .zip(start_bridges)
+            .zip(end_bridges)
         {
             lengths.push(offset);
             for ((child, start), end) in children
                 .into_iter()
-                .zip(starts.into_iter())
-                .zip(ends.into_iter())
+                .zip(starts)
+                .zip(ends)
             {
                 connections.push(SccGraphConnection {
                     target: child,

@@ -5,35 +5,40 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::sorted_graph::{SortedGraph, SortedLabeledGraph, SortedPairIter};
+use crate::graphs::sorted_graph::{
+    LabeledCodec, SortedGraph, SortedLabeledGraph, SortedLabeledIter, SortedPairIter,
+};
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::{LabeledSequentialGraph, SequentialGraph};
-use crate::traits::{NodeLabelsLender, SplitLabeling};
+use crate::traits::{BitDeserializer, BitSerializer, NodeLabelsLender, SplitLabeling};
 use crate::utils::{
-    BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
+    BitReader, BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
 };
 use anyhow::Result;
+use dsi_bitstream::prelude::NE;
 
 /// Returns the transpose of the provided labeled graph as a
 /// [`SortedLabeledGraph`].
 ///
 /// For the meaning of the additional parameters, see
 /// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
-#[allow(clippy::type_complexity)]
-pub fn transpose_labeled<C: BatchCodec>(
-    graph: &impl LabeledSequentialGraph<C::Label>,
+pub fn transpose_labeled<S, D>(
+    graph: &impl LabeledSequentialGraph<S::SerType>,
     memory_usage: MemoryUsage,
-    batch_codec: C,
-) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+    serializer: S,
+    deserializer: D,
+) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
 where
-    C::Label: Clone + 'static,
-    CodecIter<C>: Clone + Send + Sync,
+    S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+    D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+    S::SerType: Clone + Copy + Send + Sync + 'static,
 {
     SortedGraph::config()
         .memory_usage(memory_usage)
         .sort_pairs_seq(
             graph.num_nodes(),
-            batch_codec,
+            serializer,
+            deserializer,
             graph
                 .iter()
                 .into_labeled_pairs()
@@ -70,26 +75,27 @@ pub fn transpose(
 /// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 ///
 /// [install]: rayon::ThreadPool::install
-pub fn transpose_labeled_split<
-    G: LabeledSequentialGraph<C::Label>
+pub fn transpose_labeled_split<S, D, G>(
+    graph: &G,
+    memory_usage: MemoryUsage,
+    serializer: S,
+    deserializer: D,
+    cutpoints: Option<Vec<usize>>,
+) -> Result<SplitIters<SortedLabeledIter<S, D>>>
+where
+    S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+    D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+    S::SerType: Clone + Copy + Send + Sync + 'static,
+    G: LabeledSequentialGraph<S::SerType>
         + for<'a> SplitLabeling<
             SplitLender<'a>: for<'b> NodeLabelsLender<
                 'b,
-                Label: crate::traits::Pair<Left = usize, Right = C::Label> + Copy,
+                Label: crate::traits::Pair<Left = usize, Right = S::SerType> + Copy,
                 IntoIterator: IntoIterator<IntoIter: Send + Sync>,
             > + Send
                                  + Sync,
             IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
         >,
-    C: BatchCodec,
->(
-    graph: &G,
-    memory_usage: MemoryUsage,
-    batch_codec: C,
-    cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label>>>
-where
-    CodecIter<C>: Clone + Send + Sync,
 {
     let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     if let Some(num_arcs) = graph.num_arcs_hint() {
@@ -107,7 +113,10 @@ where
     .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
     .collect();
 
-    par_sort_iters.try_sort_labeled::<C, std::convert::Infallible, _>(batch_codec, pairs)
+    let codec = LabeledCodec::new(serializer, deserializer);
+    par_sort_iters.try_sort_labeled::<LabeledCodec<S, D>, std::convert::Infallible, _>(
+        codec, pairs,
+    )
 }
 
 /// Returns a [`SortedGraph`] representing the transpose of the provided

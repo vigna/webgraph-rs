@@ -585,11 +585,23 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// Compressors should provide methods that accept an [`IntoParLenders`] and use
 /// the lenders returned by [`into_par_iters`] to process the graph in parallel.
 ///
+/// There are two typical implementations of this trait:
+///
+/// - on a type: for one-off graphs (e.g., [`SortedGraph`]) that are
+///   consumed once and then discarded;
+///
+/// - on a reference: for graphs that can be iterated over multiple times.
+///
+/// Some types have both implementations, with the same intended semantics of
+/// the two implementations of [`IntoIterator`] on vectors and on references to
+/// vectors.
+///
 /// [`into_par_iters`]: IntoParLenders::into_par_iters
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
 /// [sorting]: crate::graphs::sorted_graph::SortedGraph
+/// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
 pub trait IntoParLenders {
     /// The type of [`Lender`] over the successors of a node returned by
     /// [`into_par_iters`].
@@ -597,8 +609,14 @@ pub trait IntoParLenders {
     /// [`into_par_iters`]: Self::into_par_iters
     type ParLender: for<'next> NodeLabelsLender<'next> + Send + Sync;
 
-    /// Returns in constant time a sequence of lenders that can be used in
-    /// parallel computations.
+    /// Returns in constant time a sequence of lenders and cutpoints that can be
+    /// used in parallel computations.
+    ///
+    /// The cutpoints are a non-decreasing sequence of node ids with at least
+    /// two elements. They define `n` − 1 segments, where `n` is the number of
+    /// cutpoints, and the `i`-th segment covers nodes in [`cutpoints[i]` . .
+    /// `cutpoints[i + 1]`). There are as many lenders as segments, and the
+    /// `i`-th lender yields nodes from the `i`-th segment.
     fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>);
 }
 

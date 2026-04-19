@@ -430,7 +430,7 @@ fn test_par_sort_pairs_dedup() -> Result<()> {
 
     let mut all_pairs = Vec::new();
     for iter in split.iters.into_vec() {
-        all_pairs.extend(iter.into_iter());
+        all_pairs.extend(iter);
     }
     all_pairs.sort();
     assert_eq!(all_pairs, vec![(0, 1), (1, 2), (2, 3)]);

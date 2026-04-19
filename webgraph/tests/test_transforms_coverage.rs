@@ -90,18 +90,13 @@ fn test_transpose_split_bvgraph() -> Result<()> {
 #[test]
 fn test_transpose_labeled() -> Result<()> {
     use webgraph::transform::transpose_labeled;
-    use webgraph::utils::DefaultBatchCodec;
 
     let g = webgraph::graphs::vec_graph::LabeledVecGraph::<()>::from_arcs([
         ((0, 1), ()),
         ((0, 2), ()),
         ((1, 2), ()),
     ]);
-    let t = transpose_labeled(
-        &g,
-        MemoryUsage::BatchSize(2),
-        <DefaultBatchCodec>::default(),
-    )?;
+    let t = transpose_labeled(&g, MemoryUsage::BatchSize(2), (), ())?;
     assert_eq!(t.num_nodes(), 3);
     let mut iter = t.iter();
     while let Some((node, succ)) = iter.next() {

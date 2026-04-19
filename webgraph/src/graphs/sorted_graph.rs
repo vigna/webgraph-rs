@@ -9,11 +9,14 @@
 use crate::graphs::arc_list_graph;
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
+use crate::traits::{BitDeserializer, BitSerializer};
+use crate::utils::grouped_gaps;
 use crate::utils::par_sort_iters::ParSortIters;
 use crate::utils::par_sort_pairs::ParSortPairs;
 use crate::utils::sort_pairs::KMergeIters;
-use crate::utils::{BatchCodec, CodecIter, DefaultBatchCodec, MemoryUsage};
+use crate::utils::{BitReader, BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage};
 use anyhow::Result;
+use dsi_bitstream::prelude::NE;
 use lender::*;
 use std::iter::Flatten;
 use std::marker::PhantomData;
@@ -33,8 +36,8 @@ use std::marker::PhantomData;
 /// (parallel sort from a [`SplitLabeling`]). In both cases, the result
 /// implements [`IntoParLenders`].
 ///
-/// The label serialization format is controlled by the [`BatchCodec`]
-/// passed to the constructor.
+/// Labels are serialized and deserialized using a [`BitSerializer`] and
+/// [`BitDeserializer`] pair passed to the constructor.
 ///
 /// For the unlabeled case, use [`SortedGraph`], which is a transparent
 /// wrapper around `SortedLabeledGraph<(), I>`.
@@ -73,75 +76,134 @@ impl<L, I> SortedLabeledGraph<L, I> {
     /// with default settings.
     ///
     /// Equivalent to
-    /// `SortedLabeledGraph::config().sort(graph, batch_codec)`.
-    pub fn from<C, G>(
+    /// `SortedLabeledGraph::config().sort(graph, serializer, deserializer)`.
+    pub fn from<S, D, G>(
         graph: G,
-        batch_codec: C,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
-        G: LabeledSequentialGraph<C::Label>,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+        G: LabeledSequentialGraph<S::SerType>,
         for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
         for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
-        SortedGraphConfig::new().sort(graph, batch_codec)
+        SortedGraphConfig::new().sort(graph, serializer, deserializer)
     }
 
     /// Sorts labeled arcs from a splittable [`LabeledSequentialGraph`] in
     /// parallel with default settings.
     ///
     /// Equivalent to
-    /// `SortedLabeledGraph::config().par_sort(graph, batch_codec)`.
-    pub fn par_from<C, G>(
+    /// `SortedLabeledGraph::config().par_sort(graph, serializer, deserializer)`.
+    pub fn par_from<S, D, G>(
         graph: G,
-        batch_codec: C,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
-        G: LabeledSequentialGraph<C::Label>
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+        G: LabeledSequentialGraph<S::SerType>
             + for<'a> SplitLabeling<
                 SplitLender<'a>: for<'b> NodeLabelsLender<
                     'b,
-                    Label: Pair<Left = usize, Right = C::Label> + Copy,
+                    Label: Pair<Left = usize, Right = S::SerType> + Copy,
                     IntoIterator: IntoIterator<IntoIter: Send + Sync>,
                 > + Send
                                      + Sync,
             >,
-        CodecIter<C>: Clone + Send + Sync,
     {
-        SortedGraphConfig::new().par_sort(graph, batch_codec)
+        SortedGraphConfig::new().par_sort(graph, serializer, deserializer)
     }
 
     /// Sorts labeled pairs from a sequential iterator with default
     /// settings.
     ///
     /// Equivalent to
-    /// `SortedLabeledGraph::config().sort_pairs(num_nodes, batch_codec, pairs)`.
-    pub fn from_pairs<C>(
+    /// `SortedLabeledGraph::config().sort_pairs(num_nodes, serializer, deserializer, pairs)`.
+    pub fn from_pairs<S, D>(
         num_nodes: usize,
-        batch_codec: C,
-        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + Send + Sync,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+        pairs: impl IntoIterator<Item = ((usize, usize), S::SerType), IntoIter: Send + Sync>
+            + Send
+            + Sync,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
     {
-        SortedGraphConfig::new().sort_pairs(num_nodes, batch_codec, pairs)
+        SortedGraphConfig::new().sort_pairs(num_nodes, serializer, deserializer, pairs)
     }
 
     /// Sorts labeled pairs from a parallel iterator with default
     /// settings.
     ///
     /// Equivalent to
-    /// `SortedLabeledGraph::config().par_sort_pairs(num_nodes, batch_codec, pairs)`.
-    pub fn par_from_pairs<C>(
+    /// `SortedLabeledGraph::config().par_sort_pairs(num_nodes, serializer, deserializer, pairs)`.
+    pub fn par_from_pairs<S, D>(
         num_nodes: usize,
-        batch_codec: &C,
-        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), C::Label)>,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), S::SerType)>,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
     {
-        SortedGraphConfig::new().par_sort_pairs(num_nodes, batch_codec, pairs)
+        SortedGraphConfig::new().par_sort_pairs(num_nodes, serializer, deserializer, pairs)
+    }
+
+    /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially
+    /// with default settings.
+    ///
+    /// Unlike [`from`](Self::from), this method does not require `Send`
+    /// or `Sync` on the graph's lenders or their items. The output is
+    /// still partitioned for parallel compression.
+    ///
+    /// Equivalent to
+    /// `SortedLabeledGraph::config().sort_seq(graph, serializer, deserializer)`.
+    pub fn from_seq<S, D, G>(
+        graph: G,
+        serializer: S,
+        deserializer: D,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
+    where
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+        G: LabeledSequentialGraph<S::SerType>,
+    {
+        SortedGraphConfig::new().sort_seq(graph, serializer, deserializer)
+    }
+
+    /// Sorts labeled pairs from a sequential iterator with default
+    /// settings.
+    ///
+    /// Unlike [`from_pairs`](Self::from_pairs), this method does not
+    /// require `Send` or `Sync` on the iterator. The output is still
+    /// partitioned for parallel compression.
+    ///
+    /// Equivalent to
+    /// `SortedLabeledGraph::config().sort_pairs_seq(num_nodes, serializer, deserializer, pairs)`.
+    pub fn from_pairs_seq<S, D>(
+        num_nodes: usize,
+        serializer: S,
+        deserializer: D,
+        pairs: impl IntoIterator<Item = ((usize, usize), S::SerType)>,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
+    where
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+    {
+        SortedGraphConfig::new().sort_pairs_seq(num_nodes, serializer, deserializer, pairs)
     }
 }
 
@@ -280,6 +342,38 @@ pub struct SortedGraph<I>(pub SortedLabeledGraph<(), I>);
 /// away by [`SortedGraph`]'s trait implementations.
 pub type SortedPairIter = KMergeIters<CodecIter<DefaultBatchCodec>, ()>;
 
+/// Internal codec type for labeled sorted graphs.
+///
+/// Users should not need to reference this type directly; the labeled
+/// methods on [`SortedGraphConfig`] and [`SortedLabeledGraph`] accept
+/// a serializer `S` and a deserializer `D` instead.
+pub(crate) type LabeledCodec<S, D> = grouped_gaps::GroupedGapsCodec<
+    NE,
+    S,
+    D,
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::GAMMA },
+    { dsi_bitstream::dispatch::code_consts::DELTA },
+    false,
+>;
+
+/// The concrete iterator type for labeled sorted graphs.
+///
+/// This is the iterator returned by the labeled terminal methods of
+/// [`SortedGraphConfig`]. The type parameters `S` and `D` are the
+/// [`BitSerializer`] and [`BitDeserializer`] for the label type
+/// `S::SerType`.
+pub type SortedLabeledIter<S, D> = KMergeIters<
+    grouped_gaps::GroupedGapsIter<
+        NE,
+        D,
+        { dsi_bitstream::dispatch::code_consts::GAMMA },
+        { dsi_bitstream::dispatch::code_consts::GAMMA },
+        { dsi_bitstream::dispatch::code_consts::DELTA },
+    >,
+    <S as BitSerializer<NE, BitWriter<NE>>>::SerType,
+>;
+
 impl SortedGraph<SortedPairIter> {
     /// Creates a [`SortedGraph`] from pre-sorted partition boundaries and
     /// unlabeled pair iterators.
@@ -367,6 +461,32 @@ impl SortedGraph<SortedPairIter> {
         pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
     ) -> Result<Self> {
         SortedGraphConfig::new().par_sort_graph_pairs(num_nodes, pairs)
+    }
+
+    /// Sorts arcs from a [`SequentialGraph`] sequentially with default
+    /// settings.
+    ///
+    /// Unlike [`from`](Self::from), this method does not require `Send`
+    /// or `Sync` on the graph's lenders or their items. The output is
+    /// still partitioned for parallel compression.
+    ///
+    /// Equivalent to `SortedGraph::config().sort_graph_seq(graph)`.
+    pub fn from_seq<G: SequentialGraph>(graph: G) -> Result<Self> {
+        SortedGraphConfig::new().sort_graph_seq(graph)
+    }
+
+    /// Sorts pairs from a sequential iterator with default settings.
+    ///
+    /// Unlike [`from_pairs`](Self::from_pairs), this method does not
+    /// require `Send` or `Sync` on the iterator. The output is still
+    /// partitioned for parallel compression.
+    ///
+    /// Equivalent to `SortedGraph::config().sort_graph_pairs_seq(num_nodes, pairs)`.
+    pub fn from_pairs_seq(
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = (usize, usize)>,
+    ) -> Result<Self> {
+        SortedGraphConfig::new().sort_graph_pairs_seq(num_nodes, pairs)
     }
 }
 
@@ -488,14 +608,17 @@ impl SortedGraphConfig {
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially,
     /// producing a partitioned [`SortedLabeledGraph`].
-    pub fn sort<C, G>(
+    pub fn sort<S, D, G>(
         self,
         graph: G,
-        batch_codec: C,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
-        G: LabeledSequentialGraph<C::Label>,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+        G: LabeledSequentialGraph<S::SerType>,
         for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
         for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
@@ -507,30 +630,33 @@ impl SortedGraphConfig {
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
+        let codec = LabeledCodec::new(serializer, deserializer);
         Ok(par_sort
-            .sort_labeled(batch_codec, [graph.iter().into_labeled_pairs()])?
+            .sort_labeled(codec, [graph.iter().into_labeled_pairs()])?
             .into())
     }
 
     /// Sorts labeled arcs from a splittable [`LabeledSequentialGraph`] in
     /// parallel, producing a partitioned [`SortedLabeledGraph`].
-    pub fn par_sort<C, G>(
+    pub fn par_sort<S, D, G>(
         self,
         graph: G,
-        batch_codec: C,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
-        G: LabeledSequentialGraph<C::Label>
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+        G: LabeledSequentialGraph<S::SerType>
             + for<'a> SplitLabeling<
                 SplitLender<'a>: for<'b> NodeLabelsLender<
                     'b,
-                    Label: Pair<Left = usize, Right = C::Label> + Copy,
+                    Label: Pair<Left = usize, Right = S::SerType> + Copy,
                     IntoIterator: IntoIterator<IntoIter: Send + Sync>,
                 > + Send
                                      + Sync,
             >,
-        CodecIter<C>: Clone + Send + Sync,
     {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
@@ -545,41 +671,52 @@ impl SortedGraphConfig {
             .into_iter()
             .map(|iter| iter.into_labeled_pairs())
             .collect();
-        Ok(par_sort.sort_labeled(batch_codec, pairs)?.into())
+        let codec = LabeledCodec::new(serializer, deserializer);
+        Ok(par_sort.sort_labeled(codec, pairs)?.into())
     }
 
     /// Sorts labeled pairs from a sequential iterator, producing a
     /// partitioned [`SortedLabeledGraph`].
-    pub fn sort_pairs<C>(
+    pub fn sort_pairs<S, D>(
         self,
         num_nodes: usize,
-        batch_codec: C,
-        pairs: impl IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send + Sync> + Send + Sync,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+        pairs: impl IntoIterator<Item = ((usize, usize), S::SerType), IntoIter: Send + Sync>
+            + Send
+            + Sync,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
     {
         let par_sort = ParSortIters::new(num_nodes)?
             .num_partitions(self.num_partitions)
             .memory_usage(self.memory_usage);
-        Ok(par_sort.sort_labeled(batch_codec, [pairs])?.into())
+        let codec = LabeledCodec::new(serializer, deserializer);
+        Ok(par_sort.sort_labeled(codec, [pairs])?.into())
     }
 
     /// Sorts labeled pairs from a parallel iterator, producing a
     /// partitioned [`SortedLabeledGraph`].
-    pub fn par_sort_pairs<C>(
+    pub fn par_sort_pairs<S, D>(
         self,
         num_nodes: usize,
-        batch_codec: &C,
-        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), C::Label)>,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+        pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), S::SerType)>,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
     {
+        let codec = LabeledCodec::new(serializer, deserializer);
         let par_sort = ParSortPairs::new(num_nodes)?
             .num_partitions(self.num_partitions)
             .memory_usage(self.memory_usage);
-        Ok(par_sort.sort_labeled(batch_codec, pairs)?.into())
+        Ok(par_sort.sort_labeled(&codec, pairs)?.into())
     }
 
     // ── Unlabeled terminal methods ─────────────────────────────
@@ -651,11 +788,14 @@ impl SortedGraphConfig {
         pairs: impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
     ) -> Result<SortedGraph<SortedPairIter>> {
         let labeled = pairs.into_iter().map(|pair| (pair, ()));
-        Ok(SortedGraph(self.sort_pairs::<DefaultBatchCodec>(
-            num_nodes,
-            DefaultBatchCodec::default(),
-            labeled,
-        )?))
+        let par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        Ok(SortedGraph(
+            par_sort
+                .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), [labeled])?
+                .into(),
+        ))
     }
 
     /// Sorts unlabeled pairs from a parallel iterator, producing a
@@ -666,11 +806,14 @@ impl SortedGraphConfig {
         pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
     ) -> Result<SortedGraph<SortedPairIter>> {
         let labeled = rayon::iter::ParallelIterator::map(pairs, |pair| (pair, ()));
-        Ok(SortedGraph(self.par_sort_pairs::<DefaultBatchCodec>(
-            num_nodes,
-            &DefaultBatchCodec::default(),
-            labeled,
-        )?))
+        let par_sort = ParSortPairs::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        Ok(SortedGraph(
+            par_sort
+                .sort_labeled::<DefaultBatchCodec, _>(&DefaultBatchCodec::default(), labeled)?
+                .into(),
+        ))
     }
 
     // ── Sequential terminal methods (no Send/Sync required) ───
@@ -737,14 +880,17 @@ impl SortedGraphConfig {
     /// for parallel compression.
     ///
     /// [`sort`]: SortedGraphConfig::sort
-    pub fn sort_seq<C, G>(
+    pub fn sort_seq<S, D, G>(
         self,
         graph: G,
-        batch_codec: C,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
-        G: LabeledSequentialGraph<C::Label>,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
+        G: LabeledSequentialGraph<S::SerType>,
     {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
@@ -754,8 +900,9 @@ impl SortedGraphConfig {
         if let Some(num_arcs) = num_arcs_hint {
             par_sort = par_sort.expected_num_pairs(num_arcs as usize);
         }
+        let codec = LabeledCodec::new(serializer, deserializer);
         Ok(par_sort
-            .sort_labeled_seq(batch_codec, graph.iter().into_labeled_pairs())?
+            .sort_labeled_seq(codec, graph.iter().into_labeled_pairs())?
             .into())
     }
 
@@ -767,18 +914,22 @@ impl SortedGraphConfig {
     /// parallel compression.
     ///
     /// [`sort_pairs`]: SortedGraphConfig::sort_pairs
-    pub fn sort_pairs_seq<C>(
+    pub fn sort_pairs_seq<S, D>(
         self,
         num_nodes: usize,
-        batch_codec: C,
-        pairs: impl IntoIterator<Item = ((usize, usize), C::Label)>,
-    ) -> Result<SortedLabeledGraph<C::Label, KMergeIters<CodecIter<C>, C::Label>>>
+        serializer: S,
+        deserializer: D,
+        pairs: impl IntoIterator<Item = ((usize, usize), S::SerType)>,
+    ) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
     where
-        C: BatchCodec,
+        S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
+        D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
+        S::SerType: Copy + Send + Sync + 'static,
     {
         let par_sort = ParSortIters::new(num_nodes)?
             .num_partitions(self.num_partitions)
             .memory_usage(self.memory_usage);
-        Ok(par_sort.sort_labeled_seq(batch_codec, pairs)?.into())
+        let codec = LabeledCodec::new(serializer, deserializer);
+        Ok(par_sort.sort_labeled_seq(codec, pairs)?.into())
     }
 }

@@ -128,7 +128,7 @@ impl<C: AsMut<[usize]> + AsRef<[usize]>> Sccs<C> {
             .as_mut()
             .iter_mut()
             .for_each(|node_component| *node_component = inv_perm[*node_component]);
-        sizes.sort_by(|&x, &y| y.cmp(&x));
+        sizes.sort_by_key(|&x| std::cmp::Reverse(x));
         sizes
     }
 

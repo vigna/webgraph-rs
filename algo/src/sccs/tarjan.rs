@@ -94,9 +94,9 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
                     index -= 1;
                     lead.push(true);
                 }
-                EventPred::Revisit { node, pred, .. } => {
+                EventPred::Revisit { node, pred, .. }
                     // curr has not been emitted yet but it has a higher link
-                    if high_link[pred] < high_link[node] {
+                    if high_link[pred] < high_link[node] => {
                         // Safe as the stack is never empty
                         lead.set(lead.len() - 1, false);
                         high_link[pred] = high_link[node];
@@ -118,7 +118,6 @@ pub fn tarjan(graph: impl RandomAccessGraph, pl: &mut impl ProgressLog) -> Sccs 
                             return Break(StoppedWhenDone {});
                         }
                     }
-                }
                 EventPred::Postvisit {
                     node, parent: pred, ..
                 } => {

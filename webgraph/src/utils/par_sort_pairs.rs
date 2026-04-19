@@ -419,7 +419,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                 assert_eq!(unsorted_buffers.len(), num_partitions);
                 for (partition_id, (mut sorted_pairs, mut buf)) in sorted_pairs
                     .into_iter()
-                    .zip(unsorted_buffers.into_iter())
+                    .zip(unsorted_buffers)
                     .enumerate()
                 {
                     let buf_len = buf.len();
@@ -452,9 +452,9 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                     assert_eq!(pair_partitions2.len(), num_partitions);
                     for (partition1, partition2) in pair_partitions1
                         .iter_mut()
-                        .zip(pair_partitions2.into_iter())
+                        .zip(pair_partitions2)
                     {
-                        partition1.extend(partition2.into_iter());
+                        partition1.extend(partition2);
                     }
                     Ok(pair_partitions1)
                 },

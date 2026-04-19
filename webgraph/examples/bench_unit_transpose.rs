@@ -52,7 +52,8 @@ where
         let transposed = transform::transpose_labeled(
             &unit,
             MemoryUsage::BatchSize(10_000_000),
-            <DefaultBatchCodec>::default(),
+            (),
+            (),
         )?;
         let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {
