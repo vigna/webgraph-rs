@@ -6,6 +6,8 @@
  */
 
 use dsi_bitstream::prelude::*;
+use num_primitive::PrimitiveInteger;
+use std::marker::PhantomData;
 
 /// A trait for types implementing logic for serializing another type to a
 /// bitstream with code-writing capabilities.
@@ -69,5 +71,63 @@ impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
     #[inline(always)]
     fn deserialize(&self, _bitstream: &mut BR) -> Result<Self::DeserType, BR::Error> {
         Ok(())
+    }
+}
+
+/// Serializes and deserializes a [`PrimitiveInteger`] type `T` using
+/// exactly [`T::BITS`](PrimitiveInteger::BITS) bits.
+///
+/// This is useful for labelled graphs whose labels are primitive integer
+/// types. Only types with at most 64 bits are supported.
+///
+/// # Examples
+///
+/// ```rust
+/// use webgraph::traits::FixedSize;
+///
+/// let sd = FixedSize::<u32>::new();
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct FixedSize<T: PrimitiveInteger> {
+    _phantom: PhantomData<T>,
+}
+
+impl<T: PrimitiveInteger> FixedSize<T> {
+    /// Creates a new [`FixedSize`] serializer/deserializer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` has more than 64 bits.
+    pub fn new() -> Self {
+        assert!(
+            T::BITS <= 64,
+            "FixedSize only supports types with at most 64 bits, got {}",
+            T::BITS
+        );
+        FixedSize {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T: PrimitiveInteger> Default for FixedSize<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<E: Endianness, BW: BitWrite<E>, T: PrimitiveInteger> BitSerializer<E, BW> for FixedSize<T> {
+    type SerType = T;
+    #[inline(always)]
+    fn serialize(&self, value: &T, bitstream: &mut BW) -> Result<usize, BW::Error> {
+        bitstream.write_bits(value.as_to::<u64>(), T::BITS as usize)
+    }
+}
+
+impl<E: Endianness, BR: BitRead<E>, T: PrimitiveInteger> BitDeserializer<E, BR> for FixedSize<T> {
+    type DeserType = T;
+    #[inline(always)]
+    fn deserialize(&self, bitstream: &mut BR) -> Result<T, BR::Error> {
+        Ok(T::as_from(bitstream.read_bits(T::BITS as usize)?))
     }
 }
