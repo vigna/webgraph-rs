@@ -88,7 +88,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// # use webgraph::graphs::bvgraph::{BvComp, CompFlags};
 /// # use webgraph::graphs::arc_list_graph;
 /// # use webgraph::utils::par_sort_pairs::ParSortPairs;
-/// # use webgraph::graphs::sorted_graph::SortedGraph;
+/// # use webgraph::graphs::par_sorted_graph::ParSortedGraph;
 /// let num_partitions = 2;
 /// let num_nodes: usize = 5;
 /// let unsorted_pairs = vec![(1, 3), (3, 2), (2, 1), (1, 0), (0, 4)];
@@ -127,8 +127,8 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///     unsorted_pairs.par_iter().copied()
 /// )?;
 ///
-/// // Wrap in SortedGraph and compress
-/// let sorted_graph = SortedGraph::from_parts(split_iters.boundaries, split_iters.iters);
+/// // Wrap in ParSortedGraph and compress
+/// let sorted_graph = ParSortedGraph::from_parts(split_iters.boundaries, split_iters.iters);
 /// BvComp::with_basename(bvcomp_out_dir.path().join("graph")).
 ///     par_comp::<BE, _>(sorted_graph)?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())

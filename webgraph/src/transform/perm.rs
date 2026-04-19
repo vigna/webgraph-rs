@@ -36,7 +36,7 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     let num_nodes = pgraph.num_nodes();
     ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .sort_pairs_seq(num_nodes, pgraph.iter().into_pairs())
+        .sort_pairs(num_nodes, pgraph.iter().into_pairs())
 }
 
 /// Returns a [`ParSortedGraph`] representing the permuted graph starting from a

@@ -87,7 +87,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// # use webgraph::graphs::bvgraph::{BvComp, CompFlags};
 /// # use webgraph::traits::{SequentialLabeling, SplitLabeling};
 /// # use webgraph::utils::par_sort_iters::ParSortIters;
-/// # use webgraph::graphs::sorted_graph::SortedGraph;
+/// # use webgraph::graphs::par_sorted_graph::ParSortedGraph;
 /// // Build a small VecGraph
 /// let g = VecGraph::from_arcs([
 ///     (0, 4),
@@ -113,8 +113,8 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// let sorted = pair_sorter.sort(pairs)?;
 ///
-/// // Wrap in SortedGraph and compress in parallel
-/// let sorted_graph = SortedGraph::from_parts(sorted.boundaries, sorted.iters);
+/// // Wrap in ParSortedGraph and compress in parallel
+/// let sorted_graph = ParSortedGraph::from_parts(sorted.boundaries, sorted.iters);
 /// let bvcomp_out_dir = tempfile::tempdir()?;
 ///
 /// BvComp::with_basename(bvcomp_out_dir.path().join("graph")).

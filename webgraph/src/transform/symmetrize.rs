@@ -5,13 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::par_sorted_graph::ParSortedGraph;
+use crate::graphs::par_sorted_graph::{ParSortedGraph, SortedPairIter};
 use crate::traits::{
     LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator, SortedLender, SplitLabeling,
 };
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::sort_pairs::KMergeIters;
-use crate::utils::{CodecIter, DefaultBatchCodec, MemoryUsage, SplitIters};
+use crate::utils::{DefaultBatchCodec, MemoryUsage, SplitIters};
 use anyhow::Result;
 
 /// Merges two sorted iterators of node pairs, deduplicating consecutive
@@ -93,7 +92,7 @@ where
 pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &G,
     memory_usage: MemoryUsage,
-) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
     let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
@@ -203,7 +202,7 @@ where
 pub fn symmetrize<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
     let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
@@ -245,7 +244,7 @@ pub fn symmetrize_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
+) -> Result<ParSortedGraph<SortedPairIter<true>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<

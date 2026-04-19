@@ -9,11 +9,10 @@ use crate::graphs::par_sorted_graph::{
     LabeledCodec, ParSortedGraph, ParSortedLabeledGraph, ParSortedLabeledGraphConf,
     SortedLabeledIter, SortedPairIter,
 };
-use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::{LabeledSequentialGraph, SequentialGraph};
 use crate::traits::{BitDeserializer, BitSerializer, NodeLabelsLender, SplitLabeling};
 use crate::utils::{
-    BitReader, BitWriter, CodecIter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
+    BitReader, BitWriter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
 };
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
@@ -36,9 +35,9 @@ where
         + Clone,
     SD::SerType: Clone + Copy + Send + Sync + 'static,
 {
-    ParSortedLabeledGraphConf::new()
+    ParSortedLabeledGraphConf::default()
         .memory_usage(memory_usage)
-        .sort_pairs_seq(
+        .sort_pairs(
             graph.num_nodes(),
             sd,
             graph
@@ -58,7 +57,7 @@ pub fn transpose(
 ) -> Result<ParSortedGraph<SortedPairIter>> {
     ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .sort_pairs_seq(
+        .sort_pairs(
             graph.num_nodes(),
             graph.iter().into_pairs().map(|(src, dst)| (dst, src)),
         )
@@ -144,7 +143,7 @@ pub fn transpose_split<
     graph: &'g G,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec>>>> {
+) -> Result<ParSortedGraph<SortedPairIter>> {
     let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     if let Some(num_arcs) = graph.num_arcs_hint() {
         par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::prelude::sort_pairs::KMergeIters;
+use crate::graphs::par_sorted_graph::SortedPairIter;
 use crate::prelude::*;
 use crate::utils::par_sort_iters::ParSortIters;
 use anyhow::{Result, ensure};
@@ -29,7 +29,7 @@ pub fn map(
     map: &impl SliceByValue<Value = usize>,
     num_nodes: usize,
     memory_usage: MemoryUsage,
-) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     ensure!(
         map.len() == graph.num_nodes(),
         "The given map has {} values and thus it's incompatible with a graph with {} nodes.",
@@ -76,7 +76,7 @@ pub fn map_split<'g, S, M>(
     num_nodes: usize,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
+) -> Result<ParSortedGraph<SortedPairIter<true>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<

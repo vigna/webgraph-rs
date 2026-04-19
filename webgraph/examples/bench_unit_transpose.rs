@@ -49,11 +49,8 @@ where
         pl.done_with_count(graph.num_nodes());
 
         pl.start("Transposing unit graph...");
-        let transposed = transform::transpose_labeled(
-            &unit,
-            MemoryUsage::BatchSize(10_000_000),
-            (),
-        )?;
+        let transposed =
+            transform::transpose_labeled(&unit, MemoryUsage::BatchSize(10_000_000), ())?;
         let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {
             black_box(x);
