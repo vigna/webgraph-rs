@@ -346,7 +346,7 @@ fn test_split_iters_into_sorted_labeled_graph() -> Result<()> {
     let iter2 = vec![((2_usize, 3_usize), ()), ((3, 2), ())];
     let iters: Box<[_]> = vec![iter1.into_iter(), iter2.into_iter()].into_boxed_slice();
 
-    let sorted: ParSortedLabeledGraph<(), _> = SplitIters::new(boundaries, iters).into();
+    let sorted: ParSortedLabeledGraph<_> = SplitIters::new(boundaries, iters).into();
     assert_eq!(sorted.num_nodes(), 4);
 
     // Verify the graph yields the correct data

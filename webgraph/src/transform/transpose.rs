@@ -26,7 +26,7 @@ pub fn transpose_labeled<SD>(
     graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
     sd: SD,
-) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
     SD: BitSerializer<NE, BitWriter<NE>>
         + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -117,7 +117,7 @@ where
     .collect();
 
     let codec = LabeledCodec::new(sd);
-    par_sort_iters.try_sort_labeled::<LabeledCodec<SD>, std::convert::Infallible, _>(codec, pairs)
+    par_sort_iters.sort_labeled(codec, pairs)
 }
 
 /// Returns a [`ParSortedGraph`] representing the transpose of the provided

@@ -7,16 +7,116 @@
 //! Graphs built by sorting, providing efficient [`IntoParLenders`]
 //! implementations.
 //!
-//! The graphs in this module provide declarative interfaces towards the sorting
-//! machinery in [`par_sort_iters`] and [`par_sort_pairs`] modules. Given a
+//! The graphs in this module provide declarative interfaces to the sorting
+//! machinery in the [`par_sort_iters`] and [`par_sort_pairs`] modules. Given a
 //! (labelled) graph, possibly provided just as an iterator on (labelled) pairs,
-//! construction method return the same graph, but with sorted lenders and
-//! iterators, and with an efficient [`IntoParLenders`] implementation—hence the
-//! `ParSorted` prefix.
+//! construction methods return a sorted version of the graph, with sorted
+//! lenders and iterators and an efficient [`IntoParLenders`]
+//! implementation—hence the `ParSorted` prefix.
 //!
 //! The resulting graphs are only sequential, and are usually used directly for
 //! compression or other transformations.
-
+//!
+//! # Examples
+//!
+//! Here we turn a list of arcs into a parallel sorted graph:
+//!
+//! ```rust
+//! # use webgraph::prelude::*;
+//! # use dsi_bitstream::prelude::BE;
+//! # use tempfile::Builder;
+//! # fn main() -> anyhow::Result<()> {
+//! # let tempdir = Builder::new().prefix("test").tempdir()?;
+//! # let basename = tempdir.path().join("basename");
+//! // Bunch of arcs
+//! let arcs = [(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)];
+//!
+//! // This is now a sorted graph ready to be compressed in parallel
+//! let sorted = ParSortedGraph::from_pairs(6, arcs)?;
+//!
+//! // This will compress the graph in parallel
+//! BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Note that we passed the sorted graph by value, which is efficient as the
+//! underlying iterators will not be cloned. If you need to reuse the graph,
+//! pass a reference instead; the iterators will be cloned as needed.
+//!
+//! The level of parallelism is controlled by the current number of Rayon
+//! threads, so you can easily customize it by installing a custom thread pool.
+//! You can also customize the number of lenders independently of the number
+//! of threads using a [configuration] obtained via
+//! [`ParSortedGraph::config()`]:
+//!
+//! ```rust
+//! # use webgraph::prelude::*;
+//! # use dsi_bitstream::prelude::BE;
+//! # use rayon::ThreadPoolBuilder;
+//! # use tempfile::Builder;
+//! # fn main() -> anyhow::Result<()> {
+//! # let tempdir = Builder::new().prefix("test").tempdir()?;
+//! # let basename = tempdir.path().join("basename");
+//! // Bunch of arcs
+//! let arcs = [(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)];
+//!
+//! // Custom thread pool with 4 threads
+//! let pool = ThreadPoolBuilder::new().num_threads(4).build()?;
+//!
+//! pool.install(|| -> anyhow::Result<()> {
+//!     let sorted = ParSortedGraph::config()
+//!         .num_lenders(8)
+//!         .sort_pairs(6, arcs)?;
+//!     BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
+//!     Ok(())
+//! })?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! You can also sort a graph, which is useful, for example, to permute a
+//! graph:
+//!
+//! ```rust
+//! # use webgraph::prelude::*;
+//! # use dsi_bitstream::prelude::BE;
+//! # use tempfile::Builder;
+//! # fn main() -> anyhow::Result<()> {
+//! # let tempdir = Builder::new().prefix("test").tempdir()?;
+//! # let basename = tempdir.path().join("basename");
+//! // A VecGraph
+//! let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
+//! let perm = [2, 0, 1, 5, 4, 3];
+//! let perm_graph = PermutedGraph::new(&graph, &perm);
+//! let sorted = ParSortedGraph::from(perm_graph)?;
+//! BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For labeled graph you need to specify how to serialize and deserialize the
+//! labels, as they will be stored together with the arcs. In this example we
+//! build a graph labeled on `i8` and we use the [`FixedWidth`] bit
+//! serializer/deserializer:
+//!
+//! ```rust
+//! # use webgraph::prelude::*;
+//! # use webgraph::graphs::vec_graph::LabeledVecGraph;
+//! # use webgraph::traits::bit_serde::FixedWidth;
+//! # use dsi_bitstream::prelude::BE;
+//! # use tempfile::Builder;
+//! # fn main() -> anyhow::Result<()> {
+//! # let tempdir = Builder::new().prefix("test").tempdir()?;
+//! # let basename = tempdir.path().join("basename");
+//! // A LabeledVecGraph
+//! let graph = LabeledVecGraph::from_arcs([((5, 3), -2), ((1, 0), -1), ((5, 0), 100), ((1, 2), -20), ((3, 4), 127)]);
+//! let sorted = ParSortedLabeledGraph::from(graph, <FixedWidth<i8>>::new())?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [configuration]: ParSortedGraph::config
 use crate::graphs::arc_list_graph;
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
@@ -30,7 +130,6 @@ use anyhow::Result;
 use dsi_bitstream::prelude::NE;
 use lender::*;
 use std::iter::Flatten;
-use std::marker::PhantomData;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ParSortedLabeledGraph
@@ -52,19 +151,23 @@ use std::marker::PhantomData;
 /// [`BitDeserializer`] pair passed to the constructor.
 ///
 /// These method use default values: use a [configuration] for
-/// turning .
+/// turning.
 ///
 /// For the unlabeled case, use [`ParSortedGraph`].
+///
+/// # Examples
+///
+/// See the [module documentation].
 ///
 /// [`from`]: ParSortedLabeledGraph::from
 /// [`par_from`]: ParSortedLabeledGraph::par_from
 /// [`from_pairs`]: ParSortedLabeledGraph::from_pairs
 /// [`par_from_pairs`]: ParSortedLabeledGraph::par_from_pairs
 /// [configuration]: ParSortedLabeledGraph::config
-pub struct ParSortedLabeledGraph<L, I> {
+/// [module documentation]: crate::graphs::par_sorted_graph
+pub struct ParSortedLabeledGraph<I> {
     boundaries: Box<[usize]>,
     iters: Box<[I]>,
-    _phantom: PhantomData<L>,
 }
 
 type SeqIter<'a, I> = Flatten<std::iter::Cloned<std::slice::Iter<'a, I>>>;
@@ -102,15 +205,11 @@ pub type SortedLabeledIter<SD> = KMergeIters<
     <SD as BitSerializer<NE, BitWriter<NE>>>::SerType,
 >;
 
-impl<L, I> ParSortedLabeledGraph<L, I> {
+impl<I> ParSortedLabeledGraph<I> {
     /// Creates a [`ParSortedLabeledGraph`] from pre-sorted partition
     /// boundaries and iterators.
     pub fn from_parts(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
-        ParSortedLabeledGraph {
-            boundaries,
-            iters,
-            _phantom: PhantomData,
-        }
+        ParSortedLabeledGraph { boundaries, iters }
     }
 
     /// Decomposes the [`ParSortedLabeledGraph`] into its partition boundaries
@@ -118,7 +217,9 @@ impl<L, I> ParSortedLabeledGraph<L, I> {
     pub fn into_parts(self) -> (Box<[usize]>, Box<[I]>) {
         (self.boundaries, self.iters)
     }
+}
 
+impl ParSortedLabeledGraph<()> {
     /// Returns a [`ParSortedLabeledGraphConf`] with default settings for
     /// customization via chained setters.
     pub fn config() -> ParSortedLabeledGraphConf {
@@ -131,10 +232,7 @@ impl<L, I> ParSortedLabeledGraph<L, I> {
     /// Equivalent to [`ParSortedLabeledGraph::config().sort(graph, sd)`].
     ///
     /// [`ParSortedLabeledGraph::config().sort(graph, sd)`]: ParSortedLabeledGraphConf::sort
-    pub fn from<SD, G>(
-        graph: G,
-        sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    pub fn from<SD, G>(graph: G, sd: SD) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -154,10 +252,7 @@ impl<L, I> ParSortedLabeledGraph<L, I> {
     /// [`ParSortedLabeledGraph::config().par_sort(graph, sd)`].
     ///
     /// [`ParSortedLabeledGraph::config().par_sort(graph, sd)`]: ParSortedLabeledGraphConf::par_sort
-    pub fn par_from<SD, G>(
-        graph: G,
-        sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    pub fn par_from<SD, G>(graph: G, sd: SD) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -187,7 +282,7 @@ impl<L, I> ParSortedLabeledGraph<L, I> {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -210,7 +305,7 @@ impl<L, I> ParSortedLabeledGraph<L, I> {
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -226,7 +321,7 @@ impl<L, I> ParSortedLabeledGraph<L, I> {
 // === SequentialLabeling for SortedLabeledGraph ===
 
 impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    SequentialLabeling for ParSortedLabeledGraph<L, I>
+    SequentialLabeling for ParSortedLabeledGraph<I>
 {
     type Label = (usize, L);
     type Lender<'node>
@@ -274,7 +369,7 @@ fn make_labeled_lenders<
 }
 
 impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
-    IntoParLenders for ParSortedLabeledGraph<L, I>
+    IntoParLenders for ParSortedLabeledGraph<I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
@@ -287,7 +382,7 @@ impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize)
 impl<
     L: Clone + Copy + Send + Sync + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> IntoParLenders for &ParSortedLabeledGraph<L, I>
+> IntoParLenders for &ParSortedLabeledGraph<I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
@@ -300,9 +395,9 @@ impl<
 // === IntoLender / Lending for SortedLabeledGraph ===
 
 impl<'a, L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    IntoLender for &'a ParSortedLabeledGraph<L, I>
+    IntoLender for &'a ParSortedLabeledGraph<I>
 {
-    type Lender = <ParSortedLabeledGraph<L, I> as SequentialLabeling>::Lender<'a>;
+    type Lender = <ParSortedLabeledGraph<I> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -314,9 +409,9 @@ impl<
     'lend,
     L: Clone + Copy + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> Lending<'lend> for &ParSortedLabeledGraph<L, I>
+> Lending<'lend> for &ParSortedLabeledGraph<I>
 {
-    type Lend = Lend<'lend, <ParSortedLabeledGraph<L, I> as SequentialLabeling>::Lender<'lend>>;
+    type Lend = Lend<'lend, <ParSortedLabeledGraph<I> as SequentialLabeling>::Lender<'lend>>;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -340,27 +435,17 @@ impl<
 ///
 /// For the labeled case, use [`ParSortedLabeledGraph`].
 ///
+/// # Examples
+///
+/// See the [module documentation].
+///
 /// [`from`]: ParSortedGraph::from
 /// [`par_from`]: ParSortedGraph::par_from
 /// [`from_pairs`]: ParSortedGraph::from_pairs
 /// [`par_from_pairs`]: ParSortedGraph::par_from_pairs
 /// [configuration]: ParSortedGraph::config
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// # use webgraph::prelude::*;
-/// # use dsi_bitstream::prelude::BE;
-/// # fn main() -> anyhow::Result<()> {
-/// // Bunch of arcs
-/// let arcs = [(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)];
-///
-/// // This is now a sorted graph ready to be compressed in parallel
-/// let sorted = ParSortedGraph::from_pairs(6, arcs)?;
-/// BvComp::with_basename("out").par_comp::<BE, _>(&sorted)?;
-/// # Ok(())
-/// # }
-pub struct ParSortedGraph<I>(pub ParSortedLabeledGraph<(), I>);
+/// [module documentation]: crate::graphs::par_sorted_graph
+pub struct ParSortedGraph<I>(pub ParSortedLabeledGraph<I>);
 
 /// The concrete iterator type for unlabeled sorted graphs.
 ///
@@ -402,7 +487,7 @@ impl<I> ParSortedGraph<I> {
     }
 }
 
-impl ParSortedGraph<SortedPairIter> {
+impl ParSortedGraph<()> {
     /// Returns a [`ParSortedGraphConf`] with default settings for
     /// customization via chained setters.
     pub fn config() -> ParSortedGraphConf {
@@ -555,11 +640,12 @@ impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lend
 pub struct ParSortedGraphConf(pub(crate) ParSortedLabeledGraphConf);
 
 impl ParSortedGraphConf {
-    /// Sets the number of output partitions.
+    /// Sets the number of lenders that will be returned by [`IntoParLenders`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub const fn num_partitions(self, n: usize) -> Self {
-        ParSortedGraphConf(self.0.num_partitions(n))
+    pub const fn num_lenders(self, n: usize) -> Self {
+        assert!(n > 0, "the number of lenders must be positive");
+        ParSortedGraphConf(self.0.num_lenders(n))
     }
 
     /// Sets the memory budget for in-memory sorting.
@@ -569,8 +655,7 @@ impl ParSortedGraphConf {
         ParSortedGraphConf(self.0.memory_usage(m))
     }
 
-    /// Sorts arcs from a [`SequentialGraph`], producing a partitioned
-    /// [`ParSortedGraph`].
+    /// Sorts arcs from a [`SequentialGraph`], returning a [`ParSortedGraph`].
     pub fn sort<G: SequentialGraph>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>> {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
@@ -685,11 +770,11 @@ impl Default for ParSortedLabeledGraphConf {
 }
 
 impl ParSortedLabeledGraphConf {
-    /// Sets the number of output partitions.
+    /// Sets the number of lenders that will be returned by [`IntoParLenders`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub const fn num_partitions(mut self, n: usize) -> Self {
-        assert!(n > 0, "the number of partitions must be positive");
+    pub const fn num_lenders(mut self, n: usize) -> Self {
+        assert!(n > 0, "the number of lenders must be positive");
         self.num_partitions = n;
         self
     }
@@ -708,7 +793,7 @@ impl ParSortedLabeledGraphConf {
         self,
         graph: G,
         sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -738,7 +823,7 @@ impl ParSortedLabeledGraphConf {
         self,
         graph: G,
         sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -780,7 +865,7 @@ impl ParSortedLabeledGraphConf {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -803,7 +888,7 @@ impl ParSortedLabeledGraphConf {
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>

@@ -129,10 +129,11 @@ pub struct ParSortIters<const DEDUP: bool = false> {
 }
 
 impl<const DEDUP: bool> ParSortIters<DEDUP> {
-    /// This is a convenience method for iterators that cannot fail.
-    /// See [`try_sort`].
+    /// Sorts the output of the provided sequence of iterators, returning a
+    /// [`SplitIters`] structure.
     ///
-    /// [`try_sort`]: ParSortIters::try_sort
+    /// When `DEDUP` is `true`, [`DefaultBatchCodec<true>`] is used to also
+    /// eliminate duplicates during batch serialization.
     pub fn sort(
         &self,
         pairs: impl IntoIterator<
@@ -140,23 +141,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
             IntoIter: ExactSizeIterator + Send + Sync,
         >,
     ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        self.try_sort::<std::convert::Infallible>(pairs)
-    }
-
-    /// Sorts the output of the provided sequence of iterators, returning a
-    /// [`SplitIters`] structure.
-    ///
-    /// When `DEDUP` is `true`, [`DefaultBatchCodec<true>`] is used to also
-    /// eliminate duplicates during batch serialization.
-    pub fn try_sort<E: Into<anyhow::Error>>(
-        &self,
-        pairs: impl IntoIterator<
-            Item: IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
-            IntoIter: ExactSizeIterator + Send + Sync,
-        >,
-    ) -> Result<SplitIters<SortedPairIter<DEDUP>>> {
-        let split = <ParSortIters<DEDUP>>::try_sort_labeled::<DefaultBatchCodec<DEDUP>, E, _>(
-            self,
+        let split = self.sort_labeled::<DefaultBatchCodec<DEDUP>, _>(
             <DefaultBatchCodec<DEDUP>>::default(),
             pairs
                 .into_iter()
@@ -192,11 +177,11 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// Sorts the output of the provided iterator sequentially, returning a
     /// [`SplitIters`] structure.
     ///
-    /// Unlike [`try_sort`], this method processes the input on the current
+    /// Unlike [`sort`], this method processes the input on the current
     /// thread and does not require `Send` or `Sync` on the iterator.
     /// The output is still partitioned for parallel compression.
     ///
-    /// [`try_sort`]: ParSortIters::try_sort
+    /// [`sort`]: ParSortIters::sort
     pub fn try_sort_seq<E: Into<anyhow::Error>>(
         &self,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
@@ -302,25 +287,6 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
         }
     }
 
-    /// See [`try_sort_labeled`].
-    ///
-    /// This is a convenience method for iterators that cannot fail.
-    ///
-    /// [`try_sort_labeled`]: ParSortIters::try_sort_labeled
-    pub fn sort_labeled<
-        C: BatchCodec,
-        P: IntoIterator<
-                Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
-                IntoIter: ExactSizeIterator + Send,
-            >,
-    >(
-        &self,
-        batch_codec: C,
-        pairs: P,
-    ) -> Result<SplitIters<KMergeIters<CodecIter<C>, C::Label, DEDUP>>> {
-        self.try_sort_labeled::<C, std::convert::Infallible, P>(batch_codec, pairs)
-    }
-
     /// Sorts the output of the provided sequence of iterators of (labeled)
     /// pairs, returning a [`SplitIters`] structure.
     ///
@@ -334,9 +300,8 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// The bit deserializer must be [`Clone`] because we need one for each
     /// `BatchIterator`, and there are possible scenarios in which the
     /// deserializer might be stateful.
-    pub fn try_sort_labeled<
+    pub fn sort_labeled<
         C: BatchCodec,
-        E: Into<anyhow::Error>,
         P: IntoIterator<
                 Item: IntoIterator<Item = ((usize, usize), C::Label), IntoIter: Send> + Send,
                 IntoIter: ExactSizeIterator + Send,
@@ -504,14 +469,15 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// Sorts the output of the provided iterator of (labeled) pairs
     /// sequentially, returning a [`SplitIters`] structure.
     ///
-    /// Unlike [`try_sort_labeled`], this method processes the input on the
+    /// Unlike [`sort_labeled`], this method processes the input on the
     /// current thread and does not require `Send` or `Sync` on the iterator
     /// or its items. The output is still partitioned, so the resulting
     /// [`SplitIters`] can be wrapped in a [`ParSortedGraph`] and compressed
     /// in parallel via
-    /// [`BvCompConfig::par_comp`](crate::graphs::bvgraph::BvCompConfig::par_comp).
+    /// [`BvCompConfig::par_comp`].
     ///
-    /// [`try_sort_labeled`]: ParSortIters::try_sort_labeled
+    /// [`sort_labeled`]: ParSortIters::sort_labeled
+    /// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
     /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
     pub fn try_sort_labeled_seq<
         C: BatchCodec,

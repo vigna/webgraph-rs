@@ -355,9 +355,7 @@ impl<I: Iterator<Item = (usize, usize)>> From<SplitIters<I>>
 
 /// Converts a [`SplitIters`] of labeled pair iterators into a
 /// [`ParSortedLabeledGraph`].
-impl<L, I: Iterator<Item = ((usize, usize), L)>> From<SplitIters<I>>
-    for ParSortedLabeledGraph<L, I>
-{
+impl<I> From<SplitIters<I>> for ParSortedLabeledGraph<I> {
     fn from(split: SplitIters<I>) -> Self {
         ParSortedLabeledGraph::from_parts(split.boundaries, split.iters)
     }

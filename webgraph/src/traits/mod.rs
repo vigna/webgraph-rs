@@ -7,32 +7,28 @@
 
 //! Traits used throughout the crate.
 
-/**
-
-A support trait that makes it possible to treat a pair (2-tuple) as a trait.
-
-This approach (“traitification”) was suggested by
-[David Henry Mantilla] as a solution to the problem of specifying that a
-[`Lender`] should return pairs of nodes and successors, and to impose
-conditions on the two components of the pairs. This is not possible
-directly, as a pair is a type, not a trait.
-
-For example, [when implementing projections] one needs to specify that the
-label of a labeling is a pair, and in the case a component is `usize`, the
-associated projection can be seen as a graph. To specify these constraints
-we have to resort to traitification using the [`Pair`] trait.
-
-The user should rarely, if ever, interact with this trait. Iterating over
-an iterator whose output has been traitified using [`Pair`] is a bit
-cumbersome, as the output of the iterator is a [`Pair`] and must be turned
-into a pair using the [`into_pair`] method.
-
-[David Henry Mantilla]: https://github.com/danielhenrymantilla/lending-iterator.rs/issues/13#issuecomment-1735475634
-[`Lender`]: lender::Lender
-[when implementing projections]: crate::labels::proj
-[`into_pair`]: Pair::into_pair
-
-*/
+/// A support trait that makes it possible to treat a pair (2-tuple) as a trait.
+///
+/// This approach (“traitification”) was suggested by
+/// [David Henry Mantilla] as a solution to the problem of specifying that a
+/// [`Lender`] should return pairs of nodes and successors, and to impose
+/// conditions on the two components of the pairs. This is not possible
+/// directly, as a pair is a type, not a trait.
+///
+/// For example, [when implementing projections] one needs to specify that the
+/// label of a labeling is a pair, and in the case a component is `usize`, the
+/// associated projection can be seen as a graph. To specify these constraints
+/// we have to resort to traitification using the [`Pair`] trait.
+///
+/// The user should rarely, if ever, interact with this trait. Iterating over
+/// an iterator whose output has been traitified using [`Pair`] is a bit
+/// cumbersome, as the output of the iterator is a [`Pair`] and must be turned
+/// into a pair using the [`into_pair`] method.
+///
+/// [David Henry Mantilla]: https://github.com/danielhenrymantilla/lending-iterator.rs/issues/13#issuecomment-1735475634
+/// [`Lender`]: lender::Lender
+/// [when implementing projections]: crate::labels::proj
+/// [`into_pair`]: Pair::into_pair
 pub trait Pair {
     /// The type of the first component of the [`Pair`].
     type Left;
@@ -57,8 +53,8 @@ pub use graph::*;
 pub mod labels;
 pub use labels::*;
 
-mod serde;
-pub use serde::*;
+pub mod bit_serde;
+pub use bit_serde::*;
 
 pub mod split;
 pub use split::*;

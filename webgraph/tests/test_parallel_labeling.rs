@@ -85,7 +85,7 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
 #[test]
 fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
-    let sorted = ParSortedGraph::config().num_partitions(2).par_sort(&g)?;
+    let sorted = ParSortedGraph::config().num_lenders(2).par_sort(&g)?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
     let (_lenders, boundaries) = sorted.into_par_lenders();
