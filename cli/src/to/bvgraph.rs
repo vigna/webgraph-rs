@@ -194,7 +194,7 @@ where
         use epserde::prelude::*;
         let dcf_path = src.with_extension(DEG_CUMUL_EXTENSION);
         let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
-        let dcf_graph = ParallelDcfGraph::new(graph, dcf.uncase(), rayon::current_num_threads());
+        let dcf_graph = ParDcfGraph::new(graph, &dcf.uncase(), rayon::current_num_threads());
         thread_pool.install(|| par_comp!(builder, &dcf_graph, target_endianness))?;
     } else {
         thread_pool.install(|| par_comp!(builder, &graph, target_endianness))?;

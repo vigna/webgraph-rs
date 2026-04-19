@@ -4,6 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Wrappers that alter the default result of
+//! [`IntoParLenders::into_par_lenders`].
+//!
+//! A graph can have an intrinsic number of parallel lenders returned by
+//! [`IntoParLenders::into_par_lenders`]: for example a [`ParSortedGraph`] has a
+//! fixed number of lenders decided at construction time. In other cases there
+//! is a default: for example, a [splittable graph] will return as many lenders
+//! as the current number of Rayon threads.
+//!
+//! In some cases, however, it is desirable to alter this behavior: for
+//! example, you might want to split the lenders [by the overall number of
+//! successors they will return], rather than by the number of nodes.
+//!
+//! [splittable graph]: SplitLabeling
+//! [by the overall number of successors they will return]: ParallelDcfGraph
+
 use crate::prelude::*;
 use lender::*;
 use sux::{
@@ -11,29 +27,23 @@ use sux::{
     utils::FairChunks,
 };
 
-/// A wrapper that overrides the number of partitions for
-/// [`IntoParLenders`].
-///
-/// Delegates all graph and labeling traits to the inner graph, but provides
-/// its own [`IntoParLenders`] implementation using
-/// [`SplitLabeling::split_iter`] with the partition count stored in the
-/// wrapper.
+/// A wrapper that overrides the number of lenders returned by
+/// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
+/// the same number of nodes (except possibly the last one, which may be
+/// smaller).
 #[derive(Debug, Clone)]
-pub struct ParGraph<G>(pub G, usize);
+pub struct ParUniformGraph<G>(pub G, usize);
 
-impl<G> ParGraph<G> {
+impl<G> ParUniformGraph<G> {
     /// Creates a new [`ParGraph`] with the given inner graph and
-    /// number of partitions.
-    pub fn new(graph: G, num_partitions: usize) -> Self {
-        assert!(
-            num_partitions > 0,
-            "the number of partitions must be positive"
-        );
-        Self(graph, num_partitions)
+    /// number of lenders.
+    pub fn new(graph: G, num_lenders: usize) -> Self {
+        assert!(num_lenders > 0, "the number of lenders must be positive");
+        Self(graph, num_lenders)
     }
 }
 
-impl<G: SequentialLabeling> SequentialLabeling for ParGraph<G> {
+impl<G: SequentialLabeling> SequentialLabeling for ParUniformGraph<G> {
     type Label = G::Label;
     type Lender<'node>
         = G::Lender<'node>
@@ -56,9 +66,9 @@ impl<G: SequentialLabeling> SequentialLabeling for ParGraph<G> {
     }
 }
 
-impl<G: SequentialGraph> SequentialGraph for ParGraph<G> {}
+impl<G: SequentialGraph> SequentialGraph for ParUniformGraph<G> {}
 
-impl<G: RandomAccessLabeling> RandomAccessLabeling for ParGraph<G> {
+impl<G: RandomAccessLabeling> RandomAccessLabeling for ParUniformGraph<G> {
     type Labels<'succ>
         = G::Labels<'succ>
     where
@@ -80,9 +90,9 @@ impl<G: RandomAccessLabeling> RandomAccessLabeling for ParGraph<G> {
     }
 }
 
-impl<G: RandomAccessGraph> RandomAccessGraph for ParGraph<G> {}
+impl<G: RandomAccessGraph> RandomAccessGraph for ParUniformGraph<G> {}
 
-impl<'a, G: SequentialLabeling + SplitLabeling> IntoParLenders for &'a ParGraph<G>
+impl<'a, G: SequentialLabeling + SplitLabeling> IntoParLenders for &'a ParUniformGraph<G>
 where
     for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
@@ -103,7 +113,7 @@ where
 /// (see the [crate documentation]).
 ///
 /// [crate documentation]: crate
-impl<'b, G: SequentialLabeling> IntoLender for &'b ParGraph<G> {
+impl<'b, G: SequentialLabeling> IntoLender for &'b ParUniformGraph<G> {
     type Lender = <G as SequentialLabeling>::Lender<'b>;
 
     #[inline(always)]
@@ -112,29 +122,42 @@ impl<'b, G: SequentialLabeling> IntoLender for &'b ParGraph<G> {
     }
 }
 
-/// A wrapper that splits a graph into arc-balanced partitions using
-/// a degree cumulative function.
+/// A wrapper that overrides the number of lenders returned by
+/// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
+/// approximately the same number of arcs (except possibly the last one, which
+/// may be smaller).
 ///
-/// Delegates all graph and labeling traits to the inner graph, but provides
-/// its own [`IntoParLenders`] implementation using
-/// [`SplitLabeling::split_iter_at`] with arc-balanced cutpoints computed
-/// from the DCF via [`FairChunks`].
+/// The cutpoints are computed once at construction time from a degree
+/// cumulative function (DCF), which is not retained afterwards.
 #[derive(Debug, Clone)]
-pub struct ParallelDcfGraph<G, D>(pub G, pub D, pub usize);
+pub struct ParDcfGraph<G> {
+    graph: G,
+    cutpoints: Vec<usize>,
+}
 
-impl<G, D> ParallelDcfGraph<G, D> {
-    /// Creates a new [`ParallelDcfGraph`] with the given inner graph,
-    /// degree cumulative function, and number of partitions.
-    pub fn new(graph: G, dcf: D, num_partitions: usize) -> Self {
-        assert!(
-            num_partitions > 0,
-            "the number of partitions must be positive"
-        );
-        Self(graph, dcf, num_partitions)
+impl<G> ParDcfGraph<G> {
+    /// Creates a new [`ParDcfGraph`] with the given inner graph,
+    /// degree cumulative function, and number of lenders.
+    ///
+    /// The cutpoints are computed immediately from the DCF using
+    /// [`FairChunks`]; the DCF is not stored.
+    pub fn new<D>(graph: G, dcf: &D, num_lenders: usize) -> Self
+    where
+        G: SequentialLabeling,
+        D: for<'b> Succ<Input = u64, Output<'b> = u64> + IndexedSeq,
+    {
+        assert!(num_lenders > 0, "the number of lenders must be positive");
+        let num_nodes = graph.num_nodes();
+        let total_arcs = dcf.get(num_nodes);
+        let target = (total_arcs / num_lenders as u64).max(1);
+        let cutpoints: Vec<usize> = std::iter::once(0)
+            .chain(FairChunks::new(target, dcf).map(|r| r.end))
+            .collect();
+        Self { graph, cutpoints }
     }
 }
 
-impl<G: SequentialLabeling, D> SequentialLabeling for ParallelDcfGraph<G, D> {
+impl<G: SequentialLabeling> SequentialLabeling for ParDcfGraph<G> {
     type Label = G::Label;
     type Lender<'node>
         = G::Lender<'node>
@@ -143,23 +166,23 @@ impl<G: SequentialLabeling, D> SequentialLabeling for ParallelDcfGraph<G, D> {
 
     #[inline(always)]
     fn num_nodes(&self) -> usize {
-        self.0.num_nodes()
+        self.graph.num_nodes()
     }
 
     #[inline(always)]
     fn num_arcs_hint(&self) -> Option<u64> {
-        self.0.num_arcs_hint()
+        self.graph.num_arcs_hint()
     }
 
     #[inline(always)]
     fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        self.0.iter_from(from)
+        self.graph.iter_from(from)
     }
 }
 
-impl<G: SequentialGraph, D> SequentialGraph for ParallelDcfGraph<G, D> {}
+impl<G: SequentialGraph> SequentialGraph for ParDcfGraph<G> {}
 
-impl<G: RandomAccessLabeling, D> RandomAccessLabeling for ParallelDcfGraph<G, D> {
+impl<G: RandomAccessLabeling> RandomAccessLabeling for ParDcfGraph<G> {
     type Labels<'succ>
         = G::Labels<'succ>
     where
@@ -167,40 +190,36 @@ impl<G: RandomAccessLabeling, D> RandomAccessLabeling for ParallelDcfGraph<G, D>
 
     #[inline(always)]
     fn num_arcs(&self) -> u64 {
-        self.0.num_arcs()
+        self.graph.num_arcs()
     }
 
     #[inline(always)]
     fn labels(&self, node_id: usize) -> Self::Labels<'_> {
-        self.0.labels(node_id)
+        self.graph.labels(node_id)
     }
 
     #[inline(always)]
     fn outdegree(&self, node_id: usize) -> usize {
-        self.0.outdegree(node_id)
+        self.graph.outdegree(node_id)
     }
 }
 
-impl<G: RandomAccessGraph, D> RandomAccessGraph for ParallelDcfGraph<G, D> {}
+impl<G: RandomAccessGraph> RandomAccessGraph for ParDcfGraph<G> {}
 
-impl<'a, G, D> IntoParLenders for &'a ParallelDcfGraph<G, D>
+impl<'a, G> IntoParLenders for &'a ParDcfGraph<G>
 where
     G: SequentialLabeling + SplitLabeling,
-    D: for<'b> Succ<Input = u64, Output<'b> = u64> + IndexedSeq,
     for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
 {
     type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
     fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let n = self.2;
-        let num_nodes = self.0.num_nodes();
-        let total_arcs = self.1.get(num_nodes);
-        let target = (total_arcs / n as u64).max(1);
-        let cutpoints: Vec<usize> = std::iter::once(0)
-            .chain(FairChunks::new(target, &self.1).map(|r| r.end))
+        let boundaries: Box<[usize]> = self.cutpoints.iter().copied().collect();
+        let lenders: Box<[_]> = self
+            .graph
+            .split_iter_at(self.cutpoints.clone())
+            .into_iter()
             .collect();
-        let boundaries: Box<[usize]> = cutpoints.iter().copied().collect();
-        let lenders: Box<[_]> = self.0.split_iter_at(cutpoints).into_iter().collect();
         (lenders, boundaries)
     }
 }
@@ -210,7 +229,7 @@ where
 /// (see the [crate documentation]).
 ///
 /// [crate documentation]: crate
-impl<'b, G: SequentialLabeling, D> IntoLender for &'b ParallelDcfGraph<G, D> {
+impl<'b, G: SequentialLabeling> IntoLender for &'b ParDcfGraph<G> {
     type Lender = <G as SequentialLabeling>::Lender<'b>;
 
     #[inline(always)]
