@@ -60,7 +60,7 @@ fn test_grouped_gaps_codec_new_and_encode() -> Result<()> {
     let dir = tempfile::tempdir()?;
     let path = dir.path().join("grouped_batch");
 
-    let codec = GroupedGapsCodec::<BE, (), ()>::new((), ());
+    let codec = GroupedGapsCodec::<BE, ()>::new(());
     let mut batch: Vec<((usize, usize), ())> =
         vec![((2, 3), ()), ((0, 1), ()), ((0, 2), ()), ((1, 2), ())];
     let (bits, stats) = codec.encode_batch(&path, &mut batch)?;

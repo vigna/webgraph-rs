@@ -327,7 +327,7 @@ fn test_par_sort_pairs_sort_labeled() -> Result<()> {
     let sorter = ParSortPairs::new(num_nodes)?
         .num_partitions(2)
         .memory_usage(MemoryUsage::BatchSize(100));
-    let codec = GroupedGapsCodec::<BE, (), ()>::default();
+    let codec = GroupedGapsCodec::<BE, ()>::default();
     use rayon::prelude::*;
     let split = sorter.sort_labeled(&codec, pairs.into_par_iter())?;
 

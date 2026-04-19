@@ -11,7 +11,7 @@ use dsi_bitstream::traits::{BitRead, BitWrite};
 use webgraph::graphs::vec_graph::LabeledVecGraph;
 use webgraph::prelude::transpose_labeled;
 use webgraph::traits::labels::SequentialLabeling;
-use webgraph::traits::{BitDeserializer, BitSerializer, graph};
+use webgraph::traits::{BitDeserializer, BitSerDeser, BitSerializer, graph};
 use webgraph::utils::MemoryUsage;
 use webgraph::utils::{BitReader, BitWriter};
 
@@ -72,10 +72,10 @@ fn test_transpose_labeled() -> anyhow::Result<()> {
     ];
     let g = LabeledVecGraph::<Payload>::from_arcs(arcs);
 
-    let trans = transpose_labeled(&g, MemoryUsage::BatchSize(3), BS, BD)?;
+    let trans = transpose_labeled(&g, MemoryUsage::BatchSize(3), BitSerDeser(BS, BD))?;
     let g2 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
-    let trans = transpose_labeled(&g2, MemoryUsage::BatchSize(3), BS, BD)?;
+    let trans = transpose_labeled(&g2, MemoryUsage::BatchSize(3), BitSerDeser(BS, BD))?;
     let g3 = LabeledVecGraph::<Payload>::from_lender(trans.iter());
 
     let g4 = LabeledVecGraph::from_lender(g.iter());

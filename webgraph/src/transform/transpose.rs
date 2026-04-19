@@ -22,23 +22,24 @@ use dsi_bitstream::prelude::NE;
 ///
 /// For the meaning of the additional parameters, see
 /// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
-pub fn transpose_labeled<S, D>(
-    graph: &impl LabeledSequentialGraph<S::SerType>,
+pub fn transpose_labeled<SD>(
+    graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
-    serializer: S,
-    deserializer: D,
-) -> Result<SortedLabeledGraph<S::SerType, SortedLabeledIter<S, D>>>
+    sd: SD,
+) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
 where
-    S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
-    D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
-    S::SerType: Clone + Copy + Send + Sync + 'static,
+    SD: BitSerializer<NE, BitWriter<NE>>
+        + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+        + Send
+        + Sync
+        + Clone,
+    SD::SerType: Clone + Copy + Send + Sync + 'static,
 {
     SortedGraph::config()
         .memory_usage(memory_usage)
         .sort_pairs_seq(
             graph.num_nodes(),
-            serializer,
-            deserializer,
+            sd,
             graph
                 .iter()
                 .into_labeled_pairs()
@@ -75,22 +76,24 @@ pub fn transpose(
 /// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
 ///
 /// [install]: rayon::ThreadPool::install
-pub fn transpose_labeled_split<S, D, G>(
+pub fn transpose_labeled_split<SD, G>(
     graph: &G,
     memory_usage: MemoryUsage,
-    serializer: S,
-    deserializer: D,
+    sd: SD,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<SortedLabeledIter<S, D>>>
+) -> Result<SplitIters<SortedLabeledIter<SD>>>
 where
-    S: BitSerializer<NE, BitWriter<NE>> + Send + Sync,
-    D: BitDeserializer<NE, BitReader<NE>, DeserType = S::SerType> + Send + Sync + Clone,
-    S::SerType: Clone + Copy + Send + Sync + 'static,
-    G: LabeledSequentialGraph<S::SerType>
+    SD: BitSerializer<NE, BitWriter<NE>>
+        + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+        + Send
+        + Sync
+        + Clone,
+    SD::SerType: Clone + Copy + Send + Sync + 'static,
+    G: LabeledSequentialGraph<SD::SerType>
         + for<'a> SplitLabeling<
             SplitLender<'a>: for<'b> NodeLabelsLender<
                 'b,
-                Label: crate::traits::Pair<Left = usize, Right = S::SerType> + Copy,
+                Label: crate::traits::Pair<Left = usize, Right = SD::SerType> + Copy,
                 IntoIterator: IntoIterator<IntoIter: Send + Sync>,
             > + Send
                                  + Sync,
@@ -113,8 +116,8 @@ where
     .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
     .collect();
 
-    let codec = LabeledCodec::new(serializer, deserializer);
-    par_sort_iters.try_sort_labeled::<LabeledCodec<S, D>, std::convert::Infallible, _>(
+    let codec = LabeledCodec::new(sd);
+    par_sort_iters.try_sort_labeled::<LabeledCodec<SD>, std::convert::Infallible, _>(
         codec, pairs,
     )
 }

@@ -96,7 +96,7 @@ fn test_transpose_labeled() -> Result<()> {
         ((0, 2), ()),
         ((1, 2), ()),
     ]);
-    let t = transpose_labeled(&g, MemoryUsage::BatchSize(2), (), ())?;
+    let t = transpose_labeled(&g, MemoryUsage::BatchSize(2), ())?;
     assert_eq!(t.num_nodes(), 3);
     let mut iter = t.iter();
     while let Some((node, succ)) = iter.next() {

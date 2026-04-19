@@ -53,7 +53,6 @@ where
             &unit,
             MemoryUsage::BatchSize(10_000_000),
             (),
-            (),
         )?;
         let mut iter = transposed.iter();
         while let Some((x, s)) = iter.next() {

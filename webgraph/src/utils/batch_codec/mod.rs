@@ -39,7 +39,6 @@ pub mod grouped_gaps;
 pub type DefaultBatchCodec<const DEDUP: bool = false> = grouped_gaps::GroupedGapsCodec<
     NE,
     (),
-    (),
     { dsi_bitstream::dispatch::code_consts::GAMMA },
     { dsi_bitstream::dispatch::code_consts::GAMMA },
     { dsi_bitstream::dispatch::code_consts::DELTA },

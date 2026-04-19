@@ -29,13 +29,15 @@ use rdst::*;
 ///
 /// # Type Parameters
 ///
-/// - `S`: Serializer for the labels, implementing [`BitSerializer`] for the label type.
-/// - `D`: Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
+/// - `SD`: A type implementing both [`BitSerializer`] and [`BitDeserializer`]
+///   for the label type. Use [`BitSerDeser`] to combine separate serializer and
+///   deserializer implementations.
 /// - `OUTDEGREE_CODE`: Code used for encoding outdegrees (default: [ɣ]).
 /// - `SRC_CODE`: Code used for encoding source gaps (default: [ɣ]).
 /// - `DST_CODE`: Code used for encoding destination gaps (default: [ɣ]).
 ///
 /// [ɣ]: dsi_bitstream::codes::gamma
+/// [`BitSerDeser`]: crate::traits::BitSerDeser
 ///
 /// # Encoding Format
 ///
@@ -47,14 +49,15 @@ use rdst::*;
 ///         - The gap from the previous destination is encoded.
 ///         - The label is serialized.
 ///
-/// The bit deserializer must be [`Clone`] because we need one for each
+/// `SD` must be [`Clone`] because we need one copy for each
 /// [`GroupedGapsIter`], and there are possible scenarios in which the
 /// deserializer might be stateful.
 #[derive(Clone, Debug)]
 pub struct GroupedGapsCodec<
     E: Endianness = NE,
-    S: BitSerializer<E, BitWriter<E>> = (),
-    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone = (),
+    SD: BitSerializer<E, BitWriter<E>>
+        + BitDeserializer<E, BitReader<E>, DeserType = <SD as BitSerializer<E, BitWriter<E>>>::SerType>
+        + Clone = (),
     const OUTDEGREE_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const SRC_CODE: usize = { dsi_bitstream::dispatch::code_consts::GAMMA },
     const DST_CODE: usize = { dsi_bitstream::dispatch::code_consts::DELTA },
@@ -63,35 +66,34 @@ pub struct GroupedGapsCodec<
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
 {
-    /// Serializer for the labels.
-    pub serializer: S,
-    /// Deserializer for the labels.
-    pub deserializer: D,
+    /// Serializer and deserializer for the labels.
+    pub sd: SD,
 
     _marker: core::marker::PhantomData<E>,
 }
 
 impl<
     E,
-    S,
-    D,
+    SD,
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
     const DEDUP: bool,
-> GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
+> GroupedGapsCodec<E, SD, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
-    S: BitSerializer<E, BitWriter<E>> + Send + Sync,
-    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Send + Sync + Clone,
+    SD: BitSerializer<E, BitWriter<E>>
+        + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType>
+        + Send
+        + Sync
+        + Clone,
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
 {
-    /// Creates a new `GroupedGapsCodec` with the given serializer and deserializer.
-    pub const fn new(serializer: S, deserializer: D) -> Self {
+    /// Creates a new `GroupedGapsCodec` with the given serializer/deserializer.
+    pub const fn new(sd: SD) -> Self {
         Self {
-            serializer,
-            deserializer,
+            sd,
             _marker: core::marker::PhantomData,
         }
     }
@@ -99,21 +101,22 @@ where
 
 impl<
     E: Endianness,
-    S: BitSerializer<E, BitWriter<E>> + Default,
-    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Clone + Default,
+    SD: BitSerializer<E, BitWriter<E>>
+        + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType>
+        + Clone
+        + Default,
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
     const DEDUP: bool,
-> Default for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
+> Default for GroupedGapsCodec<E, SD, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
 where
     BitReader<E>: BitRead<E>,
     BitWriter<E>: BitWrite<E>,
 {
     fn default() -> Self {
         Self {
-            serializer: S::default(),
-            deserializer: D::default(),
+            sd: SD::default(),
             _marker: core::marker::PhantomData,
         }
     }
@@ -160,23 +163,25 @@ impl crate::utils::BatchStats for GroupedGapsStats {
 
 impl<
     E,
-    S,
-    D,
+    SD,
     const OUTDEGREE_CODE: usize,
     const SRC_CODE: usize,
     const DST_CODE: usize,
     const DEDUP: bool,
-> BatchCodec for GroupedGapsCodec<E, S, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
+> BatchCodec for GroupedGapsCodec<E, SD, OUTDEGREE_CODE, SRC_CODE, DST_CODE, DEDUP>
 where
     E: Endianness,
-    S: BitSerializer<E, BitWriter<E>> + Send + Sync,
-    D: BitDeserializer<E, BitReader<E>, DeserType = S::SerType> + Send + Sync + Clone,
-    S::SerType: Send + Sync + Copy + 'static, // needed by radix sort
+    SD: BitSerializer<E, BitWriter<E>>
+        + BitDeserializer<E, BitReader<E>, DeserType = SD::SerType>
+        + Send
+        + Sync
+        + Clone,
+    SD::SerType: Send + Sync + Copy + 'static, // needed by radix sort
     BitReader<E>: BitRead<E> + CodesRead<E>,
     BitWriter<E>: BitWrite<E> + CodesWrite<E>,
 {
-    type Label = S::SerType;
-    type DecodedBatch = GroupedGapsIter<E, D, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
+    type Label = SD::SerType;
+    type DecodedBatch = GroupedGapsIter<E, SD, OUTDEGREE_CODE, SRC_CODE, DST_CODE>;
     type EncodedBatchStats = GroupedGapsStats;
 
     fn encode_batch(
@@ -277,7 +282,7 @@ where
                     .with_context(|| format!("Could not write {dst} after {prev_dst}"))?;
                 // write the label
                 stats.labels_bits += self
-                    .serializer
+                    .sd
                     .serialize(label, &mut stream)
                     .context("Could not serialize label")?;
                 prev_dst = *dst;
@@ -307,7 +312,7 @@ where
 
         // create the iterator
         Ok(GroupedGapsIter {
-            deserializer: self.deserializer.clone(),
+            deserializer: self.sd.clone(),
             stream,
             len,
             current: 0,
