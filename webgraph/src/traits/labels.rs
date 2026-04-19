@@ -587,7 +587,7 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 ///
 /// There are two typical implementations of this trait:
 ///
-/// - on a type: for one-off graphs (e.g., [`SortedGraph`]) that are
+/// - on a type: for one-off graphs (e.g., [`ParSortedGraph`]) that are
 ///   consumed once and then discarded;
 ///
 /// - on a reference: for graphs that can be iterated over multiple times.
@@ -596,17 +596,17 @@ pub trait RandomAccessLabeling: SequentialLabeling {
 /// the two implementations of [`IntoIterator`] on vectors and on references to
 /// vectors.
 ///
-/// [`into_par_iters`]: IntoParLenders::into_par_iters
+/// [`into_par_iters`]: IntoParLenders::into_par_lenders
 /// [`SplitLabeling`]: crate::traits::SplitLabeling
 /// [`Random-access labelings`]: RandomAccessLabeling
 /// [split labelings]: crate::traits::SplitLabeling
-/// [sorting]: crate::graphs::sorted_graph::SortedGraph
-/// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+/// [sorting]: crate::graphs::par_sorted_graph::ParSortedGraph
+/// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 pub trait IntoParLenders {
     /// The type of [`Lender`] over the successors of a node returned by
-    /// [`into_par_iters`].
+    /// [`into_par_lenders`].
     ///
-    /// [`into_par_iters`]: Self::into_par_iters
+    /// [`into_par_lenders`]: Self::into_par_lenders
     type ParLender: for<'next> NodeLabelsLender<'next> + Send + Sync;
 
     /// Returns in constant time a sequence of lenders and cutpoints that can be

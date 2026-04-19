@@ -6,7 +6,7 @@
  */
 
 use crate::graphs::par_sorted_graph::{
-    LabeledCodec, ParSortedGraph, ParSortedLabeledGraph, SortedLabeledGraphConfig,
+    LabeledCodec, ParSortedGraph, ParSortedLabeledGraph, ParSortedLabeledGraphConf,
     SortedLabeledIter, SortedPairIter,
 };
 use crate::prelude::sort_pairs::KMergeIters;
@@ -19,10 +19,10 @@ use anyhow::Result;
 use dsi_bitstream::prelude::NE;
 
 /// Returns the transpose of the provided labeled graph as a
-/// [`SortedLabeledGraph`].
+/// [`ParSortedLabeledGraph`].
 ///
 /// For the meaning of the additional parameters, see
-/// [`SortedLabeledGraphConfig`](crate::graphs::sorted_graph::SortedLabeledGraphConfig).
+/// [`ParSortedLabeledGraphConf`](crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf).
 pub fn transpose_labeled<SD>(
     graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
@@ -36,7 +36,7 @@ where
         + Clone,
     SD::SerType: Clone + Copy + Send + Sync + 'static,
 {
-    SortedLabeledGraphConfig::new()
+    ParSortedLabeledGraphConf::new()
         .memory_usage(memory_usage)
         .sort_pairs_seq(
             graph.num_nodes(),
@@ -48,10 +48,10 @@ where
         )
 }
 
-/// Returns the transpose of the provided graph as a [`SortedGraph`].
+/// Returns the transpose of the provided graph as a [`ParSortedGraph`].
 ///
 /// For the meaning of the additional parameter, see
-/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
@@ -68,13 +68,13 @@ pub fn transpose(
 /// provided labeled splittable graph, computed in parallel.
 ///
 /// For graph compression, the result can be converted into a
-/// [`SortedLabeledGraph`](crate::graphs::sorted_graph::SortedLabeledGraph) by calling [`.into()`](Into::into).
+/// [`ParSortedLabeledGraph`](crate::graphs::par_sorted_graph::ParSortedLabeledGraph) by calling [`.into()`](Into::into).
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameters, see
-/// [`SortedLabeledGraphConfig`](crate::graphs::sorted_graph::SortedLabeledGraphConfig).
+/// [`ParSortedLabeledGraphConf`](crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf).
 ///
 /// [install]: rayon::ThreadPool::install
 pub fn transpose_labeled_split<SD, G>(
@@ -121,14 +121,14 @@ where
     par_sort_iters.try_sort_labeled::<LabeledCodec<SD>, std::convert::Infallible, _>(codec, pairs)
 }
 
-/// Returns a [`SortedGraph`] representing the transpose of the provided
+/// Returns a [`ParSortedGraph`] representing the transpose of the provided
 /// splittable graph, computed in parallel.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameters, see
-/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
 /// [install]: rayon::ThreadPool::install
 pub fn transpose_split<

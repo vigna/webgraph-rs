@@ -30,7 +30,7 @@
 //!
 //! The typical use of [`ParSortIters`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
-//! be wrapped in a [`SortedGraph`] (or [`SortedLabeledGraph`]) and then
+//! be wrapped in a [`ParSortedGraph`] (or [`ParSortedLabeledGraph`]) and then
 //! compressed using, for example, [`BvCompConfig::par_comp`].
 //!
 //! For example, when transposing or permuting a [splittable] graph one obtains
@@ -44,8 +44,8 @@
 //! [install]: rayon::ThreadPool::install
 //! [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 //! [splittable]: crate::traits::SplitLabeling
-//! [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
-//! [`SortedLabeledGraph`]: crate::graphs::sorted_graph::SortedLabeledGraph
+//! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
+//! [`ParSortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 
 use anyhow::{Context, Result, ensure};
 use dsi_progress_logger::prelude::*;
@@ -59,7 +59,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a sequence of iterators of (labeled) pairs as input, and turns them
 /// into a [`SplitIters`] structure which can be wrapped in a
-/// [`SortedGraph`] for compression with
+/// [`ParSortedGraph`] for compression with
 /// [`BvCompConfig::par_comp`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
@@ -73,11 +73,11 @@ use crate::utils::{SortedPairIter, SplitIters};
 ///
 /// In this example we transpose a graph in parallel by splitting it, exchanging
 /// the source and destination of each arc, sorting the resulting pairs in
-/// parallel using [`ParSortIters`], wrapping the result in a [`SortedGraph`],
+/// parallel using [`ParSortIters`], wrapping the result in a [`ParSortedGraph`],
 /// and then compressing it using [`BvCompConfig::par_comp`]:
 ///
 /// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
-/// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+/// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 /// [module documentation]: self
 ///
 /// ```
@@ -419,10 +419,8 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
                         buf.push(((src, dst), label));
                     }
 
-                    for (partition_id, (pairs, mut buf)) in sorted_pairs
-                        .iter_mut()
-                        .zip(unsorted_buffers)
-                        .enumerate()
+                    for (partition_id, (pairs, mut buf)) in
+                        sorted_pairs.iter_mut().zip(unsorted_buffers).enumerate()
                     {
                         let buf_len = buf.len();
                         super::par_sort_pairs::flush_buffer(
@@ -454,10 +452,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
              -> Vec<Vec<CodecIter<C>>> {
                 assert_eq!(pair_partitions1.len(), num_partitions);
                 assert_eq!(pair_partitions2.len(), num_partitions);
-                for (partition1, partition2) in pair_partitions1
-                    .iter_mut()
-                    .zip(pair_partitions2)
-                {
+                for (partition1, partition2) in pair_partitions1.iter_mut().zip(pair_partitions2) {
                     partition1.extend(partition2);
                 }
                 pair_partitions1
@@ -512,12 +507,12 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// Unlike [`try_sort_labeled`], this method processes the input on the
     /// current thread and does not require `Send` or `Sync` on the iterator
     /// or its items. The output is still partitioned, so the resulting
-    /// [`SplitIters`] can be wrapped in a [`SortedGraph`] and compressed
+    /// [`SplitIters`] can be wrapped in a [`ParSortedGraph`] and compressed
     /// in parallel via
     /// [`BvCompConfig::par_comp`](crate::graphs::bvgraph::BvCompConfig::par_comp).
     ///
     /// [`try_sort_labeled`]: ParSortIters::try_sort_labeled
-    /// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+    /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
     pub fn try_sort_labeled_seq<
         C: BatchCodec,
         E: Into<anyhow::Error>,

@@ -82,7 +82,7 @@ where
     }
 }
 
-/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// Returns a [`ParSortedGraph`] representing a symmetrized version of the
 /// provided sorted (both on nodes and successors) graph.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
@@ -120,7 +120,7 @@ pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
     ))
 }
 
-/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// Returns a [`ParSortedGraph`] representing a symmetrized version of the
 /// provided sorted (both on nodes and successors) [splittable] graph,
 /// computed in parallel.
 ///
@@ -191,7 +191,7 @@ where
     ))
 }
 
-/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// Returns a [`ParSortedGraph`] representing a symmetrized version of the
 /// provided graph.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
@@ -230,7 +230,7 @@ pub fn symmetrize<const NO_LOOPS: bool>(
     ))
 }
 
-/// Returns a [`SortedGraph`] representing a symmetrized version of the
+/// Returns a [`ParSortedGraph`] representing a symmetrized version of the
 /// provided graph, computed in parallel.
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.

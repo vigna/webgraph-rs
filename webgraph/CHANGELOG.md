@@ -13,7 +13,7 @@
 
 - New declarative API for parallel compression and graph sorting in general.
   The trait `IntoParLenders` provides parallel lenders on consecutive chunks of
-  nodes. The types `SortedGraph`/`SortedLabeledGraph` can be built from a graph or
+  nodes. The types `ParSortedGraph`/`ParSortedLabeledGraph` can be built from a graph or
   an iterator on pairs and implements `IntoParLenders`. Transparent wrappers such
   as `ParGraph` and `ParDcfGraph` can alter the default `IntoParLenders` splitting.
   Parallel compression methods take a `IntoParLenders` implementation.

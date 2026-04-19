@@ -70,10 +70,10 @@ pub trait BatchCodec: Send + Sync {
     /// decoded triples in sorted order.
     ///
     /// The type `IntoIter` has to be `Send + Sync + Clone` because they are
-    /// used in [`SortedGraph`]/[`SortedLabeledGraph`] which require them.
+    /// used in [`ParSortedGraph`]/[`SortedLabeledGraph`] which require them.
     ///
-    /// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
-    /// [`SortedLabeledGraph`]: crate::graphs::sorted_graph::SortedLabeledGraph
+    /// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
+    /// [`SortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
     type DecodedBatch: IntoIterator<Item = ((usize, usize), Self::Label), IntoIter: Send + Sync + Clone>;
 
     /// A type representing statistics about the encoded batch.

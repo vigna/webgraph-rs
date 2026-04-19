@@ -10,7 +10,7 @@ use crate::utils::par_sort_iters::ParSortIters;
 use anyhow::{Result, ensure};
 use value_traits::slices::SliceByValue;
 
-/// Returns a [`SortedGraph`] obtained by mapping the nodes of the provided
+/// Returns a [`ParSortedGraph`] obtained by mapping the nodes of the provided
 /// graph through the given map.
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
@@ -51,7 +51,7 @@ pub fn map(
     ))
 }
 
-/// Returns a [`SortedGraph`] representing the mapped graph starting from a
+/// Returns a [`ParSortedGraph`] representing the mapped graph starting from a
 /// [splittable] graph, computed in parallel.
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the

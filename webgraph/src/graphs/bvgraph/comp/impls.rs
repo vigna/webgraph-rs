@@ -400,7 +400,7 @@ impl BvCompConfig {
     /// number of threads is appropriate for the number of lenders returned
     /// by [`into_par_iters`], possibly using [`install`].
     ///
-    /// [`into_par_iters`]: IntoParLenders::into_par_iters
+    /// [`into_par_iters`]: IntoParLenders::into_par_lenders
     /// [`install`]: rayon::ThreadPool::install
     pub fn par_comp<E: Endianness, G>(&mut self, graph: G) -> Result<u64>
     where

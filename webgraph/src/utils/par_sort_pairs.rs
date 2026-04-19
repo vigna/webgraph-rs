@@ -29,7 +29,7 @@
 //!
 //! The typical use of [`ParSortPairs`] is to sort (labeled) pairs of nodes
 //! representing a (labeled) graph; the resulting [`SplitIters`] structure can
-//! be wrapped in a [`SortedGraph`] (or [`SortedLabeledGraph`]) and then
+//! be wrapped in a [`ParSortedGraph`] (or [`SortedLabeledGraph`]) and then
 //! compressed using, for example, [`BvCompConfig::par_comp`].
 //!
 //! For example, when reading a graph from a file containing an arc list one
@@ -43,8 +43,8 @@
 //! [install]: rayon::ThreadPool::install
 //! [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
 //! [`ParSortIters`]: crate::utils::par_sort_iters::ParSortIters
-//! [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
-//! [`SortedLabeledGraph`]: crate::graphs::sorted_graph::SortedLabeledGraph
+//! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
+//! [`SortedLabeledGraph`]: crate::graphs::par_sorted_graph::ParSortedLabeledGraph
 
 use std::path::Path;
 use std::sync::Arc;
@@ -64,7 +64,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 
 /// Takes a parallel iterator of (labeled) pairs as input, and turns them into
 /// a [`SplitIters`] structure which can be wrapped in a
-/// [`SortedGraph`] for compression with
+/// [`ParSortedGraph`] for compression with
 /// [`BvCompConfig::par_comp`].
 ///
 /// Note that batches will be memory-mapped. If you encounter OS-level errors
@@ -75,7 +75,7 @@ use crate::utils::{SortedPairIter, SplitIters};
 /// See the [module documentation] for more details.
 ///
 /// [`BvCompConfig::par_comp`]: crate::graphs::bvgraph::BvCompConfig::par_comp
-/// [`SortedGraph`]: crate::graphs::sorted_graph::SortedGraph
+/// [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
 /// [module documentation]: self
 ///
 /// # Examples
@@ -417,10 +417,8 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                 let mut partitioned_sorted_pairs = Vec::with_capacity(num_partitions);
                 assert_eq!(sorted_pairs.len(), num_partitions);
                 assert_eq!(unsorted_buffers.len(), num_partitions);
-                for (partition_id, (mut sorted_pairs, mut buf)) in sorted_pairs
-                    .into_iter()
-                    .zip(unsorted_buffers)
-                    .enumerate()
+                for (partition_id, (mut sorted_pairs, mut buf)) in
+                    sorted_pairs.into_iter().zip(unsorted_buffers).enumerate()
                 {
                     let buf_len = buf.len();
                     flush_buffer(
@@ -450,9 +448,8 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
                  -> Result<Vec<Vec<CodecIter<C>>>> {
                     assert_eq!(pair_partitions1.len(), num_partitions);
                     assert_eq!(pair_partitions2.len(), num_partitions);
-                    for (partition1, partition2) in pair_partitions1
-                        .iter_mut()
-                        .zip(pair_partitions2)
+                    for (partition1, partition2) in
+                        pair_partitions1.iter_mut().zip(pair_partitions2)
                     {
                         partition1.extend(partition2);
                     }

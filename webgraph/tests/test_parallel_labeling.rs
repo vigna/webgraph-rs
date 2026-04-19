@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Tests for [`SortedGraph`], [`ParallelGraph`], and [`ParallelDcfGraph`].
+//! Tests for [`ParSortedGraph`], [`ParallelGraph`], and [`ParallelDcfGraph`].
 
 mod common;
 

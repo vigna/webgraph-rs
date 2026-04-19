@@ -303,8 +303,8 @@ pub fn humanize(value: f64) -> String {
 /// each pair sits between the boundaries associated with the iterator.
 ///
 /// This structure is returned by [`ParSortPairs`] and [`ParSortIters`].
-/// For graph compression, convert the result into a [`SortedGraph`] (or
-/// [`SortedLabeledGraph`]) using the [`From`] implementations provided
+/// For graph compression, convert the result into a [`ParSortedGraph`] (or
+/// [`ParSortedLabeledGraph`]) using the [`From`] implementations provided
 /// below (i.e., by calling [`.into()`](Into::into)).
 pub struct SplitIters<I> {
     pub boundaries: Box<[usize]>,
@@ -327,7 +327,7 @@ impl<I> SplitIters<I> {
 /// [`KMergeIters`](sort_pairs::KMergeIters) via [`Map`](std::iter::Map);
 /// the transform functions (e.g., [`transpose_split`]) use
 /// [`KMergeIters`](sort_pairs::KMergeIters) directly and return a
-/// [`SortedGraph`] instead.
+/// [`ParSortedGraph`] instead.
 ///
 /// [`ParSortIters::sort`]: par_sort_iters::ParSortIters::sort
 /// [`ParSortPairs::sort`]: par_sort_pairs::ParSortPairs::sort
@@ -344,7 +344,7 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 }
 
 /// Converts a [`SplitIters`] of unlabeled pair iterators into a
-/// [`SortedGraph`].
+/// [`ParSortedGraph`].
 impl<I: Iterator<Item = (usize, usize)>> From<SplitIters<I>>
     for ParSortedGraph<std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>
 {
@@ -354,7 +354,7 @@ impl<I: Iterator<Item = (usize, usize)>> From<SplitIters<I>>
 }
 
 /// Converts a [`SplitIters`] of labeled pair iterators into a
-/// [`SortedLabeledGraph`].
+/// [`ParSortedLabeledGraph`].
 impl<L, I: Iterator<Item = ((usize, usize), L)>> From<SplitIters<I>>
     for ParSortedLabeledGraph<L, I>
 {

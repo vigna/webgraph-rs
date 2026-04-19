@@ -11,14 +11,14 @@ use anyhow::{Result, ensure};
 use lender::*;
 use value_traits::slices::SliceByValue;
 
-/// Returns a [`SortedGraph`] representing the permuted graph.
+/// Returns a [`ParSortedGraph`] representing the permuted graph.
 ///
 /// Note that if the graph is [splittable], [`permute_split`] will be much
 /// faster.
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see
-/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
 /// [splittable]: SplitLabeling
 pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
@@ -39,7 +39,7 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
         .sort_pairs_seq(num_nodes, pgraph.iter().into_pairs())
 }
 
-/// Returns a [`SortedGraph`] representing the permuted graph starting from a
+/// Returns a [`ParSortedGraph`] representing the permuted graph starting from a
 /// [splittable] graph, computed in parallel.
 ///
 /// Note that if the graph is not [splittable] you must use [`permute`],
@@ -50,7 +50,7 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
 ///
 /// The permutation is assumed to be bijective. For the meaning of the
 /// additional parameter, see
-/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
