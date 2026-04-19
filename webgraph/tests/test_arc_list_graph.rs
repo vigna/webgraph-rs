@@ -180,7 +180,7 @@ fn test_split_iters_from_with_empty_end_nodes() -> anyhow::Result<()> {
         .into_iter()
         .map(|v| v.into_iter())
         .collect();
-    let sorted: webgraph::graphs::sorted_graph::SortedLabeledGraph<(), _> =
+    let sorted: webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph<(), _> =
         SplitIters::new(partition_boundaries, iters).into();
 
     assert_eq!(sorted.num_nodes(), num_nodes);

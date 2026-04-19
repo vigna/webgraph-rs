@@ -65,7 +65,7 @@ pub use par_sort_iters::ParSortIters;
 
 use crate::graphs::{
     bvgraph::{Decode, Encode},
-    sorted_graph::{SortedGraph, SortedLabeledGraph},
+    par_sorted_graph::{ParSortedGraph, ParSortedLabeledGraph},
 };
 
 /// A decoder that encodes the read values using the given encoder.
@@ -346,17 +346,19 @@ impl<I> From<(Box<[usize]>, Box<[I]>)> for SplitIters<I> {
 /// Converts a [`SplitIters`] of unlabeled pair iterators into a
 /// [`SortedGraph`].
 impl<I: Iterator<Item = (usize, usize)>> From<SplitIters<I>>
-    for SortedGraph<std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>
+    for ParSortedGraph<std::iter::Map<I, fn((usize, usize)) -> ((usize, usize), ())>>
 {
     fn from(split: SplitIters<I>) -> Self {
-        SortedGraph::from_parts(split.boundaries, split.iters)
+        ParSortedGraph::from_parts(split.boundaries, split.iters)
     }
 }
 
 /// Converts a [`SplitIters`] of labeled pair iterators into a
 /// [`SortedLabeledGraph`].
-impl<L, I: Iterator<Item = ((usize, usize), L)>> From<SplitIters<I>> for SortedLabeledGraph<L, I> {
+impl<L, I: Iterator<Item = ((usize, usize), L)>> From<SplitIters<I>>
+    for ParSortedLabeledGraph<L, I>
+{
     fn from(split: SplitIters<I>) -> Self {
-        SortedLabeledGraph::from_parts(split.boundaries, split.iters)
+        ParSortedLabeledGraph::from_parts(split.boundaries, split.iters)
     }
 }

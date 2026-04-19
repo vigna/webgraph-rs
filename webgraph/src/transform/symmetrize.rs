@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::sorted_graph::SortedGraph;
+use crate::graphs::par_sorted_graph::ParSortedGraph;
 use crate::traits::{
     LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator, SortedLender, SplitLabeling,
 };
@@ -93,7 +93,7 @@ where
 pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &G,
     memory_usage: MemoryUsage,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
     let num_nodes = graph.num_nodes();
 
     let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
@@ -113,7 +113,7 @@ pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
         }
     });
 
-    Ok(SortedGraph(
+    Ok(ParSortedGraph(
         par_sort_iters
             .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
             .into(),
@@ -148,7 +148,7 @@ pub fn symmetrize_sorted_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SortedGraph<impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'g>>
+) -> Result<ParSortedGraph<impl Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync + 'g>>
 where
     S: SequentialGraph + SplitLabeling,
     for<'a> S::Lender<'a>: SortedLender,
@@ -185,7 +185,7 @@ where
         .map(|(fwd, rev)| MergeDedupPairs::<NO_LOOPS, _, _>::new(fwd.into_pairs(), rev))
         .collect();
 
-    Ok(SortedGraph::from_parts(
+    Ok(ParSortedGraph::from_parts(
         boundaries,
         merged.into_boxed_slice(),
     ))
@@ -203,7 +203,7 @@ where
 pub fn symmetrize<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
     let num_nodes = graph.num_nodes();
 
     let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
@@ -223,7 +223,7 @@ pub fn symmetrize<const NO_LOOPS: bool>(
         }
     });
 
-    Ok(SortedGraph(
+    Ok(ParSortedGraph(
         par_sort_iters
             .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
             .into(),
@@ -245,7 +245,7 @@ pub fn symmetrize_split<'g, const NO_LOOPS: bool, S>(
     graph: &'g S,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
+) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
@@ -285,7 +285,7 @@ where
     })
     .collect();
 
-    Ok(SortedGraph(
+    Ok(ParSortedGraph(
         par_sort_iters
             .sort_labeled::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
             .into(),

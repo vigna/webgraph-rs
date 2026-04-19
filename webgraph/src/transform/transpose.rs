@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::sorted_graph::{
-    LabeledCodec, SortedGraph, SortedLabeledGraph, SortedLabeledIter, SortedPairIter,
+use crate::graphs::par_sorted_graph::{
+    LabeledCodec, ParSortedGraph, ParSortedLabeledGraph, SortedLabeledGraphConfig,
+    SortedLabeledIter, SortedPairIter,
 };
 use crate::prelude::sort_pairs::KMergeIters;
 use crate::prelude::{LabeledSequentialGraph, SequentialGraph};
@@ -21,12 +22,12 @@ use dsi_bitstream::prelude::NE;
 /// [`SortedLabeledGraph`].
 ///
 /// For the meaning of the additional parameters, see
-/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
+/// [`SortedLabeledGraphConfig`](crate::graphs::sorted_graph::SortedLabeledGraphConfig).
 pub fn transpose_labeled<SD>(
     graph: &impl LabeledSequentialGraph<SD::SerType>,
     memory_usage: MemoryUsage,
     sd: SD,
-) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
 where
     SD: BitSerializer<NE, BitWriter<NE>>
         + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -35,7 +36,7 @@ where
         + Clone,
     SD::SerType: Clone + Copy + Send + Sync + 'static,
 {
-    SortedGraph::config()
+    SortedLabeledGraphConfig::new()
         .memory_usage(memory_usage)
         .sort_pairs_seq(
             graph.num_nodes(),
@@ -54,10 +55,10 @@ where
 pub fn transpose(
     graph: impl SequentialGraph,
     memory_usage: MemoryUsage,
-) -> Result<SortedGraph<SortedPairIter>> {
-    SortedGraph::config()
+) -> Result<ParSortedGraph<SortedPairIter>> {
+    ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .sort_graph_pairs_seq(
+        .sort_pairs_seq(
             graph.num_nodes(),
             graph.iter().into_pairs().map(|(src, dst)| (dst, src)),
         )
@@ -73,7 +74,7 @@ pub fn transpose(
 /// [install] a custom pool if you want to customize the parallelism.
 ///
 /// For the meaning of the additional parameters, see
-/// [`SortedGraphConfig`](crate::graphs::sorted_graph::SortedGraphConfig).
+/// [`SortedLabeledGraphConfig`](crate::graphs::sorted_graph::SortedLabeledGraphConfig).
 ///
 /// [install]: rayon::ThreadPool::install
 pub fn transpose_labeled_split<SD, G>(
@@ -117,9 +118,7 @@ where
     .collect();
 
     let codec = LabeledCodec::new(sd);
-    par_sort_iters.try_sort_labeled::<LabeledCodec<SD>, std::convert::Infallible, _>(
-        codec, pairs,
-    )
+    par_sort_iters.try_sort_labeled::<LabeledCodec<SD>, std::convert::Infallible, _>(codec, pairs)
 }
 
 /// Returns a [`SortedGraph`] representing the transpose of the provided
@@ -145,7 +144,7 @@ pub fn transpose_split<
     graph: &'g G,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec>>>> {
+) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec>>>> {
     let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
     if let Some(num_arcs) = graph.num_arcs_hint() {
         par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
@@ -162,7 +161,7 @@ pub fn transpose_split<
     .map(|iter| iter.into_pairs().map(|(src, dst)| ((dst, src), ())))
     .collect();
 
-    Ok(SortedGraph(
+    Ok(ParSortedGraph(
         par_sort_iters
             .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
             .into(),

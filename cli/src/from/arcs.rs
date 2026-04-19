@@ -172,7 +172,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         par_sort = par_sort.expected_num_pairs(n);
     }
 
-    let sorted: SortedGraph<_> = SortedGraph(
+    let sorted: ParSortedGraph<_> = ParSortedGraph(
         par_sort
             .sort_labeled_seq::<DefaultBatchCodec<true>, _>(
                 DefaultBatchCodec::<true>::default(),

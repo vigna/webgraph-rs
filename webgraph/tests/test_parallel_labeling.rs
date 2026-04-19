@@ -13,8 +13,8 @@ use common::build_ef;
 use dsi_bitstream::prelude::BE;
 use webgraph::graphs::bvgraph::{BvComp, BvGraphSeq};
 use webgraph::graphs::par_graphs::ParGraph;
+use webgraph::graphs::par_sorted_graph::ParSortedGraph;
 use webgraph::graphs::permuted_graph::PermutedGraph;
-use webgraph::graphs::sorted_graph::SortedGraph;
 use webgraph::graphs::vec_graph::VecGraph;
 use webgraph::prelude::*;
 use webgraph::traits::graph;
@@ -42,7 +42,7 @@ fn test_graph() -> VecGraph {
 #[test]
 fn test_sorted_graph_preserves_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::par_from(&g)?;
+    let sorted = ParSortedGraph::par_from(&g)?;
     graph::eq(&g, &sorted)?;
     Ok(())
 }
@@ -61,7 +61,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 
     let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
     let split = par_sort.sort(vec![pairs])?;
-    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
 
     graph::eq(&g, &sorted)?;
     Ok(())
@@ -70,7 +70,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 #[test]
 fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::par_from(&g)?;
+    let sorted = ParSortedGraph::par_from(&g)?;
     let (_lenders, boundaries) = sorted.into_par_lenders();
     // Boundaries must start at 0 and end at num_nodes
     assert_eq!(*boundaries.first().unwrap(), 0);
@@ -85,7 +85,7 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
 #[test]
 fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::config().num_partitions(2).par_sort_graph(&g)?;
+    let sorted = ParSortedGraph::config().num_partitions(2).par_sort(&g)?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
     let (_lenders, boundaries) = sorted.into_par_lenders();
@@ -105,7 +105,7 @@ fn test_sorted_graph_from_parts() -> Result<()> {
     let par_sort = ParSortIters::new(num_nodes)?.num_partitions(2);
     let split = par_sort.sort(pairs)?;
 
-    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
     assert_eq!(sorted.num_nodes(), num_nodes);
     graph::eq(&g, &sorted)?;
     Ok(())
@@ -151,7 +151,7 @@ fn test_parallel_graph_graph_equality() -> Result<()> {
 #[test]
 fn test_par_comp_with_sorted_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = SortedGraph::par_from(&g)?;
+    let sorted = ParSortedGraph::par_from(&g)?;
 
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("sorted");

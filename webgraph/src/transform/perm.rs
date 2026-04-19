@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::graphs::sorted_graph::{SortedGraph, SortedPairIter};
+use crate::graphs::par_sorted_graph::{ParSortedGraph, SortedPairIter};
 use crate::prelude::*;
 use anyhow::{Result, ensure};
 use lender::*;
@@ -25,7 +25,7 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     graph: &G,
     perm: &P,
     memory_usage: MemoryUsage,
-) -> Result<SortedGraph<SortedPairIter>> {
+) -> Result<ParSortedGraph<SortedPairIter>> {
     ensure!(
         perm.len() == graph.num_nodes(),
         "The given permutation has {} values and thus it's incompatible with a graph with {} nodes.",
@@ -34,9 +34,9 @@ pub fn permute<G: SequentialGraph, P: SliceByValue<Value = usize>>(
     );
     let pgraph = PermutedGraph::new(graph, perm);
     let num_nodes = pgraph.num_nodes();
-    SortedGraph::config()
+    ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .sort_graph_pairs_seq(num_nodes, pgraph.iter().into_pairs())
+        .sort_pairs_seq(num_nodes, pgraph.iter().into_pairs())
 }
 
 /// Returns a [`SortedGraph`] representing the permuted graph starting from a
@@ -58,7 +58,7 @@ pub fn permute_split<S, P>(
     graph: &S,
     perm: &P,
     memory_usage: MemoryUsage,
-) -> Result<SortedGraph<SortedPairIter>>
+) -> Result<ParSortedGraph<SortedPairIter>>
 where
     S: SequentialGraph + SplitLabeling,
     P: SliceByValue<Value = usize> + Send + Sync + Clone,
@@ -72,7 +72,7 @@ where
         graph.num_nodes(),
     );
     let pgraph = PermutedGraph::new(graph, perm);
-    SortedGraph::config()
+    ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .par_sort_graph(&pgraph)
+        .par_sort(&pgraph)
 }

@@ -29,7 +29,7 @@ pub fn map(
     map: &impl SliceByValue<Value = usize>,
     num_nodes: usize,
     memory_usage: MemoryUsage,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
+) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>> {
     ensure!(
         map.len() == graph.num_nodes(),
         "The given map has {} values and thus it's incompatible with a graph with {} nodes.",
@@ -44,7 +44,7 @@ pub fn map(
         .into_pairs()
         .map(|(src, dst)| ((map.index_value(src), map.index_value(dst)), ()));
 
-    Ok(SortedGraph(
+    Ok(ParSortedGraph(
         par_sort
             .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
             .into(),
@@ -76,7 +76,7 @@ pub fn map_split<'g, S, M>(
     num_nodes: usize,
     memory_usage: MemoryUsage,
     cutpoints: Option<Vec<usize>>,
-) -> Result<SortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
+) -> Result<ParSortedGraph<KMergeIters<CodecIter<DefaultBatchCodec<true>>, (), true>>>
 where
     S: SequentialGraph
         + for<'a> SplitLabeling<
@@ -113,7 +113,7 @@ where
     })
     .collect();
 
-    Ok(SortedGraph(
+    Ok(ParSortedGraph(
         par_sort_iters
             .sort_labeled::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
             .into(),

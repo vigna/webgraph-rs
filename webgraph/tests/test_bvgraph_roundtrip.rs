@@ -624,7 +624,7 @@ fn test_par_comp() -> Result<()> {
 
 #[test]
 fn test_par_comp_from_parts() -> Result<()> {
-    use webgraph::graphs::sorted_graph::SortedGraph;
+    use webgraph::graphs::par_sorted_graph::ParSortedGraph;
     use webgraph::traits::SequentialLabeling;
     use webgraph::utils::{MemoryUsage, ParSortPairs};
 
@@ -641,7 +641,7 @@ fn test_par_comp_from_parts() -> Result<()> {
     let split = sorter.sort(pairs.into_par_iter())?;
 
     // Wrap in SortedGraph and compress with par_comp
-    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("par_lenders");
     let bits = BvCompConfig::new(&basename).par_comp::<BE, _>(&sorted)?;

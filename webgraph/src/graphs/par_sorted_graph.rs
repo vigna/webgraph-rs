@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2026 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
@@ -31,8 +31,8 @@ use std::marker::PhantomData;
 /// The number of nodes is derived from the last boundary value.
 ///
 /// A `SortedLabeledGraph` can be built from any labeled
-/// [`SequentialLabeling`] using [`sort`](SortedGraphConfig::sort)
-/// (sequential sort) or [`par_sort`](SortedGraphConfig::par_sort)
+/// [`SequentialLabeling`] using [`sort`](SortedLabeledGraphConfig::sort)
+/// (sequential sort) or [`par_sort`](SortedLabeledGraphConfig::par_sort)
 /// (parallel sort from a [`SplitLabeling`]). In both cases, the result
 /// implements [`IntoParLenders`].
 ///
@@ -41,7 +41,7 @@ use std::marker::PhantomData;
 ///
 /// For the unlabeled case, use [`SortedGraph`], which is a transparent
 /// wrapper around `SortedLabeledGraph<(), I>`.
-pub struct SortedLabeledGraph<L, I> {
+pub struct ParSortedLabeledGraph<L, I> {
     boundaries: Box<[usize]>,
     iters: Box<[I]>,
     _phantom: PhantomData<L>,
@@ -49,11 +49,11 @@ pub struct SortedLabeledGraph<L, I> {
 
 type SeqIter<'a, I> = Flatten<std::iter::Cloned<std::slice::Iter<'a, I>>>;
 
-impl<L, I> SortedLabeledGraph<L, I> {
+impl<L, I> ParSortedLabeledGraph<L, I> {
     /// Creates a [`SortedLabeledGraph`] from pre-sorted partition
     /// boundaries and iterators.
     pub fn from_parts(boundaries: Box<[usize]>, iters: Box<[I]>) -> Self {
-        SortedLabeledGraph {
+        ParSortedLabeledGraph {
             boundaries,
             iters,
             _phantom: PhantomData,
@@ -66,10 +66,10 @@ impl<L, I> SortedLabeledGraph<L, I> {
         (self.boundaries, self.iters)
     }
 
-    /// Returns a [`SortedGraphConfig`] with default settings for
+    /// Returns a [`SortedLabeledGraphConfig`] with default settings for
     /// customization via chained setters.
-    pub fn config() -> SortedGraphConfig {
-        SortedGraphConfig::new()
+    pub fn config() -> SortedLabeledGraphConfig {
+        SortedLabeledGraphConfig::new()
     }
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially
@@ -80,7 +80,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
     pub fn from<SD, G>(
         graph: G,
         sd: SD,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -92,7 +92,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
         for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
         for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
-        SortedGraphConfig::new().sort(graph, sd)
+        SortedLabeledGraphConfig::new().sort(graph, sd)
     }
 
     /// Sorts labeled arcs from a splittable [`LabeledSequentialGraph`] in
@@ -103,7 +103,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
     pub fn par_from<SD, G>(
         graph: G,
         sd: SD,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -121,7 +121,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
                                      + Sync,
             >,
     {
-        SortedGraphConfig::new().par_sort(graph, sd)
+        SortedLabeledGraphConfig::new().par_sort(graph, sd)
     }
 
     /// Sorts labeled pairs from a sequential iterator with default
@@ -133,9 +133,9 @@ impl<L, I> SortedLabeledGraph<L, I> {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType), IntoIter: Send + Sync>
-            + Send
-            + Sync,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+        + Send
+        + Sync,
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -144,7 +144,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        SortedGraphConfig::new().sort_pairs(num_nodes, sd, pairs)
+        SortedLabeledGraphConfig::new().sort_pairs(num_nodes, sd, pairs)
     }
 
     /// Sorts labeled pairs from a parallel iterator with default
@@ -156,7 +156,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -165,7 +165,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        SortedGraphConfig::new().par_sort_pairs(num_nodes, sd, pairs)
+        SortedLabeledGraphConfig::new().par_sort_pairs(num_nodes, sd, pairs)
     }
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially
@@ -180,7 +180,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
     pub fn from_seq<SD, G>(
         graph: G,
         sd: SD,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -190,7 +190,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
         SD::SerType: Copy + Send + Sync + 'static,
         G: LabeledSequentialGraph<SD::SerType>,
     {
-        SortedGraphConfig::new().sort_seq(graph, sd)
+        SortedLabeledGraphConfig::new().sort_seq(graph, sd)
     }
 
     /// Sorts labeled pairs from a sequential iterator with default
@@ -206,7 +206,7 @@ impl<L, I> SortedLabeledGraph<L, I> {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -215,14 +215,14 @@ impl<L, I> SortedLabeledGraph<L, I> {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        SortedGraphConfig::new().sort_pairs_seq(num_nodes, sd, pairs)
+        SortedLabeledGraphConfig::new().sort_pairs_seq(num_nodes, sd, pairs)
     }
 }
 
 // === SequentialLabeling for SortedLabeledGraph ===
 
 impl<L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    SequentialLabeling for SortedLabeledGraph<L, I>
+    SequentialLabeling for ParSortedLabeledGraph<L, I>
 {
     type Label = (usize, L);
     type Lender<'node>
@@ -270,7 +270,7 @@ fn make_labeled_lenders<
 }
 
 impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize), L)> + Send + Sync>
-    IntoParLenders for SortedLabeledGraph<L, I>
+    IntoParLenders for ParSortedLabeledGraph<L, I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
@@ -283,7 +283,7 @@ impl<L: Clone + Copy + Send + Sync + 'static, I: Iterator<Item = ((usize, usize)
 impl<
     L: Clone + Copy + Send + Sync + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> IntoParLenders for &SortedLabeledGraph<L, I>
+> IntoParLenders for &ParSortedLabeledGraph<L, I>
 {
     type ParLender = arc_list_graph::NodeLabels<L, I>;
 
@@ -296,9 +296,9 @@ impl<
 // === IntoLender / Lending for SortedLabeledGraph ===
 
 impl<'a, L: Clone + Copy + 'static, I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync>
-    IntoLender for &'a SortedLabeledGraph<L, I>
+    IntoLender for &'a ParSortedLabeledGraph<L, I>
 {
-    type Lender = <SortedLabeledGraph<L, I> as SequentialLabeling>::Lender<'a>;
+    type Lender = <ParSortedLabeledGraph<L, I> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -310,9 +310,9 @@ impl<
     'lend,
     L: Clone + Copy + 'static,
     I: Iterator<Item = ((usize, usize), L)> + Clone + Send + Sync,
-> Lending<'lend> for &SortedLabeledGraph<L, I>
+> Lending<'lend> for &ParSortedLabeledGraph<L, I>
 {
-    type Lend = Lend<'lend, <SortedLabeledGraph<L, I> as SequentialLabeling>::Lender<'lend>>;
+    type Lend = Lend<'lend, <ParSortedLabeledGraph<L, I> as SequentialLabeling>::Lender<'lend>>;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -343,9 +343,9 @@ impl<
 /// let sorted = SortedGraph::config()
 ///     .num_partitions(8)
 ///     .memory_usage(MemoryUsage::Percentage(0.5))
-///     .par_sort_graph(graph)?;
+///     .par_sort(graph)?;
 /// ```
-pub struct SortedGraph<I>(pub SortedLabeledGraph<(), I>);
+pub struct ParSortedGraph<I>(pub ParSortedLabeledGraph<(), I>);
 
 /// The concrete iterator type for unlabeled sorted graphs.
 ///
@@ -357,9 +357,9 @@ pub type SortedPairIter = KMergeIters<CodecIter<DefaultBatchCodec>, ()>;
 /// Internal codec type for labeled sorted graphs.
 ///
 /// Users should not need to reference this type directly; the labeled
-/// methods on [`SortedGraphConfig`] and [`SortedLabeledGraph`] accept
-/// a single `SD` parameter implementing both [`BitSerializer`] and
-/// [`BitDeserializer`].
+/// methods on [`SortedLabeledGraphConfig`] and [`SortedLabeledGraph`]
+/// accept a single `SD` parameter implementing both [`BitSerializer`]
+/// and [`BitDeserializer`].
 pub(crate) type LabeledCodec<SD> = grouped_gaps::GroupedGapsCodec<
     NE,
     SD,
@@ -371,8 +371,8 @@ pub(crate) type LabeledCodec<SD> = grouped_gaps::GroupedGapsCodec<
 
 /// The concrete iterator type for labeled sorted graphs.
 ///
-/// This is the iterator returned by the labeled terminal methods of
-/// [`SortedGraphConfig`]. The type parameter `SD` implements both
+/// This is the iterator returned by the terminal methods of
+/// [`SortedLabeledGraphConfig`]. The type parameter `SD` implements both
 /// [`BitSerializer`] and [`BitDeserializer`] for the label type.
 /// Use [`BitSerDeser`](crate::traits::BitSerDeser) to combine
 /// separate serializer and deserializer implementations.
@@ -387,7 +387,7 @@ pub type SortedLabeledIter<SD> = KMergeIters<
     <SD as BitSerializer<NE, BitWriter<NE>>>::SerType,
 >;
 
-impl SortedGraph<SortedPairIter> {
+impl ParSortedGraph<SortedPairIter> {
     /// Creates a [`SortedGraph`] from pre-sorted partition boundaries and
     /// unlabeled pair iterators.
     ///
@@ -396,7 +396,7 @@ impl SortedGraph<SortedPairIter> {
     pub fn from_parts<J: Iterator<Item = (usize, usize)>>(
         boundaries: Box<[usize]>,
         iters: Box<[J]>,
-    ) -> SortedGraph<std::iter::Map<J, fn((usize, usize)) -> ((usize, usize), ())>> {
+    ) -> ParSortedGraph<std::iter::Map<J, fn((usize, usize)) -> ((usize, usize), ())>> {
         let labeled: Box<[_]> = iters
             .into_vec()
             .into_iter()
@@ -405,11 +405,11 @@ impl SortedGraph<SortedPairIter> {
                 iter.map(f)
             })
             .collect();
-        SortedGraph(SortedLabeledGraph::from_parts(boundaries, labeled))
+        ParSortedGraph(ParSortedLabeledGraph::from_parts(boundaries, labeled))
     }
 }
 
-impl<I> SortedGraph<I> {
+impl<I> ParSortedGraph<I> {
     /// Decomposes the [`SortedGraph`] into its partition boundaries and
     /// iterators.
     pub fn into_parts(self) -> (Box<[usize]>, Box<[I]>) {
@@ -417,7 +417,7 @@ impl<I> SortedGraph<I> {
     }
 }
 
-impl SortedGraph<SortedPairIter> {
+impl ParSortedGraph<SortedPairIter> {
     /// Returns a [`SortedGraphConfig`] with default settings for
     /// customization via chained setters.
     pub fn config() -> SortedGraphConfig {
@@ -425,23 +425,23 @@ impl SortedGraph<SortedPairIter> {
     }
 }
 
-impl SortedGraph<SortedPairIter> {
+impl ParSortedGraph<SortedPairIter> {
     /// Sorts arcs from a [`SequentialGraph`] sequentially with default
     /// settings.
     ///
-    /// Equivalent to `SortedGraph::config().sort_graph(graph)`.
+    /// Equivalent to `SortedGraph::config().sort(graph)`.
     pub fn from<G: SequentialGraph>(graph: G) -> Result<Self>
     where
         for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
         for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
     {
-        SortedGraphConfig::new().sort_graph(graph)
+        SortedGraphConfig::new().sort(graph)
     }
 
     /// Sorts arcs from a graph implementing [`IntoParLenders`] in
     /// parallel with default settings.
     ///
-    /// Equivalent to `SortedGraph::config().par_sort_graph(graph)`.
+    /// Equivalent to `SortedGraph::config().par_sort(graph)`.
     pub fn par_from<G>(graph: G) -> Result<Self>
     where
         G: SequentialGraph
@@ -453,27 +453,27 @@ impl SortedGraph<SortedPairIter> {
                 >,
             >,
     {
-        SortedGraphConfig::new().par_sort_graph(graph)
+        SortedGraphConfig::new().par_sort(graph)
     }
 
     /// Sorts pairs from a sequential iterator with default settings.
     ///
-    /// Equivalent to `SortedGraph::config().sort_graph_pairs(num_nodes, pairs)`.
+    /// Equivalent to `SortedGraph::config().sort_pairs(num_nodes, pairs)`.
     pub fn from_pairs(
         num_nodes: usize,
         pairs: impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
     ) -> Result<Self> {
-        SortedGraphConfig::new().sort_graph_pairs(num_nodes, pairs)
+        SortedGraphConfig::new().sort_pairs(num_nodes, pairs)
     }
 
     /// Sorts pairs from a parallel iterator with default settings.
     ///
-    /// Equivalent to `SortedGraph::config().par_sort_graph_pairs(num_nodes, pairs)`.
+    /// Equivalent to `SortedGraph::config().par_sort_pairs(num_nodes, pairs)`.
     pub fn par_from_pairs(
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
     ) -> Result<Self> {
-        SortedGraphConfig::new().par_sort_graph_pairs(num_nodes, pairs)
+        SortedGraphConfig::new().par_sort_pairs(num_nodes, pairs)
     }
 
     /// Sorts arcs from a [`SequentialGraph`] sequentially with default
@@ -483,9 +483,9 @@ impl SortedGraph<SortedPairIter> {
     /// or `Sync` on the graph's lenders or their items. The output is
     /// still partitioned for parallel compression.
     ///
-    /// Equivalent to `SortedGraph::config().sort_graph_seq(graph)`.
+    /// Equivalent to `SortedGraph::config().sort_seq(graph)`.
     pub fn from_seq<G: SequentialGraph>(graph: G) -> Result<Self> {
-        SortedGraphConfig::new().sort_graph_seq(graph)
+        SortedGraphConfig::new().sort_seq(graph)
     }
 
     /// Sorts pairs from a sequential iterator with default settings.
@@ -494,19 +494,19 @@ impl SortedGraph<SortedPairIter> {
     /// require `Send` or `Sync` on the iterator. The output is still
     /// partitioned for parallel compression.
     ///
-    /// Equivalent to `SortedGraph::config().sort_graph_pairs_seq(num_nodes, pairs)`.
+    /// Equivalent to `SortedGraph::config().sort_pairs_seq(num_nodes, pairs)`.
     pub fn from_pairs_seq(
         num_nodes: usize,
         pairs: impl IntoIterator<Item = (usize, usize)>,
     ) -> Result<Self> {
-        SortedGraphConfig::new().sort_graph_pairs_seq(num_nodes, pairs)
+        SortedGraphConfig::new().sort_pairs_seq(num_nodes, pairs)
     }
 }
 
 // === SequentialLabeling for SortedGraph (projects away ()) ===
 
 impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> SequentialLabeling
-    for SortedGraph<I>
+    for ParSortedGraph<I>
 {
     type Label = usize;
     type Lender<'node>
@@ -530,13 +530,13 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> SequentialL
 }
 
 impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> SequentialGraph
-    for SortedGraph<I>
+    for ParSortedGraph<I>
 {
 }
 
 // === IntoParLenders for SortedGraph (wraps labeled lenders in LeftIterator) ===
 
-impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParLenders for SortedGraph<I> {
+impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParLenders for ParSortedGraph<I> {
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), I>>;
 
     fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
@@ -547,7 +547,7 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Send + Sync> IntoParLenders for 
 }
 
 impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoParLenders
-    for &SortedGraph<I>
+    for &ParSortedGraph<I>
 {
     type ParLender = LeftIterator<arc_list_graph::NodeLabels<(), I>>;
 
@@ -561,9 +561,9 @@ impl<I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoParLend
 // === IntoLender / Lending for SortedGraph ===
 
 impl<'a, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoLender
-    for &'a SortedGraph<I>
+    for &'a ParSortedGraph<I>
 {
-    type Lender = <SortedGraph<I> as SequentialLabeling>::Lender<'a>;
+    type Lender = <ParSortedGraph<I> as SequentialLabeling>::Lender<'a>;
 
     #[inline(always)]
     fn into_lender(self) -> Self::Lender {
@@ -572,29 +572,200 @@ impl<'a, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> IntoLen
 }
 
 impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lending<'lend>
-    for &SortedGraph<I>
+    for &ParSortedGraph<I>
 {
-    type Lend = Lend<'lend, <SortedGraph<I> as SequentialLabeling>::Lender<'lend>>;
+    type Lend = Lend<'lend, <ParSortedGraph<I> as SequentialLabeling>::Lender<'lend>>;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SortedGraphConfig — shared configuration for both types
+// SortedGraphConfig
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// Configuration for building a [`SortedGraph`] or [`SortedLabeledGraph`].
+/// Configuration for building a [`SortedGraph`].
 ///
-/// Obtained via [`SortedGraph::config()`] or
-/// [`SortedLabeledGraph::config()`]. Use the setter methods to customize
-/// partitioning and memory, then call one of the terminal methods to
-/// perform the sort.
-pub struct SortedGraphConfig {
+/// This is a transparent wrapper around [`SortedLabeledGraphConfig`]
+/// that forwards all methods with `SD = ()`, analogous to how
+/// [`SortedGraph`] wraps [`SortedLabeledGraph`]`<(), I>`.
+///
+/// Obtained via [`SortedGraph::config()`]. Use the setter methods to
+/// customize partitioning and memory, then call one of the terminal
+/// methods to perform the sort.
+pub struct SortedGraphConfig(pub SortedLabeledGraphConfig);
+
+impl SortedGraphConfig {
+    fn new() -> Self {
+        SortedGraphConfig(SortedLabeledGraphConfig::new())
+    }
+
+    /// Sets the number of output partitions.
+    ///
+    /// Defaults to [`rayon::current_num_threads`].
+    pub const fn num_partitions(self, n: usize) -> Self {
+        SortedGraphConfig(self.0.num_partitions(n))
+    }
+
+    /// Sets the memory budget for in-memory sorting.
+    ///
+    /// Defaults to [`MemoryUsage::default`].
+    pub const fn memory_usage(self, m: MemoryUsage) -> Self {
+        SortedGraphConfig(self.0.memory_usage(m))
+    }
+
+    /// Sorts arcs from a [`SequentialGraph`] sequentially, producing a
+    /// partitioned [`SortedGraph`].
+    pub fn sort<G: SequentialGraph>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>>
+    where
+        for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
+        for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
+    {
+        let num_nodes = graph.num_nodes();
+        let num_arcs_hint = graph.num_arcs_hint();
+        let mut par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.0.num_partitions)
+            .memory_usage(self.0.memory_usage);
+        if let Some(num_arcs) = num_arcs_hint {
+            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        }
+        Ok(ParSortedGraph(
+            par_sort
+                .sort_labeled::<DefaultBatchCodec, _>(
+                    DefaultBatchCodec::default(),
+                    [graph.iter().into_pairs().map(|pair| (pair, ()))],
+                )?
+                .into(),
+        ))
+    }
+
+    /// Sorts arcs from a graph implementing [`IntoParLenders`] in
+    /// parallel, producing a partitioned [`SortedGraph`].
+    pub fn par_sort<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>>
+    where
+        G: SequentialGraph
+            + IntoParLenders<
+                ParLender: for<'a> NodeLabelsLender<
+                    'a,
+                    Label = usize,
+                    IntoIterator: IntoIterator<IntoIter: Send>,
+                >,
+            >,
+    {
+        let num_nodes = graph.num_nodes();
+        let num_arcs_hint = graph.num_arcs_hint();
+        let mut par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.0.num_partitions)
+            .memory_usage(self.0.memory_usage);
+        if let Some(num_arcs) = num_arcs_hint {
+            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        }
+        let (lenders, _boundaries) = graph.into_par_lenders();
+        let pairs: Vec<_> = lenders
+            .into_vec()
+            .into_iter()
+            .map(|lender| lender.into_pairs().map(|pair| (pair, ())))
+            .collect();
+        Ok(ParSortedGraph(
+            par_sort
+                .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
+                .into(),
+        ))
+    }
+
+    /// Sorts unlabeled pairs from a sequential iterator, producing a
+    /// partitioned [`SortedGraph`].
+    pub fn sort_pairs(
+        self,
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
+    ) -> Result<ParSortedGraph<SortedPairIter>> {
+        Ok(ParSortedGraph(self.0.sort_pairs(
+            num_nodes,
+            (),
+            pairs.into_iter().map(|pair| (pair, ())),
+        )?))
+    }
+
+    /// Sorts unlabeled pairs from a parallel iterator, producing a
+    /// partitioned [`SortedGraph`].
+    pub fn par_sort_pairs(
+        self,
+        num_nodes: usize,
+        pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
+    ) -> Result<ParSortedGraph<SortedPairIter>> {
+        Ok(ParSortedGraph(self.0.par_sort_pairs(
+            num_nodes,
+            (),
+            rayon::iter::ParallelIterator::map(pairs, |pair| (pair, ())),
+        )?))
+    }
+
+    /// Sorts arcs from a [`SequentialGraph`] sequentially, producing a
+    /// partitioned [`SortedGraph`].
+    ///
+    /// Unlike [`sort`](Self::sort), this method does not require `Send`
+    /// or `Sync` on the graph's lenders or their items. The output is
+    /// still partitioned for parallel compression.
+    pub fn sort_seq<G: SequentialGraph>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>> {
+        let num_nodes = graph.num_nodes();
+        let num_arcs_hint = graph.num_arcs_hint();
+        let mut par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.0.num_partitions)
+            .memory_usage(self.0.memory_usage);
+        if let Some(num_arcs) = num_arcs_hint {
+            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        }
+        Ok(ParSortedGraph(
+            par_sort
+                .sort_labeled_seq::<DefaultBatchCodec, _>(
+                    DefaultBatchCodec::default(),
+                    graph.iter().into_pairs().map(|pair| (pair, ())),
+                )?
+                .into(),
+        ))
+    }
+
+    /// Sorts unlabeled pairs from a sequential iterator, producing a
+    /// partitioned [`SortedGraph`].
+    ///
+    /// Unlike [`sort_pairs`](Self::sort_pairs), this method does not
+    /// require `Send` or `Sync` on the iterator. The output is still
+    /// partitioned for parallel compression.
+    pub fn sort_pairs_seq(
+        self,
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = (usize, usize)>,
+    ) -> Result<ParSortedGraph<SortedPairIter>> {
+        Ok(ParSortedGraph(self.0.sort_pairs_seq(
+            num_nodes,
+            (),
+            pairs.into_iter().map(|pair| (pair, ())),
+        )?))
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SortedLabeledGraphConfig
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Configuration for building a [`SortedLabeledGraph`].
+///
+/// Obtained via [`SortedLabeledGraph::config()`]. Use the setter methods
+/// to customize partitioning and memory, then call one of the terminal
+/// methods to perform the sort.
+pub struct SortedLabeledGraphConfig {
     num_partitions: usize,
     memory_usage: MemoryUsage,
 }
 
-impl SortedGraphConfig {
-    fn new() -> Self {
-        SortedGraphConfig {
+impl Default for SortedLabeledGraphConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SortedLabeledGraphConfig {
+    /// Creates a new [`SortedLabeledGraphConfig`] with default settings.
+    pub fn new() -> Self {
+        SortedLabeledGraphConfig {
             num_partitions: rayon::current_num_threads(),
             memory_usage: MemoryUsage::default(),
         }
@@ -617,15 +788,13 @@ impl SortedGraphConfig {
         self
     }
 
-    // ── Labeled terminal methods ─────────────────────────────────
-
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially,
     /// producing a partitioned [`SortedLabeledGraph`].
     pub fn sort<SD, G>(
         self,
         graph: G,
         sd: SD,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -657,7 +826,7 @@ impl SortedGraphConfig {
         self,
         graph: G,
         sd: SD,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -699,9 +868,9 @@ impl SortedGraphConfig {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType), IntoIter: Send + Sync>
-            + Send
-            + Sync,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+        + Send
+        + Sync,
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -724,7 +893,7 @@ impl SortedGraphConfig {
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -740,172 +909,17 @@ impl SortedGraphConfig {
         Ok(par_sort.sort_labeled(&codec, pairs)?.into())
     }
 
-    // ── Unlabeled terminal methods ─────────────────────────────
-
-    /// Sorts arcs from a [`SequentialGraph`] sequentially, producing a
-    /// partitioned [`SortedGraph`].
-    pub fn sort_graph<G: SequentialGraph>(self, graph: G) -> Result<SortedGraph<SortedPairIter>>
-    where
-        for<'a> <G as SequentialLabeling>::Lender<'a>: Send + Sync,
-        for<'a, 'b> LenderIntoIter<'b, <G as SequentialLabeling>::Lender<'a>>: Send + Sync,
-    {
-        let num_nodes = graph.num_nodes();
-        let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
-        }
-        Ok(SortedGraph(
-            par_sort
-                .sort_labeled::<DefaultBatchCodec, _>(
-                    DefaultBatchCodec::default(),
-                    [graph.iter().into_pairs().map(|pair| (pair, ()))],
-                )?
-                .into(),
-        ))
-    }
-
-    /// Sorts arcs from a graph implementing [`IntoParLenders`] in
-    /// parallel, producing a partitioned [`SortedGraph`].
-    pub fn par_sort_graph<G>(self, graph: G) -> Result<SortedGraph<SortedPairIter>>
-    where
-        G: SequentialGraph
-            + IntoParLenders<
-                ParLender: for<'a> NodeLabelsLender<
-                    'a,
-                    Label = usize,
-                    IntoIterator: IntoIterator<IntoIter: Send>,
-                >,
-            >,
-    {
-        let num_nodes = graph.num_nodes();
-        let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
-        }
-        let (lenders, _boundaries) = graph.into_par_lenders();
-        let pairs: Vec<_> = lenders
-            .into_vec()
-            .into_iter()
-            .map(|lender| lender.into_pairs().map(|pair| (pair, ())))
-            .collect();
-        Ok(SortedGraph(
-            par_sort
-                .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
-                .into(),
-        ))
-    }
-
-    /// Sorts unlabeled pairs from a sequential iterator, producing a
-    /// partitioned [`SortedGraph`].
-    pub fn sort_graph_pairs(
-        self,
-        num_nodes: usize,
-        pairs: impl IntoIterator<Item = (usize, usize), IntoIter: Send + Sync> + Send + Sync,
-    ) -> Result<SortedGraph<SortedPairIter>> {
-        let labeled = pairs.into_iter().map(|pair| (pair, ()));
-        let par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        Ok(SortedGraph(
-            par_sort
-                .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), [labeled])?
-                .into(),
-        ))
-    }
-
-    /// Sorts unlabeled pairs from a parallel iterator, producing a
-    /// partitioned [`SortedGraph`].
-    pub fn par_sort_graph_pairs(
-        self,
-        num_nodes: usize,
-        pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
-    ) -> Result<SortedGraph<SortedPairIter>> {
-        let labeled = rayon::iter::ParallelIterator::map(pairs, |pair| (pair, ()));
-        let par_sort = ParSortPairs::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        Ok(SortedGraph(
-            par_sort
-                .sort_labeled::<DefaultBatchCodec, _>(&DefaultBatchCodec::default(), labeled)?
-                .into(),
-        ))
-    }
-
-    // ── Sequential terminal methods (no Send/Sync required) ───
-
-    /// Sorts arcs from a [`SequentialGraph`] sequentially, producing a
-    /// partitioned [`SortedGraph`].
-    ///
-    /// Unlike [`sort_graph`], this method does not require `Send` or
-    /// `Sync` on the graph's lenders or their items. The output is still
-    /// partitioned for parallel compression.
-    ///
-    /// [`sort_graph`]: SortedGraphConfig::sort_graph
-    pub fn sort_graph_seq<G: SequentialGraph>(
-        self,
-        graph: G,
-    ) -> Result<SortedGraph<SortedPairIter>> {
-        let num_nodes = graph.num_nodes();
-        let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
-        }
-        Ok(SortedGraph(
-            par_sort
-                .sort_labeled_seq::<DefaultBatchCodec, _>(
-                    DefaultBatchCodec::default(),
-                    graph.iter().into_pairs().map(|pair| (pair, ())),
-                )?
-                .into(),
-        ))
-    }
-
-    /// Sorts unlabeled pairs from a sequential iterator, producing a
-    /// partitioned [`SortedGraph`].
-    ///
-    /// Unlike [`sort_graph_pairs`], this method does not require `Send`
-    /// or `Sync` on the iterator. The output is still partitioned for
-    /// parallel compression.
-    ///
-    /// [`sort_graph_pairs`]: SortedGraphConfig::sort_graph_pairs
-    pub fn sort_graph_pairs_seq(
-        self,
-        num_nodes: usize,
-        pairs: impl IntoIterator<Item = (usize, usize)>,
-    ) -> Result<SortedGraph<SortedPairIter>> {
-        let labeled = pairs.into_iter().map(|pair| (pair, ()));
-        let par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        Ok(SortedGraph(
-            par_sort
-                .sort_labeled_seq::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), labeled)?
-                .into(),
-        ))
-    }
-
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`] sequentially,
     /// producing a partitioned [`SortedLabeledGraph`].
     ///
-    /// Unlike [`sort`], this method does not require `Send` or `Sync` on
-    /// the graph's lenders or their items. The output is still partitioned
-    /// for parallel compression.
-    ///
-    /// [`sort`]: SortedGraphConfig::sort
+    /// Unlike [`sort`](Self::sort), this method does not require `Send`
+    /// or `Sync` on the graph's lenders or their items. The output is
+    /// still partitioned for parallel compression.
     pub fn sort_seq<SD, G>(
         self,
         graph: G,
         sd: SD,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -932,17 +946,15 @@ impl SortedGraphConfig {
     /// Sorts labeled pairs from a sequential iterator, producing a
     /// partitioned [`SortedLabeledGraph`].
     ///
-    /// Unlike [`sort_pairs`], this method does not require `Send` or
-    /// `Sync` on the iterator. The output is still partitioned for
-    /// parallel compression.
-    ///
-    /// [`sort_pairs`]: SortedGraphConfig::sort_pairs
+    /// Unlike [`sort_pairs`](Self::sort_pairs), this method does not
+    /// require `Send` or `Sync` on the iterator. The output is still
+    /// partitioned for parallel compression.
     pub fn sort_pairs_seq<SD>(
         self,
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<SortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SD::SerType, SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>

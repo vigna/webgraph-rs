@@ -182,7 +182,7 @@ use sux::{
 /// First parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
 ///
 /// [`EliasFano`]: sux::dict::EliasFano
-pub const LOG2_ONES_PER_INVENTORY: usize = 12;
+pub const LOG2_ONES_PER_INVENTORY: usize = 11;
 
 /// Second parameter of [`SelectAdaptConst`] for [`EliasFano`] structures.
 ///

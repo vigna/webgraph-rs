@@ -338,7 +338,7 @@ fn test_right_iterator_is_empty() {
 
 #[test]
 fn test_split_iters_into_sorted_labeled_graph() -> Result<()> {
-    use webgraph::graphs::sorted_graph::SortedLabeledGraph;
+    use webgraph::graphs::par_sorted_graph::ParSortedLabeledGraph;
     use webgraph::utils::SplitIters;
 
     let boundaries: Box<[usize]> = vec![0, 2, 4].into_boxed_slice();
@@ -346,7 +346,7 @@ fn test_split_iters_into_sorted_labeled_graph() -> Result<()> {
     let iter2 = vec![((2_usize, 3_usize), ()), ((3, 2), ())];
     let iters: Box<[_]> = vec![iter1.into_iter(), iter2.into_iter()].into_boxed_slice();
 
-    let sorted: SortedLabeledGraph<(), _> = SplitIters::new(boundaries, iters).into();
+    let sorted: ParSortedLabeledGraph<(), _> = SplitIters::new(boundaries, iters).into();
     assert_eq!(sorted.num_nodes(), 4);
 
     // Verify the graph yields the correct data

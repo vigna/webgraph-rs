@@ -181,7 +181,7 @@ where
                         .collect();
 
                     let split = par_sort_iters.sort(pairs)?;
-                    let sorted = SortedGraph::from_parts(split.boundaries, split.iters);
+                    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
                     par_comp!(builder, sorted, target_endianness)
                 })
             })?;
