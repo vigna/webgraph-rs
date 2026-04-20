@@ -22,15 +22,35 @@
 
 use crate::prelude::*;
 use lender::*;
-use sux::{
-    traits::{IndexedSeq, Succ},
-    utils::FairChunks,
-};
+use sux::{traits::SuccUnchecked, utils::FairChunks};
 
 /// A wrapper that overrides the number of lenders returned by
 /// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
 /// the same number of nodes (except possibly the last one, which may be
 /// smaller).
+///
+/// # Examples
+///
+/// ```rust
+/// # use webgraph::prelude::*;
+/// # use dsi_bitstream::prelude::BE;
+/// # use tempfile::Builder;
+/// # fn main() -> anyhow::Result<()> {
+/// # let tempdir = Builder::new().prefix("test").tempdir()?;
+/// # let basename = tempdir.path().join("basename");
+/// // A VecGraph
+/// let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
+///
+/// // This is now a sorted graph ready to be compressed in parallel
+/// // using exactly 2 lenders approximately of the same size, instead
+/// // of the default number of lenders (the number of Rayon threads)
+/// let sorted = ParSortedGraph::from(ParUniformGraph::new(graph, 2))?;
+///
+/// // This will compress the graph in parallel
+/// BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ParUniformGraph<G>(pub G, usize);
 
@@ -129,6 +149,36 @@ impl<'b, G: SequentialLabeling> IntoLender for &'b ParUniformGraph<G> {
 ///
 /// The cutpoints are computed once at construction time from a degree
 /// cumulative function (DCF), which is not retained afterwards.
+/// A wrapper that overrides the number of lenders returned by
+/// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
+/// the same number of nodes (except possibly the last one, which may be
+/// smaller).
+///
+/// # Examples
+///
+/// ```rust
+/// # use webgraph::prelude::*;
+/// # use dsi_bitstream::prelude::BE;
+/// # use tempfile::Builder;
+/// # fn main() -> anyhow::Result<()> {
+/// # let tempdir = Builder::new().prefix("test").tempdir()?;
+/// # let basename = tempdir.path().join("basename");
+/// // A VecGraph
+/// let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
+/// let dcf = graph.build_dcf();
+/// let num_arcs = graph.num_arcs();
+///
+/// // This is now a sorted graph ready to be compressed in parallel
+/// // using exactly 2 lenders returning approximately the same overall
+/// // number of arcs, instead of lenders returning approximately the
+/// // the number of nodes, as it happens with ParUniformGraph.
+/// let sorted = ParSortedGraph::from(ParDcfGraph::new(graph, num_arcs, dcf, 2))?;
+///
+/// // This will compress the graph in parallel
+/// BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ParDcfGraph<G> {
     graph: G,
@@ -139,19 +189,21 @@ impl<G> ParDcfGraph<G> {
     /// Creates a new [`ParDcfGraph`] with the given inner graph,
     /// degree cumulative function, and number of lenders.
     ///
+    /// We require explicitly the number of arcs to support also
+    /// sequential graphs for which the number is known.
+    ///
     /// The cutpoints are computed immediately from the DCF using
     /// [`FairChunks`]; the DCF is not stored.
-    pub fn new<D>(graph: G, dcf: &D, num_lenders: usize) -> Self
+    pub fn new<D>(graph: G, num_arcs: u64, dcf: D, num_lenders: usize) -> Self
     where
         G: SequentialLabeling,
-        D: for<'b> Succ<Input = u64, Output<'b> = u64> + IndexedSeq,
+        D: for<'b> SuccUnchecked<Input = u64, Output<'b> = u64>,
     {
         assert!(num_lenders > 0, "the number of lenders must be positive");
         let num_nodes = graph.num_nodes();
-        let total_arcs = dcf.get(num_nodes);
-        let target = (total_arcs / num_lenders as u64).max(1);
+        let target = num_arcs.div_ceil(num_lenders as u64);
         let cutpoints: Vec<usize> = std::iter::once(0)
-            .chain(FairChunks::new(target, dcf).map(|r| r.end))
+            .chain(FairChunks::new_with(target, dcf, num_nodes, num_arcs).map(|r| r.end))
             .collect();
         Self { graph, cutpoints }
     }
