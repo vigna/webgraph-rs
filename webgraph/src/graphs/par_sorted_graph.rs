@@ -326,14 +326,14 @@ impl ParSortedLabeledGraph<()> {
     /// Sorts labeled pairs from a fallible iterator with default
     /// settings.
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
     ///
     /// Equivalent to
-    /// [`ParSortedLabeledGraph::config().try_sort_pairs(num_nodes, sd, pairs)`].
+    /// [`ParSortedLabeledGraph::config().sort_try_pairs(num_nodes, sd, pairs)`].
     ///
-    /// [`ParSortedLabeledGraph::config().try_sort_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::try_sort_pairs
+    /// [`ParSortedLabeledGraph::config().sort_try_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::sort_try_pairs
     pub fn try_from_pairs<SD, E: Into<anyhow::Error>>(
         num_nodes: usize,
         sd: SD,
@@ -347,20 +347,20 @@ impl ParSortedLabeledGraph<()> {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        ParSortedLabeledGraphConf::default().try_sort_pairs(num_nodes, sd, pairs)
+        ParSortedLabeledGraphConf::default().sort_try_pairs(num_nodes, sd, pairs)
     }
 
     /// Sorts labeled pairs from a fallible parallel iterator with default
     /// settings.
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
     ///
     /// Equivalent to
-    /// [`ParSortedLabeledGraph::config().try_par_sort_pairs(num_nodes, sd, pairs)`].
+    /// [`ParSortedLabeledGraph::config().par_sort_try_pairs(num_nodes, sd, pairs)`].
     ///
-    /// [`ParSortedLabeledGraph::config().try_par_sort_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::try_par_sort_pairs
+    /// [`ParSortedLabeledGraph::config().par_sort_try_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::par_sort_try_pairs
     pub fn try_par_from_pairs<SD, E: Into<anyhow::Error> + Send>(
         num_nodes: usize,
         sd: SD,
@@ -374,7 +374,7 @@ impl ParSortedLabeledGraph<()> {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        ParSortedLabeledGraphConf::default().try_par_sort_pairs(num_nodes, sd, pairs)
+        ParSortedLabeledGraphConf::default().par_sort_try_pairs(num_nodes, sd, pairs)
     }
 }
 
@@ -611,35 +611,35 @@ impl ParSortedGraph<SortedPairIter> {
 
     /// Sorts pairs from a fallible iterator with default settings.
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
     ///
-    /// Equivalent to [`ParSortedGraph::config().try_sort_pairs(num_nodes, pairs)`].
+    /// Equivalent to [`ParSortedGraph::config().sort_try_pairs(num_nodes, pairs)`].
     ///
-    /// [`ParSortedGraph::config().try_sort_pairs(num_nodes, pairs)`]: ParSortedGraphConf::try_sort_pairs
+    /// [`ParSortedGraph::config().sort_try_pairs(num_nodes, pairs)`]: ParSortedGraphConf::sort_try_pairs
     pub fn try_from_pairs<E: Into<anyhow::Error>>(
         num_nodes: usize,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<Self> {
-        ParSortedGraphConf::default().try_sort_pairs(num_nodes, pairs)
+        ParSortedGraphConf::default().sort_try_pairs(num_nodes, pairs)
     }
 
     /// Sorts pairs from a fallible parallel iterator with default
     /// settings.
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
     ///
-    /// Equivalent to [`ParSortedGraph::config().try_par_sort_pairs(num_nodes, pairs)`].
+    /// Equivalent to [`ParSortedGraph::config().par_sort_try_pairs(num_nodes, pairs)`].
     ///
-    /// [`ParSortedGraph::config().try_par_sort_pairs(num_nodes, pairs)`]: ParSortedGraphConf::try_par_sort_pairs
+    /// [`ParSortedGraph::config().par_sort_try_pairs(num_nodes, pairs)`]: ParSortedGraphConf::par_sort_try_pairs
     pub fn try_par_from_pairs<E: Into<anyhow::Error> + Send>(
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<Self> {
-        ParSortedGraphConf::default().try_par_sort_pairs(num_nodes, pairs)
+        ParSortedGraphConf::default().par_sort_try_pairs(num_nodes, pairs)
     }
 }
 
@@ -836,15 +836,15 @@ impl ParSortedGraphConf {
     /// Sorts unlabeled pairs from a fallible iterator, producing a
     /// partitioned [`ParSortedGraph`].
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
-    pub fn try_sort_pairs<E: Into<anyhow::Error>>(
+    pub fn sort_try_pairs<E: Into<anyhow::Error>>(
         self,
         num_nodes: usize,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<ParSortedGraph<SortedPairIter>> {
-        Ok(ParSortedGraph(self.0.try_sort_pairs(
+        Ok(ParSortedGraph(self.0.sort_try_pairs(
             num_nodes,
             (),
             pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
@@ -854,15 +854,15 @@ impl ParSortedGraphConf {
     /// Sorts unlabeled pairs from a fallible parallel iterator, producing a
     /// partitioned [`ParSortedGraph`].
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
-    pub fn try_par_sort_pairs<E: Into<anyhow::Error> + Send>(
+    pub fn par_sort_try_pairs<E: Into<anyhow::Error> + Send>(
         self,
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<ParSortedGraph<SortedPairIter>> {
-        Ok(ParSortedGraph(self.0.try_par_sort_pairs(
+        Ok(ParSortedGraph(self.0.par_sort_try_pairs(
             num_nodes,
             (),
             rayon::iter::ParallelIterator::map(pairs, |r| r.map(|pair| (pair, ()))),
@@ -1039,10 +1039,10 @@ impl ParSortedLabeledGraphConf {
     /// Sorts labeled pairs from a fallible iterator, producing a
     /// partitioned [`ParSortedLabeledGraph`].
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
-    pub fn try_sort_pairs<SD, E: Into<anyhow::Error>>(
+    pub fn sort_try_pairs<SD, E: Into<anyhow::Error>>(
         self,
         num_nodes: usize,
         sd: SD,
@@ -1066,10 +1066,10 @@ impl ParSortedLabeledGraphConf {
     /// Sorts labeled pairs from a fallible parallel iterator, producing a
     /// partitioned [`ParSortedLabeledGraph`].
     ///
-    /// Note that the `try_` prefix refers to the fallibility of the
+    /// Note that the `try_` infix refers to the fallibility of the
     /// pairs returned by the input iterators; all methods in this module
     /// are fallible as they write batches on disk.
-    pub fn try_par_sort_pairs<SD, E: Into<anyhow::Error> + Send>(
+    pub fn par_sort_try_pairs<SD, E: Into<anyhow::Error> + Send>(
         self,
         num_nodes: usize,
         sd: SD,
