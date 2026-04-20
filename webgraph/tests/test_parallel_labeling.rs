@@ -42,7 +42,7 @@ fn test_graph() -> VecGraph {
 #[test]
 fn test_sorted_graph_preserves_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = ParSortedGraph::par_from(&g)?;
+    let sorted = ParSortedGraph::par_from_graph(&g)?;
     graph::eq(&g, &sorted)?;
     Ok(())
 }
@@ -70,7 +70,7 @@ fn test_sorted_graph_from_permuted() -> Result<()> {
 #[test]
 fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
     let g = test_graph();
-    let sorted = ParSortedGraph::par_from(&g)?;
+    let sorted = ParSortedGraph::par_from_graph(&g)?;
     let (_lenders, boundaries) = sorted.into_par_lenders();
     // Boundaries must start at 0 and end at num_nodes
     assert_eq!(*boundaries.first().unwrap(), 0);
@@ -85,7 +85,7 @@ fn test_sorted_graph_par_iters_boundaries() -> Result<()> {
 #[test]
 fn test_sorted_graph_with_part() -> Result<()> {
     let g = test_graph();
-    let sorted = ParSortedGraph::config().num_lenders(2).par_sort(&g)?;
+    let sorted = ParSortedGraph::config().num_lenders(2).par_sort_graph(&g)?;
     graph::eq(&g, &sorted)?;
     // 2 partitions means 3 boundary points
     let (_lenders, boundaries) = sorted.into_par_lenders();
@@ -151,7 +151,7 @@ fn test_parallel_graph_graph_equality() -> Result<()> {
 #[test]
 fn test_par_comp_with_sorted_graph() -> Result<()> {
     let g = test_graph();
-    let sorted = ParSortedGraph::par_from(&g)?;
+    let sorted = ParSortedGraph::par_from_graph(&g)?;
 
     let dir = tempfile::tempdir()?;
     let basename = dir.path().join("sorted");

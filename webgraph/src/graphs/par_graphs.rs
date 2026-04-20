@@ -44,7 +44,7 @@ use sux::{traits::SuccUnchecked, utils::FairChunks};
 /// // This is now a sorted graph ready to be compressed in parallel
 /// // using exactly 2 lenders approximately of the same size, instead
 /// // of the default number of lenders (the number of Rayon threads)
-/// let sorted = ParSortedGraph::from(ParUniformGraph::new(graph, 2))?;
+/// let sorted = ParSortedGraph::from_graph(ParUniformGraph::new(graph, 2))?;
 ///
 /// // This will compress the graph in parallel
 /// BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
@@ -172,7 +172,7 @@ impl<'b, G: SequentialLabeling> IntoLender for &'b ParUniformGraph<G> {
 /// // using exactly 2 lenders returning approximately the same overall
 /// // number of arcs, instead of lenders returning approximately the
 /// // the number of nodes, as it happens with ParUniformGraph.
-/// let sorted = ParSortedGraph::from(ParDcfGraph::new(graph, num_arcs, dcf, 2))?;
+/// let sorted = ParSortedGraph::from_graph(ParDcfGraph::new(graph, num_arcs, dcf, 2))?;
 ///
 /// // This will compress the graph in parallel
 /// BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;

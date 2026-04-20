@@ -74,5 +74,5 @@ where
     let pgraph = PermutedGraph::new(graph, perm);
     ParSortedGraph::config()
         .memory_usage(memory_usage)
-        .par_sort(&pgraph)
+        .par_sort_graph(&pgraph)
 }

@@ -89,7 +89,7 @@
 //! let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
 //! let perm = [2, 0, 1, 5, 4, 3];
 //! let perm_graph = PermutedGraph::new(&graph, &perm);
-//! let sorted = ParSortedGraph::from(perm_graph)?;
+//! let sorted = ParSortedGraph::from_graph(perm_graph)?;
 //! BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
 //! # Ok(())
 //! # }
@@ -111,7 +111,7 @@
 //! # let basename = tempdir.path().join("basename");
 //! // A LabeledVecGraph
 //! let graph = LabeledVecGraph::from_arcs([((5, 3), -2), ((1, 0), -1), ((5, 0), 100), ((1, 2), -20), ((3, 4), 127)]);
-//! let sorted = ParSortedLabeledGraph::from(graph, <FixedWidth<i8>>::new())?;
+//! let sorted = ParSortedLabeledGraph::from_graph(graph, <FixedWidth<i8>>::new())?;
 //! # Ok(())
 //! # }
 //! ```
@@ -159,8 +159,8 @@ use std::iter::Flatten;
 ///
 /// See the [module documentation].
 ///
-/// [`from`]: ParSortedLabeledGraph::from
-/// [`par_from`]: ParSortedLabeledGraph::par_from
+/// [`from`]: ParSortedLabeledGraph::from_graph
+/// [`par_from`]: ParSortedLabeledGraph::par_from_graph
 /// [`from_pairs`]: ParSortedLabeledGraph::from_pairs
 /// [`par_from_pairs`]: ParSortedLabeledGraph::par_from_pairs
 /// [configuration]: ParSortedLabeledGraph::config
@@ -229,10 +229,13 @@ impl ParSortedLabeledGraph<()> {
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`] with
     /// default settings.
     ///
-    /// Equivalent to [`ParSortedLabeledGraph::config().sort(graph, sd)`].
+    /// Equivalent to [`ParSortedLabeledGraph::config().sort_graph(graph, sd)`].
     ///
-    /// [`ParSortedLabeledGraph::config().sort(graph, sd)`]: ParSortedLabeledGraphConf::sort
-    pub fn from<SD, G>(graph: G, sd: SD) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    /// [`ParSortedLabeledGraph::config().sort_graph(graph, sd)`]: ParSortedLabeledGraphConf::sort_graph
+    pub fn from_graph<SD, G>(
+        graph: G,
+        sd: SD,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -242,17 +245,20 @@ impl ParSortedLabeledGraph<()> {
         SD::SerType: Copy + Send + Sync + 'static,
         G: LabeledSequentialGraph<SD::SerType>,
     {
-        ParSortedLabeledGraphConf::default().sort(graph, sd)
+        ParSortedLabeledGraphConf::default().sort_graph(graph, sd)
     }
 
     /// Sorts labeled arcs from a graph implementing [`IntoParLenders`] in
     /// parallel with default settings.
     ///
     /// Equivalent to
-    /// [`ParSortedLabeledGraph::config().par_sort(graph, sd)`].
+    /// [`ParSortedLabeledGraph::config().par_sort_graph(graph, sd)`].
     ///
-    /// [`ParSortedLabeledGraph::config().par_sort(graph, sd)`]: ParSortedLabeledGraphConf::par_sort
-    pub fn par_from<SD, G>(graph: G, sd: SD) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    /// [`ParSortedLabeledGraph::config().par_sort_graph(graph, sd)`]: ParSortedLabeledGraphConf::par_sort_graph
+    pub fn par_from_graph<SD, G>(
+        graph: G,
+        sd: SD,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -269,7 +275,7 @@ impl ParSortedLabeledGraph<()> {
                 >,
             >,
     {
-        ParSortedLabeledGraphConf::default().par_sort(graph, sd)
+        ParSortedLabeledGraphConf::default().par_sort_graph(graph, sd)
     }
 
     /// Sorts labeled pairs from an iterator with default settings.
@@ -439,8 +445,8 @@ impl<
 ///
 /// See the [module documentation].
 ///
-/// [`from`]: ParSortedGraph::from
-/// [`par_from`]: ParSortedGraph::par_from
+/// [`from`]: ParSortedGraph::from_graph
+/// [`par_from`]: ParSortedGraph::par_from_graph
 /// [`from_pairs`]: ParSortedGraph::from_pairs
 /// [`par_from_pairs`]: ParSortedGraph::par_from_pairs
 /// [configuration]: ParSortedGraph::config
@@ -498,20 +504,20 @@ impl ParSortedGraph<()> {
 impl ParSortedGraph<SortedPairIter> {
     /// Sorts arcs from a [`SequentialGraph`] with default settings.
     ///
-    /// Equivalent to [`ParSortedGraph::config().sort(graph)`].
+    /// Equivalent to [`ParSortedGraph::config().sort_graph(graph)`].
     ///
-    /// [`ParSortedGraph::config().sort(graph)`]: ParSortedGraphConf::sort
-    pub fn from<G: SequentialGraph>(graph: G) -> Result<Self> {
-        ParSortedGraphConf::default().sort(graph)
+    /// [`ParSortedGraph::config().sort_graph(graph)`]: ParSortedGraphConf::sort_graph
+    pub fn from_graph<G: SequentialGraph>(graph: G) -> Result<Self> {
+        ParSortedGraphConf::default().sort_graph(graph)
     }
 
     /// Sorts arcs from a graph implementing [`IntoParLenders`] in
     /// parallel with default settings.
     ///
-    /// Equivalent to [`ParSortedGraph::config().par_sort(graph)`].
+    /// Equivalent to [`ParSortedGraph::config().par_sort_graph(graph)`].
     ///
-    /// [`ParSortedGraph::config().par_sort(graph)`]: ParSortedGraphConf::par_sort
-    pub fn par_from<G>(graph: G) -> Result<Self>
+    /// [`ParSortedGraph::config().par_sort_graph(graph)`]: ParSortedGraphConf::par_sort_graph
+    pub fn par_from_graph<G>(graph: G) -> Result<Self>
     where
         G: SequentialGraph
             + IntoParLenders<
@@ -522,7 +528,7 @@ impl ParSortedGraph<SortedPairIter> {
                 >,
             >,
     {
-        ParSortedGraphConf::default().par_sort(graph)
+        ParSortedGraphConf::default().par_sort_graph(graph)
     }
 
     /// Sorts pairs from an iterator with default settings.
@@ -656,7 +662,10 @@ impl ParSortedGraphConf {
     }
 
     /// Sorts arcs from a [`SequentialGraph`], returning a [`ParSortedGraph`].
-    pub fn sort<G: SequentialGraph>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>> {
+    pub fn sort_graph<G: SequentialGraph>(
+        self,
+        graph: G,
+    ) -> Result<ParSortedGraph<SortedPairIter>> {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
         let mut par_sort = ParSortIters::new(num_nodes)?
@@ -677,7 +686,7 @@ impl ParSortedGraphConf {
 
     /// Sorts arcs from a graph implementing [`IntoParLenders`] in
     /// parallel, producing a partitioned [`ParSortedGraph`].
-    pub fn par_sort<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>>
+    pub fn par_sort_graph<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>>
     where
         G: SequentialGraph
             + IntoParLenders<
@@ -789,7 +798,7 @@ impl ParSortedLabeledGraphConf {
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`], producing a
     /// partitioned [`ParSortedLabeledGraph`].
-    pub fn sort<SD, G>(
+    pub fn sort_graph<SD, G>(
         self,
         graph: G,
         sd: SD,
@@ -819,7 +828,7 @@ impl ParSortedLabeledGraphConf {
 
     /// Sorts labeled arcs from a graph implementing [`IntoParLenders`] in
     /// parallel, producing a partitioned [`ParSortedLabeledGraph`].
-    pub fn par_sort<SD, G>(
+    pub fn par_sort_graph<SD, G>(
         self,
         graph: G,
         sd: SD,
