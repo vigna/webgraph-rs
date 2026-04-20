@@ -248,10 +248,10 @@ impl<'a, G: RandomAccessGraph + Sync, H: RandomAccessGraph + Sync> BiRank<'a, G,
     ///
     /// # Arguments
     ///
-    /// * `graph` — the bipartite graph with arcs from source nodes
+    /// * `graph` - the bipartite graph with arcs from source nodes
     ///   [0 . . `num_sources`) to target nodes [`num_sources` . . *n*).
-    /// * `transpose` — the transpose of `graph`.
-    /// * `num_sources` — the number of source nodes (|*U*|).
+    /// * `transpose` - the transpose of `graph`.
+    /// * `num_sources` - the number of source nodes (|*U*|).
     ///
     /// # Panics
     ///

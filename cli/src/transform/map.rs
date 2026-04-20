@@ -194,7 +194,7 @@ where
             start.elapsed().as_secs_f64()
         );
 
-        thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))?;
+        thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
         Ok(())
     })

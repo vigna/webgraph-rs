@@ -284,13 +284,13 @@ impl<
     /// A builder for [`HyperBall`] using a specified [`EstimationLogic`].
     ///
     /// # Arguments
-    /// * `graph`: the graph to analyze.
-    /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
+    /// * `graph` - the graph to analyze.
+    /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
-    /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
-    /// * `log2m`: the base-2 logarithm of the number *m* of register per
+    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `log2m` - the base-2 logarithm of the number *m* of register per
     ///   HyperLogLog cardinality estimator.
-    /// * `weights`: the weights to use. If [`None`] every node is assumed to be
+    /// * `weights` - the weights to use. If [`None`] every node is assumed to be
     ///   of weight equal to 1.
     pub fn with_hyper_log_log(
         graph: &'a G1,
@@ -356,13 +356,13 @@ impl<
     /// [`with_hyper_log_log`]: HyperBallBuilder::with_hyper_log_log
     ///
     /// # Arguments
-    /// * `graph`: the graph to analyze.
-    /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
+    /// * `graph` - the graph to analyze.
+    /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
-    /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
-    /// * `log2m`: the base-2 logarithm of the number *m* of registers per
+    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `log2m` - the base-2 logarithm of the number *m* of registers per
     ///   HyperLogLog counter.
-    /// * `weights`: the weights to use. If [`None`] every node is assumed to be
+    /// * `weights` - the weights to use. If [`None`] every node is assumed to be
     ///   of weight equal to 1.
     pub fn with_hyper_log_log8(
         graph: &'a G1,
@@ -412,10 +412,10 @@ impl<
     /// Creates a new builder with default parameters.
     ///
     /// # Arguments
-    /// * `graph`: the graph to analyze.
-    /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
-    /// * `array_0`: a first array of estimators.
-    /// * `array_1`: a second array of estimators of the same length and with the same logic of
+    /// * `graph` - the graph to analyze.
+    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `array_0` - a first array of estimators.
+    /// * `array_1` - a second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn new(graph: &'a G, cumul_outdeg: &'a D, array_0: A, array_1: A) -> Self {
         assert!(array_0.logic() == array_1.logic(), "Incompatible logic");
@@ -462,12 +462,12 @@ impl<
 
     /// Creates a new builder with default parameters using also the transpose.
     ///
-    /// * `graph`: the graph to analyze.
-    /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
+    /// * `graph` - the graph to analyze.
+    /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed by the resulting [`HyperBall`].
-    /// * `cumul_outdeg`: the outdegree cumulative function of the graph.
-    /// * `array_0`: a first array of estimators.
-    /// * `array_1`: A second array of estimators of the same length and with the same logic of
+    /// * `cumul_outdeg` - the outdegree cumulative function of the graph.
+    /// * `array_0` - a first array of estimators.
+    /// * `array_1` - A second array of estimators of the same length and with the same logic of
     ///   `array_0`.
     pub fn with_transpose(
         graph: &'a G1,
@@ -540,7 +540,7 @@ impl<
     /// Sets optional weights for the nodes of the graph.
     ///
     /// # Arguments
-    /// * `weights`: weights to use for the nodes. If [`None`], every node is
+    /// * `weights` - weights to use for the nodes. If [`None`], every node is
     ///   assumed to be of weight equal to 1.
     pub fn weights(mut self, weights: Option<&'a [usize]>) -> Self {
         if let Some(w) = weights {
@@ -580,7 +580,7 @@ impl<
     ///
     /// # Arguments
     ///
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     pub fn build(self, pl: &mut impl ConcurrentProgressLog) -> HyperBall<'a, G1, G2, D, L, A> {
         let num_nodes = self.graph.num_nodes();
 
@@ -782,13 +782,13 @@ where
     ///
     /// # Arguments
     ///
-    /// * `upper_bound`: an upper bound to the number of iterations.
+    /// * `upper_bound` - an upper bound to the number of iterations.
     ///
-    /// * `threshold`: a value that will be used to stop the computation by
+    /// * `threshold` - a value that will be used to stop the computation by
     ///   relative increment if the neighborhood function is being computed. If
     ///   [`None`] the computation will stop when no estimators are modified.
     ///
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     pub fn run(
         &mut self,
         upper_bound: usize,
@@ -844,9 +844,9 @@ where
     ///
     /// # Arguments
     ///
-    /// * `upper_bound`: an upper bound to the number of iterations.
+    /// * `upper_bound` - an upper bound to the number of iterations.
     ///
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     #[inline(always)]
     pub fn run_until_stable(
         &mut self,
@@ -863,7 +863,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     #[inline(always)]
     pub fn run_until_done(
         &mut self,
@@ -916,7 +916,7 @@ where
     /// Returns the discounted centralities of the specified index computed by this instance.
     ///
     /// # Arguments
-    /// * `index`: the index of the requested discounted centrality.
+    /// * `index` - the index of the requested discounted centrality.
     pub fn discounted_centrality(&self, index: usize) -> Result<&[f32]> {
         self.ensure_iteration()?;
         let d = self.discounted_centralities.get(index);
@@ -992,7 +992,7 @@ where
     /// reachable from the specified node.
     ///
     /// # Arguments
-    /// * `node`: the index of the node to compute reachable nodes from.
+    /// * `node` - the index of the node to compute reachable nodes from.
     pub fn reachable_nodes_from(&self, node: usize) -> Result<f64> {
         self.ensure_iteration()?;
         Ok(self
@@ -1027,7 +1027,7 @@ where
     /// Performs a new iteration of HyperBall.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     fn iterate(&mut self, pl: &mut impl ConcurrentProgressLog) -> Result<()> {
         let ic = &mut self.iteration_context;
 
@@ -1213,12 +1213,12 @@ where
     /// The parallel operations to be performed each iteration.
     ///
     /// # Arguments:
-    /// * `graph`: the graph to analyze.
-    /// * `transpose`: optionally, the transpose of `graph`. If [`None`], no
+    /// * `graph` - the graph to analyze.
+    /// * `transpose` - optionally, the transpose of `graph`. If [`None`], no
     ///   systolic iterations will be performed.
-    /// * `curr_state`: the current state of the estimators.
-    /// * `next_state`: the next state of the estimators (to be computed).
-    /// * `ic`: the iteration context.
+    /// * `curr_state` - the current state of the estimators.
+    /// * `next_state` - the next state of the estimators (to be computed).
+    /// * `ic` - the iteration context.
     #[allow(clippy::too_many_arguments)]
     fn parallel_task(
         graph: &(impl RandomAccessGraph + Sync),

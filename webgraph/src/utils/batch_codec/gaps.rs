@@ -28,10 +28,10 @@ use rdst::*;
 ///
 /// # Type Parameters
 ///
-/// - `S`: Serializer for the labels, implementing [`BitSerializer`] for the label type.
-/// - `D`: Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
-/// - `SRC_CODE`: Code used for encoding source gaps (default: gamma).
-/// - `DST_CODE`: Code used for encoding destination gaps (default: gamma).
+/// * `S` - Serializer for the labels, implementing [`BitSerializer`] for the label type.
+/// * `D` - Deserializer for the labels, implementing [`BitDeserializer`] for the label type.
+/// * `SRC_CODE` - Code used for encoding source gaps (default: gamma).
+/// * `DST_CODE` - Code used for encoding destination gaps (default: gamma).
 ///
 /// # Encoding Format
 ///

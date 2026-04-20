@@ -172,7 +172,7 @@ where
         start.elapsed().as_secs_f64()
     );
 
-    thread_pool.install(|| par_comp!(builder, &permuted, te))?;
+    thread_pool.install(|| par_comp!(builder, permuted, te))?;
     Ok(())
 }
 

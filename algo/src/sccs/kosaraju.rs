@@ -20,11 +20,11 @@ use webgraph::visits::{
 ///
 /// # Arguments
 ///
-/// * `graph`: the graph.
+/// * `graph` - the graph.
 ///
-/// * `transpose`: the transpose of `graph`.
+/// * `transpose` - the transpose of `graph`.
 ///
-/// * `pl`: a progress logger.
+/// * `pl` - a progress logger.
 pub fn kosaraju(
     graph: impl RandomAccessGraph,
     transpose: impl RandomAccessGraph,

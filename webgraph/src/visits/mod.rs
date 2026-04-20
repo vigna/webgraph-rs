@@ -126,13 +126,13 @@ pub trait Sequential<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `init`: a value the will be passed to the callback function.
+    /// * `init` - a value the will be passed to the callback function.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
-    /// * `filter`: The filter function.
+    /// * `filter` - The filter function.
     ///
     /// [module documentation]: crate::visits
     fn visit_filtered_with<
@@ -156,11 +156,11 @@ pub trait Sequential<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
-    /// * `filter`: The filter function.
+    /// * `filter` - The filter function.
     ///
     /// [module documentation]: crate::visits
     fn visit_filtered<
@@ -184,11 +184,11 @@ pub trait Sequential<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `init`: a value the will be passed to the callback function.
+    /// * `init` - a value the will be passed to the callback function.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
     /// [module documentation]: crate::visits
     fn visit_with<
@@ -212,9 +212,9 @@ pub trait Sequential<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
     /// [module documentation]: crate::visits
     fn visit<R: IntoIterator<Item = usize>, E, C: FnMut(A) -> ControlFlow<E, ()>>(
@@ -251,14 +251,14 @@ pub trait Parallel<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `init`: a value the will be cloned and passed to the callback
+    /// * `init` - a value the will be cloned and passed to the callback
     ///   function.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
-    /// * `filter`: The filter function.
+    /// * `filter` - The filter function.
     ///
     /// [module documentation]: crate::visits
     fn par_visit_filtered_with<
@@ -282,11 +282,11 @@ pub trait Parallel<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
-    /// * `filter`: The filter function.
+    /// * `filter` - The filter function.
     ///
     /// [module documentation]: crate::visits
     fn par_visit_filtered<
@@ -310,12 +310,12 @@ pub trait Parallel<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `init`: a value the will be cloned and passed to the callback
+    /// * `init` - a value the will be cloned and passed to the callback
     ///   function.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
     /// [module documentation]: crate::visits
     fn par_visit_with<
@@ -339,9 +339,9 @@ pub trait Parallel<A: Event> {
     ///
     /// # Arguments
     ///
-    /// * `roots`: The nodes to start the visit from.
+    /// * `roots` - The nodes to start the visit from.
     ///
-    /// * `callback`: The callback function.
+    /// * `callback` - The callback function.
     ///
     /// [module documentation]: crate::visits
     fn par_visit<R: IntoIterator<Item = usize>, E: Send, C: Fn(A) -> ControlFlow<E, ()> + Sync>(

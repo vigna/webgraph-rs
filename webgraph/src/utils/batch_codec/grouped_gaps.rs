@@ -29,12 +29,12 @@ use rdst::*;
 ///
 /// # Type Parameters
 ///
-/// - `SD`: A type implementing both [`BitSerializer`] and [`BitDeserializer`]
+/// * `SD` - A type implementing both [`BitSerializer`] and [`BitDeserializer`]
 ///   for the label type. Use [`BitSerDeser`] to combine separate serializer and
 ///   deserializer implementations.
-/// - `OUTDEGREE_CODE`: Code used for encoding outdegrees (default: [ɣ]).
-/// - `SRC_CODE`: Code used for encoding source gaps (default: [ɣ]).
-/// - `DST_CODE`: Code used for encoding destination gaps (default: [ɣ]).
+/// * `OUTDEGREE_CODE` - Code used for encoding outdegrees (default: [ɣ]).
+/// * `SRC_CODE` - Code used for encoding source gaps (default: [ɣ]).
+/// * `DST_CODE` - Code used for encoding destination gaps (default: [ɣ]).
 ///
 /// [ɣ]: dsi_bitstream::codes::gamma
 /// [`BitSerDeser`]: crate::traits::BitSerDeser

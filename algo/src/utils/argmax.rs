@@ -13,7 +13,7 @@
 ///
 /// # Arguments
 ///
-/// * `iter`: the iterator.
+/// * `iter` - the iterator.
 ///
 /// # Panics
 ///
@@ -48,12 +48,12 @@ where
 ///
 /// # Arguments
 ///
-/// * `iter`: the iterator.
+/// * `iter` - the iterator.
 ///
-/// * `tie_break`: in case two elements of `iter` are the same, the
+/// * `tie_break` - in case two elements of `iter` are the same, the
 ///   corresponding elements in this iterator are used as secondary order.
 ///
-/// * `filter`: a closure that takes as arguments the index of the element and
+/// * `filter` - a closure that takes as arguments the index of the element and
 ///   the element itself and returns true if the element is approved.
 ///
 /// # Panics

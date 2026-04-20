@@ -190,7 +190,7 @@ impl<'a, S: NodeStates, G: RandomAccessGraph, P, const PRED: bool> SeqIter<'a, S
     /// Creates a new sequential visit.
     ///
     /// # Arguments
-    /// * `graph`: an immutable reference to the graph to visit.
+    /// * `graph` - an immutable reference to the graph to visit.
     pub fn new(graph: &'a G) -> SeqIter<'a, S, G, P, PRED> {
         let num_nodes = graph.num_nodes();
         Self {

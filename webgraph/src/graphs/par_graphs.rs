@@ -182,7 +182,7 @@ impl<'b, G: SequentialLabeling> IntoLender for &'b ParUniformGraph<G> {
 #[derive(Debug, Clone)]
 pub struct ParDcfGraph<G> {
     graph: G,
-    cutpoints: Vec<usize>,
+    cutpoints: Box<[usize]>,
 }
 
 impl<G> ParDcfGraph<G> {
@@ -202,7 +202,7 @@ impl<G> ParDcfGraph<G> {
         assert!(num_lenders > 0, "the number of lenders must be positive");
         let num_nodes = graph.num_nodes();
         let target = num_arcs.div_ceil(num_lenders as u64);
-        let cutpoints: Vec<usize> = std::iter::once(0)
+        let cutpoints: Box<[usize]> = std::iter::once(0)
             .chain(FairChunks::new_with(target, dcf, num_nodes, num_arcs).map(|r| r.end))
             .collect();
         Self { graph, cutpoints }
@@ -275,6 +275,7 @@ where
         (lenders, boundaries)
     }
 }
+
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro

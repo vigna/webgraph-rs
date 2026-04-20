@@ -98,8 +98,8 @@ impl<W> MmapHelper<W> {
     /// Maps a file into memory (read-only).
     ///
     /// # Arguments
-    /// - `path`: The path to the file to be memory mapped.
-    /// - `flags`: The flags to be used for the mmap.
+    /// * `path` - The path to the file to be memory mapped.
+    /// * `flags` - The flags to be used for the mmap.
     pub fn mmap(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len: usize = path
             .as_ref()
@@ -150,8 +150,8 @@ impl<W> MmapHelper<W, MmapMut> {
     /// Maps a file into memory (read/write).
     ///
     /// # Arguments
-    /// - `path`: The path to the file to be mapped.
-    /// - `flags`: The flags to be used for the mmap.
+    /// * `path` - The path to the file to be mapped.
+    /// * `flags` - The flags to be used for the mmap.
     pub fn mmap_mut(path: impl AsRef<Path>, flags: MmapFlags) -> Result<Self> {
         let file_len: usize = path
             .as_ref()
@@ -206,9 +206,9 @@ impl<W> MmapHelper<W, MmapMut> {
     /// Creates and map a file into memory (read/write), overwriting it if it exists.
     ///
     /// # Arguments
-    /// - `path`: The path to the file to be created.
-    /// - `flags`: The flags to be used for the mmap.
-    /// - `len`: The length of the file in `W`'s.
+    /// * `path` - The path to the file to be created.
+    /// * `flags` - The flags to be used for the mmap.
+    /// * `len` - The length of the file in `W`'s.
     pub fn new(path: impl AsRef<Path>, flags: MmapFlags, len: usize) -> Result<Self> {
         let file = std::fs::OpenOptions::new()
             .read(true)

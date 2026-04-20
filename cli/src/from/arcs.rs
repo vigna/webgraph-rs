@@ -217,7 +217,7 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
         builder = builder.with_chunk_size(chunk_size);
     }
 
-    thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))?;
+    thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
     // Save the label-to-node-id mapping
     if labels {

@@ -492,7 +492,7 @@ pub fn layered_label_propagation_labels_only<
 
 /// Combines the labels computed by LLP into a final labels array.
 ///
-/// * `work_dir`: The folder where the labels to combine are.
+/// * `work_dir` - The folder where the labels to combine are.
 pub fn combine_labels(work_dir: impl AsRef<Path>) -> Result<Box<[usize]>> {
     let mut gammas = vec![];
     let iter = std::fs::read_dir(work_dir.as_ref())?

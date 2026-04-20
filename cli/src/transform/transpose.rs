@@ -92,7 +92,7 @@ where
 
     // Use uniform cutpoints for compression of the transposed graph
     // (the source DCF does not match the transpose's degree distribution)
-    thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))?;
+    thread_pool.install(|| par_comp!(builder, sorted, target_endianness))?;
 
     Ok(())
 }

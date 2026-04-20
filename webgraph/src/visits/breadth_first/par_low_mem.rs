@@ -90,7 +90,7 @@ impl<G: RandomAccessGraph> ParLowMem<G> {
     ///
     /// # Arguments
     ///
-    /// * `graph`: the graph to visit.
+    /// * `graph` - the graph to visit.
     pub fn new(graph: G) -> Self {
         Self::with_granularity(graph, Granularity::Nodes(128))
     }
@@ -99,9 +99,9 @@ impl<G: RandomAccessGraph> ParLowMem<G> {
     ///
     /// # Arguments
     ///
-    /// * `graph`: the graph to visit.
+    /// * `graph` - the graph to visit.
     ///
-    /// * `granularity`: High granularity reduces overhead, but may lead to
+    /// * `granularity` - High granularity reduces overhead, but may lead to
     ///   decreased performance on graphs with a skewed outdegree distribution.
     ///   From this parameter, we derive a [node
     ///   granularity](Granularity::node_granularity).

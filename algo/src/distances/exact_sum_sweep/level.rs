@@ -66,17 +66,17 @@ pub trait Level: Sync {
     ///
     /// # Arguments
     ///
-    /// * `graph`: a graph.
+    /// * `graph` - a graph.
     ///
-    /// * `transpose`: the transpose of `graph`. Note that you are responsible
+    /// * `transpose` - the transpose of `graph`. Note that you are responsible
     ///   for providing a correct transpose. The result of the computation is
     ///   undefined otherwise.
     ///
-    /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node
+    /// * `radial_vertices` - an [`AtomicBitVec`] where `v[i]` is true if node
     ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
     ///   use the biggest connected component.
     ///
-    /// * `pl`: a progress logger.
+    /// * `pl` - a progress logger.
     fn run(
         graph: impl RandomAccessGraph + Sync,
         transpose: impl RandomAccessGraph + Sync,
@@ -88,11 +88,11 @@ pub trait Level: Sync {
     ///
     /// # Arguments
     ///
-    /// * `graph`: a symmetric graph. Note that you are responsible for the
+    /// * `graph` - a symmetric graph. Note that you are responsible for the
     ///   graph being symmetric. The result of the computation is undefined
     ///   otherwise.
     ///
-    /// * `pl`: a progress logger.
+    /// * `pl` - a progress logger.
     fn run_symm(
         graph: impl RandomAccessGraph + Sync,
         pl: &mut impl ConcurrentProgressLog,

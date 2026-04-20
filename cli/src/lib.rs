@@ -48,17 +48,18 @@ compile_error!("At least one of the features `le_bins` or `be_bins` must be enab
 
 /// Calls [`par_comp`] dispatching on a runtime endianness string.
 ///
-/// * `config` is the [`BvCompConfig`] to call [`par_comp`] on;
-///
-/// * `graph` is a reference to an implementor of [`IntoParLenders`] with
-///   `Label = usize`;
-///
-/// * `endianness` is a string specifying the endianness type to use for the
-///   call; it must implement `AsRef<str>`, and must be equal to the name of one
-///   of the endianness types supported by the binary (e.g., "BE" or "LE").
-///
 /// The macro returns a [`Result`] with the output of the call if the endianness
 /// is recognized, and an error otherwise.
+///
+/// # Arguments
+///
+/// * `config` - the [`BvCompConfig`] to call [`par_comp`] on;
+///
+/// * `graph` - an implementation of [`IntoParLenders`] with `Label = usize`;
+///
+/// * `endianness` - a string specifying the endianness type to use for the call;
+///   it must implement `AsRef<str>`, and must be equal to the name of one of the
+///   endianness types supported by the binary.
 ///
 /// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
 /// [`BvCompConfig`]: webgraph::prelude::BvCompConfig
@@ -75,7 +76,9 @@ macro_rules! par_comp {
 }
 
 /// Implementation detail of [`par_comp!`]. Dispatches to the correct
-/// endianness-specific [`par_comp`](webgraph::prelude::BvCompConfig::par_comp).
+/// endianness-specific [`par_comp`].
+///
+/// [`par_comp`]: webgraph::prelude::BvCompConfig::par_comp
 pub fn __par_comp_dispatch<
     G: for<'a> IntoParLenders<ParLender: NodeLabelsLender<'a, Label = usize>>,
 >(

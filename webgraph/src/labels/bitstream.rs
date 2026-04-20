@@ -54,12 +54,12 @@ where
     ///
     /// # Arguments
     ///
-    /// * `reader_supplier`: A supplier of readers on the bitstream containing
+    /// * `reader_supplier` - A supplier of readers on the bitstream containing
     ///   the labels.
     ///
-    /// * `bit_deser_supplier`: A supplier of deserializers for the labels.
+    /// * `bit_deser_supplier` - A supplier of deserializers for the labels.
     ///
-    /// * `offsets`: An indexed sequence of offsets into the bitstream.
+    /// * `offsets` - An indexed sequence of offsets into the bitstream.
     pub fn new(reader_supplier: S, bit_deser: D, offsets: MemCase<O>) -> Self {
         Self {
             reader_supplier,

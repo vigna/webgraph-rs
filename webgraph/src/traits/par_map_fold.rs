@@ -54,9 +54,9 @@ where
     ///
     /// # Arguments
     ///
-    /// * `map`: a function that maps an item to a result.
+    /// * `map` - a function that maps an item to a result.
     ///
-    /// * `fold`: a function that folds the results of the map function.
+    /// * `fold` - a function that folds the results of the map function.
     ///
     /// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
     /// [`par_map_fold_ord`]: ParMapFold::par_map_fold_ord
@@ -85,12 +85,12 @@ where
     ///
     /// # Arguments
     ///
-    /// * `map_init`: an init value for the map function; it will be cloned
+    /// * `map_init` - an init value for the map function; it will be cloned
     ///   as needed.
     ///
-    /// * `map`: a function that maps an item to a result.
+    /// * `map` - a function that maps an item to a result.
     ///
-    /// * `fold`: a function that folds the results of the map function.
+    /// * `fold` - a function that folds the results of the map function.
     ///
     /// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
     /// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
@@ -121,11 +121,11 @@ where
     ///
     /// # Arguments
     ///
-    /// * `map`: a function that maps an item to a result.
+    /// * `map` - a function that maps an item to a result.
     ///
-    /// * `inner_fold`: a function that folds the results of the map function.
+    /// * `inner_fold` - a function that folds the results of the map function.
     ///
-    /// * `outer_fold`: a function that folds the results of the inner fold.
+    /// * `outer_fold` - a function that folds the results of the inner fold.
     ///
     /// [`par_map_fold2_with`]: ParMapFold::par_map_fold2_with
     /// [`par_map_fold_ord`]: ParMapFold::par_map_fold_ord
@@ -161,14 +161,14 @@ where
     ///
     /// # Arguments
     ///
-    /// * `map_init`: an init value for the map function; it will be cloned
+    /// * `map_init` - an init value for the map function; it will be cloned
     ///   as needed.
     ///
-    /// * `map`: a function that maps an item to a result.
+    /// * `map` - a function that maps an item to a result.
     ///
-    /// * `inner_fold`: a function that folds the results of the map function.
+    /// * `inner_fold` - a function that folds the results of the map function.
     ///
-    /// * `outer_fold`: a function that folds the results of the inner fold.
+    /// * `outer_fold` - a function that folds the results of the inner fold.
     ///
     /// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
     fn par_map_fold2_with<
@@ -245,11 +245,11 @@ where
     ///
     /// # Arguments
     ///
-    /// * `map`: a function that maps an item to a result.
+    /// * `map` - a function that maps an item to a result.
     ///
-    /// * `fold_init`: the initial value for the fold accumulator.
+    /// * `fold_init` - the initial value for the fold accumulator.
     ///
-    /// * `fold`: a function that folds the results of the map function,
+    /// * `fold` - a function that folds the results of the map function,
     ///   called in the original iterator order.
     ///
     /// [`par_map_fold_ord_with`]: ParMapFold::par_map_fold_ord_with
@@ -292,14 +292,14 @@ where
     ///
     /// # Arguments
     ///
-    /// * `map_init`: an init value for the map function; it will be cloned
+    /// * `map_init` - an init value for the map function; it will be cloned
     ///   as needed.
     ///
-    /// * `map`: a function that maps an item to a result.
+    /// * `map` - a function that maps an item to a result.
     ///
-    /// * `fold_init`: the initial value for the fold accumulator.
+    /// * `fold_init` - the initial value for the fold accumulator.
     ///
-    /// * `fold`: a function that folds the results of the map function,
+    /// * `fold` - a function that folds the results of the map function,
     ///   called in the original iterator order.
     ///
     /// [`par_map_fold_with`]: ParMapFold::par_map_fold_with

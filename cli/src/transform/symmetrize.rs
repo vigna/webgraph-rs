@@ -290,7 +290,7 @@ where
                             &perm_graph,
                             memory_usage,
                         )?;
-                        thread_pool.install(|| par_comp!(builder, &sorted, target_endianness))
+                        thread_pool.install(|| par_comp!(builder, sorted, target_endianness))
                     }};
                 }
                 if no_loops {
@@ -316,7 +316,7 @@ where
                         &seq_graph,
                         args.memory_usage.memory_usage,
                     )?;
-                    thread_pool.install(|| par_comp!(builder, &symmetrized, target_endianness))?
+                    thread_pool.install(|| par_comp!(builder, symmetrized, target_endianness))?
                 }};
             }
             if no_loops {

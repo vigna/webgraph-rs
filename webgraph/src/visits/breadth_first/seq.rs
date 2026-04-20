@@ -119,7 +119,7 @@ impl<'a, G: RandomAccessGraph> Seq<'a, G> {
     /// Creates a new sequential visit.
     ///
     /// # Arguments
-    /// * `graph`: an immutable reference to the graph to visit.
+    /// * `graph` - an immutable reference to the graph to visit.
     pub fn new(graph: &'a G) -> Self {
         let num_nodes = graph.num_nodes();
         assert_ne!(

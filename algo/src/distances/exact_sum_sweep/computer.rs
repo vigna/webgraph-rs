@@ -119,13 +119,13 @@ impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
     /// directed graphs.
     ///
     /// # Arguments
-    /// * `graph`: the directed graph.
-    /// * `transpose`: the transpose of `graph`.
-    /// * `output`: the desired output of the algorithm.
-    /// * `radial_vertices`: an [`AtomicBitVec`] where `v[i]` is true if node
+    /// * `graph` - the directed graph.
+    /// * `transpose` - the transpose of `graph`.
+    /// * `output` - the desired output of the algorithm.
+    /// * `radial_vertices` - an [`AtomicBitVec`] where `v[i]` is true if node
     ///   `i` is to be considered radial vertex. If [`None`] the algorithm will
     ///   use the biggest connected component.
-    /// * `pl`: a progress logger.
+    /// * `pl` - a progress logger.
     pub(super) fn new(
         graph: &'a G1,
         transpose: &'a G2,
@@ -242,9 +242,9 @@ impl<
     /// For more information see Section 3 of the paper.
     ///
     /// # Arguments
-    /// * `start`: The starting vertex.
-    /// * `iterations`: The number of iterations.
-    /// * `pl`: A concurrent progress logger.
+    /// * `start` - The starting vertex.
+    /// * `iterations` - The number of iterations.
+    /// * `pl` - A concurrent progress logger.
     fn sum_sweep_heuristic(
         &mut self,
         start: usize,
@@ -286,7 +286,7 @@ impl<
     /// Computes diameter, radius, and/or all eccentricities.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     pub(super) fn compute(&mut self, pl: &mut impl ProgressLog) {
         if self.num_nodes == 0 {
             return;
@@ -401,7 +401,7 @@ impl<
     /// component, in order to call the `all_cc_upper_bound` method.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     fn find_best_pivot(&self, pl: &mut impl ProgressLog) -> Vec<usize> {
         debug_assert!(self.num_nodes < usize::MAX);
 
@@ -464,7 +464,7 @@ impl<
     /// the biggest strongly connected component.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     fn compute_radial_vertices(&mut self, pl: &mut impl ConcurrentProgressLog) {
         if self.num_nodes == 0 {
             return;
@@ -513,11 +513,11 @@ impl<
     /// For more information see Section 4.1 of the paper.
     ///
     /// # Arguments
-    /// * `start`: The starting vertex of the BFS. If [`None`], no visit happens.
-    /// * `forward`: Whether the BFS is performed following the direction of edges or
+    /// * `start` - The starting vertex of the BFS. If [`None`], no visit happens.
+    /// * `forward` - Whether the BFS is performed following the direction of edges or
     ///   in the opposite direction.
-    /// * `pl`: A progress logger.
-    /// * `message`: The message to print to the log.
+    /// * `pl` - A progress logger.
+    /// * `message` - The message to print to the log.
     fn step_sum_sweep(
         &mut self,
         start: Option<usize>,
@@ -667,11 +667,11 @@ impl<
     /// For more information see Section 4.2 on the paper.
     ///
     /// # Arguments
-    /// * `pivot`: An array containing in position `i` the pivot of the `i`-th strongly connected
+    /// * `pivot` - An array containing in position `i` the pivot of the `i`-th strongly connected
     ///   component.
-    /// * `forward`: Whether the BFS is performed following the direction of edges or
+    /// * `forward` - Whether the BFS is performed following the direction of edges or
     ///   in the opposite direction.
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     ///
     /// # Return
     /// Two arrays.
@@ -756,7 +756,7 @@ impl<
     /// For more information see Section 4.2 of the paper.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     fn all_cc_upper_bound(&mut self, pl: &mut impl ProgressLog) {
         pl.item_name("element");
         pl.display_memory(false);
@@ -878,7 +878,7 @@ impl<
     /// Computes how many nodes are still to be processed, before outputting the result.
     ///
     /// # Arguments
-    /// * `pl`: A progress logger.
+    /// * `pl` - A progress logger.
     fn find_missing_nodes(&mut self, pl: &mut impl ProgressLog) -> usize {
         pl.item_name("node");
         pl.display_memory(false);
