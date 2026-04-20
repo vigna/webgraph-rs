@@ -76,36 +76,74 @@ impl<E: Endianness, BR: BitRead<E>> BitDeserializer<E, BR> for () {
     }
 }
 
-/// Serializes and deserializes a [`PrimitiveInteger`] type `T` using
-/// exactly [`T::BITS`](PrimitiveInteger::BITS) bits.
+/// Serializes and deserializes a [`PrimitiveInteger`] type `T` using a
+/// fixed number of bits.
 ///
-/// This is useful for labelled graphs whose labels are primitive integer
-/// types. Only types with at most 64 bits are supported.
+/// By default ([`new`]), the full width of the type is used
+/// ([`T::BITS`](PrimitiveInteger::BITS) bits). With [`with_bits`], you can
+/// specify a smaller number of bits to save space when values are known to
+/// fit in a narrower range.
+///
+/// Signed types are handled correctly: the low `bits` bits of the two's
+/// complement representation are stored, and sign extension is applied on
+/// deserialization. Only types with at most 64 bits are supported.
 ///
 /// # Examples
 ///
 /// ```rust
 /// # use webgraph::traits::FixedWidth;
+/// // Full width (32 bits)
 /// let sd = <FixedWidth<u32>>::new();
+///
+/// // Only 10 bits; values must be in [0 . . 1024)
+/// let sd = <FixedWidth<u32>>::with_bits(10);
+///
+/// // Signed with 5 bits; values must be in [−16 . . 16)
+/// let sd = <FixedWidth<i8>>::with_bits(5);
 /// ```
+///
+/// [`new`]: FixedWidth::new
+/// [`with_bits`]: FixedWidth::with_bits
 #[derive(Clone, Copy, Debug)]
 pub struct FixedWidth<T: PrimitiveInteger> {
+    bits: usize,
     _phantom: PhantomData<T>,
 }
 
 impl<T: PrimitiveInteger> FixedWidth<T> {
-    /// Creates a new [`FixedWidth`] serializer/deserializer.
+    /// Creates a new [`FixedWidth`] serializer/deserializer using
+    /// [`T::BITS`](PrimitiveInteger::BITS) bits.
     ///
     /// # Panics
     ///
     /// Panics if `T` has more than 64 bits.
     pub fn new() -> Self {
+        Self::with_bits(T::BITS as usize)
+    }
+
+    /// Creates a new [`FixedWidth`] serializer/deserializer using the
+    /// specified number of bits.
+    ///
+    /// For unsigned types, values must be in [0 . . 2^`bits`). For signed
+    /// types, values must be in [−2^(`bits` − 1) . . 2^(`bits` − 1)).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `bits` is greater than `T::BITS` or greater than 64.
+    pub fn with_bits(bits: usize) -> Self {
         assert!(
-            T::BITS <= 64,
-            "FixedWith only supports types with at most 64 bits, got {}",
-            T::BITS
+            bits <= T::BITS as usize,
+            "FixedWidth: bits ({}) exceeds T::BITS ({})",
+            bits,
+            T::BITS,
+        );
+        assert!(
+            bits <= 64,
+            "FixedWidth only supports types with at most 64 bits, got {}",
+            bits,
         );
         FixedWidth {
+            bits,
             _phantom: PhantomData,
         }
     }
@@ -121,7 +159,7 @@ impl<E: Endianness, BW: BitWrite<E>, T: PrimitiveInteger> BitSerializer<E, BW> f
     type SerType = T;
     #[inline(always)]
     fn serialize(&self, value: &T, bitstream: &mut BW) -> Result<usize, BW::Error> {
-        bitstream.write_bits(value.as_to::<u64>(), T::BITS as usize)
+        bitstream.write_bits(value.as_to::<u64>(), self.bits)
     }
 }
 
@@ -129,6 +167,13 @@ impl<E: Endianness, BR: BitRead<E>, T: PrimitiveInteger> BitDeserializer<E, BR> 
     type DeserType = T;
     #[inline(always)]
     fn deserialize(&self, bitstream: &mut BR) -> Result<T, BR::Error> {
-        Ok(T::as_from(bitstream.read_bits(T::BITS as usize)?))
+        let raw = bitstream.read_bits(self.bits)?;
+        if T::MIN < T::default() && self.bits > 0 && self.bits < 64 {
+            // Sign-extend from self.bits to 64 bits
+            let shift = 64 - self.bits;
+            Ok(T::as_from(((raw as i64) << shift >> shift) as u64))
+        } else {
+            Ok(T::as_from(raw))
+        }
     }
 }

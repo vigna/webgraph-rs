@@ -175,7 +175,7 @@
 //!
 //! [`par_from_pair_iters`]: ParSortedGraph::par_from_pair_iters
 //! [configuration]: ParSortedGraph::config
-//! [deduplicate]: ParSortedGraphConf::deduplicate
+//! [deduplicate]: ParSortedGraphConf::dedup
 use crate::graphs::arc_list_graph;
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;

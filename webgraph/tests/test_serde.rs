@@ -42,3 +42,40 @@ fn test_fixed_size_signed() {
         assert_eq!(sd.deserialize(&mut reader).unwrap(), *v);
     }
 }
+
+#[test]
+fn test_fixed_width_unsigned() {
+    let sd = FixedWidth::<u32>::with_bits(10);
+    let values: Vec<u32> = vec![0, 1, 42, 1023];
+
+    let mut buf: Vec<u64> = vec![];
+    let mut writer = BufBitWriter::<NE, _>::new(MemWordWriterVec::new(&mut buf));
+    for v in &values {
+        sd.serialize(v, &mut writer).unwrap();
+    }
+    drop(writer);
+
+    let mut reader = BufBitReader::<NE, _>::new(MemWordReader::new(&buf));
+    for v in &values {
+        assert_eq!(sd.deserialize(&mut reader).unwrap(), *v);
+    }
+}
+
+#[test]
+fn test_fixed_width_signed() {
+    let sd = FixedWidth::<i16>::with_bits(5);
+    // 5 bits signed: range [−16 . . 16)
+    let values: Vec<i16> = vec![0, 1, -1, -16, 15];
+
+    let mut buf: Vec<u64> = vec![];
+    let mut writer = BufBitWriter::<NE, _>::new(MemWordWriterVec::new(&mut buf));
+    for v in &values {
+        sd.serialize(v, &mut writer).unwrap();
+    }
+    drop(writer);
+
+    let mut reader = BufBitReader::<NE, _>::new(MemWordReader::new(&buf));
+    for v in &values {
+        assert_eq!(sd.deserialize(&mut reader).unwrap(), *v);
+    }
+}
