@@ -132,18 +132,16 @@ where
             .endianness::<E>()
             .load()?;
 
-        let cp = crate::cutpoints(&src, graph.num_nodes(), graph.num_arcs_hint(), use_dcf)?;
+        let graph_num_nodes = graph.num_nodes();
+        let graph_num_arcs_hint = graph.num_arcs_hint();
+        let cp = crate::cutpoints(&src, graph_num_nodes, graph_num_arcs_hint, use_dcf)?;
+        let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
 
         thread_pool.install(|| {
             log::info!("Mapping graph with memory usage {}", memory_usage);
             let start = std::time::Instant::now();
-            let sorted = webgraph::transform::map_split(
-                &graph,
-                &node_map,
-                num_nodes,
-                memory_usage,
-                Some(cp),
-            )?;
+            let sorted =
+                webgraph::transform::map_split(&par_graph, &node_map, num_nodes, memory_usage)?;
             log::info!(
                 "Mapped the graph. It took {:.3} seconds",
                 start.elapsed().as_secs_f64()

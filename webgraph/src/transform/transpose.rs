@@ -6,14 +6,12 @@
  */
 
 use crate::graphs::par_sorted_graph::{
-    LabeledCodec, ParSortedGraph, ParSortedLabeledGraph, ParSortedLabeledGraphConf,
-    SortedLabeledIter, SortedPairIter,
+    ParSortedGraph, ParSortedLabeledGraph, ParSortedLabeledGraphConf, SortedLabeledIter,
+    SortedPairIter,
 };
 use crate::prelude::{LabeledSequentialGraph, SequentialGraph};
-use crate::traits::{BitDeserializer, BitSerializer, NodeLabelsLender, SplitLabeling};
-use crate::utils::{
-    BitReader, BitWriter, DefaultBatchCodec, MemoryUsage, ParSortIters, SplitIters,
-};
+use crate::traits::{BitDeserializer, BitSerializer, IntoParLenders, NodeLabelsLender, Pair};
+use crate::utils::{BitReader, BitWriter, MemoryUsage};
 use anyhow::Result;
 use dsi_bitstream::prelude::NE;
 
@@ -63,11 +61,11 @@ pub fn transpose(
         )
 }
 
-/// Returns a [`SplitIters`] structure representing the transpose of the
-/// provided labeled splittable graph, computed in parallel.
+/// Returns the transpose of the provided labeled graph as a
+/// [`ParSortedLabeledGraph`], computed in parallel.
 ///
-/// For graph compression, the result can be converted into a
-/// [`ParSortedLabeledGraph`](crate::graphs::par_sorted_graph::ParSortedLabeledGraph) by calling [`.into()`](Into::into).
+/// The graph must implement [`IntoParLenders`]; use [`ParGraph`] to wrap a
+/// [splittable] graph as needed.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
@@ -75,13 +73,14 @@ pub fn transpose(
 /// For the meaning of the additional parameters, see
 /// [`ParSortedLabeledGraphConf`](crate::graphs::par_sorted_graph::ParSortedLabeledGraphConf).
 ///
+/// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
+/// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
 pub fn transpose_labeled_split<SD, G>(
-    graph: &G,
+    graph: G,
     memory_usage: MemoryUsage,
     sd: SD,
-    cutpoints: Option<Vec<usize>>,
-) -> Result<SplitIters<SortedLabeledIter<SD>>>
+) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
 where
     SD: BitSerializer<NE, BitWriter<NE>>
         + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -90,38 +89,33 @@ where
         + Clone,
     SD::SerType: Clone + Copy + Send + Sync + 'static,
     G: LabeledSequentialGraph<SD::SerType>
-        + for<'a> SplitLabeling<
-            SplitLender<'a>: for<'b> NodeLabelsLender<
-                'b,
-                Label: crate::traits::Pair<Left = usize, Right = SD::SerType> + Copy,
-                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
-            > + Send
-                                 + Sync,
-            IntoIterator<'a>: IntoIterator<IntoIter: Send + Sync>,
+        + IntoParLenders<
+            ParLender: for<'a> NodeLabelsLender<
+                'a,
+                Label: Pair<Left = usize, Right = SD::SerType> + Copy,
+                IntoIterator: IntoIterator<IntoIter: Send>,
+            >,
         >,
 {
-    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
+    let num_nodes = graph.num_nodes();
+    let num_arcs_hint = graph.num_arcs_hint();
+    let mut conf = ParSortedLabeledGraphConf::default().memory_usage(memory_usage);
+    if let Some(n) = num_arcs_hint {
+        conf = conf.expected_num_pairs(n as usize);
     }
-
-    let pairs: Vec<_> = match cutpoints {
-        Some(cp) => graph.split_iter_at(cp),
-        None => {
-            let parts = rayon::current_num_threads();
-            graph.split_iter(parts)
-        }
-    }
-    .into_iter()
-    .map(|iter| iter.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)))
-    .collect();
-
-    let codec = LabeledCodec::new(sd);
-    par_sort_iters.sort_labeled(codec, pairs)
+    let (lenders, _boundaries) = graph.into_par_lenders();
+    let iters = lenders
+        .into_vec()
+        .into_iter()
+        .map(|lender| lender.into_labeled_pairs().map(|((a, b), l)| ((b, a), l)));
+    conf.par_sort_pair_iters(num_nodes, sd, iters)
 }
 
-/// Returns a [`ParSortedGraph`] representing the transpose of the provided
-/// splittable graph, computed in parallel.
+/// Returns the transpose of the provided graph as a [`ParSortedGraph`],
+/// computed in parallel.
+///
+/// The graph must implement [`IntoParLenders`]; use [`ParGraph`] to wrap a
+/// [splittable] graph as needed.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
@@ -129,40 +123,33 @@ where
 /// For the meaning of the additional parameters, see
 /// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
+/// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
+/// [splittable]: crate::traits::SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn transpose_split<
-    'g,
+pub fn transpose_split<G>(
+    graph: G,
+    memory_usage: MemoryUsage,
+) -> Result<ParSortedGraph<SortedPairIter>>
+where
     G: SequentialGraph
-        + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<
+        + IntoParLenders<
+            ParLender: for<'a> NodeLabelsLender<
                 'a,
-                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                Label = usize,
+                IntoIterator: IntoIterator<IntoIter: Send>,
             >,
         >,
->(
-    graph: &'g G,
-    memory_usage: MemoryUsage,
-    cutpoints: Option<Vec<usize>>,
-) -> Result<ParSortedGraph<SortedPairIter>> {
-    let mut par_sort_iters = ParSortIters::new(graph.num_nodes())?.memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
+{
+    let num_nodes = graph.num_nodes();
+    let num_arcs_hint = graph.num_arcs_hint();
+    let mut conf = ParSortedGraph::config().memory_usage(memory_usage);
+    if let Some(n) = num_arcs_hint {
+        conf = conf.expected_num_pairs(n as usize);
     }
-
-    let pairs: Vec<_> = match cutpoints {
-        Some(cp) => graph.split_iter_at(cp),
-        None => {
-            let parts = rayon::current_num_threads();
-            graph.split_iter(parts)
-        }
-    }
-    .into_iter()
-    .map(|iter| iter.into_pairs().map(|(src, dst)| ((dst, src), ())))
-    .collect();
-
-    Ok(ParSortedGraph(
-        par_sort_iters
-            .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    let (lenders, _boundaries) = graph.into_par_lenders();
+    let iters = lenders
+        .into_vec()
+        .into_iter()
+        .map(|lender| lender.into_pairs().map(|(src, dst)| (dst, src)));
+    conf.par_sort_pair_iters(num_nodes, iters)
 }

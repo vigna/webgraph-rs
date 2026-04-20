@@ -141,10 +141,7 @@ impl CompFlags {
             || !OLD_CODES.contains(&self.residuals)
     }
 
-    pub fn to_properties<E: Endianness>(
-        &self,
-        stats: &super::CompStats,
-    ) -> Result<String> {
+    pub fn to_properties<E: Endianness>(&self, stats: &super::CompStats) -> Result<String> {
         let num_nodes = stats.num_nodes;
         let num_arcs = stats.num_arcs;
         let bitstream_len = stats.written_bits;
@@ -165,22 +162,13 @@ impl CompFlags {
         s.push_str(&format!("maxrefcount={}\n", self.max_ref_count));
         s.push_str(&format!("windowsize={}\n", self.compression_window));
         let n = num_nodes as f64;
-        s.push_str(&format!(
-            "avgref={:.3}\n",
-            stats.tot_ref as f64 / n
-        ));
-        s.push_str(&format!(
-            "avgdist={:.3}\n",
-            stats.tot_dist as f64 / n
-        ));
+        s.push_str(&format!("avgref={:.3}\n", stats.tot_ref as f64 / n));
+        s.push_str(&format!("avgdist={:.3}\n", stats.tot_dist as f64 / n));
         s.push_str(&format!(
             "bitsperlink={}\n",
             bitstream_len as f64 / num_arcs as f64
         ));
-        s.push_str(&format!(
-            "bitspernode={}\n",
-            bitstream_len as f64 / n
-        ));
+        s.push_str(&format!("bitspernode={}\n", bitstream_len as f64 / n));
         s.push_str(&format!("length={bitstream_len}\n"));
 
         fn stirling(n: u64) -> f64 {

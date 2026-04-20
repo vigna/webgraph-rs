@@ -7,10 +7,11 @@
 
 use crate::graphs::par_sorted_graph::{ParSortedGraph, SortedPairIter};
 use crate::traits::{
-    LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator, SortedLender, SplitLabeling,
+    IntoParLenders, LenderIntoIter, NodeLabelsLender, SequentialGraph, SortedIterator,
+    SortedLender, SplitLabeling,
 };
 use crate::utils::par_sort_iters::ParSortIters;
-use crate::utils::{DefaultBatchCodec, MemoryUsage, SplitIters};
+use crate::utils::{MemoryUsage, SplitIters};
 use anyhow::Result;
 
 /// Merges two sorted iterators of node pairs, deduplicating consecutive
@@ -88,35 +89,31 @@ where
 ///
 /// For a parallel version using splitting, see [`symmetrize_sorted_split`].
 ///
-/// For the meaning of the additional parameter, see [`ParSortIters`].
+/// For the meaning of the additional parameter, see
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 pub fn symmetrize_sorted<const NO_LOOPS: bool, G: SequentialGraph>(
     graph: &G,
     memory_usage: MemoryUsage,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
-    let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
+    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
     if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(2 * num_arcs as usize);
+        conf = conf.expected_num_pairs(2 * num_arcs as usize);
     }
 
-    let pairs = graph.iter().into_pairs().flat_map(|(src, dst)| {
-        if src != dst {
-            Some(((src, dst), ()))
-                .into_iter()
-                .chain(Some(((dst, src), ())))
-        } else if !NO_LOOPS {
-            Some(((src, dst), ())).into_iter().chain(None)
-        } else {
-            None.into_iter().chain(None)
-        }
-    });
-
-    Ok(ParSortedGraph(
-        par_sort_iters
-            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    conf.sort_pairs(
+        num_nodes,
+        graph.iter().into_pairs().flat_map(|(src, dst)| {
+            if src != dst {
+                Some((src, dst)).into_iter().chain(Some((dst, src)))
+            } else if !NO_LOOPS {
+                Some((src, dst)).into_iter().chain(None)
+            } else {
+                None.into_iter().chain(None)
+            }
+        }),
+    )
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
@@ -198,35 +195,31 @@ where
 /// Note that if the graph is sorted (both on nodes and successors), it is
 /// recommended to use [`symmetrize_sorted`].
 ///
-/// For the meaning of the additional parameter, see [`ParSortIters`].
+/// For the meaning of the additional parameter, see
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 pub fn symmetrize<const NO_LOOPS: bool>(
     graph: &impl SequentialGraph,
     memory_usage: MemoryUsage,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>> {
     let num_nodes = graph.num_nodes();
 
-    let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
+    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
     if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(2 * num_arcs as usize);
+        conf = conf.expected_num_pairs(2 * num_arcs as usize);
     }
 
-    let pairs = graph.iter().into_pairs().flat_map(|(src, dst)| {
-        if src != dst {
-            Some(((src, dst), ()))
-                .into_iter()
-                .chain(Some(((dst, src), ())))
-        } else if !NO_LOOPS {
-            Some(((src, dst), ())).into_iter().chain(None)
-        } else {
-            None.into_iter().chain(None)
-        }
-    });
-
-    Ok(ParSortedGraph(
-        par_sort_iters
-            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    conf.sort_pairs(
+        num_nodes,
+        graph.iter().into_pairs().flat_map(|(src, dst)| {
+            if src != dst {
+                Some((src, dst)).into_iter().chain(Some((dst, src)))
+            } else if !NO_LOOPS {
+                Some((src, dst)).into_iter().chain(None)
+            } else {
+                None.into_iter().chain(None)
+            }
+        }),
+    )
 }
 
 /// Returns a [`ParSortedGraph`] representing a symmetrized version of the
@@ -234,59 +227,51 @@ pub fn symmetrize<const NO_LOOPS: bool>(
 ///
 /// If `NO_LOOPS` is true, self-loops are removed from the result.
 ///
+/// The graph must implement [`IntoParLenders`]; use [`ParGraph`] to wrap a
+/// [splittable] graph as needed.
+///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameter, see [`ParSortIters`].
+/// For the meaning of the additional parameter, see
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
+/// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
+/// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn symmetrize_split<'g, const NO_LOOPS: bool, S>(
-    graph: &'g S,
+pub fn symmetrize_split<const NO_LOOPS: bool, G>(
+    graph: G,
     memory_usage: MemoryUsage,
-    cutpoints: Option<Vec<usize>>,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>>
 where
-    S: SequentialGraph
-        + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<
+    G: SequentialGraph
+        + IntoParLenders<
+            ParLender: for<'a> NodeLabelsLender<
                 'a,
-                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                Label = usize,
+                IntoIterator: IntoIterator<IntoIter: Send>,
             >,
         >,
 {
-    let mut par_sort_iters = ParSortIters::new_dedup(graph.num_nodes())?.memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(2 * num_arcs as usize);
+    let num_nodes = graph.num_nodes();
+    let num_arcs_hint = graph.num_arcs_hint();
+    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+    if let Some(n) = num_arcs_hint {
+        conf = conf.expected_num_pairs(2 * n as usize);
     }
-
-    let pairs: Vec<_> = match cutpoints {
-        Some(cp) => graph.split_iter_at(cp),
-        None => {
-            let parts = rayon::current_num_threads();
-            graph.split_iter(parts)
-        }
-    }
-    .into_iter()
-    .map(|iter| {
-        iter.into_pairs().flat_map(move |(src, dst)| {
+    let (lenders, _boundaries) = graph.into_par_lenders();
+    let iters = lenders.into_vec().into_iter().map(|lender| {
+        lender.into_pairs().flat_map(move |(src, dst)| {
             // The two-element iterator is fully inlined by LLVM,
             // generating the same code as a hand-written loop.
             if src != dst {
-                Some(((src, dst), ()))
-                    .into_iter()
-                    .chain(Some(((dst, src), ())))
+                Some((src, dst)).into_iter().chain(Some((dst, src)))
             } else if !NO_LOOPS {
-                Some(((src, dst), ())).into_iter().chain(None)
+                Some((src, dst)).into_iter().chain(None)
             } else {
                 None.into_iter().chain(None)
             }
         })
-    })
-    .collect();
-
-    Ok(ParSortedGraph(
-        par_sort_iters
-            .sort_labeled::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    });
+    conf.par_sort_pair_iters(num_nodes, iters)
 }

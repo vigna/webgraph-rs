@@ -94,7 +94,7 @@ pub struct FixedWidth<T: PrimitiveInteger> {
 }
 
 impl<T: PrimitiveInteger> FixedWidth<T> {
-    /// Creates a new [`FixedSize`] serializer/deserializer.
+    /// Creates a new [`FixedWidth`] serializer/deserializer.
     ///
     /// # Panics
     ///
@@ -102,7 +102,7 @@ impl<T: PrimitiveInteger> FixedWidth<T> {
     pub fn new() -> Self {
         assert!(
             T::BITS <= 64,
-            "FixedSize only supports types with at most 64 bits, got {}",
+            "FixedWith only supports types with at most 64 bits, got {}",
             T::BITS
         );
         FixedWidth {

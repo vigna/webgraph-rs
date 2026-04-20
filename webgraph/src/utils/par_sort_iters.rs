@@ -209,7 +209,7 @@ impl<const DEDUP: bool> ParSortIters<DEDUP> {
 
 impl<const DEDUP: bool> ParSortIters<DEDUP> {
     /// Creates a new [`ParSortIters`] instance.
-    fn create(num_nodes: usize) -> Result<Self> {
+    pub(crate) fn create(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
             expected_num_pairs: None,

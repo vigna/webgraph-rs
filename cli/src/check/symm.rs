@@ -70,7 +70,7 @@ where
         // Transpose the graph in parallel and compare
         thread_pool.install(|| {
             let transposed =
-                webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, None)?;
+                webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage)?;
             compare(&graph, &transposed, check_simple)
         })
     } else {

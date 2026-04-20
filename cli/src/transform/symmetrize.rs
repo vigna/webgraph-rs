@@ -159,7 +159,8 @@ where
                 let cp = crate::cutpoints(&src, num_nodes, graph.num_arcs_hint(), use_dcf)?;
 
                 thread_pool.install(|| {
-                    let par_sort_iters = webgraph::utils::ParSortIters::new_dedup(num_nodes)?
+                    let conf = ParSortedGraph::config()
+                        .dedup()
                         .memory_usage(memory_usage)
                         .expected_num_pairs(2 * graph.num_arcs() as usize);
 
@@ -180,8 +181,7 @@ where
                         })
                         .collect();
 
-                    let split = par_sort_iters.sort(pairs)?;
-                    let sorted = ParSortedGraph::from_parts(split.boundaries, split.iters);
+                    let sorted = conf.par_sort_pair_iters(num_nodes, pairs)?;
                     par_comp!(builder, sorted, target_endianness)
                 })
             })?;

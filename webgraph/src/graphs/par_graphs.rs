@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Wrappers that alter the default result of
+//! Wrappers that overrides the default result of
 //! [`IntoParLenders::into_par_lenders`].
 //!
 //! A graph can have an intrinsic number of parallel lenders returned by
@@ -13,23 +13,40 @@
 //! is a default: for example, a [splittable graph] will return as many lenders
 //! as the current number of Rayon threads.
 //!
-//! In some cases, however, it is desirable to alter this behavior: for
-//! example, you might want to split the lenders [by the overall number of
-//! successors they will return], rather than by the number of nodes.
+//! [`ParGraph`] lets you override this behavior by specifying either a fixed
+//! number of uniform partitions or explicit cutpoints (e.g., computed from a
+//! degree cumulative function).
 //!
 //! [splittable graph]: SplitLabeling
-//! [by the overall number of successors they will return]: ParallelDcfGraph
 
 use crate::prelude::*;
 use lender::*;
 use sux::{traits::SuccUnchecked, utils::FairChunks};
 
-/// A wrapper that overrides the number of lenders returned by
-/// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
-/// the same number of nodes (except possibly the last one, which may be
-/// smaller).
+/// How to partition the graph for parallel lenders.
+#[derive(Debug, Clone)]
+enum Splitting {
+    /// Pre-computed cutpoints (e.g., from a DCF or CLI).
+    Cutpoints(Box<[usize]>),
+    /// Number of uniform partitions; cutpoints computed on the fly.
+    Uniform(usize),
+}
+
+/// A wrapper that overrides the number and boundaries of lenders returned by
+/// [`IntoParLenders::into_par_lenders`].
+///
+/// A `ParGraph` can be constructed in two ways:
+///
+/// - [`new`] splits nodes into a given number of approximately equal parts;
+///
+/// - [`with_cutpoints`] uses user-defined cutpoints;
+///
+/// - [`with_dcf`] uses a distributive cumulative function to compute
+///   cutpoints providing approximately the same number of arcs.
 ///
 /// # Examples
+///
+/// Uniform splitting into a fixed number of parts:
 ///
 /// ```rust
 /// # use webgraph::prelude::*;
@@ -38,123 +55,16 @@ use sux::{traits::SuccUnchecked, utils::FairChunks};
 /// # fn main() -> anyhow::Result<()> {
 /// # let tempdir = Builder::new().prefix("test").tempdir()?;
 /// # let basename = tempdir.path().join("basename");
-/// // A VecGraph
 /// let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
 ///
-/// // This is now a sorted graph ready to be compressed in parallel
-/// // using exactly 2 lenders approximately of the same size, instead
-/// // of the default number of lenders (the number of Rayon threads)
-/// let sorted = ParSortedGraph::from_graph(ParUniformGraph::new(graph, 2))?;
-///
-/// // This will compress the graph in parallel
+/// // Compress with exactly 2 lenders of approximately equal size
+/// let sorted = ParSortedGraph::from_graph(ParGraph::new(graph, 2))?;
 /// BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone)]
-pub struct ParUniformGraph<G>(pub G, usize);
-
-impl<G> ParUniformGraph<G> {
-    /// Creates a new [`ParGraph`] with the given inner graph and
-    /// number of lenders.
-    pub fn new(graph: G, num_lenders: usize) -> Self {
-        assert!(num_lenders > 0, "the number of lenders must be positive");
-        Self(graph, num_lenders)
-    }
-}
-
-impl<G: SequentialLabeling> SequentialLabeling for ParUniformGraph<G> {
-    type Label = G::Label;
-    type Lender<'node>
-        = G::Lender<'node>
-    where
-        Self: 'node;
-
-    #[inline(always)]
-    fn num_nodes(&self) -> usize {
-        self.0.num_nodes()
-    }
-
-    #[inline(always)]
-    fn num_arcs_hint(&self) -> Option<u64> {
-        self.0.num_arcs_hint()
-    }
-
-    #[inline(always)]
-    fn iter_from(&self, from: usize) -> Self::Lender<'_> {
-        self.0.iter_from(from)
-    }
-}
-
-impl<G: SequentialGraph> SequentialGraph for ParUniformGraph<G> {}
-
-impl<G: RandomAccessLabeling> RandomAccessLabeling for ParUniformGraph<G> {
-    type Labels<'succ>
-        = G::Labels<'succ>
-    where
-        Self: 'succ;
-
-    #[inline(always)]
-    fn num_arcs(&self) -> u64 {
-        self.0.num_arcs()
-    }
-
-    #[inline(always)]
-    fn labels(&self, node_id: usize) -> Self::Labels<'_> {
-        self.0.labels(node_id)
-    }
-
-    #[inline(always)]
-    fn outdegree(&self, node_id: usize) -> usize {
-        self.0.outdegree(node_id)
-    }
-}
-
-impl<G: RandomAccessGraph> RandomAccessGraph for ParUniformGraph<G> {}
-
-impl<'a, G: SequentialLabeling + SplitLabeling> IntoParLenders for &'a ParUniformGraph<G>
-where
-    for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
-{
-    type ParLender = <G as SplitLabeling>::SplitLender<'a>;
-
-    fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let n = self.1;
-        let step = self.0.num_nodes().div_ceil(n);
-        let num_nodes = self.0.num_nodes();
-        let boundaries: Box<[usize]> = (0..=n).map(|i| (i * step).min(num_nodes)).collect();
-        let lenders: Box<[_]> = self.0.split_iter(n).into_iter().collect();
-        (lenders, boundaries)
-    }
-}
-
-/// Convenience implementation that makes it possible to iterate
-/// over the graph using the [`for_`] macro
-/// (see the [crate documentation]).
 ///
-/// [crate documentation]: crate
-impl<'b, G: SequentialLabeling> IntoLender for &'b ParUniformGraph<G> {
-    type Lender = <G as SequentialLabeling>::Lender<'b>;
-
-    #[inline(always)]
-    fn into_lender(self) -> Self::Lender {
-        self.iter()
-    }
-}
-
-/// A wrapper that overrides the number of lenders returned by
-/// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
-/// approximately the same number of arcs (except possibly the last one, which
-/// may be smaller).
-///
-/// The cutpoints are computed once at construction time from a degree
-/// cumulative function (DCF), which is not retained afterwards.
-/// A wrapper that overrides the number of lenders returned by
-/// [`IntoParLenders::into_par_lenders`] to a fixed number of lenders returning
-/// the same number of nodes (except possibly the last one, which may be
-/// smaller).
-///
-/// # Examples
+/// DCF-based splitting for arc-balanced partitions:
 ///
 /// ```rust
 /// # use webgraph::prelude::*;
@@ -163,38 +73,57 @@ impl<'b, G: SequentialLabeling> IntoLender for &'b ParUniformGraph<G> {
 /// # fn main() -> anyhow::Result<()> {
 /// # let tempdir = Builder::new().prefix("test").tempdir()?;
 /// # let basename = tempdir.path().join("basename");
-/// // A VecGraph
 /// let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
 /// let dcf = graph.build_dcf();
 /// let num_arcs = graph.num_arcs();
 ///
-/// // This is now a sorted graph ready to be compressed in parallel
-/// // using exactly 2 lenders returning approximately the same overall
-/// // number of arcs, instead of lenders returning approximately the
-/// // the number of nodes, as it happens with ParUniformGraph.
-/// let sorted = ParSortedGraph::from_graph(ParDcfGraph::new(graph, num_arcs, dcf, 2))?;
-///
-/// // This will compress the graph in parallel
+/// // Compress with 2 lenders returning approximately the same number of arcs
+/// let sorted = ParSortedGraph::from_graph(ParGraph::with_dcf(graph, num_arcs, dcf, 2))?;
 /// BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
 /// # Ok(())
 /// # }
 /// ```
+///
+/// [`new`]: ParGraph::new
+/// [`with_cutpoints`]: ParGraph::with_cutpoints
+/// [`with_dcf`]: ParGraph::with_dcf
 #[derive(Debug, Clone)]
-pub struct ParDcfGraph<G> {
+pub struct ParGraph<G> {
     graph: G,
-    cutpoints: Box<[usize]>,
+    splitting: Splitting,
 }
 
-impl<G> ParDcfGraph<G> {
-    /// Creates a new [`ParDcfGraph`] with the given inner graph,
-    /// degree cumulative function, and number of lenders.
+impl<G> ParGraph<G> {
+    /// Creates a new [`ParGraph`] that splits nodes into `num_lenders`
+    /// approximately equal parts.
+    pub fn new(graph: G, num_lenders: usize) -> Self {
+        assert!(num_lenders > 0, "the number of lenders must be positive");
+        Self {
+            graph,
+            splitting: Splitting::Uniform(num_lenders),
+        }
+    }
+
+    /// Creates a new [`ParGraph`] with pre-computed cutpoints.
+    ///
+    /// The cutpoints must be a non-decreasing sequence starting at 0
+    /// and ending at the number of nodes of the graph.
+    pub fn with_cutpoints(graph: G, cutpoints: Vec<usize>) -> Self {
+        Self {
+            graph,
+            splitting: Splitting::Cutpoints(cutpoints.into_boxed_slice()),
+        }
+    }
+
+    /// Creates a new [`ParGraph`] with cutpoints computed from a degree
+    /// cumulative function (DCF).
     ///
     /// We require explicitly the number of arcs to support also
     /// sequential graphs for which the number is known.
     ///
     /// The cutpoints are computed immediately from the DCF using
     /// [`FairChunks`]; the DCF is not stored.
-    pub fn new<D>(graph: G, num_arcs: u64, dcf: D, num_lenders: usize) -> Self
+    pub fn with_dcf<D>(graph: G, num_arcs: u64, dcf: D, num_lenders: usize) -> Self
     where
         G: SequentialLabeling,
         D: for<'b> SuccUnchecked<Input = u64, Output<'b> = u64>,
@@ -205,11 +134,14 @@ impl<G> ParDcfGraph<G> {
         let cutpoints: Box<[usize]> = std::iter::once(0)
             .chain(FairChunks::new_with(target, dcf, num_nodes, num_arcs).map(|r| r.end))
             .collect();
-        Self { graph, cutpoints }
+        Self {
+            graph,
+            splitting: Splitting::Cutpoints(cutpoints),
+        }
     }
 }
 
-impl<G: SequentialLabeling> SequentialLabeling for ParDcfGraph<G> {
+impl<G: SequentialLabeling> SequentialLabeling for ParGraph<G> {
     type Label = G::Label;
     type Lender<'node>
         = G::Lender<'node>
@@ -232,9 +164,9 @@ impl<G: SequentialLabeling> SequentialLabeling for ParDcfGraph<G> {
     }
 }
 
-impl<G: SequentialGraph> SequentialGraph for ParDcfGraph<G> {}
+impl<G: SequentialGraph> SequentialGraph for ParGraph<G> {}
 
-impl<G: RandomAccessLabeling> RandomAccessLabeling for ParDcfGraph<G> {
+impl<G: RandomAccessLabeling> RandomAccessLabeling for ParGraph<G> {
     type Labels<'succ>
         = G::Labels<'succ>
     where
@@ -256,9 +188,9 @@ impl<G: RandomAccessLabeling> RandomAccessLabeling for ParDcfGraph<G> {
     }
 }
 
-impl<G: RandomAccessGraph> RandomAccessGraph for ParDcfGraph<G> {}
+impl<G: RandomAccessGraph> RandomAccessGraph for ParGraph<G> {}
 
-impl<'a, G> IntoParLenders for &'a ParDcfGraph<G>
+impl<'a, G> IntoParLenders for &'a ParGraph<G>
 where
     G: SequentialLabeling + SplitLabeling,
     for<'b> <G as SplitLabeling>::SplitLender<'b>: ExactSizeLender + FusedLender,
@@ -266,23 +198,33 @@ where
     type ParLender = <G as SplitLabeling>::SplitLender<'a>;
 
     fn into_par_lenders(self) -> (Box<[Self::ParLender]>, Box<[usize]>) {
-        let boundaries: Box<[usize]> = self.cutpoints.iter().copied().collect();
-        let lenders: Box<[_]> = self
-            .graph
-            .split_iter_at(self.cutpoints.clone())
-            .into_iter()
-            .collect();
-        (lenders, boundaries)
+        match &self.splitting {
+            Splitting::Cutpoints(cp) => {
+                let lenders: Box<[_]> = self
+                    .graph
+                    .split_iter_at(cp.iter().copied())
+                    .into_iter()
+                    .collect();
+                (lenders, cp.clone())
+            }
+            Splitting::Uniform(n) => {
+                let n = *n;
+                let num_nodes = self.graph.num_nodes();
+                let step = num_nodes.div_ceil(n);
+                let boundaries: Box<[usize]> = (0..=n).map(|i| (i * step).min(num_nodes)).collect();
+                let lenders: Box<[_]> = self.graph.split_iter(n).into_iter().collect();
+                (lenders, boundaries)
+            }
+        }
     }
 }
-
 
 /// Convenience implementation that makes it possible to iterate
 /// over the graph using the [`for_`] macro
 /// (see the [crate documentation]).
 ///
 /// [crate documentation]: crate
-impl<'b, G: SequentialLabeling> IntoLender for &'b ParDcfGraph<G> {
+impl<'b, G: SequentialLabeling> IntoLender for &'b ParGraph<G> {
     type Lender = <G as SequentialLabeling>::Lender<'b>;
 
     #[inline(always)]

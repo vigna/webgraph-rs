@@ -185,7 +185,7 @@ impl<const DEDUP: bool> ParSortPairs<DEDUP> {
 
 impl<const DEDUP: bool> ParSortPairs<DEDUP> {
     /// Creates a new [`ParSortPairs`] instance.
-    fn create(num_nodes: usize) -> Result<Self> {
+    pub(crate) fn create(num_nodes: usize) -> Result<Self> {
         Ok(Self {
             num_nodes,
             expected_num_pairs: None,

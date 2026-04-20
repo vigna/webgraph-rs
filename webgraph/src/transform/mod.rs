@@ -13,8 +13,8 @@
 //!
 //! - [`transpose()`]: returns the transpose of a graph;
 //! - [`transpose_labeled`]: returns the transpose of a labeled graph;
-//! - [`transpose_split`]: returns the transpose of a [splittable] graph,
-//!   sorting in parallel;
+//! - [`transpose_split`]: returns the transpose of a graph implementing
+//!   [`IntoParLenders`], sorting in parallel;
 //! - [`transpose_labeled_split`]: same, for labeled graphs.
 //!
 //! # Symmetrize
@@ -47,12 +47,12 @@
 //! The transpose, symmetrize, permute, and map functions internally sort arcs
 //! by batching them to temporary files and then merging. The amount of memory
 //! used for batching is controlled by the [`MemoryUsage`] parameter. The
-//! `_split` variants sort in parallel using [`ParSortIters`] and are
-//! significantly faster on [splittable] graphs.
+//! `_split` variants sort in parallel using [`ParSortedGraph`] and accept
+//! graphs implementing [`IntoParLenders`].
 //!
-//! [splittable]: crate::traits::SplitLabeling
 //! [`MemoryUsage`]: crate::utils::MemoryUsage
-//! [`ParSortIters`]: crate::utils::ParSortIters
+//! [`ParSortedGraph`]: crate::graphs::par_sorted_graph::ParSortedGraph
+//! [`IntoParLenders`]: crate::traits::IntoParLenders
 
 mod symmetrize;
 pub use symmetrize::*;

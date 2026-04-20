@@ -196,7 +196,7 @@ where
         let dcf = unsafe { DCF::mmap(&dcf_path, Flags::RANDOM_ACCESS) }?;
         let num_arcs = graph.num_arcs();
         let dcf_graph =
-            ParDcfGraph::new(graph, num_arcs, &dcf.uncase(), rayon::current_num_threads());
+            ParGraph::with_dcf(graph, num_arcs, dcf.uncase(), rayon::current_num_threads());
         thread_pool.install(|| par_comp!(builder, &dcf_graph, target_endianness))?;
     } else {
         thread_pool.install(|| par_comp!(builder, &graph, target_endianness))?;

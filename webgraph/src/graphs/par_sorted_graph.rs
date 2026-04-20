@@ -15,7 +15,8 @@
 //! implementation—hence the `ParSorted` prefix.
 //!
 //! The resulting graphs are only sequential, and are usually used directly for
-//! compression or other transformations.
+//! compression or other transformations. Optionally, you can [deduplicate]
+//! after sorting.
 //!
 //! # Examples
 //!
@@ -146,7 +147,35 @@
 //! # }
 //! ```
 //!
+//! Finally, if you already have multiple iterators on pairs, you can sort them
+//! in parallel using [`par_from_pair_iters`]. For example, if you want
+//! to transpose a graph:
+//!
+//! ```rust
+//! # use webgraph::prelude::*;
+//! # use dsi_bitstream::prelude::BE;
+//! # use tempfile::Builder;
+//! # fn main() -> anyhow::Result<()> {
+//! # let tempdir = Builder::new().prefix("test").tempdir()?;
+//! # let basename = tempdir.path().join("basename");
+//! // A VecGraph
+//! let graph = VecGraph::from_arcs([(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)]);
+//! let num_nodes = graph.num_nodes();
+//!
+//! // Split into parallel lenders, turn them into pairs
+//! // and transpose them
+//! let rev_iters = graph.into_par_lenders().0.into_iter()
+//!     .map(|lender| lender.into_pairs().map(|(x, y)| (y, x)));
+//!
+//! let transposed = ParSortedGraph::par_from_pair_iters(num_nodes, rev_iters)?;
+//! BvComp::with_basename(basename).par_comp::<BE, _>(transposed)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`par_from_pair_iters`]: ParSortedGraph::par_from_pair_iters
 //! [configuration]: ParSortedGraph::config
+//! [deduplicate]: ParSortedGraphConf::deduplicate
 use crate::graphs::arc_list_graph;
 use crate::labels::proj::LeftIterator;
 use crate::prelude::*;
@@ -177,6 +206,17 @@ use std::iter::Flatten;
 ///
 /// - [`par_from_pairs`] takes a Rayon parallel iterator on labeled pairs.
 ///
+/// - [`from_try_pairs`] takes an iterator on a [`Result`] of labeled pairs;
+///
+/// - [`par_from_try_pairs`] takes a Rayon parallel iterator on a [`Result`]
+///   of labeled pairs;
+///
+/// - [`par_from_pair_iters`] takes multiple iterators on pairs; useful for
+///   direct pair manipulation such as transposition.
+///
+/// The `try_pairs` methods are useful in scenarios where the pairs come, for
+/// example, from a file.
+///
 /// Labels are serialized and deserialized using a [`BitSerializer`] and
 /// [`BitDeserializer`] pair passed to the constructor.
 ///
@@ -193,6 +233,9 @@ use std::iter::Flatten;
 /// [`par_from`]: ParSortedLabeledGraph::par_from_graph
 /// [`from_pairs`]: ParSortedLabeledGraph::from_pairs
 /// [`par_from_pairs`]: ParSortedLabeledGraph::par_from_pairs
+/// [`from_try_pairs`]: ParSortedLabeledGraph::from_try_pairs
+/// [`par_from_try_pairs`]: ParSortedLabeledGraph::par_from_try_pairs
+/// [`par_from_pair_iters`]: ParSortedLabeledGraph::par_from_pair_iters
 /// [configuration]: ParSortedLabeledGraph::config
 /// [module documentation]: crate::graphs::par_sorted_graph
 pub struct ParSortedLabeledGraph<I> {
@@ -224,7 +267,7 @@ pub(crate) type LabeledCodec<SD> = grouped_gaps::GroupedGapsCodec<
 /// [`BitSerializer`] and [`BitDeserializer`] for the label type. Use
 /// [`BitSerDeser`] to combine separate serializer and deserializer
 /// implementations.
-pub type SortedLabeledIter<SD> = KMergeIters<
+pub type SortedLabeledIter<SD, const DEDUP: bool = false> = KMergeIters<
     grouped_gaps::GroupedGapsIter<
         NE,
         SD,
@@ -233,6 +276,7 @@ pub type SortedLabeledIter<SD> = KMergeIters<
         { dsi_bitstream::dispatch::code_consts::DELTA },
     >,
     <SD as BitSerializer<NE, BitWriter<NE>>>::SerType,
+    DEDUP,
 >;
 
 impl<I> ParSortedLabeledGraph<I> {
@@ -353,6 +397,30 @@ impl ParSortedLabeledGraph<()> {
         ParSortedLabeledGraphConf::default().par_sort_pairs(num_nodes, sd, pairs)
     }
 
+    /// Sorts labeled pairs from multiple iterators in parallel with default
+    /// settings.
+    ///
+    /// Equivalent to
+    /// [`ParSortedLabeledGraph::config().par_sort_pair_iters(num_nodes, sd, iters)`].
+    ///
+    /// [`ParSortedLabeledGraph::config().par_sort_pair_iters(num_nodes, sd, iters)`]: ParSortedLabeledGraphConf::par_sort_pair_iters
+    pub fn par_from_pair_iters<SD, I>(
+        num_nodes: usize,
+        sd: SD,
+        iters: impl IntoIterator<Item = I>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    where
+        SD: BitSerializer<NE, BitWriter<NE>>
+            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+            + Send
+            + Sync
+            + Clone,
+        SD::SerType: Copy + Send + Sync + 'static,
+        I: Iterator<Item = ((usize, usize), SD::SerType)> + Send,
+    {
+        ParSortedLabeledGraphConf::default().par_sort_pair_iters(num_nodes, sd, iters)
+    }
+
     /// Sorts labeled pairs from a fallible iterator with default
     /// settings.
     ///
@@ -364,7 +432,7 @@ impl ParSortedLabeledGraph<()> {
     /// [`ParSortedLabeledGraph::config().sort_try_pairs(num_nodes, sd, pairs)`].
     ///
     /// [`ParSortedLabeledGraph::config().sort_try_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::sort_try_pairs
-    pub fn try_from_pairs<SD, E: Into<anyhow::Error>>(
+    pub fn from_try_pairs<SD, E: Into<anyhow::Error>>(
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
@@ -391,7 +459,7 @@ impl ParSortedLabeledGraph<()> {
     /// [`ParSortedLabeledGraph::config().par_sort_try_pairs(num_nodes, sd, pairs)`].
     ///
     /// [`ParSortedLabeledGraph::config().par_sort_try_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::par_sort_try_pairs
-    pub fn try_par_from_pairs<SD, E: Into<anyhow::Error> + Send>(
+    pub fn par_from_try_pairs<SD, E: Into<anyhow::Error> + Send>(
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
@@ -504,9 +572,9 @@ impl<
     type Lend = Lend<'lend, <ParSortedLabeledGraph<I> as SequentialLabeling>::Lender<'lend>>;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SortedGraph — transparent wrapper around SortedLabeledGraph<(), I>
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ParSortedGraph — transparent wrapper around SortedLabeledGraph<(), I>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /// A sorted graph that can be processed in parallel.
 ///
@@ -519,6 +587,17 @@ impl<
 /// - [`from_pairs`] takes an iterator on pairs;
 ///
 /// - [`par_from_pairs`] takes a Rayon parallel iterator on pairs.
+///
+/// - [`from_try_pairs`] takes an iterator on a [`Result`] of labeled pairs;
+///
+/// - [`par_from_try_pairs`] takes a Rayon parallel iterator on a [`Result`]
+///   of labeled pairs.
+///
+/// - [`par_from_pair_iters`] takes multiple iterators on pairs; useful for
+///   direct pair manipulation such as transposition.
+///
+/// The `try_pairs` two methods are useful in scenarios where the pairs come,
+/// for example, from a file.
 ///
 /// These method use default values: use a [configuration] for
 /// turning .
@@ -533,6 +612,9 @@ impl<
 /// [`par_from`]: ParSortedGraph::par_from_graph
 /// [`from_pairs`]: ParSortedGraph::from_pairs
 /// [`par_from_pairs`]: ParSortedGraph::par_from_pairs
+/// [`from_try_pairs`]: ParSortedGraph::from_try_pairs
+/// [`par_from_try_pairs`]: ParSortedGraph::par_from_try_pairs
+/// [`par_from_pair_iters`]: ParSortedGraph::par_from_pair_iters
 /// [configuration]: ParSortedGraph::config
 /// [module documentation]: crate::graphs::par_sorted_graph
 pub struct ParSortedGraph<I>(pub ParSortedLabeledGraph<I>);
@@ -639,6 +721,21 @@ impl ParSortedGraph<SortedPairIter> {
         ParSortedGraphConf::default().par_sort_pairs(num_nodes, pairs)
     }
 
+    /// Sorts pairs from multiple iterators in parallel with default settings.
+    ///
+    /// Equivalent to [`ParSortedGraph::config().par_sort_pair_iters(num_nodes, iters)`].
+    ///
+    /// [`ParSortedGraph::config().par_sort_pair_iters(num_nodes, iters)`]: ParSortedGraphConf::par_sort_pair_iters
+    pub fn par_from_pair_iters<I>(
+        num_nodes: usize,
+        iters: impl IntoIterator<Item = I>,
+    ) -> Result<Self>
+    where
+        I: Iterator<Item = (usize, usize)> + Send,
+    {
+        ParSortedGraphConf::default().par_sort_pair_iters(num_nodes, iters)
+    }
+
     /// Sorts pairs from a fallible iterator with default settings.
     ///
     /// Note that the `try_` infix refers to the fallibility of the
@@ -648,7 +745,7 @@ impl ParSortedGraph<SortedPairIter> {
     /// Equivalent to [`ParSortedGraph::config().sort_try_pairs(num_nodes, pairs)`].
     ///
     /// [`ParSortedGraph::config().sort_try_pairs(num_nodes, pairs)`]: ParSortedGraphConf::sort_try_pairs
-    pub fn try_from_pairs<E: Into<anyhow::Error>>(
+    pub fn from_try_pairs<E: Into<anyhow::Error>>(
         num_nodes: usize,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<Self> {
@@ -665,7 +762,7 @@ impl ParSortedGraph<SortedPairIter> {
     /// Equivalent to [`ParSortedGraph::config().par_sort_try_pairs(num_nodes, pairs)`].
     ///
     /// [`ParSortedGraph::config().par_sort_try_pairs(num_nodes, pairs)`]: ParSortedGraphConf::par_sort_try_pairs
-    pub fn try_par_from_pairs<E: Into<anyhow::Error> + Send>(
+    pub fn par_from_try_pairs<E: Into<anyhow::Error> + Send>(
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
     ) -> Result<Self> {
@@ -759,14 +856,31 @@ impl<'lend, I: Iterator<Item = ((usize, usize), ())> + Clone + Send + Sync> Lend
 ///
 /// You can alternatively build an instance using the [`Default`] trait
 /// implementation.
-#[derive(Default)]
-pub struct ParSortedGraphConf(pub(crate) ParSortedLabeledGraphConf);
+///
+/// # Deduplication
+///
+/// By default, duplicate arcs are preserved. Call [`.dedup()`](Self::dedup)
+/// to enable deduplication.
+pub struct ParSortedGraphConf<const DEDUP: bool = false>(
+    pub(crate) ParSortedLabeledGraphConf<DEDUP>,
+);
 
-impl ParSortedGraphConf {
+impl Default for ParSortedGraphConf {
+    fn default() -> Self {
+        ParSortedGraphConf(ParSortedLabeledGraphConf::default())
+    }
+}
+
+impl<const DEDUP: bool> ParSortedGraphConf<DEDUP> {
+    /// Enables deduplication of arcs during sorting.
+    pub fn dedup(self) -> ParSortedGraphConf<true> {
+        ParSortedGraphConf(self.0.dedup())
+    }
+
     /// Sets the number of lenders that will be returned by [`IntoParLenders`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub const fn num_lenders(self, n: usize) -> Self {
+    pub fn num_lenders(self, n: usize) -> Self {
         assert!(n > 0, "the number of lenders must be positive");
         ParSortedGraphConf(self.0.num_lenders(n))
     }
@@ -774,36 +888,34 @@ impl ParSortedGraphConf {
     /// Sets the memory budget for in-memory sorting.
     ///
     /// Defaults to [`MemoryUsage::default`].
-    pub const fn memory_usage(self, m: MemoryUsage) -> Self {
+    pub fn memory_usage(self, m: MemoryUsage) -> Self {
         ParSortedGraphConf(self.0.memory_usage(m))
+    }
+
+    /// Sets the expected number of pairs to sort.
+    ///
+    /// Used only for progress reporting.
+    pub fn expected_num_pairs(self, n: usize) -> Self {
+        ParSortedGraphConf(self.0.expected_num_pairs(n))
     }
 
     /// Sorts arcs from a [`SequentialGraph`], returning a [`ParSortedGraph`].
     pub fn sort_graph<G: SequentialGraph>(
         self,
         graph: G,
-    ) -> Result<ParSortedGraph<SortedPairIter>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.0.num_partitions)
-            .memory_usage(self.0.memory_usage);
+        let mut conf = self;
         if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+            conf = conf.expected_num_pairs(num_arcs as usize);
         }
-        Ok(ParSortedGraph(
-            par_sort
-                .sort_labeled_seq::<DefaultBatchCodec, _>(
-                    DefaultBatchCodec::default(),
-                    graph.iter().into_pairs().map(|pair| (pair, ())),
-                )?
-                .into(),
-        ))
+        conf.sort_pairs(num_nodes, graph.iter().into_pairs())
     }
 
     /// Sorts arcs from a graph implementing [`IntoParLenders`] in
     /// parallel, producing a partitioned [`ParSortedGraph`].
-    pub fn par_sort_graph<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter>>
+    pub fn par_sort_graph<G>(self, graph: G) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>>
     where
         G: SequentialGraph
             + IntoParLenders<
@@ -816,23 +928,16 @@ impl ParSortedGraphConf {
     {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.0.num_partitions)
-            .memory_usage(self.0.memory_usage);
+        let mut conf = self;
         if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+            conf = conf.expected_num_pairs(num_arcs as usize);
         }
         let (lenders, _boundaries) = graph.into_par_lenders();
-        let pairs: Vec<_> = lenders
+        let iters = lenders
             .into_vec()
             .into_iter()
-            .map(|lender| lender.into_pairs().map(|pair| (pair, ())))
-            .collect();
-        Ok(ParSortedGraph(
-            par_sort
-                .sort_labeled::<DefaultBatchCodec, _>(DefaultBatchCodec::default(), pairs)?
-                .into(),
-        ))
+            .map(|lender| lender.into_pairs());
+        conf.par_sort_pair_iters(num_nodes, iters)
     }
 
     /// Sorts unlabeled pairs from an iterator, producing a partitioned
@@ -841,11 +946,28 @@ impl ParSortedGraphConf {
         self,
         num_nodes: usize,
         pairs: impl IntoIterator<Item = (usize, usize)>,
-    ) -> Result<ParSortedGraph<SortedPairIter>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
         Ok(ParSortedGraph(self.0.sort_pairs(
             num_nodes,
             (),
             pairs.into_iter().map(|pair| (pair, ())),
+        )?))
+    }
+
+    /// Sorts unlabeled pairs from multiple iterators in parallel,
+    /// producing a partitioned [`ParSortedGraph`].
+    pub fn par_sort_pair_iters<I>(
+        self,
+        num_nodes: usize,
+        iters: impl IntoIterator<Item = I>,
+    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>>
+    where
+        I: Iterator<Item = (usize, usize)> + Send,
+    {
+        Ok(ParSortedGraph(self.0.par_sort_pair_iters(
+            num_nodes,
+            (),
+            iters.into_iter().map(|iter| iter.map(|pair| (pair, ()))),
         )?))
     }
 
@@ -855,7 +977,7 @@ impl ParSortedGraphConf {
         self,
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = (usize, usize)>,
-    ) -> Result<ParSortedGraph<SortedPairIter>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
         Ok(ParSortedGraph(self.0.par_sort_pairs(
             num_nodes,
             (),
@@ -873,7 +995,7 @@ impl ParSortedGraphConf {
         self,
         num_nodes: usize,
         pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<ParSortedGraph<SortedPairIter>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
         Ok(ParSortedGraph(self.0.sort_try_pairs(
             num_nodes,
             (),
@@ -891,7 +1013,7 @@ impl ParSortedGraphConf {
         self,
         num_nodes: usize,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
-    ) -> Result<ParSortedGraph<SortedPairIter>> {
+    ) -> Result<ParSortedGraph<SortedPairIter<DEDUP>>> {
         Ok(ParSortedGraph(self.0.par_sort_try_pairs(
             num_nodes,
             (),
@@ -912,9 +1034,15 @@ impl ParSortedGraphConf {
 ///
 /// You can alternatively build an instance using the [`Default`] trait
 /// implementation.
-pub struct ParSortedLabeledGraphConf {
+///
+/// # Deduplication
+///
+/// By default, duplicate arcs are preserved. Call [`.dedup()`](Self::dedup)
+/// to enable deduplication.
+pub struct ParSortedLabeledGraphConf<const DEDUP: bool = false> {
     num_partitions: usize,
     memory_usage: MemoryUsage,
+    expected_num_pairs: Option<usize>,
 }
 
 impl Default for ParSortedLabeledGraphConf {
@@ -927,15 +1055,25 @@ impl Default for ParSortedLabeledGraphConf {
         ParSortedLabeledGraphConf {
             num_partitions: rayon::current_num_threads(),
             memory_usage: MemoryUsage::default(),
+            expected_num_pairs: None,
         }
     }
 }
 
-impl ParSortedLabeledGraphConf {
+impl<const DEDUP: bool> ParSortedLabeledGraphConf<DEDUP> {
+    /// Enables deduplication of arcs during sorting.
+    pub fn dedup(self) -> ParSortedLabeledGraphConf<true> {
+        ParSortedLabeledGraphConf {
+            num_partitions: self.num_partitions,
+            memory_usage: self.memory_usage,
+            expected_num_pairs: self.expected_num_pairs,
+        }
+    }
+
     /// Sets the number of lenders that will be returned by [`IntoParLenders`].
     ///
     /// Defaults to [`rayon::current_num_threads`].
-    pub const fn num_lenders(mut self, n: usize) -> Self {
+    pub fn num_lenders(mut self, n: usize) -> Self {
         assert!(n > 0, "the number of lenders must be positive");
         self.num_partitions = n;
         self
@@ -944,9 +1082,39 @@ impl ParSortedLabeledGraphConf {
     /// Sets the memory budget for in-memory sorting.
     ///
     /// Defaults to [`MemoryUsage::default`].
-    pub const fn memory_usage(mut self, m: MemoryUsage) -> Self {
+    pub fn memory_usage(mut self, m: MemoryUsage) -> Self {
         self.memory_usage = m;
         self
+    }
+
+    /// Sets the expected number of pairs to sort.
+    ///
+    /// Used only for progress reporting.
+    pub fn expected_num_pairs(mut self, n: usize) -> Self {
+        self.expected_num_pairs = Some(n);
+        self
+    }
+
+    /// Creates a configured [`ParSortIters`] from this configuration.
+    fn make_par_sort_iters(&self, num_nodes: usize) -> Result<ParSortIters<DEDUP>> {
+        let mut ps = ParSortIters::create(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        if let Some(n) = self.expected_num_pairs {
+            ps = ps.expected_num_pairs(n);
+        }
+        Ok(ps)
+    }
+
+    /// Creates a configured [`ParSortPairs`] from this configuration.
+    fn make_par_sort_pairs(&self, num_nodes: usize) -> Result<ParSortPairs<DEDUP>> {
+        let mut ps = ParSortPairs::create(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        if let Some(n) = self.expected_num_pairs {
+            ps = ps.expected_num_pairs(n);
+        }
+        Ok(ps)
     }
 
     /// Sorts labeled arcs from a [`LabeledSequentialGraph`], producing a
@@ -955,7 +1123,7 @@ impl ParSortedLabeledGraphConf {
         self,
         graph: G,
         sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -967,12 +1135,11 @@ impl ParSortedLabeledGraphConf {
     {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        let mut conf = self;
+        if let Some(n) = num_arcs_hint {
+            conf = conf.expected_num_pairs(n as usize);
         }
+        let par_sort = conf.make_par_sort_iters(num_nodes)?;
         let codec = LabeledCodec::new(sd);
         Ok(par_sort
             .sort_labeled_seq(codec, graph.iter().into_labeled_pairs())?
@@ -985,7 +1152,7 @@ impl ParSortedLabeledGraphConf {
         self,
         graph: G,
         sd: SD,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -1004,20 +1171,16 @@ impl ParSortedLabeledGraphConf {
     {
         let num_nodes = graph.num_nodes();
         let num_arcs_hint = graph.num_arcs_hint();
-        let mut par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
-        if let Some(num_arcs) = num_arcs_hint {
-            par_sort = par_sort.expected_num_pairs(num_arcs as usize);
+        let mut conf = self;
+        if let Some(n) = num_arcs_hint {
+            conf = conf.expected_num_pairs(n as usize);
         }
         let (lenders, _boundaries) = graph.into_par_lenders();
-        let pairs: Vec<_> = lenders
+        let iters = lenders
             .into_vec()
             .into_iter()
-            .map(|lender| lender.into_labeled_pairs())
-            .collect();
-        let codec = LabeledCodec::new(sd);
-        Ok(par_sort.sort_labeled(codec, pairs)?.into())
+            .map(|lender| lender.into_labeled_pairs());
+        conf.par_sort_pair_iters(num_nodes, sd, iters)
     }
 
     /// Sorts labeled pairs from an iterator, producing a partitioned
@@ -1027,7 +1190,7 @@ impl ParSortedLabeledGraphConf {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -1036,11 +1199,32 @@ impl ParSortedLabeledGraphConf {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        let par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
+        let par_sort = self.make_par_sort_iters(num_nodes)?;
         let codec = LabeledCodec::new(sd);
         Ok(par_sort.sort_labeled_seq(codec, pairs)?.into())
+    }
+
+    /// Sorts labeled pairs from multiple iterators in parallel,
+    /// producing a partitioned [`ParSortedLabeledGraph`].
+    pub fn par_sort_pair_iters<SD, I>(
+        self,
+        num_nodes: usize,
+        sd: SD,
+        iters: impl IntoIterator<Item = I>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
+    where
+        SD: BitSerializer<NE, BitWriter<NE>>
+            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+            + Send
+            + Sync
+            + Clone,
+        SD::SerType: Copy + Send + Sync + 'static,
+        I: Iterator<Item = ((usize, usize), SD::SerType)> + Send,
+    {
+        let par_sort = self.make_par_sort_iters(num_nodes)?;
+        let codec = LabeledCodec::new(sd);
+        let iters: Vec<_> = iters.into_iter().collect();
+        Ok(par_sort.sort_labeled(codec, iters)?.into())
     }
 
     /// Sorts labeled pairs from a parallel iterator, producing a
@@ -1050,7 +1234,7 @@ impl ParSortedLabeledGraphConf {
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = ((usize, usize), SD::SerType)>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -1060,9 +1244,7 @@ impl ParSortedLabeledGraphConf {
         SD::SerType: Copy + Send + Sync + 'static,
     {
         let codec = LabeledCodec::new(sd);
-        let par_sort = ParSortPairs::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
+        let par_sort = self.make_par_sort_pairs(num_nodes)?;
         Ok(par_sort.sort_labeled(&codec, pairs)?.into())
     }
 
@@ -1077,7 +1259,7 @@ impl ParSortedLabeledGraphConf {
         num_nodes: usize,
         sd: SD,
         pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -1086,9 +1268,7 @@ impl ParSortedLabeledGraphConf {
             + Clone,
         SD::SerType: Copy + Send + Sync + 'static,
     {
-        let par_sort = ParSortIters::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
+        let par_sort = self.make_par_sort_iters(num_nodes)?;
         let codec = LabeledCodec::new(sd);
         Ok(par_sort.try_sort_labeled_seq(codec, pairs)?.into())
     }
@@ -1104,7 +1284,7 @@ impl ParSortedLabeledGraphConf {
         num_nodes: usize,
         sd: SD,
         pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
-    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD, DEDUP>>>
     where
         SD: BitSerializer<NE, BitWriter<NE>>
             + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
@@ -1114,9 +1294,7 @@ impl ParSortedLabeledGraphConf {
         SD::SerType: Copy + Send + Sync + 'static,
     {
         let codec = LabeledCodec::new(sd);
-        let par_sort = ParSortPairs::new(num_nodes)?
-            .num_partitions(self.num_partitions)
-            .memory_usage(self.memory_usage);
+        let par_sort = self.make_par_sort_pairs(num_nodes)?;
         Ok(par_sort.try_sort_labeled(&codec, pairs)?.into())
     }
 }

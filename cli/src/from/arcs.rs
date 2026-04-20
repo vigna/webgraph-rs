@@ -166,20 +166,13 @@ pub fn from_csv(args: CliArgs, file: impl BufRead) -> Result<()> {
     });
 
     // Sort and partition arcs for parallel compression
-    let mut par_sort =
-        ParSortIters::new_dedup(num_nodes)?.memory_usage(args.memory_usage.memory_usage);
+    let mut conf = ParSortedGraph::config()
+        .dedup()
+        .memory_usage(args.memory_usage.memory_usage);
     if let Some(n) = args.num_arcs {
-        par_sort = par_sort.expected_num_pairs(n);
+        conf = conf.expected_num_pairs(n);
     }
-
-    let sorted: ParSortedGraph<_> = ParSortedGraph(
-        par_sort
-            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(
-                DefaultBatchCodec::<true>::default(),
-                pairs.map(|pair| (pair, ())),
-            )?
-            .into(),
-    );
+    let sorted = conf.sort_pairs(num_nodes, pairs)?;
 
     if let Some(e) = parse_error {
         return Err(e);

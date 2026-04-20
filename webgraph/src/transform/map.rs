@@ -6,7 +6,7 @@
 
 use crate::graphs::par_sorted_graph::SortedPairIter;
 use crate::prelude::*;
-use crate::utils::par_sort_iters::ParSortIters;
+use crate::traits::{IntoParLenders, NodeLabelsLender};
 use anyhow::{Result, ensure};
 use value_traits::slices::SliceByValue;
 
@@ -19,11 +19,11 @@ use value_traits::slices::SliceByValue;
 /// The `num_nodes` parameter specifies the number of nodes of the resulting
 /// graph: it must be strictly greater than every value in the map.
 ///
-/// Note that if the graph is [splittable], [`map_split`] will be much faster.
+/// Note that if the graph implements [`IntoParLenders`], [`map_split`] will be
+/// much faster.
 ///
-/// For the meaning of the additional parameter, see [`ParSortIters`].
-///
-/// [splittable]: SplitLabeling
+/// For the meaning of the additional parameter, see
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 pub fn map(
     graph: &impl SequentialGraph,
     map: &impl SliceByValue<Value = usize>,
@@ -37,22 +37,20 @@ pub fn map(
         graph.num_nodes(),
     );
 
-    let par_sort = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
-
-    let pairs = graph
-        .iter()
-        .into_pairs()
-        .map(|(src, dst)| ((map.index_value(src), map.index_value(dst)), ()));
-
-    Ok(ParSortedGraph(
-        par_sort
-            .sort_labeled_seq::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    ParSortedGraph::config()
+        .dedup()
+        .memory_usage(memory_usage)
+        .sort_pairs(
+            num_nodes,
+            graph
+                .iter()
+                .into_pairs()
+                .map(|(src, dst)| (map.index_value(src), map.index_value(dst))),
+        )
 }
 
-/// Returns a [`ParSortedGraph`] representing the mapped graph starting from a
-/// [splittable] graph, computed in parallel.
+/// Returns a [`ParSortedGraph`] representing the mapped graph, computed in
+/// parallel.
 ///
 /// The map is not required to be bijective: multiple source nodes may map to the
 /// same destination node. Duplicate arcs are removed.
@@ -60,29 +58,31 @@ pub fn map(
 /// The `num_nodes` parameter specifies the number of nodes of the resulting
 /// graph: it must be strictly greater than every value in the map.
 ///
-/// Note that if the graph is not [splittable] you must use [`map`], albeit it
-/// will be slower.
+/// The graph must implement [`IntoParLenders`]; use [`ParGraph`] to wrap a
+/// [splittable] graph as needed.
 ///
 /// Parallelism is controlled via the current Rayon thread pool. Please
 /// [install] a custom pool if you want to customize the parallelism.
 ///
-/// For the meaning of the additional parameter, see [`ParSortIters`].
+/// For the meaning of the additional parameter, see
+/// [`ParSortedGraphConf`](crate::graphs::par_sorted_graph::ParSortedGraphConf).
 ///
+/// [`ParGraph`]: crate::graphs::par_graphs::ParGraph
 /// [splittable]: SplitLabeling
 /// [install]: rayon::ThreadPool::install
-pub fn map_split<'g, S, M>(
-    graph: &'g S,
+pub fn map_split<G, M>(
+    graph: G,
     map: &M,
     num_nodes: usize,
     memory_usage: MemoryUsage,
-    cutpoints: Option<Vec<usize>>,
 ) -> Result<ParSortedGraph<SortedPairIter<true>>>
 where
-    S: SequentialGraph
-        + for<'a> SplitLabeling<
-            SplitLender<'g>: NodeLabelsLender<
+    G: SequentialGraph
+        + IntoParLenders<
+            ParLender: for<'a> NodeLabelsLender<
                 'a,
-                IntoIterator: IntoIterator<IntoIter: Send + Sync>,
+                Label = usize,
+                IntoIterator: IntoIterator<IntoIter: Send>,
             >,
         >,
     M: SliceByValue<Value = usize> + Send + Sync,
@@ -94,28 +94,16 @@ where
         graph.num_nodes(),
     );
 
-    let mut par_sort_iters = ParSortIters::new_dedup(num_nodes)?.memory_usage(memory_usage);
-    if let Some(num_arcs) = graph.num_arcs_hint() {
-        par_sort_iters = par_sort_iters.expected_num_pairs(num_arcs as usize);
+    let num_arcs_hint = graph.num_arcs_hint();
+    let mut conf = ParSortedGraph::config().dedup().memory_usage(memory_usage);
+    if let Some(n) = num_arcs_hint {
+        conf = conf.expected_num_pairs(n as usize);
     }
-
-    let pairs: Vec<_> = match cutpoints {
-        Some(cp) => graph.split_iter_at(cp),
-        None => {
-            let parts = rayon::current_num_threads();
-            graph.split_iter(parts)
-        }
-    }
-    .into_iter()
-    .map(|iter| {
-        iter.into_pairs()
-            .map(|(src, dst)| ((map.index_value(src), map.index_value(dst)), ()))
-    })
-    .collect();
-
-    Ok(ParSortedGraph(
-        par_sort_iters
-            .sort_labeled::<DefaultBatchCodec<true>, _>(DefaultBatchCodec::default(), pairs)?
-            .into(),
-    ))
+    let (lenders, _boundaries) = graph.into_par_lenders();
+    let iters = lenders.into_vec().into_iter().map(|lender| {
+        lender
+            .into_pairs()
+            .map(|(src, dst)| (map.index_value(src), map.index_value(dst)))
+    });
+    conf.par_sort_pair_iters(num_nodes, iters)
 }

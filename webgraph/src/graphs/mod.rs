@@ -25,8 +25,7 @@ pub mod prelude {
     pub use super::bvgraph::*;
     pub use super::csr_graph::{CsrGraph, CsrSortedGraph};
     pub use super::no_selfloops_graph::NoSelfLoopsGraph;
-    pub use super::par_graphs::ParDcfGraph;
-    pub use super::par_graphs::ParUniformGraph;
+    pub use super::par_graphs::ParGraph;
     pub use super::par_sorted_graph::{ParSortedGraph, ParSortedLabeledGraph};
     pub use super::permuted_graph::PermutedGraph;
     pub use super::union_graph::UnionGraph;

@@ -51,7 +51,7 @@ fn test_transpose_split() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let sorted = transpose_split(&seq, MemoryUsage::BatchSize(2), None)?;
+    let sorted = transpose_split(&seq, MemoryUsage::BatchSize(2))?;
     assert_eq!(sorted.num_nodes(), 3);
     // Verify transposed content: (0,1),(1,2),(2,0) transposed is (2,0),(0,1),(1,2)
     let mut arcs = vec![];
@@ -72,7 +72,7 @@ fn test_transpose_split_bvgraph() -> Result<()> {
     let graph = BvGraph::with_basename(basename).load()?;
     let num_nodes = graph.num_nodes();
 
-    let sorted = transform::transpose_split(&graph, MemoryUsage::from_perc(1.0), None)?;
+    let sorted = transform::transpose_split(&graph, MemoryUsage::from_perc(1.0))?;
 
     assert_eq!(sorted.num_nodes(), num_nodes);
 
@@ -314,7 +314,7 @@ fn test_symmetrize_split_no_loops() -> Result<()> {
     let path = tmp.path();
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
-    let sorted = symmetrize_split::<true, _>(&seq, MemoryUsage::BatchSize(2), None)?;
+    let sorted = symmetrize_split::<true, _>(&seq, MemoryUsage::BatchSize(2))?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {
@@ -386,7 +386,7 @@ fn test_map_split() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![2, 0, 1];
-    let sorted = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2), None)?;
+    let sorted = map_split(&seq, &m, 3, MemoryUsage::BatchSize(2))?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {
@@ -410,7 +410,7 @@ fn test_map_split_shrinks() -> Result<()> {
     BvComp::with_basename(path).comp_graph::<BE>(&graph)?;
     let seq = BvGraphSeq::with_basename(path).endianness::<BE>().load()?;
     let m = vec![0, 1, 1]; // 0->0, 1->1, 2->1
-    let sorted = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2), None)?;
+    let sorted = map_split(&seq, &m, 2, MemoryUsage::BatchSize(2))?;
     let mut arcs = vec![];
     for_!((node, succs) in sorted.iter() {
         for succ in succs {

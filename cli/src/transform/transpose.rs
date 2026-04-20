@@ -108,16 +108,13 @@ where
         .endianness::<E>()
         .load()?;
 
-    let cp = crate::cutpoints(
-        &args.src,
-        graph.num_nodes(),
-        graph.num_arcs_hint(),
-        args.dcf,
-    )?;
+    let num_nodes = graph.num_nodes();
+    let num_arcs_hint = graph.num_arcs_hint();
+    let cp = crate::cutpoints(&args.src, num_nodes, num_arcs_hint, args.dcf)?;
 
     // transpose the graph
-    let sorted =
-        webgraph::transform::transpose_split(&graph, args.memory_usage.memory_usage, Some(cp))?;
+    let par_graph = webgraph::graphs::par_graphs::ParGraph::with_cutpoints(graph, cp);
+    let sorted = webgraph::transform::transpose_split(&par_graph, args.memory_usage.memory_usage)?;
 
     let target_endianness = args.ca.endianness.clone().unwrap_or_else(|| E::NAME.into());
     let dir = Builder::new().prefix("transform_transpose_").tempdir()?;
