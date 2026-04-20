@@ -45,8 +45,38 @@
 //! pass a reference instead; the iterators will be cloned as needed.
 //!
 //! The level of parallelism is controlled by the current number of Rayon
-//! threads, so you can easily customize it by installing a custom thread pool.
-//! You can also customize the number of lenders independently of the number
+//! threads, so you can easily customize it by installing a custom thread pool:
+//!
+//! ```rust
+//! # use webgraph::prelude::*;
+//! # use dsi_bitstream::prelude::BE;
+//! # use rayon::ThreadPoolBuilder;
+//! # use tempfile::Builder;
+//! # fn main() -> anyhow::Result<()> {
+//! # let tempdir = Builder::new().prefix("test").tempdir()?;
+//! # let basename = tempdir.path().join("basename");
+//! // Bunch of arcs
+//! let arcs = [(5, 3), (1, 0), (5, 0), (1, 2), (3, 4)];
+//!
+//! // Custom thread pool with 4 threads
+//! let pool = ThreadPoolBuilder::new().num_threads(4).build()?;
+//!
+//! pool.install(|| -> anyhow::Result<()> {
+//!     let sorted = ParSortedGraph::from_pairs(6, arcs)?;
+//!     BvComp::with_basename(basename).par_comp::<BE, _>(sorted)?;
+//!     Ok(())
+//! })?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Using the pool we are in fact controlling two parameters at the same time:
+//! the level of parallelism in the sorting process, and the number of lenders
+//! returned by [`IntoParLenders::into_par_lenders`] on the resulting
+//! [`ParSortedGraph`]. This is usually what you want, because you are going to
+//! be using exactly the same number of thread to compress.
+//!
+//! However, you can customize the number of lenders independently of the number
 //! of threads using a [configuration] obtained via
 //! [`ParSortedGraph::config()`]:
 //!

@@ -252,6 +252,11 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
 
     /// Consumes the compressor and returns the number of bits written by
     /// flushing the encoder and writing the pending chunk
+    /// Returns the current compression statistics.
+    pub fn stats(&self) -> CompStats {
+        self.stats
+    }
+
     pub fn flush(mut self) -> anyhow::Result<CompStats> {
         if self.compression_window > 0 {
             self.comp_refs()?;
@@ -454,6 +459,20 @@ impl<E: EncodeAndEstimate, W: Write> BvCompZ<E, W> {
     /// state to start compressing the next chunk.
     fn write_and_clear_current_chunk(&mut self) -> anyhow::Result<()> {
         let n = self.references.len();
+
+        // Accumulate reference statistics (chain depth and distance).
+        // Since references always point backward, a forward pass computes
+        // chain depths in O(n) without following chains.
+        let mut chain_length = vec![0u64; n];
+        for i in 0..n {
+            let reference = self.references[i];
+            self.stats.tot_dist += reference as u64;
+            if reference != 0 {
+                chain_length[i] = chain_length[i - reference] + 1;
+                self.stats.tot_ref += chain_length[i];
+            }
+        }
+
         // Reuse an existing compressor buffer to avoid per-chunk allocations
         let compressor = self
             .compressors

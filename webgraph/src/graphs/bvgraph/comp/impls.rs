@@ -69,6 +69,33 @@ where
     }
 }
 
+/// Threshold mask for periodic compression statistics logging.
+///
+/// Statistics are logged every `STATS_THRESHOLD + 1` nodes (approximately 4M).
+const STATS_THRESHOLD: usize = (1 << 22) - 1;
+
+/// Logs compression statistics periodically (every ~4M nodes) or
+/// unconditionally when `force` is true.
+#[inline]
+fn log_comp_stats(stats: &super::CompStats, force: bool) {
+    if force || (stats.num_nodes & STATS_THRESHOLD == 0 && stats.num_nodes > 0) {
+        let bits_per_link = stats.written_bits as f64
+            / if stats.num_arcs > 0 {
+                stats.num_arcs as f64
+            } else {
+                1.0
+            };
+        let n = stats.num_nodes as f64;
+        log::info!(
+            "bits/link: {:.3}; bits/node: {:.3}; avgref: {:.3}; avgdist: {:.3}",
+            bits_per_link,
+            stats.written_bits as f64 / n,
+            stats.tot_ref as f64 / n,
+            stats.tot_dist as f64 / n,
+        );
+    }
+}
+
 /// A compression job.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 struct Job {
@@ -80,6 +107,8 @@ struct Job {
     chunk_offsets_path: PathBuf,
     offsets_written_bits: u64,
     num_arcs: u64,
+    tot_ref: u64,
+    tot_dist: u64,
 }
 
 impl JobId for Job {
@@ -339,8 +368,10 @@ impl BvCompConfig {
 
             for_! ( (_node_id, successors) in iter {
                 bvcompz.push(successors).context("Could not push successors")?;
+                log_comp_stats(&bvcompz.stats(), false);
                 pl.update();
             });
+            log_comp_stats(&bvcompz.stats(), true);
             pl.done();
 
             bvcompz.flush()?
@@ -356,8 +387,10 @@ impl BvCompConfig {
 
             for_! ( (_node_id, successors) in iter {
                 bvcomp.push(successors).context("Could not push successors")?;
+                log_comp_stats(&bvcomp.stats(), false);
                 pl.update();
             });
+            log_comp_stats(&bvcomp.stats(), true);
             pl.done();
 
             bvcomp.flush()?
@@ -375,11 +408,7 @@ impl BvCompConfig {
         log::info!("Writing the .properties file");
         let properties = self
             .comp_flags
-            .to_properties::<E>(
-                comp_stats.num_nodes,
-                comp_stats.num_arcs,
-                comp_stats.written_bits,
-            )
+            .to_properties::<E>(&comp_stats)
             .context("Could not serialize properties")?;
         let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
         std::fs::write(&properties_path, properties)
@@ -470,6 +499,7 @@ impl BvCompConfig {
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
                             bvcomp.push(succ.into_iter()).unwrap();
+                            log_comp_stats(&bvcomp.stats(), false);
                             comp_pl.update();
                         });
                         stats = bvcomp.flush().unwrap();
@@ -487,6 +517,7 @@ impl BvCompConfig {
                         let iter_nodes = thread_lender.inspect(|(x, _)| last_node = *x);
                         for_! ( (_, succ) in iter_nodes {
                             bvcomp.push(succ.into_iter()).unwrap();
+                            log_comp_stats(&bvcomp.stats(), false);
                             comp_pl.update();
                         });
                         stats = bvcomp.flush().unwrap();
@@ -505,6 +536,8 @@ impl BvCompConfig {
                         chunk_offsets_path,
                         offsets_written_bits: stats.offsets_written_bits,
                         num_arcs: stats.num_arcs,
+                        tot_ref: stats.tot_ref,
+                        tot_dist: stats.tot_dist,
                     })
                     .ok(); // If channel is closed, main thread already has an error
                 });
@@ -528,9 +561,7 @@ impl BvCompConfig {
                 .with_context(|| format!("Could not create offsets {}", offsets_path.display()))?;
             offsets_writer.write_gamma(0)?;
 
-            let mut total_written_bits: u64 = 0;
-            let mut total_offsets_written_bits: u64 = 0;
-            let mut total_arcs: u64 = 0;
+            let mut total_stats = super::CompStats::default();
 
             let mut next_node = 0;
             // glue together the bitstreams as they finish, this allows us to do
@@ -544,6 +575,8 @@ impl BvCompConfig {
                 chunk_offsets_path,
                 offsets_written_bits,
                 num_arcs,
+                tot_ref,
+                tot_dist,
             } in TaskQueue::new(rx.into_rayon_iter())
             {
                 ensure!(
@@ -555,16 +588,14 @@ impl BvCompConfig {
                 );
 
                 next_node = last_node + 1;
-                total_arcs += num_arcs;
                 log::debug!(
                     "Copying {} [{}..{}) bits from {} to {}",
                     written_bits,
-                    total_written_bits,
-                    total_written_bits + written_bits,
+                    total_stats.written_bits,
+                    total_stats.written_bits + written_bits,
                     chunk_graph_path.display(),
                     graph_path.display()
                 );
-                total_written_bits += written_bits;
                 let mut reader = buf_bit_reader::from_path::<E, u32>(&chunk_graph_path)?;
                 graph_writer
                     .copy_from(&mut reader, written_bits)
@@ -580,12 +611,11 @@ impl BvCompConfig {
                 log::debug!(
                     "Copying offsets {} [{}..{}) bits from {} to {}",
                     offsets_written_bits,
-                    total_offsets_written_bits,
-                    total_offsets_written_bits + offsets_written_bits,
+                    total_stats.offsets_written_bits,
+                    total_stats.offsets_written_bits + offsets_written_bits,
                     chunk_offsets_path.display(),
                     offsets_path.display()
                 );
-                total_offsets_written_bits += offsets_written_bits;
 
                 let mut reader = <BufBitReader<BigEndian, _>>::new(<WordAdapter<u32, _>>::new(
                     BufReader::new(File::open(&chunk_offsets_path).with_context(|| {
@@ -603,6 +633,14 @@ impl BvCompConfig {
                     })?;
                 std::fs::remove_file(chunk_offsets_path)?;
 
+                total_stats += super::CompStats {
+                    num_nodes: last_node - first_node + 1,
+                    num_arcs,
+                    written_bits,
+                    offsets_written_bits,
+                    tot_ref,
+                    tot_dist,
+                };
                 copy_pl.update_with_count(last_node - first_node + 1);
             }
 
@@ -610,13 +648,16 @@ impl BvCompConfig {
             graph_writer.flush()?;
             BitWrite::flush(&mut offsets_writer)?;
 
+            // Use the authoritative num_nodes from the boundaries
+            total_stats.num_nodes = num_nodes;
+            log_comp_stats(&total_stats, true);
             comp_pl.done();
             copy_pl.done();
 
             log::info!("Writing the .properties file");
             let properties = self
                 .comp_flags
-                .to_properties::<E>(num_nodes, total_arcs, total_written_bits)
+                .to_properties::<E>(&total_stats)
                 .context("Could not serialize properties")?;
             let properties_path = self.basename.with_extension(PROPERTIES_EXTENSION);
             std::fs::write(&properties_path, properties).with_context(|| {
@@ -628,21 +669,21 @@ impl BvCompConfig {
 
             log::info!(
                 "Compressed {} arcs into {} bits at {:.4} bits/arc",
-                total_arcs,
-                total_written_bits,
-                total_written_bits as f64 / total_arcs as f64
+                total_stats.num_arcs,
+                total_stats.written_bits,
+                total_stats.written_bits as f64 / total_stats.num_arcs as f64
             );
             log::info!(
                 "Created offsets file with {} bits at {:.4} bits/node",
-                total_offsets_written_bits,
-                total_offsets_written_bits as f64 / num_nodes as f64
+                total_stats.offsets_written_bits,
+                total_stats.offsets_written_bits as f64 / num_nodes as f64
             );
 
             // cleanup the temp files
             std::fs::remove_dir_all(&tmp_dir).with_context(|| {
                 format!("Could not clean temporary directory {}", tmp_dir.display())
             })?;
-            Ok(total_written_bits)
+            Ok(total_stats.written_bits)
         })
     }
 }

@@ -95,7 +95,12 @@ macro_rules! impl_convert {
         // older graphs may not have.
         std::fs::write(
             &dst_properties_path,
-            comp_flags.to_properties::<$dst>(num_nodes, num_arcs, bitstream_len as u64)?,
+            comp_flags.to_properties::<$dst>(&CompStats {
+                num_nodes,
+                num_arcs,
+                written_bits: bitstream_len as u64,
+                ..CompStats::default()
+            })?,
         )
         .with_context(|| {
             format!(

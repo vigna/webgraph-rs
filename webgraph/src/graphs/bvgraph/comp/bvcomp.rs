@@ -8,6 +8,7 @@
 use super::OffsetsWriter;
 use crate::prelude::*;
 use core::cmp::Ordering;
+use core::ops::AddAssign;
 use dsi_bitstream::codes::ToNat;
 use lender::prelude::*;
 use std::{io::Write, path::Path};
@@ -23,6 +24,23 @@ pub struct CompStats {
     pub written_bits: u64,
     /// Length of the offsets bitstream.
     pub offsets_written_bits: u64,
+    /// Sum of reference-chain depths across all nodes (divide by
+    /// [`num_nodes`](Self::num_nodes) to get the average).
+    pub tot_ref: u64,
+    /// Sum of reference distances (offsets) across all nodes (divide by
+    /// [`num_nodes`](Self::num_nodes) to get the average).
+    pub tot_dist: u64,
+}
+
+impl AddAssign for CompStats {
+    fn add_assign(&mut self, rhs: Self) {
+        self.num_nodes += rhs.num_nodes;
+        self.num_arcs += rhs.num_arcs;
+        self.written_bits += rhs.written_bits;
+        self.offsets_written_bits += rhs.offsets_written_bits;
+        self.tot_ref += rhs.tot_ref;
+        self.tot_dist += rhs.tot_dist;
+    }
 }
 
 /// Compresses a graph into the [BV graph format].
@@ -495,6 +513,8 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
             self.min_interval_length,
         )?;
         self.ref_counts[self.curr_node] = ref_count;
+        self.stats.tot_ref += ref_count as u64;
+        self.stats.tot_dist += ref_delta as u64;
         // consistency check
         // debug_assert_eq!(written_bits, min_bits);
         // update the current node
@@ -503,6 +523,11 @@ impl<E: EncodeAndEstimate, W: Write> BvComp<E, W> {
         self.stats.offsets_written_bits += self.offsets_writer.push(written_bits)? as u64;
         self.stats.written_bits += written_bits;
         Ok(())
+    }
+
+    /// Returns the current compression statistics.
+    pub fn stats(&self) -> CompStats {
+        self.stats
     }
 
     /// Consumes the compressor and returns the statistics about compression.

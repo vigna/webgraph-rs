@@ -69,7 +69,12 @@ fn test_code_to_str_version1() {
 #[test]
 fn test_to_properties_be_default() -> Result<()> {
     let cf = CompFlags::default();
-    let props_str = cf.to_properties::<BE>(100, 500, 10000)?;
+    let props_str = cf.to_properties::<BE>(&CompStats {
+        num_nodes: 100,
+        num_arcs: 500,
+        written_bits: 10000,
+        ..CompStats::default()
+    })?;
     assert!(props_str.contains("nodes=100"));
     assert!(props_str.contains("arcs=500"));
     assert!(props_str.contains("version=0"));
@@ -84,7 +89,12 @@ fn test_to_properties_be_default() -> Result<()> {
 #[test]
 fn test_to_properties_le() -> Result<()> {
     let cf = CompFlags::default();
-    let props_str = cf.to_properties::<LE>(50, 200, 5000)?;
+    let props_str = cf.to_properties::<LE>(&CompStats {
+        num_nodes: 50,
+        num_arcs: 200,
+        written_bits: 5000,
+        ..CompStats::default()
+    })?;
     assert!(props_str.contains("version=1"));
     assert!(props_str.contains("endianness=little"));
     Ok(())
@@ -104,7 +114,12 @@ fn test_to_properties_custom_codes() -> Result<()> {
         compression_window: 7,
         max_ref_count: 3,
     };
-    let props = cf.to_properties::<BE>(10, 20, 1000)?;
+    let props = cf.to_properties::<BE>(&CompStats {
+        num_nodes: 10,
+        num_arcs: 20,
+        written_bits: 1000,
+        ..CompStats::default()
+    })?;
     assert!(props.contains("OUTDEGREES_DELTA"));
     assert!(props.contains("REFERENCES_GAMMA"));
     assert!(props.contains("BLOCKS_DELTA"));
@@ -116,7 +131,12 @@ fn test_to_properties_custom_codes() -> Result<()> {
 #[test]
 fn test_from_properties_default_be() -> Result<()> {
     let cf = CompFlags::default();
-    let props_str = cf.to_properties::<BE>(100, 500, 10000)?;
+    let props_str = cf.to_properties::<BE>(&CompStats {
+        num_nodes: 100,
+        num_arcs: 500,
+        written_bits: 10000,
+        ..CompStats::default()
+    })?;
     let f = std::io::BufReader::new(props_str.as_bytes());
     let map: HashMap<String, String> = java_properties::read(f)?;
     let cf2 = CompFlags::from_properties::<BE>(&map)?;
@@ -134,7 +154,12 @@ fn test_from_properties_default_be() -> Result<()> {
 #[test]
 fn test_from_properties_le() -> Result<()> {
     let cf = CompFlags::default();
-    let props_str = cf.to_properties::<LE>(100, 500, 10000)?;
+    let props_str = cf.to_properties::<LE>(&CompStats {
+        num_nodes: 100,
+        num_arcs: 500,
+        written_bits: 10000,
+        ..CompStats::default()
+    })?;
     let f = std::io::BufReader::new(props_str.as_bytes());
     let map: HashMap<String, String> = java_properties::read(f)?;
     let cf2 = CompFlags::from_properties::<LE>(&map)?;
