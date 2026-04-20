@@ -322,6 +322,60 @@ impl ParSortedLabeledGraph<()> {
     {
         ParSortedLabeledGraphConf::default().par_sort_pairs(num_nodes, sd, pairs)
     }
+
+    /// Sorts labeled pairs from a fallible iterator with default
+    /// settings.
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    ///
+    /// Equivalent to
+    /// [`ParSortedLabeledGraph::config().try_sort_pairs(num_nodes, sd, pairs)`].
+    ///
+    /// [`ParSortedLabeledGraph::config().try_sort_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::try_sort_pairs
+    pub fn try_from_pairs<SD, E: Into<anyhow::Error>>(
+        num_nodes: usize,
+        sd: SD,
+        pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    where
+        SD: BitSerializer<NE, BitWriter<NE>>
+            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+            + Send
+            + Sync
+            + Clone,
+        SD::SerType: Copy + Send + Sync + 'static,
+    {
+        ParSortedLabeledGraphConf::default().try_sort_pairs(num_nodes, sd, pairs)
+    }
+
+    /// Sorts labeled pairs from a fallible parallel iterator with default
+    /// settings.
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    ///
+    /// Equivalent to
+    /// [`ParSortedLabeledGraph::config().try_par_sort_pairs(num_nodes, sd, pairs)`].
+    ///
+    /// [`ParSortedLabeledGraph::config().try_par_sort_pairs(num_nodes, sd, pairs)`]: ParSortedLabeledGraphConf::try_par_sort_pairs
+    pub fn try_par_from_pairs<SD, E: Into<anyhow::Error> + Send>(
+        num_nodes: usize,
+        sd: SD,
+        pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    where
+        SD: BitSerializer<NE, BitWriter<NE>>
+            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+            + Send
+            + Sync
+            + Clone,
+        SD::SerType: Copy + Send + Sync + 'static,
+    {
+        ParSortedLabeledGraphConf::default().try_par_sort_pairs(num_nodes, sd, pairs)
+    }
 }
 
 // === SequentialLabeling for SortedLabeledGraph ===
@@ -554,6 +608,39 @@ impl ParSortedGraph<SortedPairIter> {
     ) -> Result<Self> {
         ParSortedGraphConf::default().par_sort_pairs(num_nodes, pairs)
     }
+
+    /// Sorts pairs from a fallible iterator with default settings.
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    ///
+    /// Equivalent to [`ParSortedGraph::config().try_sort_pairs(num_nodes, pairs)`].
+    ///
+    /// [`ParSortedGraph::config().try_sort_pairs(num_nodes, pairs)`]: ParSortedGraphConf::try_sort_pairs
+    pub fn try_from_pairs<E: Into<anyhow::Error>>(
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
+    ) -> Result<Self> {
+        ParSortedGraphConf::default().try_sort_pairs(num_nodes, pairs)
+    }
+
+    /// Sorts pairs from a fallible parallel iterator with default
+    /// settings.
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    ///
+    /// Equivalent to [`ParSortedGraph::config().try_par_sort_pairs(num_nodes, pairs)`].
+    ///
+    /// [`ParSortedGraph::config().try_par_sort_pairs(num_nodes, pairs)`]: ParSortedGraphConf::try_par_sort_pairs
+    pub fn try_par_from_pairs<E: Into<anyhow::Error> + Send>(
+        num_nodes: usize,
+        pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
+    ) -> Result<Self> {
+        ParSortedGraphConf::default().try_par_sort_pairs(num_nodes, pairs)
+    }
 }
 
 // === SequentialLabeling for SortedGraph (projects away ()) ===
@@ -745,6 +832,42 @@ impl ParSortedGraphConf {
             rayon::iter::ParallelIterator::map(pairs, |pair| (pair, ())),
         )?))
     }
+
+    /// Sorts unlabeled pairs from a fallible iterator, producing a
+    /// partitioned [`ParSortedGraph`].
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    pub fn try_sort_pairs<E: Into<anyhow::Error>>(
+        self,
+        num_nodes: usize,
+        pairs: impl IntoIterator<Item = Result<(usize, usize), E>>,
+    ) -> Result<ParSortedGraph<SortedPairIter>> {
+        Ok(ParSortedGraph(self.0.try_sort_pairs(
+            num_nodes,
+            (),
+            pairs.into_iter().map(|r| r.map(|pair| (pair, ()))),
+        )?))
+    }
+
+    /// Sorts unlabeled pairs from a fallible parallel iterator, producing a
+    /// partitioned [`ParSortedGraph`].
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    pub fn try_par_sort_pairs<E: Into<anyhow::Error> + Send>(
+        self,
+        num_nodes: usize,
+        pairs: impl rayon::iter::ParallelIterator<Item = Result<(usize, usize), E>>,
+    ) -> Result<ParSortedGraph<SortedPairIter>> {
+        Ok(ParSortedGraph(self.0.try_par_sort_pairs(
+            num_nodes,
+            (),
+            rayon::iter::ParallelIterator::map(pairs, |r| r.map(|pair| (pair, ()))),
+        )?))
+    }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -911,5 +1034,59 @@ impl ParSortedLabeledGraphConf {
             .num_partitions(self.num_partitions)
             .memory_usage(self.memory_usage);
         Ok(par_sort.sort_labeled(&codec, pairs)?.into())
+    }
+
+    /// Sorts labeled pairs from a fallible iterator, producing a
+    /// partitioned [`ParSortedLabeledGraph`].
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    pub fn try_sort_pairs<SD, E: Into<anyhow::Error>>(
+        self,
+        num_nodes: usize,
+        sd: SD,
+        pairs: impl IntoIterator<Item = Result<((usize, usize), SD::SerType), E>>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    where
+        SD: BitSerializer<NE, BitWriter<NE>>
+            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+            + Send
+            + Sync
+            + Clone,
+        SD::SerType: Copy + Send + Sync + 'static,
+    {
+        let par_sort = ParSortIters::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        let codec = LabeledCodec::new(sd);
+        Ok(par_sort.try_sort_labeled_seq(codec, pairs)?.into())
+    }
+
+    /// Sorts labeled pairs from a fallible parallel iterator, producing a
+    /// partitioned [`ParSortedLabeledGraph`].
+    ///
+    /// Note that the `try_` prefix refers to the fallibility of the
+    /// pairs returned by the input iterators; all methods in this module
+    /// are fallible as they write batches on disk.
+    pub fn try_par_sort_pairs<SD, E: Into<anyhow::Error> + Send>(
+        self,
+        num_nodes: usize,
+        sd: SD,
+        pairs: impl rayon::iter::ParallelIterator<Item = Result<((usize, usize), SD::SerType), E>>,
+    ) -> Result<ParSortedLabeledGraph<SortedLabeledIter<SD>>>
+    where
+        SD: BitSerializer<NE, BitWriter<NE>>
+            + BitDeserializer<NE, BitReader<NE>, DeserType = SD::SerType>
+            + Send
+            + Sync
+            + Clone,
+        SD::SerType: Copy + Send + Sync + 'static,
+    {
+        let codec = LabeledCodec::new(sd);
+        let par_sort = ParSortPairs::new(num_nodes)?
+            .num_partitions(self.num_partitions)
+            .memory_usage(self.memory_usage);
+        Ok(par_sort.try_sort_labeled(&codec, pairs)?.into())
     }
 }
