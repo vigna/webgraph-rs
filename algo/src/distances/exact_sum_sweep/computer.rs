@@ -39,6 +39,7 @@ pub(super) struct DirExactSumSweepComputer<
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
     OL: Level,
+    const USE_TOT: bool,
 > {
     pub graph: &'a G1,
     pub transpose: &'a G2,
@@ -86,8 +87,8 @@ pub(super) struct DirExactSumSweepComputer<
     _marker: std::marker::PhantomData<OL>,
 }
 
-impl<'a, G: RandomAccessGraph + Sync, OL: Level>
-    DirExactSumSweepComputer<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL>
+impl<'a, G: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
+    DirExactSumSweepComputer<'a, G, G, ParFairNoPred<&'a G>, ParFairNoPred<&'a G>, OL, USE_TOT>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// symmetric (i.e., undirected) graphs.
@@ -112,8 +113,8 @@ impl<'a, G: RandomAccessGraph + Sync, OL: Level>
     }
 }
 
-impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level>
-    DirExactSumSweepComputer<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL>
+impl<'a, G1: RandomAccessGraph + Sync, G2: RandomAccessGraph + Sync, OL: Level, const USE_TOT: bool>
+    DirExactSumSweepComputer<'a, G1, G2, ParFairNoPred<&'a G1>, ParFairNoPred<&'a G2>, OL, USE_TOT>
 {
     /// Builds a new instance to compute the *ExactSumSweep* algorithm on
     /// directed graphs.
@@ -164,7 +165,8 @@ impl<
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
     OL: Level,
-> DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL>
+    const USE_TOT: bool,
+> DirExactSumSweepComputer<'a, G1, G2, V1, V2, OL, USE_TOT>
 {
     #[allow(clippy::too_many_arguments)]
     fn _new(
@@ -193,8 +195,8 @@ impl<
             graph,
             transpose,
             num_nodes,
-            forward_tot: vec![0; num_nodes].into_boxed_slice(),
-            backward_tot: vec![0; num_nodes].into_boxed_slice(),
+            forward_tot: if USE_TOT { vec![0; num_nodes].into_boxed_slice() } else { Box::default() },
+            backward_tot: if USE_TOT { vec![0; num_nodes].into_boxed_slice() } else { Box::default() },
             forward_low: vec![0; num_nodes].into_boxed_slice(),
             forward_high: vec![num_nodes; num_nodes].into_boxed_slice(),
             backward_low: vec![0; num_nodes].into_boxed_slice(),
@@ -225,7 +227,8 @@ impl<
     V1: Parallel<EventNoPred> + Sync,
     V2: Parallel<EventNoPred> + Sync,
     OL: Level,
-> DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL>
+    const USE_TOT: bool,
+> DirExactSumSweepComputer<'_, G1, G2, V1, V2, OL, USE_TOT>
 {
     #[inline(always)]
     fn incomplete_forward(&self, index: usize) -> bool {
@@ -260,9 +263,15 @@ impl<
 
         for i in 2..=iterations {
             if i % 2 == 0 {
-                let v = math::argmax_filtered(&self.backward_tot, &self.backward_low, |i, _| {
-                    self.incomplete_backward(i)
-                });
+                let v = if USE_TOT {
+                    math::argmax_filtered(&self.backward_tot, &self.backward_low, |i, _| {
+                        self.incomplete_backward(i)
+                    })
+                } else {
+                    math::argmax_filtered(&self.backward_low, std::iter::repeat(0usize), |i, _| {
+                        self.incomplete_backward(i)
+                    })
+                };
                 self.step_sum_sweep(v, false, pl, |node| {
                     format!(
                         "Performing initial backward SumSweep heuristic visit from {}...",
@@ -270,9 +279,15 @@ impl<
                     )
                 });
             } else {
-                let v = math::argmax_filtered(&self.forward_tot, &self.forward_low, |i, _| {
-                    self.incomplete_forward(i)
-                });
+                let v = if USE_TOT {
+                    math::argmax_filtered(&self.forward_tot, &self.forward_low, |i, _| {
+                        self.incomplete_forward(i)
+                    })
+                } else {
+                    math::argmax_filtered(&self.forward_low, std::iter::repeat(0usize), |i, _| {
+                        self.incomplete_forward(i)
+                    })
+                };
                 self.step_sum_sweep(v, true, pl, |node| {
                     format!(
                         "Performing initial forward SumSweep heuristic visit from {}...",
@@ -324,9 +339,17 @@ impl<
             match step_to_perform {
                 0 => self.all_cc_upper_bound(&mut cpl),
                 1 => {
-                    let v = math::argmax_filtered(&self.forward_high, &self.forward_tot, |i, _| {
-                        self.incomplete_forward(i)
-                    });
+                    let v = if USE_TOT {
+                        math::argmax_filtered(&self.forward_high, &self.forward_tot, |i, _| {
+                            self.incomplete_forward(i)
+                        })
+                    } else {
+                        math::argmax_filtered(
+                            &self.forward_high,
+                            std::iter::repeat(0usize),
+                            |i, _| self.incomplete_forward(i),
+                        )
+                    };
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node maximizing the upper bound ({})...",
@@ -335,9 +358,17 @@ impl<
                     })
                 }
                 2 => {
-                    let v = math::argmin_filtered(&self.forward_low, &self.forward_tot, |i, _| {
-                        self.radial_vertices[i]
-                    });
+                    let v = if USE_TOT {
+                        math::argmin_filtered(&self.forward_low, &self.forward_tot, |i, _| {
+                            self.radial_vertices[i]
+                        })
+                    } else {
+                        math::argmin_filtered(
+                            &self.forward_low,
+                            std::iter::repeat(0usize),
+                            |i, _| self.radial_vertices[i],
+                        )
+                    };
                     self.step_sum_sweep(v, true, &mut cpl, |node| {
                         format!(
                             "Performing a forward BFV from a node minimizing the lower bound ({})...",
@@ -346,10 +377,17 @@ impl<
                     })
                 }
                 3 => {
-                    let v =
+                    let v = if USE_TOT {
                         math::argmax_filtered(&self.backward_high, &self.backward_tot, |i, _| {
                             self.incomplete_backward(i)
-                        });
+                        })
+                    } else {
+                        math::argmax_filtered(
+                            &self.backward_high,
+                            std::iter::repeat(0usize),
+                            |i, _| self.incomplete_backward(i),
+                        )
+                    };
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the upper bound ({})...",
@@ -358,10 +396,17 @@ impl<
                     })
                 }
                 4 => {
-                    let v =
+                    let v = if USE_TOT {
                         math::argmax_filtered(&self.backward_tot, &self.backward_high, |i, _| {
                             self.incomplete_backward(i)
-                        });
+                        })
+                    } else {
+                        math::argmax_filtered(
+                            &self.backward_high,
+                            std::iter::repeat(0usize),
+                            |i, _| self.incomplete_backward(i),
+                        )
+                    };
                     self.step_sum_sweep(v, false, &mut cpl, |node| {
                         format!(
                             "Performing a backward BFV from a node maximizing the distance sum ({})",
@@ -442,7 +487,8 @@ impl<
                     };
 
                 if current < best
-                    || (current == best
+                    || (USE_TOT
+                        && current == best
                         && self.forward_tot[v] + self.backward_tot[v]
                             <= self.forward_tot[p] + self.backward_tot[p])
                 {
@@ -562,7 +608,9 @@ impl<
                     let node_forward_low = unsafe { forward_low[node].get() };
                     let node_forward_high = self.forward_high[node];
 
-                    unsafe { forward_tot[node].set(forward_tot[node].get() + distance) };
+                    if USE_TOT {
+                        unsafe { forward_tot[node].set(forward_tot[node].get() + distance) };
+                    }
 
                     if node_forward_low != node_forward_high && node_forward_low < distance {
                         unsafe { forward_low[node].set(distance) };
@@ -634,7 +682,9 @@ impl<
                     let node_backward_high = self.backward_high[node];
                     let node_backward_low = unsafe { backward_low[node].get() };
 
-                    unsafe { backward_tot[node].set(backward_tot[node].get() + distance) };
+                    if USE_TOT {
+                        unsafe { backward_tot[node].set(backward_tot[node].get() + distance) };
+                    }
 
                     if node_backward_low != node_backward_high && node_backward_low < distance {
                         unsafe { backward_low[node].set(distance) };

@@ -44,6 +44,10 @@ pub struct CliArgs {
     /// The storage format for eccentricities.​
     pub fmt: IntSliceFormat,
 
+    #[arg(long)]
+    /// Disables total-distance tie-breaking to save memory (16 bytes per node).​
+    pub no_tot: bool,
+
     #[clap(flatten)]
     pub num_threads: NumThreadsArg,
 
@@ -112,22 +116,37 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
         pl.log_interval(log_interval);
     }
 
+    let no_tot = args.no_tot;
+
+    // Dispatches to run/run_with::<false> (or run_symm/run_symm_with::<false>)
+    // depending on the --no-tot flag.
+    macro_rules! ess {
+        (symm $Level:ident) => {
+            if no_tot { $Level::run_symm_with::<false>(graph, &mut pl) }
+            else { $Level::run_symm(graph, &mut pl) }
+        };
+        ($Level:ident, $transpose:expr) => {
+            if no_tot { $Level::run_with::<false>(graph, $transpose, None, &mut pl) }
+            else { $Level::run(graph, $transpose, None, &mut pl) }
+        };
+    }
+
     if args.symmetric {
         match args.level {
             LevelArg::Radius => {
-                let out = thread_pool.install(|| Radius::run_symm(graph, &mut pl));
+                let out = thread_pool.install(|| ess!(symm Radius));
                 println!("Radius: {}", out.radius);
                 println!("Radial vertex: {}", out.radial_vertex);
                 println!("Radius iterations: {}", out.radius_iterations);
             }
             LevelArg::Diameter => {
-                let out = thread_pool.install(|| Diameter::run_symm(graph, &mut pl));
+                let out = thread_pool.install(|| ess!(symm Diameter));
                 println!("Diameter: {}", out.diameter);
                 println!("Diametral vertex: {}", out.diametral_vertex);
                 println!("Diameter iterations: {}", out.diameter_iterations);
             }
             LevelArg::RadiusDiameter => {
-                let out = thread_pool.install(|| RadiusDiameter::run_symm(graph, &mut pl));
+                let out = thread_pool.install(|| ess!(symm RadiusDiameter));
                 println!("Radius: {}", out.radius);
                 println!("Diameter: {}", out.diameter);
                 println!("Radial vertex: {}", out.radial_vertex);
@@ -136,7 +155,7 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
                 println!("Diameter iterations: {}", out.diameter_iterations);
             }
             LevelArg::AllForward | LevelArg::All => {
-                let out = thread_pool.install(|| All::run_symm(graph, &mut pl));
+                let out = thread_pool.install(|| ess!(symm All));
                 println!("Radius: {}", out.radius);
                 println!("Diameter: {}", out.diameter);
                 println!("Radial vertex: {}", out.radial_vertex);
@@ -160,20 +179,19 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
 
         match args.level {
             LevelArg::Radius => {
-                let out = thread_pool.install(|| Radius::run(graph, transpose, None, &mut pl));
+                let out = thread_pool.install(|| ess!(Radius, transpose));
                 println!("Radius: {}", out.radius);
                 println!("Radial vertex: {}", out.radial_vertex);
                 println!("Radius iterations: {}", out.radius_iterations);
             }
             LevelArg::Diameter => {
-                let out = thread_pool.install(|| Diameter::run(graph, transpose, None, &mut pl));
+                let out = thread_pool.install(|| ess!(Diameter, transpose));
                 println!("Diameter: {}", out.diameter);
                 println!("Diametral vertex: {}", out.diametral_vertex);
                 println!("Diameter iterations: {}", out.diameter_iterations);
             }
             LevelArg::RadiusDiameter => {
-                let out =
-                    thread_pool.install(|| RadiusDiameter::run(graph, transpose, None, &mut pl));
+                let out = thread_pool.install(|| ess!(RadiusDiameter, transpose));
                 println!("Radius: {}", out.radius);
                 println!("Diameter: {}", out.diameter);
                 println!("Radial vertex: {}", out.radial_vertex);
@@ -182,7 +200,7 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
                 println!("Diameter iterations: {}", out.diameter_iterations);
             }
             LevelArg::AllForward => {
-                let out = thread_pool.install(|| AllForward::run(graph, transpose, None, &mut pl));
+                let out = thread_pool.install(|| ess!(AllForward, transpose));
                 println!("Radius: {}", out.radius);
                 println!("Diameter: {}", out.diameter);
                 println!("Radial vertex: {}", out.radial_vertex);
@@ -197,7 +215,7 @@ pub fn exact_sum_sweep<E: Endianness>(args: CliArgs) -> Result<()> {
                 )?;
             }
             LevelArg::All => {
-                let out = thread_pool.install(|| All::run(graph, transpose, None, &mut pl));
+                let out = thread_pool.install(|| ess!(All, transpose));
                 println!("Radius: {}", out.radius);
                 println!("Diameter: {}", out.diameter);
                 println!("Radial vertex: {}", out.radial_vertex);
