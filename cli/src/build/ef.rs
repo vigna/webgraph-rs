@@ -161,10 +161,8 @@ pub fn build_elias_fano_from_offsets<E: Endianness>(
     pl: &mut impl ProgressLog,
     efb: &mut EliasFanoBuilder<u64>,
 ) -> Result<()> {
-    info!("Building Elias–Fano from offsets...");
-
     // progress bar
-    pl.start("Translating offsets to EliasFano...");
+    pl.start("Building Elias–Fano from offsets...");
     // read the graph a write the offsets
     let mut offset = 0;
     for _node_id in 0..num_nodes + 1 {

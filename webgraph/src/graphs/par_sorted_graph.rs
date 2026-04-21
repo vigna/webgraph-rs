@@ -71,6 +71,9 @@
 //! # }
 //! ```
 //!
+//! Note that you must create the sorted graph inside the pool, as the
+//! number of threads is retrieved at creation time.
+//!
 //! Using the pool we are in fact controlling two parameters at the same time:
 //! the level of parallelism in the sorting process, and the number of lenders
 //! returned by [`IntoParLenders::into_par_lenders`] on the resulting

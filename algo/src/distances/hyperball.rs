@@ -132,8 +132,9 @@ use card_est_array::traits::{
     MergeEstimationLogic, SyncEstimatorArray,
 };
 use crossbeam_utils::CachePadded;
-use dsi_progress_logger::ConcurrentProgressLog;
+use dsi_progress_logger::{ConcurrentProgressLog, ProgressLog};
 use kahan::KahanSum;
+use lender::prelude::*;
 use rayon::prelude::*;
 use std::hash::{BuildHasherDefault, DefaultHasher};
 use std::sync::{Mutex, atomic::*};
@@ -617,6 +618,29 @@ impl<
         pl.info(format_args!(
             "Using estimation logic {}",
             self.array_0.logic()
+        ));
+
+        pl.info(format_args!(
+            "Running {} thread(s)",
+            rayon::current_num_threads()
+        ));
+
+        // Compute memory usage (not counting the graph itself)
+        let estimator_bytes = std::mem::size_of_val(self.array_0.get_backend(0)) * num_nodes * 2;
+        let mut total_bytes = estimator_bytes;
+        if sum_of_distances.is_some() {
+            total_bytes += num_nodes * std::mem::size_of::<f32>();
+        }
+        if sum_of_inverse_distances.is_some() {
+            total_bytes += num_nodes * std::mem::size_of::<f32>();
+        }
+        total_bytes += discounted_centralities.len() * num_nodes * std::mem::size_of::<f32>();
+        // 4 AtomicBitVec of num_nodes bits
+        total_bytes += 5 * num_nodes.div_ceil(usize::BITS as usize) * usize::BITS as usize / 8;
+
+        pl.info(format_args!(
+            "HyperBall memory usage: {}B [not counting graph(s)]",
+            webgraph::utils::humanize(total_bytes as f64)
         ));
 
         HyperBall {
@@ -1130,9 +1154,10 @@ where
 
         ic.reset(node_granularity);
 
-        pl.item_name("arc");
-        pl.expected_updates(if ic.local { None } else { Some(num_arcs as _) });
-        pl.start("Starting parallel execution");
+        let mut arc_pl = pl.dup();
+        arc_pl.item_name("arc");
+        arc_pl.expected_updates(if ic.local { None } else { Some(num_arcs as _) });
+        arc_pl.start("Scanning arcs");
         {
             let next_state_sync = self.next_state.as_sync_array();
             let sum_of_dists = self.sum_of_dists.as_mut().map(|x| x.as_sync_slice());
@@ -1144,6 +1169,7 @@ where
                 .map(|s| s.as_sync_slice())
                 .collect::<Vec<_>>();
             rayon::broadcast(|c| {
+                let mut arc_pl = arc_pl.clone();
                 Self::parallel_task(
                     self.graph,
                     self.transposed,
@@ -1153,12 +1179,13 @@ where
                     sum_of_dists,
                     sum_of_inv_dists,
                     discounted_centralities,
+                    &mut arc_pl,
                     c,
                 )
             });
         }
 
-        pl.done_with_count(ic.visited_arcs.load(Ordering::Relaxed) as usize);
+        arc_pl.done_with_count(ic.visited_arcs.load(Ordering::Relaxed) as usize);
         let modified_estimators = ic.modified_estimators.load(Ordering::Relaxed);
 
         pl.info(format_args!(
@@ -1210,6 +1237,174 @@ where
         Ok(())
     }
 
+    /// Processes a single node during an iteration.
+    ///
+    /// The method is generic over the successor iterator type, making it
+    /// possible to use either random-access successors (local iterations)
+    /// or sequentially-decoded successors (non-local iterations) without
+    /// duplicating the processing logic.
+    ///
+    /// Returns `(visited_arcs, modified_estimators)`.
+    #[allow(clippy::too_many_arguments)]
+    #[inline(always)]
+    fn process_node<I: IntoIterator<Item = usize>>(
+        node: usize,
+        successors: I,
+        transpose: Option<&(impl RandomAccessGraph + Sync)>,
+        curr_state: &impl EstimatorArray<L>,
+        next_state: &impl SyncEstimatorArray<L>,
+        ic: &IterationContext<'_, G1, D>,
+        sum_of_dists: Option<&[SyncCell<f32>]>,
+        sum_of_inv_dists: Option<&[SyncCell<f32>]>,
+        discounted_centralities: &[&[SyncCell<f32>]],
+        do_centrality: bool,
+        next_estimator: &mut L::Estimator<'_>,
+        helper: &mut L::Helper,
+        arc_pl: &mut impl ConcurrentProgressLog,
+        neighborhood_function_delta: &mut KahanSum<f64>,
+    ) -> (u64, u64) {
+        let logic = curr_state.logic();
+        let prev_estimator = curr_state.get_backend(node);
+        let mut visited_arcs = 0u64;
+        let mut modified_estimators = 0u64;
+
+        // The three cases in which we enumerate successors:
+        // 1) A non-systolic computation (we don't know anything, so we enumerate).
+        // 2) A systolic, local computation (the node is by definition to be
+        //    checked, as it comes from the local check list).
+        // 3) A systolic, non-local computation in which the node should be checked.
+        if !ic.systolic || ic.local || ic.must_be_checked[node] {
+            next_estimator.set(prev_estimator);
+            let mut modified = false;
+            for succ in successors {
+                if succ != node && ic.curr_modified[succ] {
+                    visited_arcs += 1;
+                    arc_pl.light_update();
+                    if !modified {
+                        modified = true;
+                    }
+                    logic.merge_with_helper(
+                        next_estimator.as_mut(),
+                        curr_state.get_backend(succ),
+                        helper,
+                    );
+                }
+            }
+
+            let mut post = f64::NAN;
+            let estimator_modified = modified && next_estimator.as_ref() != prev_estimator;
+
+            // We need the estimator value only if the iteration is standard (as we're going to
+            // compute the neighborhood function cumulating actual values, and not deltas) or
+            // if the estimator was actually modified (as we're going to cumulate the neighborhood
+            // function delta, or at least some centrality).
+            if !ic.systolic || estimator_modified {
+                post = logic.estimate(next_estimator.as_ref())
+            }
+            if !ic.systolic {
+                *neighborhood_function_delta += post;
+            }
+
+            if estimator_modified && (ic.systolic || do_centrality) {
+                let pre = logic.estimate(prev_estimator);
+                if ic.systolic {
+                    *neighborhood_function_delta += -pre;
+                    *neighborhood_function_delta += post;
+                }
+
+                if do_centrality {
+                    let delta = post - pre;
+                    // Note that this code is executed only for distances > 0
+                    if delta > 0.0 {
+                        if let Some(distances) = sum_of_dists {
+                            let new_value = delta * (ic.iteration + 1) as f64;
+                            // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
+                            unsafe {
+                                distances[node]
+                                    .set((distances[node].get() as f64 + new_value) as f32)
+                            };
+                        }
+                        if let Some(distances) = sum_of_inv_dists {
+                            let new_value = delta / (ic.iteration + 1) as f64;
+                            // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
+                            unsafe {
+                                distances[node]
+                                    .set((distances[node].get() as f64 + new_value) as f32)
+                            };
+                        }
+                        for (func, distances) in ic
+                            .discount_functions
+                            .iter()
+                            .zip(discounted_centralities.iter())
+                        {
+                            let new_value = delta * func(ic.iteration + 1);
+                            // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
+                            unsafe {
+                                distances[node]
+                                    .set((distances[node].get() as f64 + new_value) as f32)
+                            };
+                        }
+                    }
+                }
+            }
+
+            if estimator_modified {
+                // We keep track of modified estimators in the result. Note that we must
+                // add the current node to the must-be-checked set for the next
+                // local iteration if it is modified, as it might need a copy to
+                // the result array at the next iteration.
+                if ic.pre_local {
+                    ic.local_next_must_be_checked.lock().unwrap().push(node);
+                }
+                ic.next_modified.set(node, true, Ordering::Relaxed);
+
+                if ic.systolic {
+                    debug_assert!(transpose.is_some());
+                    // In systolic computations we must keep track of
+                    // which estimators must be checked on the next
+                    // iteration. If we are preparing a local
+                    // computation, we do this explicitly, by adding the
+                    // predecessors of the current node to a set.
+                    // Otherwise, we do this implicitly, by setting the
+                    // corresponding entry in an array.
+
+                    // SAFETY: ic.systolic is true, so transpose is Some
+                    let transpose = unsafe { transpose.unwrap_unchecked() };
+                    if ic.pre_local {
+                        let mut local_next_must_be_checked =
+                            ic.local_next_must_be_checked.lock().unwrap();
+                        for succ in transpose.successors(node) {
+                            local_next_must_be_checked.push(succ);
+                        }
+                    } else {
+                        for succ in transpose.successors(node) {
+                            ic.next_must_be_checked.set(succ, true, Ordering::Relaxed);
+                        }
+                    }
+                }
+
+                modified_estimators += 1;
+            }
+
+            // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
+            unsafe {
+                next_state.set(node, next_estimator.as_ref());
+            }
+        } else {
+            // Even if we cannot possibly have changed our value, still our copy
+            // in the result vector might need to be updated because it does not
+            // reflect our current value.
+            if ic.curr_modified[node] {
+                // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
+                unsafe {
+                    next_state.set(node, prev_estimator);
+                }
+            }
+        }
+
+        (visited_arcs, modified_estimators)
+    }
+
     /// The parallel operations to be performed each iteration.
     ///
     /// # Arguments:
@@ -1229,6 +1424,7 @@ where
         sum_of_dists: Option<&[SyncCell<f32>]>,
         sum_of_inv_dists: Option<&[SyncCell<f32>]>,
         discounted_centralities: &[&[SyncCell<f32>]],
+        arc_pl: &mut impl ConcurrentProgressLog,
         _broadcast_context: rayon::BroadcastContext,
     ) {
         let node_granularity = ic.node_granularity;
@@ -1287,143 +1483,52 @@ where
                 break;
             }
 
-            // Do work
-            for i in start..end {
-                let node = if ic.local { ic.local_checklist[i] } else { i };
-
-                let prev_estimator = curr_state.get_backend(node);
-
-                // The three cases in which we enumerate successors:
-                // 1) A non-systolic computation (we don't know anything, so we enumerate).
-                // 2) A systolic, local computation (the node is by definition to be checked, as it comes from the local check list).
-                // 3) A systolic, non-local computation in which the node should be checked.
-                if !ic.systolic || ic.local || ic.must_be_checked[node] {
-                    next_estimator.set(prev_estimator);
-                    let mut modified = false;
-                    for succ in graph.successors(node) {
-                        if succ != node && ic.curr_modified[succ] {
-                            visited_arcs += 1;
-                            if !modified {
-                                modified = true;
-                            }
-                            logic.merge_with_helper(
-                                next_estimator.as_mut(),
-                                curr_state.get_backend(succ),
-                                &mut helper,
-                            );
-                        }
-                    }
-
-                    let mut post = f64::NAN;
-                    let estimator_modified = modified && next_estimator.as_ref() != prev_estimator;
-
-                    // We need the estimator value only if the iteration is standard (as we're going to
-                    // compute the neighborhood function cumulating actual values, and not deltas) or
-                    // if the estimator was actually modified (as we're going to cumulate the neighborhood
-                    // function delta, or at least some centrality).
-                    if !ic.systolic || estimator_modified {
-                        post = logic.estimate(next_estimator.as_ref())
-                    }
-                    if !ic.systolic {
-                        neighborhood_function_delta += post;
-                    }
-
-                    if estimator_modified && (ic.systolic || do_centrality) {
-                        let pre = logic.estimate(prev_estimator);
-                        if ic.systolic {
-                            neighborhood_function_delta += -pre;
-                            neighborhood_function_delta += post;
-                        }
-
-                        if do_centrality {
-                            let delta = post - pre;
-                            // Note that this code is executed only for distances > 0
-                            if delta > 0.0 {
-                                if let Some(distances) = sum_of_dists {
-                                    let new_value = delta * (ic.iteration + 1) as f64;
-                                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
-                                    unsafe {
-                                        distances[node]
-                                            .set((distances[node].get() as f64 + new_value) as f32)
-                                    };
-                                }
-                                if let Some(distances) = sum_of_inv_dists {
-                                    let new_value = delta / (ic.iteration + 1) as f64;
-                                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
-                                    unsafe {
-                                        distances[node]
-                                            .set((distances[node].get() as f64 + new_value) as f32)
-                                    };
-                                }
-                                for (func, distances) in ic
-                                    .discount_functions
-                                    .iter()
-                                    .zip(discounted_centralities.iter())
-                                {
-                                    let new_value = delta * func(ic.iteration + 1);
-                                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
-                                    unsafe {
-                                        distances[node]
-                                            .set((distances[node].get() as f64 + new_value) as f32)
-                                    };
-                                }
-                            }
-                        }
-                    }
-
-                    if estimator_modified {
-                        // We keep track of modified estimators in the result. Note that we must
-                        // add the current node to the must-be-checked set for the next
-                        // local iteration if it is modified, as it might need a copy to
-                        // the result array at the next iteration.
-                        if ic.pre_local {
-                            ic.local_next_must_be_checked.lock().unwrap().push(node);
-                        }
-                        ic.next_modified.set(node, true, Ordering::Relaxed);
-
-                        if ic.systolic {
-                            debug_assert!(transpose.is_some());
-                            // In systolic computations we must keep track of
-                            // which estimators must be checked on the next
-                            // iteration. If we are preparing a local
-                            // computation, we do this explicitly, by adding the
-                            // predecessors of the current node to a set.
-                            // Otherwise, we do this implicitly, by setting the
-                            // corresponding entry in an array.
-
-                            // SAFETY: ic.systolic is true, so transpose is Some
-                            let transpose = unsafe { transpose.unwrap_unchecked() };
-                            if ic.pre_local {
-                                let mut local_next_must_be_checked =
-                                    ic.local_next_must_be_checked.lock().unwrap();
-                                for succ in transpose.successors(node) {
-                                    local_next_must_be_checked.push(succ);
-                                }
-                            } else {
-                                for succ in transpose.successors(node) {
-                                    ic.next_must_be_checked.set(succ, true, Ordering::Relaxed);
-                                }
-                            }
-                        }
-
-                        modified_estimators += 1;
-                    }
-
-                    // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
-                    unsafe {
-                        next_state.set(node, next_estimator.as_ref());
-                    }
-                } else {
-                    // Even if we cannot possibly have changed our value, still our copy
-                    // in the result vector might need to be updated because it does not
-                    // reflect our current value.
-                    if ic.curr_modified[node] {
-                        // SAFETY: each node is accessed exactly once per iteration, so there are no data races.
-                        unsafe {
-                            next_state.set(node, prev_estimator);
-                        }
-                    }
+            // Do work: local iterations use random access, non-local
+            // iterations use sequential decoding via iter_from() for
+            // much faster access to compressed graphs.
+            if ic.local {
+                for i in start..end {
+                    let node = ic.local_checklist[i];
+                    let (va, me) = Self::process_node(
+                        node,
+                        graph.successors(node),
+                        transpose,
+                        curr_state,
+                        next_state,
+                        ic,
+                        sum_of_dists,
+                        sum_of_inv_dists,
+                        discounted_centralities,
+                        do_centrality,
+                        &mut next_estimator,
+                        &mut helper,
+                        arc_pl,
+                        &mut neighborhood_function_delta,
+                    );
+                    visited_arcs += va;
+                    modified_estimators += me;
                 }
+            } else {
+                for_![(node, successors) in graph.iter_from(start).take(end - start) {
+                    let (va, me) = Self::process_node(
+                        node,
+                        successors,
+                        transpose,
+                        curr_state,
+                        next_state,
+                        ic,
+                        sum_of_dists,
+                        sum_of_inv_dists,
+                        discounted_centralities,
+                        do_centrality,
+                        &mut next_estimator,
+                        &mut helper,
+                        arc_pl,
+                        &mut neighborhood_function_delta,
+                    );
+                    visited_arcs += va;
+                    modified_estimators += me;
+                }]
             }
         }
 
