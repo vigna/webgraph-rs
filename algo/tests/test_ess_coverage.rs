@@ -67,78 +67,119 @@ fn symm_graph() -> VecGraph {
 #[test]
 fn test_ess_diameter_only() -> Result<()> {
     let (graph, transpose) = directed_graph();
-    let result = exact_sum_sweep::Diameter::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 3);
+    for result in [
+        exact_sum_sweep::Diameter::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::Diameter::run_with::<false>(&graph, &transpose, None, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 3);
+    }
     Ok(())
 }
 
 #[test]
 fn test_ess_radius_only() -> Result<()> {
     let (graph, transpose) = directed_graph();
-    let result = exact_sum_sweep::Radius::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.radius, 2);
+    for result in [
+        exact_sum_sweep::Radius::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::Radius::run_with::<false>(&graph, &transpose, None, no_logging![]),
+    ] {
+        assert_eq!(result.radius, 2);
+    }
     Ok(())
 }
 
 #[test]
 fn test_ess_all_forward() -> Result<()> {
     let (graph, transpose) = directed_graph();
-    let result = exact_sum_sweep::AllForward::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 3);
-    assert_eq!(result.radius, 2);
-    assert_eq!(
-        result.forward_eccentricities.as_ref(),
-        &[3, 3, 2, 3, 2, 3, 2, 0]
-    );
+    for result in [
+        exact_sum_sweep::AllForward::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::AllForward::run_with::<false>(&graph, &transpose, None, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 3);
+        assert_eq!(result.radius, 2);
+        assert_eq!(
+            result.forward_eccentricities.as_ref(),
+            &[3, 3, 2, 3, 2, 3, 2, 0]
+        );
+    }
     Ok(())
 }
 
 #[test]
 fn test_ess_radius_diameter() -> Result<()> {
     let (graph, transpose) = directed_graph();
-    let result = exact_sum_sweep::RadiusDiameter::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 3);
-    assert_eq!(result.radius, 2);
+    for result in [
+        exact_sum_sweep::RadiusDiameter::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::RadiusDiameter::run_with::<false>(
+            &graph,
+            &transpose,
+            None,
+            no_logging![],
+        ),
+    ] {
+        assert_eq!(result.diameter, 3);
+        assert_eq!(result.radius, 2);
+    }
     Ok(())
 }
 
 #[test]
 fn test_ess_all_symm() {
     let graph = symm_graph();
-    let result = exact_sum_sweep::All::run_symm(&graph, no_logging![]);
-    assert_eq!(result.diameter, 1);
-    assert_eq!(result.radius, 1);
-    assert_eq!(result.eccentricities.as_ref(), &[1, 1, 1, 1, 1]);
+    for result in [
+        exact_sum_sweep::All::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::All::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 1);
+        assert_eq!(result.radius, 1);
+        assert_eq!(result.eccentricities.as_ref(), &[1, 1, 1, 1, 1]);
+    }
 }
 
 #[test]
 fn test_ess_all_forward_symm() {
     let graph = symm_graph();
-    let result = exact_sum_sweep::AllForward::run_symm(&graph, no_logging![]);
-    assert_eq!(result.diameter, 1);
-    assert_eq!(result.radius, 1);
+    for result in [
+        exact_sum_sweep::AllForward::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::AllForward::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 1);
+        assert_eq!(result.radius, 1);
+    }
 }
 
 #[test]
 fn test_ess_diameter_symm() {
     let graph = symm_graph();
-    let result = exact_sum_sweep::Diameter::run_symm(&graph, no_logging![]);
-    assert_eq!(result.diameter, 1);
+    for result in [
+        exact_sum_sweep::Diameter::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::Diameter::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 1);
+    }
 }
 
 #[test]
 fn test_ess_radius_symm() {
     let graph = symm_graph();
-    let result = exact_sum_sweep::Radius::run_symm(&graph, no_logging![]);
-    assert_eq!(result.radius, 1);
+    for result in [
+        exact_sum_sweep::Radius::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::Radius::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.radius, 1);
+    }
 }
 
 #[test]
 fn test_ess_radius_diameter_symm() {
     let graph = symm_graph();
-    let result = exact_sum_sweep::RadiusDiameter::run_symm(&graph, no_logging![]);
-    assert_eq!(result.diameter, 1);
-    assert_eq!(result.radius, 1);
+    for result in [
+        exact_sum_sweep::RadiusDiameter::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::RadiusDiameter::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 1);
+        assert_eq!(result.radius, 1);
+    }
 }
 
 #[test]
@@ -146,10 +187,13 @@ fn test_ess_symm_path() {
     // A path graph: 0 - 1 - 2 - 3
     let graph = VecGraph::from_arcs([(0, 1), (1, 0), (1, 2), (2, 1), (2, 3), (3, 2)]);
 
-    let result = exact_sum_sweep::All::run_symm(&graph, no_logging![]);
-
-    assert_eq!(result.diameter, 3);
-    assert_eq!(result.radius, 2);
+    for result in [
+        exact_sum_sweep::All::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::All::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 3);
+        assert_eq!(result.radius, 2);
+    }
 }
 
 #[test]
@@ -157,20 +201,28 @@ fn test_ess_diameter_cycle() {
     // Simple 4-cycle
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
     let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3)]);
-    let result = exact_sum_sweep::Diameter::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 3);
+    for result in [
+        exact_sum_sweep::Diameter::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::Diameter::run_with::<false>(&graph, &transpose, None, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 3);
+    }
 }
 
 #[test]
 fn test_ess_all_forward_cycle() {
     let graph = VecGraph::from_arcs([(0, 1), (1, 2), (2, 3), (3, 0)]);
     let transpose = VecGraph::from_arcs([(1, 0), (2, 1), (3, 2), (0, 3)]);
-    let result = exact_sum_sweep::AllForward::run(&graph, &transpose, None, no_logging![]);
-    assert_eq!(result.diameter, 3);
-    assert_eq!(result.radius, 3);
-    // All nodes in a cycle have equal eccentricity
-    for &ecc in result.forward_eccentricities.iter() {
-        assert_eq!(ecc, 3);
+    for result in [
+        exact_sum_sweep::AllForward::run(&graph, &transpose, None, no_logging![]),
+        exact_sum_sweep::AllForward::run_with::<false>(&graph, &transpose, None, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 3);
+        assert_eq!(result.radius, 3);
+        // All nodes in a cycle have equal eccentricity
+        for &ecc in result.forward_eccentricities.iter() {
+            assert_eq!(ecc, 3);
+        }
     }
 }
 
@@ -179,8 +231,12 @@ fn test_ess_all_star_graph() {
     // Star graph: 0 -> 1, 0 -> 2, 0 -> 3 (all symmetric)
     let graph = VecGraph::from_arcs([(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)]);
 
-    let result = exact_sum_sweep::All::run_symm(&graph, no_logging![]);
-    assert_eq!(result.diameter, 2);
-    assert_eq!(result.radius, 1);
-    assert_eq!(result.radial_vertex, 0);
+    for result in [
+        exact_sum_sweep::All::run_symm(&graph, no_logging![]),
+        exact_sum_sweep::All::run_symm_with::<false>(&graph, no_logging![]),
+    ] {
+        assert_eq!(result.diameter, 2);
+        assert_eq!(result.radius, 1);
+        assert_eq!(result.radial_vertex, 0);
+    }
 }

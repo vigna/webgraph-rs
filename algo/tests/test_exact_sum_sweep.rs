@@ -29,16 +29,19 @@ fn test_path() -> Result<()> {
     let graph = BTreeGraph::from_arcs(arcs.iter().copied());
     let transposed = BTreeGraph::from_arcs(arcs.iter().map(|(a, b)| (*b, *a)));
 
-    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
-
-    assert_eq!(sum_sweep.forward_eccentricities[0], 2);
-    assert_eq!(sum_sweep.forward_eccentricities[1], 1);
-    assert_eq!(sum_sweep.forward_eccentricities[2], 2);
-    assert_eq!(sum_sweep.backward_eccentricities[0], 2);
-    assert_eq!(sum_sweep.diameter, 2);
-    assert_eq!(sum_sweep.radius, 1);
-    assert_eq!(sum_sweep.radial_vertex, 1);
-    assert!(sum_sweep.diametral_vertex == 2 || sum_sweep.diametral_vertex == 0);
+    for sum_sweep in [
+        All::run(&graph, &transposed, None, no_logging![]),
+        All::run_with::<false>(&graph, &transposed, None, no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.forward_eccentricities[0], 2);
+        assert_eq!(sum_sweep.forward_eccentricities[1], 1);
+        assert_eq!(sum_sweep.forward_eccentricities[2], 2);
+        assert_eq!(sum_sweep.backward_eccentricities[0], 2);
+        assert_eq!(sum_sweep.diameter, 2);
+        assert_eq!(sum_sweep.radius, 1);
+        assert_eq!(sum_sweep.radial_vertex, 1);
+        assert!(sum_sweep.diametral_vertex == 2 || sum_sweep.diametral_vertex == 0);
+    }
 
     Ok(())
 }
@@ -67,10 +70,13 @@ fn test_many_scc() -> Result<()> {
     let graph = VecGraph::from_arcs(arcs);
     let transposed = VecGraph::from_arcs(transposed_arcs);
 
-    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
-
-    assert_eq!(sum_sweep.radius, 2);
-    assert_eq!(sum_sweep.radial_vertex, 1);
+    for sum_sweep in [
+        All::run(&graph, &transposed, None, no_logging![]),
+        All::run_with::<false>(&graph, &transposed, None, no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.radius, 2);
+        assert_eq!(sum_sweep.radial_vertex, 1);
+    }
 
     Ok(())
 }
@@ -82,10 +88,13 @@ fn test_lozenge() -> Result<()> {
     let graph = VecGraph::from_arcs(arcs);
     let transposed = VecGraph::from_arcs(arcs.iter().map(|(a, b)| (*b, *a)));
 
-    let sum_sweep = Radius::run(graph, transposed, None, no_logging![]);
-
-    assert_eq!(sum_sweep.radius, 2);
-    assert!(sum_sweep.radial_vertex == 0 || sum_sweep.radial_vertex == 1);
+    for sum_sweep in [
+        Radius::run(&graph, &transposed, None, no_logging![]),
+        Radius::run_with::<false>(&graph, &transposed, None, no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.radius, 2);
+        assert!(sum_sweep.radial_vertex == 0 || sum_sweep.radial_vertex == 1);
+    }
 
     Ok(())
 }
@@ -112,16 +121,23 @@ fn test_many_dir_path() -> Result<()> {
 
     let graph = BTreeGraph::from_arcs(arcs.iter().copied());
     let transpose = BTreeGraph::from_arcs(arcs.iter().map(|(x, y)| (*y, *x)));
-    let radial_vertices = AtomicBitVec::new(19);
-    radial_vertices.set(16, true, std::sync::atomic::Ordering::Relaxed);
-    radial_vertices.set(8, true, std::sync::atomic::Ordering::Relaxed);
 
-    let sum_sweep = All::run(graph, transpose, Some(radial_vertices), no_logging![]);
+    let make_radial = || {
+        let rv = AtomicBitVec::new(19);
+        rv.set(16, true, std::sync::atomic::Ordering::Relaxed);
+        rv.set(8, true, std::sync::atomic::Ordering::Relaxed);
+        rv
+    };
 
-    assert_eq!(sum_sweep.diameter, 6);
-    assert_eq!(sum_sweep.radius, 1);
-    assert_eq!(sum_sweep.radial_vertex, 16);
-    assert!(sum_sweep.diametral_vertex == 5 || sum_sweep.diametral_vertex == 18);
+    for sum_sweep in [
+        All::run(&graph, &transpose, Some(make_radial()), no_logging![]),
+        All::run_with::<false>(&graph, &transpose, Some(make_radial()), no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.diameter, 6);
+        assert_eq!(sum_sweep.radius, 1);
+        assert_eq!(sum_sweep.radial_vertex, 16);
+        assert!(sum_sweep.diametral_vertex == 5 || sum_sweep.diametral_vertex == 18);
+    }
 
     Ok(())
 }
@@ -147,10 +163,13 @@ fn test_cycle() -> Result<()> {
         let graph = vec_graph;
         let transposed = transposed_vec_graph;
 
-        let sum_sweep = RadiusDiameter::run(&graph, &transposed, None, no_logging![]);
-
-        assert_eq!(sum_sweep.diameter, size - 1);
-        assert_eq!(sum_sweep.radius, size - 1);
+        for sum_sweep in [
+            RadiusDiameter::run(&graph, &transposed, None, no_logging![]),
+            RadiusDiameter::run_with::<false>(&graph, &transposed, None, no_logging![]),
+        ] {
+            assert_eq!(sum_sweep.diameter, size - 1);
+            assert_eq!(sum_sweep.radius, size - 1);
+        }
     }
 
     Ok(())
@@ -173,18 +192,25 @@ fn test_clique() -> Result<()> {
 
         let graph = vec_graph.clone();
         let transposed = vec_graph;
-        let radial_vertices = AtomicBitVec::new(size);
         let candidates = [0, size / 2, size - 1];
-        radial_vertices.set(candidates[0], true, std::sync::atomic::Ordering::Relaxed);
-        radial_vertices.set(candidates[1], true, std::sync::atomic::Ordering::Relaxed);
-        radial_vertices.set(candidates[2], true, std::sync::atomic::Ordering::Relaxed);
 
-        let sum_sweep = All::run(&graph, &transposed, Some(radial_vertices), no_logging![]);
+        let make_radial = || {
+            let rv = AtomicBitVec::new(size);
+            rv.set(candidates[0], true, std::sync::atomic::Ordering::Relaxed);
+            rv.set(candidates[1], true, std::sync::atomic::Ordering::Relaxed);
+            rv.set(candidates[2], true, std::sync::atomic::Ordering::Relaxed);
+            rv
+        };
 
-        for i in 0..size {
-            assert_eq!(sum_sweep.forward_eccentricities[i], 1);
+        for sum_sweep in [
+            All::run(&graph, &transposed, Some(make_radial()), no_logging![]),
+            All::run_with::<false>(&graph, &transposed, Some(make_radial()), no_logging![]),
+        ] {
+            for i in 0..size {
+                assert_eq!(sum_sweep.forward_eccentricities[i], 1);
+            }
+            assert!(candidates.contains(&sum_sweep.radial_vertex));
         }
-        assert!(candidates.contains(&sum_sweep.radial_vertex));
     }
 
     Ok(())
@@ -200,10 +226,13 @@ fn test_empty() -> Result<()> {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
-
-    assert_eq!(sum_sweep.radius, 0);
-    assert_eq!(sum_sweep.diameter, 0);
+    for sum_sweep in [
+        All::run(&graph, &transposed, None, no_logging![]),
+        All::run_with::<false>(&graph, &transposed, None, no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.radius, 0);
+        assert_eq!(sum_sweep.diameter, 0);
+    }
 
     Ok(())
 }
@@ -213,9 +242,15 @@ fn test_sparse() -> Result<()> {
     let arcs = [(10, 32), (10, 65), (65, 10), (21, 44)];
     let graph = BTreeGraph::from_arcs(arcs.iter().copied());
     let transpose = BTreeGraph::from_arcs(arcs.iter().map(|(x, y)| (*y, *x)));
-    let sum_sweep = All::run(graph, transpose, None, no_logging![]);
-    assert_eq!(sum_sweep.radius, 1);
-    assert_eq!(sum_sweep.radial_vertex, 10);
+
+    for sum_sweep in [
+        All::run(&graph, &transpose, None, no_logging![]),
+        All::run_with::<false>(&graph, &transpose, None, no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.radius, 1);
+        assert_eq!(sum_sweep.radial_vertex, 10);
+    }
+
     Ok(())
 }
 
@@ -235,11 +270,13 @@ fn test_no_radial_vertices() -> Result<()> {
 
     let graph = vec_graph;
     let transposed = transposed_vec_graph;
-    let radial_vertices = AtomicBitVec::new(2);
 
-    let sum_sweep = All::run(&graph, &transposed, Some(radial_vertices), no_logging![]);
-
-    assert_eq!(sum_sweep.radius, usize::MAX);
+    for sum_sweep in [
+        All::run(&graph, &transposed, Some(AtomicBitVec::new(2)), no_logging![]),
+        All::run_with::<false>(&graph, &transposed, Some(AtomicBitVec::new(2)), no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.radius, usize::MAX);
+    }
 
     Ok(())
 }
@@ -265,10 +302,13 @@ fn test_graph_no_edges() -> Result<()> {
     let graph = vec_graph.clone();
     let transposed = vec_graph;
 
-    let sum_sweep = All::run(&graph, &transposed, None, no_logging![]);
-
-    assert_eq!(sum_sweep.radius, 0);
-    assert_eq!(sum_sweep.diameter, 0);
+    for sum_sweep in [
+        All::run(&graph, &transposed, None, no_logging![]),
+        All::run_with::<false>(&graph, &transposed, None, no_logging![]),
+    ] {
+        assert_eq!(sum_sweep.radius, 0);
+        assert_eq!(sum_sweep.diameter, 0);
+    }
 
     Ok(())
 }
@@ -279,30 +319,33 @@ fn test_er() -> Result<()> {
     for d in 2..=4 {
         let graph = VecGraph::from_lender(ErdosRenyi::new(100, (d as f64) / 100.0, 0).iter());
 
-        let transpose =
+        let trans =
             VecGraph::from_lender(transpose(&graph, MemoryUsage::BatchSize(1000))?.iter());
 
-        let ess = All::run(&graph, transpose, None, no_logging![]);
+        for ess in [
+            All::run(&graph, &trans, None, no_logging![]),
+            All::run_with::<false>(&graph, &trans, None, no_logging![]),
+        ] {
+            let mut pll = Seq::new(&graph);
+            let mut ecc = [0; 100];
+            for root in 0..100 {
+                pll.visit([root], |event| {
+                    if let EventPred::Visit { distance, .. } = event {
+                        ecc[root] = ecc[root].max(distance);
+                    }
+                    Continue(())
+                })
+                .continue_value_no_break();
+                pll.reset();
+            }
 
-        let mut pll = Seq::new(&graph);
-        let mut ecc = [0; 100];
-        for root in 0..100 {
-            pll.visit([root], |event| {
-                if let EventPred::Visit { distance, .. } = event {
-                    ecc[root] = ecc[root].max(distance);
-                }
-                Continue(())
-            })
-            .continue_value_no_break();
-            pll.reset();
-        }
-
-        for node in 0..100 {
-            assert_eq!(
-                ess.forward_eccentricities[node], ecc[node],
-                "node = {}, actual = {}, expected = {}",
-                node, ess.forward_eccentricities[node], ecc[node]
-            );
+            for node in 0..100 {
+                assert_eq!(
+                    ess.forward_eccentricities[node], ecc[node],
+                    "node = {}, actual = {}, expected = {}",
+                    node, ess.forward_eccentricities[node], ecc[node]
+                );
+            }
         }
     }
 
